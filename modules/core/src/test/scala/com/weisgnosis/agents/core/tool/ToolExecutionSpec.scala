@@ -23,7 +23,7 @@ import zio.json.ast.Json
 import zio.test.*
 
 /**
- * 1:1 test parity suite for ToolExecutionTest.java from AgentScope Java.
+ * Selected upstream scenario suite for ToolExecutionTest.java from AgentScope Java.
  */
 object ToolExecutionSpec extends ZIOSpecDefault:
 

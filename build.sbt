@@ -73,3 +73,5 @@ lazy val root = (project in file("."))
     name           := "weisgnosis-agents",
     publish / skip := true
   )
+
+addCommandAlias("verify", ";scalafmtCheckAll;scalafmtSbtCheck;compile;test")

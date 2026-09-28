@@ -1,5 +1,7 @@
 # com.weisgnosis.agents.mcp.client
 
+> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+
 High-level Model Context Protocol client, dynamic tool discovery, and runtime agent integration.
 
 ---

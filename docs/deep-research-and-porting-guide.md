@@ -1,3 +1,5 @@
+> Research and target architecture reference. This document preserves upstream analysis and planned platform concepts; examples and forecasts are not current exported APIs or delivery claims. Consult [the implementation tracker](architecture/tracker.md), [current contracts](architecture/low-level-design.md), and [parity audit](architecture/test-parity.md) for implementation status.
+
 # Deep Research & Porting Guide: `weisgnosis-agents`
 
 > **Document:** Architectural Research Report and Porting Guide  

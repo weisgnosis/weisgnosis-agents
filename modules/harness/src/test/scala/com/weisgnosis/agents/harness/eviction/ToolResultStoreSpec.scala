@@ -42,7 +42,7 @@ object ToolResultStoreSpec extends ZIOSpecDefault:
     test("writes UTF-8 content below the canonical workspace and reuses identical files") {
       for
         directory <- temporaryDirectory
-        store     <- ToolResultStore.local(directory)
+        store     <- ToolResultStore.local(directory, WorkspaceTrust.HostControlled)
         first     <- store.persist("safe-key", "full output")
         second    <- store.persist("safe-key", "full output")
         text      <- ZIO.attemptBlocking(Files.readString(Path.of(first)))
@@ -54,13 +54,73 @@ object ToolResultStoreSpec extends ZIOSpecDefault:
         collision.isLeft
       )
     },
+    test("untrusted workspaces fail closed without creating storage") {
+      for
+        directory <- temporaryDirectory
+        result    <- ToolResultStore.local(directory, WorkspaceTrust.Untrusted).either
+        created   <- ZIO.attemptBlocking(Files.exists(directory.resolve("large_tool_results")))
+      yield assertTrue(result.isLeft, !created)
+    },
+    test("independent stores publish concurrent first writes and identical keys completely") {
+      val content = "concurrent output" * 10000
+      for
+        directory <- temporaryDirectory
+        stores <- ZIO.foreach(1 to 12)(_ =>
+          ToolResultStore.local(directory, WorkspaceTrust.HostControlled)
+        )
+        paths <- ZIO.foreachPar(stores.zipWithIndex) { case (store, index) =>
+          store.persist(s"result-$index", content)
+        }
+        shared <- ZIO.foreachPar(stores)(_.persist("shared", content))
+        saved <- ZIO.foreach(paths ++ shared)(path =>
+          ZIO.attemptBlocking(Files.readString(Path.of(path)))
+        )
+      yield assertTrue(
+        paths.distinct.size == 12,
+        shared.distinct.size == 1,
+        saved.forall(_ == content)
+      )
+    },
+    test("concurrent content collisions preserve exactly one complete winner") {
+      for
+        directory <- temporaryDirectory
+        first     <- ToolResultStore.local(directory, WorkspaceTrust.HostControlled)
+        second    <- ToolResultStore.local(directory, WorkspaceTrust.HostControlled)
+        outcomes <- first
+          .persist("shared", "first")
+          .either
+          .zipPar(second.persist("shared", "second").either)
+        saved <- ZIO.attemptBlocking(
+          Files.readString(directory.resolve("large_tool_results/shared.txt"))
+        )
+      yield assertTrue(
+        outcomes._1.isRight != outcomes._2.isRight,
+        Set("first", "second").contains(saved)
+      )
+    },
+    test("temporary cleanup failure does not replace a successful scoped result with a defect") {
+      for
+        directory <- temporaryDirectory
+        child <- ZIO.attemptBlocking(
+          Files.writeString(directory.resolve("retained.txt"), "content")
+        )
+        result <- ZIO
+          .scoped(
+            ZIO
+              .acquireRelease(ZIO.succeed(directory))(ToolResultStore.cleanupTemporary)
+              .as("published")
+          )
+          .exit
+        retained <- ZIO.attemptBlocking(Files.readString(child))
+      yield assertTrue(result == Exit.succeed("published"), retained == "content")
+    },
     test("rejects traversal keys and sensitive workspace directories") {
       for
         directory <- temporaryDirectory
-        store     <- ToolResultStore.local(directory)
+        store     <- ToolResultStore.local(directory, WorkspaceTrust.HostControlled)
         traversal <- store.persist("../escape", "secret").either
         sensitive <- ZIO.attemptBlocking(Files.createDirectory(directory.resolve(".ssh")))
-        denied    <- ToolResultStore.local(sensitive).either
+        denied    <- ToolResultStore.local(sensitive, WorkspaceTrust.HostControlled).either
       yield assertTrue(traversal.isLeft, denied.isLeft)
     }
   )

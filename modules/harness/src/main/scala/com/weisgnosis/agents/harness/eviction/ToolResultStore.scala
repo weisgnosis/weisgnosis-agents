@@ -18,32 +18,63 @@ package com.weisgnosis.agents.harness.eviction
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.tool.PathSafety
 import zio.*
+import zio.json.JsonCodec
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, StandardOpenOption}
+import java.nio.file.{FileAlreadyExistsException, Files, LinkOption, Path, StandardOpenOption}
 
 /** Persists a content-addressed result and returns a path usable by read_file. */
 trait ToolResultStore:
   def persist(key: String, content: String): IO[AgentError, String]
 
+/** HostControlled requires OS-enforced protection against untrusted mutation of every ancestor. */
+enum WorkspaceTrust derives JsonCodec:
+  case HostControlled, Untrusted
+
 object ToolResultStore:
-  def local(workspace: Path): IO[AgentError, ToolResultStore] =
-    for
-      root <- io(workspace.toRealPath())
-      _ <- ZIO
-        .fail(AgentError.PermissionDenied("tool_result_store", "Sensitive workspace path"))
-        .when(sensitive(root))
-    yield new ToolResultStore:
-      def persist(key: String, content: String): IO[AgentError, String] =
-        if key.isEmpty || !key.forall(c => c.isLetterOrDigit || c == '-' || c == '_') then
-          ZIO.fail(AgentError.PermissionDenied("tool_result_store", "Invalid storage key"))
-        else
-          for
-            directory <- safeDirectory(root)
-            target = directory.resolve(key + ".txt")
-            exists <- io(Files.exists(target, LinkOption.NOFOLLOW_LINKS))
-            path <-
-              if exists then
+  /**
+   * Portable storage for host-controlled directories. Canonical checks are defense in depth;
+   * they are not a sandbox against concurrent hostile filesystem mutation.
+   */
+  def local(workspace: Path, trust: WorkspaceTrust): IO[AgentError, ToolResultStore] =
+    trust match
+      case WorkspaceTrust.Untrusted =>
+        ZIO.fail(
+          AgentError.PermissionDenied(
+            "tool_result_store",
+            "Untrusted workspace storage requires a secure platform-specific backend"
+          )
+        )
+      case WorkspaceTrust.HostControlled =>
+        for
+          root <- io(workspace.toRealPath())
+          _ <- ZIO
+            .fail(AgentError.PermissionDenied("tool_result_store", "Sensitive workspace path"))
+            .when(sensitive(root))
+        yield new ToolResultStore:
+          def persist(key: String, content: String): IO[AgentError, String] =
+            if key.isEmpty || !key.forall(c => c.isLetterOrDigit || c == '-' || c == '_') then
+              ZIO.fail(AgentError.PermissionDenied("tool_result_store", "Invalid storage key"))
+            else
+              ZIO.scoped:
                 for
+                  directory <- safeDirectory(root)
+                  target = directory.resolve(key + ".txt")
+                  temporary <- ZIO.acquireRelease(
+                    io(Files.createTempFile(directory, ".pending-", ".tmp"))
+                  )(cleanupTemporary)
+                  _ <- io(
+                    Files.writeString(
+                      temporary,
+                      content,
+                      StandardCharsets.UTF_8,
+                      StandardOpenOption.WRITE
+                    )
+                  ).unit
+                  // Publish only a completed file; the link operation elects one writer atomically.
+                  _ <- ZIO
+                    .attemptBlocking(Files.createLink(target, temporary))
+                    .catchSome { case _: FileAlreadyExistsException => ZIO.succeed(target) }
+                    .mapError(storageError)
                   canonical <- io(target.toRealPath())
                   regular   <- io(Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS))
                   _ <- ZIO
@@ -61,27 +92,20 @@ object ToolResultStore:
                       )
                     )
                     .unless(saved == content)
-                yield canonical
-              else
-                io(
-                  Files.writeString(
-                    target,
-                    content,
-                    StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE_NEW,
-                    StandardOpenOption.WRITE
-                  )
-                )
-            canonical <- io(path.toRealPath())
-          yield canonical.toString
+                yield canonical.toString
+
+  /** Cleanup is best-effort: a retained temporary link must not invalidate a published result. */
+  private[eviction] def cleanupTemporary(path: Path): UIO[Unit] =
+    io(Files.deleteIfExists(path)).unit.catchAll(error =>
+      ZIO.logWarningCause(s"Could not remove temporary tool result at $path", Cause.fail(error))
+    )
 
   private def safeDirectory(root: Path): IO[AgentError, Path] =
     val target = root.resolve("large_tool_results")
     for
-      exists <- io(Files.exists(target, LinkOption.NOFOLLOW_LINKS))
-      _      <- if exists then ZIO.unit else io(Files.createDirectory(target)).unit
-      link   <- io(Files.isSymbolicLink(target))
-      real   <- io(target.toRealPath())
+      _    <- io(Files.createDirectories(target))
+      link <- io(Files.isSymbolicLink(target))
+      real <- io(target.toRealPath())
       _ <- ZIO
         .fail(
           AgentError.PermissionDenied("tool_result_store", "Result directory escapes the workspace")
@@ -91,12 +115,11 @@ object ToolResultStore:
 
   private def sensitive(path: Path): Boolean = PathSafety.isSensitivePath(path)
 
+  private def storageError(error: Throwable): AgentError =
+    AgentError.ToolExecutionError(
+      "tool_result_store",
+      Option(error.getMessage).getOrElse(error.toString)
+    )
+
   private def io[A](operation: => A): IO[AgentError, A] =
-    ZIO
-      .attemptBlocking(operation)
-      .mapError(error =>
-        AgentError.ToolExecutionError(
-          "tool_result_store",
-          Option(error.getMessage).getOrElse(error.toString)
-        )
-      )
+    ZIO.attemptBlocking(operation).mapError(storageError)

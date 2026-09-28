@@ -1,5 +1,7 @@
 # com.weisgnosis.agents.harness.plan
 
+> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+
 Planning mode management package (`PlanMode`) governing transitions from architectural design to execution.
 
 ---

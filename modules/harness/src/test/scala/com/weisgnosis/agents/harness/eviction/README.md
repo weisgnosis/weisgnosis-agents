@@ -1,5 +1,8 @@
-# Harness eviction verification
+# Large tool result offloading: verification
 
-ToolResultEvictorSpec covers threshold boundaries, exclusions, previews, repeated IDs, metadata/state preservation, write failures, placeholder-like real output, and interruption. ToolResultStoreSpec verifies canonical local writes, sensitive paths, traversal rejection, and content collisions. Upstream reference: ToolResultEvictionMiddlewareTest; middleware state installation remains a host responsibility.
+These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity.
 
-Run `sbt "harness / test"`.
+- [ToolResultEvictorSpec](ToolResultEvictorSpec.scala)
+- [ToolResultStoreSpec](ToolResultStoreSpec.scala)
+
+Run `sbt "harness / test"`, or `sbt verify` for repository-wide formatting, compilation, and tests. See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for gaps and intentional differences.

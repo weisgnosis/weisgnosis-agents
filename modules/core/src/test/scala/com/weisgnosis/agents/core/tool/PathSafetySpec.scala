@@ -15,6 +15,8 @@
  */
 package com.weisgnosis.agents.core.tool
 
+import java.nio.file.Path
+import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 import zio.test.*
 
@@ -51,6 +53,16 @@ object PathSafetySpec extends ZIOSpecDefault:
         _       <- TestSystem.putProperty("user.home", "C:/home/test")
         results <- ZIO.foreach(paths)(PathSafety.isDangerousPath(_))
       yield assertTrue(results.forall(!_))
+    },
+    test("parent traversal is rejected before normalization can erase a symbolic-link boundary") {
+      val paths = Chunk("link/../id_rsa", "ordinary/../../secret", ".ssh/../public")
+      for
+        dangerous <- ZIO.foreach(paths)(PathSafety.isDangerousPath(_))
+        canonical <- ZIO.foreach(paths)(path => PathSafety.canonicalPath(Path.of(path)).either)
+      yield assertTrue(
+        dangerous.forall(identity),
+        canonical.forall(_.left.exists(_.isInstanceOf[AgentError.PermissionDenied]))
+      )
     },
     test("destructive command screening is total") {
       assertTrue(

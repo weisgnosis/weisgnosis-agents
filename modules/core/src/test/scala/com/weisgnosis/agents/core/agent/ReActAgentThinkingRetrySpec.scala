@@ -22,14 +22,14 @@ import zio.*
 import zio.test.*
 
 /**
- * 1:1 Parity Tests for Thinking-only empty response guard and synthetic reminder retry loopback (INV-3).
+ * Selected upstream scenario tests for Thinking-only empty response guard and synthetic reminder retry loopback (INV-3).
  *
  * Corresponds to `io.agentscope.core.agent.ReActAgentEmptyResponseRetryTest` in AgentScope Java.
  */
 object ReActAgentThinkingRetrySpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] =
-    suite("ReActAgentThinkingRetrySpec (AgentScope Java 1:1 Parity)")(
+    suite("ReActAgentThinkingRetrySpec (Selected upstream scenarios)")(
       test("Thinking-only final response loops back and the retry carries a reminder") {
         val mockClient = LlmClient.mockEffectful { (history, _, _) =>
           val hasReminder =

@@ -1,62 +1,13 @@
-# com.weisgnosis.agents.core.tool
+# Typed tools and path validation
 
-Type-safe tool execution, registration, and dispatch package for model interactions.
+Tool keeps its input/output codecs and effectful handler together. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation.
 
----
+## Implementation
 
-## 🎯 Purpose and Types
+- [PathSafety](PathSafety.scala)
+- [Tool](Tool.scala)
+- [ToolDef](ToolDef.scala)
+- [ToolExecutionResult](ToolExecutionResult.scala)
+- [Toolkit](Toolkit.scala)
 
-1. **`ToolDef`**:
-   - `name: String`
-   - `description: String`
-   - `parametersSchema: zio.json.ast.Json` (JSON Schema for argument validation)
-2. **`Tool[R, In, Out]`**:
-   - Tool abstraction:
-     - `def definition: ToolDef`
-     - `def execute(input: In): ZIO[R, Throwable, Out]`
-     - Argument decoder from `zio.json.ast.Json`.
-3. **`Toolkit`**:
-   - Immutable collection of registered tools:
-     - `def register(tool: Tool[Any, ?, ?]): Toolkit`
-     - `def get(name: String): Option[Tool[Any, ?, ?]]`
-     - `def definitions: Chunk[ToolDef]`
-     - `def executeRaw(name: String, args: zio.json.ast.Json): ZIO[Any, AgentError, String]`
-     - Collision detection on duplicate registration.
-4. **Convenience Builders:**
-   - `Tool.fromFunction("add", "Add two numbers") { (a: Int, b: Int) => ZIO.succeed(a + b) }`
-   - `Tool.make(definition) { (json: Json) => ... }`
-
----
-
-## 🔍 References in AgentScope Java
-
-* `agentscope-core/src/main/java/io/agentscope/core/tool/Tool.java`
-* `agentscope-core/src/main/java/io/agentscope/core/tool/Toolkit.java`
-* `agentscope-core/src/main/java/io/agentscope/core/tool/ToolDefinition.java`
-* `agentscope-core/src/main/java/io/agentscope/core/tool/ToolBase.java` (lines 245–285: sensitive path filtering `isDangerousPath`)
-
----
-
-## 🧪 Test Parity Map
-
-| Upstream AgentScope Java Test | Target ZIO Spec | Verification Focus |
-| :--- | :--- | :--- |
-| `ToolkitTest.java` | `ToolkitSpec.scala` | Registration, lookup by name, duplicate rejection |
-| `ToolExecutionTest.java` | `ToolExecutionSpec.scala` | JSON arg parsing, error recovery, typed `ToolResultState` |
-| `DangerousPathBypassTest.java` | `PathSafetySpec.scala` | Sensitive path protection (`.env`, `.ssh`), path canonicalization |
-
----
-
-## ⚠️ Critical Invariants
-* If tool call arguments fail schema validation (malformed model JSON), the tool does not throw an exception; it returns a structured `ToolResultState.Error` payload informing the model so it can correct its call.
-* Long-running tool executions are responsive to ZIO fiber interruption.
-
----
-
-- [x] Models `ToolDef`, `ToolExecutionResult`
-- [x] Trait `Tool[R, In, Out]` and builder factories
-- [x] Immutable `Toolkit` collection with collision validation
-- [x] Path safety utility `PathSafety` (INV-10)
-- [x] Unit tests: `ToolkitSpec.scala`
-- [x] Unit tests: `ToolExecutionSpec.scala`
-- [x] Unit tests: `PathSafetySpec.scala`
+See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md) for integration boundaries and invariant definitions.

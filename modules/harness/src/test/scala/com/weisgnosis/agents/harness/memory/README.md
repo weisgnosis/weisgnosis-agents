@@ -1,5 +1,8 @@
-# Harness memory verification
+# Conversation compaction: verification
 
-ConversationCompactorSpec covers safe boundaries, repeated IDs, summary replacement, user coalescing, protected-tail pruning, and hook failure/cancellation. TokenCounterSpec covers additive estimates. Upstream reference: ConversationCompactorTest; memory flush callbacks are tested as integration seams.
+These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity.
 
-Run `sbt "harness / test"`.
+- [ConversationCompactorSpec](ConversationCompactorSpec.scala)
+- [TokenCounterSpec](TokenCounterSpec.scala)
+
+Run `sbt "harness / test"`, or `sbt verify` for repository-wide formatting, compilation, and tests. See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for gaps and intentional differences.

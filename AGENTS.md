@@ -1,123 +1,104 @@
-# Engineering Standards & Agent Directives for `weisgnosis-agents`
+# Engineering standards and agent directives
 
-> **Document Status:** Canonical Engineering Standard and AI Agent Operational Directive  
-> **Repository:** `weisgnosis-agents`  
-> **Organization:** `com.weisgnosis`  
-> **License:** Apache-2.0  
-> **Target Platform:** Scala 3.9.0 LTS, ZIO 2.1.26+, zio-json 0.9.1+, zio-http 3.11.3+  
+Repository: weisgnosis-agents. Namespace: com.weisgnosis.agents. License: Apache-2.0. Target: Scala 3.9.0, ZIO 2.1.26+, zio-json 0.9.1+, and zio-http 3.11.3+.
 
----
+This is the canonical engineering standard. Pure functional correctness, readability, and disciplined ZIO lifecycle design take priority over shortcuts.
 
-## 🏛️ 1. The Core Manifesto: Uncompromising Pure FP & ZIO 2 Craftsmanship
+## 1. Pure functional boundaries
 
-`weisgnosis-agents` is designed to be an open-source reference library for the global Scala community. Mediocrity, lazy imperative shortcuts, and legacy Java habits are strictly prohibited.
+All interaction with the real world must be suspended in ZIO: network, time, randomness, processes, console, filesystem, and resource acquisition/release. Constructors, codecs, defaults, and pure-looking accessors must never execute these effects eagerly.
 
-Every line of code committed to this repository must exemplify **flawless, elegant, highly readable, and mathematically sound Pure Functional Programming (Pure FP)** powered by **Scala 3** and **ZIO 2**:
+Use descriptive domain abstractions and single-responsibility functions. Model illegal states out of existence with Scala 3 enums, sealed ADTs, opaque types, and typed errors. Runtime state and completion remain deterministic authorities; model output is untrusted input.
 
-1. **Total Referentially Transparent Effects:**  
-   Every computation that interacts with the real world (network, time, random numbers, process execution, console, disk) must be suspended as a pure, lazy value in `ZIO[R, E, A]`. No side-effect may ever execute outside the ZIO effect runtime.
+## 2. Prohibited constructs
 
-2. **Elegance, Clarity, and Readability Over Obfuscation:**  
-   We prioritize clean, descriptive, readable domain abstractions over cryptic one-liner cleverness. Code must read like a well-crafted specification: expressive naming, single-responsibility functions, and explicit intent.
+The following rules apply to production and test code.
 
-3. **Type-Driven Domain Modeling:**  
-   Make illegal states unrepresentable. Leverage Scala 3's modern type system—sealed traits, ADTs, enums, opaque types, union types, and typeclasses via `given`/`using`—to eliminate runtime bugs at compile time.
+| Prohibited | Required alternative |
+| --- | --- |
+| var | Immutable val, Ref, STM, or tail recursion |
+| throw or throwing validation | Typed AgentError failures |
+| null | Option, empty Chunk, or explicit ADT case |
+| return, while, procedural loops | Total functional combinators or tail recursion |
+| Mutable Scala or Java collections | Chunk or immutable List, Vector, Map, Set |
+| Future, Await.result, unsafeRunSync | ZIO structured concurrency |
+| Thread.sleep | ZIO.sleep and deterministic TestClock |
+| Partial Option.get, collection.head, asInstanceOf | Pattern matching, headOption, and total combinators |
+| zio-schema reflection | Compile-time zio-json codecs and JSON AST |
 
----
+Ref.get and Map.get(key) are total operations and are not the unsafe Option.get prohibition. Do not replace unsafe operations with hidden defects or unchecked assumptions.
 
-## 🚫 2. Absolute Prohibitions (Zero-Compromise Pure FP Rules)
+## 3. Mandatory practices
 
-The following constructs and idioms are **strictly forbidden** in all production and test code. Any pull request containing them will be rejected:
+- Declare explicit result types on all public/package-private defs and vals; keep public contracts explicit.
+- Use Scala 3 significant indentation and avoid unnecessary braces.
+- Prefer derives JsonCodec; manual codecs require wire validation, compatibility, or AST conversion reasons.
+- Model execution modes and mutually exclusive states with ADTs rather than independent Boolean flags.
+- Use descriptive effect names, avoiding misleading get-style pure accessors for real-world work.
+- Use idiomatic ZIO duration literals such as 5.minutes.
+- Declare dependencies through constructor arguments or ZLayer.
+- Acquire resources with acquireRelease or scoped combinators. Each run and model request owns a bounded scope.
+- Manage asynchronous children through structured concurrency and scoped fibers such as forkScoped. Cancellation must finish owned resource/child cleanup before returning. Promoted background tasks require explicit supervisor ownership.
+- Never swallow cancellation as a successful observation.
+- Keep transformations total and preserve existential tool input/output types without casts.
 
-| Forbidden Idiom | Rationale & Pure FP Alternative |
-| :--- | :--- |
-| **NO `var`** | Mutable variables introduce race conditions and destroy referential transparency. Use immutable `val`, `zio.Ref`, `zio.stm.STM`, or tail recursion. |
-| **NO `throw`** | Exceptions break the type system and escape control flow. All failures must be represented as typed values in the ZIO error channel: `ZIO[R, AgentError, A]`. |
-| **NO `null`** | `null` is a billion-dollar mistake. Use `Option[A]`, `Chunk.empty`, or domain-specific ADT variants. |
-| **NO `while` or procedural loops** | Procedural loops rely on local mutation. Use tail-recursive functions (`@annotation.tailrec`), `ZIO.iterate`, `ZStream.unfoldZIO`, or standard functional combinators (`map`, `foldLeft`, `traverse`). |
-| **NO mutable collections** | Packages under `scala.collection.mutable.*` or Java collections (`java.util.*`) are prohibited. Use `zio.Chunk`, standard immutable `List`, `Vector`, `Map`, and `Set`. |
-| **NO `Future`, `Await.result`, or `unsafeRunSync`** | Never break out of the ZIO effect boundary or block threads. Use ZIO structured concurrency (`ZIO.scoped`, `forkScoped`, `fiber.join`). |
-| **NO `Thread.sleep()`** | Blocking OS threads starves the execution pool. Use non-blocking `ZIO.sleep()` and ZIO Test's `TestClock.adjust()`. |
-| **NO partial functions (`.head`, `.get`, `asInstanceOf`)** | Calling `.get` on `Option`, `.head` on an empty collection, or unverified `asInstanceOf` causes runtime crashes. Use pattern matching, `headOption`, or total combinators. |
-| **NO `zio-schema` reflection overhead** | Codecs and JSON schemas must use fast, compile-time `zio-json` and `zio.json.ast.Json` to maximize performance and minimize binary bloat. |
+Domain failures inherit from sealed AgentError, which extends Throwable and exposes a message. External adapters may receive Throwable failures at their boundary; translate them to domain failures or tool observations.
 
----
+A tool failure is a valid model observation, not a fatal ReAct error. Normalize execution failures and defects as descriptive ToolResultState.Error observations while preserving interruption.
 
-## 💎 3. Mandatory Engineering Best Practices
+## 4. Canonical invariants
 
-### 3.1. Idiomatic Scala 3 & ZIO 2 Style
-- **Explicit Return Types:** All public and package-private defs, vals, and traits must declare explicit return types.
-- **Pure Effect Boundaries:** Functions that return effects must be named clearly without `get...` or imperative prefixes (e.g. prefer `def resolve(id: String): ZIO[...]` over `def getAndResolve(...)`).
-- **Resource Safety with `Scope`:** All acquire/release resources (child processes, sockets, streams) must be acquired via `ZIO.acquireRelease` or scoped combinators within `ZIO[Scope, E, A]`.
-- **Structured Concurrency:** Subagent fibers, parallel tool executions, and stream readers must be managed via scoped fibers (`forkScoped`). Canceling a parent fiber must deterministically terminate all descendants without fiber leaks.
-- **Modular Layers:** Components must declare their dependencies through constructor arguments or `ZLayer`, facilitating modular testing and substitution.
+These IDs follow the Phase 3/4 handover. Requirements for planned systems do not imply implemented behavior; the tracker records evidence and remaining work.
 
-### 3.2. Error Handling & Normalization
-- All domain errors must inherit from the sealed hierarchy `AgentError`:
-  ```scala
-  sealed trait AgentError extends Throwable:
-    def message: String
-    override def getMessage: String = message
-  ```
-- **Tool Error Normalization:** A tool execution failure (e.g. shell exit code non-zero, API error, syntax failure) is a valid *observation* for the cognitive model, **not** a fatal failure of the ReAct engine. Tool executions must return `ToolResultState.Error` with descriptive output for the model rather than failing the outer ZIO fiber.
+| ID | Required contract |
+| --- | --- |
+| INV-1 | Persist assistant tool calls before local execution starts. |
+| INV-2 | Reconcile only unfinished local calls with Error observations; preserve completed results and append one recovery assistant for the interrupted run: "I noticed that you have interrupted me. What can I do for you?" with agentscope_generate_reason=interrupted. Inline provider results do not need separate Tool messages. |
+| INV-3 | Thinking-only output with blank visible content and no calls triggers a bounded synthetic user reminder named system containing <system-reminder>, with agentscope_synthetic=true and agentscope_reminder_kind=empty_response. |
+| INV-4 | Compaction preserves call/result pairs, including repeated IDs by occurrence; shift the cutoff backward to preserve pairs, with a forward fallback for orphan results that cannot begin the retained tail. |
+| INV-5 | Replace prior summaries with one merged summary. Retained raw user provenance survives coalescing for future flushing. |
+| INV-6 | Offload tool text above 80,000 characters with 2,000-character head/tail previews. Persistence failure preserves the original observation. Historical pruning has a separate 2,000-character threshold. |
+| INV-7 | Independent permission gates combine as Deny > Ask > Passthrough > Allow. Unknown requests default to Ask. |
+| INV-8 | Planned subagents enforce depth <=3; promotion after a 30-second synchronous timeout transfers ownership to a persistent TaskSupervisor. |
+| INV-9 | Planned plan mode rejects mutating tools and statically inspects permitted exploration commands, rejecting redirection (>, >>) and mutations such as rm, mv, and sed -i. |
+| INV-10 | Reject parent traversal before normalization; canonicalize existing ancestors through toRealPath and screen sensitive paths, including .env variants, shell startup files, .ssh, and .git. Canonical checks are not an atomic filesystem sandbox. Local persistence requires explicit ownership/trust. |
+| INV-11 | Support native formatting and synthetic generate_response; preserve root definition namespaces and compress only synthetic context. |
+| INV-12 | Group streaming arguments by streamIndex; sanitize incomplete interrupted JSON arguments to {}. |
 
----
+Additional requirements:
 
-## 🛡️ 4. Battle-Tested Production Invariants (Lessons from AgentScope)
+- Coalesce adjacent user turns without losing provenance.
+- Planned daily memory flushes write memory/YYYY-MM-DD.md only. Only the consolidator writes curated MEMORY.md within 4,000 tokens.
+- Interactive HITL uses Promise. Durable hosts persist pending state and resume from ConfirmResult without another model request; authentication, checkpoints, and idempotency belong to the host.
+- Server-hosted tools with inline results bypass local dispatch.
+- Interrupted recovery preserves the agentscope_generate_reason=interrupted compatibility metadata.
 
-When implementing agentic mechanics, the following 12 production invariants must be preserved:
+## 5. Repository standards
 
-1. **Dangling Tool Call Reconciliation (INV-2):**  
-   Every assistant `ToolUse` block in conversation history must have a matching `ToolResult` block. On fiber interruption (`ZIO.uninterruptibleMask`), inspect turn progress in `Ref[Chunk[Msg]]`: synthesize `ToolResultState.Interrupted` *only for in-flight tool calls*, preserve completed tool results, and append a conversational recovery turn.
-2. **Thinking-Only Loopback Guard (INV-3):**  
-   If a reasoning model produces thinking tokens without user-facing text or tool calls, inject a synthetic `<system-reminder>` message (`role = Role.User, name = Some("system")`) to prompt for the final answer, bounded by `emptyThinkingRetryLimit`.
-3. **Atomic Turn Pairing in Compactor (INV-4):**  
-   History compaction must never sever an assistant tool call from its subsequent tool result. The cutoff boundary must shift backward to preserve turn pairs, with a forward fallback for orphaned results.
-4. **Consecutive User Message Coalescing:**  
-   Prepending a summary message (`Role.User`) before a retained tail that begins with `Role.User` must be coalesced into a single unified `User` message to avoid provider turn-alternation rejections.
-5. **Two-Stage Context Pruning (INV-7):**  
-   Large tool outputs (>80,000 chars) are immediately offloaded to workspace files (`large_tool_results/`) with 2k head / 2k tail previews and `read_file` instructions. Older tool results (>2,000 chars) and large arguments are pruned during compaction before LLM summarization.
-6. **Two-Layer Memory Isolation (INV-5):**  
-   Daily scratch flushes write strictly to `memory/YYYY-MM-DD.md`. The memory consolidator is the sole writer to curated `MEMORY.md` within a 4,000-token budget.
-7. **Dual-Mode Human-in-the-Loop (INV-6):**  
-   Support both interactive in-memory suspension via `zio.Promise[Nothing, ConfirmResult]` and durable multi-turn suspension for workflow engines (Temporal Activities), resuming with `ConfirmResult` without re-invoking the model.
-8. **Subagent Supervision & Task Promotion (INV-8):**  
-   Enforce `MAX_SPAWN_DEPTH = 3`. Subagents promoted after synchronous timeouts (30s) must transition to a persistent `TaskSupervisor` scope so that completing the parent turn does not terminate the background task.
-9. **Plan Mode Shell Hardening (INV-9):**  
-   Plan Mode disallows mutating tools. If shell execution is permitted for exploration, enforce static command inspection to reject file redirection (`>`, `>>`) and mutating binaries (`rm`, `sed -i`, `mv`).
-10. **Sensitive Path Canonicalization (INV-10):**  
-    All path operations must resolve canonical paths via `toRealPath()` to prevent directory traversal and symlink escapes to sensitive files (`.ssh`, `.env`, `.git`).
-11. **Structured Output Dual-Engine (INV-11):**  
-    Provide `runStructured[A: JsonCodec]`. Toggle between native `response_format` and synthetic `generate_response` with root `$defs` hoisting and context compression.
-12. **Streaming Chunk Index Assembly (INV-12):**  
-    Parallel tool call argument fragments must be keyed and grouped by `streamIndex` in `StreamAccumulator`, and sanitized to `{}` if interrupted mid-stream.
+All code, identifiers, comments, documentation, commit messages, and PR descriptions must be professional English. Use vendor-neutral protocol abstractions; preserve upstream names only for attribution, wire compatibility, and traceability.
 
----
+Production/test packages belong under com.weisgnosis.agents. Every domain component, parser, and state machine requires a paired ZIOSpecDefault suite. The target is coverage of every applicable upstream behavior; record the method-level mapping, intentional differences, and justified exclusions. Do not claim exhaustive parity merely because suites pass.
 
-## 🌍 5. Global Repository Standards
+## 6. Verification
 
-1. **100% English Only:**  
-   All code, docstrings, identifiers, comments, documentation, commit messages, and PR descriptions must be written strictly in professional English. No other languages are permitted in repository files.
-2. **Vendor-Neutral Terminology:**  
-   Do not couple interfaces or docs to specific model brands or commercial entities. Use generic, protocol-level abstractions: *reasoning models*, *thinking tokens*, *provider-hosted server tools*, *OpenAI-compatible SSE endpoints*.
-3. **Repository Namespace:**  
-   All packages belong strictly under `com.weisgnosis.agents.*`.
-4. **Test Parity First:**  
-   Every domain component, parser, and state machine must have a 1:1 paired test suite in `src/test/scala` extending `ZIOSpecDefault`, maintaining parity with upstream test coverage.
+Before committing or opening a PR:
 
----
-
-## ⚙️ 6. Pre-Commit Verification Workflow
-
-Before committing code or opening a PR, ensure the following commands pass with zero warnings and zero failures:
-
-```bash
-# 1. Format code according to .scalafmt.conf
+```text
 sbt scalafmtAll scalafmtSbt
-
-# 2. Compile with fatal warnings (-Werror, -Xfatal-warnings enabled)
 sbt compile
-
-# 3. Run all unit and integration test specs deterministically
 sbt test
 ```
+
+The sbt verify alias checks scalafmtCheckAll, scalafmtSbtCheck, compile, and test. Compilation uses -Werror with deprecation, feature, unchecked, and unused warnings. All required checks must pass with zero compiler warnings and zero failed tests.
+
+Automated checks do not prove referential transparency, lifecycle safety, English prose, or exhaustive parity.
+
+## 7. Independent review and documentation gates
+
+Behavioral changes require independent FP/ZIO and invariant-focused reviews. Reviewers provide concrete source/test evidence. Resolve findings, add meaningful regressions, and review the final diff. Record scope, findings, fixes, verification, and limitations in the PR or repository review record.
+
+Before declaring completion, update affected root/module/package documentation, API contracts, tracker, test mappings, and migration notes. Explicitly label roadmap designs and host integration requirements. Prefer source links over copied implementations.
+
+Inspect changed comments and prose for English. A Unicode script scan is supplemental evidence, not natural-language proof. Check local Markdown links.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), the PR template, the [tracker](docs/architecture/tracker.md), and the [parity audit](docs/architecture/test-parity.md).

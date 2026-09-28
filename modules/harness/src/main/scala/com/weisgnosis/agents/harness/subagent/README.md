@@ -1,5 +1,7 @@
 # com.weisgnosis.agents.harness.subagent
 
+> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+
 Subagent coordination, hierarchical task delegation, and event stream multiplexing package running on ZIO fibers.
 
 ---

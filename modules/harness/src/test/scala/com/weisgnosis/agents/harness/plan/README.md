@@ -1,5 +1,7 @@
 # com.weisgnosis.agents.harness.plan (Tests)
 
+> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+
 ZIO Test parity suite for `com.weisgnosis.agents.harness.plan`.
 
 ---

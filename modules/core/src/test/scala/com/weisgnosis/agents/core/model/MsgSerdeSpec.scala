@@ -20,7 +20,7 @@ import zio.json.*
 import zio.test.*
 
 /**
- * 1:1 test parity suite for MsgUsageSerializationTest.java and Msg JSON serialization.
+ * Selected upstream scenario suite for MsgUsageSerializationTest.java and Msg JSON serialization.
  */
 object MsgSerdeSpec extends ZIOSpecDefault:
 

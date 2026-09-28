@@ -20,11 +20,11 @@ import zio.json.ast.Json
 import zio.test.*
 
 /**
- * 1:1 test parity suite for MsgTest.java and RoleContentValidationTest.java from AgentScope Java.
+ * Selected upstream scenario suite for MsgTest.java and RoleContentValidationTest.java from AgentScope Java.
  */
 object MsgSpec extends ZIOSpecDefault:
 
-  def spec: Spec[TestEnvironment, Any] = suite("MsgSpec (AgentScope Java 1:1 Parity)")(
+  def spec: Spec[TestEnvironment, Any] = suite("MsgSpec (Selected upstream scenarios)")(
     test("message construction and decoding are pure, identity allocation is explicit") {
       val first  = Msg.user("same")
       val second = Msg.user("same")

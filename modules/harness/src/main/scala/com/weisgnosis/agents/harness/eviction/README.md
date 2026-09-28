@@ -1,51 +1,11 @@
-# com.weisgnosis.agents.harness.eviction
+# Large tool result offloading
 
-Tool result eviction package for offloading large outputs from the conversation context into an out-of-band store.
+ToolResultEvictor offloads text exceeding 80,000 characters with 2,000-character head and tail previews, a content-addressed key, and read_file instructions. Excluded tools bypass eviction. Failed persistence preserves the original observation; cancellation propagates. ToolResultStore.local(workspace, WorkspaceTrust.HostControlled) requires OS protection against untrusted mutation of the directory and its ancestors. WorkspaceTrust.Untrusted is rejected. A fully written temporary file is published using an atomic hard link, requiring filesystem hard-link support. Cleanup failures are logged without overriding persistence success. This backend is not a sandbox for attacker-writable workspaces.
 
----
+## Implementation
 
-## 🎯 Purpose and Types
+- [EvictionConfig](EvictionConfig.scala)
+- [ToolResultEvictor](ToolResultEvictor.scala)
+- [ToolResultStore](ToolResultStore.scala)
 
-1. **`EvictionConfig`**:
-   - `maxChars: Int = 2000` (threshold above which tool output content is truncated)
-   - `previewHeadChars: Int = 800`
-   - `previewTailChars: Int = 400`
-2. **`ToolResultEvictor`**:
-   - `def evict(block: ContentBlock.ToolResult): ZIO[ToolResultStore, Nothing, ContentBlock.ToolResult]`
-   - When `output.length > maxChars`, full content is persisted to `ToolResultStore`, and replaced in-context with:
-     ```text
-     <first 800 chars>
-     ... [Full output truncated: 1420 lines (48200 chars). Offloaded to cache: cache_id_123] ...
-     <last 400 chars>
-     ```
-3. **`ToolResultStore`**:
-   - Storage service trait: `InMemory`, `LocalFile`, or object storage.
-
----
-
-## 🔍 References in AgentScope Java
-
-* `agentscope-harness/src/main/java/io/agentscope/harness/agent/middleware/ToolResultEvictionMiddleware.java` (lines 40–130)
-* `agentscope-harness/.../ToolResultEvictionConfig.java`
-
----
-
-## 🧪 Test Parity Map
-
-| Upstream AgentScope Java Test | Target ZIO Spec | Verification Focus |
-| :--- | :--- | :--- |
-| `ToolResultEvictionMiddlewareTest.java` | `ToolResultEvictorSpec.scala` | Eviction of payloads exceeding threshold, preservation of head/tail previews, retrieval from store |
-
----
-
-## ⚠️ Critical Invariants
-* Retaining both head and tail previews is essential for model reasoning so it can observe command initialization as well as terminal status lines (e.g. exit codes, trailing stack traces).
-* Small outputs (under `maxChars`) pass through without store latency or payload mutation.
-
----
-
-## 📋 Implementation Checklist
-- [ ] Config `EvictionConfig`
-- [ ] Trait `ToolResultStore` + `InMemoryToolResultStore`
-- [ ] Eviction transformation in `ToolResultEvictor.evict`
-- [ ] Unit tests: `ToolResultEvictorSpec.scala`
+See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md) for integration boundaries and invariant definitions.

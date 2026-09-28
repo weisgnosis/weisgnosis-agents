@@ -1,5 +1,9 @@
-# Harness permission verification
+# Permission policy and confirmation: verification
 
-PermissionGateSpec covers every dual-gate priority pair, deny/ask precedence, argument matching, and safe defaults. PermissionPromiseSpec covers publication ordering, duplicate IDs, one-shot completion, and cancellation cleanup. DurableResumeSpec covers serializable suspension, modified input, immutable rule updates, rejection, and deny rechecking. Upstream reference: PermissionEngineTest and HITL resume scenarios; durable persistence is supplied by the host.
+These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity.
 
-Run `sbt "harness / test"`.
+- [DurableResumeSpec](DurableResumeSpec.scala)
+- [PermissionGateSpec](PermissionGateSpec.scala)
+- [PermissionPromiseSpec](PermissionPromiseSpec.scala)
+
+Run `sbt "harness / test"`, or `sbt verify` for repository-wide formatting, compilation, and tests. See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for gaps and intentional differences.

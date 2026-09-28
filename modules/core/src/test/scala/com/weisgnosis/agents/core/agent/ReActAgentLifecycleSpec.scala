@@ -93,19 +93,129 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
         history.flatMap(_.toolResults).size == 1
       )
     },
-    test("timeout cancels active work using the test clock") {
+    test("each interrupted run appends its own recovery after the new user input") {
       for
-        started <- Promise.make[Nothing, Unit]
-        model = LlmClient.mockEffectful((_, _, _) => started.succeed(()) *> ZIO.never)
-        agent   <- ReActAgent.make(AgentConfig(timeout = 5.seconds), client = model)
-        fiber   <- agent.run(Msg.user("wait")).either.forkScoped
-        _       <- started.await
-        _       <- TestClock.adjust(5.seconds)
-        result  <- fiber.join
+        requested <- ZIO.acquireRelease(Queue.unbounded[Unit])(_.shutdown)
+        model = LlmClient.mockEffectful((_, _, _) => requested.offer(()) *> ZIO.never)
+        agent <- ReActAgent.make(client = model)
+        results <- ZIO.foreach(Chunk("first request", "second request")) { input =>
+          for
+            fiber  <- agent.run(Msg.user(input)).forkScoped
+            _      <- requested.take
+            _      <- agent.interrupt
+            result <- fiber.join
+          yield result
+        }
         history <- agent.history
       yield assertTrue(
+        results.forall(_.isInterrupted),
+        history.map(_.role) == Chunk(Role.User, Role.Assistant, Role.User, Role.Assistant),
+        history.count(_.generateReason.contains("interrupted")) == 2,
+        history.lastOption.exists(_.generateReason.contains("interrupted"))
+      )
+    },
+    test("empty-input resumption after interruption appends a recovery for the new run") {
+      for
+        requested <- ZIO.acquireRelease(Queue.unbounded[Unit])(_.shutdown)
+        model = LlmClient.mockEffectful((_, _, _) => requested.offer(()) *> ZIO.never)
+        agent <- ReActAgent.make(client = model)
+        results <- ZIO.foreach(Chunk(Chunk(Msg.user("first request")), Chunk.empty[Msg])) { input =>
+          for
+            fiber  <- agent.run(input).forkScoped
+            _      <- requested.take
+            _      <- agent.interrupt
+            result <- fiber.join
+          yield result
+        }
+        history <- agent.history
+      yield assertTrue(
+        results.forall(_.isInterrupted),
+        history.map(_.role) == Chunk(Role.User, Role.Assistant, Role.Assistant),
+        history.count(_.generateReason.contains("interrupted")) == 2
+      )
+    },
+    test("each model request releases resources and readers before the next request starts") {
+      for
+        activeReaders    <- Ref.make(0)
+        stoppedReaders   <- Ref.make(0)
+        resourceCount    <- Ref.make(0)
+        resourcesAtStart <- Ref.make(Chunk.empty[Int])
+        observedHub      <- Ref.make[Option[Hub[AgentEvent]]](None)
+        model = LlmClient.mockEffectful { (history, _, hub) =>
+          for
+            previous <- resourceCount.get
+            _        <- resourcesAtStart.update(_ :+ previous)
+            _        <- observedHub.set(Some(hub))
+            _ <- ZIO.acquireRelease(resourceCount.update(_ + 1))(_ => resourceCount.update(_ - 1))
+            readerStarted <- Promise.make[Nothing, Unit]
+            _ <- (activeReaders.update(_ + 1) *> readerStarted.succeed(()) *> ZIO.never)
+              .ensuring(activeReaders.update(_ - 1) *> stoppedReaders.update(_ + 1))
+              .forkScoped
+            _ <- readerStarted.await
+          yield
+            if history.exists(_.role == Role.Tool) then TurnOutput.FinalText(Msg.assistant("done"))
+            else TurnOutput.ToolCalls(Msg.assistant(Chunk(call("missing", "missing"))))
+        }
+        agent     <- ReActAgent.make(client = model)
+        result    <- agent.run(Msg.user("work"))
+        active    <- activeReaders.get
+        stopped   <- stoppedReaders.get
+        resources <- resourceCount.get
+        previous  <- resourcesAtStart.get
+        hub       <- observedHub.get
+        hubClosed <- ZIO.foreach(hub)(_.isShutdown)
+      yield assertTrue(
+        result.reply.text == "done",
+        active == 0,
+        stopped == 2,
+        resources == 0,
+        previous == Chunk(0, 0),
+        hubClosed.contains(true)
+      )
+    },
+    test("fiber cancellation releases model resources and scoped readers before returning") {
+      for
+        requested        <- Promise.make[Nothing, Unit]
+        readerStarted    <- Promise.make[Nothing, Unit]
+        readerStopped    <- Ref.make(false)
+        resourceReleased <- Ref.make(false)
+        model = LlmClient.mockEffectful { (_, _, _) =>
+          for
+            _ <- ZIO.acquireRelease(ZIO.unit)(_ => resourceReleased.set(true))
+            _ <- (readerStarted.succeed(()) *> ZIO.never)
+              .ensuring(readerStopped.set(true))
+              .forkScoped
+            _      <- readerStarted.await
+            _      <- requested.succeed(())
+            result <- ZIO.never
+          yield result
+        }
+        agent    <- ReActAgent.make(client = model)
+        fiber    <- agent.run(Msg.user("work")).forkScoped
+        _        <- requested.await
+        _        <- fiber.interrupt
+        stopped  <- readerStopped.get
+        released <- resourceReleased.get
+      yield assertTrue(stopped, released)
+    },
+    test("timeout cancels active work using the test clock") {
+      for
+        started  <- Promise.make[Nothing, Unit]
+        released <- Ref.make(false)
+        model = LlmClient.mockEffectful((_, _, _) =>
+          ZIO.acquireRelease(ZIO.unit)(_ => released.set(true)) *> started.succeed(()) *> ZIO.never
+        )
+        agent            <- ReActAgent.make(AgentConfig(timeout = 5.seconds), client = model)
+        fiber            <- agent.run(Msg.user("wait")).either.forkScoped
+        _                <- started.await
+        _                <- TestClock.adjust(5.seconds)
+        result           <- fiber.join
+        history          <- agent.history
+        resourceReleased <- released.get
+      yield assertTrue(
         result.left.exists(_.isInstanceOf[AgentError.TimeoutError]),
-        history.count(_.generateReason.contains("interrupted")) == 1
+        history.count(_.generateReason.contains("interrupted")) == 1,
+        resourceReleased
       )
     },
     test("event streams propagate model failures") {

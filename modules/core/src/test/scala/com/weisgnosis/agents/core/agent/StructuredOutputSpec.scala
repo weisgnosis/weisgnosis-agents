@@ -23,7 +23,7 @@ import zio.json.ast.Json
 import zio.test.*
 
 /**
- * 1:1 Parity Tests for Structured Output generation and schema hoisting (INV-11).
+ * Selected upstream scenario tests for Structured Output generation and schema hoisting (INV-11).
  *
  * Corresponds to `io.agentscope.core.agent.ReActAgentStructuredOutputTest` in AgentScope Java.
  */
@@ -36,7 +36,7 @@ object StructuredOutputSpec extends ZIOSpecDefault:
   ) derives JsonCodec
 
   def spec: Spec[TestEnvironment & Scope, Any] =
-    suite("StructuredOutputSpec (AgentScope Java 1:1 Parity)")(
+    suite("StructuredOutputSpec (Selected upstream scenarios)")(
       test("testStructuredOutputToolBased") {
         val payload = Json.Obj(
           Chunk(

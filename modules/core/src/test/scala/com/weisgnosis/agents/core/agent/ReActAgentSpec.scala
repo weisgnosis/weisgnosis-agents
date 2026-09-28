@@ -48,7 +48,7 @@ object ReActAgentSpec extends ZIOSpecDefault:
           case (_, _, other)      => ZIO.fail(new IllegalArgumentException(s"Unknown op: $other"))
 
   def spec: Spec[TestEnvironment & Scope, Any] =
-    suite("ReActAgentSpec (AgentScope Java 1:1 Parity)")(
+    suite("ReActAgentSpec (Selected upstream scenarios)")(
       test("Should initialize ReActAgent with correct properties") {
         for
           agent <- ReActAgent

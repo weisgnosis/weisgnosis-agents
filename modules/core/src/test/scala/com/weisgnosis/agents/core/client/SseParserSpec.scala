@@ -20,7 +20,7 @@ import zio.stream.ZStream
 import zio.test.*
 
 /**
- * 1:1 test parity suite for OpenAISseParserTest.java from AgentScope Java.
+ * Selected upstream scenario suite for OpenAISseParserTest.java from AgentScope Java.
  */
 object SseParserSpec extends ZIOSpecDefault:
 

@@ -1,5 +1,7 @@
 # com.weisgnosis.agents.mcp.transport
 
+> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+
 Bidirectional communication transport layer for Model Context Protocol servers (Stdio and SSE).
 
 ---

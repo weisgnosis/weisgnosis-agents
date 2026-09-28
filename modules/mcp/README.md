@@ -1,5 +1,7 @@
 # weisgnosis-agents-mcp
 
+> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+
 Native ZIO client implementation for the **Model Context Protocol (MCP)**. Enables seamless connection to external MCP servers (filesystems, databases, GitHub, web browsers) and automatic bridging of their declared tools into the agent's type-safe `Toolkit`.
 
 ---

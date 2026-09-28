@@ -18,6 +18,7 @@ package com.weisgnosis.agents.harness.memory
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
 import zio.*
+import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
@@ -148,6 +149,47 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
         result.headOption.exists(_.text == "summary\nfirst\nsecond")
       )
     },
+    test("coalesced retained users reach the next memory flush exactly once") {
+      val important = Msg.user("important retained fact").copy(id = Some("user-id"))
+      for
+        flushed <- Ref.make(Chunk.empty[Chunk[Msg]])
+        compactor = new ConversationCompactor(
+          _ => ZIO.succeed("summary"),
+          config,
+          counter,
+          messages => flushed.update(_ :+ messages)
+        )
+        first <- compactor.compactIfNeeded(
+          Chunk(Msg.assistant("old"), important, Msg.assistant("tail"))
+        )
+        _ <- compactor.compactIfNeeded(first ++ Chunk(Msg.assistant("new"), Msg.assistant("last")))
+        observed <- flushed.get
+      yield assertTrue(observed.flatten.count(_ == important) == 1)
+    },
+    test("coalesced user provenance survives serialization and rejects inconsistent content") {
+      val user = Msg.user("retained user")
+      val malformed = summary("unrelated").withMetadata(
+        ConversationCompactor.RetainedUsersKey,
+        Json.Str(Chunk(user).toJson)
+      )
+      for
+        first <- compactor.compactIfNeeded(Chunk(Msg.assistant("old"), user, Msg.assistant("tail")))
+        decoded  <- ZIO.fromEither(first.toJson.fromJson[Chunk[Msg]])
+        restored <- compactor.compactIfNeeded(decoded)
+        rejected <- compactor.compactIfNeeded(Chunk(malformed)).either
+      yield assertTrue(restored == first, rejected.isLeft)
+    },
+    test("below-threshold histories preserve oversized outputs and arguments exactly") {
+      val long    = "x" * 3000
+      val history = Chunk(call("a"), Msg.tool("a", "search", long), Msg.assistant("tail"))
+      val compactor = new ConversationCompactor(
+        _ => ZIO.succeed("unused"),
+        config.copy(triggerTokens = 100),
+        counter
+      )
+      for result <- compactor.compactIfNeeded(history)
+      yield assertTrue(result == history)
+    },
     test("older outputs and arguments are pruned but the protected tail is unchanged") {
       val long = "x" * 3000
       val history = Chunk(
@@ -158,7 +200,7 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
       )
       val pruning = new ConversationCompactor(
         _ => ZIO.succeed("unused"),
-        config.copy(triggerTokens = 100),
+        config.copy(triggerTokens = 2, keepTokens = 100),
         counter
       )
       for result <- pruning.compactIfNeeded(history)

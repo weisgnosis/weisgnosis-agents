@@ -1,24 +1,10 @@
-# com.weisgnosis.agents.core.model (Tests)
+# Immutable messages and content: verification
 
-ZIO Test parity suite for `com.weisgnosis.agents.core.model`.
+These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity.
 
----
+- [ChatUsageSpec](ChatUsageSpec.scala)
+- [ContentBlockSerdeSpec](ContentBlockSerdeSpec.scala)
+- [MsgSerdeSpec](MsgSerdeSpec.scala)
+- [MsgSpec](MsgSpec.scala)
 
-## 🧪 Implemented Test Specs (Passing - 42 tests)
-
-1. **`MsgSpec.scala`** `[x]` (corresponds to `MsgTest.java` and `RoleContentValidationTest.java`):
-   - Message construction with various `Role` values.
-   - Text extraction from single and multi-block messages.
-   - Metadata persistence and immutability.
-   - Role content validation invariants.
-
-2. **`MsgSerdeSpec.scala`** `[x]` (corresponds to `MsgUsageSerializationTest.java`):
-   - JSON encoding and decoding round-trip tests.
-   - `ChatUsage` metrics and cached tokens serialization.
-   - Rejection of invalid messages during deserialization.
-
-3. **`ContentBlockSerdeSpec.scala`** `[x]` (corresponds to `ToolUseBlockTest.java`, `ToolResultBlockTest.java`):
-   - Polymorphic discrimination on `type: "text" | "thinking" | "tool_use" | "tool_result" | "image" | "custom"`.
-   - Parsing of `ToolUse` arguments with nested JSON structures.
-   - `ToolResult` error factory and server tool markers.
-   - Flexible decoding of string vs block output.
+Run `sbt "core / test"`, or `sbt verify` for repository-wide formatting, compilation, and tests. See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for gaps and intentional differences.

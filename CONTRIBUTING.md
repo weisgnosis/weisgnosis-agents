@@ -1,53 +1,38 @@
-# Contributing to `weisgnosis-agents`
+# Contributing
 
-We welcome contributions from the community! This project is licensed under **Apache-2.0**.
+Read [AGENTS.md](AGENTS.md) before changing production or test code. Use Scala 3.9.0, ZIO 2.1.26, JDK 21, and the sbt version in project/build.properties.
 
----
+## Engineering practices
 
-## 🏛️ Engineering Standard: Uncompromising Pure FP & ZIO 2
+- Suspend external effects in ZIO, including constructor defaults, codecs, random IDs, clocks, filesystem screening, and adapter callbacks.
+- Use immutable values, typed AgentError failures, explicit public result types, Scala 3 indentation, derived JSON codecs, and enums/ADTs for states.
+- Avoid var, throw, null, return, procedural loops, mutable collections, Future, unsafe casts, partial access, and blocking sleeps.
+- Register release with Scope. Give each run/request its own lifetime and test cleanup on success, failure, timeout, and cancellation.
+- Normalize tool errors as observations; propagate cancellation. Races must preserve both successful and failed completion.
+- Treat canonical paths and filesystem ownership as separate contracts. Check-then-use pathname validation is not a race-resistant sandbox.
+- Keep code, comments, documentation, commits, and PRs in English. Use vendor-neutral interfaces and preserve attribution.
 
-`weisgnosis-agents` is designed to be an open-source reference library for modern Scala 3 and ZIO 2. All contributions must adhere strictly to the engineering rules detailed in **[AGENTS.md](AGENTS.md)**:
+## Verification
 
-- **Strict Pure FP:** Zero `var`, `throw`, `null`, `while`, or mutable collections. All effects must be suspended in `ZIO[R, E, A]`.
-- **ZIO 2 Concurrency:** Non-blocking structured concurrency (`ZIO.scoped`, `forkScoped`). No `Thread.sleep` or `Future`.
-- **Explicit Return Types:** Required on all public methods and traits.
-- **Fast Compile-Time JSON:** Use `zio-json` exclusively (no reflection or `zio-schema` overhead).
-- **100% English Only:** All code, identifiers, comments, documentation, and commit messages must be in English.
-- **Vendor-Neutral Abstractions:** Protocol-level abstractions for model clients and reasoning streams.
+```text
+sbt scalafmtAll scalafmtSbt
+sbt verify
+```
 
----
+The verify alias runs scalafmtCheckAll, scalafmtSbtCheck, compile, and test. Fatal warnings use -Werror; deprecation, feature, unchecked, and unused-symbol warnings are enabled. The compiler also retains trees with -Yretain-trees. Tests use scripted clients, Promise barriers, TestClock, and scoped temporary resources.
 
-## Development Workflow
+These checks do not prove semantic purity, exhaustive parity, English correctness, filesystem trust, or production readiness. Those remain review responsibilities.
 
-1. **Prerequisites:**
-   - JDK 21
-   - SBT 1.10+
-   - Git
+## Independent review
 
-2. **Branching & Commits:**
-   - Create a feature branch: `git checkout -b feature/my-feature`
-   - Keep commits atomic and scoped.
-   - Use conventional commit messages: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`.
+Behavioral changes require independent FP/ZIO and invariant-focused reviews. Ask for reproducible findings with source/test locations, add regressions for confirmed defects, resolve findings, and have reviewers inspect the final diff. Record scope, resolutions, validation, and remaining limitations in the PR or a repository review record.
 
-3. **Code Style & Formatting:**
-   - Format all code with scalafmt before opening a pull request:
-     ```bash
-     sbt scalafmtAll scalafmtSbt
-     ```
-   - Compile with fatal compiler warnings enabled:
-     ```bash
-     sbt compile
-     ```
+Never claim subagent review unless it actually ran. Never label a suite exhaustive 1:1 parity without method-level mapping and justified differences or exclusions.
 
-4. **Testing:**
-   - Write deterministic tests extending `ZIOSpecDefault`.
-   - Never use real-time sleeps; use `TestClock.adjust`.
-   - Ensure 1:1 test parity with upstream AgentScope test suites.
-   - Run tests:
-     ```bash
-     sbt test
-     ```
+## Documentation and compatibility
 
-5. **Pull Requests:**
-   - Open a PR against `main`.
-   - Verify CI passes with 0 compiler warnings (`-Xfatal-warnings` enabled).
+Update affected root/module/package READMEs, architecture contracts, tracker, test mappings, and migration notes. Prefer source links over duplicated implementations. Mark roadmap systems and host responsibilities explicitly.
+
+Review changed prose and comments for English and neutral terminology. Check local Markdown links. Unicode screening is supplemental evidence, not proof of natural-language correctness.
+
+Use focused Conventional Commit messages and the PR checklist. CI provisions the [official sbt runner](https://github.com/sbt/setup-sbt) before verify.

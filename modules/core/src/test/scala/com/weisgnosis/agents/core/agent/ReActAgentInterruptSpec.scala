@@ -23,14 +23,14 @@ import zio.json.ast.Json
 import zio.test.*
 
 /**
- * 1:1 Parity Tests for ReActAgent interruption and dangling tool reconciliation (INV-2).
+ * Selected upstream scenario tests for ReActAgent interruption and dangling tool reconciliation (INV-2).
  *
  * Corresponds to `io.agentscope.core.agent.ReActAgentInterruptToolCallTest` in AgentScope Java.
  */
 object ReActAgentInterruptSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] =
-    suite("ReActAgentInterruptSpec (AgentScope Java 1:1 Parity)")(
+    suite("ReActAgentInterruptSpec (Selected upstream scenarios)")(
       test("interruptAfterToolUseSynthesizesErrorResultAndKeepsContextConsistent") {
         val mockClient = LlmClient.mockFunction { (_, _) =>
           val call = ContentBlock.ToolUse(

@@ -1,5 +1,7 @@
 # com.weisgnosis.agents.mcp.protocol
 
+> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+
 Model Context Protocol (MCP) data models and schemas built on JSON-RPC 2.0.
 
 ---

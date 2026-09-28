@@ -88,15 +88,23 @@ object PathSafety:
   /** Canonicalizes the nearest existing ancestor, including links above new files. */
   def canonicalPath(path: Path): IO[AgentError, Path] =
     ZIO.suspendSucceed {
-      io(Files.exists(path, LinkOption.NOFOLLOW_LINKS)).flatMap { exists =>
-        if exists then io(path.toRealPath())
-        else
-          (Option(path.getParent), Option(path.getFileName)) match
-            case (Some(parent), Some(name)) => canonicalPath(parent).map(_.resolve(name))
-            case _ =>
-              ZIO.fail(AgentError.PermissionDenied("path", "Cannot resolve a filesystem ancestor"))
-      }
+      if containsParentTraversal(path) then
+        ZIO.fail(AgentError.PermissionDenied("path", "Parent traversal is not permitted"))
+      else
+        io(Files.exists(path, LinkOption.NOFOLLOW_LINKS)).flatMap { exists =>
+          if exists then io(path.toRealPath())
+          else
+            (Option(path.getParent), Option(path.getFileName)) match
+              case (Some(parent), Some(name)) => canonicalPath(parent).map(_.resolve(name))
+              case _ =>
+                ZIO.fail(
+                  AgentError.PermissionDenied("path", "Cannot resolve a filesystem ancestor")
+                )
+        }
     }
+
+  private def containsParentTraversal(path: Path): Boolean =
+    (0 until path.getNameCount).exists(index => path.getName(index).toString == "..")
 
   /** Pure lexical screening, reusable after canonicalization. */
   def isSensitivePath(
@@ -122,9 +130,11 @@ object PathSafety:
     else
       for
         expanded <- expandTilde(filePath)
-        absolute <- io(Path.of(expanded).toAbsolutePath.normalize())
+        absolute <- io(Path.of(expanded).toAbsolutePath)
         result <-
-          if isSensitivePath(absolute, dangerousFiles, dangerousDirectories) then ZIO.succeed(true)
+          if containsParentTraversal(absolute) ||
+            isSensitivePath(absolute, dangerousFiles, dangerousDirectories)
+          then ZIO.succeed(true)
           else canonicalPath(absolute).map(isSensitivePath(_, dangerousFiles, dangerousDirectories))
       yield result
 

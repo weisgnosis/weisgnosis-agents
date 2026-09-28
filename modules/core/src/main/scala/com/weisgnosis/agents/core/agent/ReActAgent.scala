@@ -86,10 +86,10 @@ final class ReActAgent private (
 
   /** Full run returning complete AgentResult. */
   def run(messages: Chunk[Msg]): ZIO[Scope, AgentError, AgentResult] =
-    runLock.withPermit(for
+    runLock.withPermit(ZIO.scoped(for
       hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
       result <- runWithHub(messages, hub, toolkit)
-    yield result)
+    yield result))
 
   def run(message: Msg): ZIO[Scope, AgentError, AgentResult] =
     run(Chunk(message))
@@ -100,7 +100,7 @@ final class ReActAgent private (
       schema: Json,
       mode: StructuredMode = StructuredMode.Auto
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
-    runLock.withPermit(for
+    runLock.withPermit(ZIO.scoped(for
       capturedRef <- Ref.make[Option[Json]](None)
       syntheticTool = StructuredOutput.createTool(schema, json => capturedRef.set(Some(json)))
       native = mode == StructuredMode.Native || (mode == StructuredMode.Auto && toolkit.isEmpty)
@@ -176,7 +176,7 @@ final class ReActAgent private (
                 _         <- stateRef.update(h => h.dropRight(1) :+ updatedReply)
                 finalHist <- stateRef.get
               yield (rawResult.copy(reply = updatedReply, history = finalHist), decoded)
-    yield outcome)
+    yield outcome))
 
   def runStructured[A: JsonCodec](
       message: Msg,
@@ -184,7 +184,7 @@ final class ReActAgent private (
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
     runStructured[A](Chunk(message), schema, StructuredMode.Auto)
 
-  /** Streams 31 typed lifecycle and delta events while running the turn in the background. */
+  /** Streams typed lifecycle and delta events while running the turn in the background. */
   def streamEvents(messages: Chunk[Msg]): ZStream[Scope, AgentError, AgentEvent] =
     ZStream.unwrapScoped {
       for
@@ -226,6 +226,7 @@ final class ReActAgent private (
             current
         withSystem ++ newMessages
       }
+      runHistoryStart <- stateRef.get.map(_.size)
       _ <- eventHub.publish(
         AgentEvent.AgentStartEvent(
           sessionId = agentId,
@@ -233,7 +234,15 @@ final class ReActAgent private (
           agentId = agentId
         )
       )
-      result <- loop(1, 0, activeToolkit, eventHub, requestConfig, structuredResponse)
+      result <- loop(
+        1,
+        0,
+        activeToolkit,
+        eventHub,
+        requestConfig,
+        structuredResponse,
+        runHistoryStart
+      )
         .timeoutFail(AgentError.TimeoutError(config.timeout.toSeconds, "Agent run timed out"))(
           config.timeout
         )
@@ -251,7 +260,8 @@ final class ReActAgent private (
       activeToolkit: Toolkit,
       eventHub: Hub[AgentEvent],
       requestConfig: LlmConfig,
-      structuredResponse: Option[Ref[Option[Json]]]
+      structuredResponse: Option[Ref[Option[Json]]],
+      runHistoryStart: Int
   ): ZIO[Scope, AgentError, AgentResult] =
     if iteration > config.maxIterations then
       for
@@ -287,12 +297,14 @@ final class ReActAgent private (
             history <- stateRef.get
             _       <- eventHub.publish(AgentEvent.ModelRequestStartEvent(llmConfig.model, 0))
             turnOutputEither <- raceWithInterrupt(
-              client.streamTurn(history, activeToolkit.definitions, requestConfig, eventHub)
+              ZIO.scoped(
+                client.streamTurn(history, activeToolkit.definitions, requestConfig, eventHub)
+              )
             )
 
             outcome <- turnOutputEither match
               case Left(_) =>
-                handleInterrupt(stateRef, iteration)
+                handleInterrupt(stateRef, iteration, runHistoryStart)
 
               case Right(turnOutput) =>
                 turnOutput match
@@ -332,7 +344,8 @@ final class ReActAgent private (
                             activeToolkit,
                             eventHub,
                             requestConfig,
-                            structuredResponse
+                            structuredResponse,
+                            runHistoryStart
                           )
                         )
                       yield nextTurn
@@ -404,7 +417,7 @@ final class ReActAgent private (
                             execRes <- raceWithInterrupt(execEffect)
                             res <- execRes match
                               case Left(_) =>
-                                handleInterrupt(stateRef, iteration)
+                                handleInterrupt(stateRef, iteration, runHistoryStart)
                               case Right(_) =>
                                 val captured =
                                   structuredResponse.fold[UIO[Option[Json]]](ZIO.none)(_.get)
@@ -420,7 +433,8 @@ final class ReActAgent private (
                                         activeToolkit,
                                         eventHub,
                                         requestConfig,
-                                        structuredResponse
+                                        structuredResponse,
+                                        runHistoryStart
                                       )
                                     )
                                 }
@@ -428,11 +442,12 @@ final class ReActAgent private (
                     yield turnRes
 
                   case TurnOutput.Interrupted(partial) =>
-                    stateRef.update(_ :+ partial) *> handleInterrupt(stateRef, iteration)
+                    stateRef
+                      .update(_ :+ partial) *> handleInterrupt(stateRef, iteration, runHistoryStart)
           yield outcome
         }
         .onInterrupt {
-          reconcileDanglingToolCalls(stateRef).ignore
+          reconcileDanglingToolCalls(stateRef, runHistoryStart).ignore
         }
 
   private def executeAndRecord(
@@ -454,8 +469,12 @@ final class ReActAgent private (
       yield ()
     }
 
-  private def handleInterrupt(stateRef: Ref[Chunk[Msg]], iteration: Int): UIO[AgentResult] =
-    reconcileDanglingToolCalls(stateRef).flatMap { recoveryMsg =>
+  private def handleInterrupt(
+      stateRef: Ref[Chunk[Msg]],
+      iteration: Int,
+      runHistoryStart: Int
+  ): UIO[AgentResult] =
+    reconcileDanglingToolCalls(stateRef, runHistoryStart).flatMap { recoveryMsg =>
       stateRef.get.map { finalHist =>
         AgentResult(
           reply = recoveryMsg,
@@ -466,14 +485,19 @@ final class ReActAgent private (
       }
     }
 
-  private def reconcileDanglingToolCalls(stateRef: Ref[Chunk[Msg]]): UIO[Msg] =
+  private def reconcileDanglingToolCalls(
+      stateRef: Ref[Chunk[Msg]],
+      runHistoryStart: Int
+  ): UIO[Msg] =
     stateRef.modify { history =>
-      val currentTurn       = history.reverse.takeWhile(_.role != Role.Assistant).reverse
+      val runHistory        = history.drop(runHistoryStart)
+      val currentTurn       = runHistory.reverse.takeWhile(_.role != Role.Assistant).reverse
       val existingResultIds = currentTurn.flatMap(_.toolResults).map(_.toolUseId).toSet
-      val lastAssistant     = history.reverse.find(_.role == Role.Assistant)
+      val lastAssistant     = runHistory.reverse.find(_.role == Role.Assistant)
 
       lastAssistant match
-        case Some(asst) if asst.generateReason.contains("interrupted") =>
+        case Some(asst)
+            if asst.generateReason.contains("interrupted") && history.lastOption.contains(asst) =>
           (asst, history)
 
         case Some(asst) =>
