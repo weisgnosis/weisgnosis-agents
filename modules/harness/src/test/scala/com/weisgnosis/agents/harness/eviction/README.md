@@ -1,13 +1,5 @@
-# com.weisgnosis.agents.harness.eviction (Tests)
+# Harness eviction verification
 
-ZIO Test parity suite for `com.weisgnosis.agents.harness.eviction`.
+ToolResultEvictorSpec covers threshold boundaries, exclusions, previews, repeated IDs, metadata/state preservation, write failures, placeholder-like real output, and interruption. ToolResultStoreSpec verifies canonical local writes, sensitive paths, traversal rejection, and content collisions. Upstream reference: ToolResultEvictionMiddlewareTest; middleware state installation remains a host responsibility.
 
----
-
-## 🧪 Planned Test Specs
-
-1. **`ToolResultEvictorSpec.scala`** (corresponds to `ToolResultEvictionMiddlewareTest.java`):
-   - Passthrough behavior for outputs below `maxChars`.
-   - Splitting and preview generation for outputs above `maxChars`.
-   - Persisting original raw content into `ToolResultStore`.
-   - Idempotency when processing pre-evicted blocks.
+Run `sbt "harness / test"`.
