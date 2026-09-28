@@ -17,8 +17,9 @@ Current implementation and future platform requirements are separate. The projec
 
 ## Current documentation acceptance
 
-- [x] Independent reviewer `review_docs` explicitly approved the README/review-closure and checkbox-tracking changes on 2026-09-29 after both requested corrections.
-- [x] No unresolved findings in that documentation scope; English, local links, maintained-directory README coverage, and whitespace checks passed.
-- [x] Repository verification for this documentation change: `sbt scalafmtAll scalafmtSbt verify`, 108 core and 40 harness tests passed with zero compiler warnings.
+- [x] Independent reviewer `review_docs` approved the current pinned inventory, 18-method structured-output mapping, README acceptance scopes, and architecture contracts on 2026-09-29 after wording corrections.
+- [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, and pending behavior.
+- [x] No unresolved findings in this documentation scope. English, local links, maintained-directory README coverage, whitespace, and the reviewed source identities were checked.
+- [x] Repository verification: `sbt scalafmtAll scalafmtSbt verify`, 118 core and 40 harness tests passed with zero compiler warnings.
 
-This approval covers the documentation protocol and current acceptance wording. Implementation acceptance remains scoped in the module/package READMEs; the [tracker](architecture/tracker.md) retains unchecked remaining work. Resolved review reports are retained only through Git history.
+Implementation acceptance is scoped in the module/package READMEs. The [tracker](architecture/tracker.md) and [parity task list](architecture/test-parity.md) retain unfinished work as unchecked items. Closed review reports remain only in Git history.

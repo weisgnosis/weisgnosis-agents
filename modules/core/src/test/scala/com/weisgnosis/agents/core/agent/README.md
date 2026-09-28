@@ -12,11 +12,21 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 
 Run `sbt "core / test"`, or `sbt verify` for repository-wide formatting, compilation, and tests. See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for gaps and intentional differences.
 
+Structured completion preserves signed thinking on the final reply exactly once. The reply carries the generating request's usage; AgentResult carries the aggregate for the run. Ordinary tool pairs and unrelated empty messages remain in history. If the run is incomplete, runStructured fails with AgentError.Interrupted and preserves recovery history even when generate_response already captured a payload.
+
 ## Current review acceptance
 
-- [x] Reviewed revision: `fb80428`; accepted files: ReActAgent.scala and ReActAgentLifecycleSpec.scala.
-- [x] Independent final approval: `review_harness`, reconfirmed for unchanged code on 2026-09-29 after corrections and cross-review.
-- [x] No unresolved findings in the accepted scope: Run/request resource lifetimes, cancellation and timeout cleanup, per-run recovery including empty-input continuation, and reconciliation idempotency.
-- [x] Verification at the reviewed revision: `sbt verify`, 108 core and 40 harness tests, no failed tests or compiler warnings.
+- [x] Independent reviewers `review_fp` and `review_harness` explicitly approved the final structured-output changes on 2026-09-29 after correction of the interruption-after-capture finding.
+- [x] Accepted scope: completed-response thinking/signature transfer, per-request versus aggregate usage, unrelated empty history, mixed-tool pairing, capture isolation, and refusal to finalize incomplete runs.
+- [x] No unresolved findings in this scope. Full upstream parity, model-capability selection, structured streaming, and hooks remain pending in the parity task list.
+- [x] Verification: `sbt scalafmtAll scalafmtSbt verify`, 118 core and 40 harness tests passed with zero compiler warnings. Three newly added regressions failed before the preservation fixes and passed afterward.
 
-This is the accepted reference behavior for the scope above. Complete upstream parity and live model transport remain outside this acceptance. Changes to this behavior require renewed independent review and an updated acceptance entry.
+Reviewed change set is based on `a58b0ca`; exact Git blob identities are:
+
+| File | Reviewed blob |
+| --- | --- |
+| ReActAgent.scala | `d4cb87a525437a8d9193d078044ccd2d3ca9af25` |
+| StructuredOutput.scala | `a8a6498baf961f792dba4226cab56d9c6905b0e6` |
+| StructuredOutputSpec.scala | `620228e7ebe87e23aca045f8863c8aa856a3bcea` |
+
+This acceptance applies to the named behavior and reviewed content. Changed behavior requires renewed independent review. Prior lifecycle regressions remain part of the full verification suite.

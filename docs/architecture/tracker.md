@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: pin the upstream revision and build the exhaustive core parity mapping.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: enumerate message and event methods against the pinned upstream revision; remaining structured-output API scenarios are explicitly unchecked in the parity task list.
 
 ### Foundation and current core
 
@@ -14,8 +14,11 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Implement the model client port, scripted clients, SSE parser, indexed accumulator, and reasoning adapter.
 - [x] Implement ReAct execution, bounded thinking retries, inline server tools, and structured output.
 - [x] Resolve lifecycle and path review findings; obtain final independent approval for the scope recorded in the [core README](../../modules/core/README.md).
-- [x] Verify 108 core tests at revision `fb80428`.
-- [ ] Pin the upstream revision and map every applicable core test to Scala coverage, a justified difference, or a gap.
+- [x] Verify 118 core tests after structured-output parity corrections.
+- [x] Pin upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` and inventory 2,473 annotated core test declarations.
+- [x] Map all 18 methods in the three structured-output suites to local coverage, adaptations, or explicit gaps.
+- [x] Correct structured thinking/usage/history preservation and interruption-after-capture behavior; receive independent approval.
+- [ ] Map every remaining applicable core method to Scala coverage, a justified difference, or a gap.
 - [ ] Close remaining structured-output and lifecycle parity gaps; see the [parity task list](test-parity.md).
 - [ ] Implement live HTTP transport and protocol integration tests.
 - [ ] Validate platform-specific symlink/junction behavior.

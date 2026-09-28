@@ -27,9 +27,9 @@ AgentEvent defines 31 variants; streamEvents delivers those emitted by available
 
 ## 4. Structured output
 
-Native mode supplies LlmConfig.responseFormat; the transport serializes it. Auto prefers native with an empty toolkit and can fall back on unsupported formatting. Synthetic mode registers generate_response, wrapping the schema and hoisting both definition namespaces. Successful capture stops without an extra model turn. Compression removes synthetic blocks while preserving mixed ordinary calls/results; usage aggregates model turns.
+Native mode supplies LlmConfig.responseFormat; the transport serializes it. Auto prefers native with an empty toolkit and can fall back on unsupported formatting. Synthetic mode registers generate_response, wrapping the schema and hoisting both definition namespaces. A captured response completes only after the acting phase finishes in the Completed state, without an extra model turn. Compression removes synthetic blocks while preserving mixed ordinary calls/results; AgentResult.usage aggregates model turns, while reply.usage records the generating request once. Signed thinking is transferred to the final reply without duplicating it in history. Unrelated empty messages survive compression. A non-Completed structured run fails with AgentError.Interrupted before decoding or rewriting recovery history.
 
-Empty-input structured runs, dedicated thinking-preservation coverage, and repeated upstream concurrency scenarios remain explicit [parity work](test-parity.md).
+Empty-input continuation, signed thinking, usage, and immediate repeated calls have regression coverage. Capability selection, dynamic-schema/streaming, and hook gaps remain explicit [parity work](test-parity.md).
 
 ## 5. Compaction and eviction
 

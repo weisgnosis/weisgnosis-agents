@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef}
 import zio.*
 import zio.json.*
@@ -84,10 +84,29 @@ object StructuredOutput:
         case result: ContentBlock.ToolResult => !result.name.contains(ToolName)
         case _                               => true
       }
-      if msg.metadata.get(MetadataStructuredReminder).contains(Json.Bool(true)) || content.isEmpty
+      val emptiedByCompression = msg.content.nonEmpty && content.isEmpty
+      if msg.metadata
+          .get(MetadataStructuredReminder)
+          .contains(Json.Bool(true)) || emptiedByCompression
       then Chunk.empty
       else Chunk(msg.copy(content = content))
     }
+
+  /** Transfers the generating reply's thinking and usage to the final structured message once. */
+  private[agent] def completeHistory(history: Chunk[Msg], finalReply: Msg): Chunk[Msg] =
+    val (trailingResults, assistantAndPrefix) = history.reverse.span(_.role != Role.Assistant)
+    val retainedHistory = assistantAndPrefix.headOption match
+      case Some(generatingReply) =>
+        val residualReply = generatingReply.copy(
+          content = generatingReply.content.filter {
+            case _: ContentBlock.Thinking => false
+            case _                        => true
+          },
+          usage = None
+        )
+        assistantAndPrefix.drop(1).reverse ++ Chunk(residualReply) ++ trailingResults.reverse
+      case None => history
+    compressHistory(retainedHistory) :+ finalReply
 
   /**
    * Creates the synthetic `generate_response` Tool instance that captures the response.

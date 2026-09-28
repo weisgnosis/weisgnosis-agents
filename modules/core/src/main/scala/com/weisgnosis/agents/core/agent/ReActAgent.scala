@@ -133,6 +133,9 @@ final class ReActAgent private (
               )
           case error => ZIO.fail(error)
         }
+      _ <- ZIO
+        .fail(AgentError.Interrupted("Structured output run ended before completion"))
+        .unless(rawResult.state == AgentRunState.Completed)
       capturedOpt <- capturedRef.get
       outcome <- capturedOpt match
         case Some(jsonPayload) =>
@@ -144,17 +147,19 @@ final class ReActAgent private (
             case Right(decoded) =>
               for
                 currentHist <- stateRef.get
-                compressedHist = StructuredOutput.compressHistory(currentHist)
                 finalMsg = Msg(
                   role = Role.Assistant,
                   name = Some(config.name),
-                  content = Chunk(ContentBlock.Text(jsonPayload.toJson)),
-                  metadata = Map(
-                    StructuredOutput.MetadataStructuredOutput -> jsonPayload
+                  content = rawResult.reply.content.collect {
+                    case thinking: ContentBlock.Thinking => thinking
+                  } :+ ContentBlock.Text(jsonPayload.toJson),
+                  metadata = rawResult.reply.metadata.updated(
+                    StructuredOutput.MetadataStructuredOutput,
+                    jsonPayload
                   ),
-                  usage = rawResult.usage
+                  usage = rawResult.reply.usage
                 )
-                _         <- stateRef.set(compressedHist :+ finalMsg)
+                _         <- stateRef.set(StructuredOutput.completeHistory(currentHist, finalMsg))
                 finalHist <- stateRef.get
                 updatedResult = rawResult.copy(reply = finalMsg, history = finalHist)
               yield (updatedResult, decoded)
