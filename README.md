@@ -142,7 +142,7 @@ object SimpleAgentApp extends ZIOAppDefault:
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [agents.md](agents.md) for code rules and guidelines.
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for code rules and guidelines.
 
 ## License
 

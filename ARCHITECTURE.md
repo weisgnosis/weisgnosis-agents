@@ -53,7 +53,7 @@ flowchart LR
 Messages are the immutable communication primitives between agents, models, and tools:
 
 ```scala
-package weisgnosis.agents.core.msg
+package com.weisgnosis.agents.core.model
 
 import zio.Chunk
 import zio.json.*
@@ -88,7 +88,7 @@ final case class Msg(
 The framework exposes a fine-grained, 31-event stream covering the entire reasoning and execution lifecycle:
 
 ```scala
-package weisgnosis.agents.core.event
+package com.weisgnosis.agents.core.event
 
 import zio.json.*
 import java.time.Instant
@@ -106,7 +106,7 @@ enum AgentEvent derives JsonCodec:
   case TextBlockDelta(text: String)
   case TextBlockEnd(index: Int)
   
-  // Deep Thinking (DeepSeek-R1 / QwQ / Claude 3.7)
+  // Deep Thinking / Reasoning Models
   case ThinkingBlockStart(index: Int)
   case ThinkingBlockDelta(thought: String)
   case ThinkingBlockEnd(index: Int)
@@ -170,7 +170,7 @@ When total conversation tokens exceed the budget:
 Recoverable errors are modeled as typed ADTs:
 
 ```scala
-package weisgnosis.agents.core.error
+package com.weisgnosis.agents.core.error
 
 enum AgentError:
   case ModelError(statusCode: Int, message: String)
