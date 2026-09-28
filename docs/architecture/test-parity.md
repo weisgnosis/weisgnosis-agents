@@ -283,5 +283,5 @@ The independent audit found the following concrete gaps. Existing six Scala even
 - [ ] Preserve tool-result event metadata through decoding, encoding, and withSource.
 - [ ] Classify the upstream type/uppercase discriminators and legacy aliases against the current event/lowercase wire format.
 - [ ] Implement or explicitly classify AgentResult, DataBlockStart/Delta/End, ToolResultDataDelta, ExceedMaxIters, RequestStop, and AllToolsDenied event kinds.
-- [ ] Correct AgentStart/AgentEnd correlation: current start uses replyId, while end uses agentId; add actual-stream evidence.
+- [x] Correct AgentStart/AgentEnd correlation with one runtime pair per engine attempt. ReActAgentEventSpec verifies identity, private completion, buffering order, failure, cancellation, timeout, and early consumer cleanup. Structured-call completion remains a separate pending API.
 - [ ] Exercise source tagging for every variant, repeated tagging, and metadata preservation.

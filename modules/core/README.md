@@ -19,8 +19,9 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 - [x] Revision `fb80428`: agent lifecycle and path traversal fixes explicitly approved by independent reviewer `review_harness` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
 - [x] Structured-output completion fixes based on `a58b0ca` approved by `review_fp` and `review_harness`; the agent package README records exact source identities and scope.
-- [x] Repository verification: 169 core and 40 harness tests passed, with no compiler warnings.
+- [x] Repository verification: 177 core and 40 harness tests passed, with no compiler warnings.
 - [x] Strict model decoding, legacy usage compatibility, Base64 wire naming, and role validation approved by review_fp and review_harness; exact scope and source identities are recorded in the model READMEs.
+- [x] Correlated engine-attempt boundaries and private stream completion approved by review_fp and review_harness; the agent READMEs record exact scope, buffering assumptions, and source identities.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.

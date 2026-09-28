@@ -23,7 +23,7 @@ import com.weisgnosis.agents.core.tool.Toolkit
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
-import zio.stream.ZStream
+import zio.stream.{Take, ZStream}
 
 /**
  * Autonomous reasoning and acting agent executing pure functional ReAct loops.
@@ -193,16 +193,28 @@ final class ReActAgent private (
   def streamEvents(messages: Chunk[Msg]): ZStream[Scope, AgentError, AgentEvent] =
     ZStream.unwrapScoped {
       for
-        hub        <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-        sub        <- hub.subscribe
-        completion <- Promise.make[AgentError, AgentResult]
-        _ <- runLock
-          .withPermit(runWithHub(messages, hub, toolkit))
-          .exit
-          .flatMap(exit => completion.done(exit) *> hub.publish(AgentEvent.AgentEndEvent(agentId)))
+        hub      <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+        sub      <- hub.subscribe
+        delivery <- ZIO.acquireRelease(Queue.unbounded[Take[AgentError, AgentEvent]])(_.shutdown)
+        forwarder <- ZStream
+          .fromQueue(sub)
+          .runForeach(event => delivery.offer(Take.single(event)).unit)
           .forkScoped
-      yield ZStream.fromQueue(sub).takeUntil(_.isInstanceOf[AgentEvent.AgentEndEvent]) ++
-        ZStream.fromZIO(completion.await).drain
+        _ <- ZIO.uninterruptibleMask { restore =>
+          for
+            exit <- restore(runLock.withPermit(ZIO.scoped(runWithHub(messages, hub, toolkit)))).exit
+            // Join the claimed prefix before appending the unclaimed suffix and terminal signal.
+            tail <- sub.takeAll
+            _    <- sub.shutdown
+            _    <- forwarder.join
+            _    <- delivery.offer(Take.chunk(tail))
+            terminal = exit match
+              case Exit.Success(_)     => Take.end
+              case Exit.Failure(cause) => Take.failCause(cause)
+            _ <- delivery.offer(terminal)
+          yield ()
+        }.forkScoped
+      yield ZStream.fromQueue(delivery).flattenTake
     }
 
   def streamEvents(message: Msg): ZStream[Scope, AgentError, AgentEvent] =
@@ -232,25 +244,21 @@ final class ReActAgent private (
         withSystem ++ newMessages
       }
       runHistoryStart <- stateRef.get.map(_.size)
-      _ <- eventHub.publish(
-        AgentEvent.AgentStartEvent(
-          sessionId = agentId,
-          replyId = replyId,
-          agentId = agentId
-        )
-      )
-      result <- loop(
-        1,
-        0,
-        activeToolkit,
-        eventHub,
-        requestConfig,
-        structuredResponse,
-        runHistoryStart
-      )
-        .timeoutFail(AgentError.TimeoutError(config.timeout.toSeconds, "Agent run timed out"))(
+      result <- ZIO.acquireReleaseWith(
+        eventHub.publish(AgentEvent.AgentStartEvent(agentId, replyId, agentId))
+      )(_ => eventHub.publish(AgentEvent.AgentEndEvent(replyId)).unit) { _ =>
+        loop(
+          1,
+          0,
+          activeToolkit,
+          eventHub,
+          requestConfig,
+          structuredResponse,
+          runHistoryStart
+        ).timeoutFail(AgentError.TimeoutError(config.timeout.toSeconds, "Agent run timed out"))(
           config.timeout
         )
+      }
     yield result.copy(usage =
       result.history
         .drop(startingHistory.size)
@@ -284,7 +292,6 @@ final class ReActAgent private (
         )
         _            <- stateRef.update(_ :+ maxIterMsg)
         finalHistory <- stateRef.get
-        _            <- eventHub.publish(AgentEvent.AgentEndEvent(agentId))
       yield AgentResult(reply = maxIterMsg, history = finalHistory, iterationCount = iteration - 1)
     else
       ZIO
@@ -317,7 +324,6 @@ final class ReActAgent private (
                     for
                       _         <- stateRef.update(_ :+ assistantMsg)
                       finalHist <- stateRef.get
-                      _         <- eventHub.publish(AgentEvent.AgentEndEvent(agentId))
                     yield AgentResult(
                       reply = assistantMsg,
                       history = finalHist,
@@ -367,7 +373,6 @@ final class ReActAgent private (
                       for
                         _         <- stateRef.update(_ :+ thinkingMsg :+ limitMsg)
                         finalHist <- stateRef.get
-                        _         <- eventHub.publish(AgentEvent.AgentEndEvent(agentId))
                       yield AgentResult(
                         reply = limitMsg,
                         history = finalHist,
@@ -396,9 +401,7 @@ final class ReActAgent private (
 
                       turnRes <-
                         if pendingCalls.isEmpty then
-                          for
-                            finalHist <- stateRef.get
-                            _         <- eventHub.publish(AgentEvent.AgentEndEvent(agentId))
+                          for finalHist <- stateRef.get
                           yield AgentResult(
                             reply = assistantMsg,
                             history = finalHist,
