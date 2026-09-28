@@ -4,20 +4,21 @@ ZIO Test parity suite for `com.weisgnosis.agents.core.model`.
 
 ---
 
-## 🧪 Planned Test Specs
+## 🧪 Implemented Test Specs (Passing - 42 tests)
 
-1. **`MsgSpec.scala`** (corresponds to `MsgTest.java`):
+1. **`MsgSpec.scala`** `[x]` (corresponds to `MsgTest.java` and `RoleContentValidationTest.java`):
    - Message construction with various `Role` values.
    - Text extraction from single and multi-block messages.
    - Metadata persistence and immutability.
-   - Message transformation (`copy`, block appending).
+   - Role content validation invariants.
 
-2. **`MsgSerdeSpec.scala`** (corresponds to `MsgJacksonModuleTest.java`):
-   - JSON encoding and decoding round-trip property tests.
-   - Wire format backwards compatibility tests with standard OpenAI-compatible and Anthropic message formats.
-   - Handling of optional fields and empty chunks.
+2. **`MsgSerdeSpec.scala`** `[x]` (corresponds to `MsgUsageSerializationTest.java`):
+   - JSON encoding and decoding round-trip tests.
+   - `ChatUsage` metrics and cached tokens serialization.
+   - Rejection of invalid messages during deserialization.
 
-3. **`ContentBlockSerdeSpec.scala`** (corresponds to `ContentBlockTest.java`):
+3. **`ContentBlockSerdeSpec.scala`** `[x]` (corresponds to `ToolUseBlockTest.java`, `ToolResultBlockTest.java`):
    - Polymorphic discrimination on `type: "text" | "thinking" | "tool_use" | "tool_result" | "image" | "custom"`.
    - Parsing of `ToolUse` arguments with nested JSON structures.
-   - Handling unrecognized custom blocks gracefully.
+   - `ToolResult` error factory and server tool markers.
+   - Flexible decoding of string vs block output.

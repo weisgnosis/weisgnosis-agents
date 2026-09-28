@@ -18,8 +18,7 @@ lazy val commonSettings = Seq(
     "-feature",
     "-unchecked",
     "-Werror",
-    "-Wunused:all",
-    "-Xfatal-warnings"
+    "-Wunused:all"
   ),
   testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
 )

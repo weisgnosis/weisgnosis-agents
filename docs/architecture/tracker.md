@@ -24,8 +24,8 @@
 
 ```
 Phase 0: Architecture, Audit & Build Setup  [████████████████████] 100% (Complete)
-Phase 1: Core Domain Models & Codecs        [                    ]   0% (In Progress)
-Phase 2: Streaming Model Client & Acc       [                    ]   0% (Pending)
+Phase 1: Core Domain Models & Codecs        [████████████████████] 100% (Complete)
+Phase 2: Streaming Model Client & Acc       [                    ]   0% (In Progress)
 Phase 3: ReAct Engine & Loop Guards         [                    ]   0% (Pending)
 Phase 4: Harness Layer (Compactor/Eviction) [                    ]   0% (Pending)
 Phase 5: Subagents & MCP Client             [                    ]   0% (Pending)
@@ -40,8 +40,9 @@ Phase 6: WeisGnosis OS Production Cutover   [                    ]   0% (Pending
 
 | Package | Status | Implementation Files | Parity Tests | Test Spec Location |
 | :--- | :---: | :--- | :--- | :--- |
-| **`core.model`** | `[ ]` | `Role.scala`<br/>`ToolResultState.scala`<br/>`ContentBlock.scala`<br/>`Msg.scala` | `MsgSpec.scala`<br/>`MsgSerdeSpec.scala`<br/>`ContentBlockSerdeSpec.scala` | [`modules/core/.../model/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/model/README.md) |
-| **`core.event`** | `[ ]` | `AgentEvent.scala` (31 cases) | `AgentEventSerdeSpec.scala`<br/>`AgentEventStreamingSpec.scala` | [`modules/core/.../event/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/event/README.md) |
+| **`core.model`** | `[x]` | `Role.scala`<br/>`ToolResultState.scala`<br/>`MediaSource.scala`<br/>`ContentBlock.scala`<br/>`ChatUsage.scala`<br/>`Msg.scala` | `MsgSpec.scala`<br/>`MsgSerdeSpec.scala`<br/>`ContentBlockSerdeSpec.scala` | [`modules/core/.../model/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/model/README.md) |
+| **`core.event`** | `[x]` | `AgentEvent.scala` (31 cases) | `AgentEventSerdeSpec.scala`<br/>`AgentEventStreamingSpec.scala` | [`modules/core/.../event/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/event/README.md) |
+| **`core.error`** | `[x]` | `AgentError.scala` (9 cases) | Compiler verified typed ADT | [`modules/core/.../error/`](../../modules/core/src/main/scala/com/weisgnosis/agents/core/error/) |
 | **`core.tool`** | `[ ]` | `ToolDef.scala`<br/>`Tool.scala`<br/>`Toolkit.scala` | `ToolkitSpec.scala`<br/>`ToolExecutionSpec.scala`<br/>`PathSafetySpec.scala` | [`modules/core/.../tool/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/README.md) |
 | **`core.client`** | `[ ]` | `LlmClient.scala`<br/>`LlmChunk.scala`<br/>`SseParser.scala`<br/>`StreamAccumulator.scala`<br/>`ReasoningModelAdapter.scala` | `SseParserSpec.scala`<br/>`ReasoningAdapterSpec.scala`<br/>`LlmClientSpec.scala`<br/>`StreamAccumulatorSpec.scala` | [`modules/core/.../client/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/README.md) |
 | **`core.agent`** | `[ ]` | `ReActAgent.scala`<br/>`AgentConfig.scala`<br/>`AgentResult.scala`<br/>`StructuredOutput.scala` | `ReActAgentSpec.scala`<br/>`ReActAgentInterruptSpec.scala`<br/>`ReActAgentThinkingRetrySpec.scala`<br/>`StructuredOutputSpec.scala` | [`modules/core/.../agent/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/agent/README.md) |

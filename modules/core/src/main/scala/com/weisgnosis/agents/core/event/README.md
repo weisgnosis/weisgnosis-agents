@@ -78,7 +78,7 @@ Every event carries `source: Option[String] = None` and provides `withSource(s: 
 ---
 
 ## 📋 Implementation Checklist
-- [ ] Sealed trait `AgentEvent` with 31 cases
-- [ ] `zio-json` codecs with discriminator
-- [ ] `AgentEventSerdeSpec.scala`
-- [ ] `AgentEventStreamingSpec.scala`
+- [x] Sealed trait `AgentEvent` with 31 cases
+- [x] `zio-json` codecs with discriminator
+- [x] `AgentEventSerdeSpec.scala`
+- [x] `AgentEventStreamingSpec.scala`

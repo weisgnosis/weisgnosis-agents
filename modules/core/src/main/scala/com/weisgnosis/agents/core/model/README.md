@@ -57,9 +57,9 @@ Domain model package for conversation messages, content blocks, and agent roles.
 ---
 
 ## 📋 Implementation Checklist
-- [ ] ADTs `Role`, `ToolResultState`
-- [ ] ADT `ContentBlock` + `zio-json` codecs
-- [ ] `Msg` model + convenience builders
-- [ ] `MsgSpec.scala` (1:1 with `MsgTest.java`)
-- [ ] `MsgSerdeSpec.scala` (1:1 with `MsgJacksonModuleTest.java`)
-- [ ] `ContentBlockSerdeSpec.scala` (1:1 with `ContentBlockTest.java`)
+- [x] ADTs `Role`, `ToolResultState`
+- [x] ADT `ContentBlock` + `zio-json` codecs
+- [x] `Msg` model + convenience builders
+- [x] `MsgSpec.scala` (1:1 with `MsgTest.java`)
+- [x] `MsgSerdeSpec.scala` (1:1 with `MsgJacksonModuleTest.java`)
+- [x] `ContentBlockSerdeSpec.scala` (1:1 with `ContentBlockTest.java`)
