@@ -53,10 +53,10 @@ Type-safe tool execution, registration, and dispatch package for model interacti
 
 ---
 
-## 📋 Implementation Checklist
-- [ ] Models `ToolDef`, `ToolCallRequest`, `ToolCallResult`
-- [ ] Trait `Tool[R, In, Out]` and builder factories
-- [ ] Immutable `Toolkit` collection with schema validation
-- [ ] Unit tests: `ToolkitSpec.scala`
-- [ ] Unit tests: `ToolExecutionSpec.scala`
-- [ ] Unit tests: `PathSafetySpec.scala`
+- [x] Models `ToolDef`, `ToolExecutionResult`
+- [x] Trait `Tool[R, In, Out]` and builder factories
+- [x] Immutable `Toolkit` collection with collision validation
+- [x] Path safety utility `PathSafety` (INV-10)
+- [x] Unit tests: `ToolkitSpec.scala`
+- [x] Unit tests: `ToolExecutionSpec.scala`
+- [x] Unit tests: `PathSafetySpec.scala`

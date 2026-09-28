@@ -48,10 +48,12 @@ Streaming HTTP/SSE client package for model interactions built on `zio-http`.
 
 ---
 
-## 📋 Implementation Checklist
-- [ ] ADT `LlmChunk`, `LlmConfig`
-- [ ] Streaming `SseParser` via `zio.stream.ZPipeline`
-- [ ] Vendor-neutral `ReasoningModelAdapter`
-- [ ] Unit tests: `SseParserSpec.scala`
-- [ ] Unit tests: `ReasoningAdapterSpec.scala`
-- [ ] Integration tests: `LlmClientSpec.scala`
+- [x] ADT `LlmChunk`, `TurnOutput`, `LlmConfig`
+- [x] Streaming `SseParser` via `zio.stream.ZPipeline`
+- [x] Functional `StreamAccumulator` with INV-12 parallel tool assembly
+- [x] Vendor-neutral `ReasoningModelAdapter` with context hygiene
+- [x] Trait `LlmClient` with mock testing capabilities
+- [x] Unit tests: `SseParserSpec.scala`
+- [x] Unit tests: `StreamAccumulatorSpec.scala`
+- [x] Unit tests: `ReasoningAdapterSpec.scala`
+- [x] Integration tests: `LlmClientSpec.scala`
