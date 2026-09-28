@@ -285,7 +285,8 @@ The independent audit found the following gaps; completed corrections are checke
 - [ ] Add the missing tool-result data-delta event and its metadata contract.
 - [ ] Carry applicable tool-result metadata through runtime event emitters; current acceptance covers codecs.
 - [x] Classify current event/lowercase and upstream type/uppercase wire formats as noninterchangeable; existing Scala wire tags remain canonical for compatibility.
-- [ ] Implement explicit upstream event-type aliases and field/payload adapters; tag renaming alone cannot establish compatibility.
+- [x] Implement the separate AgentEventType identifier codec for all 31 canonical names and 11 aliases.
+- [ ] Implement explicit field/payload adapters; identifier parsing alone cannot establish compatibility.
 - [ ] Implement or explicitly classify AgentResult, DataBlockStart/Delta/End, ToolResultDataDelta, ExceedMaxIters, RequestStop, and AllToolsDenied event kinds.
 - [x] Correct AgentStart/AgentEnd correlation with one runtime pair per engine attempt. ReActAgentEventSpec verifies identity, private completion, buffering order, failure, cancellation, timeout, and early consumer cleanup. Structured-call completion remains a separate pending API.
 - [x] Exercise all 31 variants with repeated source tagging and verify tool-result metadata remains independent of source.
@@ -311,19 +312,19 @@ Each method remains pending a reviewed applicability decision or explicit adapte
 
 ### AgentEventStreamTest: 13 enabled methods
 
-- [ ] `runStartedAlias`: pending event-type/alias or missing data-delta behavior.
-- [ ] `runFinishedAlias`: pending event-type/alias or missing data-delta behavior.
-- [ ] `modelCallAliases`: pending event-type/alias or missing data-delta behavior.
-- [ ] `binaryBlockAliases`: pending event-type/alias or missing data-delta behavior.
-- [ ] `toolResultBinaryDeltaAlias`: pending event-type/alias or missing data-delta behavior.
-- [ ] `javaNativeNamesRoundTrip`: pending event-type/alias or missing data-delta behavior.
-- [ ] `fromValueRejectsUnknown`: pending event-type/alias or missing data-delta behavior.
-- [ ] `fromValueRejectsNull`: pending event-type/alias or missing data-delta behavior.
+- [x] `runStartedAlias`: same-named AgentEventTypeSpec test of identifiers only; payload adaptation remains separate.
+- [x] `runFinishedAlias`: same-named AgentEventTypeSpec test of identifiers only; payload adaptation remains separate.
+- [x] `modelCallAliases`: same-named AgentEventTypeSpec test of identifiers only; payload adaptation remains separate.
+- [x] `binaryBlockAliases`: same-named AgentEventTypeSpec test of identifiers only; payload adaptation remains separate.
+- [x] `toolResultBinaryDeltaAlias`: same-named AgentEventTypeSpec test of identifiers only; payload adaptation remains separate.
+- [x] `javaNativeNamesRoundTrip`: same-named AgentEventTypeSpec test of identifiers only; payload adaptation remains separate.
+- [x] `fromValueRejectsUnknown`: same-named AgentEventTypeSpec test; typed AgentError.DeserializationError replaces Java IllegalArgumentException. Java exception wording is not preserved; payload adaptation remains separate.
+- [x] `fromValueRejectsNull`: same-named AgentEventTypeSpec test; null/non-string JSON replaces the Java null-reference boundary.
 - [x] `toolResultEndEventMetadataRoundTrip`: same-named Scala serde test; immutable metadata and current Scala wire fields.
 - [x] `toolResultTextDeltaEventMetadataRoundTrip`: same-named Scala serde test; immutable metadata and current Scala wire fields.
-- [ ] `toolResultDataDeltaEventMetadataRoundTrip`: pending event-type/alias or missing data-delta behavior.
+- [ ] `toolResultDataDeltaEventMetadataRoundTrip`: pending data-delta payload and metadata behavior; its identifier is already supported.
 - [x] `toolResultStartEventEmptyMetadata`: same-named Scala serde test; immutable metadata and current Scala wire fields.
-- [ ] `allPythonValuesResolve`: pending event-type/alias or missing data-delta behavior.
+- [x] `allPythonValuesResolve`: same-named AgentEventTypeSpec test of identifiers only; payload adaptation remains separate.
 
 ### AgentEventStreamTest: seven disabled ordering declarations
 
@@ -336,3 +337,19 @@ These upstream methods contain comments rather than executable assertions and th
 - [ ] `dataBlockEmission`: complete and verify the prescribed runtime sequence.
 - [ ] `exceedMaxIters`: complete and verify the prescribed runtime sequence.
 - [ ] `streamBoundaries`: complete and verify the prescribed runtime sequence.
+
+### Remaining event payload contracts
+
+The pinned source audit establishes these target fields. None of these missing Scala payloads or integrations is marked complete by identifier support.
+
+| Pending variant | Required payload | Integration dependency |
+| --- | --- | --- |
+| AgentResult | result: Msg | Publish finalized result after structured postprocessing |
+| DataBlockStart / End | replyId, blockId | Stable block correlation and provider assembly |
+| DataBlockDelta | replyId, blockId, delta: String | Delta is text; it is not a ContentBlock |
+| ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Preserve arbitrary blocks and applicable metadata |
+| ExceedMaxIters | replyId, maxIters, currentIter | Runtime guard must use the correlated reply ID |
+| RequestStop | reason, typed GenerateReason; default MiddlewareStopRequested | Cooperative phase stop and durable pending-work resumption |
+| AllToolsDenied | Chunk[ToolUse], empty by default | Permission/HITL integration and middleware stop decision |
+
+Upstream base events also have identity/time, optional source, and metadata. Scala must use explicit supplied identity/time or an effectful allocator rather than copying eager UUID/clock access. Preserve immutable copies. Class presence alone is not runtime evidence: the pinned source has no production DataBlock event construction sites. A RequestStop event is distinct from fiber cancellation; supporting its type does not implement phase suspension or resumption.
