@@ -16,7 +16,8 @@ The reference is the clean local `agentscope-java` checkout at commit `f98a685fd
 - [x] Verify the completed slice with 118 core and 40 harness tests, zero compiler warnings.
 - [ ] Enumerate every upstream test method with a Scala counterpart, justified difference, or inapplicability.
 - [x] Classify all 119 message/content/usage methods below; unchecked methods remain gaps.
-- [ ] Complete event-by-event mappings and close the event defects listed below.
+- [x] Classify all 30 legacy/current event declarations below, including seven disabled ordering placeholders.
+- [ ] Close the remaining event type, payload, and emitter parity gaps.
 - [ ] Complete the tool matrix and platform-specific symlink integration coverage.
 - [ ] Add live HTTP/provider transport integration tests.
 - [ ] Complete ReAct and interruption scenario mappings, including lifecycle hooks not yet implemented.
@@ -276,12 +277,62 @@ MsgSpec test MsgTests.testConstructor preserves supplied timestamp and metadata 
 
 ## Event audit follow-up
 
-The independent audit found the following concrete gaps. Existing six Scala event tests do not prove upstream parity. The upstream legacy agent/EventTest and newer event/AgentEventStreamTest are separate contracts.
+The independent audit found the following gaps; completed corrections are checked below. The earlier six Scala event tests did not establish upstream parity. The upstream legacy agent/EventTest and newer event/AgentEventStreamTest are separate contracts.
 
-- [ ] Map the ten legacy EventTest methods and all 20 AgentEventStreamTest declarations, distinguishing 13 enabled tests from seven disabled ordering placeholders.
-- [ ] Make concrete event encoding compatible with decoding through AgentEvent; current leaf codecs omit the parent discriminator.
-- [ ] Preserve tool-result event metadata through decoding, encoding, and withSource.
-- [ ] Classify the upstream type/uppercase discriminators and legacy aliases against the current event/lowercase wire format.
+- [x] Map the ten legacy EventTest methods and all 20 AgentEventStreamTest declarations, distinguishing 13 enabled tests from seven disabled ordering placeholders.
+- [x] Use one canonical tagged representation for all 31 concrete/base event codecs; cross-decoding and legacy leaf decoding are tested.
+- [x] Preserve immutable metadata on existing tool-result start/text-delta/end events through decoding, encoding, and repeated source tagging.
+- [ ] Add the missing tool-result data-delta event and its metadata contract.
+- [ ] Carry applicable tool-result metadata through runtime event emitters; current acceptance covers codecs.
+- [x] Classify current event/lowercase and upstream type/uppercase wire formats as noninterchangeable; existing Scala wire tags remain canonical for compatibility.
+- [ ] Implement explicit upstream event-type aliases and field/payload adapters; tag renaming alone cannot establish compatibility.
 - [ ] Implement or explicitly classify AgentResult, DataBlockStart/Delta/End, ToolResultDataDelta, ExceedMaxIters, RequestStop, and AllToolsDenied event kinds.
 - [x] Correct AgentStart/AgentEnd correlation with one runtime pair per engine attempt. ReActAgentEventSpec verifies identity, private completion, buffering order, failure, cancellation, timeout, and early consumer cleanup. Structured-call completion remains a separate pending API.
-- [ ] Exercise source tagging for every variant, repeated tagging, and metadata preservation.
+- [x] Exercise all 31 variants with repeated source tagging and verify tool-result metadata remains independent of source.
+
+## Event method mapping
+
+The legacy `agent/EventTest` wraps Msg in six coarse event kinds; the newer `event/AgentEventStreamTest` describes a separate event surface. Neither is identical to the current 31 Scala variants. Scala encodes `event` with lowercase names and different payload fields; upstream uses `type` and uppercase names/aliases. This slice preserves the established Scala format. Checked metadata methods below are behavioral adaptations, not cross-language wire fixtures. [AgentEventSerdeSpec](../../modules/core/src/test/scala/com/weisgnosis/agents/core/event/AgentEventSerdeSpec.scala) supplies their local evidence.
+
+### Legacy EventTest: ten enabled methods
+
+Each method remains pending a reviewed applicability decision or explicit adapter; replacing mutable objects with immutable values does not automatically satisfy payload or serialization assertions.
+
+- [ ] `testEventTypeValues`: pending legacy Event/EventType compatibility classification.
+- [ ] `testEventCreation`: pending legacy Event/EventType compatibility classification.
+- [ ] `testEventIsLast`: pending legacy Event/EventType compatibility classification.
+- [ ] `testEventGetMessageId`: pending legacy Event/EventType compatibility classification.
+- [ ] `testEventToString`: pending legacy Event/EventType compatibility classification.
+- [ ] `testEventWithEmptyContent`: pending legacy Event/EventType compatibility classification.
+- [ ] `testEventWithMultipleContentBlocks`: pending legacy Event/EventType compatibility classification.
+- [ ] `testEventDifferentTypes`: pending legacy Event/EventType compatibility classification.
+- [ ] `testStreamingScenario`: pending legacy Event/EventType compatibility classification.
+- [ ] `testEventJsonSerializationIsLastFieldName`: pending legacy Event/EventType compatibility classification.
+
+### AgentEventStreamTest: 13 enabled methods
+
+- [ ] `runStartedAlias`: pending event-type/alias or missing data-delta behavior.
+- [ ] `runFinishedAlias`: pending event-type/alias or missing data-delta behavior.
+- [ ] `modelCallAliases`: pending event-type/alias or missing data-delta behavior.
+- [ ] `binaryBlockAliases`: pending event-type/alias or missing data-delta behavior.
+- [ ] `toolResultBinaryDeltaAlias`: pending event-type/alias or missing data-delta behavior.
+- [ ] `javaNativeNamesRoundTrip`: pending event-type/alias or missing data-delta behavior.
+- [ ] `fromValueRejectsUnknown`: pending event-type/alias or missing data-delta behavior.
+- [ ] `fromValueRejectsNull`: pending event-type/alias or missing data-delta behavior.
+- [x] `toolResultEndEventMetadataRoundTrip`: same-named Scala serde test; immutable metadata and current Scala wire fields.
+- [x] `toolResultTextDeltaEventMetadataRoundTrip`: same-named Scala serde test; immutable metadata and current Scala wire fields.
+- [ ] `toolResultDataDeltaEventMetadataRoundTrip`: pending event-type/alias or missing data-delta behavior.
+- [x] `toolResultStartEventEmptyMetadata`: same-named Scala serde test; immutable metadata and current Scala wire fields.
+- [ ] `allPythonValuesResolve`: pending event-type/alias or missing data-delta behavior.
+
+### AgentEventStreamTest: seven disabled ordering declarations
+
+These upstream methods contain comments rather than executable assertions and their enclosing class is disabled. They remain explicit implementation requirements, not passing upstream evidence. The new ReActAgentEventSpec tests actual runtime boundaries and transport completion, without claiming the entire prescribed model/tool event sequence.
+
+- [ ] `singleIterationOrder`: complete and verify the prescribed runtime sequence.
+- [ ] `thinkingBeforeText`: complete and verify the prescribed runtime sequence.
+- [ ] `toolCallCycle`: complete and verify the prescribed runtime sequence.
+- [ ] `hitlReentry`: complete and verify the prescribed runtime sequence.
+- [ ] `dataBlockEmission`: complete and verify the prescribed runtime sequence.
+- [ ] `exceedMaxIters`: complete and verify the prescribed runtime sequence.
+- [ ] `streamBoundaries`: complete and verify the prescribed runtime sequence.
