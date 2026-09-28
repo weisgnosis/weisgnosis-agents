@@ -21,8 +21,9 @@ import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
-/** 1:1 test parity suite for ToolExecutionTest.java from AgentScope Java.
-  */
+/**
+ * 1:1 test parity suite for ToolExecutionTest.java from AgentScope Java.
+ */
 object ToolExecutionSpec extends ZIOSpecDefault:
 
   final case class AddInput(a: Int, b: Int) derives JsonCodec
@@ -81,9 +82,9 @@ object ToolExecutionSpec extends ZIOSpecDefault:
 
       for
         fiber <- slowTk.executeSafe("slow", Json.Obj()).fork
-        _ <- Live.live(ZIO.sleep(50.millis))
-        _ <- fiber.interrupt
-        exit <- fiber.await
+        _     <- Live.live(ZIO.sleep(50.millis))
+        _     <- fiber.interrupt
+        exit  <- fiber.await
       yield assertTrue(exit.isInterrupted)
     }
   )

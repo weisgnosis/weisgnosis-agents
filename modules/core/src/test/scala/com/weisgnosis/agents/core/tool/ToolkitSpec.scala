@@ -19,8 +19,9 @@ import zio.*
 import zio.json.ast.Json
 import zio.test.*
 
-/** 1:1 test parity suite for ToolkitTest.java from AgentScope Java.
-  */
+/**
+ * 1:1 test parity suite for ToolkitTest.java from AgentScope Java.
+ */
 object ToolkitSpec extends ZIOSpecDefault:
 
   private val dummyTool1: Tool[Any, Json, String] =
@@ -49,7 +50,7 @@ object ToolkitSpec extends ZIOSpecDefault:
       )
     },
     test("Reject duplicate tool registrations via register method") {
-      val tk1 = Toolkit.empty.withTool(dummyTool1)
+      val tk1    = Toolkit.empty.withTool(dummyTool1)
       val result = tk1.register(dummyTool1)
 
       assertTrue(
@@ -58,8 +59,8 @@ object ToolkitSpec extends ZIOSpecDefault:
       )
     },
     test("Merge two Toolkits via ++") {
-      val tk1 = Toolkit.empty.withTool(dummyTool1)
-      val tk2 = Toolkit.empty.withTool(dummyTool2)
+      val tk1    = Toolkit.empty.withTool(dummyTool1)
+      val tk2    = Toolkit.empty.withTool(dummyTool2)
       val merged = tk1 ++ tk2
 
       assertTrue(

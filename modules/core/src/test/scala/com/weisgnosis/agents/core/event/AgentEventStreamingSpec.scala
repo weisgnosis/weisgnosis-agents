@@ -19,8 +19,9 @@ import zio.*
 import zio.stream.ZStream
 import zio.test.*
 
-/** Verifies event streaming behavior over ZStream, Hub, and Queue with hierarchical source tagging.
-  */
+/**
+ * Verifies event streaming behavior over ZStream, Hub, and Queue with hierarchical source tagging.
+ */
 object AgentEventStreamingSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("AgentEventStreamingSpec")(
@@ -48,7 +49,8 @@ object AgentEventStreamingSpec extends ZIOSpecDefault:
         AgentEvent.TextBlockEndEvent(0, "subagent result")
       )
 
-      val subagentStream = ZStream.fromChunk(rawEvents)
+      val subagentStream = ZStream
+        .fromChunk(rawEvents)
         .map(_.withSource("parent-sess/subagent-1"))
 
       for events <- subagentStream.runCollect
@@ -62,10 +64,10 @@ object AgentEventStreamingSpec extends ZIOSpecDefault:
 
       ZIO.scoped {
         for
-          hub <- Hub.bounded[AgentEvent](16)
-          sub1 <- hub.subscribe
-          sub2 <- hub.subscribe
-          _ <- hub.publish(ev)
+          hub       <- Hub.bounded[AgentEvent](16)
+          sub1      <- hub.subscribe
+          sub2      <- hub.subscribe
+          _         <- hub.publish(ev)
           received1 <- sub1.take
           received2 <- sub2.take
         yield assertTrue(

@@ -17,8 +17,9 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.model.Msg
 
-/** Outcome of accumulating streaming deltas over an LLM reasoning turn.
-  */
+/**
+ * Outcome of accumulating streaming deltas over an LLM reasoning turn.
+ */
 sealed trait TurnOutput:
   def message: Msg
 

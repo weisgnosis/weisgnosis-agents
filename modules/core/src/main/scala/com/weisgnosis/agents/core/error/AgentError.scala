@@ -17,8 +17,9 @@ package com.weisgnosis.agents.core.error
 
 import zio.json.*
 
-/** Typed recoverable domain errors for the agent runtime.
-  */
+/**
+ * Typed recoverable domain errors for the agent runtime.
+ */
 sealed trait AgentError extends Throwable:
   def message: String
   override def getMessage: String = message
@@ -26,58 +27,58 @@ sealed trait AgentError extends Throwable:
 object AgentError:
 
   final case class ModelError(
-    statusCode: Int,
-    message: String,
-    errorPayload: Option[String] = None
+      statusCode: Int,
+      message: String,
+      errorPayload: Option[String] = None
   ) extends AgentError
 
   final case class ToolExecutionError(
-    toolName: String,
-    message: String,
-    cause: Option[String] = None
+      toolName: String,
+      message: String,
+      cause: Option[String] = None
   ) extends AgentError
 
   final case class ToolNotFoundError(
-    toolName: String
+      toolName: String
   ) extends AgentError:
     def message: String = s"Tool not found: $toolName"
 
   final case class ContextLengthExceeded(
-    currentTokens: Long,
-    limit: Long
+      currentTokens: Long,
+      limit: Long
   ) extends AgentError:
     def message: String = s"Context length exceeded: current=$currentTokens, limit=$limit"
 
   final case class PermissionDenied(
-    toolName: String,
-    reason: String
+      toolName: String,
+      reason: String
   ) extends AgentError:
     def message: String = s"Permission denied for tool '$toolName': $reason"
 
   final case class MaxIterationsExceeded(
-    iterations: Int
+      iterations: Int
   ) extends AgentError:
     def message: String = s"Maximum ReAct iterations reached: $iterations"
 
   final case class Interrupted(
-    message: String
+      message: String
   ) extends AgentError
 
   final case class DeserializationError(
-    message: String
+      message: String
   ) extends AgentError
 
   final case class TimeoutError(
-    timeoutSeconds: Long,
-    message: String
+      timeoutSeconds: Long,
+      message: String
   ) extends AgentError
 
-  given JsonCodec[ModelError] = DeriveJsonCodec.gen
-  given JsonCodec[ToolExecutionError] = DeriveJsonCodec.gen
-  given JsonCodec[ToolNotFoundError] = DeriveJsonCodec.gen
+  given JsonCodec[ModelError]            = DeriveJsonCodec.gen
+  given JsonCodec[ToolExecutionError]    = DeriveJsonCodec.gen
+  given JsonCodec[ToolNotFoundError]     = DeriveJsonCodec.gen
   given JsonCodec[ContextLengthExceeded] = DeriveJsonCodec.gen
-  given JsonCodec[PermissionDenied] = DeriveJsonCodec.gen
+  given JsonCodec[PermissionDenied]      = DeriveJsonCodec.gen
   given JsonCodec[MaxIterationsExceeded] = DeriveJsonCodec.gen
-  given JsonCodec[Interrupted] = DeriveJsonCodec.gen
-  given JsonCodec[DeserializationError] = DeriveJsonCodec.gen
-  given JsonCodec[TimeoutError] = DeriveJsonCodec.gen
+  given JsonCodec[Interrupted]           = DeriveJsonCodec.gen
+  given JsonCodec[DeserializationError]  = DeriveJsonCodec.gen
+  given JsonCodec[TimeoutError]          = DeriveJsonCodec.gen

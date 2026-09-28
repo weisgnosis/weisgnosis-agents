@@ -20,9 +20,10 @@ import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
-/** 1:1 test parity suite for ContentBlock JSON serialization and deserialization
-  * matching ToolUseBlockTest.java and ToolResultBlockTest.java.
-  */
+/**
+ * 1:1 test parity suite for ContentBlock JSON serialization and deserialization
+ * matching ToolUseBlockTest.java and ToolResultBlockTest.java.
+ */
 object ContentBlockSerdeSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("ContentBlockSerdeSpec")(
@@ -138,7 +139,7 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
           metadata = Map("agentscope_server_tool" -> Json.Bool(true))
         )
 
-        val json = result.toJson
+        val json         = result.toJson
         val deserialized = json.fromJson[ContentBlock.ToolResult]
 
         assertTrue(
@@ -204,7 +205,7 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
           metadata = Map("thoughtSignature" -> Json.Str("sig-xyz"))
         )
 
-        val json = (block: ContentBlock).toJson
+        val json    = (block: ContentBlock).toJson
         val decoded = json.fromJson[ContentBlock]
 
         assertTrue(

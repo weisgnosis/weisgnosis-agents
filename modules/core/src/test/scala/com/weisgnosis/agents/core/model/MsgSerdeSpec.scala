@@ -19,8 +19,9 @@ import zio.Chunk
 import zio.json.*
 import zio.test.*
 
-/** 1:1 test parity suite for MsgUsageSerializationTest.java and Msg JSON serialization.
-  */
+/**
+ * 1:1 test parity suite for MsgUsageSerializationTest.java and Msg JSON serialization.
+ */
 object MsgSerdeSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("MsgSerdeSpec (AgentScope Java Parity)")(
@@ -34,7 +35,7 @@ object MsgSerdeSpec extends ZIOSpecDefault:
           usage = Some(usage)
         )
 
-        val json = msg.toJson
+        val json         = msg.toJson
         val deserialized = json.fromJson[Msg]
 
         assertTrue(
@@ -54,7 +55,7 @@ object MsgSerdeSpec extends ZIOSpecDefault:
           usage = Some(usage)
         )
 
-        val json = msg.toJson
+        val json         = msg.toJson
         val deserialized = json.fromJson[Msg]
 
         assertTrue(
@@ -65,8 +66,8 @@ object MsgSerdeSpec extends ZIOSpecDefault:
     ),
     suite("Msg Wire Format & Invariants")(
       test("User message round-trip serialization") {
-        val msg = Msg.user("How is the weather today?")
-        val json = msg.toJson
+        val msg          = Msg.user("How is the weather today?")
+        val json         = msg.toJson
         val deserialized = json.fromJson[Msg]
 
         assertTrue(
@@ -76,8 +77,8 @@ object MsgSerdeSpec extends ZIOSpecDefault:
         )
       },
       test("Synthetic system reminder round-trip with metadata") {
-        val reminder = Msg.systemReminder("Remember to check test coverage")
-        val json = reminder.toJson
+        val reminder     = Msg.systemReminder("Remember to check test coverage")
+        val json         = reminder.toJson
         val deserialized = json.fromJson[Msg]
 
         assertTrue(

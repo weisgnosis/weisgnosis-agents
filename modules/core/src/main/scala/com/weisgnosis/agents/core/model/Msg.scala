@@ -20,18 +20,19 @@ import zio.json.*
 import zio.json.ast.Json
 import java.util.UUID
 
-/** Immutable message representing a single conversation turn between users, agents, and tools.
-  *
-  * Corresponds to `io.agentscope.core.message.Msg` in AgentScope Java.
-  */
+/**
+ * Immutable message representing a single conversation turn between users, agents, and tools.
+ *
+ * Corresponds to `io.agentscope.core.message.Msg` in AgentScope Java.
+ */
 final case class Msg(
-  id: String = UUID.randomUUID().toString,
-  name: Option[String] = None,
-  role: Role,
-  content: Chunk[ContentBlock] = Chunk.empty,
-  metadata: Map[String, Json] = Map.empty,
-  timestamp: Option[String] = None,
-  usage: Option[ChatUsage] = None
+    id: String = UUID.randomUUID().toString,
+    name: Option[String] = None,
+    role: Role,
+    content: Chunk[ContentBlock] = Chunk.empty,
+    metadata: Map[String, Json] = Map.empty,
+    timestamp: Option[String] = None,
+    usage: Option[ChatUsage] = None
 ):
 
   /** Concatenates text content across all text blocks separated by newlines. */
@@ -76,25 +77,41 @@ final case class Msg(
   def withUsage(newUsage: ChatUsage): Msg =
     copy(usage = Some(newUsage))
 
+  /** Returns the generate reason if marked in metadata. */
+  def generateReason: Option[String] =
+    metadata.get(Msg.MetadataGenerateReason).flatMap(_.asString)
+
+  /** Returns an updated copy with generate reason metadata. */
+  def withGenerateReason(reason: String): Msg =
+    withMetadata(Msg.MetadataGenerateReason, Json.Str(reason))
+
+  /** Extracts and decodes structured output from metadata `_structured_output`, or parses message text. */
+  def getStructuredData[A: JsonDecoder]: Either[String, A] =
+    metadata.get("_structured_output") match
+      case Some(ast) => ast.as[A]
+      case None      => text.fromJson[A]
+
   /** Returns an updated copy with participant name. */
   def withName(newName: String): Msg =
     copy(name = Some(newName))
 
 object Msg:
 
-  val MetadataGenerateReason: String = "agentscope_generate_reason"
-  val MetadataConfirmResults: String = "agentscope_confirm_results"
+  val MetadataGenerateReason: String        = "agentscope_generate_reason"
+  val MetadataConfirmResults: String        = "agentscope_confirm_results"
   val MetadataConfirmRequestReplyId: String = "agentscope_confirm_request_reply_id"
-  val MetadataExternalExecutionRequestReplyId: String = "agentscope_external_execution_request_reply_id"
-  val MetadataSynthetic: String = "agentscope_synthetic"
+  val MetadataExternalExecutionRequestReplyId: String =
+    "agentscope_external_execution_request_reply_id"
+  val MetadataSynthetic: String    = "agentscope_synthetic"
   val MetadataReminderKind: String = "agentscope_reminder_kind"
 
-  /** Enforces role-to-content block type compatibility invariants:
-    * - USER: Text, Data, Image, Audio, Video, Custom (rejects Hint, Thinking, ToolUse, ToolResult)
-    * - SYSTEM: Text only
-    * - ASSISTANT: Unrestricted (any content block)
-    * - TOOL: Unrestricted (retained for backward compatibility)
-    */
+  /**
+   * Enforces role-to-content block type compatibility invariants:
+   * - USER: Text, Data, Image, Audio, Video, Custom (rejects Hint, Thinking, ToolUse, ToolResult)
+   * - SYSTEM: Text only
+   * - ASSISTANT: Unrestricted (any content block)
+   * - TOOL: Unrestricted (retained for backward compatibility)
+   */
   def validateRoleContent(role: Role, content: Chunk[ContentBlock]): Either[String, Unit] =
     role match
       case Role.User =>
@@ -108,7 +125,10 @@ object Msg:
           case _                      => false
         }
         if invalid.isEmpty then Right(())
-        else Left(s"USER messages cannot contain blocks of type: ${invalid.map(b => b.getClass.getSimpleName).mkString(", ")}")
+        else
+          Left(
+            s"USER messages cannot contain blocks of type: ${invalid.map(b => b.getClass.getSimpleName).mkString(", ")}"
+          )
 
       case Role.System =>
         val invalid = content.filterNot {
@@ -116,7 +136,10 @@ object Msg:
           case _                    => false
         }
         if invalid.isEmpty then Right(())
-        else Left(s"SYSTEM messages can only contain TextBlock, but found: ${invalid.map(b => b.getClass.getSimpleName).mkString(", ")}")
+        else
+          Left(
+            s"SYSTEM messages can only contain TextBlock, but found: ${invalid.map(b => b.getClass.getSimpleName).mkString(", ")}"
+          )
 
       case Role.Assistant =>
         Right(())
@@ -126,13 +149,13 @@ object Msg:
 
   /** Validated smart constructor ensuring invariants hold before instantiating `Msg`. */
   def create(
-    role: Role,
-    content: Chunk[ContentBlock] = Chunk.empty,
-    id: String = UUID.randomUUID().toString,
-    name: Option[String] = None,
-    metadata: Map[String, Json] = Map.empty,
-    timestamp: Option[String] = None,
-    usage: Option[ChatUsage] = None
+      role: Role,
+      content: Chunk[ContentBlock] = Chunk.empty,
+      id: String = UUID.randomUUID().toString,
+      name: Option[String] = None,
+      metadata: Map[String, Json] = Map.empty,
+      timestamp: Option[String] = None,
+      usage: Option[ChatUsage] = None
   ): Either[String, Msg] =
     validateRoleContent(role, content).map(_ =>
       Msg(
@@ -167,12 +190,17 @@ object Msg:
       name = Some("system"),
       content = Chunk(ContentBlock.Text(s"<system-reminder>$text</system-reminder>")),
       metadata = Map(
-        MetadataSynthetic -> Json.Bool(true),
+        MetadataSynthetic    -> Json.Bool(true),
         MetadataReminderKind -> Json.Str("system_directive")
       )
     )
 
-  def tool(id: String, name: String, output: String, state: ToolResultState = ToolResultState.Success): Msg =
+  def tool(
+      id: String,
+      name: String,
+      output: String,
+      state: ToolResultState = ToolResultState.Success
+  ): Msg =
     Msg(
       role = Role.Tool,
       name = Some(name),
@@ -182,35 +210,41 @@ object Msg:
   given JsonCodec[Msg] = summon[JsonCodec[Json]].transformOrFail(
     json =>
       for
-        obj <- json.asObject.toRight("Msg must be a JSON object")
+        obj  <- json.asObject.toRight("Msg must be a JSON object")
         role <- obj.get("role").toRight("Missing 'role' field in Msg").flatMap(_.as[Role])
         content <- obj.get("content") match
           case None | Some(Json.Null) => Right(Chunk.empty[ContentBlock])
           case Some(Json.Arr(elements)) =>
             val parsed = elements.map(el => el.as[ContentBlock])
-            val lefts = parsed.collect { case Left(err) => err }
+            val lefts  = parsed.collect { case Left(err) => err }
             if lefts.nonEmpty then Left(lefts.mkString("; "))
             else Right(Chunk.fromIterable(parsed.collect { case Right(b) => b }))
           case Some(other) =>
             Left(s"Invalid content field in Msg: expected array, got: $other")
         _ <- validateRoleContent(role, content)
-        id = obj.get("id").flatMap(_.as[String].toOption).getOrElse(UUID.randomUUID().toString)
+        id   = obj.get("id").flatMap(_.as[String].toOption).getOrElse(UUID.randomUUID().toString)
         name = obj.get("name").flatMap(_.as[String].toOption)
-        metadata = obj.get("metadata").flatMap(_.as[Map[String, Json]].toOption).getOrElse(Map.empty)
+        metadata = obj
+          .get("metadata")
+          .flatMap(_.as[Map[String, Json]].toOption)
+          .getOrElse(Map.empty)
         timestamp = obj.get("timestamp").flatMap(_.as[String].toOption)
-        usage = obj.get("usage").flatMap(_.as[ChatUsage].toOption)
+        usage     = obj.get("usage").flatMap(_.as[ChatUsage].toOption)
       yield Msg(id, name, role, content, metadata, timestamp, usage),
     msg =>
       val baseFields: Chunk[(String, Json)] = Chunk(
-        "id" -> Json.Str(msg.id),
-        "role" -> msg.role.toJsonAST.getOrElse(Json.Str("user")),
+        "id"      -> Json.Str(msg.id),
+        "role"    -> msg.role.toJsonAST.getOrElse(Json.Str("user")),
         "content" -> Json.Arr(msg.content.map(b => b.toJsonAST.getOrElse(Json.Null)))
       )
       val nameField = msg.name.map(n => "name" -> Json.Str(n))
       val metaField =
         if msg.metadata.nonEmpty then Some("metadata" -> Json.Obj(Chunk.fromIterable(msg.metadata)))
         else None
-      val tsField = msg.timestamp.map(ts => "timestamp" -> Json.Str(ts))
+      val tsField    = msg.timestamp.map(ts => "timestamp" -> Json.Str(ts))
       val usageField = msg.usage.flatMap(u => u.toJsonAST.toOption.map(ast => "usage" -> ast))
-      Json.Obj(baseFields ++ Chunk.fromIterable(nameField) ++ Chunk.fromIterable(metaField) ++ Chunk.fromIterable(tsField) ++ Chunk.fromIterable(usageField))
+      Json.Obj(
+        baseFields ++ Chunk.fromIterable(nameField) ++ Chunk.fromIterable(metaField) ++ Chunk
+          .fromIterable(tsField) ++ Chunk.fromIterable(usageField)
+      )
   )

@@ -20,8 +20,9 @@ import com.weisgnosis.agents.core.model.Msg
 import zio.*
 import zio.test.*
 
-/** Verifies LlmClient streaming interface with mock client and sequential turns.
-  */
+/**
+ * Verifies LlmClient streaming interface with mock client and sequential turns.
+ */
 object LlmClientSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("LlmClientSpec")(
@@ -32,7 +33,7 @@ object LlmClientSpec extends ZIOSpecDefault:
       ZIO.scoped {
         for
           client <- LlmClient.mock(Chunk(resp1, resp2))
-          hub <- Hub.bounded[AgentEvent](16)
+          hub    <- Hub.bounded[AgentEvent](16)
           config = LlmConfig(model = "test-model")
           out1 <- client.streamTurn(Chunk.empty, Chunk.empty, config, hub)
           out2 <- client.streamTurn(Chunk.empty, Chunk.empty, config, hub)

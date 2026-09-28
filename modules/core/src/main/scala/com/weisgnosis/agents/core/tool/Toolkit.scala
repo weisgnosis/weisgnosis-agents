@@ -19,20 +19,20 @@ import com.weisgnosis.agents.core.model.ToolResultState
 import zio.*
 import zio.json.ast.Json
 
-/** Immutable, type-safe registry of tools available to an agent.
-  *
-  * Corresponds to `io.agentscope.core.tool.Toolkit` in AgentScope Java.
-  */
+/**
+ * Immutable, type-safe registry of tools available to an agent.
+ *
+ * Corresponds to `io.agentscope.core.tool.Toolkit` in AgentScope Java.
+ */
 final case class Toolkit(
-  tools: Map[String, Tool[Any, ?, ?]] = Map.empty
+    tools: Map[String, Tool[Any, ?, ?]] = Map.empty
 ):
 
   /** Registers a tool, returning an error if a tool with the same name already exists. */
   def register(tool: Tool[Any, ?, ?]): Either[String, Toolkit] =
     if tools.contains(tool.definition.name) then
       Left(s"Tool collision: tool '${tool.definition.name}' is already registered in this toolkit.")
-    else
-      Right(copy(tools = tools + (tool.definition.name -> tool)))
+    else Right(copy(tools = tools + (tool.definition.name -> tool)))
 
   /** Chaining registration for static configuration; rejects duplicate names. */
   def withTool(tool: Tool[Any, ?, ?]): Toolkit =
@@ -62,10 +62,11 @@ final case class Toolkit(
   /** Whether the toolkit contains zero tools. */
   def isEmpty: Boolean = tools.isEmpty
 
-  /** Safely executes a tool by name with raw JSON arguments.
-    * Never throws; failures and invalid arguments are captured into `ToolExecutionResult`
-    * with `ToolResultState.Error` so the model can inspect error messages.
-    */
+  /**
+   * Safely executes a tool by name with raw JSON arguments.
+   * Never throws; failures and invalid arguments are captured into `ToolExecutionResult`
+   * with `ToolResultState.Error` so the model can inspect error messages.
+   */
   def executeSafe(name: String, rawArgs: Json): ZIO[Any, Nothing, ToolExecutionResult] =
     tools.get(name) match
       case None =>

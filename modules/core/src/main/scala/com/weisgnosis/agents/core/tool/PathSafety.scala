@@ -20,9 +20,10 @@ import java.nio.file.{Files, Path}
 import java.util.Locale
 import scala.jdk.CollectionConverters.*
 
-/** Path and command safety utilities enforcing invariant INV-10 (Sensitive Path Canonicalization)
-  * and matching AgentScope Java ToolDangerousPathConstants.
-  */
+/**
+ * Path and command safety utilities enforcing invariant INV-10 (Sensitive Path Canonicalization)
+ * and matching AgentScope Java ToolDangerousPathConstants.
+ */
 object PathSafety:
 
   val DefaultDangerousFiles: Set[String] = Set(
@@ -78,27 +79,29 @@ object PathSafety:
     else path
 
   private def isDangerousAbsolute(
-    path: Path,
-    dangerousFiles: Set[String],
-    dangerousDirectories: Set[String]
+      path: Path,
+      dangerousFiles: Set[String],
+      dangerousDirectories: Set[String]
   ): Boolean =
     val fileName = Option(path.getFileName).map(_.toString.toLowerCase(Locale.ROOT)).getOrElse("")
     if dangerousFiles.contains(fileName) then true
     else
       val normalizedStr = path.toString.replace('\\', '/').toLowerCase(Locale.ROOT)
-      val matchesRelativeFile = dangerousFiles.exists(df => df.contains("/") && normalizedStr.endsWith(df))
+      val matchesRelativeFile =
+        dangerousFiles.exists(df => df.contains("/") && normalizedStr.endsWith(df))
       if matchesRelativeFile then true
       else
         val segments = path.iterator().asScala.map(_.toString.toLowerCase(Locale.ROOT)).toSet
         segments.exists(dangerousDirectories.contains)
 
-  /** Evaluates whether a file path targets sensitive credential, shell, or repository configuration.
-    * Resolves canonical real paths via `toRealPath()` to prevent symlink traversal escapes.
-    */
+  /**
+   * Evaluates whether a file path targets sensitive credential, shell, or repository configuration.
+   * Resolves canonical real paths via `toRealPath()` to prevent symlink traversal escapes.
+   */
   def isDangerousPath(
-    filePath: String,
-    dangerousFiles: Set[String] = DefaultDangerousFiles,
-    dangerousDirectories: Set[String] = DefaultDangerousDirectories
+      filePath: String,
+      dangerousFiles: Set[String] = DefaultDangerousFiles,
+      dangerousDirectories: Set[String] = DefaultDangerousDirectories
   ): Boolean =
     if filePath == null || filePath.trim.isEmpty then false
     else
@@ -108,15 +111,19 @@ object PathSafety:
         else
           try
             val resolved = if Files.exists(absolute) then absolute.toRealPath() else absolute
-            if resolved != absolute && isDangerousAbsolute(resolved, dangerousFiles, dangerousDirectories) then true
+            if resolved != absolute && isDangerousAbsolute(
+                resolved,
+                dangerousFiles,
+                dangerousDirectories
+              )
+            then true
             else false
-          catch
-            case _: IOException => false
-      catch
-        case _: Exception => false
+          catch case _: IOException => false
+      catch case _: Exception => false
 
-  /** Evaluates whether a shell command contains destructive or privilege-escalating fragments.
-    */
+  /**
+   * Evaluates whether a shell command contains destructive or privilege-escalating fragments.
+   */
   def isDangerousCommand(command: String): Boolean =
     if command == null || command.trim.isEmpty then false
     else

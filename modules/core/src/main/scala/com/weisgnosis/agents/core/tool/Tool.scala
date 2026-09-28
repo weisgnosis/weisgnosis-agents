@@ -19,14 +19,15 @@ import zio.*
 import zio.json.*
 import zio.json.ast.Json
 
-/** Type-safe functional tool interface with suspended ZIO execution.
-  *
-  * Corresponds to `io.agentscope.core.tool.Tool` in AgentScope Java.
-  */
+/**
+ * Type-safe functional tool interface with suspended ZIO execution.
+ *
+ * Corresponds to `io.agentscope.core.tool.Tool` in AgentScope Java.
+ */
 trait Tool[-R, In, Out]:
   def definition: ToolDef
   def isConcurrencySafe: Boolean = definition.isConcurrencySafe
-  def isReadOnly: Boolean = definition.isReadOnly
+  def isReadOnly: Boolean        = definition.isReadOnly
   def execute(input: In): ZIO[R, Throwable, Out]
   def decodeInput(raw: Json): Either[String, In]
   def encodeOutput(out: Out): String
@@ -34,24 +35,24 @@ trait Tool[-R, In, Out]:
 object Tool:
 
   def fromFunction[In: JsonDecoder, Out: JsonEncoder](
-    name: String,
-    description: String,
-    schema: Json = Json.Obj(),
-    isReadOnly: Boolean = false,
-    isConcurrencySafe: Boolean = true
+      name: String,
+      description: String,
+      schema: Json = Json.Obj(),
+      isReadOnly: Boolean = false,
+      isConcurrencySafe: Boolean = true
   )(run: In => ZIO[Any, Throwable, Out]): Tool[Any, In, Out] =
     val defn = ToolDef(name, description, schema, isConcurrencySafe, isReadOnly)
     new Tool[Any, In, Out]:
-      def definition: ToolDef = defn
+      def definition: ToolDef                          = defn
       def execute(input: In): ZIO[Any, Throwable, Out] = run(input)
-      def decodeInput(raw: Json): Either[String, In] = raw.as[In]
-      def encodeOutput(out: Out): String = out.toJson
+      def decodeInput(raw: Json): Either[String, In]   = raw.as[In]
+      def encodeOutput(out: Out): String               = out.toJson
 
   def make(
-    defn: ToolDef
+      defn: ToolDef
   )(run: Json => ZIO[Any, Throwable, String]): Tool[Any, Json, String] =
     new Tool[Any, Json, String]:
-      def definition: ToolDef = defn
+      def definition: ToolDef                               = defn
       def execute(input: Json): ZIO[Any, Throwable, String] = run(input)
-      def decodeInput(raw: Json): Either[String, Json] = Right(raw)
-      def encodeOutput(out: String): String = out
+      def decodeInput(raw: Json): Either[String, Json]      = Right(raw)
+      def encodeOutput(out: String): String                 = out

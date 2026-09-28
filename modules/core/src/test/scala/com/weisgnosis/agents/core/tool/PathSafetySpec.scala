@@ -17,8 +17,9 @@ package com.weisgnosis.agents.core.tool
 
 import zio.test.*
 
-/** 1:1 test parity suite for DangerousPathBypassTest.java and ToolBaseTest.java from AgentScope Java.
-  */
+/**
+ * 1:1 test parity suite for DangerousPathBypassTest.java and ToolBaseTest.java from AgentScope Java.
+ */
 object PathSafetySpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("PathSafetySpec (DangerousPathBypassTest Parity)")(

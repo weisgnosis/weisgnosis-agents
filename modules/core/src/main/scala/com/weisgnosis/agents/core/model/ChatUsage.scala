@@ -17,18 +17,19 @@ package com.weisgnosis.agents.core.model
 
 import zio.json.*
 
-/** Represents token and resource usage metrics for model interactions.
-  *
-  * Corresponds to `io.agentscope.core.model.ChatUsage` in AgentScope Java.
-  */
+/**
+ * Represents token and resource usage metrics for model interactions.
+ *
+ * Corresponds to `io.agentscope.core.model.ChatUsage` in AgentScope Java.
+ */
 final case class ChatUsage(
-  inputTokens: Int = 0,
-  outputTokens: Int = 0,
-  cachedTokens: Int = 0,
-  cacheCreationTokens: Int = 0,
-  reasoningTokens: Int = 0,
-  toolUsePromptTokens: Int = 0,
-  time: Double = 0.0
+    inputTokens: Int = 0,
+    outputTokens: Int = 0,
+    cachedTokens: Int = 0,
+    cacheCreationTokens: Int = 0,
+    reasoningTokens: Int = 0,
+    toolUsePromptTokens: Int = 0,
+    time: Double = 0.0
 ):
   def totalTokens: Int = inputTokens + outputTokens
 

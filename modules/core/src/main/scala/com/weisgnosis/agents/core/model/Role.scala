@@ -17,10 +17,11 @@ package com.weisgnosis.agents.core.model
 
 import zio.json.*
 
-/** Defines the participant role in an agent conversation.
-  *
-  * Corresponds to `io.agentscope.core.message.MsgRole` in AgentScope Java.
-  */
+/**
+ * Defines the participant role in an agent conversation.
+ *
+ * Corresponds to `io.agentscope.core.message.MsgRole` in AgentScope Java.
+ */
 enum Role:
   case System
   case User

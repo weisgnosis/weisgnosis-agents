@@ -18,40 +18,41 @@ package com.weisgnosis.agents.core.client
 import com.weisgnosis.agents.core.model.ChatUsage
 import zio.json.*
 
-/** Sealed algebraic data type representing streaming deltas emitted by an LLM completion stream.
-  */
+/**
+ * Sealed algebraic data type representing streaming deltas emitted by an LLM completion stream.
+ */
 sealed trait LlmChunk
 
 object LlmChunk:
 
   final case class TextDelta(
-    delta: String,
-    blockIndex: Int = 0
+      delta: String,
+      blockIndex: Int = 0
   ) extends LlmChunk
 
   final case class ThinkingDelta(
-    delta: String,
-    blockIndex: Int = 0,
-    signature: Option[String] = None
+      delta: String,
+      blockIndex: Int = 0,
+      signature: Option[String] = None
   ) extends LlmChunk
 
   final case class ToolCallChunk(
-    streamIndex: Int,
-    callId: Option[String] = None,
-    name: Option[String] = None,
-    argumentsDelta: String = ""
+      streamIndex: Int,
+      callId: Option[String] = None,
+      name: Option[String] = None,
+      argumentsDelta: String = ""
   ) extends LlmChunk
 
   final case class UsageChunk(
-    usage: ChatUsage
+      usage: ChatUsage
   ) extends LlmChunk
 
   final case class FinishReason(
-    reason: String
+      reason: String
   ) extends LlmChunk
 
-  given JsonCodec[TextDelta] = DeriveJsonCodec.gen
+  given JsonCodec[TextDelta]     = DeriveJsonCodec.gen
   given JsonCodec[ThinkingDelta] = DeriveJsonCodec.gen
   given JsonCodec[ToolCallChunk] = DeriveJsonCodec.gen
-  given JsonCodec[UsageChunk] = DeriveJsonCodec.gen
-  given JsonCodec[FinishReason] = DeriveJsonCodec.gen
+  given JsonCodec[UsageChunk]    = DeriveJsonCodec.gen
+  given JsonCodec[FinishReason]  = DeriveJsonCodec.gen

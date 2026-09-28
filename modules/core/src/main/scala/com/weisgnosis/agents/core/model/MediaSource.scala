@@ -18,17 +18,18 @@ package com.weisgnosis.agents.core.model
 import zio.json.*
 import zio.json.ast.Json
 
-/** Polymorphic media source representing either a remote URL or inline Base64 data.
-  *
-  * Corresponds to `io.agentscope.core.message.Source` in AgentScope Java.
-  */
+/**
+ * Polymorphic media source representing either a remote URL or inline Base64 data.
+ *
+ * Corresponds to `io.agentscope.core.message.Source` in AgentScope Java.
+ */
 sealed trait MediaSource
 
 object MediaSource:
-  final case class Url(url: String) extends MediaSource
+  final case class Url(url: String)                        extends MediaSource
   final case class Base64(mediaType: String, data: String) extends MediaSource
 
-  given JsonCodec[Url] = DeriveJsonCodec.gen
+  given JsonCodec[Url]    = DeriveJsonCodec.gen
   given JsonCodec[Base64] = DeriveJsonCodec.gen
 
   given JsonCodec[MediaSource] = summon[JsonCodec[Json]].transformOrFail(
@@ -36,7 +37,7 @@ object MediaSource:
       json.asObject.flatMap(_.get("type")).flatMap(_.asString) match
         case Some("url")    => json.as[Url]
         case Some("base64") => json.as[Base64]
-        case other          => Left(s"Unknown media source type: ${other.getOrElse("missing type field")}"),
+        case other => Left(s"Unknown media source type: ${other.getOrElse("missing type field")}"),
     {
       case u: Url =>
         u.toJsonAST.fold(
@@ -47,9 +48,9 @@ object MediaSource:
         b.toJsonAST.fold(
           _ =>
             Json.Obj(
-              "type" -> Json.Str("base64"),
+              "type"      -> Json.Str("base64"),
               "mediaType" -> Json.Str(b.mediaType),
-              "data" -> Json.Str(b.data)
+              "data"      -> Json.Str(b.data)
             ),
           ast => ast.mapObject(_.add("type", Json.Str("base64")))
         )

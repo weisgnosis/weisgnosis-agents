@@ -21,8 +21,9 @@ import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
-/** Complete round-trip serialization and discriminator verification for all 31 AgentEvent types.
-  */
+/**
+ * Complete round-trip serialization and discriminator verification for all 31 AgentEvent types.
+ */
 object AgentEventSerdeSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("AgentEventSerdeSpec")(
@@ -52,7 +53,11 @@ object AgentEventSerdeSpec extends ZIOSpecDefault:
         AgentEvent.SubagentExposedEvent("sub-1", "ag-1", "sess-1", Some("Label")),
         AgentEvent.PermissionAskEvent("req-1", "shell_tool", Json.Obj("cmd" -> Json.Str("ls"))),
         AgentEvent.PermissionDecisionEvent("req-1", true, Some("Allowed by user")),
-        AgentEvent.ExternalExecutionAskEvent("ext-1", "browser", Json.Obj("url" -> Json.Str("https://example.com"))),
+        AgentEvent.ExternalExecutionAskEvent(
+          "ext-1",
+          "browser",
+          Json.Obj("url" -> Json.Str("https://example.com"))
+        ),
         AgentEvent.ExternalExecutionResultEvent("ext-1", "html payload", false),
         AgentEvent.CompactionStartEvent(100000, 42),
         AgentEvent.CompactionEndEvent(45000, 20),
@@ -64,7 +69,7 @@ object AgentEventSerdeSpec extends ZIOSpecDefault:
       assertTrue(events.size == 31) &&
       assertTrue(
         events.forall { ev =>
-          val json = ev.toJson
+          val json    = ev.toJson
           val decoded = json.fromJson[AgentEvent]
           decoded.contains(ev) && json.contains(""""event":""")
         }
@@ -77,7 +82,7 @@ object AgentEventSerdeSpec extends ZIOSpecDefault:
         ev.source.contains("parentSession/childAgent")
       )
 
-      val json = ev.toJson
+      val json    = ev.toJson
       val decoded = json.fromJson[AgentEvent]
 
       assertTrue(

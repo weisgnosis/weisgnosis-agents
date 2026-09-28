@@ -18,16 +18,17 @@ package com.weisgnosis.agents.core.tool
 import zio.json.*
 import zio.json.ast.Json
 
-/** Declarative definition and JSON schema metadata of an executable tool.
-  *
-  * Corresponds to `io.agentscope.core.tool.ToolDefinition` in AgentScope Java.
-  */
+/**
+ * Declarative definition and JSON schema metadata of an executable tool.
+ *
+ * Corresponds to `io.agentscope.core.tool.ToolDefinition` in AgentScope Java.
+ */
 final case class ToolDef(
-  name: String,
-  description: String,
-  parametersSchema: Json,
-  isConcurrencySafe: Boolean = true,
-  isReadOnly: Boolean = false
+    name: String,
+    description: String,
+    parametersSchema: Json,
+    isConcurrencySafe: Boolean = true,
+    isReadOnly: Boolean = false
 )
 
 object ToolDef:

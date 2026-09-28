@@ -21,17 +21,18 @@ import zio.json.*
 import zio.json.ast.Json
 import java.util.UUID
 
-/** Pure functional state accumulator enforcing invariant INV-12 (Chunk Index Assembly).
-  *
-  * Assembles interleaved streaming deltas across parallel tool calls keyed by `streamIndex`,
-  * and sanitizes partial or interrupted JSON to `{}`.
-  */
+/**
+ * Pure functional state accumulator enforcing invariant INV-12 (Chunk Index Assembly).
+ *
+ * Assembles interleaved streaming deltas across parallel tool calls keyed by `streamIndex`,
+ * and sanitizes partial or interrupted JSON to `{}`.
+ */
 final case class StreamAccumulator(
-  textBuffer: String = "",
-  thinkingBuffer: String = "",
-  toolCalls: Map[Int, StreamAccumulator.InFlightToolCall] = Map.empty,
-  usage: Option[ChatUsage] = None,
-  finishReason: Option[String] = None
+    textBuffer: String = "",
+    thinkingBuffer: String = "",
+    toolCalls: Map[Int, StreamAccumulator.InFlightToolCall] = Map.empty,
+    usage: Option[ChatUsage] = None,
+    finishReason: Option[String] = None
 ):
 
   /** Purely incorporates an incoming LlmChunk into the accumulated state. */
@@ -55,7 +56,8 @@ final case class StreamAccumulator(
           case None =>
             StreamAccumulator.InFlightToolCall(
               streamIndex = streamIdx,
-              callId = callIdOpt.getOrElse(s"call_${UUID.randomUUID().toString.replace("-", "").take(8)}"),
+              callId =
+                callIdOpt.getOrElse(s"call_${UUID.randomUUID().toString.replace("-", "").take(8)}"),
               name = nameOpt.getOrElse(""),
               argsBuffer = argsDelta
             )
@@ -119,10 +121,10 @@ final case class StreamAccumulator(
 object StreamAccumulator:
 
   final case class InFlightToolCall(
-    streamIndex: Int,
-    callId: String,
-    name: String,
-    argsBuffer: String
+      streamIndex: Int,
+      callId: String,
+      name: String,
+      argsBuffer: String
   )
 
   val empty: StreamAccumulator = StreamAccumulator()

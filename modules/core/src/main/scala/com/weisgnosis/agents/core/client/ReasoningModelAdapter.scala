@@ -20,24 +20,26 @@ import zio.Chunk
 import zio.json.*
 import zio.json.ast.Json
 
-/** Adapter for extended reasoning models (e.g. OpenAI o-series, DeepSeek-R1, QwQ)
-  * with delta parsing and context hygiene (pruning obsolete reasoning from dialogue history).
-  */
+/**
+ * Adapter for extended reasoning models (e.g. OpenAI o-series, DeepSeek-R1, QwQ)
+ * with delta parsing and context hygiene (pruning obsolete reasoning from dialogue history).
+ */
 object ReasoningModelAdapter:
 
-  /** Parses an OpenAI-compatible SSE JSON chunk into typed LlmChunk deltas.
-    * Handles `reasoning_content`, `thinking`, `content`, `tool_calls`, `usage`, and `finish_reason`.
-    */
+  /**
+   * Parses an OpenAI-compatible SSE JSON chunk into typed LlmChunk deltas.
+   * Handles `reasoning_content`, `thinking`, `content`, `tool_calls`, `usage`, and `finish_reason`.
+   */
   def parseChunk(jsonStr: String): Chunk[LlmChunk] =
     jsonStr.fromJson[Json] match
       case Left(_) => Chunk.empty
       case Right(json) =>
-        val obj = json.asObject.getOrElse(Json.Obj.empty)
+        val obj     = json.asObject.getOrElse(Json.Obj.empty)
         val choices = obj.get("choices").flatMap(_.asArray).getOrElse(Chunk.empty)
 
         val choiceDeltas: Chunk[LlmChunk] = choices.flatMap { choice =>
           val choiceObj = choice.asObject.getOrElse(Json.Obj.empty)
-          val deltaObj = choiceObj.get("delta").flatMap(_.asObject).getOrElse(Json.Obj.empty)
+          val deltaObj  = choiceObj.get("delta").flatMap(_.asObject).getOrElse(Json.Obj.empty)
 
           val reasoningChunk = deltaObj
             .get("reasoning_content")
@@ -51,17 +53,19 @@ object ReasoningModelAdapter:
             .filter(_.nonEmpty)
             .map(t => LlmChunk.TextDelta(t))
 
-          val toolChunks = deltaObj.get("tool_calls").flatMap(_.asArray).getOrElse(Chunk.empty).flatMap { tc =>
-            val tcObj = tc.asObject.getOrElse(Json.Obj.empty)
-            val index = tcObj.get("index").flatMap(_.as[Int].toOption).getOrElse(0)
-            val id = tcObj.get("id").flatMap(_.asString)
-            val fnObj = tcObj.get("function").flatMap(_.asObject).getOrElse(Json.Obj.empty)
-            val name = fnObj.get("name").flatMap(_.asString)
-            val argsDelta = fnObj.get("arguments").flatMap(_.asString).getOrElse("")
-            Some(LlmChunk.ToolCallChunk(index, id, name, argsDelta))
-          }
+          val toolChunks =
+            deltaObj.get("tool_calls").flatMap(_.asArray).getOrElse(Chunk.empty).flatMap { tc =>
+              val tcObj     = tc.asObject.getOrElse(Json.Obj.empty)
+              val index     = tcObj.get("index").flatMap(_.as[Int].toOption).getOrElse(0)
+              val id        = tcObj.get("id").flatMap(_.asString)
+              val fnObj     = tcObj.get("function").flatMap(_.asObject).getOrElse(Json.Obj.empty)
+              val name      = fnObj.get("name").flatMap(_.asString)
+              val argsDelta = fnObj.get("arguments").flatMap(_.asString).getOrElse("")
+              Some(LlmChunk.ToolCallChunk(index, id, name, argsDelta))
+            }
 
-          val finishReasonChunk = choiceObj.get("finish_reason").flatMap(_.asString).map(LlmChunk.FinishReason.apply)
+          val finishReasonChunk =
+            choiceObj.get("finish_reason").flatMap(_.asString).map(LlmChunk.FinishReason.apply)
 
           Chunk.fromIterable(reasoningChunk) ++
             Chunk.fromIterable(textChunk) ++
@@ -70,12 +74,16 @@ object ReasoningModelAdapter:
         }
 
         val usageDelta: Option[LlmChunk] = obj.get("usage").flatMap(_.asObject).map { u =>
-          val inputTokens = u.get("prompt_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
+          val inputTokens  = u.get("prompt_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
           val outputTokens = u.get("completion_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
-          val promptDetails = u.get("prompt_tokens_details").flatMap(_.asObject).getOrElse(Json.Obj.empty)
-          val cachedTokens = promptDetails.get("cached_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
-          val compDetails = u.get("completion_tokens_details").flatMap(_.asObject).getOrElse(Json.Obj.empty)
-          val reasoningTokens = compDetails.get("reasoning_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
+          val promptDetails =
+            u.get("prompt_tokens_details").flatMap(_.asObject).getOrElse(Json.Obj.empty)
+          val cachedTokens =
+            promptDetails.get("cached_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
+          val compDetails =
+            u.get("completion_tokens_details").flatMap(_.asObject).getOrElse(Json.Obj.empty)
+          val reasoningTokens =
+            compDetails.get("reasoning_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
 
           LlmChunk.UsageChunk(
             ChatUsage(
@@ -89,10 +97,11 @@ object ReasoningModelAdapter:
 
         choiceDeltas ++ Chunk.fromIterable(usageDelta)
 
-  /** Context Hygiene: Prunes obsolete reasoning tokens from older dialogue rounds.
-    * Only preserves reasoning content in the most recent assistant message (e.g. immediately
-    * preceding a tool execution turn).
-    */
+  /**
+   * Context Hygiene: Prunes obsolete reasoning tokens from older dialogue rounds.
+   * Only preserves reasoning content in the most recent assistant message (e.g. immediately
+   * preceding a tool execution turn).
+   */
   def pruneObsoleteReasoning(history: Chunk[Msg]): Chunk[Msg] =
     if history.isEmpty then history
     else

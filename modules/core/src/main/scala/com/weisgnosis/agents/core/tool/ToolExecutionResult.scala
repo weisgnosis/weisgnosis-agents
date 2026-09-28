@@ -18,11 +18,12 @@ package com.weisgnosis.agents.core.tool
 import com.weisgnosis.agents.core.model.ToolResultState
 import zio.json.*
 
-/** Output and state outcome of executing a tool.
-  */
+/**
+ * Output and state outcome of executing a tool.
+ */
 final case class ToolExecutionResult(
-  output: String,
-  state: ToolResultState = ToolResultState.Success
+    output: String,
+    state: ToolResultState = ToolResultState.Success
 )
 
 object ToolExecutionResult:

@@ -17,10 +17,11 @@ package com.weisgnosis.agents.core.model
 
 import zio.json.*
 
-/** Represents the terminal or in-flight execution state of a tool invocation.
-  *
-  * Corresponds to `io.agentscope.core.message.ToolResultState` in AgentScope Java.
-  */
+/**
+ * Represents the terminal or in-flight execution state of a tool invocation.
+ *
+ * Corresponds to `io.agentscope.core.message.ToolResultState` in AgentScope Java.
+ */
 enum ToolResultState:
   case Success
   case Error

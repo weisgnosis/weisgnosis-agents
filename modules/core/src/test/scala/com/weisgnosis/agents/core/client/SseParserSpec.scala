@@ -19,8 +19,9 @@ import zio.*
 import zio.stream.ZStream
 import zio.test.*
 
-/** 1:1 test parity suite for OpenAISseParserTest.java from AgentScope Java.
-  */
+/**
+ * 1:1 test parity suite for OpenAISseParserTest.java from AgentScope Java.
+ */
 object SseParserSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("SseParserSpec")(

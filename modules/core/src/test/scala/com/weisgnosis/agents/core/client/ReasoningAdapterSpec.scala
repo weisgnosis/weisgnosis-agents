@@ -19,8 +19,9 @@ import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
 import zio.Chunk
 import zio.test.*
 
-/** Verifies ReasoningModelAdapter SSE JSON parsing and context hygiene (obsolete reasoning pruning).
-  */
+/**
+ * Verifies ReasoningModelAdapter SSE JSON parsing and context hygiene (obsolete reasoning pruning).
+ */
 object ReasoningAdapterSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("ReasoningAdapterSpec")(
@@ -102,7 +103,9 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
       }
     ),
     suite("Context Hygiene (Pruning Obsolete Reasoning)")(
-      test("Preserves reasoning on the most recent assistant message and strips it from older turns") {
+      test(
+        "Preserves reasoning on the most recent assistant message and strips it from older turns"
+      ) {
         val turn1User = Msg.user("Calculate 1 + 1")
         val turn1Assistant = Msg(
           role = Role.Assistant,
@@ -121,7 +124,7 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
         )
 
         val history = Chunk(turn1User, turn1Assistant, turn2User, turn2Assistant)
-        val pruned = ReasoningModelAdapter.pruneObsoleteReasoning(history)
+        val pruned  = ReasoningModelAdapter.pruneObsoleteReasoning(history)
 
         assertTrue(
           pruned.size == 4,

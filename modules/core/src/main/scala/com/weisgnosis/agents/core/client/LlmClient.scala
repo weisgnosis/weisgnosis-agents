@@ -21,26 +21,26 @@ import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.*
 import zio.json.*
+import zio.json.ast.Json
 
 final case class LlmConfig(
-  model: String,
-  endpoint: String = "https://api.openai.com/v1/chat/completions",
-  apiKey: Option[String] = None,
-  temperature: Double = 0.7,
-  maxTokens: Option[Int] = None
-)
+    model: String,
+    endpoint: String = "https://api.openai.com/v1/chat/completions",
+    apiKey: Option[String] = None,
+    temperature: Double = 0.7,
+    maxTokens: Option[Int] = None,
+    responseFormat: Option[Json] = None
+) derives JsonCodec
 
-object LlmConfig:
-  given JsonCodec[LlmConfig] = DeriveJsonCodec.gen
-
-/** Streaming LLM client interface for invoking models and streaming token deltas.
-  */
+/**
+ * Streaming LLM client interface for invoking models and streaming token deltas.
+ */
 trait LlmClient:
   def streamTurn(
-    history: Chunk[Msg],
-    tools: Chunk[ToolDef],
-    config: LlmConfig,
-    eventHub: Hub[AgentEvent]
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      config: LlmConfig,
+      eventHub: Hub[AgentEvent]
   ): ZIO[Scope, AgentError, TurnOutput]
 
 object LlmClient:
@@ -50,18 +50,42 @@ object LlmClient:
     Ref.make(outputs).map { queueRef =>
       new LlmClient:
         def streamTurn(
+            history: Chunk[Msg],
+            tools: Chunk[ToolDef],
+            config: LlmConfig,
+            eventHub: Hub[AgentEvent]
+        ): ZIO[Scope, AgentError, TurnOutput] =
+          queueRef.modify { chunk =>
+            chunk.headOption match
+              case None =>
+                (
+                  TurnOutput.FinalText(Msg.assistant("Mock: No more responses")),
+                  Chunk.empty
+                )
+              case Some(first) => (first, chunk.drop(1))
+          }
+    }
+
+  /** Creates a mock client returning outputs determined by a pure function. */
+  def mockFunction(f: (Chunk[Msg], Chunk[ToolDef]) => TurnOutput): LlmClient =
+    new LlmClient:
+      def streamTurn(
           history: Chunk[Msg],
           tools: Chunk[ToolDef],
           config: LlmConfig,
           eventHub: Hub[AgentEvent]
-        ): ZIO[Scope, AgentError, TurnOutput] =
-          queueRef.modify { chunk =>
-            if chunk.isEmpty then
-              (
-                TurnOutput.FinalText(Msg.assistant("Mock: No more responses")),
-                Chunk.empty
-              )
-            else
-              (chunk.head, chunk.tail)
-          }
-    }
+      ): ZIO[Scope, AgentError, TurnOutput] =
+        ZIO.succeed(f(history, tools))
+
+  /** Creates a mock client returning outputs determined by an effectful function. */
+  def mockEffectful(
+      f: (Chunk[Msg], Chunk[ToolDef], Hub[AgentEvent]) => ZIO[Scope, AgentError, TurnOutput]
+  ): LlmClient =
+    new LlmClient:
+      def streamTurn(
+          history: Chunk[Msg],
+          tools: Chunk[ToolDef],
+          config: LlmConfig,
+          eventHub: Hub[AgentEvent]
+      ): ZIO[Scope, AgentError, TurnOutput] =
+        f(history, tools, eventHub)

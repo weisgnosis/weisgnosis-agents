@@ -18,21 +18,38 @@ package com.weisgnosis.agents.core.client
 import zio.json.ast.Json
 import zio.test.*
 
-/** Verifies invariant INV-12: Chunk index assembly across parallel interleaved tool calls
-  * and sanitization of malformed JSON on interruption.
-  */
+/**
+ * Verifies invariant INV-12: Chunk index assembly across parallel interleaved tool calls
+ * and sanitization of malformed JSON on interruption.
+ */
 object StreamAccumulatorSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("StreamAccumulatorSpec (INV-12)")(
     test("Assembles interleaved parallel tool calls keyed by streamIndex") {
       val chunks = Seq(
-        LlmChunk.ToolCallChunk(streamIndex = 0, callId = Some("call_1"), name = Some("calculator"), argumentsDelta = "{\"x\":"),
-        LlmChunk.ToolCallChunk(streamIndex = 1, callId = Some("call_2"), name = Some("web_search"), argumentsDelta = "{\"query\":"),
-        LlmChunk.ToolCallChunk(streamIndex = 0, callId = None, name = None, argumentsDelta = " 42}"),
-        LlmChunk.ToolCallChunk(streamIndex = 1, callId = None, name = None, argumentsDelta = " \"scala 3\"}")
+        LlmChunk.ToolCallChunk(
+          streamIndex = 0,
+          callId = Some("call_1"),
+          name = Some("calculator"),
+          argumentsDelta = "{\"x\":"
+        ),
+        LlmChunk.ToolCallChunk(
+          streamIndex = 1,
+          callId = Some("call_2"),
+          name = Some("web_search"),
+          argumentsDelta = "{\"query\":"
+        ),
+        LlmChunk
+          .ToolCallChunk(streamIndex = 0, callId = None, name = None, argumentsDelta = " 42}"),
+        LlmChunk.ToolCallChunk(
+          streamIndex = 1,
+          callId = None,
+          name = None,
+          argumentsDelta = " \"scala 3\"}"
+        )
       )
 
-      val acc = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
+      val acc    = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
       val output = acc.toTurnOutput
 
       assertTrue(
@@ -54,7 +71,7 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
         LlmChunk.ThinkingDelta(" Thinking step 2...")
       )
 
-      val acc = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
+      val acc    = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
       val output = acc.toTurnOutput
 
       assertTrue(
@@ -72,7 +89,7 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
         LlmChunk.TextDelta("world!")
       )
 
-      val acc = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
+      val acc    = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
       val output = acc.toTurnOutput
 
       assertTrue(
@@ -84,10 +101,15 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
     },
     test("Interruption sanitizes incomplete tool arguments to empty object {}") {
       val chunks = Seq(
-        LlmChunk.ToolCallChunk(streamIndex = 0, callId = Some("call_interrupted"), name = Some("bash"), argumentsDelta = "{\"command\": \"cat /etc/passwd")
+        LlmChunk.ToolCallChunk(
+          streamIndex = 0,
+          callId = Some("call_interrupted"),
+          name = Some("bash"),
+          argumentsDelta = "{\"command\": \"cat /etc/passwd"
+        )
       )
 
-      val acc = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
+      val acc         = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
       val interrupted = acc.toInterrupted
 
       assertTrue(
