@@ -11,17 +11,14 @@
 
 ## 1. Domain Model Specification (`com.weisgnosis.agents.core.model`)
 
-### 1.1. Roles & Execution States
+### 1.1. Roles & Tool Execution States
 ```scala
 package com.weisgnosis.agents.core.model
 
 import zio.json.*
 
 enum Role:
-  case System
-  case User
-  case Assistant
-  case Tool
+  case System, User, Assistant, Tool
 
 object Role:
   given JsonCodec[Role] = JsonCodec.string.transformOrFail(
@@ -41,10 +38,7 @@ object Role:
   )
 
 enum ToolResultState:
-  case Success
-  case Error
-  case Interrupted
-  case Denied
+  case Success, Error, Interrupted, Denied
 
 object ToolResultState:
   given JsonCodec[ToolResultState] = JsonCodec.string.transformOrFail(
@@ -74,33 +68,38 @@ import zio.json.ast.Json
 sealed trait ContentBlock
 
 object ContentBlock:
-  final case class Text(text: String) extends ContentBlock
-  
+  final case class Text(
+    text: String
+  ) extends ContentBlock
+
   final case class Thinking(
     thought: String,
-    signature: Option[String] = None
+    signature: Option[String] = None,
+    metadata: Map[String, Json] = Map.empty
   ) extends ContentBlock
-  
+
   final case class ToolUse(
     id: String,
     name: String,
     input: Json,
-    isServerTool: Boolean = false
+    isServerTool: Boolean = false,
+    thoughtSignature: Option[String] = None,
+    metadata: Map[String, Json] = Map.empty
   ) extends ContentBlock
-  
+
   final case class ToolResult(
     toolUseId: String,
     name: String,
     output: String,
     state: ToolResultState = ToolResultState.Success
   ) extends ContentBlock
-  
+
   final case class Image(
     url: Option[String] = None,
     data: Option[String] = None,
     mediaType: String = "image/png"
   ) extends ContentBlock
-  
+
   final case class Custom(
     kind: String,
     payload: Json
@@ -113,8 +112,7 @@ object ContentBlock:
   given JsonCodec[Image] = DeriveJsonCodec.gen
   given JsonCodec[Custom] = DeriveJsonCodec.gen
 
-  // Tagged polymorphic codec with discriminator field "type"
-  given JsonCodec[ContentBlock] = 
+  given JsonCodec[ContentBlock] =
     JsonCodec.json.transformOrFail(
       json => {
         val obj = json.asObject.getOrElse(JsonObject.empty)
@@ -159,7 +157,7 @@ final case class Msg(
     content.collect { case ContentBlock.Text(t) => t }.mkString("\n")
 
   def thinking: String =
-    content.collect { case ContentBlock.Thinking(t, _) => t }.mkString("\n")
+    content.collect { case ContentBlock.Thinking(t, _, _) => t }.mkString("\n")
 
   def toolUses: Chunk[ContentBlock.ToolUse] =
     content.collect { case tu: ContentBlock.ToolUse => tu }
@@ -178,13 +176,19 @@ object Msg:
 
   def system(text: String): Msg =
     Msg(role = Role.System, content = Chunk(ContentBlock.Text(text)))
+
+  def systemReminder(text: String): Msg =
+    Msg(
+      role = Role.User,
+      name = Some("system"),
+      content = Chunk(ContentBlock.Text(s"<system-reminder>$text</system-reminder>")),
+      metadata = Map("synthetic" -> "true", "reminder_kind" -> "system_directive")
+    )
 ```
 
 ---
 
 ## 2. Event Specification: The 31 Typed Events (`com.weisgnosis.agents.core.event`)
-
-All 31 events implement a unified sealed hierarchy with discriminator `"event"`:
 
 ```scala
 package com.weisgnosis.agents.core.event
@@ -199,29 +203,16 @@ sealed trait AgentEvent:
 
 object AgentEvent:
   // 1. Agent Lifecycle
-  final case class AgentStartEvent(
-    sessionId: String,
-    replyId: String,
-    agentId: String,
-    source: Option[String] = None
-  ) extends AgentEvent:
+  final case class AgentStartEvent(sessionId: String, replyId: String, agentId: String, source: Option[String] = None) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
-  final case class AgentEndEvent(
-    replyId: String,
-    source: Option[String] = None
-  ) extends AgentEvent:
+  final case class AgentEndEvent(replyId: String, source: Option[String] = None) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
-  final case class AgentProgressEvent(
-    message: String,
-    currentStep: Int,
-    totalSteps: Option[Int] = None,
-    source: Option[String] = None
-  ) extends AgentEvent:
+  final case class AgentProgressEvent(message: String, currentStep: Int, totalSteps: Option[Int] = None, source: Option[String] = None) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
-  // 2. Text Deltas
+  // 2. Text Streaming Deltas
   final case class TextBlockStartEvent(blockIndex: Int, source: Option[String] = None) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -241,11 +232,11 @@ object AgentEvent:
   final case class ThinkingBlockEndEvent(blockIndex: Int, fullThought: String, source: Option[String] = None) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
-  // 4. Tool Calls
-  final case class ToolCallStartEvent(callId: String, name: String, blockIndex: Int, source: Option[String] = None) extends AgentEvent:
+  // 4. Tool Calls (with streamIndex support for parallel interleaving)
+  final case class ToolCallStartEvent(callId: String, name: String, blockIndex: Int, streamIndex: Option[Int] = None, source: Option[String] = None) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
-  final case class ToolCallDeltaEvent(callId: String, delta: String, blockIndex: Int, source: Option[String] = None) extends AgentEvent:
+  final case class ToolCallDeltaEvent(callId: String, delta: String, blockIndex: Int, streamIndex: Option[Int] = None, source: Option[String] = None) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class ToolCallEndEvent(callId: String, name: String, arguments: Json, blockIndex: Int, source: Option[String] = None) extends AgentEvent:
@@ -313,11 +304,10 @@ object AgentEvent:
 
 ## 3. Tool Engine & Registry (`com.weisgnosis.agents.core.tool`)
 
-### 3.1. Tool Traits and Types
 ```scala
 package com.weisgnosis.agents.core.tool
 
-import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.model.ToolResultState
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -330,9 +320,15 @@ final case class ToolDef(
 
 trait Tool[-R, In, +Out]:
   def definition: ToolDef
-  def execute(input: In): ZIO[R, AgentError, Out]
+  def isConcurrencySafe: Boolean = true
+  def execute(input: In): ZIO[R, Throwable, Out]
   def decodeInput(raw: Json): Either[String, In]
   def encodeOutput(out: Out): String
+
+final case class ToolExecutionResult(
+  output: String,
+  state: ToolResultState
+)
 
 final case class Toolkit(
   tools: Map[String, Tool[Any, ?, ?]] = Map.empty
@@ -350,23 +346,27 @@ final case class Toolkit(
   def definitions: Chunk[ToolDef] =
     Chunk.fromIterable(tools.values.map(_.definition))
 
-  def executeRaw(name: String, rawArgs: Json): ZIO[Any, AgentError, String] =
+  def executeSafe(name: String, rawArgs: Json): ZIO[Any, Nothing, ToolExecutionResult] =
     tools.get(name) match {
       case None =>
-        ZIO.fail(AgentError.ToolNotFound(name))
+        ZIO.succeed(ToolExecutionResult(s"Tool '$name' not found in toolkit.", ToolResultState.Error))
       case Some(tool) =>
         tool.decodeInput(rawArgs) match {
-          case Left(err) =>
-            ZIO.fail(AgentError.ToolArgumentError(name, err))
+          case Left(decodeErr) =>
+            ZIO.succeed(ToolExecutionResult(s"Invalid arguments for '$name': $decodeErr", ToolResultState.Error))
           case Right(typedIn) =>
-            tool.asInstanceOf[Tool[Any, Any, Any]].execute(typedIn).map(tool.asInstanceOf[Tool[Any, Any, Any]].encodeOutput)
+            tool.asInstanceOf[Tool[Any, Any, Any]].execute(typedIn)
+              .map(out => ToolExecutionResult(tool.asInstanceOf[Tool[Any, Any, Any]].encodeOutput(out), ToolResultState.Success))
+              .catchAll(err =>
+                ZIO.succeed(ToolExecutionResult(s"Execution failed for '$name': ${err.getMessage}", ToolResultState.Error))
+              )
         }
     }
 ```
 
 ---
 
-## 4. ReAct Loop Tail Recursion Signature (`com.weisgnosis.agents.core.agent`)
+## 4. ReAct Engine Implementation (`com.weisgnosis.agents.core.agent`)
 
 ```scala
 package com.weisgnosis.agents.core.agent
@@ -375,9 +375,8 @@ import com.weisgnosis.agents.core.client.LlmClient
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.AgentEvent
 import com.weisgnosis.agents.core.model.*
-import com.weisgnosis.agents.core.tool.Toolkit
+import com.weisgnosis.agents.core.tool.{Toolkit, ToolExecutionResult}
 import zio.*
-import zio.stream.ZStream
 
 final case class AgentConfig(
   name: String,
@@ -390,19 +389,16 @@ final case class AgentConfig(
 final case class AgentResult(
   reply: Msg,
   history: Chunk[Msg],
-  iterationCount: Int
+  iterationCount: Int,
+  isSuspended: Boolean = false
 )
-
-trait ReActAgent:
-  def run(prompt: String, initialHistory: Chunk[Msg] = Chunk.empty): ZIO[Any, AgentError, AgentResult]
-  def streamEvents(prompt: String, initialHistory: Chunk[Msg] = Chunk.empty): ZStream[Any, AgentError, AgentEvent]
 
 object ReActAgent:
   def step(
     config: AgentConfig,
     toolkit: Toolkit,
     client: LlmClient,
-    history: Chunk[Msg],
+    historyRef: Ref[Chunk[Msg]],
     iteration: Int,
     emptyThinkingRetries: Int,
     eventHub: Hub[AgentEvent]
@@ -410,21 +406,28 @@ object ReActAgent:
     if iteration > config.maxIterations then
       ZIO.fail(AgentError.MaxIterationsExceeded(config.maxIterations))
     else
-      val currentTurn =
+      ZIO.uninterruptibleMask { restore =>
         for {
-          // 1. Invoke Model Stream
-          streamedChunks <- client.stream(history, toolkit.definitions, config)
-          accumulatedTurn <- StreamAccumulator.consume(streamedChunks, eventHub)
+          history <- historyRef.get
           
-          result <- accumulatedTurn match {
-            // Case A: Pure Text Finished
-            case TurnOutput.FinalText(assistantMsg) =>
-              ZIO.succeed(AgentResult(assistantMsg, history :+ assistantMsg, iteration))
+          // 1. Stream from Model Client
+          streamResult <- restore(client.streamTurn(history, toolkit.definitions, config, eventHub))
 
-            // Case B: Thinking Only (Loopback Retry)
+          result <- streamResult match {
+            // Case A: Pure Text Final Answer
+            case TurnOutput.FinalText(assistantMsg) =>
+              for {
+                _ <- historyRef.update(_ :+ assistantMsg)
+                finalHist <- historyRef.get
+              } yield AgentResult(assistantMsg, finalHist, iteration)
+
+            // Case B: Thinking Only (Loopback Reminder)
             case TurnOutput.ThinkingOnly(thinkingMsg) if emptyThinkingRetries < config.emptyThinkingRetryLimit =>
-              val reminder = Msg.user("You generated internal thinking but returned no user response or tool call. Please provide your response.")
-              step(config, toolkit, client, history :+ thinkingMsg :+ reminder, iteration + 1, emptyThinkingRetries + 1, eventHub)
+              val reminder = Msg.systemReminder("Your previous reply had empty content - the full answer was written to the reasoning channel only. Reply again and write the final answer into the content channel.")
+              for {
+                _ <- historyRef.update(_ :+ thinkingMsg :+ reminder)
+                nextTurn <- step(config, toolkit, client, historyRef, iteration + 1, emptyThinkingRetries + 1, eventHub)
+              } yield nextTurn
 
             case TurnOutput.ThinkingOnly(_) =>
               ZIO.fail(AgentError.EmptyThinkingError("Exceeded retry limit for thinking-only turns without content."))
@@ -432,29 +435,153 @@ object ReActAgent:
             // Case C: Tool Calls
             case TurnOutput.ToolCalls(assistantMsg, calls) =>
               for {
-                results <- ZIO.foreachPar(calls) { call =>
-                  executeWithDanglingReconcile(call, toolkit, eventHub)
-                }
-                toolResultMsg = Msg(role = Role.Tool, content = results)
-                nextHistory = history :+ assistantMsg :+ toolResultMsg
-                nextStep <- step(config, toolkit, client, nextHistory, iteration + 1, 0, eventHub)
-              } yield nextStep
+                // Invariant: Save assistant turn to Ref immediately before tool execution
+                _ <- historyRef.update(_ :+ assistantMsg)
+                
+                // Partition parallel vs sequential tools
+                (parallelCalls, serialCalls) = calls.partition(c => toolkit.get(c.name).exists(_.isConcurrencySafe))
+                
+                parallelResults <- restore(ZIO.foreachPar(parallelCalls) { call =>
+                  executeAndRecord(call, toolkit, historyRef, eventHub)
+                })
+                
+                serialResults <- restore(ZIO.foreach(serialCalls) { call =>
+                  executeAndRecord(call, toolkit, historyRef, eventHub)
+                })
+                
+                nextTurn <- step(config, toolkit, client, historyRef, iteration + 1, 0, eventHub)
+              } yield nextTurn
           }
         } yield result
-
-      // Invariant: Dangling Tool Reconciliation on Fiber Cancellation
-      currentTurn.onInterrupt {
-        ZIO.succeed(println("[ReActAgent] Interrupted. Performing Dangling Tool Reconciliation."))
+      }.onInterrupt {
+        // Dangling Tool Reconciliation on Fiber Cancellation
+        reconcileDanglingToolCalls(historyRef)
       }
+
+  private def executeAndRecord(
+    call: ContentBlock.ToolUse,
+    toolkit: Toolkit,
+    historyRef: Ref[Chunk[Msg]],
+    eventHub: Hub[AgentEvent]
+  ): ZIO[Any, Nothing, Unit] =
+    for {
+      _ <- eventHub.publish(AgentEvent.ToolResultStartEvent(call.id, call.name))
+      res <- toolkit.executeSafe(call.name, call.input)
+      resultBlock = ContentBlock.ToolResult(call.id, call.name, res.output, res.state)
+      _ <- eventHub.publish(AgentEvent.ToolResultEndEvent(call.id, call.name, res.output, res.state))
+      _ <- historyRef.update(_ :+ Msg(role = Role.Tool, content = Chunk(resultBlock)))
+    } yield ()
+
+  private def reconcileDanglingToolCalls(historyRef: Ref[Chunk[Msg]]): UIO[Unit] =
+    historyRef.update { history =>
+      val existingResultIds = history.flatMap(_.toolResults).map(_.toolUseId).toSet
+      val lastAssistant = history.reverse.find(_.role == Role.Assistant)
+      
+      lastAssistant match {
+        case None => history
+        case Some(asst) =>
+          val pendingCalls = asst.toolUses.filterNot(tu => tu.isServerTool || existingResultIds.contains(tu.id))
+          if pendingCalls.isEmpty then history
+          else
+            val synthesizedResults = pendingCalls.map { call =>
+              Msg(
+                role = Role.Tool,
+                content = Chunk(ContentBlock.ToolResult(
+                  call.id,
+                  call.name,
+                  s"Tool execution was interrupted before it could run. Tool: ${call.name}",
+                  ToolResultState.Interrupted
+                ))
+              )
+            }
+            val recoveryMsg = Msg.assistant("I noticed that you have interrupted me. What can I do for you?")
+            history ++ synthesizedResults :+ recoveryMsg
+      }
+    }
 ```
 
 ---
 
-## 5. Model Context Protocol Specifications (`com.weisgnosis.agents.mcp.protocol`)
+## 5. Permission Engine & HITL (`com.weisgnosis.agents.harness.permission`)
+
+```scala
+package com.weisgnosis.agents.harness.permission
+
+import zio.Chunk
+import zio.json.*
+import zio.json.ast.Json
+
+enum PermissionBehavior derives JsonCodec:
+  case Allow, Deny, Ask, Passthrough
+
+final case class PermissionRule(
+  toolName: String,
+  ruleContent: Option[String] = None,
+  behavior: PermissionBehavior,
+  source: String = "user"
+)
+
+final case class ConfirmResult(
+  confirmed: Boolean,
+  modifiedInput: Option[Json] = None,
+  newRules: Chunk[PermissionRule] = Chunk.empty,
+  reason: Option[String] = None
+)
+
+final case class PermissionEngine(
+  denyRules: Map[String, Chunk[PermissionRule]] = Map.empty,
+  askRules: Map[String, Chunk[PermissionRule]] = Map.empty,
+  allowRules: Map[String, Chunk[PermissionRule]] = Map.empty
+):
+  def evaluate(toolName: String, input: Json): PermissionBehavior =
+    // Strict 6-Stage Waterfall
+    if denyRules.contains(toolName) then PermissionBehavior.Deny
+    else if askRules.contains(toolName) then PermissionBehavior.Ask
+    else if allowRules.contains(toolName) then PermissionBehavior.Allow
+    else PermissionBehavior.Ask // Default safe fallback
+```
+
+---
+
+## 6. Context Engineering & Memory ADTs (`com.weisgnosis.agents.harness.memory`)
+
+```scala
+package com.weisgnosis.agents.harness.memory
+
+import com.weisgnosis.agents.core.model.Msg
+import zio.Chunk
+
+final case class CompactorConfig(
+  triggerTokens: Int = 120000,
+  keepTokens: Int = 40000,
+  preserveTailMessages: Int = 6,
+  maxPruneOutputChars: Int = 2000,
+  protectTokens: Int = 40000
+)
+
+trait ConversationCompactor:
+  def compactIfNeeded(history: Chunk[Msg]): ZIO[Any, Throwable, Chunk[Msg]]
+  def calculateCutoffIndex(history: Chunk[Msg], config: CompactorConfig): Int
+
+final case class EvictionConfig(
+  maxResultChars: Int = 80000,
+  previewHeadChars: Int = 2000,
+  previewTailChars: Int = 2000,
+  excludedTools: Set[String] = Set("read_file", "write_file", "edit_file", "memory_search", "memory_get", "session_search")
+)
+
+trait ToolResultEvictor:
+  def evictOversizedToolResults(history: Chunk[Msg], config: EvictionConfig): ZIO[Any, Nothing, Chunk[Msg]]
+```
+
+---
+
+## 7. Model Context Protocol Specifications (`com.weisgnosis.agents.mcp.protocol`)
 
 ```scala
 package com.weisgnosis.agents.mcp.protocol
 
+import zio.Chunk
 import zio.json.*
 import zio.json.ast.Json
 
@@ -508,4 +635,55 @@ final case class JsonRpcError(
 )
 object JsonRpcError:
   given JsonCodec[JsonRpcError] = DeriveJsonCodec.gen
+
+// MCP 2024-11-05 Concrete Schemas
+final case class InitializeParams(
+  protocolVersion: String = "2024-11-05",
+  capabilities: Json = Json.Obj(),
+  clientInfo: ClientInfo
+)
+object InitializeParams:
+  given JsonCodec[InitializeParams] = DeriveJsonCodec.gen
+
+final case class ClientInfo(name: String, version: String)
+object ClientInfo:
+  given JsonCodec[ClientInfo] = DeriveJsonCodec.gen
+
+final case class InitializeResult(
+  protocolVersion: String,
+  capabilities: Json,
+  serverInfo: ClientInfo
+)
+object InitializeResult:
+  given JsonCodec[InitializeResult] = DeriveJsonCodec.gen
+
+final case class McpToolDefinition(
+  name: String,
+  description: Option[String],
+  inputSchema: Json
+)
+object McpToolDefinition:
+  given JsonCodec[McpToolDefinition] = DeriveJsonCodec.gen
+
+final case class ListToolsResult(tools: Chunk[McpToolDefinition])
+object ListToolsResult:
+  given JsonCodec[ListToolsResult] = DeriveJsonCodec.gen
+
+final case class CallToolParams(name: String, arguments: Json)
+object CallToolParams:
+  given JsonCodec[CallToolParams] = DeriveJsonCodec.gen
+
+final case class McpContent(
+  `type`: String,
+  text: Option[String] = None
+)
+object McpContent:
+  given JsonCodec[McpContent] = DeriveJsonCodec.gen
+
+final case class CallToolResult(
+  content: Chunk[McpContent],
+  isError: Boolean = false
+)
+object CallToolResult:
+  given JsonCodec[CallToolResult] = DeriveJsonCodec.gen
 ```

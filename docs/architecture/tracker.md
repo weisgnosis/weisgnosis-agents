@@ -4,7 +4,7 @@
 > **System:** `weisgnosis-agents`  
 > **Namespace:** `com.weisgnosis.agents`  
 > **Last Synced:** September 2026  
-> **Overall Progress:** Phase 0 (Architecture & Build Setup) Complete (100%) $\to$ Phase 1 (Core Domain) Ready  
+> **Overall Progress:** Phase 0 (Architecture & Audit Sign-Off) Complete (100%) $\to$ Phase 1 (Core Domain) Ready  
 
 ---
 
@@ -23,9 +23,9 @@
 ## 📊 Phased Implementation Roadmap
 
 ```
-Phase 0: Architecture & Build Setup         [████████████████████] 100% (Complete)
+Phase 0: Architecture, Audit & Build Setup  [████████████████████] 100% (Complete)
 Phase 1: Core Domain Models & Codecs        [                    ]   0% (In Progress)
-Phase 2: Streaming Model Client             [                    ]   0% (Pending)
+Phase 2: Streaming Model Client & Acc       [                    ]   0% (Pending)
 Phase 3: ReAct Engine & Loop Guards         [                    ]   0% (Pending)
 Phase 4: Harness Layer (Compactor/Eviction) [                    ]   0% (Pending)
 Phase 5: Subagents & MCP Client             [                    ]   0% (Pending)
@@ -43,8 +43,8 @@ Phase 6: WeisGnosis OS Production Cutover   [                    ]   0% (Pending
 | **`core.model`** | `[ ]` | `Role.scala`<br/>`ToolResultState.scala`<br/>`ContentBlock.scala`<br/>`Msg.scala` | `MsgSpec.scala`<br/>`MsgSerdeSpec.scala`<br/>`ContentBlockSerdeSpec.scala` | [`modules/core/.../model/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/model/README.md) |
 | **`core.event`** | `[ ]` | `AgentEvent.scala` (31 cases) | `AgentEventSerdeSpec.scala`<br/>`AgentEventStreamingSpec.scala` | [`modules/core/.../event/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/event/README.md) |
 | **`core.tool`** | `[ ]` | `ToolDef.scala`<br/>`Tool.scala`<br/>`Toolkit.scala` | `ToolkitSpec.scala`<br/>`ToolExecutionSpec.scala`<br/>`PathSafetySpec.scala` | [`modules/core/.../tool/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/README.md) |
-| **`core.client`** | `[ ]` | `LlmClient.scala`<br/>`LlmChunk.scala`<br/>`SseParser.scala`<br/>`ReasoningModelAdapter.scala` | `SseParserSpec.scala`<br/>`ReasoningAdapterSpec.scala`<br/>`LlmClientSpec.scala` | [`modules/core/.../client/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/README.md) |
-| **`core.agent`** | `[ ]` | `ReActAgent.scala`<br/>`AgentConfig.scala`<br/>`AgentResult.scala` | `ReActAgentSpec.scala`<br/>`ReActAgentInterruptSpec.scala`<br/>`ReActAgentThinkingRetrySpec.scala`<br/>`StructuredOutputSpec.scala` | [`modules/core/.../agent/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/agent/README.md) |
+| **`core.client`** | `[ ]` | `LlmClient.scala`<br/>`LlmChunk.scala`<br/>`SseParser.scala`<br/>`StreamAccumulator.scala`<br/>`ReasoningModelAdapter.scala` | `SseParserSpec.scala`<br/>`ReasoningAdapterSpec.scala`<br/>`LlmClientSpec.scala`<br/>`StreamAccumulatorSpec.scala` | [`modules/core/.../client/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/README.md) |
+| **`core.agent`** | `[ ]` | `ReActAgent.scala`<br/>`AgentConfig.scala`<br/>`AgentResult.scala`<br/>`StructuredOutput.scala` | `ReActAgentSpec.scala`<br/>`ReActAgentInterruptSpec.scala`<br/>`ReActAgentThinkingRetrySpec.scala`<br/>`StructuredOutputSpec.scala` | [`modules/core/.../agent/README.md`](../../modules/core/src/test/scala/com/weisgnosis/agents/core/agent/README.md) |
 
 ---
 
@@ -52,11 +52,11 @@ Phase 6: WeisGnosis OS Production Cutover   [                    ]   0% (Pending
 
 | Package | Status | Implementation Files | Parity Tests | Test Spec Location |
 | :--- | :---: | :--- | :--- | :--- |
-| **`harness.memory`** | `[ ]` | `CompactorConfig.scala`<br/>`ConversationCompactor.scala`<br/>`TokenCounter.scala` | `ConversationCompactorSpec.scala`<br/>`TokenCounterSpec.scala` | [`modules/harness/.../memory/README.md`](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/memory/README.md) |
-| **`harness.eviction`** | `[ ]` | `EvictionConfig.scala`<br/>`ToolResultEvictor.scala`<br/>`ToolResultStore.scala` | `ToolResultEvictorSpec.scala` | [`modules/harness/.../eviction/README.md`](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/eviction/README.md) |
-| **`harness.permission`**| `[ ]` | `PermissionBehavior.scala`<br/>`PermissionRule.scala`<br/>`PermissionGate.scala` | `PermissionGateSpec.scala`<br/>`PermissionPromiseSpec.scala` | [`modules/harness/.../permission/README.md`](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/permission/README.md) |
-| **`harness.subagent`** | `[ ]` | `SubagentDeclaration.scala`<br/>`SubagentCoordinator.scala`<br/>`AgentSpawnTool.scala` | `SubagentSpawnSpec.scala`<br/>`SubagentCancelSpec.scala`<br/>`SubagentPlanModePropagationSpec.scala` | [`modules/harness/.../subagent/README.md`](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/README.md) |
-| **`harness.plan`** | `[ ]` | `PlanModeState.scala`<br/>`PlanModeInterceptor.scala`<br/>`PlanModeTools.scala` | `PlanModeInterceptorSpec.scala`<br/>`PlanModePropagationSpec.scala` | [`modules/harness/.../plan/README.md`](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/plan/README.md) |
+| **`harness.memory`** | `[ ]` | `CompactorConfig.scala`<br/>`ConversationCompactor.scala`<br/>`TokenCounter.scala`<br/>`MemoryFlushManager.scala`<br/>`MemoryConsolidator.scala` | `ConversationCompactorSpec.scala`<br/>`TokenCounterSpec.scala`<br/>`MemoryFlushSpec.scala` | [`modules/harness/.../memory/README.md`](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/memory/README.md) |
+| **`harness.eviction`** | `[ ]` | `EvictionConfig.scala`<br/>`ToolResultEvictor.scala` | `ToolResultEvictorSpec.scala` | [`modules/harness/.../eviction/README.md`](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/eviction/README.md) |
+| **`harness.permission`**| `[ ]` | `PermissionBehavior.scala`<br/>`PermissionRule.scala`<br/>`ConfirmResult.scala`<br/>`PermissionEngine.scala` | `PermissionGateSpec.scala`<br/>`PermissionPromiseSpec.scala`<br/>`DurableResumeSpec.scala` | [`modules/harness/.../permission/README.md`](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/permission/README.md) |
+| **`harness.subagent`** | `[ ]` | `SubagentDeclaration.scala`<br/>`SubagentCoordinator.scala`<br/>`AgentSpawnTool.scala`<br/>`TaskSupervisor.scala` | `SubagentSpawnSpec.scala`<br/>`SubagentCancelSpec.scala`<br/>`SubagentPlanModePropagationSpec.scala`<br/>`TimeoutPromotionSpec.scala` | [`modules/harness/.../subagent/README.md`](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/README.md) |
+| **`harness.plan`** | `[ ]` | `PlanModeState.scala`<br/>`PlanModeInterceptor.scala`<br/>`PlanModeTools.scala` | `PlanModeInterceptorSpec.scala`<br/>`PlanModePropagationSpec.scala`<br/>`ShellHardeningSpec.scala` | [`modules/harness/.../plan/README.md`](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/plan/README.md) |
 
 ---
 
@@ -75,12 +75,14 @@ Phase 6: WeisGnosis OS Production Cutover   [                    ]   0% (Pending
 | Invariant | Test Verification | Target Spec | Status |
 | :--- | :--- | :--- | :---: |
 | **INV-1: Pure FP State** | Zero `var`, `null`, `while`, or mutable collections | Scalac compiler flags (`-Werror`, `-Xfatal-warnings`) | `[x]` Configured |
-| **INV-2: Dangling Tool Reconciliation** | Canceled fibers synthesize `ToolResultBlock(INTERRUPTED)` | `ReActAgentInterruptSpec.scala` | `[ ]` |
-| **INV-3: Thinking Loopback Guard** | Empty content turns with reasoning trigger reminder | `ReActAgentThinkingRetrySpec.scala` | `[ ]` |
-| **INV-4: Atomic Turn Pairing** | History compaction never splits assistant call and tool result | `ConversationCompactorSpec.scala` | `[ ]` |
-| **INV-5: Summary Deduplication** | Re-compaction flattens prior summary blocks | `ConversationCompactorSpec.scala` | `[ ]` |
-| **INV-6: Output Eviction Previews** | Outputs >2k chars replaced with 800-head / 400-tail preview | `ToolResultEvictorSpec.scala` | `[ ]` |
-| **INV-7: Promise-Based HITL** | Suspends execution without blocking JVM threads | `PermissionPromiseSpec.scala` | `[ ]` |
-| **INV-8: Max Spawn Depth** | Subagent recursion capped at depth 3 | `SubagentSpawnSpec.scala` | `[ ]` |
-| **INV-9: Plan Mode Lockout** | File mutations rejected in plan mode | `PlanModeInterceptorSpec.scala` | `[ ]` |
-| **INV-10: Sensitive Path Canonicalization** | Blocks symlink traversal to sensitive paths | `PathSafetySpec.scala` | `[ ]` |
+| **INV-2: Dangling Tool Reconciliation** | Canceled fibers synthesize `ToolResultBlock(INTERRUPTED)` for in-flight tools only | `ReActAgentInterruptSpec.scala` | `[ ]` |
+| **INV-3: Thinking Loopback Guard** | Empty content turns with reasoning trigger `<system-reminder>` | `ReActAgentThinkingRetrySpec.scala` | `[ ]` |
+| **INV-4: Atomic Turn Pairing & Cutoff** | History compaction never splits assistant call and tool result; handles consecutive user turns | `ConversationCompactorSpec.scala` | `[ ]` |
+| **INV-5: Summary Deduplication** | Re-compaction flattens prior summary blocks without nesting | `ConversationCompactorSpec.scala` | `[ ]` |
+| **INV-6: Output Eviction Previews** | Outputs >80k chars saved to `large_tool_results/` with 2k head / 2k tail preview | `ToolResultEvictorSpec.scala` | `[ ]` |
+| **INV-7: Dual-Mode HITL** | In-memory `Promise` for CLI; state persistence & `ConfirmResult` resume for durable | `PermissionPromiseSpec.scala`, `DurableResumeSpec.scala` | `[ ]` |
+| **INV-8: Max Spawn Depth & Task Supervisor** | Subagent recursion capped at depth 3; timeout promotion detached to supervisor | `SubagentSpawnSpec.scala`, `TimeoutPromotionSpec.scala` | `[ ]` |
+| **INV-9: Plan Mode & Shell Hardening** | File mutations rejected in plan mode; shell commands statically inspected | `PlanModeInterceptorSpec.scala`, `ShellHardeningSpec.scala` | `[ ]` |
+| **INV-10: Sensitive Path Canonicalization** | Blocks symlink traversal to sensitive paths via `toRealPath()` | `PathSafetySpec.scala` | `[ ]` |
+| **INV-11: Structured Output Dual-Engine** | Toggles native format vs `generate_response` with root `$defs` hoisting | `StructuredOutputSpec.scala` | `[ ]` |
+| **INV-12: Chunk Index Assembly** | Groups parallel tool call argument fragments by `streamIndex` | `StreamAccumulatorSpec.scala` | `[ ]` |
