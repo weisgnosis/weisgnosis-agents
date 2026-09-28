@@ -2,7 +2,7 @@
 
 **Status:** Canonical instruction page for AI/code agents working in this repository.  
 **License:** Apache-2.0  
-**Stack:** Scala 3.8.4+, ZIO 2.1.26+, ZIO Schema, ZIO JSON, ZIO HTTP  
+**Stack:** Scala 3.9.0 LTS, ZIO 2.1.26+, ZIO JSON, ZIO HTTP  
 
 ---
 

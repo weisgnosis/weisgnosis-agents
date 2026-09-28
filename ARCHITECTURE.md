@@ -2,7 +2,7 @@
 
 > **Version:** 0.1.0-DRAFT  
 > **Status:** Approved Baseline  
-> **Target Environment:** Scala 3.8.4+ / ZIO 2.1.26+  
+> **Target Environment:** Scala 3.9.0 LTS / ZIO 2.1.26+  
 
 ---
 

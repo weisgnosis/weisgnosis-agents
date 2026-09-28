@@ -1,8 +1,7 @@
-val scala3Version = "3.8.4"
-val zioVersion    = "2.1.26"
-val zioJsonVersion = "0.9.1"
-val zioHttpVersion = "3.11.3"
-val zioSchemaVersion = "1.5.0"
+val scala3Version   = "3.9.0"
+val zioVersion      = "2.1.26"
+val zioJsonVersion  = "0.9.1"
+val zioHttpVersion  = "3.11.3"
 
 ThisBuild / scalaVersion  := scala3Version
 ThisBuild / version       := "0.1.0-SNAPSHOT"
@@ -33,7 +32,6 @@ lazy val core = (project in file("modules/core"))
       "dev.zio" %% "zio"         % zioVersion,
       "dev.zio" %% "zio-streams" % zioVersion,
       "dev.zio" %% "zio-json"    % zioJsonVersion,
-      "dev.zio" %% "zio-schema"  % zioSchemaVersion,
       "dev.zio" %% "zio-http"    % zioHttpVersion,
       "dev.zio" %% "zio-test"     % zioVersion % Test,
       "dev.zio" %% "zio-test-sbt" % zioVersion % Test

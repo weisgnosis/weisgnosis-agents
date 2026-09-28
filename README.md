@@ -9,7 +9,7 @@
     <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache-2.0" />
   </a>
   <a href="#">
-    <img src="https://img.shields.io/badge/Scala-3.8.4+-red.svg" alt="Scala 3" />
+    <img src="https://img.shields.io/badge/Scala-3.9.0_LTS-red.svg" alt="Scala 3.9.0 LTS" />
   </a>
   <a href="#">
     <img src="https://img.shields.io/badge/ZIO-2.1.26+-orange.svg" alt="ZIO 2" />
@@ -51,7 +51,7 @@ The minimal, zero-dependency cognitive kernel:
 - Immutable message model: `Msg`, `Role`, `ContentBlock` (Text, Thinking, ToolUse, ToolResult, Data).
 - Typed event hierarchy: 31 events as a single Scala 3 `enum AgentEvent derives JsonCodec`.
 - Pure FP ReAct loop using ZIO tail recursion.
-- Compile-time JSON schema derivation for tools via `zio-schema`.
+- Compile-time JSON schema and codecs for tools via `zio-json`.
 - Streaming SSE client with support for server-side tools (e.g. Anthropic web search, Gemini code execution).
 
 ### 2. `weisgnosis-agents-harness`
