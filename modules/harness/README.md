@@ -1,23 +1,23 @@
 # weisgnosis-agents-harness
 
-Инженерная обвязка агентного контекста на Scala 3.9 LTS и ZIO 2: управление памятью, вытеснение больших результатов инструментов, трехуровневая безопасность (Human-in-the-Loop), субагенты на фиберах и режим планирования.
+Enterprise context engineering and agent coordination built with Scala 3.9 LTS and ZIO 2: conversation memory management, large tool result eviction, three-tier Human-in-the-Loop permission gating, fiber-based subagents, and plan mode transitions.
 
 ---
 
-## 📦 Структура пакетов
+## 📦 Package Structure
 
-| Пакет | Назначение | Исходный модуль AgentScope Java | Оценка SLOC (Main / Test) |
+| Package | Purpose | Upstream AgentScope Java Reference | SLOC Forecast (Main / Test) |
 | :--- | :--- | :--- | :---: |
-| [`memory`](src/main/scala/weisgnosis/agents/harness/memory/README.md) | Компактинг диалога, дедупликация саммари, оценка токенов | `agentscope-harness/.../memory/compaction/` | ~200 / ~300 |
-| [`eviction`](src/main/scala/weisgnosis/agents/harness/eviction/README.md) | Вытеснение результатов тулов >2k символов в офф-контекстный кэш | `agentscope-harness/.../middleware/ToolResultEvictionMiddleware.java` | ~150 / ~250 |
-| [`permission`](src/main/scala/weisgnosis/agents/harness/permission/README.md) | Human-in-the-Loop гейтинг (Allow, Deny, Ask через `zio.Promise`) | `agentscope-core/.../permission/` | ~180 / ~300 |
-| [`subagent`](src/main/scala/weisgnosis/agents/harness/subagent/README.md) | Дочерние агенты на фиберах (`forkScoped`), мультиплексирование потоков | `agentscope-harness/.../subagent/` | ~250 / ~400 |
-| [`plan`](src/main/scala/weisgnosis/agents/harness/plan/README.md) | Режим планирования (Plan Mode), блокировка мутаций, обязательный HITL | `agentscope-harness/.../workspace/plan/` | ~150 / ~200 |
+| [`memory`](src/main/scala/com/weisgnosis/agents/harness/memory/README.md) | Conversation compaction, summary deduplication, token estimation | `agentscope-harness/.../memory/compaction/` | ~200 / ~300 |
+| [`eviction`](src/main/scala/com/weisgnosis/agents/harness/eviction/README.md) | Tool output offloading (>2k chars) to off-context cache | `agentscope-harness/.../middleware/ToolResultEvictionMiddleware.java` | ~150 / ~250 |
+| [`permission`](src/main/scala/com/weisgnosis/agents/harness/permission/README.md) | Human-in-the-Loop gating (Allow, Deny, Ask via `zio.Promise`) | `agentscope-core/.../permission/` | ~180 / ~300 |
+| [`subagent`](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) | Child agents on fibers (`forkScoped`), event stream multiplexing | `agentscope-harness/.../subagent/` | ~250 / ~400 |
+| [`plan`](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) | Plan mode, mutation lockouts, mandatory approval gates | `agentscope-harness/.../workspace/plan/` | ~150 / ~200 |
 
 ---
 
-## 🎯 Ключевые архитектурные инварианты
-1. **Atomic Turn Pairing:** При сжатии истории компактор никогда не разрезает пару вызов тула / результат тула.
-2. **Summary Deduplication:** Повторный компактинг не создает «саммари от саммари», а агрегирует факты в плоский текст.
-3. **Promise-Based HITL:** Запрос подтверждения оператора приостанавливает выполнение в чистом `zio.Promise`, не блокируя системные потоки.
-4. **Subagent Scoping:** Лимит глубины спавна (`MAX_SPAWN_DEPTH = 3`). Отмена родительского агента каскадно гасит всех потомков.
+## 🎯 Key Architectural Invariants
+1. **Atomic Turn Pairing:** Conversation compactor never separates an assistant tool call from its matching tool result block.
+2. **Summary Deduplication:** Re-compaction never stacks summaries into recursive "summaries of summaries"; it flattens and merges key facts into a single summary block.
+3. **Promise-Based HITL:** Operator confirmation requests suspend execution via a pure `zio.Promise` without thread blocking.
+4. **Subagent Scoping:** Bounded spawn depth (`MAX_SPAWN_DEPTH = 3`). Parent agent interruption cascades cleanly to all descendant fibers.

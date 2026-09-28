@@ -1,247 +1,249 @@
-# Глубокий ресерч источника и гайд портирования: `weisgnosis-agents`
+# Deep Research & Porting Guide: `weisgnosis-agents`
 
-> **Документ:** Архитектурно-исследовательский отчет и руководство по портированию  
-> **Оригинальная система:** AgentScope Java 2.0.2 / 2.0.3 (Alibaba)  
-> **Целевая система:** `weisgnosis-agents` (Scala 3.9.0 LTS + ZIO 2.1.26+)  
-> **Лицензия:** Apache-2.0  
-> **Дата обновления:** Сентябрь 2026  
+> **Document:** Architectural Research Report and Porting Guide  
+> **Source System:** AgentScope Java 2.0.2 / 2.0.3 (Alibaba)  
+> **Target System:** `weisgnosis-agents` (Scala 3.9.0 LTS + ZIO 2.1.26+)  
+> **Organization:** `com.weisgnosis`  
+> **License:** Apache-2.0  
+> **Last Updated:** September 2026  
 
 ---
 
-## 1. Количественная оценка кодовой базы (LOC Forecast)
+## 1. Quantitative Codebase Forecast (LOC Forecast)
 
-Оригинальный репозиторий AgentScope Java насчитывает **>600 000 строк кода** в 96 модулях Maven. Суть проекта сосредоточена в `agentscope-core` (96k SLOC) и `agentscope-harness` (60k SLOC). Огромная масса кода — это бойлерплейт Java (геттеры, сеттеры, билдеры, Jackson-аннотации), самодельные очереди задач и платформенные адаптеры.
+The upstream AgentScope Java repository contains **>600,000 lines of code** distributed across 96 Maven modules. The cognitive core is concentrated in `agentscope-core` (96k SLOC) and `agentscope-harness` (60k SLOC). A significant portion of this bulk consists of Java enterprise ceremony (getters, setters, fluent builders, Jackson annotations), custom task queues, and platform adapters.
 
-### 1.1. Сравнительный расчет SLOC по подсистемам
+### 1.1. Comparative SLOC Breakdown by Subsystem
 
-| Подсистема / Модуль | Исходный Java SLOC | Назначение в источнике | Планируемый Scala 3.9 SLOC (Main) | Планируемый ZIO Test SLOC (Test) | Коэффициент сжатия |
+| Subsystem / Module | Upstream Java SLOC | Role in Upstream Source | Target Scala 3.9 SLOC (Main) | Target ZIO Test SLOC (Test) | Reduction Ratio |
 | :--- | :---: | :--- | :---: | :---: | :---: |
-| **Система сообщений (`msg`)** | 1 701 | `Msg`, 12 классов блоков, билдеры, копирование | **120 – 180** | **150 – 250** | **~10x** |
-| **События (`event`)** | 1 397 | 35 классов событий, Jackson полиморфизм | **100 – 150** | **150 – 200** | **~10x** |
-| **Движок инструментов (`tool`)** | 3 676 | Рефлексия, парсинг методов, валидация | **250 – 350** | **300 – 450** | **~10x** |
-| **Потоковый SSE-клиент (`client`)** | 3 030 | OkHttp/Netty, парсинг чанков, маппинг | **400 – 600** | **350 – 500** | **~6x** |
-| **ReAct Loop & State Machine** | 3 898 | Reactor-цикл, прерывания, ретраи | **350 – 500** | **500 – 800** | **~8x** |
-| **ИТОГО: `agents-core`** | **13 702** | *Ядро агентного цикла* | **~1 200 – 1 780** | **~1 450 – 2 200** | **~8x** |
-| **Компактинг памяти (`compaction`)** | 1 051 | Саммаризация, дедупликация, сплит | **150 – 250** | **250 – 400** | **~5x** |
-| **Вытеснение тулов (`eviction`)** | 500 | Замена больших аутпутов на превью | **120 – 180** | **200 – 300** | **~3x** |
-| **Human-in-the-Loop (`permission`)** | 662 | Трехуровневый гейтинг, токены паузы | **150 – 220** | **250 – 350** | **~4x** |
-| **Субагенты на фиберах (`subagent`)** | 2 558 | Мультиплексирование потоков, таски | **200 – 300** | **300 – 450** | **~8x** |
-| **ИТОГО: `agents-harness`** | **4 771** | *Инженерная обвязка контекста* | **~620 – 950** | **~1 000 – 1 500** | **~6x** |
-| **Model Context Protocol (`mcp`)** | 1 051 | JSON-RPC 2.0, Stdio & SSE транспорты | **400 – 600** | **400 – 600** | **~2.5x** |
-| **ИТОГО: `agents-mcp`** | **1 051** | *Нативный ZIO MCP клиент* | **~400 – 600** | **~400 – 600** | **~2.5x** |
-| **ВСЕГО ПО ПРОЕКТУ:** | **~19 524** *(суть)* | *(без учета 500k корпоративного балласта)* | **~2 220 – 3 330** | **~2 850 – 4 300** | **~7x** |
+| **Message Model (`model`)** | 1,701 | `Msg`, 12 block classes, builders, copies | **120 – 180** | **150 – 250** | **~10x** |
+| **Event Stream (`event`)** | 1,397 | 35 event classes, Jackson polymorphism | **100 – 150** | **150 – 200** | **~10x** |
+| **Tool Engine (`tool`)** | 3,676 | Reflection, method parsing, validation | **250 – 350** | **300 – 450** | **~10x** |
+| **Streaming Client (`client`)** | 3,030 | OkHttp/Netty, chunk parsing, mapping | **400 – 600** | **350 – 500** | **~6x** |
+| **ReAct Loop & State Machine** | 3,898 | Reactor loop, interruptions, retries | **350 – 500** | **500 – 800** | **~8x** |
+| **TOTAL: `agents-core`** | **13,702** | *Cognitive ReAct kernel* | **~1,200 – 1,780** | **~1,450 – 2,200** | **~8x** |
+| **Memory Compaction (`memory`)** | 1,051 | Summarization, deduplication, splitting | **150 – 250** | **250 – 400** | **~5x** |
+| **Tool Eviction (`eviction`)** | 500 | Offloading large outputs with previews | **120 – 180** | **200 – 300** | **~3x** |
+| **Human-in-the-Loop (`permission`)** | 662 | Three-tier gating, suspension tokens | **150 – 220** | **250 – 350** | **~4x** |
+| **Subagents on Fibers (`subagent`)** | 2,558 | Stream multiplexing, task lifecycles | **200 – 300** | **300 – 450** | **~8x** |
+| **TOTAL: `agents-harness`** | **4,771** | *Context engineering & coordination* | **~620 – 950** | **~1,000 – 1,500** | **~6x** |
+| **Model Context Protocol (`mcp`)** | 1,051 | JSON-RPC 2.0, Stdio & SSE transports | **400 – 600** | **400 – 600** | **~2.5x** |
+| **TOTAL: `agents-mcp`** | **1,051** | *Native ZIO MCP client* | **~400 – 600** | **~400 – 600** | **~2.5x** |
+| **PROJECT TOTAL:** | **~19,524** *(core)* | *(excluding ~500k corporate legacy)* | **~2,220 – 3,330** | **~2,850 – 4,300** | **~7x** |
 
-### 1.2. Итоговый объем разрабатываемого кода:
-* **Продакшн-код (Main SLOC):** **2 300 – 3 300 строк**
-* **Тестовый код (Test SLOC):** **2 800 – 4 300 строк**
-* **Общий объем репозитория:** **~5 100 – 7 600 строк** чистейшего, типобезопасного Scala 3.9 LTS кода.
-* *Для сравнения:* В `weisgnosis-os` прямо сейчас лежит **7 774 строки адаптеров** только для того, чтобы вызывать AgentScope Java. Наша библиотека целиком с тестами будет **компактнее, чем текущий адаптерный костыль!**
+### 1.2. Projected Implementation Target:
+* **Production Code (Main SLOC):** **2,300 – 3,300 lines**
+* **Test Code (Test SLOC):** **2,800 – 4,300 lines**
+* **Total Repository Scope:** **~5,100 – 7,600 lines** of idiomatic, type-safe Scala 3.9 LTS code.
+* *Context Comparison:* The existing `weisgnosis-os` codebase contains **7,774 lines of adapter glue** solely to interface with AgentScope Java. This entire pure library with comprehensive test suites is **smaller than the existing adapter layer**.
 
 ---
 
-## 2. Архитектурное распутывание: Temporal (Macro) vs `weisgnosis-agents` (Micro)
+## 2. Architectural Separation: Temporal (Macro) vs `weisgnosis-agents` (Micro)
 
-Ключевой вывод исследования архитектуры AgentScope Java: **почему в коде Alibaba всё так тесно переплетено?**
+A primary takeaway from the codebase audit: **why was AgentScope Java so tightly coupled?**
 
-В AgentScope Java не было внешнего движка надежного выполнения (Durable Execution Engine), такого как **Temporal**. В результате инженеры Alibaba были вынуждены переизобретать свой собственный половинчатый «микро-Temporal» прямо внутри JVM на базе Spring и Project Reactor:
-1. **`WorkspaceTaskRepository` + JSON-файлы + 30-секундный heartbeat + свитчер орфанов (5m)** — попытка сделать Durable Tasks и восстановление после падения ноды.
-2. **`MessageBus` + inbox queues + `agentscope:wakeups`** — попытка сымитировать Signal Channels и пробуждение спящих сессий.
-3. **`AgentStateStore` с CAS-версионированием (`saveIfVersion`, OCC locks)** — попытка защититься от состояния гонки при параллельном обращении нескольких тредов к сессии.
-4. **`PeriodicGate` + пулы `Schedulers.boundedElastic()`** — попытка сделать планировщик фоновых регламентных работ (cron).
+Upstream AgentScope lacked an external durable execution engine (such as **Temporal**). Consequently, the upstream team was forced to reconstruct an ad-hoc, in-process workflow orchestrator inside the JVM on top of Spring and Project Reactor:
+1. **`WorkspaceTaskRepository` + JSON files + 30s heartbeat + 5m orphan sweeper:** An ad-hoc imitation of Durable Tasks and node failure recovery.
+2. **`MessageBus` + inbox queues + `agentscope:wakeups`:** An ad-hoc imitation of Signal Channels and waking sleeping sessions.
+3. **`AgentStateStore` with CAS versioning (`saveIfVersion`, OCC locks):** An ad-hoc mechanism to guard against race conditions during concurrent session access.
+4. **`PeriodicGate` + thread pools:** An ad-hoc cron-like scheduler for periodic maintenance.
 
-### Разделение зон ответственности (Macro vs Micro)
+### Layer Separation of Concerns (Macro vs Micro)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                      weisgnosis-os (MACRO-СЛОЙ)                        │
+│                      weisgnosis-os (MACRO LAYER)                       │
 │                                                                        │
-│   • Долгоживущие Workflow Temporal (дни, недели, месяцы)               │
-│   • Графы выполнения (FlowDefinition, DAG процессов)                   │
-│   • Human-in-the-Loop через Temporal Signals (ожидание в браузере)     │
-│   • Межсервисные транзакции (Saga), балансировка бюджета, RBAC        │
-│   • Персистентность в PostgreSQL (Flyway, Doobie, Outbox Pattern)      │
-│   • Тяжелые асинхронные задачи (Job Workers, фоновый рендеринг)        │
+│   • Long-lived Temporal Workflows (days, weeks, months)                │
+│   • Process execution graphs (FlowDefinition, DAG workflows)           │
+│   • Human-in-the-Loop via Temporal Signals (browser interaction)       │
+│   • Cross-service transactions (Saga), budget balancing, RBAC          │
+│   • Persistence in PostgreSQL (Flyway, Doobie, Outbox Pattern)         │
+│   • Heavy asynchronous jobs (Worker fleets, background rendering)      │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │ Вызывает Activity
+                                    │ Dispatches Activity
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                   weisgnosis-agents (MICRO-СЛОЙ)                       │
+│                   weisgnosis-agents (MICRO LAYER)                      │
 │                                                                        │
-│   • Чистый Stateless ReAct Engine (один шаг или локальный цикл)       │
-│   • ZStream из 31 строго типизированного события (SSE в реальном вр.)  │
-│   • ReAct Loop: LLM -> Tool Call -> Local/MCP Execution -> History     │
-│   • Защита протокола LLM (Dangling Reconcile, DeepSeek Reasoning)      │
-│   • Компактинг контекста (ConversationCompactor, Tool Eviction)        │
-│   • Локальные легковесные субагенты на ZIO Fibers (forkScoped/merge)   │
-│   • Полная изоляция через ZIO Structured Concurrency и FiberRef        │
+│   • Pure Stateless ReAct Engine (single-turn or local loop)           │
+│   • ZStream of 31 typed events (real-time SSE)                         │
+│   • ReAct Loop: Model -> Tool Call -> Local/MCP Execution -> History   │
+│   • Model protocol resilience (Dangling Reconcile, Thinking tokens)   │
+│   • Context management (ConversationCompactor, Tool Eviction)          │
+│   • Local lightweight subagents on ZIO Fibers (forkScoped/merge)       │
+│   • Total isolation via ZIO Structured Concurrency and FiberRef        │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Главный архитектурный принцип:**  
-Библиотека `weisgnosis-agents` **НЕ содержит** собственных демонов, таймеров с `Thread.sleep`, внешних планировщиков или самодельных баз задач на диске. Она полностью детерминирована, чиста (Pure FP) и работает как эффективный вычислительный движок внутри Activity Temporal либо как автономная библиотека в CLI/сервисах.
+**Core Principle:**  
+`weisgnosis-agents` **contains zero** internal background daemons, thread-sleeping loops, external schedulers, or ad-hoc file-based task databases. It is purely deterministic functional code (Pure FP), functioning as a high-performance execution engine inside Temporal Activities or as a standalone library in CLI/microservices.
 
 ---
 
-## 3. Каталог скрытых краевых случаев и инвариантов (35 Hard Lessons)
+## 3. Catalog of Production Edge Cases (35 Hard Lessons)
 
-Анализ 336 тестов и ключевых модулей `agentscope-core` и `agentscope-harness` выявил 35 критических краевых случаев реального продакшна, которые мы обязаны учесть:
+An analysis of 336 unit and integration tests across `agentscope-core` and `agentscope-harness` identified 35 critical production edge cases:
 
-### 3.1. Ядро агентного цикла и протоколы LLM (`agents-core`)
+### 3.1. Core ReAct Loop & Model Protocol (`agents-core`)
 
-1. **Реконсилиация висячих вызовов инструментов при отмене (Issue #2409)**:
-   * *Суть:* Если ZIO-фибер прерывается (`fiber.interrupt`, отмена Temporal активности или таймаут) в момент, когда модель вернула `ToolUseBlock`, но результат инструмента еще не записан, в истории остается «висячий вызов». OpenAI / Anthropic при следующем шаге упадут с фатальным `400 Bad Request`.
-   * *Решение:* В `ZIO.ensuring` проверяется последнее сообщение: при наличии незакрытого `ToolUseBlock` синтезируется `ToolResultBlock(INTERRUPTED)`.
-2. **Специфика DeepSeek: Сохранение и очистка `reasoning_content`**:
-   * *Суть:* Для моделей DeepSeek-R1 / V3 протокол API требует сохранять `reasoning_content` в сообщениях ассистента, за которыми сразу следуют результаты инструментов, но удалять его из старых текстовых ходов во избежание переполнения контекста.
-   * *Решение:* Функция `preserveReasoningOnlyForToolSegments(history: Chunk[Msg]): Chunk[Msg]`.
-3. **Защита от «думающих в пустоту» моделей (Empty/Thinking-Only Loopback)**:
-   * *Суть:* DeepSeek-R1, o1, Claude 3.7 Thinking иногда тратят тысячи токенов рассуждений, но поле `content` возвращают пустым без вызовов инструментов.
-   * *Решение:* Цикл делает автоматический шаг-напоминание: *«Ты сформировал рассуждение, но не вывел ответ пользователю. Пожалуйста, предоставь итоговый ответ»*.
-4. **Серверные инструменты провайдеров (`isServerTool = true`)**:
-   * *Суть:* Встроенный Web Search от Anthropic или Code Execution от Gemini выполняются на серверах провайдера. В SSE вызов и результат приходят вместе.
-   * *Решение:* Флаг `isServerTool` минует локальный диспетчер вызовов.
-5. **Атомарность шага в компакторе контекста (Atomic Turn Pairing)**:
-   * *Суть:* При отсечении (`cutoff`) старой истории нельзя разделять пару: `Assistant(tool_calls)` и следующий за ним `Tool(tool_results)`.
-   * *Решение:* Алгоритм сдвигает границу влево, сохраняя целостность пар.
-6. **Дедупликация старых саммари в компакторе**:
-   * *Суть:* При многократном сжатии наивный алгоритм суммаризирует предыдущие саммари, получая «саммари саммари».
-   * *Решение:* Извлечение существующих блоков `__compaction_summary__` и объединение с новым срезом в одно плоское первичное саммари.
-7. **Вытеснение результатов инструментов (Tool Result Eviction)**:
-   * *Суть:* Команда `git diff` возвращает 50k символов, сжигая контекст на каждом ходе.
-   * *Решение:* Вывод длиннее `maxChars` заменяется на превью со ссылкой на кэш.
-8. **Двойной движок структурированного вывода (Structured Output)**:
-   * *Суть:* Если модель поддерживает нативный `response_format`, используется он; при конфликте с активными тулами инжектируется синтетический терминальный инструмент `generate_response`.
-
----
-
-### 3.2. Субагенты и координация (`agents-harness`)
-
-9. **Ограничение глубины делегирования (`MAX_SPAWN_DEPTH = 3`)**:
-   * Защита от бесконечной взаимно-рекурсивной делегации между агентами.
-10. **Промоушен синхронного таймаута (`AdoptedTaskRunSpec`)**:
-   * При превышении синхронного таймаута (30s) задача **не отменяется**, а бесшовно переводится в фоновый фибер со статусом `timeout_promoted`, возвращая `task_id`.
-11. **Гарантия закрытия потока событий субагента при отмене**:
-   * В Reactor `doOnTerminate` не срабатывал на отмену, оставляя стрим висящим без `AgentEndEvent`. В ZIO это решается через `onExit` / `ensuring`.
-12. **Предотвращение появления фиберов-сирот (Orphan Subagents)**:
-   * Отмена родительского контекста обязана каскадно прерывать дочерние фиберы субагентов благодаря ZIO Structured Concurrency (`forkScoped`).
-13. **Лимит пачки уведомлений (`MAX_DELIVERIES_PER_REMINDER = 10`)**:
-   * Если в фоне завершилось 50 задач, в системное напоминание включаются максимум 10, защищая контекстное окно модели.
-14. **Безопасная доставка At-Least-Once**:
-   * Фоновые результаты помечаются доставленными **только после** успешного завершения шага рассуждения родителя.
-15. **Автоматический отказ HITL для удаленных агентов при синхронном ожидании**:
-   * Если удаленный агент запрашивает подтверждение человека при синхронном вызове без интерактивного канала, запрос автоматически отклоняется во избежание бесконечного зависания.
-16. **Сквозная передача Plan Mode и правил DENY**:
-   * Родительский агент принудительно синхронизирует статус Plan Mode и ограничения безопасности всем дочерним субагентам.
-17. **Защита от потери контекста Reactor при `.block()` внутри тулов**:
-   * В Java вызов `.block()` внутри метода тула отрывал контекст Reactor. В ZIO окружение `ZEnvironment` передается по стеку вызовов эффектов непрерывно.
-18. **Детерминированные ключи персистентных сессий**:
-   * Повторный спавн агента с флагом `persist_session=true` переиспользует существующий инстанс на основе детерминированного хеша `(parentSessionId, agentId, label)`.
+1. **Dangling Tool Call Reconciliation on Interruption (Issue #2409)**:
+   * *Issue:* If a ZIO fiber is interrupted (`fiber.interrupt`, Temporal activity cancellation, or SLA timeout) after a model emits `ToolUseBlock` but before the tool result is recorded, a dangling tool call remains in history. Subsequent model calls fail with a fatal `400 Bad Request`.
+   * *Resolution:* In `ZIO.ensuring`, inspect the trailing message: if an open `ToolUseBlock` exists without a matching result, synthesize a `ToolResultBlock(INTERRUPTED)`.
+2. **Reasoning Content Preservation & Hygiene**:
+   * *Issue:* Reasoning models require preserving reasoning blocks preceding immediate tool calls, but stripping them from older dialogue turns prevents prompt explosion.
+   * *Resolution:* Dedicated transformer `preserveReasoningOnlyForToolSegments(history: Chunk[Msg]): Chunk[Msg]`.
+3. **Guard Against Empty/Thinking-Only Responses**:
+   * *Issue:* Reasoning models occasionally consume reasoning budgets but return empty content without tool calls.
+   * *Resolution:* Automated loopback prompt: *"You generated internal reasoning but produced no user-facing output or tool calls. Please provide the final response."*
+4. **Provider Server Tools (`isServerTool = true`)**:
+   * *Issue:* Hosted tools (e.g. provider search, remote code execution) execute on provider infrastructure. Both invocation and result stream together.
+   * *Resolution:* The `isServerTool` flag bypasses local dispatch.
+5. **Atomic Turn Pairing in Conversation Compactor**:
+   * *Issue:* Splitting history at an arbitrary message index can sever an assistant's `ToolUse` turn from the following `ToolResult` turn, corrupting dialogue schema.
+   * *Resolution:* Cutoff boundary shifts backwards to protect tool call/result pairs.
+6. **Summary Deduplication During Re-Compaction**:
+   * *Issue:* Repeated compaction passes can create nested "summaries of summaries".
+   * *Resolution:* Extract prior `__compaction_summary__` blocks and flatten them into a single summary block.
+7. **Tool Result Eviction**:
+   * *Issue:* Commands producing massive outputs (e.g. large file diffs) exhaust context windows.
+   * *Resolution:* Outputs exceeding `maxChars` are offloaded to storage and replaced with head/tail previews.
+8. **Dual-Engine Structured Output**:
+   * *Issue:* Native `response_format` conflicts with active tool definitions on certain provider endpoints.
+   * *Resolution:* Use native format when tools are absent; inject synthetic terminal tool `generate_response` when tools are active.
 
 ---
 
-### 3.3. Память, стейт-сторы и Plan Mode (`agents-harness`)
+### 3.2. Subagents & Coordination (`agents-harness`)
 
-19. **Строгое разделение двух слоев памяти (Two-Layer Invariant)**:
-   * `MemoryFlushManager` пишет **только** в суточный журнал `memory/YYYY-MM-DD.md`.
-   * `MemoryConsolidator` является **единственным** писателем в `MEMORY.md`. Смешивание их зон ответственности приводит к деградации долговременной памяти.
-20. **Асинхронные инструменты: сохранение вычисления при оффлоаде**:
-   * При превышении порога ожидания тула агент получает плейсхолдер `<system-reminder>Tool '...' is running in background</system-reminder>`, но фоновый фибер продолжает работу.
-21. **Обязательный плейсхолдер `ToolResultBlock` в истории**:
-   * При фоновом оффлоаде синтетический результат тула обязан сразу попасть в историю, иначе валидация OpenAI/Anthropic падает.
-22. **Защита от зацикливания ожидания (Anti-Spinning Guardrail)**:
-   * Более 2 последовательных пустых вызовов `wait_async_results` приводят к жесткому отказу инструмента, заставляя модель продолжить полезную работу.
-23. **Обязательное подтверждение человека при выходе из Plan Mode**:
-   * Вызов `plan_exit` принудительно генерирует решение `PermissionDecision.ask`, блокируя переход в фазу исполнения без санкции оператора.
-24. **Разрешенные мета-инструменты в режиме планирования**:
-   * В Plan Mode запрещены изменения файлов (`write_file`, `edit_file`), но разрешены `plan_write`, `todo_write`, `agent_spawn` и команды чтения.
-25. **Утечка версии CAS при безусловной записи (Bug #3220)**:
-   * Безусловная запись (`UNVERSIONED`) обязана возвращать версию, присвоенную именно этой записи, внутри единой транзакции, иначе последующий CAS будет использовать чужую версию.
-26. **Изоляция анонимного пространства имен (`__anon__`)**:
-   * `userId == null` транслируется в `"__anon__"`, исключая коллизии с реальным пользователем с пустым именем `""`.
-27. **Синхронный захват счетчика до ухода в асинхронность**:
-   * Регистрация фоновой задачи (`begin()`) выполняется строго на вызывающем потоке до ухода в асинхронный шедулер, гарантируя корректность барьеров завершения (`awaitQuiescence`).
-
----
-
-### 3.4. Песочницы и безопасность файловой системы
-
-28. **Гонка единого слота песочницы (Issue #2490)**:
-   * В AgentScope `SandboxLifecycleMiddleware` хранил `volatile Sandbox` на уровне синглтона бина, что приводило к сбоям при параллельных сессиях. В ZIO контекст изолирован в `FiberRef`.
-29. **Защита от Zip Slip при распаковке снапшотов (`WorkspaceArchiveExtractor`)**:
-   * Проверка абсолютных путей, сегментов `..`, нулевых байтов `\0` и проверка `dest.startsWith(canonicalRoot)`.
-30. **Перенос snapshotId при падении контейнера (`carryOverPersistedSnapshotId`)**:
-   * При сбое переподключения к старому контейнеру создается новый контейнер, но ему передается идентификатор предыдущего снапшота, сохраняя целостность данных воркспейса.
-31. **Строгий порядок финализации: `stop()` ДО `persistState()`**:
-   * `sandbox.stop()` фиксирует метаданные снапшота; сохранение состояния в хранилище обязано происходить после этого вызова.
-32. **Исключение точек монтирования (`bind mounts`) из тар-снапшота**:
-   * Использование аргументов `--exclude=./<rel>`, чтобы хостовые директории не запаковывались рекурсивно в снапшот контейнера.
-33. **Права доступа к файлам в Docker (`0644`)**:
-   * Временные файлы хоста по умолчанию создаются с маской `0600`. Команда `docker cp` сохраняет права, делая файлы нечитаемыми для non-root пользователей внутри контейнера без явного `chmod 0644`.
-34. **Защита от обхода через символические ссылки (`toRealPath()`)**:
-   * Проверка опасных файлов (`.ssh`, `.env`) обязана резолвить реальный путь через `toRealPath()`, предотвращая чтение секретов через симлинки.
-35. **Схлопывание однотипных операций сброса памяти (Flush Coalescing)**:
-   * Очередь сброса памяти схлопывает множественные запросы в рамках одного диалога в один финальный такт, читающий актуальный срез истории.
+9. **Delegation Depth Cap (`MAX_SPAWN_DEPTH = 3`)**:
+   * Prevents infinite recursive delegation loops between agents.
+10. **Synchronous Timeout Promotion**:
+    * When a synchronous turn exceeds timeout (e.g. 30s), the task is transitioned smoothly into a background fiber with status `timeout_promoted`, returning a task reference.
+11. **Guaranteed Stream Finalization on Interruption**:
+    * Ensures `AgentEndEvent` is deterministically emitted when an agent stream is interrupted.
+12. **Orphan Subagent Prevention**:
+    * Parent fiber interruption cascades deterministically to all child subagents using ZIO structured concurrency (`forkScoped`).
+13. **Delivery Batch Throttling (`MAX_DELIVERIES_PER_REMINDER = 10`)**:
+    * When many background tasks complete concurrently, at most 10 are delivered per prompt turn to avoid overwhelming the model's attention window.
+14. **At-Least-Once Delivery Acknowledgement**:
+    * Background results are marked as acknowledged only after the parent agent successfully completes its reasoning turn.
+15. **Automatic HITL Rejection for Non-Interactive Remote Invocations**:
+    * When a remote agent requests approval without an interactive channel, the request safely defaults to `Denied` to prevent deadlocks.
+16. **Cascading Plan Mode and Constraint Enforcement**:
+    * Planning mode restrictions and safety rules automatically cascade to all spawned subagents.
+17. **Continuous Fiber Environment Propagation**:
+    * ZIO `ZEnvironment` and `FiberRef` pass continuously down the effect stack without thread-local context loss.
+18. **Deterministic Persistent Session Addressing**:
+    * Spawning an agent with `persist_session=true` reuses state addressed by `(parentSessionId, agentId, label)`.
 
 ---
 
-## 4. Таблица архитектурных трансформаций (Java/Reactor $\to$ Scala 3.9/ZIO 2)
+### 3.3. Memory, State Stores, and Plan Mode (`agents-harness`)
 
-| Механизм в Java / AgentScope | Как это было устроено (Java / Reactor) | Как это реализуется в `weisgnosis-agents` (Pure FP) |
+19. **Two-Layer Memory Invariant**:
+    * Short-term memory manager writes only to dated daily logs (`memory/YYYY-MM-DD.md`).
+    * Long-term memory consolidator is the sole writer to `MEMORY.md`. Separating writers prevents memory corruption.
+20. **Async Tools: Computation Retention on Offload**:
+    * When execution exceeds synchronous thresholds, the model receives a placeholder status while the underlying fiber continues executing.
+21. **Mandatory Placeholder in History**:
+    * Synthetic tool placeholders must appear immediately in conversation history to maintain provider schema validity.
+22. **Anti-Spinning Guardrail**:
+    * Repeated empty polling checks trigger explicit tool failure to prevent idle token consumption.
+23. **Mandatory Human Confirmation on Plan Exit**:
+    * Transitioning out of Plan Mode (`plan_exit`) strictly requires operator confirmation (`PermissionDecision.ask`).
+24. **Permitted Read-Only Tools in Planning Mode**:
+    * Mutating operations are disallowed during planning; reading, search, and plan drafts remain available.
+25. **CAS Version Integrity**:
+    * Unversioned updates return the exact generated version within the atomic write to avoid stale concurrency conflicts.
+26. **Anonymous Namespace Isolation (`__anon__`)**:
+    * Unspecified user contexts map to `"__anon__"` rather than empty strings, preventing accidental collision with empty identities.
+27. **Synchronous Accounting Before Async Dispatch**:
+    * Task registration executes synchronously on the initiating thread before dispatch to async execution pools.
+
+---
+
+### 3.4. Sandboxing and Filesystem Security
+
+28. **Sandbox Session Isolation**:
+    * Per-session sandbox references are isolated in `FiberRef` rather than shared singletons.
+29. **Path Traversal Protection (Zip Slip & Relative Escapes)**:
+    * Archive unpackers validate canonical root boundaries (`dest.startsWith(canonicalRoot)`) and reject `..` and null bytes.
+30. **Snapshot Identifier Retention Across Failovers**:
+    * When reconnecting to an environment fails, new containers inherit the previous snapshot identifier to preserve workspace lineage.
+31. **Strict Finalization Ordering**:
+    * Teardown routines record snapshot state before writing final session metadata.
+32. **Host Mount Exclusions in Container Snapshots**:
+    * Workspace snapshots exclude host bind mounts to prevent recursive filesystem capture.
+33. **Container File Permissions**:
+    * Temporary host files copied to isolated environments are explicitly normalized to readable permissions (`0644`).
+34. **Symlink Canonicalization (`toRealPath()`)**:
+    * Path safety checks resolve symlinks to canonical paths before verifying access rules against sensitive targets (`.ssh`, `.env`).
+35. **Memory Flush Coalescing**:
+    * Sequential memory flush requests collapse into a single operation evaluating the latest history slice.
+
+---
+
+## 4. Architectural Transformation Map (Java/Reactor $\to$ Scala 3.9/ZIO 2)
+
+| Pattern in Java / AgentScope | Upstream Reactor Approach | `weisgnosis-agents` Pure FP Approach |
 | :--- | :--- | :--- |
-| **Асинхронность** | `reactor.core.publisher.Mono[A]` | `zio.ZIO[R, AgentError, A]` |
-| **Стриминг событий** | `reactor.core.publisher.Flux[Event]` | `zio.stream.ZStream[R, AgentError, AgentEvent]` |
-| **Иммутабельность** | Мутабельные билдеры, `copy()` методы, сеттеры | Чистые Scala 3 `case class` с `derives JsonCodec` |
-| **Контекст выполнения** | Мутабельный `RuntimeContext` с `Map[String, Object]` | `zio.ZEnvironment` + `zio.FiberRef` (нет гонок потоков) |
-| **Отмена операций** | Ручной вызов `agent.interrupt()` с флагами | Автоматическая отмена фиберов ZIO Structured Concurrency |
-| **Инструменты** | Java Reflection (`@Tool`, `@ToolParam`, `Method.invoke`) | Типобезопасный `Tool[R, In, Out]` с AST `zio.json.ast.Json` |
-| **Human-in-the-Loop** | Сериализация состояния и остановка через `Mono.empty()` | Легковесный `zio.Promise[Nothing, ConfirmResult]` |
-| **Субагенты** | `WorkspaceTaskRepository` + пулы тредов | Дочерние ZIO-фиберы (`forkScoped`) и слияние `ZStream.merge` |
-| **Песочницы** | Сложные синглтон-менеджеры с `volatile Sandbox` | Скоупированный `ZIO.acquireReleaseWith` (автоочистка) |
-| **Тестирование** | `reactor.test.StepVerifier` + `Thread.sleep` | `ZIOSpecDefault` + детерминированный `TestClock` |
+| **Asynchronous Effects** | `reactor.core.publisher.Mono[A]` | `zio.ZIO[R, AgentError, A]` |
+| **Event Streaming** | `reactor.core.publisher.Flux[Event]` | `zio.stream.ZStream[R, AgentError, AgentEvent]` |
+| **Data Immutability** | Builders, setters, defensive copies | Immutable Scala 3 `case class` with `derives JsonCodec` |
+| **Execution Context** | Mutable `RuntimeContext` map | `zio.ZEnvironment` + `zio.FiberRef` (thread-safe) |
+| **Cancellation** | Manual `interrupt()` flags | Deterministic fiber interruption via ZIO Structured Concurrency |
+| **Tool Execution** | Reflection (`@Tool`, `Method.invoke`) | Type-safe `Tool[R, In, Out]` with `zio.json.ast.Json` |
+| **Human-in-the-Loop** | State serialization & `Mono.empty()` | Non-blocking `zio.Promise[Nothing, PermissionDecision]` |
+| **Subagents** | `WorkspaceTaskRepository` + thread pools | Child fibers (`forkScoped`) merged via `ZStream.merge` |
+| **Resource Safety** | Lifecycle singletons with `volatile` | Scoped effects via `ZIO.acquireReleaseWith` |
+| **Testing** | `reactor.test.StepVerifier` + sleeps | `ZIOSpecDefault` + deterministic `TestClock` |
 
 ---
 
-## 5. План поэтапной реализации
+## 5. Phased Implementation Roadmap
 
 ```mermaid
 graph TD
-    P1["Фаза 1: Core Domain & Codecs<br/>(Msg, ContentBlock, 31 AgentEvent, Test Parity)"]
-    P2["Фаза 2: Streaming LLM Client<br/>(SSE Parser, DeepSeek reasoning_content, Server Tools)"]
-    P3["Фаза 3: ReAct Engine<br/>(Tail-recursion loop, Dangling reconcile, Thinking retry)"]
-    P4["Фаза 4: Harness Layer<br/>(Tool Eviction, Compactor, HITL Gate Promise, Plan Mode)"]
-    P5["Фаза 5: MCP & Subagents<br/>(Native ZIO MCP Stdio/SSE, Fiber subagents, Merge streams)"]
-    P6["Фаза 6: Интеграция в weisgnosis-os<br/>(WeisGnosisAgentProvider, удаление 7.8k строк клея)"]
+    P1["Phase 1: Core Domain & Codecs<br/>(Msg, ContentBlock, 31 AgentEvent, Test Parity)"]
+    P2["Phase 2: Streaming Model Client<br/>(SSE Parser, Reasoning tokens, Server Tools)"]
+    P3["Phase 3: ReAct Engine<br/>(Tail-recursive loop, Dangling reconcile, Thinking retry)"]
+    P4["Phase 4: Harness Layer<br/>(Tool Eviction, Compactor, HITL Gate Promise, Plan Mode)"]
+    P5["Phase 5: MCP & Subagents<br/>(Native ZIO MCP Stdio/SSE, Fiber subagents, Stream merge)"]
+    P6["Phase 6: Integration in weisgnosis-os<br/>(WeisGnosisAgentProvider, replace 7.8k lines adapter)"]
 
     P1 --> P2 --> P3 --> P4 --> P5 --> P6
 ```
 
-### Фаза 1: `weisgnosis-agents-core` — Домен и кодеки
-* Реализация `Role`, `ContentBlock`, `Msg`, `ToolResultState`.
-* Реализация `AgentEvent` (31 строго типизированное событие с JSON-дискриминатором).
-* Тесты круговой сериализации `zio-json` (Round-trip equality) со 100% паритетом с AgentScope wire DTO.
+### Phase 1: `weisgnosis-agents-core` — Domain & Codecs
+* Implementation of `Role`, `ContentBlock`, `Msg`, and `ToolResultState`.
+* Implementation of `AgentEvent` (31 typed events with JSON discriminator).
+* Round-trip property tests in `zio-json` matching upstream DTO wire parity.
 
-### Фаза 2: Потоковый LLM-клиент
-* Интеграция с `zio-http` Client.
-* Парсер SSE потоков (`data: {"choices": [...]}`).
-* Выделение `ThinkingBlockDelta` и поддержка специфики DeepSeek / OpenRouter.
+### Phase 2: Streaming Model Client
+* Integration with `zio-http` Client.
+* Fast streaming SSE line and frame parser.
+* Extraction of reasoning token blocks and adapter interfaces.
 
-### Фаза 3: ReAct Engine
-* Реализация хвостового рекурсивного цикла.
-* Встраивание защит: реконсилиация висячих тулов при отмене, retry при thinking-only ответах.
-* Двойной режим Structured Output.
+### Phase 3: ReAct Engine
+* Tail-recursive reasoning loop.
+* Safeguards: dangling tool call reconciliation on fiber interrupt, loopback retries on empty reasoning.
+* Dual-mode structured output engine.
 
-### Фаза 4: `weisgnosis-agents-harness` — Память и безопасность
-* `ToolResultEvictor` с сохранением превью.
-* `ConversationCompactor` с атомарным сохранением пар и дедупликацией саммари.
-* `PermissionGate` на базе `zio.Promise`.
-* `PlanModeInterceptor` с динамической фильтрацией тулов.
+### Phase 4: `weisgnosis-agents-harness` — Context & Safety
+* `ToolResultEvictor` with head/tail preview generation.
+* `ConversationCompactor` with atomic turn preservation and summary deduplication.
+* `PermissionGate` backed by `zio.Promise`.
+* `PlanModeInterceptor` with dynamic tool filtering.
 
-### Фаза 5: `weisgnosis-agents-mcp` и Субагенты
-* JSON-RPC 2.0 протокол для MCP.
-* Stdio транспорт (`zio.process.Command`) и SSE транспорт (`zio-http`).
-* Спавн субагентов на фиберах с автоматическим мультиплексированием `ZStream.merge`.
+### Phase 5: `weisgnosis-agents-mcp` & Subagents
+* JSON-RPC 2.0 protocol layer for MCP.
+* Stdio transport (`zio.process.Command`) and SSE transport (`zio-http`).
+* Subagent spawning on scoped fibers with merged event streams.
 
-### Фаза 6: Интеграция в `weisgnosis-os`
-* Написание компактного `WeisGnosisAgentProvider` (~200 строк).
-* Удаление `AgentFactory`, `AgentScopeLocalProvider`, `ZioReactorDispatcher` (минус 7 800 строк адаптеров).
-* Сквозные тесты в Temporal Activity.
+### Phase 6: Integration in `weisgnosis-os`
+* Concise `WeisGnosisAgentProvider` adapter (~200 lines).
+* Deprecating legacy adapters in `weisgnosis-os` (-7,774 lines of glue).
+* End-to-end integration tests within Temporal Activities.

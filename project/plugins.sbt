@@ -1,1 +1,1 @@
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.4")
+// Plugins can be added here as needed

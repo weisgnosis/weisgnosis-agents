@@ -5,11 +5,11 @@ val zioHttpVersion  = "3.11.3"
 
 ThisBuild / scalaVersion  := scala3Version
 ThisBuild / version       := "0.1.0-SNAPSHOT"
-ThisBuild / organization  := "io.weisgnosis"
-ThisBuild / homepage      := Some(url("https://github.com/weisgnosis/weisgnosis-agents"))
+ThisBuild / organization  := "com.weisgnosis"
+ThisBuild / homepage      := Some(url("https://weisgnosis.com"))
 ThisBuild / licenses      := List("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0"))
 ThisBuild / developers    := List(
-  Developer("weisgnosis", "WeisGnosis Team", "team@weisgnosis.io", url("https://github.com/weisgnosis"))
+  Developer("weisgnosis", "WeisGnosis Team", "team@weisgnosis.com", url("https://weisgnosis.com"))
 )
 
 lazy val commonSettings = Seq(

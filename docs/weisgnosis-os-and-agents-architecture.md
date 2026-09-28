@@ -1,33 +1,34 @@
-# Архитектурный манифест: Weisgnosis OS & `weisgnosis-agents`
+# Architectural Manifesto: WeisGnosis OS & `weisgnosis-agents`
 
-> **Статус документа:** Единое архитектурное видение платформы (SSOT)  
-> **Основано на:** Исследованиях автономных агентов 2025–2026 гг. (`wg-ideas.txt`), экспертном аудите (`review-wg.md`) и кодовой базе `agentscope-java`  
-> **Стек:** Scala 3.9.0 LTS, ZIO 2.1.26+, Temporal, PostgreSQL  
-> **Лицензия:** Apache-2.0  
+> **Document Status:** Single Source of Truth (SSOT) Architecture  
+> **Based on:** Autonomous agent empirical research 2025–2026, expert architectural review, and `agentscope-java` codebase audit  
+> **Stack:** Scala 3.9.0 LTS, ZIO 2.1.26+, Temporal, PostgreSQL  
+> **License:** Apache-2.0  
+> **Organization:** `com.weisgnosis`  
 
 ---
 
-## 1. Фундаментальный закон Weisgnosis
+## 1. The Fundamental Law of WeisGnosis
 
-Долгое время в индустрии агентных систем доминировал тезис:  
-*«Agents think and propose; runtime owns state, transitions, effects and permissions.»*
+For years, the industry consensus was:  
+*“Agents think and propose; runtime owns state, transitions, effects, and permissions.”*
 
-Эмпирические исследования 2025–2026 годов (MAST NeurIPS 2025, Google Research arXiv 2512.08296, инциденты fail-plausible arXiv 2606.14589) доказали, что этого недостаточно. Модели склонны к преждевременному объявлению победы («обработано 37 из 100 сущностей, сгенерирован убедительный отчет») и галлюцинированию согласованности в multi-agent дебатах.
+Empirical studies from 2025–2026 (MAST NeurIPS 2025, Google Research arXiv 2512.08296, fail-plausible incidents arXiv 2606.14589) demonstrated that this boundary is necessary but insufficient. Models consistently exhibit premature victory declaration (“processed 37 out of 100 entities, generated convincing report”) and hallucinated consensus in unstructured multi-agent deliberation.
 
-Мы формулируем **Главный Закон Weisgnosis**:
+We establish the **Fundamental Law of WeisGnosis**:
 
 > ### ⚡ **Runtime owns truth and completion.**
-> **Агент не имеет права самостоятельно решать две вещи:**  
-> **1. «Это факт».** *(Статус факта присваивает только детерминированный Arbiter на основе независимых Evidence).*  
-> **2. «Работа закончена».** *(Статус COMPLETE ставит только Acceptance Contract, когда удовлетворены все машинные обязательства).*
+> **An agent is never granted the authority to decide two things:**  
+> **1. “This is a fact.”** *(Fact status is assigned exclusively by a deterministic Arbiter based on independent Evidence).*  
+> **2. “The task is complete.”** *(COMPLETE status is granted exclusively by an Acceptance Contract when all machine-verifiable Obligations are satisfied).*
 
 ---
 
-## 2. Большая картина: Разделение слоев
+## 2. The Big Picture: Separation of Layers
 
 ```text
                                   WEISGNOSIS OS
-                          (Слой Власти, Истины и Процессов)
+                       (Layer of Authority, Truth, & Workflows)
 
    User Objective ──► Contract Compiler ──► Acceptance Contract vN (Immutable)
                                                    │
@@ -38,12 +39,12 @@
    │  │   Sources ──► Evidence (Hash/CAS) ──► Assertions (PROPOSED/ACCEPTED)   │  │
    │  └────────────────────────────────────────────────────────────────────────┘  │
    │                                                                              │
-   │  Workset Ledger (Кардинальность, монотонные Milestones)                     │
+   │  Workset Ledger (Cardinality, monotonic milestones)                          │
    │  Verification Pipeline (L0 Schema ─► L1 Deterministic ─► L2 Grounding)      │
-   │  Targeted Repair Router (FailureType ─► WorkItem с бюджетом)                │
-   │  Arbiter (Детерминированная чистая функция: Contract x SSOT ─► Decision)    │
+   │  Targeted Repair Router (FailureType ─► WorkItem with budget)               │
+   │  Arbiter (Deterministic pure function: Contract x SSOT ─► Decision)         │
    └──────────────────────────────────────┬───────────────────────────────────────┘
-                                          │ Назначает WorkItem
+                                          │ Assigns WorkItem
                                           ▼
                       ┌───────────────────────────────────────┐
                       │          ACTORS / EXECUTORS           │
@@ -55,98 +56,98 @@
                                           │
                                           ▼
                                    weisgnosis-agents
-                          (Слой Вычислительного Интеллекта)
+                          (Layer of Cognitive Execution)
    ┌──────────────────────────────────────────────────────────────────────────────┐
-   │ • Stateless ReAct Engine на Scala 3.9 LTS + ZIO 2.1                          │
-   │ • Вход: WorkItem Slice (цель, срез доказательств, схема, тулы, бюджет)       │
-   │ • Выход: Proposal (новые Assertions, вызовы тулов, артефакты)                │
-   │ • 31 типизированное событие в реальном времени (ZStream SSE)                 │
-   │ • 35 защит протокола (Dangling Reconcile, DeepSeek reasoning, Eviction)      │
-   │ • Полная изоляция через ZIO Structured Concurrency (zero-leakage)            │
+   │ • Pure FP Stateless ReAct Engine on Scala 3.9 LTS + ZIO 2.1                  │
+   │ • Input: WorkItem Slice (objective, evidence slice, schema, tools, budget)   │
+   │ • Output: Proposal (new Assertions, tool call traces, produced artifacts)    │
+   │ • 31 typed real-time events streamed via Server-Sent Events (ZStream)        │
+   │ • 35 protocol safeguards (Dangling reconcile, reasoning stream, eviction)    │
+   │ • Total isolation via ZIO Structured Concurrency (zero fiber leaks)          │
    └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Десять универсальных примитивов Weisgnosis OS
+## 3. Ten Universal Primitives of WeisGnosis OS
 
-Вместо хаотичного «роя агентов» вся система выражается через **10 строгих примитивов**:
+Instead of an ad-hoc "agent swarm", all operations are structured using **10 formal primitives**:
 
-| Примитив | Назначение | Семантика в системе |
+| Primitive | Role | Formal Semantics |
 | :--- | :--- | :--- |
-| **Case** | Экземпляр дела / расследования | CMMN-подобный динамический контекст: цели, участники, журнал фактов. |
-| **Obligation** | Машинно-проверяемое обязательство | Элемент контракта: предикат, кардинальность (например, ровно 100 документов), уровень критичности. |
-| **WorkItem** | Единица исполняемой работы | Назначается конкретному `Actor` (LLM-агенту, человеку, CI, сканеру). |
-| **Artifact** | Content-addressed результат | Файлы, отчеты, diff-патчи, идентифицируемые по sha256. |
-| **Evidence** | Неизменяемое доказательство | Снимок источника (цитата, URL, лог, хеш, временная метка, provenance). |
-| **Assertion** | Утверждение со статусом истинности | `PROPOSED` $\to$ `SUPPORTED` $\to$ `ACCEPTED` / `CONTESTED` / `REFUTED` / `SUPERSEDED`. |
-| **Check** | Валидатор с уровнем полномочий | L0 (Схема) $\to$ L1 (Детерминированный) $\to$ L2 (Grounding/NLI) $\to$ L3 (Cross-family) $\to$ L4 (Adversarial). |
-| **Verdict** | Типизированный результат проверки | `PASS` либо `FAIL(failureType, severity, target, repairHint)`. |
-| **Grant** | Политика прав и приватности | Capability доступа к инструментам + метки выхода данных (Data Egress по модели CaMeL). |
-| **Gate** | Точка принятия решений властью | Одобрение оператором (HITL) или публикация внешнего эффекта. |
+| **Case** | Case/Investigation instance | CMMN-like dynamic lifecycle: objectives, actors, epistemic audit log. |
+| **Obligation** | Machine-verifiable contract clause | Predicate, cardinality (e.g. exactly 100 documents), criticality tier. |
+| **WorkItem** | Unit of executable work | Assigned to a specific `Actor` (agent, operator, CI job, scanner). |
+| **Artifact** | Content-addressed output | Files, reports, diff patches identified by immutable sha256 hashes. |
+| **Evidence** | Immutable proof artifact | Source snapshot (verbatim excerpt, URL, log, hash, timestamp, provenance). |
+| **Assertion** | Proposition with truth status | `PROPOSED` $\to$ `SUPPORTED` $\to$ `ACCEPTED` / `CONTESTED` / `REFUTED` / `SUPERSEDED`. |
+| **Check** | Validator with designated authority | L0 (Schema) $\to$ L1 (Deterministic) $\to$ L2 (Grounding/NLI) $\to$ L3 (Cross-family) $\to$ L4 (Adversarial). |
+| **Verdict** | Typed verification outcome | `PASS` or `FAIL(failureType, severity, target, repairHint)`. |
+| **Grant** | Policy and capability grant | Tool access capabilities + data egress boundary rules (CaMeL model). |
+| **Gate** | Decision authority point | Human operator approval (HITL) or external side-effect emission point. |
 
 ---
 
-## 4. Роль Temporal, Weisgnosis OS и `weisgnosis-agents`
+## 4. Architectural Boundaries: Temporal, WeisGnosis OS, and `weisgnosis-agents`
 
-### 4.1. Что делает Temporal?
-* **Durable Execution:** Гарантирует, что Workflow переживет перезагрузку серверов, падение подов Kubernetes и сбои сети.
-* **Детерминированный реплей:** Воспроизводит историю шагов через Event Sourcing.
-* **Каналы сигналов:** Обеспечивает паузы ожидания оператора (Human-in-the-Loop) на дни и недели без блокировки ресурсов.
-* **Таймеры и ретраи:** Управляет таймаутами активностей и экспоненциальными повторами.
+### 4.1. Role of Temporal
+* **Durable Execution:** Guarantees workflow survival across host restarts, Kubernetes pod redeployments, and network partitions.
+* **Deterministic Replay:** Reconstructs state evolution through event sourcing.
+* **Signal Channels:** Supports human-in-the-loop approval pauses spanning hours, days, or weeks without occupying active threads.
+* **Timeouts & Retries:** Governs activity retry policies and SLA timeouts.
 
-### 4.2. Что делает Weisgnosis OS (над Temporal)?
-* **Epistemic Authority:** Ведет учет доказательств и фактов (Epistemic SSOT в PostgreSQL).
-* **Acceptance Compiler & Arbiter:** Компилирует пользовательский запрос в машинный контракт `AcceptanceContract` и детерминированно решает, когда работа выполнена.
-* **Targeted Repair Router:** При получении `Verdict(FAIL)` не перезапускает весь процесс заново, а запускает точечный подпроцесс исправления (`FailureType -> RepairSubflow`) с лимитированным бюджетом токенов и попыток.
+### 4.2. Role of WeisGnosis OS (above Temporal)
+* **Epistemic Authority:** Maintains truth tracking and provenance (Epistemic SSOT in PostgreSQL).
+* **Acceptance Compiler & Arbiter:** Compiles goals into machine-executable `AcceptanceContract` instances and deterministically evaluates task completion.
+* **Targeted Repair Router:** On `Verdict(FAIL)`, triggers isolated repair subflows (`FailureType -> RepairSubflow`) bounded by strict token and attempt budgets.
 
-### 4.3. Что делает `weisgnosis-agents`?
-* Библиотека является **Stateless Actor / Worker** для выполнения отдельных `WorkItem`.
-* Она принимает на вход задачу, срез контекста, набор доступных MCP/локальных тулов и системные инварианты.
-* Крутит чистый ReAct-цикл на ZIO-фиберах, транслируя происходящее через `ZStream[Any, AgentError, AgentEvent]`.
-* Возвращает **`Proposal`** (предложение изменений).
-* **Никогда** не решает, является ли утверждение истиной для всего Case, и **никогда** не ставит финальный `COMPLETE`.
+### 4.3. Role of `weisgnosis-agents`
+* Functions as a **Stateless Worker / Actor** executing single `WorkItem` slices.
+* Receives a specific task slice, evidence context, authorized MCP/local tools, and invariants.
+* Runs a pure ReAct loop on ZIO fibers, streaming execution events via `ZStream[Any, AgentError, AgentEvent]`.
+* Produces an **`AgentProposal`** (assertions, citations, artifacts).
+* **Never** decides whether a proposal constitutes global truth, and **never** marks a task as complete.
 
 ---
 
-## 5. Многоуровневая верификация (Verification Pipeline)
+## 5. Multi-Tier Verification Pipeline
 
-Согласие нескольких одинаковых моделей (Debate, Self-Reflection) **не является верификацией** (ошибки моделей одного класса коррелируют до 60%). Настоящая проверка строится по уровням от дешевых детерминированных к экспертным:
+Unstructured debate or self-reflection among identical models **does not constitute verification** (correlated failure modes among identical model families can reach 60%). Rigorous validation is structured across progressive authority tiers:
 
 ```text
 Executor (weisgnosis-agents)
-   ▼ возвращает Proposal
+   ▼ returns Proposal
 ┌────────────────────────────────────────────────────────────────────────┐
-│ L0: Schema & Type Gate (Всегда, мгновенно, блокирующе)                 │
+│ L0: Schema & Type Gate (Instant, blocking)                             │
 ├────────────────────────────────────────────────────────────────────────┤
-│ L1: Deterministic Checks (Параллельно)                                 │
-│   • Кардинальность (проверено 100 из 100 объектов?)                    │
-│   • Разрешимость ссылок и цитат                                        │
-│   • Тесты компилятора, линтеры, SAST-сканеры                           │
+│ L1: Deterministic Checks (Parallel)                                    │
+│   • Cardinality verification (processed 100 out of 100 items?)         │
+│   • Citation & URL resolubility                                        │
+│   • Compiler verification, test execution, SAST scanners              │
 ├────────────────────────────────────────────────────────────────────────┤
-│ L2: Evidence & Grounding (Параллельно, малые специализированные модели)│
-│   • MiniCheck / NLI (подтверждено ли утверждение цитатой?)             │
-│   • Линейка источников (Source-tiering: primary vs secondary)          │
+│ L2: Evidence & Grounding (Parallel, specialized small models)          │
+│   • Natural Language Inference (NLI) entailment against citations      │
+│   • Source tiering (primary vs secondary source ranking)               │
 ├────────────────────────────────────────────────────────────────────────┤
-│ L3: Cross-Family Blind Reviewer (Для Medium+ риска)                    │
-│   • Модель другого семейства (например, Claude проверяет GPT-4)        │
-│   • Не видит внутренний reasoning автора, видит только факты и контракт│
+│ L3: Cross-Family Blind Reviewer (For Medium+ risk levels)              │
+│   • Independent model from a different architecture/family             │
+│   • Author's reasoning chain is hidden; evaluates only claims vs specs │
 ├────────────────────────────────────────────────────────────────────────┤
-│ L4: Adversarial War Room (Только для High-risk / Финал)                │
-│   • Оппонирующая сторона с независимым поиском опровержений            │
+│ L4: Adversarial War Room (High-risk only / Final sign-off)             │
+│   • Adversary agent searching actively for counter-evidence            │
 └────────────────────────────────────────────────────────────────────────┘
    ▼
-ARBITER (Детерминированный арбитр)
-   ├── PASS ──────────────────────────► Принято в SSOT / Завершено
-   ├── REPAIR(failures[], budget) ────► Направлено в Repair Router
-   └── HITL(conflict, reason) ────────► Эскалировано человеку-оператору
+ARBITER (Deterministic evaluation)
+   ├── PASS ──────────────────────────► Accepted into SSOT / Task Completed
+   ├── REPAIR(failures[], budget) ────► Routed to Targeted Repair Router
+   └── HITL(conflict, reason) ────────► Escalated to Human Operator
 ```
 
 ---
 
-## 6. Targeted Repair вместо Retry Storms
+## 6. Targeted Repair vs Retry Storms
 
-Когда проверка падает, система не перезапускает весь граф:
+When a check fails, the engine avoids naive global workflow restarts:
 ```yaml
 verdict:
   check_id: evidence.grounding.v3
@@ -161,23 +162,23 @@ verdict:
         subflow: find_primary_source
         budget: {attempts: 2, tokens: 200000}
 ```
-* **Repair Router** запускает узкий `WorkItem` исправления только для утверждения `C-123`.
-* После получения первичного источника пересчитывается только затронутый подграф зависимостей (`derived-from`).
-* При исчерпании бюджета попыток задача автоматически поднимается оператору (HITL).
+* **Repair Router** dispatches an isolated `WorkItem` addressing claim `C-123`.
+* Upon acquiring the primary source, only the impacted downstream dependency graph (`derived-from`) is re-evaluated.
+* If the repair budget is exhausted, the issue escalates to an operator via a Human-in-the-Loop gate.
 
 ---
 
-## 7. Карта реализации в репозитории `weisgnosis-agents`
+## 7. Library Implementation Map in `weisgnosis-agents`
 
-Библиотека `weisgnosis-agents` строится с учетом этой глобальной картины:
+`weisgnosis-agents` is designed to support this architecture seamlessly:
 1. **`weisgnosis-agents-core`:**
-   - Модели `Msg`, `Role`, `ContentBlock` и 31 `AgentEvent`.
-   - Streaming SSE Client с разделением `reasoning_content` и текста.
-   - Чистый ReAct Engine с реконсилиацией висячих вызовов (`ToolResultBlock(INTERRUPTED)`).
-   - Модели предложений: `AgentProposal(assertions, artifacts, toolTraces)`.
+   - Domain models: `Msg`, `Role`, `ContentBlock`, and 31 `AgentEvent` cases.
+   - Streaming SSE client supporting thinking token streaming and vendor-neutral endpoints.
+   - Pure ReAct engine with dangling tool reconciliation (`ToolResultBlock(INTERRUPTED)`).
+   - Structured proposals: `AgentProposal(assertions, artifacts, toolTraces)`.
 2. **`weisgnosis-agents-harness`:**
-   - Вытеснение тяжелых результатов инструментов (`ToolResultEviction`).
-   - Компактинг диалога (`ConversationCompactor`) с защитой пар сообщений.
-   - Мета-режим планирования (`PlanMode`) с запретом мутаций без санкции.
+   - Tool result offloading (`ToolResultEvictor`).
+   - Conversation compaction (`ConversationCompactor`) protecting atomic tool turns.
+   - Plan mode governance (`PlanMode`) enforcing read-only constraints until approved.
 3. **`weisgnosis-agents-mcp`:**
-   - Нативный ZIO MCP клиент (Stdio / SSE) со строгим соблюдением спецификации JSON-RPC 2.0.
+   - Native ZIO MCP client (Stdio / SSE) fully adhering to JSON-RPC 2.0 specifications.

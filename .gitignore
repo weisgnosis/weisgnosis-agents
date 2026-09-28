@@ -24,6 +24,9 @@ metals.sbt
 *.pem
 *.key
 *.p12
+.jvmopts
+.sbtopts
+tools/proxy_bridge.py
 
 # OS generated files
 .DS_Store

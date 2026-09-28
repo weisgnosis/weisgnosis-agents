@@ -28,7 +28,7 @@
 It takes the battle-tested, enterprise-grade agentic mechanics of [AgentScope 2.0](https://github.com/agentscope-ai/agentscope-java) (by Alibaba) and reimagines them as idiomatic, non-blocking, type-safe functional abstractions:
 
 * 🌊 **Unified 31-Event Stream:** Real-time event streaming (`ZStream[R, E, AgentEvent]`) covering reasoning deltas, tool executions, and human approvals.
-* 🧠 **Deep Thinking Streaming:** Native support for reasoning/CoT streaming (`ThinkingBlockDelta`) compatible with DeepSeek-R1, QwQ, and Claude 3.7.
+* 🧠 **Thinking & Reasoning Streaming:** Native support for reasoning/CoT streaming (`ThinkingBlockDelta`) compatible with modern reasoning and thinking models.
 * 🛡️ **Edge-Case Resilience:** Built-in guards against dangling tool calls on cancellation, empty responses from thinking models, and automatic failovers.
 * 🧹 **Context Compaction & Eviction:** Adaptive LLM conversation compaction with summary deduplication and automatic off-context eviction of heavy tool outputs (e.g. large diffs and file reads).
 * 🚦 **Human-in-the-Loop (HITL):** First-class permission gating (`Allow`, `RequireConfirm`, `Deny`) with non-blocking promise-based resumption.
@@ -52,7 +52,7 @@ The minimal, zero-dependency cognitive kernel:
 - Typed event hierarchy: 31 events as a single Scala 3 `enum AgentEvent derives JsonCodec`.
 - Pure FP ReAct loop using ZIO tail recursion.
 - Compile-time JSON schema and codecs for tools via `zio-json`.
-- Streaming SSE client with support for server-side tools (e.g. Anthropic web search, Gemini code execution).
+- Streaming SSE client with support for server-side tools (e.g. provider search, sandbox execution).
 
 ### 2. `weisgnosis-agents-harness`
 Batteries-included enterprise engineering:
@@ -73,17 +73,17 @@ Add the dependency to your `build.sbt`:
 
 ```scala
 libraryDependencies ++= Seq(
-  "io.weisgnosis" %% "weisgnosis-agents-core"    % "0.1.0-SNAPSHOT",
-  "io.weisgnosis" %% "weisgnosis-agents-harness" % "0.1.0-SNAPSHOT"
+  "com.weisgnosis" %% "weisgnosis-agents-core"    % "0.1.0-SNAPSHOT",
+  "com.weisgnosis" %% "weisgnosis-agents-harness" % "0.1.0-SNAPSHOT"
 )
 ```
 
 ### Running your first agent:
 
 ```scala
-import weisgnosis.agents.core.msg.*
-import weisgnosis.agents.core.loop.*
-import weisgnosis.agents.core.tool.*
+import com.weisgnosis.agents.core.msg.*
+import com.weisgnosis.agents.core.loop.*
+import com.weisgnosis.agents.core.tool.*
 import zio.*
 
 object SimpleAgentApp extends ZIOAppDefault:
@@ -97,7 +97,7 @@ object SimpleAgentApp extends ZIOAppDefault:
     for {
       agent <- Agent.builder
                  .withSystemPrompt("You are a helpful assistant with math tools.")
-                 .withModel("deepseek/deepseek-v4-flash")
+                 .withModel("standard-chat-model")
                  .withTools(calculatorTool)
                  .build
       
@@ -131,7 +131,7 @@ object SimpleAgentApp extends ZIOAppDefault:
 
 - [x] Architecture specification and domain modeling.
 - [ ] Phase 1: Core ADTs (`Msg`, `ContentBlock`, 31 `AgentEvent`) and `zio-json` codecs.
-- [ ] Phase 2: Streaming SSE LLM Client (OpenAI, DeepSeek, Anthropic) with Thinking block extraction.
+- [ ] Phase 2: Streaming SSE LLM Client with Thinking block extraction.
 - [ ] Phase 3: ReAct Engine with interruption reconciliation and empty-response retry.
 - [ ] Phase 4: Harness Compaction (`ConversationCompactor`) & Tool Eviction (`ToolResultEvictor`).
 - [ ] Phase 5: Human-in-the-Loop (`PermissionGate`) & Fiber-level Subagents.
