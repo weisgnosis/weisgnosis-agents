@@ -8,6 +8,7 @@ Current source declarations are authoritative. This document records API contrac
 | --- | --- | --- |
 | Msg | Optional identity, role/content, optional name/timestamp/usage, metadata; identified allocates identity in ZIO | [Msg.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/Msg.scala) |
 | ContentBlock | Sealed ADT; ToolUse has JSON input; ToolResult carries a Chunk of blocks | [ContentBlock.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/ContentBlock.scala) |
+| GenerateReason | 12 reasons; explicit uppercase/lowercase input, lowercase output; Msg.generationReason defaults without altering raw metadata or runtime completion | [GenerateReason.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/GenerateReason.scala) |
 | ChatUsage | Token metrics with additive combine | [ChatUsage.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/ChatUsage.scala) |
 | AgentEventType | 31 canonical uppercase protocol names, 11 aliases, typed case-sensitive lookup; separate from event payload adaptation | [AgentEventType.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/event/AgentEventType.scala) |
 | AgentError | Typed sealed domain failures, including InvalidConfiguration | [AgentError.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) |

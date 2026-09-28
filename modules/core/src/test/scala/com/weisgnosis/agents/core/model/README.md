@@ -6,11 +6,12 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [ContentBlockSerdeSpec](ContentBlockSerdeSpec.scala)
 - [MsgSerdeSpec](MsgSerdeSpec.scala)
 - [MsgSpec](MsgSpec.scala)
+- [GenerateReasonSpec](GenerateReasonSpec.scala)
 - [RoleContentValidationSpec](RoleContentValidationSpec.scala)
 
 Run `sbt "core / test"`, or `sbt verify` for repository-wide formatting, compilation, and tests. See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for gaps and intentional differences.
 
-## Current review acceptance
+## Decoding review acceptance at 906cc4a
 
 - [x] `review_fp` and `review_harness` independently approved the changes to the four specs below, based on `21bc69f`, on 2026-09-29.
 - [x] Verify 169 core and 40 harness tests with zero compiler warnings after adding strict malformed-field, legacy usage, Base64 wire, DataBlock, constructor, and complete role-matrix scenarios.
@@ -25,3 +26,21 @@ Run `sbt "core / test"`, or `sbt verify` for repository-wide formatting, compila
 | RoleContentValidationSpec.scala | 6b3a0da03108224bba086e7b93a5d8b733fcd7e5 |
 
 Role matrix tests validate Msg.create and decoding. They do not imply that unchecked raw construction validates content. Usage tests distinguish direct usage, valid legacy metadata, and invalid legacy data without mutating messages.
+
+## Typed generation metadata
+
+GenerateReason represents the 12 protocol reasons. Msg.generationReason is a pure defaulting classification: absent, malformed, or unknown metadata yields ModelStop without modifying the message. Msg.generateReason and its String setter remain the raw extension API; `empty_response` remains readable there and classifies as ModelStop. This compatibility projection must not be used as runtime completion authority.
+
+The typed withGenerateReason overload preserves all other fields and metadata. Its codec accepts explicit uppercase protocol names and established lowercase names, and emits lowercase values to preserve existing interruption/max-iteration metadata. Java uppercase output is an intentional wire difference; mixed-case and padded names are not silently normalized.
+
+- [x] `review_fp` and `review_harness` independently approved GenerateReason, the additive Msg methods, and GenerateReasonSpec based on `d3d003d`, on 2026-09-29, with no unresolved findings in this scope.
+- [x] Cover all nine upstream GenerateReasonTest methods plus lowercase/uppercase compatibility, malformed/raw metadata, and all-field preservation regressions.
+- [x] Formatting, fatal-warning compilation, and all 207 core / 40 harness tests passed.
+- [ ] Close unchecked raw Msg construction/copy and remaining message factory/content parity gaps.
+- [ ] Integrate typed stop reasons with planned phase suspension and resumption; classifying metadata alone does not implement runtime production of every reason.
+
+| Reviewed source | Git blob |
+| --- | --- |
+| GenerateReason.scala | e4e6dd03a73941b19557f413be343fa4643dcf33 |
+| Msg.scala | 06a41eb6f9804b81250ff1a48c20a8935bc6475b |
+| GenerateReasonSpec.scala | ffb0582a7bd561527473e1d6fa3b1fc3cc4e5e3f |

@@ -120,17 +120,17 @@ Explicit immutable values replace builders. Automatic Data IDs and null-source c
 
 ### GenerateReasonTest: 9 methods
 
-The current Option[String] metadata accessor does not implement the upstream enum, default, or invalid-value contract.
+GenerateReasonSpec covers all 12 reasons through the nine methods below. Builders adapt to immutable typed updates, Msg.generationReason is the defaulting projection, and the raw generateReason accessor preserves extensions. The codec reads uppercase/lowercase names and writes established Scala lowercase metadata; Java uppercase output is not preserved. Classification is not runtime completion authority.
 
-- [ ] `testEnumValues`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testDefaultGenerateReason`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testGenerateReasonFromBuilder`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testWithGenerateReason`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testGenerateReasonFromStringMetadata`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testInvalidGenerateReasonString`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testPreserveMetadataWithGenerateReason`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testAllGenerateReasonValues`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testAllGenerateReasonValuesViaWith`: pending assertion-level coverage or reviewed adaptation.
+- [x] `testEnumValues` -> GenerateReasonSpec, matching scenario name with the stated immutable/wire adaptation.
+- [x] `testDefaultGenerateReason` -> GenerateReasonSpec, matching scenario name with the stated immutable/wire adaptation.
+- [x] `testGenerateReasonFromBuilder` -> GenerateReasonSpec, matching scenario name with the stated immutable/wire adaptation.
+- [x] `testWithGenerateReason` -> GenerateReasonSpec, matching scenario name with the stated immutable/wire adaptation.
+- [x] `testGenerateReasonFromStringMetadata` -> GenerateReasonSpec, matching scenario name with the stated immutable/wire adaptation.
+- [x] `testInvalidGenerateReasonString` -> GenerateReasonSpec, matching scenario name with the stated immutable/wire adaptation.
+- [x] `testPreserveMetadataWithGenerateReason` -> GenerateReasonSpec, matching scenario name with the stated immutable/wire adaptation.
+- [x] `testAllGenerateReasonValues` -> GenerateReasonSpec, matching scenario name with the stated immutable/wire adaptation.
+- [x] `testAllGenerateReasonValuesViaWith` -> GenerateReasonSpec, matching scenario name with the stated immutable/wire adaptation.
 
 ### MsgSubclassesTest: 26 methods
 
@@ -349,7 +349,7 @@ The pinned source audit establishes these target fields. None of these missing S
 | DataBlockDelta | replyId, blockId, delta: String | Delta is text; it is not a ContentBlock |
 | ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Preserve arbitrary blocks and applicable metadata |
 | ExceedMaxIters | replyId, maxIters, currentIter | Runtime guard must use the correlated reply ID |
-| RequestStop | reason, typed GenerateReason; default MiddlewareStopRequested | Cooperative phase stop and durable pending-work resumption |
+| RequestStop | reason, available typed GenerateReason; default MiddlewareStopRequested | Cooperative phase stop and durable pending-work resumption |
 | AllToolsDenied | Chunk[ToolUse], empty by default | Permission/HITL integration and middleware stop decision |
 
 Upstream base events also have identity/time, optional source, and metadata. Scala must use explicit supplied identity/time or an effectful allocator rather than copying eager UUID/clock access. Preserve immutable copies. Class presence alone is not runtime evidence: the pinned source has no production DataBlock event construction sites. A RequestStop event is distinct from fiber cancellation; supporting its type does not implement phase suspension or resumption.

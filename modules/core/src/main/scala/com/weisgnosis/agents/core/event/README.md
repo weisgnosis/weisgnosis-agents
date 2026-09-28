@@ -41,7 +41,8 @@ This identifier codec is independent of the established AgentEvent object codec.
 - [x] `review_fp` and `review_harness` independently approved AgentEventType and AgentEventTypeSpec based on `b2901eb`, on 2026-09-29, with no unresolved findings in the identifier scope.
 - [x] Verify all 31 names, 11 aliases, nine enabled upstream identifier methods, and the legacy 25-name surface; JSON null rejection replaces the Java null-reference test.
 - [x] Formatting, fatal-warning compilation, and all 195 core / 40 harness tests passed.
-- [ ] Complete missing payloads, typed generation reasons, runtime emitters, and explicit wire adapters.
+- [x] Provide typed generation reasons in the separately reviewed model package.
+- [ ] Complete missing payloads, runtime emitters, phase-stop integration, and explicit wire adapters.
 
 | Reviewed source | Git blob |
 | --- | --- |

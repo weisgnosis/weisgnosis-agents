@@ -89,9 +89,19 @@ final case class Msg(
   def generateReason: Option[String] =
     metadata.get(Msg.MetadataGenerateReason).flatMap(_.asString)
 
+  /** Classifies known reason metadata, defaulting to ModelStop without changing raw extensions. */
+  def generationReason: GenerateReason =
+    generateReason
+      .flatMap(value => GenerateReason.fromValue(value).toOption)
+      .getOrElse(GenerateReason.ModelStop)
+
   /** Returns an updated copy with generate reason metadata. */
   def withGenerateReason(reason: String): Msg =
     withMetadata(Msg.MetadataGenerateReason, Json.Str(reason))
+
+  /** Writes a typed reason using the established lowercase metadata representation. */
+  def withGenerateReason(reason: GenerateReason): Msg =
+    withGenerateReason(reason.wireName)
 
   /** Extracts and decodes structured output from metadata `_structured_output`, or parses message text. */
   def getStructuredData[A: JsonDecoder]: Either[String, A] =
