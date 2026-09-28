@@ -26,8 +26,11 @@ import zio.json.ast.Json
 sealed trait MediaSource
 
 object MediaSource:
-  final case class Url(url: String)                        extends MediaSource derives JsonCodec
-  final case class Base64(mediaType: String, data: String) extends MediaSource derives JsonCodec
+  final case class Url(url: String) extends MediaSource derives JsonCodec
+  final case class Base64(
+      @jsonField("media_type") @jsonAliases("mediaType") mediaType: String,
+      data: String
+  ) extends MediaSource derives JsonCodec
 
   given JsonCodec[MediaSource] = summon[JsonCodec[Json]].transformOrFail(
     json =>
@@ -45,9 +48,9 @@ object MediaSource:
         b.toJsonAST.fold(
           _ =>
             Json.Obj(
-              "type"      -> Json.Str("base64"),
-              "mediaType" -> Json.Str(b.mediaType),
-              "data"      -> Json.Str(b.data)
+              "type"       -> Json.Str("base64"),
+              "media_type" -> Json.Str(b.mediaType),
+              "data"       -> Json.Str(b.data)
             ),
           ast => ast.mapObject(_.add("type", Json.Str("base64")))
         )

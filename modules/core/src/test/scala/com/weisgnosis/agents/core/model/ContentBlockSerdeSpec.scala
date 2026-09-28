@@ -62,9 +62,17 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
             case Right(tu: ContentBlock.ToolUse) =>
               tu.id == "tool-123" &&
               tu.name == "calculator" &&
+              tu.input == Json.Obj(
+                "x"         -> Json.Num(5),
+                "y"         -> Json.Num(3),
+                "operation" -> Json.Str("add")
+              ) &&
               tu.content.contains("Raw streaming content") &&
               tu.thoughtSignature.contains("signature123") &&
-              tu.metadata.contains("key")
+              tu.metadata == Map(
+                "thoughtSignature" -> Json.Str("signature123"),
+                "key"              -> Json.Str("value")
+              )
             case _ => false
         )
       },
@@ -85,8 +93,9 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
             case Right(tu: ContentBlock.ToolUse) =>
               tu.id == "tool-456" &&
               tu.name == "search" &&
+              tu.input == Json.Obj("query" -> Json.Str("test search")) &&
               tu.content.isEmpty &&
-              tu.metadata.contains("source")
+              tu.metadata == Map("source" -> Json.Str("web"))
             case _ => false
         )
       },
@@ -105,7 +114,7 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
           decoded match
             case Right(tu: ContentBlock.ToolUse) =>
               tu.id == "tool-999" &&
-              tu.name == "no-input-tool"
+              tu.name == "no-input-tool" && tu.input == Json.Obj()
             case _ => false
         )
       }
@@ -167,6 +176,35 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
           renamed.name.contains("GOOGLE_SEARCH_WEB")
         )
       },
+      test("ToolResult rejects malformed state, name, and metadata") {
+        val invalid = Chunk(
+          "state"    -> Json.Str("failed_typo"),
+          "state"    -> Json.Num(1),
+          "name"     -> Json.Num(1),
+          "metadata" -> Json.Str("invalid")
+        )
+        assertTrue(invalid.forall { case (key, value) =>
+          Json
+            .Obj("type" -> Json.Str("tool_result"), "id" -> Json.Str("call"), key -> value)
+            .as[ContentBlock]
+            .isLeft
+        })
+      },
+      test("ToolResult defaults absent and JSON-null state but preserves every supplied state") {
+        val missing = Json.Obj("id" -> Json.Str("call"))
+        val empty   = Json.Obj("id" -> Json.Str("call"), "state" -> Json.Null)
+        assertTrue(
+          missing.as[ContentBlock.ToolResult].exists(_.state == ToolResultState.Success),
+          empty.as[ContentBlock.ToolResult].exists(_.state == ToolResultState.Success),
+          Chunk.fromArray(ToolResultState.values).forall { state =>
+            ContentBlock
+              .ToolResult("call", state = state)
+              .toJson
+              .fromJson[ContentBlock.ToolResult]
+              .exists(_.state == state)
+          }
+        )
+      },
       test("ToolResult decodes string output flexibly") {
         val json =
           """{
@@ -184,6 +222,65 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
       }
     ),
     suite("MediaSource & Modalities")(
+      test(
+        "Base64 accepts upstream media_type and reads legacy mediaType with canonical encoding"
+      ) {
+        val upstream = """{"type":"base64","media_type":"image/png","data":"iVBORw0KGgo="}"""
+        val legacy   = """{"type":"base64","mediaType":"image/png","data":"iVBORw0KGgo="}"""
+        val expected = MediaSource.Base64("image/png", "iVBORw0KGgo=")
+        val encoded = (expected: MediaSource).toJson
+          .fromJson[Json]
+          .flatMap(_.asObject.toRight("Expected object"))
+        assertTrue(
+          upstream.fromJson[MediaSource].contains(expected),
+          legacy.fromJson[MediaSource].contains(expected),
+          upstream.fromJson[MediaSource.Base64].contains(expected),
+          legacy.fromJson[MediaSource.Base64].contains(expected),
+          encoded.exists(_.get("media_type").contains(Json.Str("image/png"))),
+          encoded.exists(_.get("mediaType").isEmpty)
+        )
+      },
+      test("Base64 rejects malformed and ambiguous media type fields") {
+        val bad = Chunk(
+          """{"type":"base64","media_type":7,"data":"x"}""",
+          """{"type":"base64","media_type":"a","mediaType":"b","data":"x"}"""
+        )
+        assertTrue(bad.forall(_.fromJson[MediaSource].isLeft))
+      },
+      test("DataBlock testJsonRoundTrip retains the source, identity, name, and discriminator") {
+        val block: ContentBlock = ContentBlock.Data(
+          MediaSource.url("https://example.com/x.mp3"),
+          Some("abc123"),
+          Some("x.mp3")
+        )
+        val encoded = block.toJson
+        assertTrue(
+          encoded.fromJson[ContentBlock].contains(block),
+          encoded.contains("\"type\":\"data\"")
+        )
+      },
+      test("DataBlock testJsonDeserializationViaContentBlock accepts upstream base64 wire fields") {
+        val json =
+          """{"type":"data","source":{"type":"base64","media_type":"image/png","data":"aGVsbG8="},"id":"data-1","name":"image.png"}"""
+        val expected = ContentBlock.Data(
+          MediaSource.base64("image/png", "aGVsbG8="),
+          Some("data-1"),
+          Some("image.png")
+        )
+        assertTrue(json.fromJson[ContentBlock].contains(expected))
+      },
+      test("DataBlock testNameIsOptional preserves absence in JSON") {
+        val block: ContentBlock = ContentBlock.Data(MediaSource.url("https://example.com/x"))
+        val json                = block.toJson
+        assertTrue(json.fromJson[ContentBlock].contains(block), !json.contains("\"name\""))
+      },
+      test("Thinking rejects malformed supplied text and metadata") {
+        val bad = Chunk(
+          """{"type":"thinking","thinking":7}""",
+          """{"type":"thinking","thinking":"reason","metadata":"invalid"}"""
+        )
+        assertTrue(bad.forall(_.fromJson[ContentBlock].isLeft))
+      },
       test("MediaSource URL and Base64 round-trip") {
         val urlSource: MediaSource = MediaSource.url("https://example.com/audio.mp3")
         val b64Source: MediaSource = MediaSource.base64("audio/mp3", "dGVzdA==")

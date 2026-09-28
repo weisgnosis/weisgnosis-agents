@@ -17,6 +17,7 @@ package com.weisgnosis.agents.core.model
 
 import zio.Chunk
 import zio.json.*
+import zio.json.ast.Json
 import zio.test.*
 
 /**
@@ -64,7 +65,121 @@ object MsgSerdeSpec extends ZIOSpecDefault:
         )
       }
     ),
+    suite("Usage compatibility")(
+      test("reasoningTokensRoundTripViaJson") {
+        val usage = ChatUsage(inputTokens = 100, outputTokens = 50, reasoningTokens = 20)
+        assertTrue(
+          Msg
+            .assistant("reply")
+            .withUsage(usage)
+            .toJson
+            .fromJson[Msg]
+            .exists(_.usage.contains(usage))
+        )
+      },
+      test("detailedInputBreakdownRoundTripsViaJson") {
+        val usage = ChatUsage(100, 50, 30, 10, 20, 15, 1.5)
+        assertTrue(
+          Msg
+            .assistant("reply")
+            .withUsage(usage)
+            .toJson
+            .fromJson[Msg]
+            .exists(_.usage.contains(usage))
+        )
+      },
+      test("getChatUsagePreservesDetailedTokensFromMetadataMap") {
+        val original = Msg
+          .assistant("reply")
+          .withMetadata(
+            "_chat_usage",
+            Json.Obj(
+              "inputTokens"         -> Json.Num(100),
+              "outputTokens"        -> Json.Num(50),
+              "cachedTokens"        -> Json.Num(30),
+              "cacheCreationTokens" -> Json.Num(10),
+              "reasoningTokens"     -> Json.Num(20),
+              "toolUsePromptTokens" -> Json.Num(15),
+              "time"                -> Json.Num(BigDecimal("1.5"))
+            )
+          )
+        val expected = Some(ChatUsage(100, 50, 30, 10, 20, 15, 1.5))
+        val encoded  = original.toJson
+        assertTrue(
+          original.chatUsage == expected,
+          original.chatUsage == expected,
+          original.usage.isEmpty,
+          original.toJson == encoded,
+          encoded.fromJson[Msg].exists(_.chatUsage == expected)
+        )
+      },
+      test("getChatUsagePrefersDirectField") {
+        val direct = ChatUsage(inputTokens = 200, outputTokens = 100, time = 2.0)
+        val original = Msg
+          .assistant("reply")
+          .withUsage(direct)
+          .withMetadata("_chat_usage", Json.Str("malformed legacy value"))
+        assertTrue(original.chatUsage.contains(direct), original.usage.contains(direct))
+      },
+      test("getChatUsageFallsBackToMetadata") {
+        val original = Msg
+          .assistant("reply")
+          .withMetadata("_chat_usage", Json.Obj("inputTokens" -> Json.Num(300)))
+        assertTrue(
+          original.usage.isEmpty,
+          original.chatUsage.contains(ChatUsage(inputTokens = 300))
+        )
+      },
+      test("cachedTokensDefaultsToZeroForLegacyConstructor") {
+        assertTrue(ChatUsage(inputTokens = 100, outputTokens = 50, time = 1.5).cachedTokens == 0)
+      },
+      test("usageNullByDefault") {
+        assertTrue(Msg.user("hi").usage.isEmpty, Msg.user("hi").chatUsage.isEmpty)
+      },
+      test("usageDeserializesFromJsonWithoutField") {
+        val json =
+          """{"id":"test-1","name":"user","role":"USER","content":[{"type":"text","text":"hello"}],"metadata":{}}"""
+        assertTrue(json.fromJson[Msg].exists(_.usage.isEmpty))
+      },
+      test("malformed legacy usage is unavailable without modifying metadata") {
+        val bad =
+          Chunk(Json.Str("invalid"), Json.Num(7), Json.Obj("inputTokens" -> Json.Str("invalid")))
+        assertTrue(bad.forall { value =>
+          val msg = Msg.assistant("reply").withMetadata("_chat_usage", value)
+          msg.chatUsage.isEmpty && msg.metadata.get("_chat_usage").contains(value)
+        })
+      }
+    ),
     suite("Msg Wire Format & Invariants")(
+      test("supplied malformed optional message fields fail decoding instead of disappearing") {
+        val invalid = Chunk(
+          "id"        -> Json.Num(7),
+          "name"      -> Json.Bool(true),
+          "timestamp" -> Json.Arr(),
+          "metadata"  -> Json.Str("invalid"),
+          "usage"     -> Json.Str("invalid"),
+          "usage"     -> Json.Obj("inputTokens" -> Json.Str("invalid"))
+        )
+        assertTrue(invalid.forall { case (key, value) =>
+          Json.Obj("role" -> Json.Str("assistant"), key -> value).as[Msg].isLeft
+        })
+      },
+      test("missing and JSON-null optional message fields retain absent defaults") {
+        val missing = Json.Obj("role" -> Json.Str("user"))
+        val empty = Json.Obj(
+          "role"      -> Json.Str("user"),
+          "id"        -> Json.Null,
+          "name"      -> Json.Null,
+          "timestamp" -> Json.Null,
+          "metadata"  -> Json.Null,
+          "usage"     -> Json.Null,
+          "content"   -> Json.Null
+        )
+        assertTrue(
+          missing.as[Msg].contains(Msg(role = Role.User)),
+          empty.as[Msg].contains(Msg(role = Role.User))
+        )
+      },
       test("User message round-trip serialization") {
         val msg          = Msg.user("How is the weather today?")
         val json         = msg.toJson

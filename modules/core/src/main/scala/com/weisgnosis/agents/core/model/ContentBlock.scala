@@ -185,18 +185,16 @@ object ContentBlock:
   given JsonCodec[ToolResult] = summon[JsonCodec[Json]].transformOrFail(
     json =>
       for
-        obj <- json.asObject.toRight("ToolResult must be a JSON object")
-        id  <- obj.get("id").toRight("Missing 'id' in ToolResult").flatMap(_.as[String])
-        name = obj.get("name").flatMap(_.as[String].toOption)
+        obj    <- json.asObject.toRight("ToolResult must be a JSON object")
+        id     <- obj.get("id").toRight("Missing 'id' in ToolResult").flatMap(_.as[String])
+        name   <- JsonFields.optional[String](obj, "name")
         output <- decodeOutput(obj.get("output"))
-        state = obj
-          .get("state")
-          .flatMap(_.as[ToolResultState].toOption)
-          .getOrElse(ToolResultState.Success)
-        metadata = obj
-          .get("metadata")
-          .flatMap(_.as[Map[String, Json]].toOption)
-          .getOrElse(Map.empty)
+        state <- JsonFields
+          .optional[ToolResultState](obj, "state")
+          .map(_.getOrElse(ToolResultState.Success))
+        metadata <- JsonFields
+          .optional[Map[String, Json]](obj, "metadata")
+          .map(_.getOrElse(Map.empty))
       yield ToolResult(id, name, output, state, metadata),
     tr =>
       val baseFields: Chunk[(String, Json)] = Chunk(
@@ -218,10 +216,12 @@ object ContentBlock:
       obj.get("type").flatMap(_.asString) match
         case Some("text") => json.as[Text]
         case Some("thinking") =>
-          val thinkingText = obj.get("thinking").flatMap(_.asString).getOrElse("")
-          val meta =
-            obj.get("metadata").flatMap(_.as[Map[String, Json]].toOption).getOrElse(Map.empty)
-          Right(Thinking(thinkingText, meta))
+          for
+            thinking <- JsonFields.optional[String](obj, "thinking").map(_.getOrElse(""))
+            metadata <- JsonFields
+              .optional[Map[String, Json]](obj, "metadata")
+              .map(_.getOrElse(Map.empty))
+          yield Thinking(thinking, metadata)
         case Some("tool_use")    => json.as[ToolUse]
         case Some("tool_result") => json.as[ToolResult]
         case Some("image")       => json.as[Image]

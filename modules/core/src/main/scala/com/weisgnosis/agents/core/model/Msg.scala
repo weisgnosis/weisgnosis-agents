@@ -39,6 +39,10 @@ final case class Msg(
     case Some(_) => ZIO.succeed(this)
     case None    => Random.nextUUID.map(value => copy(id = Some(value.toString)))
 
+  /** Reads canonical usage first, then valid legacy metadata without caching or mutation. */
+  def chatUsage: Option[ChatUsage] =
+    usage.orElse(metadata.get(Msg.MetadataChatUsage).flatMap(_.as[ChatUsage].toOption))
+
   /** Concatenates text content across all text blocks separated by newlines. */
   def text: String =
     content.collect { case ContentBlock.Text(t) => t }.mkString("\n")
@@ -101,6 +105,7 @@ final case class Msg(
 
 object Msg:
 
+  val MetadataChatUsage: String             = "_chat_usage"
   val MetadataGenerateReason: String        = "agentscope_generate_reason"
   val MetadataConfirmResults: String        = "agentscope_confirm_results"
   val MetadataConfirmRequestReplyId: String = "agentscope_confirm_request_reply_id"
@@ -111,7 +116,7 @@ object Msg:
 
   /**
    * Enforces role-to-content block type compatibility invariants:
-   * - USER: Text, Data, Image, Audio, Video, Custom (rejects Hint, Thinking, ToolUse, ToolResult)
+   * - USER: Text, Data, Image, Audio, Video (rejects other block types)
    * - SYSTEM: Text only
    * - ASSISTANT: Unrestricted (any content block)
    * - TOOL: Unrestricted (retained for backward compatibility)
@@ -120,13 +125,12 @@ object Msg:
     role match
       case Role.User =>
         val invalid = content.filterNot {
-          case _: ContentBlock.Text   => true
-          case _: ContentBlock.Data   => true
-          case _: ContentBlock.Image  => true
-          case _: ContentBlock.Audio  => true
-          case _: ContentBlock.Video  => true
-          case _: ContentBlock.Custom => true
-          case _                      => false
+          case _: ContentBlock.Text  => true
+          case _: ContentBlock.Data  => true
+          case _: ContentBlock.Image => true
+          case _: ContentBlock.Audio => true
+          case _: ContentBlock.Video => true
+          case _                     => false
         }
         if invalid.isEmpty then Right(())
         else
@@ -225,15 +229,14 @@ object Msg:
             else Right(Chunk.fromIterable(parsed.collect { case Right(b) => b }))
           case Some(other) =>
             Left(s"Invalid content field in Msg: expected array, got: $other")
-        _ <- validateRoleContent(role, content)
-        id   = obj.get("id").flatMap(_.as[String].toOption)
-        name = obj.get("name").flatMap(_.as[String].toOption)
-        metadata = obj
-          .get("metadata")
-          .flatMap(_.as[Map[String, Json]].toOption)
-          .getOrElse(Map.empty)
-        timestamp = obj.get("timestamp").flatMap(_.as[String].toOption)
-        usage     = obj.get("usage").flatMap(_.as[ChatUsage].toOption)
+        _    <- validateRoleContent(role, content)
+        id   <- JsonFields.optional[String](obj, "id")
+        name <- JsonFields.optional[String](obj, "name")
+        metadata <- JsonFields
+          .optional[Map[String, Json]](obj, "metadata")
+          .map(_.getOrElse(Map.empty))
+        timestamp <- JsonFields.optional[String](obj, "timestamp")
+        usage     <- JsonFields.optional[ChatUsage](obj, "usage")
       yield Msg(id, name, role, content, metadata, timestamp, usage),
     msg =>
       val baseFields: Chunk[(String, Json)] = Chunk(

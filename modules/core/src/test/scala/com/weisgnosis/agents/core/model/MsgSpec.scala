@@ -38,6 +38,27 @@ object MsgSpec extends ZIOSpecDefault:
         preserved == identified
       )
     },
+    test(
+      "MsgTests.testConstructor preserves supplied timestamp and metadata with optional content"
+    ) {
+      val metadata  = Map("key" -> Json.Str("value"))
+      val timestamp = Some("2026-09-29T00:00:00Z")
+      val full = Msg(
+        role = Role.System,
+        name = Some("test"),
+        content = Chunk(ContentBlock.Text("hello")),
+        timestamp = timestamp,
+        metadata = metadata
+      )
+      val empty = Msg(role = Role.System, name = Some("test"), timestamp = timestamp)
+      assertTrue(
+        full.timestamp == timestamp,
+        full.metadata == metadata,
+        full.text == "hello",
+        empty.content.isEmpty,
+        empty.timestamp == timestamp
+      )
+    },
     suite("Basic Creation & Content Extraction")(
       test("testBasicMsgCreation") {
         val textBlock = ContentBlock.Text("Hello World")

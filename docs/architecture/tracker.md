@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: enumerate message and event methods against the pinned upstream revision; remaining structured-output API scenarios are explicitly unchecked in the parity task list.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: close event encoding, metadata, and lifecycle-correlation defects and map event methods against the pinned upstream revision; remaining structured-output API scenarios are explicitly unchecked in the parity task list.
 
 ### Foundation and current core
 
@@ -18,6 +18,10 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Pin upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` and inventory 2,473 annotated core test declarations.
 - [x] Map all 18 methods in the three structured-output suites to local coverage, adaptations, or explicit gaps.
 - [x] Correct structured thinking/usage/history preservation and interruption-after-capture behavior; receive independent approval.
+- [x] Classify all 119 message methods; close reviewed usage, strict decoding, Base64, and role-matrix defects.
+- [x] Verify 169 core and 40 harness tests after the model corrections.
+- [ ] Close remaining message construction, factories, generation-reason, and ToolUse gaps.
+- [ ] Close event codec/metadata/correlation defects and complete event mapping.
 - [ ] Map every remaining applicable core method to Scala coverage, a justified difference, or a gap.
 - [ ] Close remaining structured-output and lifecycle parity gaps; see the [parity task list](test-parity.md).
 - [ ] Implement live HTTP transport and protocol integration tests.
