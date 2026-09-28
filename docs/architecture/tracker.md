@@ -2,22 +2,51 @@
 
 Last synchronized: 2026-09-29. Implemented components are distinguished from host integration and exhaustive upstream parity. Passing local tests does not establish either broader claim.
 
-## Delivery status
+## Progress checklist
 
-| Area | Available now | Remaining work |
-| --- | --- | --- |
-| Foundation | Scala 3.9.0, ZIO 2, formatter, fatal warnings, CI verification | Semantic FP and English checks require review |
-| Core domain | Immutable models, codecs, typed errors, 31 event variants | Exhaustive upstream scenario mapping |
-| Tool execution | Typed tools, immutable registry, normalized observations, canonical path checks | Platform-specific hostile-workspace sandboxing |
-| Model client | LlmClient port, scripted clients, SSE parser, indexed stream accumulator, reasoning adapter | Live HTTP transport and provider integration tests |
-| ReAct runtime | Stateful history, sequential/parallel tools, cancellation reconciliation, bounded thinking retries, inline server tools, scoped events | Full upstream parity audit and harness middleware integration |
-| Structured output | Native request format, synthetic capture, root definition hoisting, metadata decoding | Additional upstream edge cases listed in parity audit |
-| Context compaction | Token counter, safe cutoff, pruning, summary deduplication, retained-user provenance | MemoryFlushManager, MemoryConsolidator, production summarizer |
-| Result eviction | Large-output previews, content-addressed local store, explicit workspace trust | Secure backend for untrusted workspaces; host installation |
-| Permission policy | Gate priority, interactive promises, serializable suspension/resume values | Durable persistence and agent/workflow integration |
-| Subagents and plan mode | Target design only | Supervision, timeout promotion, depth bounds, propagation, shell inspection |
-| MCP | Target design only | Protocol codecs, transports, client, tool bridge |
-| Production cutover | Research and target architecture | Live end-to-end validation, deployment and operational controls |
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: pin the upstream revision and build the exhaustive core parity mapping.
+
+### Foundation and current core
+
+- [x] Configure Scala 3.9.0, ZIO 2, formatter, fatal compiler warnings, and the `sbt verify` gate.
+- [x] Implement immutable domain models, codecs, typed errors, and 31 event variants.
+- [x] Implement typed tools, immutable registration, normalized observations, and path screening.
+- [x] Implement the model client port, scripted clients, SSE parser, indexed accumulator, and reasoning adapter.
+- [x] Implement ReAct execution, bounded thinking retries, inline server tools, and structured output.
+- [x] Resolve lifecycle and path review findings; obtain final independent approval for the scope recorded in the [core README](../../modules/core/README.md).
+- [x] Verify 108 core tests at revision `fb80428`.
+- [ ] Pin the upstream revision and map every applicable core test to Scala coverage, a justified difference, or a gap.
+- [ ] Close remaining structured-output and lifecycle parity gaps; see the [parity task list](test-parity.md).
+- [ ] Implement live HTTP transport and protocol integration tests.
+- [ ] Validate platform-specific symlink/junction behavior.
+
+### Phase 4: harness
+
+- [x] Implement pair-safe compaction, summary deduplication, token estimation, and pruning.
+- [x] Implement large-result previews and content-addressed local storage with explicit workspace trust.
+- [x] Implement permission priorities, interactive promises, and serializable approval/resume values.
+- [x] Resolve compactor/store review findings; obtain final independent approval for the scope recorded in the [harness README](../../modules/harness/README.md).
+- [x] Verify 40 harness tests at revision `fb80428`.
+- [ ] Complete exhaustive harness upstream scenario mapping and close its gaps.
+- [ ] Integrate compaction, eviction, and permission gates into agent execution.
+- [ ] Implement MemoryFlushManager and MemoryConsolidator with the specified writer isolation and budgets.
+- [ ] Verify durable host persistence and resumption without a second model request.
+- [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.
+
+### Subsequent platform work
+
+- [ ] Implement plan-mode restrictions, shell inspection, and propagation.
+- [ ] Implement subagent depth bounds, scoped supervision, and timeout promotion.
+- [ ] Implement MCP protocol codecs, transports, discovery, and tool bridging.
+- [ ] Validate live end-to-end behavior, cancellation, resource release, and operational controls.
+- [ ] Complete release/API compatibility and production cutover acceptance.
+
+### Delivery discipline
+
+- [x] Maintain English per-directory READMEs and current architectural contracts.
+- [x] Establish independent review, correction, explicit re-approval, README update, and closed-report removal as mandatory steps.
+- [x] Preserve unresolved roadmap and parity work with unchecked tasks.
+- [ ] Confirm remote CI execution for the next published revision; local verification does not establish this.
 
 ## Source and verification indexes
 
@@ -57,6 +86,5 @@ Package indexes enumerate actual source and spec files. Planned package document
 - [Low-level design](low-level-design.md)
 - [Phase 4 contracts](phase-4-implementation.md)
 - [Test parity audit](test-parity.md)
-- [Independent review record](../reviews/2026-09-29-phase-3-4.md)
 
 Research references describe longer-term targets: [porting guide](../deep-research-and-porting-guide.md) and [system architecture research](../weisgnosis-os-and-agents-architecture.md).

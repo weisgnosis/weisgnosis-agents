@@ -55,10 +55,17 @@ Model transports implement LlmClient.streamTurn. The agent owns request lifetime
 - [Module index](modules/README.md)
 - [Core API and harness implementation notes](docs/architecture/phase-4-implementation.md)
 - [Engineering standards](AGENTS.md)
-- [Independent review](docs/reviews/2026-09-29-phase-3-4.md)
 
 All repository documentation, comments, identifiers, commit messages, and PR descriptions must be English. Use protocol-level interfaces; retain upstream names for attribution and traceability.
 
 ## License
 
 [Apache-2.0](LICENSE).
+
+## Current acceptance
+
+- [x] Core lifecycle/path fixes and harness compactor/store fixes at `fb80428` received independent final approval after corrections and cross-review.
+- [x] Verification at that revision: 148 tests passed, zero compiler warnings.
+- [ ] Complete the remaining work in the [progress tracker](docs/architecture/tracker.md).
+
+The [core README](modules/core/README.md) and [harness README](modules/harness/README.md) link the exact accepted scopes. Closed review reports live in Git history; current acceptance is maintained in these READMEs.

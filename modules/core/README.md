@@ -13,3 +13,12 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 Typed failures are defined in [AgentError.scala](src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala). Live HTTP transport, automatic failover, and exhaustive upstream parity remain pending.
 
 ReActAgent retains in-memory history and serializes runs. Resources are scoped per run/request; cancellation reconciles unfinished calls without overwriting completed observations. See [architecture](../../ARCHITECTURE.md) and the [parity audit](../../docs/architecture/test-parity.md).
+
+## Current review acceptance
+
+- [x] Revision `fb80428`: agent lifecycle and path traversal fixes explicitly approved by independent reviewer `review_harness` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
+- [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
+- [x] Repository verification: 108 core and 40 harness tests passed, with no compiler warnings.
+- [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
+
+Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.

@@ -205,47 +205,8 @@ An analysis of 336 unit and integration tests across `agentscope-core` and `agen
 
 ---
 
-## 5. Phased Implementation Roadmap
+## 5. Implementation sequencing
 
-```mermaid
-graph TD
-    P1["Phase 1: Core Domain & Codecs<br/>(Msg, ContentBlock, 31 AgentEvent, Test Parity)"]
-    P2["Phase 2: Streaming Model Client<br/>(SSE Parser, Reasoning tokens, Server Tools)"]
-    P3["Phase 3: ReAct Engine<br/>(Tail-recursive loop, Dangling reconcile, Thinking retry)"]
-    P4["Phase 4: Harness Layer<br/>(Tool Eviction, Compactor, HITL Gate Promise, Plan Mode)"]
-    P5["Phase 5: MCP & Subagents<br/>(Native ZIO MCP Stdio/SSE, Fiber subagents, Stream merge)"]
-    P6["Phase 6: Integration in weisgnosis-os<br/>(WeisGnosisAgentProvider, replace 7.8k lines adapter)"]
+The original research proposed progressing from domain models and streaming foundations to the ReAct engine, harness components, MCP/subagents, and host integration. This is historical sequencing context, not a second delivery checklist.
 
-    P1 --> P2 --> P3 --> P4 --> P5 --> P6
-```
-
-### Phase 1: `weisgnosis-agents-core` — Domain & Codecs
-* Implementation of `Role`, `ContentBlock`, `Msg`, and `ToolResultState`.
-* Implementation of `AgentEvent` (31 typed events with JSON discriminator).
-* Round-trip property tests in `zio-json` matching upstream DTO wire parity.
-
-### Phase 2: Streaming Model Client
-* Integration with `zio-http` Client.
-* Fast streaming SSE line and frame parser.
-* Extraction of reasoning token blocks and adapter interfaces.
-
-### Phase 3: ReAct Engine
-* Tail-recursive reasoning loop.
-* Safeguards: dangling tool call reconciliation on fiber interrupt, loopback retries on empty reasoning.
-* Dual-mode structured output engine.
-
-### Phase 4: `weisgnosis-agents-harness` — Context & Safety
-* `ToolResultEvictor` with head/tail preview generation.
-* `ConversationCompactor` with atomic turn preservation and summary deduplication.
-* `PermissionGate` backed by `zio.Promise`.
-* `PlanModeInterceptor` with dynamic tool filtering.
-
-### Phase 5: `weisgnosis-agents-mcp` & Subagents
-* JSON-RPC 2.0 protocol layer for MCP.
-* Stdio transport (`zio.process.Command`) and SSE transport (`zio-http`).
-* Subagent spawning on scoped fibers with merged event streams.
-
-### Phase 6: Integration in `weisgnosis-os`
-* Concise `WeisGnosisAgentProvider` adapter (~200 lines).
-* Deprecating legacy adapters in `weisgnosis-os` (-7,774 lines of glue).
-* End-to-end integration tests within Temporal Activities.
+The [current progress tracker](architecture/tracker.md) is the authoritative checkbox list for implemented components, pending work, and the next task. The [parity checklist](architecture/test-parity.md) separately tracks coverage completion. Maintain progress in those living documents rather than duplicating status here.

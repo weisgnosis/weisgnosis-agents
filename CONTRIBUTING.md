@@ -25,7 +25,7 @@ These checks do not prove semantic purity, exhaustive parity, English correctnes
 
 ## Independent review
 
-Behavioral changes require independent FP/ZIO and invariant-focused reviews. Ask for reproducible findings with source/test locations, add regressions for confirmed defects, resolve findings, and have reviewers inspect the final diff. Record scope, resolutions, validation, and remaining limitations in the PR or a repository review record.
+Behavioral changes require independent FP/ZIO and invariant-focused reviews. Ask for reproducible findings with source/test locations, add regressions for confirmed defects, resolve findings, and have reviewers inspect the final diff. Record explicit final approval, accepted scope, reviewer identities, reviewed revision, and validation in the affected README.md files. Do not close acceptance with unresolved findings.
 
 Never claim subagent review unless it actually ran. Never label a suite exhaustive 1:1 parity without method-level mapping and justified differences or exclusions.
 
@@ -36,3 +36,13 @@ Update affected root/module/package READMEs, architecture contracts, tracker, te
 Review changed prose and comments for English and neutral terminology. Check local Markdown links. Unicode screening is supplemental evidence, not proof of natural-language correctness.
 
 Use focused Conventional Commit messages and the PR checklist. CI provisions the [official sbt runner](https://github.com/sbt/setup-sbt) before verify.
+
+## Closing a review
+
+Follow the mandatory sequence in [AGENTS.md](AGENTS.md): independent review, corrections, explicit re-approval, current README updates, verification, and commit. Each maintained working directory needs a README.md; generated output and empty structural ancestors are excluded.
+
+Once all findings are resolved and reviewers approve, remove the temporary review report from the active tree and repair its links in the same commit. Historical findings remain available in Git. Preserve current API/security contracts and remaining roadmap work in their existing living documents. Do not create a replacement closed-review archive.
+
+Acceptance statements must name the actual reviewed scope and revision. A later behavior change invalidates the affected approval until it is reviewed again. Planned systems and unmapped parity cases remain explicitly pending.
+
+All trackers and roadmap/parity task lists use Markdown checkboxes. Check only verified completion; split partial phases into completed and pending tasks, and identify the next task. Update progress in the same commit as the work.
