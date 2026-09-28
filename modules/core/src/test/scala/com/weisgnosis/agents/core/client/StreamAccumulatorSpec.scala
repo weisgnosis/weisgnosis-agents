@@ -56,12 +56,12 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
         output match
           case TurnOutput.ToolCalls(msg) =>
             msg.toolUses.size == 2 &&
-            msg.toolUses(0).id == "call_1" &&
-            msg.toolUses(0).name == "calculator" &&
-            msg.toolUses(0).input == Json.Obj("x" -> Json.Num(42)) &&
-            msg.toolUses(1).id == "call_2" &&
-            msg.toolUses(1).name == "web_search" &&
-            msg.toolUses(1).input == Json.Obj("query" -> Json.Str("scala 3"))
+            msg.toolUses.lift(0).exists(_.id == "call_1") &&
+            msg.toolUses.lift(0).exists(_.name == "calculator") &&
+            msg.toolUses.lift(0).exists(_.input == Json.Obj("x" -> Json.Num(42))) &&
+            msg.toolUses.lift(1).exists(_.id == "call_2") &&
+            msg.toolUses.lift(1).exists(_.name == "web_search") &&
+            msg.toolUses.lift(1).exists(_.input == Json.Obj("query" -> Json.Str("scala 3")))
           case _ => false
       )
     },
@@ -116,8 +116,9 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
         interrupted match
           case TurnOutput.Interrupted(msg) =>
             msg.toolUses.size == 1 &&
-            msg.toolUses.head.id == "call_interrupted" &&
-            msg.toolUses.head.input == Json.Obj()
+            msg.toolUses.headOption.exists(call =>
+              call.id == "call_interrupted" && call.input == Json.Obj()
+            )
       )
     }
   )

@@ -26,11 +26,8 @@ import zio.json.ast.Json
 sealed trait MediaSource
 
 object MediaSource:
-  final case class Url(url: String)                        extends MediaSource
-  final case class Base64(mediaType: String, data: String) extends MediaSource
-
-  given JsonCodec[Url]    = DeriveJsonCodec.gen
-  given JsonCodec[Base64] = DeriveJsonCodec.gen
+  final case class Url(url: String)                        extends MediaSource derives JsonCodec
+  final case class Base64(mediaType: String, data: String) extends MediaSource derives JsonCodec
 
   given JsonCodec[MediaSource] = summon[JsonCodec[Json]].transformOrFail(
     json =>

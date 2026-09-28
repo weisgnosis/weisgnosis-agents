@@ -15,10 +15,9 @@
  */
 package com.weisgnosis.agents.core.model
 
-import zio.Chunk
+import zio.{Chunk, Random, UIO, ZIO}
 import zio.json.*
 import zio.json.ast.Json
-import java.util.UUID
 
 /**
  * Immutable message representing a single conversation turn between users, agents, and tools.
@@ -26,7 +25,7 @@ import java.util.UUID
  * Corresponds to `io.agentscope.core.message.Msg` in AgentScope Java.
  */
 final case class Msg(
-    id: String = UUID.randomUUID().toString,
+    id: Option[String] = None,
     name: Option[String] = None,
     role: Role,
     content: Chunk[ContentBlock] = Chunk.empty,
@@ -34,6 +33,11 @@ final case class Msg(
     timestamp: Option[String] = None,
     usage: Option[ChatUsage] = None
 ):
+
+  /** Pure constructors leave identity optional; allocation is suspended in the runtime. */
+  def identified: UIO[Msg] = id match
+    case Some(_) => ZIO.succeed(this)
+    case None    => Random.nextUUID.map(value => copy(id = Some(value.toString)))
 
   /** Concatenates text content across all text blocks separated by newlines. */
   def text: String =
@@ -151,7 +155,7 @@ object Msg:
   def create(
       role: Role,
       content: Chunk[ContentBlock] = Chunk.empty,
-      id: String = UUID.randomUUID().toString,
+      id: Option[String] = None,
       name: Option[String] = None,
       metadata: Map[String, Json] = Map.empty,
       timestamp: Option[String] = None,
@@ -222,7 +226,7 @@ object Msg:
           case Some(other) =>
             Left(s"Invalid content field in Msg: expected array, got: $other")
         _ <- validateRoleContent(role, content)
-        id   = obj.get("id").flatMap(_.as[String].toOption).getOrElse(UUID.randomUUID().toString)
+        id   = obj.get("id").flatMap(_.as[String].toOption)
         name = obj.get("name").flatMap(_.as[String].toOption)
         metadata = obj
           .get("metadata")
@@ -233,7 +237,6 @@ object Msg:
       yield Msg(id, name, role, content, metadata, timestamp, usage),
     msg =>
       val baseFields: Chunk[(String, Json)] = Chunk(
-        "id"      -> Json.Str(msg.id),
         "role"    -> msg.role.toJsonAST.getOrElse(Json.Str("user")),
         "content" -> Json.Arr(msg.content.map(b => b.toJsonAST.getOrElse(Json.Null)))
       )
@@ -244,7 +247,8 @@ object Msg:
       val tsField    = msg.timestamp.map(ts => "timestamp" -> Json.Str(ts))
       val usageField = msg.usage.flatMap(u => u.toJsonAST.toOption.map(ast => "usage" -> ast))
       Json.Obj(
-        baseFields ++ Chunk.fromIterable(nameField) ++ Chunk.fromIterable(metaField) ++ Chunk
+        baseFields ++ Chunk.fromIterable(msg.id.map(value => "id" -> Json.Str(value))) ++ Chunk
+          .fromIterable(nameField) ++ Chunk.fromIterable(metaField) ++ Chunk
           .fromIterable(tsField) ++ Chunk.fromIterable(usageField)
       )
   )

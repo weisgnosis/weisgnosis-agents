@@ -36,13 +36,13 @@ object AgentEvent:
       replyId: String,
       agentId: String,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class AgentEndEvent(
       replyId: String,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class AgentProgressEvent(
@@ -50,49 +50,49 @@ object AgentEvent:
       currentStep: Int,
       totalSteps: Option[Int] = None,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // 2. Text Streaming Deltas
   final case class TextBlockStartEvent(
       blockIndex: Int,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class TextBlockDeltaEvent(
       delta: String,
       blockIndex: Int,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class TextBlockEndEvent(
       blockIndex: Int,
       fullText: String,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // 3. Reasoning / Thinking Deltas
   final case class ThinkingBlockStartEvent(
       blockIndex: Int,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class ThinkingBlockDeltaEvent(
       delta: String,
       blockIndex: Int,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class ThinkingBlockEndEvent(
       blockIndex: Int,
       fullThought: String,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // 4. Tool Calls
@@ -102,7 +102,7 @@ object AgentEvent:
       blockIndex: Int,
       streamIndex: Option[Int] = None,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class ToolCallDeltaEvent(
@@ -111,7 +111,7 @@ object AgentEvent:
       blockIndex: Int,
       streamIndex: Option[Int] = None,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class ToolCallEndEvent(
@@ -120,7 +120,7 @@ object AgentEvent:
       arguments: Json,
       blockIndex: Int,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // 5. Tool Results
@@ -128,14 +128,14 @@ object AgentEvent:
       callId: String,
       name: String,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class ToolResultDeltaEvent(
       callId: String,
       delta: String,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class ToolResultEndEvent(
@@ -144,7 +144,7 @@ object AgentEvent:
       output: String,
       state: ToolResultState,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // 6. Raw Model Invocations
@@ -152,13 +152,13 @@ object AgentEvent:
       model: String,
       promptTokens: Int,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class ModelResponseChunkEvent(
       chunk: String,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class ModelResponseEndEvent(
@@ -166,7 +166,7 @@ object AgentEvent:
       completionTokens: Int,
       totalTokens: Int,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // 7. Subagent Operations
@@ -176,14 +176,14 @@ object AgentEvent:
       agentId: String,
       label: Option[String] = None,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class SubagentStartEvent(
       childSessionId: String,
       agentId: String,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class SubagentEndEvent(
@@ -191,7 +191,7 @@ object AgentEvent:
       agentId: String,
       status: String,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class SubagentExposedEvent(
@@ -200,7 +200,7 @@ object AgentEvent:
       sessionId: String,
       label: Option[String] = None,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // 8. Security & Human-in-the-Loop
@@ -209,7 +209,7 @@ object AgentEvent:
       toolName: String,
       input: Json,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class PermissionDecisionEvent(
@@ -217,7 +217,7 @@ object AgentEvent:
       allowed: Boolean,
       reason: Option[String] = None,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // 9. External Execution
@@ -226,7 +226,7 @@ object AgentEvent:
       toolName: String,
       input: Json,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class ExternalExecutionResultEvent(
@@ -234,7 +234,7 @@ object AgentEvent:
       output: String,
       isError: Boolean,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // 10. Context & Compaction
@@ -242,20 +242,20 @@ object AgentEvent:
       triggerTokens: Int,
       messageCount: Int,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class CompactionEndEvent(
       evictedTokens: Int,
       remainingMessages: Int,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class HintBlockEvent(
       hint: String,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // 11. Errors & Custom Extensibility
@@ -263,48 +263,17 @@ object AgentEvent:
       message: String,
       code: Option[String] = None,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   final case class CustomEvent(
       kind: String,
       payload: Json,
       source: Option[String] = None
-  ) extends AgentEvent:
+  ) extends AgentEvent derives JsonCodec:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
   // Codecs for individual events
-  given JsonCodec[AgentStartEvent]              = DeriveJsonCodec.gen
-  given JsonCodec[AgentEndEvent]                = DeriveJsonCodec.gen
-  given JsonCodec[AgentProgressEvent]           = DeriveJsonCodec.gen
-  given JsonCodec[TextBlockStartEvent]          = DeriveJsonCodec.gen
-  given JsonCodec[TextBlockDeltaEvent]          = DeriveJsonCodec.gen
-  given JsonCodec[TextBlockEndEvent]            = DeriveJsonCodec.gen
-  given JsonCodec[ThinkingBlockStartEvent]      = DeriveJsonCodec.gen
-  given JsonCodec[ThinkingBlockDeltaEvent]      = DeriveJsonCodec.gen
-  given JsonCodec[ThinkingBlockEndEvent]        = DeriveJsonCodec.gen
-  given JsonCodec[ToolCallStartEvent]           = DeriveJsonCodec.gen
-  given JsonCodec[ToolCallDeltaEvent]           = DeriveJsonCodec.gen
-  given JsonCodec[ToolCallEndEvent]             = DeriveJsonCodec.gen
-  given JsonCodec[ToolResultStartEvent]         = DeriveJsonCodec.gen
-  given JsonCodec[ToolResultDeltaEvent]         = DeriveJsonCodec.gen
-  given JsonCodec[ToolResultEndEvent]           = DeriveJsonCodec.gen
-  given JsonCodec[ModelRequestStartEvent]       = DeriveJsonCodec.gen
-  given JsonCodec[ModelResponseChunkEvent]      = DeriveJsonCodec.gen
-  given JsonCodec[ModelResponseEndEvent]        = DeriveJsonCodec.gen
-  given JsonCodec[SubagentSpawnEvent]           = DeriveJsonCodec.gen
-  given JsonCodec[SubagentStartEvent]           = DeriveJsonCodec.gen
-  given JsonCodec[SubagentEndEvent]             = DeriveJsonCodec.gen
-  given JsonCodec[SubagentExposedEvent]         = DeriveJsonCodec.gen
-  given JsonCodec[PermissionAskEvent]           = DeriveJsonCodec.gen
-  given JsonCodec[PermissionDecisionEvent]      = DeriveJsonCodec.gen
-  given JsonCodec[ExternalExecutionAskEvent]    = DeriveJsonCodec.gen
-  given JsonCodec[ExternalExecutionResultEvent] = DeriveJsonCodec.gen
-  given JsonCodec[CompactionStartEvent]         = DeriveJsonCodec.gen
-  given JsonCodec[CompactionEndEvent]           = DeriveJsonCodec.gen
-  given JsonCodec[HintBlockEvent]               = DeriveJsonCodec.gen
-  given JsonCodec[ErrorEvent]                   = DeriveJsonCodec.gen
-  given JsonCodec[CustomEvent]                  = DeriveJsonCodec.gen
 
   private def tagWithEvent(ast: Json, eventType: String): Json =
     ast.asObject match

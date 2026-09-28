@@ -15,10 +15,10 @@
  */
 package com.weisgnosis.agents.core.tool
 
-import java.io.IOException
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, LinkOption, Path}
+import com.weisgnosis.agents.core.error.AgentError
+import zio.*
 import java.util.Locale
-import scala.jdk.CollectionConverters.*
 
 /**
  * Path and command safety utilities enforcing invariant INV-10 (Sensitive Path Canonicalization)
@@ -72,60 +72,69 @@ object PathSafety:
     "> /dev/"
   )
 
-  def expandTilde(path: String): String =
-    if path.startsWith("~") then
-      val home = Option(System.getProperty("user.home")).getOrElse("")
-      home + path.substring(1)
-    else path
+  def expandTilde(path: String): IO[AgentError, String] =
+    if path == "~" || path.startsWith("~/") || path.startsWith("~\\") then
+      zio.System
+        .property("user.home")
+        .mapError(error => AgentError.PermissionDenied("path", error.toString))
+        .flatMap(home =>
+          ZIO
+            .fromOption(home)
+            .orElseFail(AgentError.PermissionDenied("path", "Home directory is unavailable"))
+        )
+        .map(home => home + path.drop(1))
+    else ZIO.succeed(path)
 
-  private def isDangerousAbsolute(
+  /** Canonicalizes the nearest existing ancestor, including links above new files. */
+  def canonicalPath(path: Path): IO[AgentError, Path] =
+    ZIO.suspendSucceed {
+      io(Files.exists(path, LinkOption.NOFOLLOW_LINKS)).flatMap { exists =>
+        if exists then io(path.toRealPath())
+        else
+          (Option(path.getParent), Option(path.getFileName)) match
+            case (Some(parent), Some(name)) => canonicalPath(parent).map(_.resolve(name))
+            case _ =>
+              ZIO.fail(AgentError.PermissionDenied("path", "Cannot resolve a filesystem ancestor"))
+      }
+    }
+
+  /** Pure lexical screening, reusable after canonicalization. */
+  def isSensitivePath(
       path: Path,
-      dangerousFiles: Set[String],
-      dangerousDirectories: Set[String]
+      dangerousFiles: Set[String] = DefaultDangerousFiles,
+      dangerousDirectories: Set[String] = DefaultDangerousDirectories
   ): Boolean =
-    val fileName = Option(path.getFileName).map(_.toString.toLowerCase(Locale.ROOT)).getOrElse("")
-    if dangerousFiles.contains(fileName) then true
-    else
-      val normalizedStr = path.toString.replace('\\', '/').toLowerCase(Locale.ROOT)
-      val matchesRelativeFile =
-        dangerousFiles.exists(df => df.contains("/") && normalizedStr.endsWith(df))
-      if matchesRelativeFile then true
-      else
-        val segments = path.iterator().asScala.map(_.toString.toLowerCase(Locale.ROOT)).toSet
-        segments.exists(dangerousDirectories.contains)
+    val normalized = path.toString.replace('\\', '/').toLowerCase(Locale.ROOT)
+    val segments   = normalized.split('/').toList
+    segments.exists(segment =>
+      dangerousDirectories.contains(segment) || dangerousFiles.contains(segment) || segment
+        .startsWith(".env.")
+    ) ||
+    dangerousFiles.exists(file => file.contains("/") && normalized.endsWith("/" + file))
 
-  /**
-   * Evaluates whether a file path targets sensitive credential, shell, or repository configuration.
-   * Resolves canonical real paths via `toRealPath()` to prevent symlink traversal escapes.
-   */
+  /** All filesystem reads and home-directory resolution are suspended and failures are explicit. */
   def isDangerousPath(
       filePath: String,
       dangerousFiles: Set[String] = DefaultDangerousFiles,
       dangerousDirectories: Set[String] = DefaultDangerousDirectories
-  ): Boolean =
-    if filePath == null || filePath.trim.isEmpty then false
+  ): IO[AgentError, Boolean] =
+    if filePath.trim.isEmpty then ZIO.succeed(false)
     else
-      try
-        val absolute = Path.of(expandTilde(filePath)).toAbsolutePath.normalize()
-        if isDangerousAbsolute(absolute, dangerousFiles, dangerousDirectories) then true
-        else
-          try
-            val resolved = if Files.exists(absolute) then absolute.toRealPath() else absolute
-            if resolved != absolute && isDangerousAbsolute(
-                resolved,
-                dangerousFiles,
-                dangerousDirectories
-              )
-            then true
-            else false
-          catch case _: IOException => false
-      catch case _: Exception => false
+      for
+        expanded <- expandTilde(filePath)
+        absolute <- io(Path.of(expanded).toAbsolutePath.normalize())
+        result <-
+          if isSensitivePath(absolute, dangerousFiles, dangerousDirectories) then ZIO.succeed(true)
+          else canonicalPath(absolute).map(isSensitivePath(_, dangerousFiles, dangerousDirectories))
+      yield result
 
-  /**
-   * Evaluates whether a shell command contains destructive or privilege-escalating fragments.
-   */
   def isDangerousCommand(command: String): Boolean =
-    if command == null || command.trim.isEmpty then false
-    else
-      val lower = command.toLowerCase(Locale.ROOT)
-      DangerousCommands.exists(lower.contains)
+    val lower = command.toLowerCase(Locale.ROOT)
+    DangerousCommands.exists(lower.contains)
+
+  private def io[A](operation: => A): IO[AgentError, A] =
+    ZIO
+      .attemptBlocking(operation)
+      .mapError(error =>
+        AgentError.PermissionDenied("path", Option(error.getMessage).getOrElse(error.toString))
+      )

@@ -36,7 +36,9 @@ object ToolkitSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("ToolkitSpec (AgentScope Java Parity)")(
     test("Register tools and lookup by name") {
-      val tk = Toolkit.empty.withTool(dummyTool1).withTool(dummyTool2)
+      val tk = Toolkit(
+        Map(dummyTool1.definition.name -> dummyTool1, dummyTool2.definition.name -> dummyTool2)
+      )
 
       assertTrue(
         tk.size == 2,
@@ -44,29 +46,29 @@ object ToolkitSpec extends ZIOSpecDefault:
         tk.contains("calc"),
         tk.contains("search"),
         !tk.contains("unknown"),
-        tk.get("calc").isDefined,
-        tk.get("calc").get.definition.name == "calc",
+        tk.resolve("calc").isDefined,
+        tk.resolve("calc").exists(_.definition.name == "calc"),
         tk.definitions.map(_.name).toSet == Set("calc", "search")
       )
     },
     test("Reject duplicate tool registrations via register method") {
-      val tk1    = Toolkit.empty.withTool(dummyTool1)
+      val tk1    = Toolkit(Map(dummyTool1.definition.name -> dummyTool1))
       val result = tk1.register(dummyTool1)
 
       assertTrue(
         result.isLeft,
-        result.swap.toOption.get.contains("Tool collision")
+        result.left.exists(_.message.contains("Tool collision"))
       )
     },
     test("Merge two Toolkits via ++") {
-      val tk1    = Toolkit.empty.withTool(dummyTool1)
-      val tk2    = Toolkit.empty.withTool(dummyTool2)
+      val tk1    = Toolkit(Map(dummyTool1.definition.name -> dummyTool1))
+      val tk2    = Toolkit(Map(dummyTool2.definition.name -> dummyTool2))
       val merged = tk1 ++ tk2
 
       assertTrue(
-        merged.size == 2,
-        merged.contains("calc"),
-        merged.contains("search")
+        merged.exists(_.size == 2),
+        merged.exists(_.contains("calc")),
+        merged.exists(_.contains("search"))
       )
     }
   )

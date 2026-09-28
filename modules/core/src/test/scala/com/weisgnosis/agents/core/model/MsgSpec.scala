@@ -25,6 +25,19 @@ import zio.test.*
 object MsgSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("MsgSpec (AgentScope Java 1:1 Parity)")(
+    test("message construction and decoding are pure, identity allocation is explicit") {
+      val first  = Msg.user("same")
+      val second = Msg.user("same")
+      for
+        identified <- first.identified
+        preserved  <- identified.identified
+      yield assertTrue(
+        first == second,
+        first.id.isEmpty,
+        identified.id.exists(_.nonEmpty),
+        preserved == identified
+      )
+    },
     suite("Basic Creation & Content Extraction")(
       test("testBasicMsgCreation") {
         val textBlock = ContentBlock.Text("Hello World")
@@ -130,7 +143,7 @@ object MsgSpec extends ZIOSpecDefault:
         assertTrue(
           msg.getTextContent == "I'll calculate that for you.",
           msg.toolUses.size == 1,
-          msg.toolUses.head.id == "tool-123"
+          msg.toolUses.headOption.exists(_.id == "tool-123")
         )
       },
       test("testGetTextContentWithEmptyTextBlock") {

@@ -87,7 +87,7 @@ object AgentEventSerdeSpec extends ZIOSpecDefault:
 
       assertTrue(
         decoded.isRight,
-        decoded.toOption.get.source.contains("parentSession/childAgent")
+        decoded.exists(_.source.contains("parentSession/childAgent"))
       )
     },
     test("Rejects unknown event discriminators gracefully") {
@@ -100,7 +100,7 @@ object AgentEventSerdeSpec extends ZIOSpecDefault:
       val decoded = invalidJson.fromJson[AgentEvent]
       assertTrue(
         decoded.isLeft,
-        decoded.swap.toOption.get.contains("Unknown agent event discriminator")
+        decoded.left.exists(_.contains("Unknown agent event discriminator"))
       )
     }
   )

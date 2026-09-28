@@ -15,80 +15,53 @@
  */
 package com.weisgnosis.agents.core.tool
 
+import zio.*
 import zio.test.*
 
-/**
- * 1:1 test parity suite for DangerousPathBypassTest.java and ToolBaseTest.java from AgentScope Java.
- */
 object PathSafetySpec extends ZIOSpecDefault:
-
-  def spec: Spec[TestEnvironment, Any] = suite("PathSafetySpec (DangerousPathBypassTest Parity)")(
-    suite("Dangerous Path Detection")(
-      test("dotEnvIsDetected") {
-        assertTrue(PathSafety.isDangerousPath("/home/user/.env"))
-      },
-      test("dotEnvLocalIsDetected") {
-        assertTrue(PathSafety.isDangerousPath("/home/user/.env.local"))
-      },
-      test("dotEnvProductionIsDetected") {
-        assertTrue(PathSafety.isDangerousPath("/home/user/.env.production"))
-      },
-      test("dotEnvDevelopmentLocalIsDetected") {
-        assertTrue(PathSafety.isDangerousPath("/home/user/.env.development.local"))
-      },
-      test("dotEnvrcIsDetected") {
-        assertTrue(PathSafety.isDangerousPath("/home/user/.envrc"))
-      },
-      test("relativeDotEnvIsDetected") {
-        assertTrue(PathSafety.isDangerousPath("./.env"))
-      },
-      test("caseInsensitiveDotEnvIsDetected") {
-        assertTrue(PathSafety.isDangerousPath("/home/user/.ENV"))
-      },
-      test("sensitiveDirectorySegmentsAreDetected") {
-        assertTrue(
-          PathSafety.isDangerousPath("/repo/.git/config"),
-          PathSafety.isDangerousPath("/user/.ssh/id_rsa"),
-          PathSafety.isDangerousPath("/project/.vscode/settings.json"),
-          PathSafety.isDangerousPath("/project/.idea/workspace.xml")
-        )
-      },
-      test("shellRcFilesAreDetected") {
-        assertTrue(
-          PathSafety.isDangerousPath("/home/user/.bashrc"),
-          PathSafety.isDangerousPath("/home/user/.zshrc"),
-          PathSafety.isDangerousPath("/home/user/.profile")
-        )
-      },
-      test("tildeExpansionIsDetected") {
-        assertTrue(PathSafety.isDangerousPath("~/.bashrc"))
-      },
-      test("ordinaryFilesAreNotDangerous") {
-        assertTrue(
-          !PathSafety.isDangerousPath("src/main/scala/App.scala"),
-          !PathSafety.isDangerousPath("README.md"),
-          !PathSafety.isDangerousPath("target/classes/Main.class")
-        )
-      },
-      test("nullAndBlankPathsReturnFalse") {
-        assertTrue(
-          !PathSafety.isDangerousPath(null),
-          !PathSafety.isDangerousPath(""),
-          !PathSafety.isDangerousPath("   ")
-        )
-      }
-    ),
-    suite("Dangerous Command Detection")(
-      test("Detects destructive and privilege-escalating commands") {
-        assertTrue(
-          PathSafety.isDangerousCommand("rm -rf /"),
-          PathSafety.isDangerousCommand("sudo rm test.txt"),
-          PathSafety.isDangerousCommand("kill -9 1234"),
-          PathSafety.isDangerousCommand("chmod 777 /etc/hosts"),
-          !PathSafety.isDangerousCommand("git status"),
-          !PathSafety.isDangerousCommand("sbt test"),
-          !PathSafety.isDangerousCommand("cat README.md")
-        )
-      }
-    )
+  def spec: Spec[TestEnvironment, Any] = suite("PathSafetySpec")(
+    test("sensitive files, variants, directory segments, and shell configuration are denied") {
+      val paths = Chunk(
+        "/home/user/.env",
+        "/home/user/.env.local",
+        "/home/user/.env.production",
+        "/home/user/.env.development.local",
+        "/home/user/.envrc",
+        "./.env",
+        "/home/user/.ENV",
+        "/repo/.git/config",
+        "/user/.ssh/id_rsa",
+        "/project/.vscode/settings.json",
+        "/project/.idea/workspace.xml",
+        "/home/user/.bashrc",
+        "/home/user/.zshrc",
+        "/home/user/.profile",
+        "~/.bashrc",
+        "/home/user/.env.custom"
+      )
+      for
+        _       <- TestSystem.putProperty("user.home", "C:/home/test")
+        results <- ZIO.foreach(paths)(PathSafety.isDangerousPath(_))
+      yield assertTrue(results.forall(identity))
+    },
+    test("ordinary and blank paths are accepted") {
+      val paths =
+        Chunk("src/main/scala/App.scala", "README.md", "target/classes/Main.class", "", "   ")
+      for
+        _       <- TestSystem.putProperty("user.home", "C:/home/test")
+        results <- ZIO.foreach(paths)(PathSafety.isDangerousPath(_))
+      yield assertTrue(results.forall(!_))
+    },
+    test("destructive command screening is total") {
+      assertTrue(
+        PathSafety.isDangerousCommand("rm -rf /"),
+        PathSafety.isDangerousCommand("sudo rm test.txt"),
+        PathSafety.isDangerousCommand("kill -9 1234"),
+        PathSafety.isDangerousCommand("chmod 777 /etc/hosts"),
+        !PathSafety.isDangerousCommand("git status"),
+        !PathSafety.isDangerousCommand("sbt test"),
+        !PathSafety.isDangerousCommand("cat README.md"),
+        !PathSafety.isDangerousCommand("")
+      )
+    }
   )

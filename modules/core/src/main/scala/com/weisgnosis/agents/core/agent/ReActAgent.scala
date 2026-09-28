@@ -53,7 +53,7 @@ final class ReActAgent private (
   def getAgentId: String  = agentId
 
   def history: UIO[Chunk[Msg]] = stateRef.get
-  def resetHistory: UIO[Unit]  = stateRef.set(Chunk.empty)
+  def resetHistory: UIO[Unit]  = runLock.withPermit(stateRef.set(Chunk.empty))
 
   /** Signals an interruption to the active ReAct loop. */
   def interrupt: UIO[Unit] =
@@ -109,7 +109,7 @@ final class ReActAgent private (
         else
           ZIO
             .fromEither(toolkit.register(syntheticTool))
-            .mapError(err => AgentError.ToolExecutionError(StructuredOutput.ToolName, err))
+
       requestConfig =
         if native then
           llmConfig.copy(responseFormat =
@@ -122,15 +122,17 @@ final class ReActAgent private (
           )
         else llmConfig
       hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-      rawResult <- runWithHub(messages, hub, structuredToolkit, requestConfig).catchAll {
-        case AgentError.ModelError(status, _, _)
-            if mode == StructuredMode.Auto && native && Set(400, 422, 501).contains(status) =>
-          ZIO
-            .fromEither(toolkit.register(syntheticTool))
-            .mapError(err => AgentError.ToolExecutionError(StructuredOutput.ToolName, err))
-            .flatMap(fallback => runWithHub(Chunk.empty, hub, fallback))
-        case error => ZIO.fail(error)
-      }
+      rawResult <- runWithHub(messages, hub, structuredToolkit, requestConfig, Some(capturedRef))
+        .catchAll {
+          case AgentError.ModelError(status, _, _)
+              if mode == StructuredMode.Auto && native && Set(400, 422, 501).contains(status) =>
+            ZIO
+              .fromEither(toolkit.register(syntheticTool))
+              .flatMap(fallback =>
+                runWithHub(Chunk.empty, hub, fallback, llmConfig, Some(capturedRef))
+              )
+          case error => ZIO.fail(error)
+        }
       capturedOpt <- capturedRef.get
       outcome <- capturedOpt match
         case Some(jsonPayload) =>
@@ -142,7 +144,7 @@ final class ReActAgent private (
             case Right(decoded) =>
               for
                 currentHist <- stateRef.get
-                compressedHist = StructuredOutput.compressHistory(currentHist.dropRight(1))
+                compressedHist = StructuredOutput.compressHistory(currentHist)
                 finalMsg = Msg(
                   role = Role.Assistant,
                   name = Some(config.name),
@@ -205,12 +207,14 @@ final class ReActAgent private (
       newMessages: Chunk[Msg],
       eventHub: Hub[AgentEvent],
       activeToolkit: Toolkit,
-      requestConfig: LlmConfig = llmConfig
+      requestConfig: LlmConfig = llmConfig,
+      structuredResponse: Option[Ref[Option[Json]]] = None
   ): ZIO[Scope, AgentError, AgentResult] =
     for
-      p       <- Promise.make[Nothing, Unit]
-      _       <- interruptedPromiseRef.set(p)
-      replyId <- Random.nextUUID.map(_.toString)
+      startingHistory <- stateRef.get
+      p               <- Promise.make[Nothing, Unit]
+      _               <- interruptedPromiseRef.set(p)
+      replyId         <- Random.nextUUID.map(_.toString)
       systemMsgOpt =
         if config.systemPrompt.nonEmpty then Some(Msg.system(config.systemPrompt)) else None
       _ <- stateRef.update { current =>
@@ -229,18 +233,25 @@ final class ReActAgent private (
           agentId = agentId
         )
       )
-      result <- loop(1, 0, activeToolkit, eventHub, requestConfig)
+      result <- loop(1, 0, activeToolkit, eventHub, requestConfig, structuredResponse)
         .timeoutFail(AgentError.TimeoutError(config.timeout.toSeconds, "Agent run timed out"))(
           config.timeout
         )
-    yield result
+    yield result.copy(usage =
+      result.history
+        .drop(startingHistory.size)
+        .filter(_.role == Role.Assistant)
+        .flatMap(_.usage)
+        .reduceOption(_.combine(_))
+    )
 
   private def loop(
       iteration: Int,
       emptyThinkingRetries: Int,
       activeToolkit: Toolkit,
       eventHub: Hub[AgentEvent],
-      requestConfig: LlmConfig
+      requestConfig: LlmConfig,
+      structuredResponse: Option[Ref[Option[Json]]]
   ): ZIO[Scope, AgentError, AgentResult] =
     if iteration > config.maxIterations then
       for
@@ -320,7 +331,8 @@ final class ReActAgent private (
                             emptyThinkingRetries + 1,
                             activeToolkit,
                             eventHub,
-                            requestConfig
+                            requestConfig,
+                            structuredResponse
                           )
                         )
                       yield nextTurn
@@ -335,7 +347,7 @@ final class ReActAgent private (
                         )
                       )
                       for
-                        _         <- stateRef.update(_ :+ limitMsg)
+                        _         <- stateRef.update(_ :+ thinkingMsg :+ limitMsg)
                         finalHist <- stateRef.get
                         _         <- eventHub.publish(AgentEvent.AgentEndEvent(agentId))
                       yield AgentResult(
@@ -377,7 +389,7 @@ final class ReActAgent private (
                           )
                         else
                           val allSafe = config.streamParallelTools && pendingCalls
-                            .forall(c => activeToolkit.get(c.name).forall(_.isConcurrencySafe))
+                            .forall(c => activeToolkit.resolve(c.name).forall(_.isConcurrencySafe))
                           val execEffect =
                             if allSafe then
                               ZIO.foreachPar(pendingCalls)(call =>
@@ -394,9 +406,24 @@ final class ReActAgent private (
                               case Left(_) =>
                                 handleInterrupt(stateRef, iteration)
                               case Right(_) =>
-                                restore(
-                                  loop(iteration + 1, 0, activeToolkit, eventHub, requestConfig)
-                                )
+                                val captured =
+                                  structuredResponse.fold[UIO[Option[Json]]](ZIO.none)(_.get)
+                                captured.flatMap {
+                                  case Some(_) =>
+                                    stateRef.get
+                                      .map(history => AgentResult(assistantMsg, history, iteration))
+                                  case None =>
+                                    restore(
+                                      loop(
+                                        iteration + 1,
+                                        0,
+                                        activeToolkit,
+                                        eventHub,
+                                        requestConfig,
+                                        structuredResponse
+                                      )
+                                    )
+                                }
                           yield res
                     yield turnRes
 
@@ -434,14 +461,15 @@ final class ReActAgent private (
           reply = recoveryMsg,
           history = finalHist,
           iterationCount = iteration,
-          isInterrupted = true
+          state = AgentRunState.Interrupted
         )
       }
     }
 
   private def reconcileDanglingToolCalls(stateRef: Ref[Chunk[Msg]]): UIO[Msg] =
     stateRef.modify { history =>
-      val existingResultIds = history.flatMap(_.toolResults).map(_.toolUseId).toSet
+      val currentTurn       = history.reverse.takeWhile(_.role != Role.Assistant).reverse
+      val existingResultIds = currentTurn.flatMap(_.toolResults).map(_.toolUseId).toSet
       val lastAssistant     = history.reverse.find(_.role == Role.Assistant)
 
       lastAssistant match
@@ -506,8 +534,9 @@ object ReActAgent:
       client: LlmClient,
       llmConfig: LlmConfig = LlmConfig("default-model"),
       initialHistory: Chunk[Msg] = Chunk.empty
-  ): UIO[ReActAgent] =
+  ): IO[AgentError, ReActAgent] =
     for
+      _                     <- ZIO.fromEither(config.validated)
       stateRef              <- Ref.make(initialHistory)
       agentId               <- Random.nextUUID.map(_.toString)
       p                     <- Promise.make[Nothing, Unit]
@@ -547,8 +576,8 @@ object ReActAgent:
     def llmConfig(c: LlmConfig): Builder          = copy(_llmConfig = c)
     def initialHistory(h: Chunk[Msg]): Builder    = copy(_initialHistory = h)
 
-    def build: UIO[ReActAgent] =
-      val cl = _client.getOrElse(
-        LlmClient.mockFunction((_, _) => TurnOutput.FinalText(Msg.assistant("No model configured")))
-      )
-      ReActAgent.make(_config, _toolkit, cl, _llmConfig, _initialHistory)
+    def build: IO[AgentError, ReActAgent] =
+      ZIO
+        .fromOption(_client)
+        .orElseFail(AgentError.InvalidConfiguration("A model client is required"))
+        .flatMap(model => ReActAgent.make(_config, _toolkit, model, _llmConfig, _initialHistory))

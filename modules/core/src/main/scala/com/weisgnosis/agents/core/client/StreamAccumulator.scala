@@ -19,7 +19,6 @@ import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role}
 import zio.Chunk
 import zio.json.*
 import zio.json.ast.Json
-import java.util.UUID
 
 /**
  * Pure functional state accumulator enforcing invariant INV-12 (Chunk Index Assembly).
@@ -56,8 +55,7 @@ final case class StreamAccumulator(
           case None =>
             StreamAccumulator.InFlightToolCall(
               streamIndex = streamIdx,
-              callId =
-                callIdOpt.getOrElse(s"call_${UUID.randomUUID().toString.replace("-", "").take(8)}"),
+              callId = callIdOpt.getOrElse(s"stream_call_$streamIdx"),
               name = nameOpt.getOrElse(""),
               argsBuffer = argsDelta
             )
@@ -106,7 +104,7 @@ final case class StreamAccumulator(
     )
 
     if toolBlocks.nonEmpty then TurnOutput.ToolCalls(msg)
-    else if textBuffer.nonEmpty then TurnOutput.FinalText(msg)
+    else if textBuffer.trim.nonEmpty then TurnOutput.FinalText(msg)
     else if thinkingBuffer.nonEmpty then TurnOutput.ThinkingOnly(msg)
     else TurnOutput.FinalText(msg)
 

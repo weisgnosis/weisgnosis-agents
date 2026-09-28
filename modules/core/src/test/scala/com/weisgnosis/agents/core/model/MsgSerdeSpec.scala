@@ -40,10 +40,10 @@ object MsgSerdeSpec extends ZIOSpecDefault:
 
         assertTrue(
           deserialized.isRight,
-          deserialized.toOption.get.usage.contains(usage),
-          deserialized.toOption.get.usage.get.inputTokens == 100,
-          deserialized.toOption.get.usage.get.outputTokens == 50,
-          deserialized.toOption.get.usage.get.totalTokens == 150
+          deserialized.exists(_.usage.contains(usage)),
+          deserialized.exists(_.usage.exists(_.inputTokens == 100)),
+          deserialized.exists(_.usage.exists(_.outputTokens == 50)),
+          deserialized.exists(_.usage.exists(_.totalTokens == 150))
         )
       },
       test("cachedTokensRoundTripViaJson") {
@@ -60,7 +60,7 @@ object MsgSerdeSpec extends ZIOSpecDefault:
 
         assertTrue(
           deserialized.isRight,
-          deserialized.toOption.get.usage.get.cachedTokens == 30
+          deserialized.exists(_.usage.exists(_.cachedTokens == 30))
         )
       }
     ),
@@ -72,8 +72,8 @@ object MsgSerdeSpec extends ZIOSpecDefault:
 
         assertTrue(
           deserialized.isRight,
-          deserialized.toOption.get.role == Role.User,
-          deserialized.toOption.get.text == "How is the weather today?"
+          deserialized.exists(_.role == Role.User),
+          deserialized.exists(_.text == "How is the weather today?")
         )
       },
       test("Synthetic system reminder round-trip with metadata") {
@@ -85,8 +85,8 @@ object MsgSerdeSpec extends ZIOSpecDefault:
           reminder.isSynthetic,
           reminder.reminderKind.contains("system_directive"),
           deserialized.isRight,
-          deserialized.toOption.get.isSynthetic,
-          deserialized.toOption.get.reminderKind.contains("system_directive")
+          deserialized.exists(_.isSynthetic),
+          deserialized.exists(_.reminderKind.contains("system_directive"))
         )
       },
       test("Deserialization runs role-content validation and rejects invalid SYSTEM messages") {
@@ -104,7 +104,7 @@ object MsgSerdeSpec extends ZIOSpecDefault:
         val decoded = invalidJson.fromJson[Msg]
         assertTrue(
           decoded.isLeft,
-          decoded.swap.toOption.get.contains("SYSTEM")
+          decoded.left.exists(_.contains("SYSTEM"))
         )
       },
       test("Deserialization runs role-content validation and rejects invalid USER messages") {
@@ -122,7 +122,7 @@ object MsgSerdeSpec extends ZIOSpecDefault:
         val decoded = invalidJson.fromJson[Msg]
         assertTrue(
           decoded.isLeft,
-          decoded.swap.toOption.get.contains("USER")
+          decoded.left.exists(_.contains("USER"))
         )
       }
     )

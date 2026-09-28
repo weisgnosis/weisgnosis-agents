@@ -30,12 +30,12 @@ object ContentBlock:
 
   final case class Text(
       text: String
-  ) extends ContentBlock
+  ) extends ContentBlock derives JsonCodec
 
   final case class Thinking(
       thinking: String,
       metadata: Map[String, Json] = Map.empty
-  ) extends ContentBlock:
+  ) extends ContentBlock derives JsonCodec:
     def thought: String                = thinking
     def signature: Option[String]      = metadata.get("thoughtSignature").flatMap(_.asString)
     def reasoningDetails: Option[Json] = metadata.get("reasoningDetails")
@@ -46,7 +46,7 @@ object ContentBlock:
       input: Json,
       content: Option[String] = None,
       metadata: Map[String, Json] = Map.empty
-  ) extends ContentBlock:
+  ) extends ContentBlock derives JsonCodec:
     def isServerTool: Boolean =
       metadata.get("agentscope_server_tool").flatMap(_.asBoolean).getOrElse(false)
     def thoughtSignature: Option[String] =
@@ -121,7 +121,7 @@ object ContentBlock:
       source: MediaSource,
       id: Option[String] = None,
       name: Option[String] = None
-  ) extends ContentBlock
+  ) extends ContentBlock derives JsonCodec
 
   object Image:
     def url(url: String): Image                        = Image(MediaSource.url(url))
@@ -131,7 +131,7 @@ object ContentBlock:
       source: MediaSource,
       id: Option[String] = None,
       name: Option[String] = None
-  ) extends ContentBlock
+  ) extends ContentBlock derives JsonCodec
 
   object Audio:
     def url(url: String): Audio                        = Audio(MediaSource.url(url))
@@ -141,7 +141,7 @@ object ContentBlock:
       source: MediaSource,
       id: Option[String] = None,
       name: Option[String] = None
-  ) extends ContentBlock
+  ) extends ContentBlock derives JsonCodec
 
   object Video:
     def url(url: String): Video                        = Video(MediaSource.url(url))
@@ -151,7 +151,7 @@ object ContentBlock:
       source: MediaSource,
       id: Option[String] = None,
       name: Option[String] = None
-  ) extends ContentBlock
+  ) extends ContentBlock derives JsonCodec
 
   object Data:
     def url(url: String, name: Option[String] = None): Data =
@@ -163,22 +163,12 @@ object ContentBlock:
       id: Option[String] = None,
       hint: String,
       source: Option[String] = None
-  ) extends ContentBlock
+  ) extends ContentBlock derives JsonCodec
 
   final case class Custom(
       kind: String,
       payload: Json
-  ) extends ContentBlock
-
-  given JsonCodec[Text]     = DeriveJsonCodec.gen
-  given JsonCodec[Thinking] = DeriveJsonCodec.gen
-  given JsonCodec[ToolUse]  = DeriveJsonCodec.gen
-  given JsonCodec[Image]    = DeriveJsonCodec.gen
-  given JsonCodec[Audio]    = DeriveJsonCodec.gen
-  given JsonCodec[Video]    = DeriveJsonCodec.gen
-  given JsonCodec[Data]     = DeriveJsonCodec.gen
-  given JsonCodec[Hint]     = DeriveJsonCodec.gen
-  given JsonCodec[Custom]   = DeriveJsonCodec.gen
+  ) extends ContentBlock derives JsonCodec
 
   private def decodeOutput(jsonOpt: Option[Json]): Either[String, Chunk[ContentBlock]] =
     jsonOpt match

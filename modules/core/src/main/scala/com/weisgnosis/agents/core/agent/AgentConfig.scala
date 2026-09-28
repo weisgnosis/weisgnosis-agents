@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.agent
 
+import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 import zio.json.*
 
@@ -40,3 +41,12 @@ final case class AgentConfig(
 
   /** Parity convenience check for parallel tool execution. */
   def streamParallelTools: Boolean = toolExecution == ToolExecution.Parallel
+
+  def validated: Either[AgentError, AgentConfig] =
+    if maxIterations <= 0 then
+      Left(AgentError.InvalidConfiguration("maxIterations must be positive"))
+    else if emptyThinkingRetryLimit < 0 then
+      Left(AgentError.InvalidConfiguration("emptyThinkingRetryLimit must be nonnegative"))
+    else if timeout <= Duration.Zero then
+      Left(AgentError.InvalidConfiguration("timeout must be positive"))
+    else Right(this)

@@ -28,31 +28,25 @@ object LlmChunk:
   final case class TextDelta(
       delta: String,
       blockIndex: Int = 0
-  ) extends LlmChunk
+  ) extends LlmChunk derives JsonCodec
 
   final case class ThinkingDelta(
       delta: String,
       blockIndex: Int = 0,
       signature: Option[String] = None
-  ) extends LlmChunk
+  ) extends LlmChunk derives JsonCodec
 
   final case class ToolCallChunk(
       streamIndex: Int,
       callId: Option[String] = None,
       name: Option[String] = None,
       argumentsDelta: String = ""
-  ) extends LlmChunk
+  ) extends LlmChunk derives JsonCodec
 
   final case class UsageChunk(
       usage: ChatUsage
-  ) extends LlmChunk
+  ) extends LlmChunk derives JsonCodec
 
   final case class FinishReason(
       reason: String
-  ) extends LlmChunk
-
-  given JsonCodec[TextDelta]     = DeriveJsonCodec.gen
-  given JsonCodec[ThinkingDelta] = DeriveJsonCodec.gen
-  given JsonCodec[ToolCallChunk] = DeriveJsonCodec.gen
-  given JsonCodec[UsageChunk]    = DeriveJsonCodec.gen
-  given JsonCodec[FinishReason]  = DeriveJsonCodec.gen
+  ) extends LlmChunk derives JsonCodec

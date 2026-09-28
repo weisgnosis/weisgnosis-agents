@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.tool
 
+import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.ToolResultState
 import zio.*
 import zio.json.*
@@ -38,9 +39,22 @@ object ToolExecutionSpec extends ZIOSpecDefault:
       ZIO.fail(new RuntimeException("Simulated tool crash"))
     }
 
-  private val toolkit = Toolkit.empty.withTool(addTool).withTool(failingTool)
+  private val toolkit = Toolkit(
+    Map(addTool.definition.name -> addTool, failingTool.definition.name -> failingTool)
+  )
 
-  def spec: Spec[TestEnvironment, Any] = suite("ToolExecutionSpec")(
+  def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolExecutionSpec")(
+    test("a tool defect becomes an error observation") {
+      val defective = Tool.make(ToolDef("defect", "Defective tool", Json.Obj()))(_ =>
+        ZIO.die(AgentError.ToolExecutionError("defect", "internal failure"))
+      )
+      val toolkit = Toolkit(Map("defect" -> defective))
+      for result <- toolkit.executeSafe("defect", Json.Obj())
+      yield assertTrue(
+        result.state == ToolResultState.Error,
+        result.output.contains("internal failure")
+      )
+    },
     test("Successful tool execution with typed argument decoding") {
       val validArgs = Json.Obj("a" -> Json.Num(15), "b" -> Json.Num(27))
 
@@ -78,10 +92,10 @@ object ToolExecutionSpec extends ZIOSpecDefault:
         Tool.make(ToolDef("slow", "Takes forever", Json.Obj())) { _ =>
           ZIO.never
         }
-      val slowTk = Toolkit.empty.withTool(slowTool)
+      val slowTk = Toolkit(Map(slowTool.definition.name -> slowTool))
 
       for
-        fiber <- slowTk.executeSafe("slow", Json.Obj()).fork
+        fiber <- slowTk.executeSafe("slow", Json.Obj()).forkScoped
         _     <- Live.live(ZIO.sleep(50.millis))
         _     <- fiber.interrupt
         exit  <- fiber.await

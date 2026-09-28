@@ -17,3 +17,5 @@ The model request and tool execution races operate on Exit values, so a model fa
 Native structured output is represented in LlmConfig.responseFormat. Auto selects native formatting for an empty toolkit and falls back to the synthetic tool on unsupported-format responses. The client implementation remains responsible for serializing the request to its transport.
 
 Run `sbt "core / test"`. The repository-wide verification is `sbt scalafmtAll scalafmtSbt`, followed by `sbt compile` and `sbt test`.
+
+AgentConfigSpec verifies typed configuration validation and missing-client rejection. AgentResultSpec verifies the mutually exclusive Completed, Suspended, and Interrupted states. Synthetic output terminates immediately after a successful capture; ordinary blocks in mixed tool turns remain in history.

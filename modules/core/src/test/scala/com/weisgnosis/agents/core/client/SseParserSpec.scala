@@ -37,8 +37,8 @@ object SseParserSpec extends ZIOSpecDefault:
       for events <- ZStream.fromChunk(rawLines).via(SseParser.parseLines).runCollect
       yield assertTrue(
         events.size == 2,
-        events(0).data == "first line\nsecond line",
-        events(1).data == "third event"
+        events.lift(0).exists(_.data == "first line\nsecond line"),
+        events.lift(1).exists(_.data == "third event")
       )
     },
     test("Discards comment lines like ': keep-alive'") {
@@ -52,7 +52,7 @@ object SseParserSpec extends ZIOSpecDefault:
       for events <- ZStream.fromChunk(rawLines).via(SseParser.parseLines).runCollect
       yield assertTrue(
         events.size == 1,
-        events(0).data == "actual payload"
+        events.lift(0).exists(_.data == "actual payload")
       )
     },
     test("Recognizes standard [DONE] termination frame") {
@@ -64,8 +64,8 @@ object SseParserSpec extends ZIOSpecDefault:
       for events <- ZStream.fromChunk(rawLines).via(SseParser.parseLines).runCollect
       yield assertTrue(
         events.size == 1,
-        events(0).isDone,
-        events(0).data == "[DONE]"
+        events.headOption.exists(_.isDone),
+        events.lift(0).exists(_.data == "[DONE]")
       )
     },
     test("Parses event name and id fields") {
@@ -79,9 +79,9 @@ object SseParserSpec extends ZIOSpecDefault:
       for events <- ZStream.fromChunk(rawLines).via(SseParser.parseLines).runCollect
       yield assertTrue(
         events.size == 1,
-        events(0).event.contains("custom_event"),
-        events(0).id.contains("42"),
-        events(0).data == "payload body"
+        events.headOption.exists(_.event.contains("custom_event")),
+        events.headOption.exists(_.id.contains("42")),
+        events.lift(0).exists(_.data == "payload body")
       )
     }
   )

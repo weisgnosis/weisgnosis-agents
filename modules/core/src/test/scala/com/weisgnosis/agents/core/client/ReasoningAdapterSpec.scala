@@ -42,7 +42,7 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
         val chunks = ReasoningModelAdapter.parseChunk(json)
         assertTrue(
           chunks.size == 1,
-          chunks.head == LlmChunk.ThinkingDelta("Deep thought about problem")
+          chunks.headOption.contains(LlmChunk.ThinkingDelta("Deep thought about problem"))
         )
       },
       test("Parses chunk with tool_calls") {
@@ -69,7 +69,9 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
         val chunks = ReasoningModelAdapter.parseChunk(json)
         assertTrue(
           chunks.size == 1,
-          chunks.head == LlmChunk.ToolCallChunk(0, Some("call_abc"), Some("search"), "{\"q\":")
+          chunks.headOption.contains(
+            LlmChunk.ToolCallChunk(0, Some("call_abc"), Some("search"), "{\"q\":")
+          )
         )
       },
       test("Parses usage chunk with cached tokens and reasoning tokens") {
@@ -91,8 +93,8 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
         val chunks = ReasoningModelAdapter.parseChunk(json)
         assertTrue(
           chunks.size == 1,
-          chunks.head match
-            case LlmChunk.UsageChunk(u) =>
+          chunks.headOption match
+            case Some(LlmChunk.UsageChunk(u)) =>
               u.inputTokens == 120 &&
               u.outputTokens == 80 &&
               u.cachedTokens == 50 &&
@@ -129,13 +131,13 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
         assertTrue(
           pruned.size == 4,
           // Turn 1 Assistant has its Thinking block stripped
-          pruned(1).content.size == 1,
-          pruned(1).thinking.isEmpty,
-          pruned(1).text == "The answer is 2.",
+          pruned.lift(1).exists(_.content.size == 1),
+          pruned.lift(1).exists(_.thinking.isEmpty),
+          pruned.lift(1).exists(_.text == "The answer is 2."),
           // Turn 2 Assistant retains its Thinking block
-          pruned(3).content.size == 2,
-          pruned(3).thinking == "Now thinking: 2 + 2 equals 4",
-          pruned(3).text == "The answer is 4."
+          pruned.lift(3).exists(_.content.size == 2),
+          pruned.lift(3).exists(_.thinking == "Now thinking: 2 + 2 equals 4"),
+          pruned.lift(3).exists(_.text == "The answer is 4.")
         )
       }
     )

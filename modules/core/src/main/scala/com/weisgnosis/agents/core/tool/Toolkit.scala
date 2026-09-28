@@ -15,95 +15,79 @@
  */
 package com.weisgnosis.agents.core.tool
 
+import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.ToolResultState
 import zio.*
 import zio.json.ast.Json
 
-/**
- * Immutable, type-safe registry of tools available to an agent.
- *
- * Corresponds to `io.agentscope.core.tool.Toolkit` in AgentScope Java.
- */
-final case class Toolkit(
-    tools: Map[String, Tool[Any, ?, ?]] = Map.empty
-):
+/** Immutable registration and existentially typed execution without runtime casts. */
+final case class Toolkit(tools: Map[String, Tool[Any, ?, ?]] = Map.empty):
+  def register(tool: Tool[Any, ?, ?]): Either[AgentError, Toolkit] =
+    val name = tool.definition.name
+    if tools.contains(name) then
+      Left(AgentError.ToolExecutionError(name, s"Tool collision: '$name' is already registered"))
+    else Right(copy(tools = tools.updated(name, tool)))
 
-  /** Registers a tool, returning an error if a tool with the same name already exists. */
-  def register(tool: Tool[Any, ?, ?]): Either[String, Toolkit] =
-    if tools.contains(tool.definition.name) then
-      Left(s"Tool collision: tool '${tool.definition.name}' is already registered in this toolkit.")
-    else Right(copy(tools = tools + (tool.definition.name -> tool)))
+  def withTool(tool: Tool[Any, ?, ?]): Either[AgentError, Toolkit] = register(tool)
 
-  /** Chaining registration for static configuration; rejects duplicate names. */
-  def withTool(tool: Tool[Any, ?, ?]): Toolkit =
-    register(tool) match
-      case Right(tk) => tk
-      case Left(err) => throw new IllegalArgumentException(err)
+  def ++(other: Toolkit): Either[AgentError, Toolkit] =
+    other.tools.values.foldLeft[Either[AgentError, Toolkit]](Right(this)) { (result, tool) =>
+      result.flatMap(_.register(tool))
+    }
 
-  /** Merges another toolkit into this one. */
-  def ++(other: Toolkit): Toolkit =
-    copy(tools = tools ++ other.tools)
-
-  /** Retrieves a tool by its registered name. */
-  def get(name: String): Option[Tool[Any, ?, ?]] =
-    tools.get(name)
-
-  /** Checks if a tool with the given name is registered. */
-  def contains(name: String): Boolean =
-    tools.contains(name)
-
-  /** Returns all tool definitions in this toolkit. */
+  def resolve(name: String): Option[Tool[Any, ?, ?]] = tools.get(name)
+  def contains(name: String): Boolean                = tools.contains(name)
   def definitions: Chunk[ToolDef] =
-    Chunk.fromIterable(tools.values.map(_.definition))
-
-  /** Number of registered tools. */
-  def size: Int = tools.size
-
-  /** Whether the toolkit contains zero tools. */
+    Chunk.fromIterable(tools.toList.sortBy(_._1).map(_._2.definition))
+  def size: Int        = tools.size
   def isEmpty: Boolean = tools.isEmpty
 
-  /**
-   * Safely executes a tool by name with raw JSON arguments.
-   * Never throws; failures and invalid arguments are captured into `ToolExecutionResult`
-   * with `ToolResultState.Error` so the model can inspect error messages.
-   */
-  def executeSafe(name: String, rawArgs: Json): ZIO[Any, Nothing, ToolExecutionResult] =
-    tools.get(name) match
-      case None =>
-        ZIO.succeed(
-          ToolExecutionResult(
-            output = s"Tool '$name' not found in toolkit.",
-            state = ToolResultState.Error
+  /** Tool failures and defects are observations; interruption remains cancellation. */
+  def executeSafe(name: String, rawArgs: Json): UIO[ToolExecutionResult] =
+    ZIO.suspendSucceed {
+      tools.get(name) match
+        case None =>
+          ZIO.succeed(
+            ToolExecutionResult(s"Tool '$name' not found in toolkit.", ToolResultState.Error)
           )
-        )
+        case Some(tool) => executeTyped(tool, rawArgs)
+    }
 
-      case Some(toolUntyped) =>
-        val tool = toolUntyped.asInstanceOf[Tool[Any, Any, Any]]
-        tool.decodeInput(rawArgs) match
-          case Left(decodeErr) =>
+  private def executeTyped[In, Out](
+      tool: Tool[Any, In, Out],
+      input: Json
+  ): UIO[ToolExecutionResult] =
+    ZIO
+      .suspendSucceed {
+        ZIO
+          .fromEither(tool.decodeInput(input))
+          .mapError(error =>
+            AgentError.ToolExecutionError(
+              tool.definition.name,
+              s"Invalid arguments for '${tool.definition.name}': $error"
+            )
+          )
+          .flatMap(tool.execute)
+          .map(output => ToolExecutionResult(tool.encodeOutput(output), ToolResultState.Success))
+      }
+      .foldCauseZIO(
+        cause =>
+          if cause.isInterrupted then ZIO.interrupt
+          else
             ZIO.succeed(
               ToolExecutionResult(
-                output = s"Invalid arguments for '$name': $decodeErr",
-                state = ToolResultState.Error
+                s"Execution failed for '${tool.definition.name}': ${cause.failureOption.orElse(cause.dieOption).map(error => Option(error.getMessage).getOrElse(error.toString)).getOrElse("Interrupted tool execution")}",
+                ToolResultState.Error
               )
             )
-
-          case Right(typedInput) =>
-            tool
-              .execute(typedInput)
-              .map(out => ToolExecutionResult(tool.encodeOutput(out), ToolResultState.Success))
-              .catchAll(err =>
-                ZIO.succeed(
-                  ToolExecutionResult(
-                    output = s"Execution failed for '$name': ${err.getMessage}",
-                    state = ToolResultState.Error
-                  )
-                )
-              )
+        ,
+        ZIO.succeed(_)
+      )
 
 object Toolkit:
-
   val empty: Toolkit = Toolkit()
 
-  def apply(first: Tool[Any, ?, ?], rest: Tool[Any, ?, ?]*): Toolkit =
-    (first +: rest).foldLeft(Toolkit.empty)(_.withTool(_))
+  def apply(first: Tool[Any, ?, ?], rest: Tool[Any, ?, ?]*): Either[AgentError, Toolkit] =
+    (first +: rest).foldLeft[Either[AgentError, Toolkit]](Right(empty)) { (result, tool) =>
+      result.flatMap(_.register(tool))
+    }

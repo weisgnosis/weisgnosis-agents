@@ -26,59 +26,51 @@ sealed trait AgentError extends Throwable:
 
 object AgentError:
 
+  final case class InvalidConfiguration(message: String) extends AgentError derives JsonCodec
+
   final case class ModelError(
       statusCode: Int,
       message: String,
       errorPayload: Option[String] = None
-  ) extends AgentError
+  ) extends AgentError derives JsonCodec
 
   final case class ToolExecutionError(
       toolName: String,
       message: String,
       cause: Option[String] = None
-  ) extends AgentError
+  ) extends AgentError derives JsonCodec
 
   final case class ToolNotFoundError(
       toolName: String
-  ) extends AgentError:
+  ) extends AgentError derives JsonCodec:
     def message: String = s"Tool not found: $toolName"
 
   final case class ContextLengthExceeded(
       currentTokens: Long,
       limit: Long
-  ) extends AgentError:
+  ) extends AgentError derives JsonCodec:
     def message: String = s"Context length exceeded: current=$currentTokens, limit=$limit"
 
   final case class PermissionDenied(
       toolName: String,
       reason: String
-  ) extends AgentError:
+  ) extends AgentError derives JsonCodec:
     def message: String = s"Permission denied for tool '$toolName': $reason"
 
   final case class MaxIterationsExceeded(
       iterations: Int
-  ) extends AgentError:
+  ) extends AgentError derives JsonCodec:
     def message: String = s"Maximum ReAct iterations reached: $iterations"
 
   final case class Interrupted(
       message: String
-  ) extends AgentError
+  ) extends AgentError derives JsonCodec
 
   final case class DeserializationError(
       message: String
-  ) extends AgentError
+  ) extends AgentError derives JsonCodec
 
   final case class TimeoutError(
       timeoutSeconds: Long,
       message: String
-  ) extends AgentError
-
-  given JsonCodec[ModelError]            = DeriveJsonCodec.gen
-  given JsonCodec[ToolExecutionError]    = DeriveJsonCodec.gen
-  given JsonCodec[ToolNotFoundError]     = DeriveJsonCodec.gen
-  given JsonCodec[ContextLengthExceeded] = DeriveJsonCodec.gen
-  given JsonCodec[PermissionDenied]      = DeriveJsonCodec.gen
-  given JsonCodec[MaxIterationsExceeded] = DeriveJsonCodec.gen
-  given JsonCodec[Interrupted]           = DeriveJsonCodec.gen
-  given JsonCodec[DeserializationError]  = DeriveJsonCodec.gen
-  given JsonCodec[TimeoutError]          = DeriveJsonCodec.gen
+  ) extends AgentError derives JsonCodec

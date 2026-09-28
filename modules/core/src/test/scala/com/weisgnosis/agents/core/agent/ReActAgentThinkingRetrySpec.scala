@@ -15,8 +15,9 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
+import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput, StreamAccumulator, LlmChunk}
 import com.weisgnosis.agents.core.model.*
+import zio.json.ast.Json
 import zio.*
 import zio.test.*
 
@@ -64,6 +65,43 @@ object ReActAgentThinkingRetrySpec extends ZIOSpecDefault:
           reminderOpt.exists(_.text.startsWith("<system-reminder>")),
           reminderOpt.exists(_.text.contains("Your previous reply had empty content"))
         )
+      },
+      test("blank text with reasoning triggers the reminder") {
+        val output = StreamAccumulator.empty
+          .feed(LlmChunk.ThinkingDelta("reasoning"))
+          .feed(LlmChunk.TextDelta("   "))
+          .toTurnOutput
+        for
+          client <- LlmClient.mock(Chunk(output, TurnOutput.FinalText(Msg.assistant("answer"))))
+          agent  <- ReActAgent.make(client = client)
+          result <- agent.run(Msg.user("question"))
+        yield assertTrue(
+          result.iterationCount == 2,
+          result.history.count(_.reminderKind.contains("empty_response")) == 1
+        )
+      },
+      test("thinking with tool calls is an acting turn rather than an empty response") {
+        val output = StreamAccumulator.empty
+          .feed(LlmChunk.ThinkingDelta("reasoning"))
+          .feed(LlmChunk.ToolCallChunk(0, Some("call"), Some("missing"), "{}"))
+          .toTurnOutput
+        for
+          client <- LlmClient.mock(Chunk(output, TurnOutput.FinalText(Msg.assistant("answer"))))
+          agent  <- ReActAgent.make(client = client)
+          result <- agent.run(Msg.user("question"))
+        yield assertTrue(
+          !result.history.exists(_.isSynthetic),
+          result.history.flatMap(_.toolUses).exists(_.input == Json.Obj()),
+          result.history.flatMap(_.toolResults).size == 1
+        )
+      },
+      test("visible responses never consume thinking retries") {
+        for
+          agent <- ReActAgent.make(client =
+            LlmClient.mockFunction((_, _) => TurnOutput.FinalText(Msg.assistant("answer")))
+          )
+          result <- agent.run(Msg.user("question"))
+        yield assertTrue(result.iterationCount == 1, !result.history.exists(_.isSynthetic))
       },
       test("A model that keeps returning thinking-only stops at retry limit") {
         val infiniteThinkingClient = LlmClient.mockFunction { (_, _) =>

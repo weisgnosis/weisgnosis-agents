@@ -29,7 +29,4 @@ final case class ToolDef(
     parametersSchema: Json,
     isConcurrencySafe: Boolean = true,
     isReadOnly: Boolean = false
-)
-
-object ToolDef:
-  given JsonCodec[ToolDef] = DeriveJsonCodec.gen
+) derives JsonCodec

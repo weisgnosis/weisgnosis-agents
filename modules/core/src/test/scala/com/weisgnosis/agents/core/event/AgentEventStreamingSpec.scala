@@ -36,10 +36,10 @@ object AgentEventStreamingSpec extends ZIOSpecDefault:
       for events <- stream.runCollect
       yield assertTrue(
         events.size == 4,
-        events(0) == e1,
-        events(1) == e2,
-        events(2) == e3,
-        events(3) == e4
+        events.lift(0).contains(e1),
+        events.lift(1).contains(e2),
+        events.lift(2).contains(e3),
+        events.lift(3).contains(e4)
       )
     },
     test("Hierarchical source tagging transforms stream events from subagents") {

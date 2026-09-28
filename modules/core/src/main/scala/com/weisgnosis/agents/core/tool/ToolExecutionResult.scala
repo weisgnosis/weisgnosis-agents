@@ -24,7 +24,4 @@ import zio.json.*
 final case class ToolExecutionResult(
     output: String,
     state: ToolResultState = ToolResultState.Success
-)
-
-object ToolExecutionResult:
-  given JsonCodec[ToolExecutionResult] = DeriveJsonCodec.gen
+) derives JsonCodec

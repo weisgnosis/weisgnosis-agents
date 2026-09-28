@@ -50,7 +50,7 @@ object ReActAgentInterruptSpec extends ZIOSpecDefault:
             def execute(input: Json): ZIO[Any, Throwable, String] =
               startedPromise.succeed(()) *> ZIO.never
 
-          toolkit = Toolkit.empty.withTool(hangingTool)
+          toolkit = Toolkit(Map(hangingTool.definition.name -> hangingTool))
 
           agent <- ReActAgent
             .builder()
@@ -104,7 +104,7 @@ object ReActAgentInterruptSpec extends ZIOSpecDefault:
             def execute(input: Json): ZIO[Any, Throwable, String] =
               startedPromise.succeed(()) *> ZIO.never
 
-          toolkit = Toolkit.empty.withTool(hangingTool)
+          toolkit = Toolkit(Map(hangingTool.definition.name -> hangingTool))
 
           agent <- ReActAgent
             .builder()

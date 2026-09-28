@@ -30,8 +30,15 @@ final case class ChatUsage(
     reasoningTokens: Int = 0,
     toolUsePromptTokens: Int = 0,
     time: Double = 0.0
-):
+) derives JsonCodec:
   def totalTokens: Int = inputTokens + outputTokens
 
-object ChatUsage:
-  given JsonCodec[ChatUsage] = DeriveJsonCodec.gen
+  def combine(other: ChatUsage): ChatUsage = ChatUsage(
+    inputTokens = inputTokens + other.inputTokens,
+    outputTokens = outputTokens + other.outputTokens,
+    cachedTokens = cachedTokens + other.cachedTokens,
+    cacheCreationTokens = cacheCreationTokens + other.cacheCreationTokens,
+    reasoningTokens = reasoningTokens + other.reasoningTokens,
+    toolUsePromptTokens = toolUsePromptTokens + other.toolUsePromptTokens,
+    time = time + other.time
+  )

@@ -126,6 +126,55 @@ object StructuredOutputSpec extends ZIOSpecDefault:
           !hasDefsInInner
         )
       },
+      test("legacy definitions keep their reference namespace at the parameter root") {
+        val schema = Json.Obj(
+          "definitions" -> Json.Obj("Item" -> Json.Obj("type" -> Json.Str("string"))),
+          "$ref"        -> Json.Str("#/definitions/Item")
+        )
+        val parameters = StructuredOutput.buildParametersSchema(schema)
+        assertTrue(
+          parameters.asObject.flatMap(_.get("definitions")).isDefined,
+          parameters.toJson.contains("#/definitions/Item")
+        )
+      },
+      test("synthetic completion stops immediately and preserves ordinary mixed-tool history") {
+        for
+          requests <- Ref.make(0)
+          model = LlmClient.mockEffectful { (_, _, _) =>
+            requests
+              .update(_ + 1)
+              .as(
+                TurnOutput.ToolCalls(
+                  Msg(
+                    role = Role.Assistant,
+                    content = Chunk(
+                      ContentBlock.ToolUse("ordinary", "missing", Json.Obj()),
+                      ContentBlock.ToolUse(
+                        "structured",
+                        StructuredOutput.ToolName,
+                        Json.Obj("response" -> Json.Num(7))
+                      )
+                    ),
+                    usage = Some(ChatUsage(inputTokens = 4, outputTokens = 3))
+                  )
+                )
+              )
+          }
+          agent <- ReActAgent.make(client = model)
+          result <- agent.runStructured[Int](
+            Chunk(Msg.user("number")),
+            Json.Obj("type" -> Json.Str("integer")),
+            StructuredMode.SyntheticTool
+          )
+          count <- requests.get
+        yield assertTrue(
+          count == 1,
+          result._2 == 7,
+          result._1.history.flatMap(_.toolUses).map(_.id) == Chunk("ordinary"),
+          result._1.history.flatMap(_.toolResults).map(_.id) == Chunk("ordinary"),
+          result._1.usage.exists(_.totalTokens == 7)
+        )
+      },
       test("testParseStructuredResult parses metadata and text JSON") {
         val payload = WeatherResponse("Tokyo", "20°C", "Rainy")
         val jsonAst = payload.toJsonAST.getOrElse(Json.Obj())

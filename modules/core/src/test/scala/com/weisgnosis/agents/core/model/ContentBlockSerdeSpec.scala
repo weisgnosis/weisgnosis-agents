@@ -58,8 +58,8 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
         val decoded = json.fromJson[ContentBlock]
         assertTrue(
           decoded.isRight,
-          decoded.toOption.get match
-            case tu: ContentBlock.ToolUse =>
+          decoded match
+            case Right(tu: ContentBlock.ToolUse) =>
               tu.id == "tool-123" &&
               tu.name == "calculator" &&
               tu.content.contains("Raw streaming content") &&
@@ -81,8 +81,8 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
         val decoded = json.fromJson[ContentBlock]
         assertTrue(
           decoded.isRight,
-          decoded.toOption.get match
-            case tu: ContentBlock.ToolUse =>
+          decoded match
+            case Right(tu: ContentBlock.ToolUse) =>
               tu.id == "tool-456" &&
               tu.name == "search" &&
               tu.content.isEmpty &&
@@ -102,8 +102,8 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
         val decoded = json.fromJson[ContentBlock]
         assertTrue(
           decoded.isRight,
-          decoded.toOption.get match
-            case tu: ContentBlock.ToolUse =>
+          decoded match
+            case Right(tu: ContentBlock.ToolUse) =>
               tu.id == "tool-999" &&
               tu.name == "no-input-tool"
             case _ => false
@@ -145,7 +145,7 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
         assertTrue(
           json.contains("agentscope_server_tool"),
           deserialized.isRight,
-          deserialized.toOption.get.isServerTool
+          deserialized.exists(_.isServerTool)
         )
       },
       test("copyMethodsPreserveServerToolMarker") {
@@ -179,7 +179,7 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
         val decoded = json.fromJson[ContentBlock.ToolResult]
         assertTrue(
           decoded.isRight,
-          decoded.toOption.get.outputText == "plain text output"
+          decoded.exists(_.outputText == "plain text output")
         )
       }
     ),
@@ -210,8 +210,8 @@ object ContentBlockSerdeSpec extends ZIOSpecDefault:
 
         assertTrue(
           decoded.isRight,
-          decoded.toOption.get match
-            case t: ContentBlock.Thinking =>
+          decoded match
+            case Right(t: ContentBlock.Thinking) =>
               t.thought == "Deep reasoning step..." &&
               t.signature.contains("sig-xyz")
             case _ => false

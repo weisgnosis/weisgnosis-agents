@@ -19,6 +19,9 @@ import com.weisgnosis.agents.core.model.{ChatUsage, Msg}
 import zio.Chunk
 import zio.json.*
 
+enum AgentRunState derives JsonCodec:
+  case Completed, Suspended, Interrupted
+
 /**
  * Result of executing a ReAct agent run.
  */
@@ -26,7 +29,8 @@ final case class AgentResult(
     reply: Msg,
     history: Chunk[Msg],
     iterationCount: Int,
-    isSuspended: Boolean = false,
-    isInterrupted: Boolean = false,
+    state: AgentRunState = AgentRunState.Completed,
     usage: Option[ChatUsage] = None
-) derives JsonCodec
+) derives JsonCodec:
+  def isSuspended: Boolean   = state == AgentRunState.Suspended
+  def isInterrupted: Boolean = state == AgentRunState.Interrupted

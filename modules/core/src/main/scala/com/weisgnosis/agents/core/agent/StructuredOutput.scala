@@ -101,7 +101,7 @@ object StructuredOutput:
     )
     new Tool[Any, Json, String]:
       def definition: ToolDef                 = toolDef
-      override def isConcurrencySafe: Boolean = true
+      override def isConcurrencySafe: Boolean = false
       def decodeInput(raw: Json): Either[String, Json] =
         raw match
           case Json.Obj(fields) =>
