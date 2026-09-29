@@ -818,3 +818,6 @@ This deliberately hardens upstream unconditional exit and unversioned approval. 
 - [ ] Complete eleven remaining methods, including path assertions in both other prompt methods.
 
 Request-only User context intentionally replaces upstream System-prompt mutation. JSON-quoted drafts remain data rather than a security or authorization boundary. Current identities and acceptance are in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-projection-identities).
+
+- [x] Add fifteen standalone plan-store hardening cases for content/Unicode, ownership, atomic replacement and typed error provenance. This supports future manager/path integration but closes no additional whole upstream method; three of fourteen remain adapted and eleven pending.
+- [ ] Integrate persisted draft publication with session generations before closing manager path/write assertions or adding saved-file prompt claims.

@@ -1,6 +1,6 @@
 # Mid-level behavior and planned integrations
 
-Sections 1-6 describe current components. Section 7 describes implemented daily extraction, scoped daily storage, and process-local consolidation, and recoverable local consolidation. Sections 8-10 describe planned behavior. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
+Sections 1-6 describe current components. Section 7 describes implemented daily extraction, scoped daily storage, and process-local consolidation, and recoverable local consolidation. Sections 8-9 describe planned behavior; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
 
 ## 1. ReAct lifecycle
 
@@ -178,3 +178,7 @@ PlanSession uses one TRef state and a TPromise per request. Registration, supers
 ## Truthful request projection
 
 PlanPrompt renders pure snapshot guidance and JSON-quoted draft data. PlanInputTransform reads once per model request. Fresh Build preserves history exactly; other states append a User reminder or coalesce its text into the final User while preserving all original fields. Only standalone reminders are marked synthetic. Core System/tool-pair validation remains unchanged, and canonical history is never replaced by the projected view. Live plan admission does not depend on the reminder snapshot.
+
+## Standalone plan storage
+
+A host explicitly opens an existing trusted directory. One cooperative lease serializes reads and atomic replacements of PLAN.md, and closes only after admitted work completes. Missing content is None; blank/invalid UTF-8 content fails. Exact valid draft text round-trips; malformed UTF-16 cannot replace prior bytes. Path policy, I/O failures and finalizer defects retain separate meanings. The session is not modified by storage. Future integration must invalidate stale review authority before external publication and must not restore an old approval after ambiguous failure.

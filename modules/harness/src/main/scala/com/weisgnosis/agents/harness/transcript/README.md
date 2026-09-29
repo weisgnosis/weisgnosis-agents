@@ -62,13 +62,11 @@ Unchanged Git-normalized local persistence identities; the changed TranscriptFil
 | Source | Blob identity |
 | --- | --- |
 | [DailyMemoryLease.scala](../memory/DailyMemoryLease.scala) | 7c1cddd14656f11e33228ecef785e75a9f60b4a4 |
-| [WorkspaceLease.scala](../storage/WorkspaceLease.scala) | 0e254e633efc59e5be52959e6a6c683f14f1fc34 |
 | [LocalTranscriptStore.scala](LocalTranscriptStore.scala) | 3352dc8a5b68bb455d9f484584ca86a8d675f6eb |
 | [TranscriptLog.scala](TranscriptLog.scala) | 5566ad5cd64653e2b0f23c8cdc93b7ba8f28e398 |
 | [TranscriptState.scala](TranscriptState.scala) | e202ba895f83df0990d2c78e2e69118fae0cf131 |
 | [TranscriptStore.scala](TranscriptStore.scala) | d5978648ebdd370635c91bd7bef45d270796b764 |
 | [MemoryTestSupport.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTestSupport.scala) | d891b7e44834d27897845c544c9050114adb2630 |
-| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | b148510a580fd041c7f4211baa8deee5949db001 |
 | [LocalTranscriptStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptStoreSpec.scala) | 04159733e59d6a00f82c940428cb0e58f1745dd8 |
 | [TranscriptFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptFilesSpec.scala) | fd5db63a28bc71b56bd645e1fd7db32c72301db4 |
 | [TranscriptLogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptLogSpec.scala) | 1ddd6fb146a2819f3b9afa217936293597d72b79 |
@@ -160,3 +158,5 @@ The [memory coordinator contract and current identities](../memory/README.md#sel
 - [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.
 
 - [x] `review_docs` approved batch/coordinator documentation against `b86fd14`: eight identities, 22 new cases, explicit ordering, cutoff preparation and partial-progress contracts. Full verification passed 555 core / 434 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Configuration, discovery and remote integration remain visible as unfinished work.
+
+Changed WorkspaceLease.scala, WorkspaceLeaseSpec.scala identities are preserved in 083617b; the [current plan-storage table](../plan/README.md#current-draft-storage-identities) records their replacements and renewed acceptance.

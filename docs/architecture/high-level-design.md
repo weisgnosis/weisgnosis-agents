@@ -52,7 +52,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [ ] Scoped subagents, depth limits, and persistent TaskSupervisor promotion.
 - [x] Static plan inspection, opt-in tool restrictions and in-memory reviewed sessions.
 - [x] Truthful request-only plan projection with preserved canonical history.
-- [ ] Safe plan files, control tools and child propagation.
+- [x] Standalone scoped local plan-draft storage with atomic publication.
+- [ ] Plan session/publication integration, control tools and child propagation.
 - [ ] MCP protocol, transports, discovery, and toolkit bridging.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
@@ -111,7 +112,7 @@ MemoryConfig now combines defaults and overrides without a mutable builder. Vali
 
 ## Plan-mode foundation
 
-Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; safe plan storage, model-facing transition tools and child propagation remain pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
+Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; standalone safe plan storage is implemented below; session/publication integration, model-facing transition tools and child propagation remain pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
 
 ## Plan admission authority
 
@@ -124,3 +125,7 @@ An in-memory PlanSession now distinguishes unprepared planning, concrete drafts,
 ## Plan request context
 
 PlanInputTransform now projects one session snapshot into each model request without mutating canonical history or System messages. It distinguishes absent drafts, pending review and exact approved content, never inventing files or completed execution. Current permission state remains authoritative if the mode changes during model reasoning.
+
+## Plan draft persistence boundary
+
+LocalPlanDraftStore now provides explicit host-owned storage of one draft with scoped ownership and atomic replacement. Filesystem content confers no approval authority. Integration with review generations and model-facing controls remains separate work; an interrupted write may have published content, so future integration must not infer rollback from a failed/cancelled effect.

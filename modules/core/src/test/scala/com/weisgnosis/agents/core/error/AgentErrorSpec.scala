@@ -20,6 +20,13 @@ import zio.test.*
 
 object AgentErrorSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment, Any] = suite("AgentErrorSpec")(
+    test("plan storage errors retain their dedicated type, message and JSON representation") {
+      val error = AgentError.PlanStorageError("plan ownership unavailable")
+      assertTrue(
+        error.toJson.fromJson[AgentError.PlanStorageError] == Right(error),
+        error.getMessage == error.message
+      )
+    },
     test("text transformation errors preserve typed wire identity and their diagnostic message") {
       val error = AgentError.TextTransformationError("host text transformation failed")
       assertTrue(

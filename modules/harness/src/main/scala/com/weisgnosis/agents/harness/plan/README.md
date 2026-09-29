@@ -16,7 +16,7 @@ An operand must not begin with a hyphen. Implicit stdin, unknown options, wrappe
 
 ## Current acceptance and identities
 
-The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; persistence, safe plan-file storage and child propagation remain pending; request-only prompt projection is implemented below. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with eleven still pending after the projection adaptation below. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
+The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; session/storage integration and child propagation remain pending; standalone draft storage is described below; request-only prompt projection is implemented below. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with eleven still pending after the projection adaptation below. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
 
 | Source | Git blob |
 | --- | --- |
@@ -33,7 +33,8 @@ The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs wer
 - [x] Verify actual ReAct denial persistence/events and mode-change admission boundaries.
 - [x] Implement in-memory draft/review lifecycle with separately held host approval authority.
 - [x] Implement request-only prompt projection from one live session snapshot.
-- [ ] Implement safe plan storage and model-facing confirmed exit tools.
+- [x] Independently verify standalone draft storage, ownership, encoding and atomic publication.
+- [ ] Integrate stored publication with session generations and model-facing confirmed exit tools.
 - [ ] Propagate restrictions to new and reused children before admitting spawn/send tools.
 
 - [x] `review_docs` approved corrected static-shell documentation against `2d4094b`: four identities, ten tests, exact grammar and fourteen pending upstream methods. Full verification passed 555 core / 461 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Runtime enforcement and executor/path/sandbox authority remain explicitly outside this scope.
@@ -134,3 +135,37 @@ Final formatted five-file increment against 132a81a.
 - [x] `review_fp` and `review_harness` approved the final five-file plan-input increment against `132a81a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 506 harness tests, including thirteen new cases, with zero compiler warnings. No findings remain within truthful snapshot rendering, request-only projection, final-user coalescing, preserved canonical/system/tool history and live gate authority. Files/restoration and automatic tool/UI/child integration are excluded.
 
 - [x] `review_docs` approved corrected projection documentation against `132a81a`: five identities, thirteen new cases, truthful scope and 3/14 parity classification. Full verification passed 555 core / 506 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Recorded-path assertions, core equality validation behavior and live permission authority remain explicit. No findings remain in this scope.
+
+## Standalone draft storage
+
+[PlanDraftStore](PlanDraftStore.scala) provides read: IO[AgentError, Option[PlanDraft]] and write(PlanDraft): IO[AgentError, Unit]. This runtime capability has no codec. [LocalPlanDraftStore.open](LocalPlanDraftStore.scala) acquires one scoped cooperative owner for a fixed PLAN.md in an existing explicitly selected HostControlled directory. It does not create directories, discover sessions, accept model-selected paths or restore session mode/approval. A persisted draft is content only.
+
+The private [PlanDraftFiles](PlanDraftFiles.scala) validates raw traversal, sensitive paths, canonical directory location and non-symlink regular destinations. Reads and writes use the same .plan-writer.lease, independently of memory/transcript payload ownership. Opening validates existing content; a missing file is None, whereas blank text and malformed UTF-8 fail. Text is preserved exactly, including Unicode, whitespace and line endings. Malformed UTF-16 fails writing without replacement characters or overwriting the previous target.
+
+Publication writes a scoped temporary file in the same directory and requires atomic replacement. There is no non-atomic fallback. Replacing a hard-linked target leaves its other name unchanged. Temporary cleanup is best effort with a warning on failure; it does not change a completed publication into a typed failure. Reads/writes revalidate their location and destination. These checks assume host-controlled filesystem mutation: they are not a race-free sandbox or a guarantee of file-object identity. Dynamic symlink/junction attacks, filesystem root aliases, fsync/power-loss durability, size limits and remote stores are outside this backend's contract.
+
+Lease acquisition refuses live and stale owners without deleting their token. After admission, filesystem work is masked until it finishes; ordinary pending cancellation is delivered before successful return, so interruption can follow a completed publication. Scope release waits for admitted work. Closed handles reject further reads/writes. Slow I/O can delay cancellation/shutdown. Ownership verification or release failure remains observable as a scope-finalizer defect; it never silently deletes a changed token.
+
+AgentError.PlanStorageError distinguishes plan I/O, invalid stored content and ownership/closed-handle failures. Path policy continues to use PermissionDenied. Existing memory/transcript owner errors remain MemoryStorageError. Migration: exhaustive matches on the sealed AgentError hierarchy must include PlanStorageError; its individual JSON codec is derived. This does not make finalizer defects ordinary typed failures.
+
+This increment does not connect publication to PlanSession. Integrating them requires invalidating prior review authority before external writes, serializing publication and publishing a reviewable generation only after successful storage; cancellation or ambiguous failure must not resurrect an old approval. Model-facing control tools, saved-path prompts and restart restoration remain pending. No additional complete upstream method is claimed: the inventory remains three adaptations and eleven pending methods.
+
+## Current draft-storage identities
+
+Final formatted nine-file increment against 083617b. Earlier changed AgentError, AgentErrorSpec and WorkspaceLease identities are preserved in that revision.
+
+| Source | Git blob |
+| --- | --- |
+| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | ccc65bd076cc44a53cf85720dc035331030803e9 |
+| [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | f32ca3dd7cca41e95a1a0518ad84f9522ff5193a |
+| [LocalPlanDraftStore.scala](LocalPlanDraftStore.scala) | 0a6f886340ad675b07adb85b3c5a2f19ca565a08 |
+| [PlanDraftFiles.scala](PlanDraftFiles.scala) | 3e6907fa0d80603514a56477f23730e3328206ac |
+| [PlanDraftStore.scala](PlanDraftStore.scala) | c997151bbbfa36dc996ebed970beb52ceaf473f2 |
+| [WorkspaceLease.scala](../storage/WorkspaceLease.scala) | 409edda77d0fcf5b8846d1cc89e3050d190d2740 |
+| [LocalPlanDraftStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/LocalPlanDraftStoreSpec.scala) | 564df5e17f6c8c0998e060aea890adcf0bed5fc7 |
+| [PlanDraftFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDraftFilesSpec.scala) | 6ec27d1d45c1259dfcc7bd7984c9be3fa515dd1c |
+| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | 631725c6b84598e9cc2b3641f0b33a7ec5b691bc |
+
+- [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 520 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
+
+- [x] `review_docs` approved corrected standalone plan-storage documentation against `083617b`: nine identities, fifteen new cases, 556 core / 520 harness tests and unchanged 3/14 plan parity. All 63 Markdown files passed local-link/script checks and git diff --check passed. Session/publication integration and persisted approval remain pending; no findings remain within this scope.

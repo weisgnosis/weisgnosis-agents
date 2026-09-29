@@ -87,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan files/control tools/child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan session/publication integration/control tools/child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -197,3 +197,7 @@ PlanSession.make returns control and reviewer capabilities. Control exposes snap
 ## Plan projection APIs
 
 PlanPrompt.render(PlanSessionSnapshot) returns Option[String]. PlanInputTransform.make(UIO[PlanSessionSnapshot]) returns the existing scoped ModelInputTransform. It preserves fresh Build input, appends validated content to a final User, or adds a synthetic User named system with reminder kind plan_context. Snapshot failures/cancellation receive no fallback. See the [five current projection identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-projection-identities).
+
+## Plan draft-store APIs
+
+PlanDraftStore exposes read: IO[AgentError, Option[PlanDraft]] and write(PlanDraft): IO[AgentError, Unit]. LocalPlanDraftStore.open(Path, WorkspaceTrust) returns a scoped capability after canonical directory validation, lease acquisition and existing-content validation. PlanStorageError is the new sealed AgentError leaf; exhaustive matches must include it. The fixed payload is PLAN.md, ownership is .plan-writer.lease, and the backend requires atomic replacement support. See the [current storage contract and identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#standalone-draft-storage).

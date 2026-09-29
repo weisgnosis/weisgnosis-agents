@@ -19,7 +19,7 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 555 core and 506 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 556 core and 520 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
@@ -72,3 +72,5 @@ Prior documentation reviews are preserved in Git through `40f6f05`. Current pack
 - [x] `review_docs` approved corrected plan-session documentation against `87b2d8b`, including current baseline architecture/module summaries. Five identities, eighteen new cases and bounded 2/14 parity status are verified. Full verification passed 555 core / 493 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Projection, persistence, control tools and child propagation remain explicitly pending.
 
 - [x] `review_docs` approved corrected projection documentation against `132a81a`: five identities, thirteen new cases, truthful scope and 3/14 parity classification. Full verification passed 555 core / 506 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Recorded-path assertions, core equality validation behavior and live permission authority remain explicit. No findings remain in this scope.
+
+- [x] `review_docs` approved corrected standalone plan-storage documentation against `083617b`: nine identities, fifteen new cases, 556 core / 520 harness tests and unchanged 3/14 plan parity. All 63 Markdown files passed local-link/script checks and git diff --check passed. Session/publication integration and persisted approval remain pending; no findings remain within this scope.

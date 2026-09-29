@@ -228,12 +228,11 @@ The previous ReActAgent.scala identity is preserved in `0349b1a`; its current id
 
 ## Current completion-observer identities
 
-Six unchanged identities from the eight-file scope against `0349b1a`; changed observer identities are recorded below, with their previous versions preserved in `3e817e3`:
+Five unchanged identities from the eight-file scope against `0349b1a`; changed observer identities are recorded below, with their previous versions preserved in `3e817e3`:
 
 | File | Git blob |
 | --- | --- |
 | [ReActAgent.scala](ReActAgent.scala) | 3aa3e96aa3b6de6c8413b3f0fd6aa2cf794f05ac |
-| [AgentError.scala](../error/AgentError.scala) | 4d3862fa5056580dc210b2273f9106436195a50c |
 | [ReActAgentCompletionInterruptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionInterruptSpec.scala) | c26004f7c289c66638e725857bc2225acb7e1a03 |
 | [ReActAgentCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionSpec.scala) | 2b6f5f8edad11ad0023c15c5905d9d69136e908f |
 | [SessionTranscriptWriter.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) | da27d3446e30ee7f77f4eaaac2d424200ac17383 |
@@ -259,3 +258,5 @@ Final formatted increment against `3e817e3`; independent acceptance is recorded 
 - [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
 
 - [x] `review_docs` approved the corrected consolidation/composition documentation against `3e817e3`: seven identities, 25 new cases, scoped composition, reporting limits, FIFO ordering and conservative parity classifications. Full verification passed 555 core / 346 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+
+Changed AgentError.scala identities are preserved in 083617b; the [current plan-storage table](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-draft-storage-identities) records their replacements and renewed acceptance.

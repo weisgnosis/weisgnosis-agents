@@ -54,6 +54,9 @@ object AgentError:
   /** Memory backend I/O or ownership failure; never a provider request rejection. */
   final case class MemoryStorageError(message: String) extends AgentError derives JsonCodec
 
+  /** Plan backend I/O or ownership failure; never a provider request rejection. */
+  final case class PlanStorageError(message: String) extends AgentError derives JsonCodec
+
   final case class ToolExecutionError(
       toolName: String,
       message: String,

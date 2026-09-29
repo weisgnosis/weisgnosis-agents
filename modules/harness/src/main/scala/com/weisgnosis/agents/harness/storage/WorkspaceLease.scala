@@ -21,12 +21,17 @@ import java.nio.file.{Files, LinkOption, Path, StandardOpenOption}
 import zio.*
 
 private[harness] enum WorkspaceOwner:
-  case Memory, Transcript
+  case Memory, Transcript, Plan
+
+  def failure(message: String): AgentError = this match
+    case Plan                => AgentError.PlanStorageError(message)
+    case Memory | Transcript => AgentError.MemoryStorageError(message)
 
 /** Cooperative ownership; an unfinished lease is never removed by a competing acquisition. */
 final private[harness] class WorkspaceLease private (
     path: Path,
     token: String,
+    owner: WorkspaceOwner,
     gate: Semaphore,
     lifetime: Ref[WorkspaceLease.Lifetime]
 ):
@@ -38,7 +43,7 @@ final private[harness] class WorkspaceLease private (
           for
             state <- lifetime.get
             _ <- ZIO
-              .fail(AgentError.MemoryStorageError("Workspace storage store scope is closed"))
+              .fail(owner.failure("Workspace storage store scope is closed"))
               .when(state == WorkspaceLease.Lifetime.Closed)
             _      <- verify
             result <- operation
@@ -47,21 +52,23 @@ final private[harness] class WorkspaceLease private (
 
   private def verify: IO[AgentError, Unit] =
     for
-      regular <- WorkspaceLease.io(Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+      regular <- io(Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
       _ <- ZIO
-        .fail(AgentError.MemoryStorageError("Workspace storage ownership file is unavailable"))
+        .fail(owner.failure("Workspace storage ownership file is unavailable"))
         .unless(regular)
-      actual <- WorkspaceLease.io(Files.readString(path, StandardCharsets.UTF_8))
+      actual <- io(Files.readString(path, StandardCharsets.UTF_8))
       _ <- ZIO
-        .fail(AgentError.MemoryStorageError("Workspace storage ownership token changed"))
+        .fail(owner.failure("Workspace storage ownership token changed"))
         .unless(actual == token)
     yield ()
+
+  private def io[A](operation: => A): IO[AgentError, A] = WorkspaceLease.io(operation, owner)
 
   private def close: UIO[Unit] =
     gate
       .withPermit(
         lifetime.set(WorkspaceLease.Lifetime.Closed) *> verify *>
-          WorkspaceLease.io(Files.delete(path))
+          io(Files.delete(path))
       )
       .orDie
 
@@ -77,7 +84,8 @@ private[harness] object WorkspaceLease:
       token    <- Random.nextUUID.map(_.toString)
       path = directory.resolve(owner match
         case WorkspaceOwner.Memory     => ".daily-writer.lease"
-        case WorkspaceOwner.Transcript => ".transcript-writer.lease")
+        case WorkspaceOwner.Transcript => ".transcript-writer.lease"
+        case WorkspaceOwner.Plan       => ".plan-writer.lease")
       lease <- ZIO.acquireRelease(
         io(
           Files.writeString(
@@ -86,14 +94,13 @@ private[harness] object WorkspaceLease:
             StandardCharsets.UTF_8,
             StandardOpenOption.CREATE_NEW,
             StandardOpenOption.WRITE
-          )
-        ).as(new WorkspaceLease(path, token, gate, lifetime))
+          ),
+          owner
+        ).as(new WorkspaceLease(path, token, owner, gate, lifetime))
       )(_.close)
     yield lease
 
-  private def io[A](operation: => A): IO[AgentError, A] =
+  private def io[A](operation: => A, owner: WorkspaceOwner): IO[AgentError, A] =
     ZIO
       .attemptBlocking(operation)
-      .mapError(error =>
-        AgentError.MemoryStorageError(Option(error.getMessage).getOrElse(error.toString))
-      )
+      .mapError(error => owner.failure(Option(error.getMessage).getOrElse(error.toString)))
