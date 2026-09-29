@@ -23,38 +23,56 @@ import zio.json.ast.Json
  *
  * Corresponds to `io.agentscope.core.message.Source` in AgentScope Java.
  */
+@jsonDiscriminator("type")
 sealed trait MediaSource
 
 object MediaSource:
-  final case class Url(url: String) extends MediaSource derives JsonCodec
+  @jsonHint("url")
+  final case class Url(url: String) extends MediaSource
+
+  object Url:
+    given JsonCodec[Url] = taggedCodec("url", PayloadCodecs.url)
+
+  @jsonHint("base64")
   final case class Base64(
       @jsonField("media_type") @jsonAliases("mediaType") mediaType: String,
       data: String
-  ) extends MediaSource derives JsonCodec
+  ) extends MediaSource
 
-  given JsonCodec[MediaSource] = summon[JsonCodec[Json]].transformOrFail(
-    json =>
-      json.asObject.flatMap(_.get("type")).flatMap(_.asString) match
-        case Some("url")    => json.as[Url]
-        case Some("base64") => json.as[Base64]
-        case other => Left(s"Unknown media source type: ${other.getOrElse("missing type field")}"),
-    {
-      case u: Url =>
-        u.toJsonAST.fold(
-          _ => Json.Obj("type" -> Json.Str("url"), "url" -> Json.Str(u.url)),
-          ast => ast.mapObject(_.add("type", Json.Str("url")))
-        )
-      case b: Base64 =>
-        b.toJsonAST.fold(
-          _ =>
-            Json.Obj(
-              "type"       -> Json.Str("base64"),
-              "media_type" -> Json.Str(b.mediaType),
-              "data"       -> Json.Str(b.data)
-            ),
-          ast => ast.mapObject(_.add("type", Json.Str("base64")))
-        )
+  object Base64:
+    given JsonCodec[Base64] = taggedCodec("base64", PayloadCodecs.base64)
+
+  private object PayloadCodecs:
+    given url: JsonCodec[Url]       = DeriveJsonCodec.gen[Url]
+    given base64: JsonCodec[Base64] = DeriveJsonCodec.gen[Base64]
+
+  private lazy val wireCodec: JsonCodec[MediaSource] =
+    import PayloadCodecs.given
+    DeriveJsonCodec.gen[MediaSource]
+
+  private def sourceDecoder[A](
+      payload: => JsonDecoder[A],
+      expected: Option[String]
+  ): JsonDecoder[A] =
+    summon[JsonDecoder[Json]].mapOrFail {
+      case obj: Json.Obj =>
+        val tags = obj.fields.collect { case ("type", value) => value }.toList
+        tags match
+          case Nil if expected.nonEmpty                         => payload.fromJsonAST(obj)
+          case List(Json.Str(tag)) if expected.forall(_ == tag) => payload.fromJsonAST(obj)
+          case _ => Left("Missing, duplicate, or invalid media source discriminator")
+      case _ => Left("Expected a media source object")
     }
+
+  private def taggedCodec[A <: MediaSource](tag: String, payload: JsonCodec[A]): JsonCodec[A] =
+    JsonCodec(
+      JsonEncoder.suspend(wireCodec.encoder).contramap[A](identity),
+      sourceDecoder(payload.decoder, Some(tag))
+    )
+
+  given JsonCodec[MediaSource] = JsonCodec(
+    JsonEncoder.suspend(wireCodec.encoder),
+    sourceDecoder(wireCodec.decoder, None)
   )
 
   def url(url: String): MediaSource = Url(url)

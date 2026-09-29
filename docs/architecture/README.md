@@ -9,4 +9,4 @@
 
 Update these living documents when behavior changes. Current acceptance belongs in the affected module/package README; resolved temporary review reports are removed after explicit reviewer approval.
 
-The message boundary contracts now document private construction, typed role factories, validated updates, and the 26 immutable factory adaptations. The tracker retains remaining DataBlock and runtime integration gaps. Content codecs and ToolUse protocol states now have explicit wire migration notes.
+The message boundary contracts now document private construction, typed role factories, validated updates, and the 26 immutable factory adaptations. All 119 message methods now have checked coverage/adaptations; the tracker retains broader parity and runtime integration gaps. Content codecs and ToolUse protocol states now have explicit wire migration notes.

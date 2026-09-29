@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.core.model
 
-import zio.Chunk
+import zio.{Chunk, Random, UIO, ZIO}
 import zio.json.*
 import zio.json.ast.Json
 
@@ -178,7 +178,11 @@ object ContentBlock:
       source: MediaSource,
       id: Option[String] = None,
       name: Option[String] = None
-  ) extends ContentBlock
+  ) extends ContentBlock:
+    /** Pure construction preserves optional identity; allocation occurs only when this effect runs. */
+    def identified: UIO[Data] = id match
+      case Some(_) => ZIO.succeed(this)
+      case None    => Random.nextUUID.map(value => copy(id = Some(value.toString)))
 
   object Data:
     given JsonCodec[Data] = taggedCodec("data", PayloadCodecs.data)
