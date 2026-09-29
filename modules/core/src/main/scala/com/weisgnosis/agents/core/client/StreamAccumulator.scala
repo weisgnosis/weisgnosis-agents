@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.core.client
 
-import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role}
+import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg}
 import zio.Chunk
 import zio.json.*
 import zio.json.ast.Json
@@ -96,12 +96,7 @@ final case class StreamAccumulator(
         Chunk.fromIterable(textBlockOpt) ++
         toolBlocks
 
-    val msg = Msg(
-      role = Role.Assistant,
-      name = Some("assistant"),
-      content = allBlocks,
-      usage = usage
-    )
+    val msg = Msg.assistant(name = Some("assistant"), content = allBlocks, usage = usage)
 
     if toolBlocks.nonEmpty then TurnOutput.ToolCalls(msg)
     else if textBuffer.trim.nonEmpty then TurnOutput.FinalText(msg)

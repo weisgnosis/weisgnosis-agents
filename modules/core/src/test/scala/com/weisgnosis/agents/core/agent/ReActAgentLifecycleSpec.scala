@@ -40,7 +40,7 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
         model <- LlmClient.mock(
           Chunk(
             TurnOutput.ToolCalls(
-              Msg(role = Role.Assistant, content = Chunk(call("a", "fast"), call("b", "slow")))
+              Msg.assistant(content = Chunk(call("a", "fast"), call("b", "slow")), name = None)
             ),
             TurnOutput.FinalText(Msg.assistant("resumed"))
           )
@@ -79,7 +79,7 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
           else
             ZIO.succeed(
               TurnOutput.ToolCalls(
-                Msg(role = Role.Assistant, content = Chunk(call("a", "missing")))
+                Msg.assistant(content = Chunk(call("a", "missing")), name = None)
               )
             )
         }
@@ -260,15 +260,15 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
           else
             ZIO.succeed(
               TurnOutput.ToolCalls(
-                Msg(
-                  role = Role.Assistant,
+                Msg.assistant(
                   content = Chunk(
                     ContentBlock.ToolUse(
                       "response",
                       StructuredOutput.ToolName,
                       Json.Obj("response" -> Json.Num(42))
                     )
-                  )
+                  ),
+                  name = None
                 )
               )
             )

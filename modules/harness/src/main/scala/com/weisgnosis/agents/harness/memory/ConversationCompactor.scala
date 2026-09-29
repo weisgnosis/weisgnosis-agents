@@ -37,7 +37,7 @@ final class ConversationCompactor(
       val cutoff                  = calculateCutoffIndex(pruned, config)
       if !triggered then ZIO.succeed(history)
       else if counter.count(pruned) <= config.triggerTokens.max(0) || cutoff <= 0 then
-        ZIO.succeed(systems ++ coalesceUsers(pruned))
+        ZIO.fromEither(coalesceUsers(pruned)).map(systems ++ _)
       else
         val prefix               = pruned.take(cutoff)
         val (oldSummaries, tail) = pruned.drop(cutoff).partition(ConversationCompactor.isSummary)
@@ -50,17 +50,18 @@ final class ConversationCompactor(
             if summary.trim.isEmpty then
               ZIO.fail(AgentError.DeserializationError("Compaction produced an empty summary"))
             else
-              ZIO.succeed(
-                systems ++ coalesceUsers(
-                  Chunk(
-                    Msg(
-                      role = Role.User,
-                      name = Some(ConversationCompactor.SummaryName),
-                      content = Chunk(ContentBlock.Text(summary))
-                    )
-                  ) ++ tail
+              ZIO
+                .fromEither(
+                  coalesceUsers(
+                    Chunk(
+                      Msg.user(
+                        name = Some(ConversationCompactor.SummaryName),
+                        content = Chunk(ContentBlock.Text(summary))
+                      )
+                    ) ++ tail
+                  )
                 )
-              )
+                .map(systems ++ _)
         yield result
     }
 
@@ -111,18 +112,22 @@ final class ConversationCompactor(
     history.zipWithIndex.map { case (message, index) =>
       if index >= protectedStart then message
       else
-        message.copy(content = message.content.map {
-          case result: ContentBlock.ToolResult if result.text.length > limit =>
-            result.copy(output =
-              result.output.filterNot(_.isInstanceOf[ContentBlock.Text]) :+
-                ContentBlock.Text(preview(result.text, limit))
-            )
-          case call: ContentBlock.ToolUse if call.input.toJson.length > limit =>
-            call.copy(input =
-              Json.Obj("_pruned_arguments" -> Json.Str(preview(call.input.toJson, limit)))
-            )
-          case block => block
-        })
+        message
+          .mapToolResults { result =>
+            if result.text.length > limit then
+              result.copy(output =
+                result.output.filterNot(_.isInstanceOf[ContentBlock.Text]) :+
+                  ContentBlock.Text(preview(result.text, limit))
+              )
+            else result
+          }
+          .mapToolUses { call =>
+            if call.input.toJson.length > limit then
+              call.copy(input =
+                Json.Obj("_pruned_arguments" -> Json.Str(preview(call.input.toJson, limit)))
+              )
+            else call
+          }
     }
 
   private def preview(text: String, limit: Int): String =
@@ -159,31 +164,36 @@ final class ConversationCompactor(
             "Retained compaction users must match the coalesced content"
           )
         )
-      yield
-        if retained.isEmpty then previous :+ message
-        else
-          val summary = message.copy(
-            content = message.content.dropRight(retainedContent.size),
-            metadata = message.metadata - ConversationCompactor.RetainedUsersKey
-          )
-          previous ++ Chunk(summary) ++ retained
+        result <-
+          if retained.isEmpty then Right(previous :+ message)
+          else
+            message.withContent(message.content.dropRight(retainedContent.size)).map { summary =>
+              previous ++ Chunk(
+                summary.withMetadata(message.metadata - ConversationCompactor.RetainedUsersKey)
+              ) ++ retained
+            }
+      yield result
     }
 
-  private def coalesceUsers(history: Chunk[Msg]): Chunk[Msg] =
-    history.foldLeft(Chunk.empty[Msg]) { (result, message) =>
-      result.lastOption match
-        case Some(previous) if previous.role == Role.User && message.role == Role.User =>
-          result.dropRight(1) :+ previous.copy(
-            content = previous.content ++ message.content,
-            metadata = if ConversationCompactor.isSummary(previous) then
-              val retained = retainedUsers(previous).getOrElse(Chunk.empty) :+ message
-              (message.metadata ++ previous.metadata).updated(
-                ConversationCompactor.RetainedUsersKey,
-                Json.Str(retained.toJson)
-              )
-            else message.metadata ++ previous.metadata
-          )
-        case _ => result :+ message
+  private def coalesceUsers(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =
+    history.foldLeft[Either[AgentError, Chunk[Msg]]](Right(Chunk.empty)) { (accumulated, message) =>
+      accumulated.flatMap { result =>
+        result.lastOption match
+          case Some(previous) if previous.role == Role.User && message.role == Role.User =>
+            for
+              merged <- previous.withContent(previous.content ++ message.content)
+              metadata <-
+                if ConversationCompactor.isSummary(previous) then
+                  retainedUsers(previous).map { retained =>
+                    (message.metadata ++ previous.metadata).updated(
+                      ConversationCompactor.RetainedUsersKey,
+                      Json.Str((retained :+ message).toJson)
+                    )
+                  }
+                else Right(message.metadata ++ previous.metadata)
+            yield result.dropRight(1) :+ merged.withMetadata(metadata)
+          case _ => Right(result :+ message)
+      }
     }
 
 object ConversationCompactor:

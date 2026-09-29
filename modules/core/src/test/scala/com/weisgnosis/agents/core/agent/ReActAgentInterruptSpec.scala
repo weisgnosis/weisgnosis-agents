@@ -38,7 +38,7 @@ object ReActAgentInterruptSpec extends ZIOSpecDefault:
             name = "search",
             input = Json.Obj(Chunk("query" -> Json.Str("x")))
           )
-          TurnOutput.ToolCalls(Msg(role = Role.Assistant, content = Chunk(call)))
+          TurnOutput.ToolCalls(Msg.assistant(content = Chunk(call), name = None))
         }
 
         for
@@ -92,7 +92,7 @@ object ReActAgentInterruptSpec extends ZIOSpecDefault:
             name = "long_job",
             input = Json.Obj()
           )
-          TurnOutput.ToolCalls(Msg(role = Role.Assistant, content = Chunk(call)))
+          TurnOutput.ToolCalls(Msg.assistant(content = Chunk(call), name = None))
         }
 
         for

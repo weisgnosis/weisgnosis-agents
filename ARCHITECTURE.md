@@ -18,7 +18,7 @@ Dependencies point from harness and mcp to core. Core must not import harness se
 
 ## Core contracts
 
-- Msg constructors and codecs are pure. The explicit identified effect allocates optional identity.
+- Msg factories and codecs are pure. A private constructor, typed role factories, and validated dynamic updates make role/content checks unavoidable. The explicit identified effect allocates optional identity.
 - Toolkit registration and merging return typed errors. Tools retain input/output types; failures become Error observations and cancellation propagates.
 - AgentResult.state is Completed, Suspended, or Interrupted. ReAct currently produces Completed or Interrupted; Suspended is a domain capability, not installed durable middleware.
 - LlmClient is an interface with scripted implementations. Independent SSE parsing and assembly do not imply a live transport.

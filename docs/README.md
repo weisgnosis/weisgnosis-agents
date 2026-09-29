@@ -20,8 +20,10 @@ Current implementation and future platform requirements are separate. The projec
 - [x] Independent reviewer `review_docs` approved the pinned inventory, 18-method structured-output, 119-method message, and 30-declaration event classifications, README acceptance scopes, and architecture contracts on 2026-09-29 after corrections.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, and pending behavior.
 - [x] No unresolved findings in this documentation scope. English, local links, maintained-directory README coverage, whitespace, and the reviewed source identities were checked.
-- [x] Repository verification: `sbt scalafmtAll scalafmtSbt verify`, 207 core and 40 harness tests passed with zero compiler warnings.
+- [x] Repository verification: `sbt scalafmtAll scalafmtSbt verify`, 242 core and 40 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe engine-attempt lifecycle boundaries and private stream completion, including scoped publisher ownership and unbounded buffering. Structured-call completion and event wire parity remain separate pending tasks.
 
 Implementation acceptance is scoped in the module/package READMEs. The [tracker](architecture/tracker.md) and [parity task list](architecture/test-parity.md) retain unfinished work as unchecked items. Closed review reports remain only in Git history.
+
+- [x] `review_docs` approved the message construction API migration notes, all 26 factory adaptations, 22 reviewed Scala blob identities, current test counts, English, and local links against `9c47bf5` on 2026-09-29; no findings remain in this slice.

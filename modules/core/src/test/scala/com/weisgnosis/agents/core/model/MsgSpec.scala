@@ -43,14 +43,13 @@ object MsgSpec extends ZIOSpecDefault:
     ) {
       val metadata  = Map("key" -> Json.Str("value"))
       val timestamp = Some("2026-09-29T00:00:00Z")
-      val full = Msg(
-        role = Role.System,
+      val full = Msg.system(
         name = Some("test"),
         content = Chunk(ContentBlock.Text("hello")),
         timestamp = timestamp,
         metadata = metadata
       )
-      val empty = Msg(role = Role.System, name = Some("test"), timestamp = timestamp)
+      val empty = Msg.system(name = Some("test"), timestamp = timestamp)
       assertTrue(
         full.timestamp == timestamp,
         full.metadata == metadata,
@@ -62,7 +61,7 @@ object MsgSpec extends ZIOSpecDefault:
     suite("Basic Creation & Content Extraction")(
       test("testBasicMsgCreation") {
         val textBlock = ContentBlock.Text("Hello World")
-        val msg       = Msg(name = Some("user"), role = Role.User, content = Chunk(textBlock))
+        val msg       = Msg.user(name = Some("user"), content = Chunk(textBlock))
 
         assertTrue(
           msg.name.contains("user"),
@@ -72,7 +71,7 @@ object MsgSpec extends ZIOSpecDefault:
       },
       test("testBuilderWithTextBlock") {
         val textBlock = ContentBlock.Text("Hello World")
-        val msg       = Msg(name = Some("user"), role = Role.User, content = Chunk(textBlock))
+        val msg       = Msg.user(name = Some("user"), content = Chunk(textBlock))
 
         assertTrue(
           msg.getFirstContentBlock.contains(textBlock),
@@ -81,26 +80,26 @@ object MsgSpec extends ZIOSpecDefault:
       },
       test("testBuilderWithImageBlock") {
         val imageBlock = ContentBlock.Image.url("https://example.com/image.jpg")
-        val msg        = Msg(name = Some("user"), role = Role.User, content = Chunk(imageBlock))
+        val msg        = Msg.user(name = Some("user"), content = Chunk(imageBlock))
 
         assertTrue(msg.getFirstContentBlock.contains(imageBlock))
       },
       test("testBuilderWithAudioBlock") {
         val audioBlock = ContentBlock.Audio.base64("audio/mp3", "base64audiodata")
-        val msg        = Msg(name = Some("user"), role = Role.User, content = Chunk(audioBlock))
+        val msg        = Msg.user(name = Some("user"), content = Chunk(audioBlock))
 
         assertTrue(msg.getFirstContentBlock.contains(audioBlock))
       },
       test("testBuilderWithVideoBlock") {
         val videoBlock = ContentBlock.Video.url("https://example.com/video.mp4")
-        val msg        = Msg(name = Some("user"), role = Role.User, content = Chunk(videoBlock))
+        val msg        = Msg.user(name = Some("user"), content = Chunk(videoBlock))
 
         assertTrue(msg.getFirstContentBlock.contains(videoBlock))
       },
       test("testBuilderWithThinkingBlock") {
         val thinkingBlock = ContentBlock.Thinking("Let me think about this...")
         val msg =
-          Msg(name = Some("assistant"), role = Role.Assistant, content = Chunk(thinkingBlock))
+          Msg.assistant(name = Some("assistant"), content = Chunk(thinkingBlock))
 
         assertTrue(
           msg.getFirstContentBlock.contains(thinkingBlock),
@@ -109,7 +108,7 @@ object MsgSpec extends ZIOSpecDefault:
       },
       test("testBuilderPattern") {
         val textBlock = ContentBlock.Text("System message")
-        val msg       = Msg(name = Some("test"), role = Role.System, content = Chunk(textBlock))
+        val msg       = Msg.system(name = Some("test"), content = Chunk(textBlock))
 
         assertTrue(
           msg.name.contains("test"),
@@ -125,7 +124,7 @@ object MsgSpec extends ZIOSpecDefault:
         val b1  = ContentBlock.Text("First line")
         val b2  = ContentBlock.Text("Second line")
         val b3  = ContentBlock.Text("Third line")
-        val msg = Msg(role = Role.Assistant, content = Chunk(b1, b2, b3), name = Some("assistant"))
+        val msg = Msg.assistant(content = Chunk(b1, b2, b3), name = Some("assistant"))
 
         assertTrue(msg.getTextContent == "First line\nSecond line\nThird line")
       },
@@ -133,22 +132,18 @@ object MsgSpec extends ZIOSpecDefault:
         val img = ContentBlock.Image.url("https://example.com/image.jpg")
         val t1  = ContentBlock.Text("Here's an image for you:")
         val t2  = ContentBlock.Text("I hope you like it!")
-        val msg = Msg(
-          role = Role.Assistant,
-          content = Chunk(t1, img, t2),
-          name = Some("multimodal-assistant")
-        )
+        val msg = Msg.assistant(content = Chunk(t1, img, t2), name = Some("multimodal-assistant"))
 
         assertTrue(msg.getTextContent == "Here's an image for you:\nI hope you like it!")
       },
       test("testGetTextContentWithNoTextBlocks") {
         val img = ContentBlock.Image.url("https://example.com/image.jpg")
-        val msg = Msg(role = Role.Assistant, content = Chunk(img), name = Some("image-bot"))
+        val msg = Msg.assistant(content = Chunk(img), name = Some("image-bot"))
 
         assertTrue(msg.getTextContent == "")
       },
       test("testGetTextContentWithEmptyMessage") {
-        val msg = Msg(role = Role.Assistant, name = Some("empty-bot"))
+        val msg = Msg.assistant(name = Some("empty-bot"))
         assertTrue(msg.getTextContent == "")
       },
       test("testGetTextContentWithToolBlocks") {
@@ -159,7 +154,7 @@ object MsgSpec extends ZIOSpecDefault:
         )
         val textBlock = ContentBlock.Text("I'll calculate that for you.")
         val msg =
-          Msg(role = Role.Assistant, content = Chunk(textBlock, toolUse), name = Some("assistant"))
+          Msg.assistant(content = Chunk(textBlock, toolUse), name = Some("assistant"))
 
         assertTrue(
           msg.getTextContent == "I'll calculate that for you.",
@@ -170,11 +165,7 @@ object MsgSpec extends ZIOSpecDefault:
       test("testGetTextContentWithEmptyTextBlock") {
         val emptyText  = ContentBlock.Text("")
         val normalText = ContentBlock.Text("Normal text")
-        val msg = Msg(
-          role = Role.Assistant,
-          content = Chunk(emptyText, normalText),
-          name = Some("assistant")
-        )
+        val msg = Msg.assistant(content = Chunk(emptyText, normalText), name = Some("assistant"))
 
         assertTrue(msg.getTextContent == "\nNormal text")
       },

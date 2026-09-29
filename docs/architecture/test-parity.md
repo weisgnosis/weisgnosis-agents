@@ -134,34 +134,34 @@ GenerateReasonSpec covers all 12 reasons through the nine methods below. Builder
 
 ### MsgSubclassesTest: 26 methods
 
-The unified immutable Msg replaces Java subclasses/builders. Each factory, JSON, and validation assertion still needs a reviewed adaptation; no blanket exclusion applies.
+The unified immutable Msg replaces Java subclasses and mutable builders. MsgFactorySpec preserves all 26 method names and verifies role, content, metadata, replacement/accumulation, and JSON behavior. Chunk replaces list/varargs overloads; withContent returns a validated Either instead of mutating a builder or throwing. Typed factories reject forbidden blocks at compile time (MsgConstructionSpec). Existing Scala convenience names remain user/assistant/system; identity and timestamp remain absent until explicitly supplied, and identified allocates identity in ZIO. Java subclass identity and eager ID/time allocation are intentionally replaced by these Pure FP contracts. Generation metadata keeps the existing lowercase wire value.
 
-- [ ] `userMessage_text`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `userMessage_nameAndText`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `userMessage_varargsBlocks`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `userMessage_nameAndVarargsBlocks`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `userMessage_listOfBlocks`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `assistantMessage_text`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `assistantMessage_acceptsToolUseBlock`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `systemMessage_text`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `systemMessage_rejectsNonTextBlock`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `toolResultMessage_idNameText`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `toolResultMessage_varargs`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `toolResultMessage_list`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `jsonRoundTrip_userMessage`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `jsonRoundTrip_assistantMessage`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `jsonRoundTrip_systemMessage`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `jsonRoundTrip_toolResultMessage`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `legacyBuilderJson_deserializesToSubclass`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `userMessageBuilder_textContent`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `userMessageBuilder_idAndExplicitContent`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `assistantMessageBuilder_returnsConcreteType`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `assistantMessageBuilder_generateReasonGoesIntoMetadata`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `systemMessageBuilder_text`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `systemMessageBuilder_rejectsNonTextAtBuild`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `toolResultMessageBuilder_resultShorthandAccumulates`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `toolResultMessageBuilder_resultsReplacesAccumulator`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `subclassBuildersProduceJsonRoundTripCompatibleMessages`: pending assertion-level coverage or reviewed adaptation.
+- [x] `userMessage_text` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `userMessage_nameAndText` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `userMessage_varargsBlocks` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `userMessage_nameAndVarargsBlocks` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `userMessage_listOfBlocks` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `assistantMessage_text` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `assistantMessage_acceptsToolUseBlock` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `systemMessage_text` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `systemMessage_rejectsNonTextBlock` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `toolResultMessage_idNameText` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `toolResultMessage_varargs` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `toolResultMessage_list` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `jsonRoundTrip_userMessage` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `jsonRoundTrip_assistantMessage` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `jsonRoundTrip_systemMessage` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `jsonRoundTrip_toolResultMessage` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `legacyBuilderJson_deserializesToSubclass` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `userMessageBuilder_textContent` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `userMessageBuilder_idAndExplicitContent` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `assistantMessageBuilder_returnsConcreteType` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `assistantMessageBuilder_generateReasonGoesIntoMetadata` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `systemMessageBuilder_text` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `systemMessageBuilder_rejectsNonTextAtBuild` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `toolResultMessageBuilder_resultShorthandAccumulates` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `toolResultMessageBuilder_resultsReplacesAccumulator` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
+- [x] `subclassBuildersProduceJsonRoundTripCompatibleMessages` -> MsgFactorySpec, matching scenario name with the stated immutable adaptation.
 
 ### MsgTest: 15 methods
 
@@ -200,7 +200,7 @@ Same-named MsgSerdeSpec tests adapt getChatUsage to pure chatUsage and Java null
 
 ### RoleContentValidationTest: 30 methods
 
-Same-named RoleContentValidationSpec tests exercise Msg.create and decoding. JSON null content becomes an empty Chunk. This does not claim that raw Msg.apply/copy enforces the Java builder invariant.
+Same-named RoleContentValidationSpec tests exercise Msg.create and decoding. JSON null content becomes an empty Chunk. Unchecked Msg.apply/copy routes have been removed; compile-time closure and safe updates are covered by MsgConstructionSpec.
 
 - [x] `userAcceptsText` -> RoleContentValidationSpec, matching scenario name.
 - [x] `userAcceptsData` -> RoleContentValidationSpec, matching scenario name.
@@ -272,7 +272,7 @@ MsgSpec test MsgTests.testConstructor preserves supplied timestamp and metadata 
 
 ### Remaining model boundaries
 
-- [ ] Make validation unavoidable for raw Msg construction/copy, or replace these entry points with a reviewed typed construction API. Current acceptance covers Msg.create and decoding only.
+- [x] Close unchecked Msg construction/copy/Product entry points; MsgConstructionSpec verifies compiler rejection, typed dynamic validation, field preservation, wire behavior, and interruptible effectful mapping.
 - [ ] Complete every unchecked message method before claiming exhaustive model parity.
 
 ## Event audit follow-up

@@ -36,9 +36,9 @@ object ReActAgentThinkingRetrySpec extends ZIOSpecDefault:
             history.exists(m => m.isSynthetic && m.reminderKind.contains("empty_response"))
           if !hasReminder then
             // First turn: thinking only
-            val thinkingMsg = Msg(
-              role = Role.Assistant,
-              content = Chunk(ContentBlock.Thinking("Let me ponder silently..."))
+            val thinkingMsg = Msg.assistant(
+              content = Chunk(ContentBlock.Thinking("Let me ponder silently...")),
+              name = None
             )
             ZIO.succeed(TurnOutput.ThinkingOnly(thinkingMsg))
           else
@@ -105,9 +105,9 @@ object ReActAgentThinkingRetrySpec extends ZIOSpecDefault:
       },
       test("A model that keeps returning thinking-only stops at retry limit") {
         val infiniteThinkingClient = LlmClient.mockFunction { (_, _) =>
-          val thinkingMsg = Msg(
-            role = Role.Assistant,
-            content = Chunk(ContentBlock.Thinking("Thinking forever..."))
+          val thinkingMsg = Msg.assistant(
+            content = Chunk(ContentBlock.Thinking("Thinking forever...")),
+            name = None
           )
           TurnOutput.ThinkingOnly(thinkingMsg)
         }

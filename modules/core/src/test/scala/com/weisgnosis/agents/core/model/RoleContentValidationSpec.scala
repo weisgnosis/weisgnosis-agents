@@ -22,6 +22,13 @@ import zio.test.*
 
 /** RoleContentValidationTest contracts at the smart-constructor and JSON boundaries. */
 object RoleContentValidationSpec extends ZIOSpecDefault:
+  private def decode(role: Role, content: Chunk[ContentBlock]): Either[String, Msg] =
+    for
+      roleJson    <- role.toJsonAST
+      contentJson <- content.toJsonAST
+      message     <- Json.Obj("role" -> roleJson, "content" -> contentJson).as[Msg]
+    yield message
+
   private val textBlock: ContentBlock = ContentBlock.Text("text")
   private val data: ContentBlock  = ContentBlock.Data(MediaSource.url("https://example.com/data"))
   private val image: ContentBlock = ContentBlock.Image.url("https://example.com/image")
@@ -68,14 +75,14 @@ object RoleContentValidationSpec extends ZIOSpecDefault:
     (accepted.map { case (name, role, content) =>
       test(name) {
         val created = Msg.create(role, content)
-        val decoded = Msg(role = role, content = content).toJson.fromJson[Msg]
-        assertTrue(created.isRight, decoded == created)
+        val decoded = decode(role, content)
+        assertTrue(created.isRight, decoded == created.left.map(_.message))
       }
     } ++ rejected.map { case (name, role, content) =>
       test(name) {
         assertTrue(
           Msg.create(role, content).isLeft,
-          Msg(role = role, content = content).toJson.fromJson[Msg].isLeft
+          decode(role, content).isLeft
         )
       }
     } ++ Chunk(
@@ -87,14 +94,14 @@ object RoleContentValidationSpec extends ZIOSpecDefault:
           Json
             .Obj("role" -> Json.Str(role.toString), "content" -> Json.Null)
             .as[Msg]
-            .contains(Msg(role = role))
+            .exists(message => Msg.create(role).contains(message))
         })
       },
       test("singleInvalidBlockRejectsMessage") {
         val content = Chunk(textBlock, thinking)
         assertTrue(
           Msg.create(Role.User, content).isLeft,
-          Msg(role = Role.User, content = content).toJson.fromJson[Msg].isLeft
+          decode(Role.User, content).isLeft
         )
       },
       test("deserializationRunsValidator") {
@@ -106,7 +113,7 @@ object RoleContentValidationSpec extends ZIOSpecDefault:
         val content = Chunk(ContentBlock.Custom("extension", Json.Obj()))
         assertTrue(
           Msg.create(Role.User, content).isLeft,
-          Msg(role = Role.User, content = content).toJson.fromJson[Msg].isLeft
+          decode(Role.User, content).isLeft
         )
       }
     ))*

@@ -62,14 +62,14 @@ object StructuredOutputSpec extends ZIOSpecDefault:
       usage: Option[ChatUsage] = None
   ): TurnOutput =
     TurnOutput.ToolCalls(
-      Msg(
-        role = Role.Assistant,
+      Msg.assistant(
         content = preceding :+ ContentBlock.ToolUse(
           "structured",
           StructuredOutput.ToolName,
           Json.Obj("response" -> Json.Num(value))
         ),
-        usage = usage
+        usage = usage,
+        name = None
       )
     )
 
@@ -93,7 +93,7 @@ object StructuredOutputSpec extends ZIOSpecDefault:
               name = "generate_response",
               input = Json.Obj(Chunk("response" -> payload))
             )
-            ZIO.succeed(TurnOutput.ToolCalls(Msg(role = Role.Assistant, content = Chunk(call))))
+            ZIO.succeed(TurnOutput.ToolCalls(Msg.assistant(content = Chunk(call), name = None)))
           else
             // Second turn: finished
             ZIO.succeed(TurnOutput.FinalText(Msg.assistant("Response generated")))
@@ -183,8 +183,7 @@ object StructuredOutputSpec extends ZIOSpecDefault:
               .update(_ + 1)
               .as(
                 TurnOutput.ToolCalls(
-                  Msg(
-                    role = Role.Assistant,
+                  Msg.assistant(
                     content = Chunk(
                       ContentBlock.ToolUse("ordinary", "missing", Json.Obj()),
                       ContentBlock.ToolUse(
@@ -193,7 +192,8 @@ object StructuredOutputSpec extends ZIOSpecDefault:
                         Json.Obj("response" -> Json.Num(7))
                       )
                     ),
-                    usage = Some(ChatUsage(inputTokens = 4, outputTokens = 3))
+                    usage = Some(ChatUsage(inputTokens = 4, outputTokens = 3)),
+                    name = None
                   )
                 )
               )
@@ -237,7 +237,7 @@ object StructuredOutputSpec extends ZIOSpecDefault:
         val thought =
           ContentBlock.Thinking("Check the answer", Map("thoughtSignature" -> Json.Str("signed")))
         val earlier =
-          Msg(role = Role.Assistant, content = Chunk(ContentBlock.Thinking("Earlier reasoning")))
+          Msg.assistant(content = Chunk(ContentBlock.Thinking("Earlier reasoning")), name = None)
         for
           client <- LlmClient.mock(Chunk(responseTurn(7, Chunk(thought))))
           agent  <- ReActAgent.make(client = client, initialHistory = Chunk(earlier))
@@ -275,10 +275,10 @@ object StructuredOutputSpec extends ZIOSpecDefault:
         val finalUsage = ChatUsage(inputTokens = 20, outputTokens = 6, time = 1.5)
         val thought    = ContentBlock.Thinking("Ready to answer")
         val first = TurnOutput.ToolCalls(
-          Msg(
-            role = Role.Assistant,
+          Msg.assistant(
             content = Chunk(ContentBlock.ToolUse("first", "missing", Json.Obj())),
-            usage = Some(firstUsage)
+            usage = Some(firstUsage),
+            name = None
           )
         )
         val finalTurn = responseTurn(
@@ -349,20 +349,20 @@ object StructuredOutputSpec extends ZIOSpecDefault:
       },
       test("compression preserves unrelated empty messages and removes only synthetic content") {
         val empty =
-          Chunk(Msg(role = Role.System), Msg(role = Role.User), Msg(role = Role.Assistant))
-        val call = Msg(
-          role = Role.Assistant,
-          content = Chunk(ContentBlock.ToolUse("capture", StructuredOutput.ToolName, Json.Obj()))
+          Chunk(Msg.system(name = None), Msg.user(name = None), Msg.assistant(name = None))
+        val call = Msg.assistant(
+          content = Chunk(ContentBlock.ToolUse("capture", StructuredOutput.ToolName, Json.Obj())),
+          name = None
         )
-        val result = Msg(
-          role = Role.Tool,
-          content = Chunk(ContentBlock.ToolResult.text("capture", StructuredOutput.ToolName, "ok"))
+        val result = Msg.tool(
+          content = Chunk(ContentBlock.ToolResult.text("capture", StructuredOutput.ToolName, "ok")),
+          name = None
         )
         assertTrue(StructuredOutput.compressHistory(empty ++ Chunk(call, result)) == empty)
       },
       test("noTools_nativeSoSupported_usesNativePath preserves usage and omits synthetic tools") {
         val usage = ChatUsage(100, 50, 12, 8, 9, 4, 1.5)
-        val reply = Msg.assistant("7").copy(usage = Some(usage))
+        val reply = Msg.assistant("7").withUsage(usage)
         for
           requests <- Ref.make(Chunk.empty[(Chunk[ToolDef], Option[Json])])
           client = observingClient(
@@ -434,15 +434,15 @@ object StructuredOutputSpec extends ZIOSpecDefault:
               .set(tools.find(_.name == StructuredOutput.ToolName).map(_.parametersSchema))
               .as(
                 TurnOutput.ToolCalls(
-                  Msg(
-                    role = Role.Assistant,
+                  Msg.assistant(
                     content = Chunk(
                       ContentBlock.ToolUse(
                         "nested",
                         StructuredOutput.ToolName,
                         Json.Obj("response" -> payload)
                       )
-                    )
+                    ),
+                    name = None
                   )
                 )
               )
@@ -478,15 +478,15 @@ object StructuredOutputSpec extends ZIOSpecDefault:
             started.succeed(()).unit *> ZIO.never
           )
           toolkit <- ZIO.fromEither(Toolkit.empty.register(waiting))
-          modelReply = Msg(
-            role = Role.Assistant,
+          modelReply = Msg.assistant(
             content = Chunk(
               thought,
               ContentBlock
                 .ToolUse("capture", StructuredOutput.ToolName, Json.Obj("response" -> Json.Num(7))),
               ContentBlock.ToolUse("pending", "waiting", Json.Obj())
             ),
-            usage = Some(ChatUsage(inputTokens = 10, outputTokens = 3))
+            usage = Some(ChatUsage(inputTokens = 10, outputTokens = 3)),
+            name = None
           )
           client <- LlmClient.mock(Chunk(TurnOutput.ToolCalls(modelReply)))
           agent  <- ReActAgent.make(client = client, toolkit = toolkit)

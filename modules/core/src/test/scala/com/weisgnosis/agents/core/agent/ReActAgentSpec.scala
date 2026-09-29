@@ -93,7 +93,7 @@ object ReActAgentSpec extends ZIOSpecDefault:
           val thinkingBlock = ContentBlock.Thinking("Let me think about this step by step.")
           val textBlock     = ContentBlock.Text("Here is the answer.")
           TurnOutput.FinalText(
-            Msg(role = Role.Assistant, content = Chunk(thinkingBlock, textBlock))
+            Msg.assistant(content = Chunk(thinkingBlock, textBlock), name = None)
           )
         }
         for
@@ -122,7 +122,7 @@ object ReActAgentSpec extends ZIOSpecDefault:
                 )
               )
             )
-            ZIO.succeed(TurnOutput.ToolCalls(Msg(role = Role.Assistant, content = Chunk(call))))
+            ZIO.succeed(TurnOutput.ToolCalls(Msg.assistant(content = Chunk(call), name = None)))
           else ZIO.succeed(TurnOutput.FinalText(Msg.assistant("The result of 5 + 7 is 12.")))
         }
 
@@ -165,7 +165,7 @@ object ReActAgentSpec extends ZIOSpecDefault:
               )
             )
             ZIO.succeed(
-              TurnOutput.ToolCalls(Msg(role = Role.Assistant, content = Chunk(call1, call2)))
+              TurnOutput.ToolCalls(Msg.assistant(content = Chunk(call1, call2), name = None))
             )
           else ZIO.succeed(TurnOutput.FinalText(Msg.assistant("Computed both successfully.")))
         }
@@ -200,7 +200,7 @@ object ReActAgentSpec extends ZIOSpecDefault:
           val hasToolResult = history.exists(_.role == Role.Tool)
           if !hasToolResult then
             val call = ContentBlock.ToolUse("call_err", "failing_tool", Json.Obj())
-            ZIO.succeed(TurnOutput.ToolCalls(Msg(role = Role.Assistant, content = Chunk(call))))
+            ZIO.succeed(TurnOutput.ToolCalls(Msg.assistant(content = Chunk(call), name = None)))
           else
             val toolResult = history.flatMap(_.toolResults).headOption
             ZIO.succeed(
@@ -222,7 +222,7 @@ object ReActAgentSpec extends ZIOSpecDefault:
         // Model keeps returning tool calls in an infinite loop
         val loopClient = LlmClient.mockFunction { (_, _) =>
           val call = ContentBlock.ToolUse("infinite_call", "non_existent_tool", Json.Obj())
-          TurnOutput.ToolCalls(Msg(role = Role.Assistant, content = Chunk(call)))
+          TurnOutput.ToolCalls(Msg.assistant(content = Chunk(call), name = None))
         }
 
         for
@@ -258,10 +258,7 @@ object ReActAgentSpec extends ZIOSpecDefault:
 
         val mockClient = LlmClient.mockFunction { (_, _) =>
           TurnOutput.ToolCalls(
-            Msg(
-              role = Role.Assistant,
-              content = Chunk(serverUse, serverRes, finalText)
-            )
+            Msg.assistant(content = Chunk(serverUse, serverRes, finalText), name = None)
           )
         }
 

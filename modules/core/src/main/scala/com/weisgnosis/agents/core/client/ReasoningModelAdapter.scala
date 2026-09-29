@@ -108,7 +108,6 @@ object ReasoningModelAdapter:
       val lastAssistantIdx = history.lastIndexWhere(_.role == Role.Assistant)
       history.zipWithIndex.map { case (msg, idx) =>
         if msg.role == Role.Assistant && idx < lastAssistantIdx then
-          val prunedContent = msg.content.filterNot(_.isInstanceOf[ContentBlock.Thinking])
-          msg.copy(content = prunedContent)
+          msg.filterContent(block => !block.isInstanceOf[ContentBlock.Thinking])
         else msg
       }

@@ -73,7 +73,7 @@ object ToolResultEvictorSpec extends ZIOSpecDefault:
         saved <- Ref.make(Map.empty[String, String])
         evictor = new ToolResultEvictor(memoryStore(saved))
         result <- evictor.evictOversizedToolResults(
-          Chunk(Msg(role = Role.Tool, content = Chunk(original, rewritten, different)))
+          Chunk(Msg.tool(content = Chunk(original, rewritten, different), name = None))
         )
         repeated <- evictor.evictOversizedToolResults(result)
         files    <- saved.get

@@ -79,17 +79,17 @@ object StructuredOutput:
   /** Removes synthetic blocks without discarding ordinary calls in mixed tool turns. */
   def compressHistory(history: Chunk[Msg]): Chunk[Msg] =
     history.flatMap { msg =>
-      val content = msg.content.filter {
+      val filtered = msg.filterContent {
         case call: ContentBlock.ToolUse      => call.name != ToolName
         case result: ContentBlock.ToolResult => !result.name.contains(ToolName)
         case _                               => true
       }
-      val emptiedByCompression = msg.content.nonEmpty && content.isEmpty
+      val emptiedByCompression = msg.content.nonEmpty && filtered.content.isEmpty
       if msg.metadata
           .get(MetadataStructuredReminder)
           .contains(Json.Bool(true)) || emptiedByCompression
       then Chunk.empty
-      else Chunk(msg.copy(content = content))
+      else Chunk(filtered)
     }
 
   /** Transfers the generating reply's thinking and usage to the final structured message once. */
@@ -97,13 +97,9 @@ object StructuredOutput:
     val (trailingResults, assistantAndPrefix) = history.reverse.span(_.role != Role.Assistant)
     val retainedHistory = assistantAndPrefix.headOption match
       case Some(generatingReply) =>
-        val residualReply = generatingReply.copy(
-          content = generatingReply.content.filter {
-            case _: ContentBlock.Thinking => false
-            case _                        => true
-          },
-          usage = None
-        )
+        val residualReply = generatingReply
+          .filterContent(block => !block.isInstanceOf[ContentBlock.Thinking])
+          .withUsage(None)
         assistantAndPrefix.drop(1).reverse ++ Chunk(residualReply) ++ trailingResults.reverse
       case None => history
     compressHistory(retainedHistory) :+ finalReply

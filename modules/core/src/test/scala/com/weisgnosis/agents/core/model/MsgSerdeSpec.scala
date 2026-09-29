@@ -29,9 +29,8 @@ object MsgSerdeSpec extends ZIOSpecDefault:
     suite("ChatUsage Serialization")(
       test("usageFieldRoundTripsViaJson") {
         val usage = ChatUsage(inputTokens = 100, outputTokens = 50, time = 1.5)
-        val msg = Msg(
+        val msg = Msg.assistant(
           name = Some("assistant"),
-          role = Role.Assistant,
           content = Chunk(ContentBlock.Text("hello")),
           usage = Some(usage)
         )
@@ -49,9 +48,8 @@ object MsgSerdeSpec extends ZIOSpecDefault:
       },
       test("cachedTokensRoundTripViaJson") {
         val usage = ChatUsage(inputTokens = 100, outputTokens = 50, cachedTokens = 30)
-        val msg = Msg(
+        val msg = Msg.assistant(
           name = Some("assistant"),
-          role = Role.Assistant,
           content = Chunk(ContentBlock.Text("hello")),
           usage = Some(usage)
         )
@@ -176,8 +174,8 @@ object MsgSerdeSpec extends ZIOSpecDefault:
           "content"   -> Json.Null
         )
         assertTrue(
-          missing.as[Msg].contains(Msg(role = Role.User)),
-          empty.as[Msg].contains(Msg(role = Role.User))
+          missing.as[Msg].contains(Msg.user(name = None)),
+          empty.as[Msg].contains(Msg.user(name = None))
         )
       },
       test("User message round-trip serialization") {

@@ -151,8 +151,7 @@ object GenerateReasonSpec extends ZIOSpecDefault:
       )
     },
     test("typed reason updates preserve every unrelated message field") {
-      val original = Msg(
-        role = Role.Assistant,
+      val original = Msg.assistant(
         id = Some("message-id"),
         name = Some("agent"),
         content = Chunk(ContentBlock.Thinking("thought"), ContentBlock.Text("reply")),
@@ -162,9 +161,14 @@ object GenerateReasonSpec extends ZIOSpecDefault:
       )
       val updated = original.withGenerateReason(GenerateReason.Interrupted)
       assertTrue(
-        updated == original.copy(metadata =
-          original.metadata.updated(Msg.MetadataGenerateReason, Json.Str("interrupted"))
-        ),
+        updated.id == original.id,
+        updated.name == original.name,
+        updated.role == original.role,
+        updated.content == original.content,
+        updated.timestamp == original.timestamp,
+        updated.usage == original.usage,
+        updated.metadata == original.metadata
+          .updated(Msg.MetadataGenerateReason, Json.Str("interrupted")),
         updated.toJson.fromJson[Msg].contains(updated),
         original.generateReason.isEmpty
       )

@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.core.client
 
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
 import zio.Chunk
 import zio.test.*
 
@@ -109,20 +109,20 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
         "Preserves reasoning on the most recent assistant message and strips it from older turns"
       ) {
         val turn1User = Msg.user("Calculate 1 + 1")
-        val turn1Assistant = Msg(
-          role = Role.Assistant,
+        val turn1Assistant = Msg.assistant(
           content = Chunk(
             ContentBlock.Thinking("Let me think: 1 + 1 equals 2"),
             ContentBlock.Text("The answer is 2.")
-          )
+          ),
+          name = None
         )
         val turn2User = Msg.user("Now calculate 2 + 2")
-        val turn2Assistant = Msg(
-          role = Role.Assistant,
+        val turn2Assistant = Msg.assistant(
           content = Chunk(
             ContentBlock.Thinking("Now thinking: 2 + 2 equals 4"),
             ContentBlock.Text("The answer is 4.")
-          )
+          ),
+          name = None
         )
 
         val history = Chunk(turn1User, turn1Assistant, turn2User, turn2Assistant)

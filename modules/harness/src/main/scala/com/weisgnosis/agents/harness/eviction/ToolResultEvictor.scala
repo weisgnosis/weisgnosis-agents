@@ -29,15 +29,12 @@ final class ToolResultEvictor(store: ToolResultStore, agentName: String = "assis
       config: EvictionConfig = EvictionConfig()
   ): UIO[Chunk[Msg]] =
     ZIO.foreach(history) { message =>
-      ZIO
-        .foreach(message.content) {
-          case result: ContentBlock.ToolResult
-              if result.text.length > config.maxResultChars.max(0) &&
-                !result.name.exists(config.excludedTools.contains) =>
-            evict(result, config).catchAll(_ => ZIO.succeed(result))
-          case block => ZIO.succeed(block)
-        }
-        .map(content => message.copy(content = content))
+      message.mapToolResultsZIO { result =>
+        if result.text.length > config.maxResultChars.max(0) &&
+          !result.name.exists(config.excludedTools.contains)
+        then evict(result, config).catchAll(_ => ZIO.succeed(result))
+        else ZIO.succeed(result)
+      }
     }
 
   private def evict(

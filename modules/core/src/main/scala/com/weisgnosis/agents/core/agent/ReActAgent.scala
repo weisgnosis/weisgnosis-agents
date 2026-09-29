@@ -147,8 +147,7 @@ final class ReActAgent private (
             case Right(decoded) =>
               for
                 currentHist <- stateRef.get
-                finalMsg = Msg(
-                  role = Role.Assistant,
+                finalMsg = Msg.assistant(
                   name = Some(config.name),
                   content = rawResult.reply.content.collect {
                     case thinking: ContentBlock.Thinking => thinking
@@ -279,8 +278,7 @@ final class ReActAgent private (
     if iteration > config.maxIterations then
       for
         maxIterMsg <- ZIO.succeed(
-          Msg(
-            role = Role.Assistant,
+          Msg.assistant(
             name = Some(config.name),
             content =
               Chunk(ContentBlock.Text(s"Maximum iterations (${config.maxIterations}) reached.")),
@@ -333,8 +331,7 @@ final class ReActAgent private (
 
                   case TurnOutput.ThinkingOnly(thinkingMsg) =>
                     if emptyThinkingRetries < config.emptyThinkingRetryLimit then
-                      val reminder = Msg(
-                        role = Role.User,
+                      val reminder = Msg.user(
                         name = Some("system"),
                         content = Chunk(
                           ContentBlock.Text(
@@ -361,8 +358,7 @@ final class ReActAgent private (
                         )
                       yield nextTurn
                     else
-                      val limitMsg = Msg(
-                        role = Role.Assistant,
+                      val limitMsg = Msg.assistant(
                         name = Some(config.name),
                         content =
                           Chunk(ContentBlock.Text("Empty visible content retry limit reached.")),
@@ -472,7 +468,7 @@ final class ReActAgent private (
         _ <- eventHub.publish(
           AgentEvent.ToolResultEndEvent(call.id, call.name, res.output, res.state)
         )
-        toolMsg = Msg(role = Role.Tool, name = Some(call.name), content = Chunk(resultBlock))
+        toolMsg = Msg.tool(name = Some(call.name), content = Chunk(resultBlock))
         _ <- stateRef.update(_ :+ toolMsg)
       yield ()
     }
@@ -512,8 +508,7 @@ final class ReActAgent private (
           val pendingCalls =
             asst.toolUses.filterNot(tu => tu.isServerTool || existingResultIds.contains(tu.id))
           val synthesizedResults = pendingCalls.map { call =>
-            Msg(
-              role = Role.Tool,
+            Msg.tool(
               name = Some(call.name),
               content = Chunk(
                 ContentBlock.ToolResult(
@@ -529,8 +524,7 @@ final class ReActAgent private (
               )
             )
           }
-          val recoveryMsg = Msg(
-            role = Role.Assistant,
+          val recoveryMsg = Msg.assistant(
             name = Some(config.name),
             content = Chunk(
               ContentBlock.Text("I noticed that you have interrupted me. What can I do for you?")
@@ -545,8 +539,7 @@ final class ReActAgent private (
           (recoveryMsg, newHistory)
 
         case None =>
-          val recoveryMsg = Msg(
-            role = Role.Assistant,
+          val recoveryMsg = Msg.assistant(
             name = Some(config.name),
             content = Chunk(
               ContentBlock.Text("I noticed that you have interrupted me. What can I do for you?")

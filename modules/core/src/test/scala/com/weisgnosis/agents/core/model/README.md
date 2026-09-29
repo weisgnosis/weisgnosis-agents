@@ -6,6 +6,8 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [ContentBlockSerdeSpec](ContentBlockSerdeSpec.scala)
 - [MsgSerdeSpec](MsgSerdeSpec.scala)
 - [MsgSpec](MsgSpec.scala)
+- [MsgFactorySpec](MsgFactorySpec.scala): all 26 immutable factory adaptations.
+- [MsgConstructionSpec](MsgConstructionSpec.scala): construction closure, updates, equality, wire format, and effect lifecycle.
 - [GenerateReasonSpec](GenerateReasonSpec.scala)
 - [RoleContentValidationSpec](RoleContentValidationSpec.scala)
 
@@ -16,7 +18,7 @@ Run `sbt "core / test"`, or `sbt verify` for repository-wide formatting, compila
 - [x] `review_fp` and `review_harness` independently approved the changes to the four specs below, based on `21bc69f`, on 2026-09-29.
 - [x] Verify 169 core and 40 harness tests with zero compiler warnings after adding strict malformed-field, legacy usage, Base64 wire, DataBlock, constructor, and complete role-matrix scenarios.
 - [x] Classify all 119 upstream message methods with explicit coverage/adaptations or unchecked gaps in the parity audit.
-- [ ] Complete unchecked model scenarios and resolve raw Msg.apply/copy validation before claiming exhaustive parity.
+- [ ] Complete remaining unchecked model scenarios before claiming exhaustive parity.
 
 | Reviewed test source | Git blob |
 | --- | --- |
@@ -25,7 +27,7 @@ Run `sbt "core / test"`, or `sbt verify` for repository-wide formatting, compila
 | ContentBlockSerdeSpec.scala | b7d82cb34215e81b794f2892c8ac6058beb75340 |
 | RoleContentValidationSpec.scala | 6b3a0da03108224bba086e7b93a5d8b733fcd7e5 |
 
-Role matrix tests validate Msg.create and decoding. They do not imply that unchecked raw construction validates content. Usage tests distinguish direct usage, valid legacy metadata, and invalid legacy data without mutating messages.
+Role matrix tests validate dynamic construction and decoding independently of trusted factories. MsgConstructionSpec also proves unchecked construction routes fail compilation. Usage tests distinguish direct usage, valid legacy metadata, and invalid legacy data without mutating messages.
 
 ## Typed generation metadata
 
@@ -36,7 +38,7 @@ The typed withGenerateReason overload preserves all other fields and metadata. I
 - [x] `review_fp` and `review_harness` independently approved GenerateReason, the additive Msg methods, and GenerateReasonSpec based on `d3d003d`, on 2026-09-29, with no unresolved findings in this scope.
 - [x] Cover all nine upstream GenerateReasonTest methods plus lowercase/uppercase compatibility, malformed/raw metadata, and all-field preservation regressions.
 - [x] Formatting, fatal-warning compilation, and all 207 core / 40 harness tests passed.
-- [ ] Close unchecked raw Msg construction/copy and remaining message factory/content parity gaps.
+- [ ] Close remaining content and ToolUse parity gaps.
 - [ ] Integrate typed stop reasons with planned phase suspension and resumption; classifying metadata alone does not implement runtime production of every reason.
 
 | Reviewed source | Git blob |
@@ -44,3 +46,10 @@ The typed withGenerateReason overload preserves all other fields and metadata. I
 | GenerateReason.scala | e4e6dd03a73941b19557f413be343fa4643dcf33 |
 | Msg.scala | 06a41eb6f9804b81250ff1a48c20a8935bc6475b |
 | GenerateReasonSpec.scala | ffb0582a7bd561527473e1d6fa3b1fc3cc4e5e3f |
+
+## Message API migration acceptance
+
+- [x] `review_fp` and `review_harness` approved this package's changed Scala files against `9c47bf5` on 2026-09-29, with no unresolved findings in the message-boundary migration.
+- [x] Repository verification passed 242 core and 40 harness tests with zero compiler warnings.
+
+See the [validated message API and exact reviewed blobs](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md) for source compatibility changes, scope, and evidence. Core callers preserve roles and optional fields; reasoning/structured-output filtering preserves message identity and metadata. Harness transformations preserve tool pairing, retained-user provenance, eviction fallback, and cancellation. This acceptance covers the changed files only; broader package and upstream parity gaps remain tracked.

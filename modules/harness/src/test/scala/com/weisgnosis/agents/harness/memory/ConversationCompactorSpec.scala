@@ -28,7 +28,7 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
   private val config: CompactorConfig =
     CompactorConfig(triggerTokens = 2, keepTokens = 2, preserveTailMessages = 2, protectTokens = 0)
   private def summary(text: String): Msg =
-    Msg.user(text).copy(name = Some(ConversationCompactor.SummaryName))
+    Msg.user(text).withName(ConversationCompactor.SummaryName)
   private def call(id: String): Msg =
     Msg.assistant(Chunk(ContentBlock.ToolUse(id, "search", Json.Obj())))
   private def tool(id: String): Msg = Msg.tool(id, "search", "result")
@@ -39,7 +39,7 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
     test("cutoff moves backward to preserve the assistant and all parallel results") {
       val history = Chunk(
         Msg.user("old"),
-        call("a").copy(content =
+        Msg.assistant(content =
           Chunk(
             ContentBlock.ToolUse("a", "search", Json.Obj()),
             ContentBlock.ToolUse("b", "search", Json.Obj())
@@ -150,7 +150,7 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
       )
     },
     test("coalesced retained users reach the next memory flush exactly once") {
-      val important = Msg.user("important retained fact").copy(id = Some("user-id"))
+      val important = Msg.user("important retained fact").withId(Some("user-id"))
       for
         flushed <- Ref.make(Chunk.empty[Chunk[Msg]])
         compactor = new ConversationCompactor(
@@ -193,7 +193,7 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
     test("older outputs and arguments are pruned but the protected tail is unchanged") {
       val long = "x" * 3000
       val history = Chunk(
-        call("a").copy(content = Chunk(ContentBlock.ToolUse("a", "write_file", Json.Str(long)))),
+        Msg.assistant(Chunk(ContentBlock.ToolUse("a", "write_file", Json.Str(long)))),
         Msg.tool("a", "search", long),
         Msg.assistant("recent"),
         Msg.tool("recent", "search", long)

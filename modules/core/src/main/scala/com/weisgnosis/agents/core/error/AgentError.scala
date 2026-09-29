@@ -28,6 +28,8 @@ object AgentError:
 
   final case class InvalidConfiguration(message: String) extends AgentError derives JsonCodec
 
+  final case class InvalidMessage(message: String) extends AgentError derives JsonCodec
+
   final case class ModelError(
       statusCode: Int,
       message: String,
