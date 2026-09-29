@@ -543,3 +543,19 @@ Upstream `MemoryFlushManagerOffloadTest.java` exercises a deprecated delegate to
 
 - [x] Verify 12 real filesystem cases, six scoped ownership cases, and one new core error-codec case. Source identities are recorded in the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
 - [ ] Verify cross-process contention, dynamic symlink/junction scenarios, and future recovery tooling separately. These regressions add Scala backend guarantees; they do not close the three pending transcript methods or future consolidation mappings.
+
+## Consolidation authority and remaining filesystem parity
+
+The new ConsolidationStore/MemoryConsolidator contracts deliberately strengthen upstream authority: output budget is checked after extraction, and replacement content and acknowledged inputs commit atomically against a never-reused revision. Upstream uses a prompt-only limit, separate MEMORY.md/watermark writes, and versioned CAS on the watermark entry alone. The process-local MemoryRepository proves the stronger contract; it does not implement the upstream filesystem or distributed-store API.
+
+- [x] `review_fp` and `review_harness` approved the final six-file consolidation increment against `46c6174` on 2026-09-29. Twenty-one new tests and full formatting/fatal-warning verification passed 530 core / 175 harness tests. No findings remain within process-local atomic content/progress commits, separate writer capabilities, scoped extraction, configured-counter budget enforcement, and conflict handling. Filesystem transactions, persistent watermarks, crash recovery, and the five upstream filesystem mappings remain outside this scope.
+
+Pinned `agent/memory/MemoryConsolidatorFilesystemTest.java` contains five tests. All remain pending until a concrete persistent backend and compatibility decisions exist:
+
+- [ ] `readWatermark_returnsEpochWhenStateAbsent`: missing-state timestamp semantics.
+- [ ] `watermark_roundTripThroughFilesystem`: injected backend timestamp round trip.
+- [ ] `watermark_doesNotCreateLocalFile`: selected remote authority with no local fallback write.
+- [ ] `stateFileRelPath_matchesConstant`: compatibility with memory/.consolidation_state.
+- [ ] `watermark_localFallback_whenNoFilesystem`: explicit local storage selection and physical state persistence.
+
+The 21 new Scala tests verify atomic content/progress, conflict preservation, deterministic inputs, configured-counter budget enforcement, writer capabilities, and failure/cancellation cleanup. They are not substitutes for these five persistence mappings.

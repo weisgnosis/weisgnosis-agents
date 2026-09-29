@@ -12,7 +12,7 @@ Existing hardening regressions retain occurrence pairing, inline/local isolation
 
 - [x] `review_fp` and `review_harness` approved both changed compactor suites against `52da827` on 2026-09-29; no findings remain in this scope.
 - [x] Full formatting, fatal-warning compilation, and verification passed 529 core / 114 harness tests, including all 39 compactor cases. Thirteen cases were added and existing routing assertions strengthened.
-- [ ] Add curated consolidation, transcript, and scheduling suites with their implementations.
+- [ ] Add persistent consolidation, transcript, and scheduling suites with their implementations.
 
 Exact current test identities and failure/ownership contracts are maintained in the [memory README](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md). Prior acceptance remains in Git through `52da827`. Run `sbt "harness / test"` or repository-wide `sbt verify`.
 
@@ -35,3 +35,12 @@ The store is an injected capability exercised with Ref-backed test implementatio
 The admitted-cancellation test failed before the explicit pending-interruption check was added. Both ordinary and explicitly masked caller behavior are now covered. These tests exercise the local Windows filesystem; cross-process, dynamic symlink/junction, crash, and fsync guarantees are not claimed.
 
 - [x] `review_fp` and `review_harness` approved the final seven-file local daily-memory backend against `d1a4cf2` on 2026-09-29. Nineteen added tests exposed and corrected pending cancellation being reported as success after admitted work. Full formatting/fatal-warning verification passed 530 core / 154 harness tests. Acceptance covers cooperative ownership, scoped cleanup, day-derived paths, atomic replacement, and typed storage errors on the tested Windows filesystem. Crash durability, exactly-once delivery, hostile mutation protection, dynamic symlink/junction behavior, and automatic stale-lease recovery are excluded.
+
+## Consolidation verification
+
+- [MemoryRepositorySpec](MemoryRepositorySpec.scala): six tests for daily/curated writer separation, atomic content/progress observations, stale revisions, later pending appends, domain codecs, and compile-time rejection of cross-store revision tokens.
+- [MemoryConsolidatorSpec](MemoryConsolidatorSpec.scala): 15 tests for deterministic prompts, blank/no-input behavior, exact budget boundaries, default estimation, malformed inputs, scope-before-commit, errors/cancellation, concurrent mutation, competing consolidators, per-instance serialization, and shared daily/client-backed integration.
+
+These are process-local atomicity and service-contract tests. All five upstream watermark filesystem methods remain explicitly pending in the [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md). No timestamp watermark, local fallback, filesystem transaction, or crash guarantee is inferred from the in-memory repository.
+
+- [x] `review_fp` and `review_harness` approved the final six-file consolidation increment against `46c6174` on 2026-09-29. Twenty-one new tests and full formatting/fatal-warning verification passed 530 core / 175 harness tests. No findings remain within process-local atomic content/progress commits, separate writer capabilities, scoped extraction, configured-counter budget enforcement, and conflict handling. Filesystem transactions, persistent watermarks, crash recovery, and the five upstream filesystem mappings remain outside this scope.

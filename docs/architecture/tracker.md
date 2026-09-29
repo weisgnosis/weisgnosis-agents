@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement curated consolidation with exclusive writer authority and its 4,000-token budget, then transcript persistence and memory lifecycle integration. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement a recoverable persistent consolidation backend satisfying atomic content/progress visibility, then transcript persistence and memory lifecycle integration. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -70,7 +70,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Account for all seven compactor and ten compaction-middleware methods, strengthen exact routing and cancellation/session evidence, record explicit divergences and exclusions, independently review both suites, and verify 529 core / 114 harness tests.
 - [x] Implement daily-memory extraction/store capability and compactor integration; close the serialization-test review finding, obtain final independent approval, map both upstream daily methods, and verify 529 core / 136 harness tests.
 - [x] Implement scoped cooperative filesystem daily-memory storage; reproduce and fix cancellation-after-write reporting, independently review nineteen new tests, and verify 530 core / 154 harness tests.
-- [ ] Implement MemoryConsolidator writer isolation and budget, transcript persistence, and scheduling.
+- [x] Implement MemoryConsolidator and atomic in-memory daily/curated authority, enforce a 1–4,000 configured-counter budget, independently review twenty-one new tests, and verify 530 core / 175 harness tests.
+- [ ] Implement persistent consolidation transactions and watermark compatibility, transcript persistence, and scheduling.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.
 

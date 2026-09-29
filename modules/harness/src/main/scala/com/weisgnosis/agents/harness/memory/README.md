@@ -1,6 +1,6 @@
 # Conversation compaction
 
-ConversationCompactor accepts an effectful summarizer, a pure TokenCounter, and optional flush/offload callbacks. Defaults: triggerTokens=120000, keepTokens=40000, preserveTailMessages=6, maxPruneOutputChars=2000, protectTokens=40000. Valid histories below the trigger remain unchanged. Compaction prunes older payloads, preserves matched call/result pairs and protected tails, deduplicates summaries, and coalesces adjacent user messages. Retained-user provenance survives coalescing for later flushing. MemoryFlushManager implements daily extraction through an injected store; a scoped local backend is available and MemoryConsolidator remains pending.
+ConversationCompactor accepts an effectful summarizer, a pure TokenCounter, and optional flush/offload callbacks. Defaults: triggerTokens=120000, keepTokens=40000, preserveTailMessages=6, maxPruneOutputChars=2000, protectTokens=40000. Valid histories below the trigger remain unchanged. Compaction prunes older payloads, preserves matched call/result pairs and protected tails, deduplicates summaries, and coalesces adjacent user messages. Retained-user provenance survives coalescing for later flushing. MemoryFlushManager implements daily extraction through an injected store; a scoped local backend and atomic in-memory consolidation are available; persistent consolidation remains pending.
 
 ## Pairing and pruning
 
@@ -39,7 +39,7 @@ ToolResultEvictor.preparer can precede ConversationCompactor.preparer via Histor
 - [x] `review_fp` and `review_harness` approved the two test-file diff against `52da827` on 2026-09-29, with no findings. Thirteen additional cases and strengthened existing assertions cover exact summary/flush/tail routing, short-circuiting, preparation and downstream cancellation, mixed causes, and separate-agent isolation.
 - [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 529 core and 114 harness tests, including 39 compactor tests, with zero compiler warnings. Production code is unchanged in this increment.
 - [x] All seven compactor and ten middleware methods have explicit [applicability decisions](../../../../../../../../../../docs/architecture/test-parity.md#compaction-method-applicability). Failure-policy divergences, summary identity, structured causes, session ownership, and the cyclic-Throwable exclusion are explicit; literal middleware equivalence is not claimed.
-- [ ] Implement curated-memory consolidation with separate writer authority and budget enforcement.
+- [ ] Implement persistent consolidation satisfying atomic content/progress publication.
 
 Previous implementation/hardening approvals remain in Git through `52da827`. Current reviewed test blobs (Git-normalized):
 
@@ -60,7 +60,7 @@ One Clock instant and explicit zone (UTC default) bind the context lookup, entry
 
 - [x] `review_fp` and `review_harness` approved the seven-file daily-memory extraction increment against `738b216` on 2026-09-29. No findings remain within the injected-store capability, scoped client extraction, provenance/date handling, one-manager serialization, and compactor integration. Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new tests. Filesystem persistence, cross-manager/process guarantees, consolidation, watermarks, and transcript offloading are excluded.
 - [x] Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new daily-memory tests and all 39 compactor regressions.
-- [ ] Add curated consolidation with the 4,000-token budget, transcript offloading, watermarks, and scheduling.
+- [ ] Add persistent consolidation, transcript offloading, watermark compatibility, and scheduling.
 
 Current daily-memory Git-normalized source identities; prior compactor implementation identity is preserved in `738b216`:
 
@@ -68,7 +68,6 @@ Current daily-memory Git-normalized source identities; prior compactor implement
 | --- | --- |
 | [ConversationCompactor.scala](ConversationCompactor.scala) | d2d9fc060cd2c5a5108b8da2bd8d731cdf4acbb6 |
 | [DailyMemoryStore.scala](DailyMemoryStore.scala) | 204a494090531403e1a7b2f3108787770a9bd5a0 |
-| [MemoryExtractor.scala](MemoryExtractor.scala) | 30164f03c2e9644ed674ad8abb70fd8dd84e5583 |
 | [MemoryFlushManager.scala](MemoryFlushManager.scala) | 5ceee51cb042628041b6c4745fac9429b215eb81 |
 | [MemoryExtractorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryExtractorSpec.scala) | 2db567e78995479fd0c733f1346db8720d5df566 |
 | [MemoryFlushManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerSpec.scala) | 79446b9c488527138681526e79d777895f0d3bca |
@@ -88,7 +87,7 @@ The protocol uses the Java [CREATE_NEW contract](https://docs.oracle.com/en/java
 
 - [x] `review_fp` and `review_harness` approved the final seven-file local daily-memory backend against `d1a4cf2` on 2026-09-29. Nineteen added tests exposed and corrected pending cancellation being reported as success after admitted work. Full formatting/fatal-warning verification passed 530 core / 154 harness tests. Acceptance covers cooperative ownership, scoped cleanup, day-derived paths, atomic replacement, and typed storage errors on the tested Windows filesystem. Crash durability, exactly-once delivery, hostile mutation protection, dynamic symlink/junction behavior, and automatic stale-lease recovery are excluded.
 - [ ] Verify cross-process contention and dynamic symlink/junction cases on each supported platform; the current executable contention checks use independent store instances in one JVM.
-- [ ] Implement curated consolidation and transcript/scheduling services. The backend adds no new upstream method-parity claim.
+- [ ] Implement persistent consolidation and transcript/scheduling services. The daily backend adds no new upstream method-parity claim.
 
 Current local-backend Git-normalized identities:
 
@@ -101,3 +100,31 @@ Current local-backend Git-normalized identities:
 | [MemoryTestSupport.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTestSupport.scala) | 9807cd55acc444c355095e4225e38e1b4f585f0d |
 | [LocalDailyMemoryStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryStoreSpec.scala) | 232a08a6ac50c6e4e32873cee36752765b4f51fb |
 | [DailyMemoryLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/DailyMemoryLeaseSpec.scala) | 09a2cda7bb306becd4718b3e49f5e65a0dedd321 |
+
+## Atomic consolidation and process-local storage
+
+[ConsolidationStore](ConsolidationStore.scala) exposes an abstract path-dependent Revision, an atomic ConsolidationSnapshot, and commit(expected, content). Each snapshot includes current curated text and at most one complete pending entry per day. Every curated/daily/progress mutation must advance a never-reused revision. Commit must atomically update curated content and acknowledge exactly the consumed snapshot, or return Conflict without any change. The port has no daily append operation. Backend errors propagate; callers cannot infer rollback from an error or cancellation after a commit may have occurred.
+
+[MemoryRepository.inMemory](MemoryRepository.scala) returns daily and consolidation capabilities sharing one immutable Ref state. BigInt revisions cannot wrap; the public capability keeps their representation abstract. Appending daily content invalidates older consolidation snapshots. A successful conditional transition updates curated text and acknowledged inputs together. Later appends make the full changed day pending again, allowing the model to deduplicate against existing curated text. Raw daily content is never rewritten by consolidation. This repository is process-local and has no disk fallback or crash persistence.
+
+[MemoryConsolidator.make](MemoryConsolidator.scala) validates maxTokens in 1..4000 and accepts a MemoryExtractor and TokenCounter. consolidate serializes calls on that consolidator, rejects duplicate snapshot days, skips blank/no-pending input, and sends deterministic chronological daily content alongside current curated text. Extraction scope closes before output validation or commit. Blank output returns EmptyResponse without acknowledgement; a validated replacement returns Committed or Conflict. Conflict does not automatically retry stale output; a later invocation must obtain a fresh snapshot and recompute.
+
+The output budget is enforced against counter.count(Msg.assistant(strippedOutput)); negative counts and over-budget content fail without commit. TokenCounter.approximate estimates serialized message size, including its envelope. Applications requiring exact model token limits must inject an appropriate pure tokenizer. The budget applies to new replacements; supplied existing curated content is not retroactively truncated. Semantic factual accuracy, extraction quality, and deduplication are not guaranteed by structural/counter validation.
+
+MemoryExtractor.fromClient also serves consolidation, preserving scoped text-only requests and rejecting tool observations. A MemoryFlushManager receives only the repository's daily writer; MemoryConsolidator receives only its curated writer. Hosts are trusted capability owners. Separate consolidator instances can extract concurrently, but only one can commit against a given revision.
+
+- [ ] Implement a persistent ConsolidationStore with recovery and coherent content/progress publication. LocalDailyMemoryStore is not that implementation; separate atomic moves of MEMORY.md and a progress file are insufficient by themselves.
+- [ ] Complete all five pinned upstream watermark filesystem mappings and transcript/scheduling integration. No new upstream filesystem equivalence is claimed by this process-local increment.
+
+- [x] `review_fp` and `review_harness` approved the final six-file consolidation increment against `46c6174` on 2026-09-29. Twenty-one new tests and full formatting/fatal-warning verification passed 530 core / 175 harness tests. No findings remain within process-local atomic content/progress commits, separate writer capabilities, scoped extraction, configured-counter budget enforcement, and conflict handling. Filesystem transactions, persistent watermarks, crash recovery, and the five upstream filesystem mappings remain outside this scope.
+
+The previous MemoryExtractor comment identity is preserved in `46c6174`; its current scope is included below. Current Git-normalized consolidation identities:
+
+| Source | Blob identity |
+| --- | --- |
+| [ConsolidationStore.scala](ConsolidationStore.scala) | bc4d87299b785335051b8c44553c0c3670b859dd |
+| [MemoryRepository.scala](MemoryRepository.scala) | f1e5867eec1de34bca02e0fafc27af7d0adc34d4 |
+| [MemoryConsolidator.scala](MemoryConsolidator.scala) | 016e5611a60974cc47ac44e3bef109c573779be2 |
+| [MemoryExtractor.scala](MemoryExtractor.scala) | fe620774f366965032f4582046b8fc79282ec164 |
+| [MemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRepositorySpec.scala) | 090804a4d20f01d838c8d7e381175287374cadc2 |
+| [MemoryConsolidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidatorSpec.scala) | 49f460b8ba9e77b202e146b50a0c6b9b561445b1 |

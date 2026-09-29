@@ -1,6 +1,6 @@
 # Mid-level behavior and planned integrations
 
-Sections 1-6 describe current components. Section 7 separates implemented daily extraction from scoped local storage and planned consolidation. Sections 8-10 describe planned behavior. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
+Sections 1-6 describe current components. Section 7 describes implemented daily extraction, scoped daily storage, and process-local consolidation, with persistent consolidation explicitly pending. Sections 8-10 describe planned behavior. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
 
 ## 1. ReAct lifecycle
 
@@ -67,7 +67,7 @@ ToolResultStore.local requires WorkspaceTrust. Untrusted fails before filesystem
 
 ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or AbsoluteDirectory(path). Absolute selection requires an existing host-owned directory and leaves the unused workspace untouched. Canonical/type checks run before each operation; protection of external ancestors remains a host requirement. The default path and publication semantics are unchanged.
 
-## 7. Daily memory, local storage, and planned consolidation
+## 7. Daily memory, local storage, and consolidation
 
 MemoryFlushManager reads curated and dated context through DailyMemoryStore, extracts new facts in a bounded scope, then appends a dated Markdown entry through that capability. No curated write or arbitrary path operation is exposed. One captured Clock instant and explicit zone (UTC by default) select both read and append dates. The manager expands validated coalesced-user provenance before excluding summaries, system/internal context, and thinking/media. Blank or trimmed exact NO_REPLY output skips append. Typed read/extraction/append failures propagate; extraction cancellation and extraction-scope cleanup defects prevent append. Cancellation or failure during append has backend-defined partial effects. One manager serializes read/extract/append operations; independent managers and backend/process concurrency require host coordination. Completed external writes cannot be rolled back.
 
@@ -75,7 +75,11 @@ Install manager.flush as ConversationCompactor's flush callback. MemoryExtractor
 
 LocalDailyMemoryStore.open(workspace, WorkspaceTrust.HostControlled) owns memory/YYYY-MM-DD.md through a scoped CREATE_NEW lease with an opaque token. It rejects competing owners, unsafe paths and nonregular payload targets, and old handles after scope closure. Each append reads the current ledger, writes a scoped temporary file, then publishes through ATOMIC_MOVE without a non-atomic fallback. Scope closing waits for admitted work; ordinary pending cancellation is delivered after work completes, while explicit caller masking remains effective. No fsync/crash durability or exactly-once delivery is implied. Cleanup ownership failures become finalizer defects and retain the lease; an unfinished lease is never automatically removed.
 
-Transcript persistence, watermarks, and scheduling remain pending. MemoryConsolidator will be the sole writer of curated MEMORY.md within a 4,000-token budget. The local store reads curated memory but exposes no curated write operation.
+MemoryConsolidator receives a separate ConsolidationStore capability with no daily-write operations. It reads one atomic immutable snapshot, sorts nonblank daily inputs, closes extraction scope, strips the candidate, then enforces a configured 1–4,000 token budget before commit. Blank output leaves both content and progress unchanged. The supplied TokenCounter defines the measurement; the default estimates serialized message size and is not an exact provider tokenizer. Negative counts fail explicitly. Semantic fidelity and deduplication remain model responsibilities.
+
+A snapshot revision covers every curated/daily/progress mutation and must never be reused. Commit atomically replaces curated content and acknowledges precisely that snapshot, or returns Conflict without change. Stale output is never retried against a refreshed revision. MemoryRepository.inMemory provides concrete Ref-based authority with separate daily and consolidation ports and a non-wrapping BigInt revision. Later appends make the complete changed day pending again. No timestamps are used as progress authority.
+
+Persistent consolidation, watermark-format compatibility, transcript persistence, and scheduling remain pending. LocalDailyMemoryStore only reads curated MEMORY.md; it does not implement ConsolidationStore. Two independent file replacements would not satisfy the atomic content/progress contract.
 
 ## 8. Planned durable HITL integration
 

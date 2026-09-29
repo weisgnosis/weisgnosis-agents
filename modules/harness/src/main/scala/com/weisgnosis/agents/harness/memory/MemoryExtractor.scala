@@ -21,7 +21,7 @@ import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.Msg
 import zio.*
 
-/** Extracts candidate daily memories; the caller owns the bounded extraction scope. */
+/** Produces candidate memory text; the caller owns the bounded extraction scope. */
 trait MemoryExtractor:
   def extract(input: Chunk[Msg]): ZIO[Scope, AgentError, String]
 

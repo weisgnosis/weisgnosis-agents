@@ -66,6 +66,9 @@ ModelInputTransform projects a request-only history after canonical preparation 
 | ConversationCompactor | Injected summarizer/counter/hooks, occurrence-safe cutoff, isolated inline pairs, signed-argument protection, summary rebuilding | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) |
 | MemoryFlushManager | make returns UIO; flush returns IO[AgentError, Unit]; one-manager serialization and scope-before-append | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManager.scala) |
 | DailyMemoryStore | Read curated/daily context and append by LocalDate; no curated writer or path input | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/DailyMemoryStore.scala) |
+| MemoryConsolidator | make validates budget 1..4000; consolidate returns typed no-op/commit/conflict outcomes | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidator.scala) |
+| ConsolidationStore | Abstract Revision, atomic snapshot, conditional atomic content/progress commit; no daily writer | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConsolidationStore.scala) |
+| MemoryRepository | inMemory returns separate daily/consolidation ports sharing Ref authority | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryRepository.scala) |
 | LocalDailyMemoryStore | open returns ZIO[Scope, AgentError, DailyMemoryStore]; cooperative lease, canonical paths, atomic daily replacement | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryStore.scala) |
 | MemoryExtractor | Scoped extract to visible text; fromClient removes tools/response formatting and preserves interruption | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryExtractor.scala) |
 | CompactorConfig | 120k trigger, 40k keep/protect, six retained messages, 2k pruning threshold | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/CompactorConfig.scala) |
@@ -83,7 +86,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, memory consolidation/transcripts/scheduling, durable checkpoint storage, subagents, plan-mode enforcement, and MCP are not implemented. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, persistent consolidation/transcripts/scheduling, durable checkpoint storage, subagents, plan-mode enforcement, and MCP are not implemented. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
