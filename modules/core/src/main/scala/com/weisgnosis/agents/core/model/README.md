@@ -70,7 +70,17 @@ Current main-source identities are listed below; the review scopes above disting
 | [GenerateReason.scala](GenerateReason.scala) | e4e6dd03a73941b19557f413be343fa4643dcf33 |
 | [JsonFields.scala](JsonFields.scala) | 92bba6f226762fa2324c3211310fad6bf1c879e2 |
 | [MediaSource.scala](MediaSource.scala) | 8047c1845b5ec41a22ae8c1200ce2e60964a26c6 |
-| [Msg.scala](Msg.scala) | 231673cb67d4bf3de40026ce6cadd2ea1c82101d |
+| [Msg.scala](Msg.scala) | ca34a6225c004dbb6f39e0d502ccd7886e9cc2dd |
 | [Role.scala](Role.scala) | 1fd28896fe37d9b7da11ceb30c922b10b7f6cca6 |
 | [ToolCallState.scala](ToolCallState.scala) | d6f3636a99cff6c696e3617eef95c4bfd72d33b8 |
 | [ToolResultState.scala](ToolResultState.scala) | e51c81870d3a88e90d69629ca33a0fc20608f775 |
+
+## Strict structured JSON
+
+Msg.getStructuredData and structured agent preparation share core.json.JsonBoundary. Text must contain one complete JSON value with unique object keys at every depth. Authoritative structured metadata is checked directly; invalid metadata fails without falling back to visible text. Captured synthetic payloads are checked before finalization. The synthetic tool also validates its entire input before extracting response, so duplicate wrapper keys or duplicates in ignored siblings cannot disappear during extraction. Valid wrapped and direct payload adaptation remains supported.
+
+This tightens previously permissive parsing; trailing input and ambiguous fields now fail through existing typed/string error channels. It does not add JSON Schema validation. Failed structured preparation publishes no AgentResult or structured metadata; raw observations can remain in history. The shared validator performs no effects and does not depend on models, agents, or transports.
+
+- [x] Six boundary regressions cover full text, duplicate text/metadata/captures/wrappers, metadata authority, and valid wrapped/direct values. Five real loopback HTTP tests cover native schema/thinking/usage, synthetic definition hoisting and compression, HTTP-400 fallback without duplicate input, no retry on HTTP 503, and rejection of trailing native JSON.
+- [x] `review_fp` and `review_harness` approved the final shared JSON/structured HTTP scope against `9c165a7` on 2026-09-29 after the wrapper-boundary correction. Full verification passed 404 core and 40 harness tests. No findings remain; the [JSON package table](../json/README.md) records exact current identities.
+- [ ] Complete capability/hook parity and broader provider compatibility; general JSON Schema validation is outside this acceptance.

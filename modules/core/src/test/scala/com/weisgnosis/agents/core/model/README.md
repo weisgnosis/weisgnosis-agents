@@ -33,3 +33,13 @@ Exact reviewed test additions for the latest Data/media increment:
 | --- | --- |
 | [DataBlockSpec.scala](DataBlockSpec.scala) | 4211585b28ce57e12e825152133443199a35da9e |
 | [MediaSourceSpec.scala](MediaSourceSpec.scala) | 0081a1db68dc2ce65a709af6260ac845d01aa0e4 |
+
+## Strict structured JSON
+
+Msg.getStructuredData and structured agent preparation share core.json.JsonBoundary. Text must contain one complete JSON value with unique object keys at every depth. Authoritative structured metadata is checked directly; invalid metadata fails without falling back to visible text. Captured synthetic payloads are checked before finalization. The synthetic tool also validates its entire input before extracting response, so duplicate wrapper keys or duplicates in ignored siblings cannot disappear during extraction. Valid wrapped and direct payload adaptation remains supported.
+
+This tightens previously permissive parsing; trailing input and ambiguous fields now fail through existing typed/string error channels. It does not add JSON Schema validation. Failed structured preparation publishes no AgentResult or structured metadata; raw observations can remain in history. The shared validator performs no effects and does not depend on models, agents, or transports.
+
+- [x] Six boundary regressions cover full text, duplicate text/metadata/captures/wrappers, metadata authority, and valid wrapped/direct values. Five real loopback HTTP tests cover native schema/thinking/usage, synthetic definition hoisting and compression, HTTP-400 fallback without duplicate input, no retry on HTTP 503, and rejection of trailing native JSON.
+- [x] `review_fp` and `review_harness` approved the final shared JSON/structured HTTP scope against `9c165a7` on 2026-09-29 after the wrapper-boundary correction. Full verification passed 404 core and 40 harness tests. No findings remain; the [JSON package table](../json/README.md) records exact current identities.
+- [ ] Complete capability/hook parity and broader provider compatibility; general JSON Schema validation is outside this acceptance.

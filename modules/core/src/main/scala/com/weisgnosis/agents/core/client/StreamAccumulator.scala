@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.client
 
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg}
 import zio.Chunk
@@ -187,7 +188,7 @@ object StreamAccumulator:
   )
 
   private def objectArguments(raw: String): Either[String, Json.Obj] =
-    ProtocolJson
+    JsonBoundary
       .decode(raw)
       .flatMap:
         case value: Json.Obj => Right(value)

@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.agent
 
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef}
 import zio.*
@@ -118,13 +119,12 @@ object StructuredOutput:
       def definition: ToolDef                 = toolDef
       override def isConcurrencySafe: Boolean = false
       def decodeInput(raw: Json): Either[String, Json] =
-        raw match
-          case Json.Obj(fields) =>
-            fields.find(_._1 == "response").map(_._2) match
-              case Some(resp) => Right(resp)
-              case None       => Right(raw) // Fallback if model supplied fields directly
-          case other =>
-            Right(other)
+        JsonBoundary
+          .validate(raw)
+          .map:
+            case value @ Json.Obj(fields) =>
+              fields.find(_._1 == "response").fold[Json](value)(_._2)
+            case other => other
 
       def encodeOutput(out: String): String = out
 
@@ -140,8 +140,12 @@ object StructuredOutput:
   /** Resolve exactly the AST whose typed value will be validated and committed. */
   private[agent] def structuredPayload(msg: Msg): Either[String, Json] =
     msg.metadata.get(MetadataStructuredOutput) match
-      case Some(ast) => Right(ast)
-      case None      => msg.text.fromJson[Json]
+      case Some(ast) => validatedPayload(ast)
+      case None      => JsonBoundary.decode(msg.text)
+
+  /** Validates captured/metadata ASTs without discarding their original representation. */
+  private[agent] def validatedPayload(json: Json): Either[String, Json] =
+    JsonBoundary.validate(json)
 
   /**
    * Checks if a message is an internal structured-output transient message.

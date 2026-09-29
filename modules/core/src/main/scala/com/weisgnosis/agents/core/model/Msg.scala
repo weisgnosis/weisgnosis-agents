@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.model
 
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
 import zio.{Chunk, Random, UIO, ZIO}
 import zio.json.*
@@ -107,8 +108,8 @@ final class Msg private (
   /** Extracts and decodes structured output from metadata `_structured_output`, or parses message text. */
   def getStructuredData[A: JsonDecoder]: Either[String, A] =
     metadata.get("_structured_output") match
-      case Some(ast) => ast.as[A]
-      case None      => text.fromJson[A]
+      case Some(ast) => JsonBoundary.validate(ast).flatMap(_.as[A])
+      case None      => JsonBoundary.decode(text).flatMap(_.as[A])
 
   /** Returns an updated copy with participant name. */
   def withName(newName: String): Msg =

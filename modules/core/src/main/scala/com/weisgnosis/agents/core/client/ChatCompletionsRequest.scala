@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.client
 
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.tool.ToolDef
@@ -73,7 +74,7 @@ object ChatCompletionsRequest:
           Chunk.fromIterable(config.responseFormat.map(value => "response_format" -> value)) ++
           (if definitions.isEmpty then Chunk.empty else Chunk("tools" -> Json.Arr(definitions)))
       )
-      _ <- ProtocolJson.decode(body.toJson).left.map(AgentError.InvalidConfiguration(_))
+      _ <- JsonBoundary.validate(body).left.map(AgentError.InvalidConfiguration(_))
     yield body
 
   private def validatePairing(history: Chunk[Msg]): Either[AgentError, Unit] =
@@ -187,7 +188,7 @@ object ChatCompletionsRequest:
         "Server tools and signed calls require a provider-specific request codec"
       )
       _ <- message(call.input.isInstanceOf[Json.Obj], "Function call arguments must be an object")
-      _ <- ProtocolJson.decode(call.input.toJson).left.map(AgentError.InvalidMessage(_))
+      _ <- JsonBoundary.validate(call.input).left.map(AgentError.InvalidMessage(_))
     yield Json.Obj(
       "id"   -> Json.Str(call.id),
       "type" -> Json.Str("function"),

@@ -8,7 +8,7 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [ChatCompletionsRequest](ChatCompletionsRequest.scala)
 - [LlmChunk](LlmChunk.scala)
 - [LlmClient](LlmClient.scala)
-- [ProtocolJson](ProtocolJson.scala)
+- [JsonBoundary](../json/JsonBoundary.scala)
 - [ReasoningModelAdapter](ReasoningModelAdapter.scala)
 - [SseParser](SseParser.scala)
 - [StreamAccumulator](StreamAccumulator.scala)
@@ -34,7 +34,7 @@ Tool fragments remain keyed and emitted in numeric streamIndex order. IDs/names 
 
 Text and thinking use separate index namespaces and retain first-appearance block order. Thinking signatures concatenate exactly, including signature-only blocks and whitespace; this covers LlmChunk assembly, not provider signature decoding. Tool blocks follow these content blocks in numeric order. Usage is the latest complete snapshot, never a sum of streaming snapshots.
 
-ProtocolJson is a package-private shared boundary. zio-json's ordinary decoder permits unconsumed suffixes, so a pure tail-recursive boundary scanner checks the full document, JSON whitespace, container/string escapes, and complete primitive tokens. AST parsing validates grammar; a second tail-recursive traversal rejects duplicate fields. This prevents both response frames and tool arguments from hiding trailing garbage.
+JsonBoundary is a core-internal shared boundary in the independent json package. zio-json's ordinary decoder permits unconsumed suffixes, so a pure tail-recursive boundary scanner checks the full document, JSON whitespace, container/string escapes, and complete primitive tokens. AST parsing validates grammar; a second tail-recursive traversal rejects duplicate fields. This prevents response frames, tool arguments, and structured text from hiding trailing garbage. Existing request/metadata/captured ASTs use direct duplicate-field validation without a serialization round trip.
 
 ## Request serialization
 
@@ -72,64 +72,9 @@ Live deltas precede ModelResponseEnd. Open text/thinking blocks remain open unti
 
 ## Current acceptance
 
-- [x] Message-boundary migration accepted at `a701612`; strict single-frame parsing accepted at `10019c2`.
-- [x] Thirteen accumulator-completion regressions, five shared-JSON tests, and an additional frame-suffix regression pass alongside migrated assembly/thinking-retry tests.
-- [x] Full formatting, fatal-warning compilation, and verification passed 392 core and 40 harness tests.
-- [x] Implement pure text/function request serialization with sixteen paired regression tests.
-- [x] Implement scoped HTTP completion, [DONE] termination, bounded bodies, and fourteen tests including real loopback HTTP.
-- [x] Integrate ChatCompletionsClient, runtime request correlation, and end-to-end ReAct streaming with eleven new client/publisher/context tests.
-- [ ] Complete provider signature/tool-metadata decoding, inline server results, richer reasoning details, additional input-size bounds, remaining event publication, and exhaustive upstream parser/transport mapping.
+- [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
+- [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the current ten-file scope and supersedes changed earlier identities. No findings remain within this scope.
+- [x] Full formatting, fatal-warning compilation, and verification passed 404 core and 40 harness tests.
+- [ ] Complete provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, incremental/structured local tool output, and exhaustive upstream mapping.
 
-See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) and [tracker](../../../../../../../../../../docs/architecture/tracker.md). Acceptance is limited to named files and reviewed contracts.
-
-- [x] `review_fp` and `review_harness` approved the final eight-file completion/JSON-boundary increment against `10019c2` on 2026-09-29 after fixing trailing-input acceptance. No findings remain within this scope.
-
-| File | Reviewed Git blob |
-| --- | --- |
-| [ProtocolJson.scala](ProtocolJson.scala) | c1799a0f56d90f86ea3120463b099fd5c84df769 |
-| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 947f092612cdfc987472bb9054d43a2bbfca4170 |
-| [StreamAccumulator.scala](StreamAccumulator.scala) | 038162ae8235c6d6432872c6acaf49db2dccb2d6 |
-| [ProtocolJsonSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ProtocolJsonSpec.scala) | 8d0af6d6ea6ff3c8f704e1ed6e03ab7f4c858896 |
-| [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | 2e67ea902e6b8a50da802c9ccf3728e36d9b7c6c |
-| [StreamAccumulatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorSpec.scala) | 809ab37875025c99f3b6c870324b3b81c1a5a204 |
-| [StreamAccumulatorCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorCompletionSpec.scala) | 9e63fc534339d93594fe1c3f31c55e23b36b360c |
-| [ReActAgentThinkingRetrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentThinkingRetrySpec.scala) | cb149ca6c95027ace970b5a6fad5df1586b9c99e |
-
-- [x] `review_fp` and `review_harness` approved the final request encoder and sixteen tests against `73f66d1` on 2026-09-29 after correcting pairing validation and negative fixtures. No findings remain within the text/function request scope; HTTP integration and exhaustive formatter parity were excluded from that earlier approval.
-
-| File | Reviewed Git blob |
-| --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | cbe28128f70333a2f7594cf4dbf70478c5c3a6f9 |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | 955e9811d921883838a5b71362c7c9a0488155d9 |
-
-- [x] `review_fp` and `review_harness` approved the scoped HTTP transport and fourteen tests against `38c48db` on 2026-09-29. No findings remain within this scope; LlmClient/event integration, retries, and full provider parity are excluded. Full verification passed 375 core and 40 harness tests.
-
-| File | Reviewed Git blob |
-| --- | --- |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | 955e6ddcfe25efb4e42a9f3c731ea4c97bf6a242 |
-| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | 938047f7320998feea85eae23e5d665e09f6619d |
-
-- [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
-
-Exact final integration scope (supersedes earlier identities for changed files):
-
-| File | Reviewed Git blob |
-| --- | --- |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | 508d37e17aa49cd88be4e80cfb990f698c03c1d0 |
-| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | b80c5b8b3a46a07ba79804e311307df1d2bb7f39 |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | 696302acc494d81606ab264f29f0e1c97b2e2eab |
-| [LlmClient.scala](LlmClient.scala) | 13094412a3b79d894182cc9b4e31d2bdf68364de |
-| [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 1ad3bcf5c23e570bf0b86246c23d23efd435575b |
-| [AgentEvent.scala](../event/AgentEvent.scala) | 33df0c53ce69281401cff314812497875b499a1c |
-| [ModelStreamContext.scala](../event/ModelStreamContext.scala) | fc28f0f5accfa3c773f462eb1e2dd8f06c844d7c |
-| [ReActAgentEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEventSpec.scala) | afac7dc6d5d58feed4ffd138368705df20f4619c |
-| [ReActAgentLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentLifecycleSpec.scala) | 8e042037b425d84514741e42e2620f3d8b889891 |
-| [StructuredOutputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputSpec.scala) | 3e98f032ca5ce23fc6b6a5e08cfc2256edaf967b |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | bd89eb872ee947587848fb9ef9d07ff4c4178641 |
-| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | 1d1a5947403ba5750bd2890c4dbfd84479c96bb2 |
-| [HttpClientTestSupport.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/HttpClientTestSupport.scala) | 2e1a8bf59a6dae2d45aebcfc79c2416940821e9f |
-| [LlmClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/LlmClientSpec.scala) | 0f2cdb77254e8dbfa325265018a6a96bd85798d8 |
-| [ModelStreamPublisherSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelStreamPublisherSpec.scala) | dbb35a012d48eda8be91a795b20588c49e1a3eff |
-| [ModelStreamContextSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/ModelStreamContextSpec.scala) | bc75ea0694f96aed40e3d4d55c9617842edd644d |
-
-- [x] The completed local/inline result increment against `84e4eb3` was approved by `review_fp` and `review_harness`; its [five final source identities and six new regressions](../agent/README.md) supersede earlier entries for changed files. All sixteen contextual variants and full 392 core / 40 harness verification pass. Partial tool-output streaming and richer local structured output remain pending.
+The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.

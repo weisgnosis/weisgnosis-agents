@@ -35,6 +35,8 @@ Native mode supplies LlmConfig.responseFormat; the transport serializes it. Auto
 
 Empty-input continuation, signed thinking, usage, and immediate repeated calls have regression coverage. Runtime-schema direct and structured streaming scenarios are also verified. Capability selection and hook gaps remain explicit [parity work](test-parity.md).
 
+Structured text requires a complete unique-key JSON document. Metadata and captured ASTs are validated directly, and synthetic arguments are validated before selecting response. Five loopback HTTP scenarios now verify native and synthetic paths; explicit capability selection and hooks remain pending.
+
 ## 5. Compaction and eviction
 
 | Operation | Trigger | Behavior |

@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.client
 
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role}
 import zio.Chunk
@@ -97,7 +98,7 @@ object ReasoningModelAdapter:
    */
   def parseChunk(jsonStr: String): Either[AgentError, Chunk[LlmChunk]] =
     for
-      json <- ProtocolJson.decode(jsonStr).left.map(AgentError.DeserializationError(_))
+      json <- JsonBoundary.decode(jsonStr).left.map(AgentError.DeserializationError(_))
       chunks <- json match
         case obj: Json.Obj =>
           obj.get("error") match

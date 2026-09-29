@@ -154,7 +154,7 @@ final class ReActAgent private (
       Left(AgentError.Interrupted("Structured output run ended before completion"))
     else
       val payload = captured match
-        case Some(json) => Right(json)
+        case Some(json) => StructuredOutput.validatedPayload(json)
         case None       => StructuredOutput.structuredPayload(rawResult.reply)
       for
         json <- payload.left.map(error =>

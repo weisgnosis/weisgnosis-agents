@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.weisgnosis.agents.core.client
+package com.weisgnosis.agents.core.json
 
 import zio.json.*
 import zio.json.ast.Json
 
 /** Shared wire validation rejects ambiguous keys before interpreting provider data. */
-private[client] object ProtocolJson:
+private[core] object JsonBoundary:
   private enum StringPosition:
     case Outside, Inside, Escaped
 
@@ -27,10 +27,14 @@ private[client] object ProtocolJson:
 
   def decode(value: String): Either[String, Json] =
     for
-      json <- value.fromJson[Json]
-      _    <- completeDocument(value, json)
-      _    <- uniqueFields(json)
-    yield json
+      json      <- value.fromJson[Json]
+      _         <- completeDocument(value, json)
+      validated <- validate(json)
+    yield validated
+
+  /** Checks immutable AST fields directly, preserving the supplied JSON representation. */
+  def validate(value: Json): Either[String, Json] =
+    uniqueFields(value).map(_ => value)
 
   private def whitespace(value: Char): Boolean =
     value == ' ' || value == '\t' || value == '\r' || value == '\n'

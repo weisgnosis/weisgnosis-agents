@@ -13,6 +13,8 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [ReActAgentThinkingRetrySpec](ReActAgentThinkingRetrySpec.scala)
 - [StructuredCompletionSpec](StructuredCompletionSpec.scala)
 - [StructuredOutputDynamicSpec](StructuredOutputDynamicSpec.scala)
+- [StructuredJsonBoundarySpec](StructuredJsonBoundarySpec.scala)
+- [StructuredOutputHttpSpec](StructuredOutputHttpSpec.scala)
 - [StructuredOutputSpec](StructuredOutputSpec.scala)
 
 ## Current evidence
@@ -31,7 +33,7 @@ StructuredOutputDynamicSpec covers the two runtime-schema weather scenarios thro
 
 - [x] `review_fp` and `review_harness` approved the two-scenario [dynamic JSON spec](StructuredOutputDynamicSpec.scala) against `3963104` on 2026-09-29, with no findings. Exact reviewed Git blob: `9f4a3360e8064a9e5ae72d5bb88588b1997ef2e9`. Verification passed 311 core and 40 harness tests; general JSON Schema validation and legacy event envelopes are outside this scope.
 
-- [x] `review_fp` and `review_harness` approved the ReActAgentThinkingRetrySpec migration to typed accumulator results and explicit finish markers against `10019c2` on 2026-09-29. Both original reminder/acting assertions remain verified. Verification at that revision passed 345 core and 40 harness tests; exact migrated file identity is recorded in the [client review scope](../client/README.md).
+- [x] `review_fp` and `review_harness` approved the ReActAgentThinkingRetrySpec migration to typed accumulator results and explicit finish markers against `10019c2` on 2026-09-29. Both original reminder/acting assertions remain verified. Verification at that revision passed 345 core and 40 harness tests; the migrated file is preserved in commit `73f66d1`.
 
 ## Model request correlation
 
@@ -39,7 +41,7 @@ ReAct allocates a fresh requestId under the current attempt replyId and passes M
 
 - [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
 
-The [client acceptance table](../client/README.md) records the exact final Scala file identities, including this package.
+Earlier live client/event identities and approval are recorded in `84e4eb3`; the [current client contracts](../client/README.md) link subsequent accepted changes.
 
 ## Completed tool observations
 
@@ -60,3 +62,13 @@ The identities below supersede earlier acceptance records for these files:
 | [ReActAgentEmissionSpec.scala](ReActAgentEmissionSpec.scala) | f921e3ec814d758f58c4e92aacb0c85b0e3446f5 |
 | [ReActAgentToolEventSpec.scala](ReActAgentToolEventSpec.scala) | 84a2327121f2b5a85985fe8e74fb2085dfb50852 |
 | [ModelStreamContextSpec.scala](../event/ModelStreamContextSpec.scala) | 6bf28be306402cdc081dfd4035a2563333a06600 |
+
+## Strict structured JSON
+
+Msg.getStructuredData and structured agent preparation share core.json.JsonBoundary. Text must contain one complete JSON value with unique object keys at every depth. Authoritative structured metadata is checked directly; invalid metadata fails without falling back to visible text. Captured synthetic payloads are checked before finalization. The synthetic tool also validates its entire input before extracting response, so duplicate wrapper keys or duplicates in ignored siblings cannot disappear during extraction. Valid wrapped and direct payload adaptation remains supported.
+
+This tightens previously permissive parsing; trailing input and ambiguous fields now fail through existing typed/string error channels. It does not add JSON Schema validation. Failed structured preparation publishes no AgentResult or structured metadata; raw observations can remain in history. The shared validator performs no effects and does not depend on models, agents, or transports.
+
+- [x] Six boundary regressions cover full text, duplicate text/metadata/captures/wrappers, metadata authority, and valid wrapped/direct values. Five real loopback HTTP tests cover native schema/thinking/usage, synthetic definition hoisting and compression, HTTP-400 fallback without duplicate input, no retry on HTTP 503, and rejection of trailing native JSON.
+- [x] `review_fp` and `review_harness` approved the final shared JSON/structured HTTP scope against `9c165a7` on 2026-09-29 after the wrapper-boundary correction. Full verification passed 404 core and 40 harness tests. No findings remain; the [JSON package table](../json/README.md) records exact current identities.
+- [ ] Complete capability/hook parity and broader provider compatibility; general JSON Schema validation is outside this acceptance.

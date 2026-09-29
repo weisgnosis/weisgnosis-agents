@@ -19,7 +19,7 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 392 core and 40 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 404 core and 40 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive model capability/hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
@@ -34,3 +34,5 @@ Prior independent documentation acceptance through `73f66d1` remains recorded in
 - [x] `review_docs` approved the final live client/event documentation against `60b3799` on 2026-09-29: sixteen final identities, eleven new tests, required client context, optional event context, live-order adaptation, 386+40 verification, English, and links. No findings remain in this scope.
 
 - [x] `review_docs` approved the final completed-tool-result documentation against `84e4eb3` on 2026-09-29: five final identities, six new regressions, persistence/publication order, sixteen contextual variants, 392+40 verification, English, and links. No findings remain in this scope.
+
+- [x] `review_docs` approved the final shared JSON/structured HTTP documentation against `9c165a7` on 2026-09-29: ten exact identities, twelve added tests, authoritative metadata and whole-wrapper validation, 404+40 verification, English, and links. No findings remain in this scope.
