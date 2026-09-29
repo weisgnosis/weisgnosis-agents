@@ -19,7 +19,7 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 529 core and 136 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 530 core and 154 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
@@ -32,3 +32,5 @@ Prior documentation reviews are preserved in Git through `40f6f05`. Current pack
 - [x] Independent documentation review approved compaction method accounting against `52da827`, including all 17 explicitly classified decisions, current source identities, and verification counts.
 
 - [x] Independent documentation review approved daily-memory extraction against `738b216`, including injected-storage scope, source identities, two daily mappings, three pending transcript mappings, and append partial-effect boundaries.
+
+- [x] Independent documentation review approved scoped local daily-memory storage against `d1a4cf2`, including current identities, cancellation and ownership semantics, atomic-move requirements, and explicit stale-lease/durability limits.

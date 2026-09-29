@@ -11,7 +11,7 @@ ReActAgent retains in-memory history through private Ref values and serializes r
 | Module | Available | Pending |
 | --- | --- | --- |
 | core | Models/codecs, event ADT, tools, path checks, SSE parsing/assembly, scoped HTTP completion, client port, ReAct and structured output | Provider extensions, complete event integration, and exhaustive upstream parity |
-| harness | Daily-memory extraction/store capability, compactor, token estimator, opt-in local/inline result eviction/store adapter, interactive policy adapter, approval requests, durable approval DTOs | Durable checkpoints, memory filesystem backend/consolidation, subagents, plan mode |
+| harness | Daily-memory extraction and scoped local storage, compactor, token estimator, opt-in local/inline result eviction/store adapter, interactive policy adapter, approval requests, durable approval DTOs | Durable checkpoints, memory consolidation/transcripts, subagents, plan mode |
 | mcp | Design scaffolding | Protocol, transports, discovery and toolkit bridge |
 
 Dependencies point from harness and mcp to core. Core must not import harness services. Hosts compose components and supply external dependencies.
@@ -31,7 +31,7 @@ Immediate eviction applies above 80,000 text characters with 2,000-character hea
 
 Permission gates combine with Deny > Ask > Passthrough > Allow. Unknown requests ask. Interactive requests use Promise; durable hosts serialize PendingApproval and later supply ConfirmResult. Decisions are not execution checkpoints or authenticated external approval tokens.
 
-Filesystem protection requires canonical paths and a valid ownership contract. The local store requires explicit WorkspaceTrust.HostControlled, OS-protected ancestors, and hard-link support. Untrusted workspaces fail closed. Canonical checks alone do not provide an atomic sandbox against hostile directory replacement.
+Filesystem protection requires canonical paths and a valid ownership contract. Local stores require explicit WorkspaceTrust.HostControlled and OS-protected ancestors. Tool-result publication requires hard-link support; daily-memory publication requires atomic-move support. Untrusted workspaces fail closed. Canonical checks alone do not provide an atomic sandbox against hostile directory replacement.
 
 ## Specifications and evidence
 

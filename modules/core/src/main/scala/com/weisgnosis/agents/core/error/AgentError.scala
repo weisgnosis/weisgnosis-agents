@@ -48,6 +48,9 @@ object AgentError:
   /** Request-only history projection failure; never a provider rejection eligible for fallback. */
   final case class ModelInputError(message: String) extends AgentError derives JsonCodec
 
+  /** Memory backend I/O or ownership failure; never a provider request rejection. */
+  final case class MemoryStorageError(message: String) extends AgentError derives JsonCodec
+
   final case class ToolExecutionError(
       toolName: String,
       message: String,

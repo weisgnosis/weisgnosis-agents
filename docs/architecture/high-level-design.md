@@ -28,9 +28,9 @@ The host owns durable transactions, replay, tenant authentication, and execution
 
 Core provides pure domain models and codecs, 39 event variants, typed tools, effectful path screening, SSE framing/assembly, scripted clients, and the ReAct state machine. ReAct supports bounded retries/iterations, timeout and interruption reconciliation, inline provider tools, and native/synthetic structured output. ChatCompletionsClient integrates scoped text/function HTTP completion with correlated incremental events.
 
-Harness provides pair-safe compaction, summary replacement and user provenance, token estimation, daily-memory extraction through an injected store, offload effects, immediate eviction, permission decisions, interactive Promise coordination, and serializable approval values.
+Harness provides pair-safe compaction, summary replacement and user provenance, token estimation, daily-memory extraction with scoped local storage, offload effects, immediate eviction, permission decisions, interactive Promise coordination, and serializable approval values.
 
-Local persistence explicitly requires WorkspaceTrust.HostControlled, OS-protected ancestors, and hard-link support. Untrusted fails closed. Canonical checks do not make attacker-writable directories safe.
+Local persistence explicitly requires WorkspaceTrust.HostControlled and OS-protected ancestors. Tool-result publication requires hard-link support; daily-memory publication requires atomic-move support. Untrusted fails closed. Canonical checks do not make attacker-writable directories safe.
 
 ToolResultEvictor.processor is an opt-in adapter for completed local and matched inline provider results in ReAct. ConversationCompactor.preparer installs compaction before model requests through the validated core history port. InteractivePermissionAuthorizer is an opt-in adapter for permission policy and active-invocation confirmation. Permission decisions are not durable execution checkpoints. Core ToolAuthorizer provides scoped local execution decisions and exact approved-input persistence; its default allows calls, and hosts can install the interactive harness adapter. Durable checkpoints remain pending.
 
@@ -40,11 +40,13 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ModelInputTransform projects a request-only history after canonical preparation commits and before ModelRequestStart. Its scope closes before structural validation and dispatch. Canonical history, recovery positions, and usage remain authoritative; projection failures use ModelInputError and cannot trigger native fallback. Complete pairs may be omitted without losing canonical eviction or stored payloads. The port transforms history only; semantic fidelity and newly injected content remain host responsibilities.
 
+LocalDailyMemoryStore.open provides a scoped daily-only backend for a host-controlled workspace. A CREATE_NEW ownership file excludes cooperating competitors; admitted filesystem work completes before cancellation/release. Whole UTF-8 ledgers are published through atomic replacement. Stale leases require explicit operator recovery; crash durability and untrusted workspace protection are not provided.
+
 ## Planned platform
 
 - [ ] Remaining provider/event integrations and retry/failover policies.
 - [ ] Agent middleware and durable HITL integration.
-- [ ] Filesystem daily-memory storage, MemoryConsolidator, transcript persistence, and memory scheduling.
+- [ ] MemoryConsolidator, transcript persistence, and memory scheduling.
 - [ ] Scoped subagents, depth limits, and persistent TaskSupervisor promotion.
 - [ ] Plan-mode tool restrictions and shell inspection.
 - [ ] MCP protocol, transports, discovery, and toolkit bridging.

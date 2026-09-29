@@ -28,5 +28,12 @@ object AgentErrorSpec extends ZIOSpecDefault:
         """{"message":"host text transformation failed"}"""
           .fromJson[AgentError.TextTransformationError] == Right(error)
       )
+    },
+    test("memory storage errors retain their typed message and JSON representation") {
+      val error = AgentError.MemoryStorageError("daily ownership unavailable")
+      assertTrue(
+        error.toJson.fromJson[AgentError.MemoryStorageError] == Right(error),
+        error.getMessage == error.message
+      )
     }
   )

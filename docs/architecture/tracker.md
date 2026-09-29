@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement a reviewed filesystem backend for daily memory, then curated consolidation/transcript persistence and memory lifecycle integration. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement curated consolidation with exclusive writer authority and its 4,000-token budget, then transcript persistence and memory lifecycle integration. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -69,7 +69,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Add scoped request-only model-input projection, retain canonical eviction/recovery authority, map all seven eviction methods with explicit adaptations, independently review sixteen new tests, and verify 529 core / 101 harness tests.
 - [x] Account for all seven compactor and ten compaction-middleware methods, strengthen exact routing and cancellation/session evidence, record explicit divergences and exclusions, independently review both suites, and verify 529 core / 114 harness tests.
 - [x] Implement daily-memory extraction/store capability and compactor integration; close the serialization-test review finding, obtain final independent approval, map both upstream daily methods, and verify 529 core / 136 harness tests.
-- [ ] Implement the filesystem daily-memory backend, MemoryConsolidator writer isolation and budget, and transcript persistence.
+- [x] Implement scoped cooperative filesystem daily-memory storage; reproduce and fix cancellation-after-write reporting, independently review nineteen new tests, and verify 530 core / 154 harness tests.
+- [ ] Implement MemoryConsolidator writer isolation and budget, transcript persistence, and scheduling.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.
 

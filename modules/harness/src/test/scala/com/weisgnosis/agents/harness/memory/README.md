@@ -12,7 +12,7 @@ Existing hardening regressions retain occurrence pairing, inline/local isolation
 
 - [x] `review_fp` and `review_harness` approved both changed compactor suites against `52da827` on 2026-09-29; no findings remain in this scope.
 - [x] Full formatting, fatal-warning compilation, and verification passed 529 core / 114 harness tests, including all 39 compactor cases. Thirteen cases were added and existing routing assertions strengthened.
-- [ ] Add filesystem, curated consolidation, transcript, and scheduling suites with their implementations.
+- [ ] Add curated consolidation, transcript, and scheduling suites with their implementations.
 
 Exact current test identities and failure/ownership contracts are maintained in the [memory README](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md). Prior acceptance remains in Git through `52da827`. Run `sbt "harness / test"` or repository-wide `sbt verify`.
 
@@ -25,3 +25,13 @@ Exact current test identities and failure/ownership contracts are maintained in 
 The store is an injected capability exercised with Ref-backed test implementations. These tests do not establish filesystem persistence, cross-process atomicity, semantic deduplication, or curated writes. Current source identities and review evidence belong in the [memory contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md).
 
 - [x] `review_fp` and `review_harness` approved the seven-file daily-memory extraction increment against `738b216` on 2026-09-29. No findings remain within the injected-store capability, scoped client extraction, provenance/date handling, one-manager serialization, and compactor integration. Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new tests. Filesystem persistence, cross-manager/process guarantees, consolidation, watermarks, and transcript offloading are excluded.
+
+## Filesystem verification
+
+- [LocalDailyMemoryStoreSpec](LocalDailyMemoryStoreSpec.scala): 12 real filesystem tests for missing context, dated UTF-8 appends, independent days, parallel whole entries, competing owners, scope reuse/closure/cancellation, unsafe/nonregular paths, manager integration, and hard-linked curated preservation.
+- [DailyMemoryLeaseSpec](DailyMemoryLeaseSpec.scala): six deterministic ownership tests for stale tokens, blocked scope closure, queued cancellation, admitted-work completion before cancellation, foreign-token retention, and explicit caller masking.
+- [MemoryTestSupport](MemoryTestSupport.scala): scoped temporary directories and directory streams; all filesystem operations are suspended.
+
+The admitted-cancellation test failed before the explicit pending-interruption check was added. Both ordinary and explicitly masked caller behavior are now covered. These tests exercise the local Windows filesystem; cross-process, dynamic symlink/junction, crash, and fsync guarantees are not claimed.
+
+- [x] `review_fp` and `review_harness` approved the final seven-file local daily-memory backend against `d1a4cf2` on 2026-09-29. Nineteen added tests exposed and corrected pending cancellation being reported as success after admitted work. Full formatting/fatal-warning verification passed 530 core / 154 harness tests. Acceptance covers cooperative ownership, scoped cleanup, day-derived paths, atomic replacement, and typed storage errors on the tested Windows filesystem. Crash durability, exactly-once delivery, hostile mutation protection, dynamic symlink/junction behavior, and automatic stale-lease recovery are excluded.

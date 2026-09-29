@@ -198,7 +198,6 @@ Final formatted scope against `40f6f05`:
 | [HistoryPreparer.scala](HistoryPreparer.scala) | 088d1464febe6be050ce43856305a0efe3b7f0e5 |
 | [ModelInputTransform.scala](ModelInputTransform.scala) | 4dd6b57426cdc37ac37c7453a75eb7159acdba99 |
 | [ReActAgent.scala](ReActAgent.scala) | 1edf2d31529e00a994de063aa2b486ac6f712d40 |
-| [AgentError.scala](../error/AgentError.scala) | a38fbf1d56ae73e0951a6142d1d4d9ed067155a5 |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 8a42440fcdbc2d5662cb67fbbf541483f2b865e5 |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 84d4648bf879e523cbf39f8d3bce74a2f90fac99 |
 | [ToolResultEvictorHistorySpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorHistorySpec.scala) | 3070eb8d3caf57c99243fb7675b5fbbe8d7f25e8 |
@@ -206,3 +205,5 @@ Final formatted scope against `40f6f05`:
 The changed compactor integration test identity from the history-preparation table is preserved in `52da827`; its current acceptance is in the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
 
 The compactor identity from the earlier preparation table is preserved in `738b216`; shared retained-user validation and daily extraction are reviewed in the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+
+The changed AgentError.scala identity from the earlier table is preserved in `d1a4cf2`; current local-memory error acceptance is in the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).

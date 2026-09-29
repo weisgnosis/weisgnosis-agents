@@ -1,6 +1,6 @@
 # Mid-level behavior and planned integrations
 
-Sections 1-6 describe current components. Section 7 separates implemented daily extraction from planned memory persistence and consolidation. Sections 8-10 describe planned behavior. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
+Sections 1-6 describe current components. Section 7 separates implemented daily extraction from scoped local storage and planned consolidation. Sections 8-10 describe planned behavior. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
 
 ## 1. ReAct lifecycle
 
@@ -67,13 +67,15 @@ ToolResultStore.local requires WorkspaceTrust. Untrusted fails before filesystem
 
 ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or AbsoluteDirectory(path). Absolute selection requires an existing host-owned directory and leaves the unused workspace untouched. Canonical/type checks run before each operation; protection of external ancestors remains a host requirement. The default path and publication semantics are unchanged.
 
-## 7. Daily memory and planned persistence
+## 7. Daily memory, local storage, and planned consolidation
 
 MemoryFlushManager reads curated and dated context through DailyMemoryStore, extracts new facts in a bounded scope, then appends a dated Markdown entry through that capability. No curated write or arbitrary path operation is exposed. One captured Clock instant and explicit zone (UTC by default) select both read and append dates. The manager expands validated coalesced-user provenance before excluding summaries, system/internal context, and thinking/media. Blank or trimmed exact NO_REPLY output skips append. Typed read/extraction/append failures propagate; extraction cancellation and extraction-scope cleanup defects prevent append. Cancellation or failure during append has backend-defined partial effects. One manager serializes read/extract/append operations; independent managers and backend/process concurrency require host coordination. Completed external writes cannot be rolled back.
 
 Install manager.flush as ConversationCompactor's flush callback. MemoryExtractor.fromClient sends a scoped standalone text request with no tools or response formatting; interrupted output remains cancellation. Semantic extraction quality and deduplication are model responsibilities.
 
-A filesystem backend for memory/YYYY-MM-DD.md, transcript persistence, watermarks, and scheduling remain pending. MemoryConsolidator will be the sole writer of curated MEMORY.md within a 4,000-token budget. The current store interface does not implement disk durability or curated writes.
+LocalDailyMemoryStore.open(workspace, WorkspaceTrust.HostControlled) owns memory/YYYY-MM-DD.md through a scoped CREATE_NEW lease with an opaque token. It rejects competing owners, unsafe paths and nonregular payload targets, and old handles after scope closure. Each append reads the current ledger, writes a scoped temporary file, then publishes through ATOMIC_MOVE without a non-atomic fallback. Scope closing waits for admitted work; ordinary pending cancellation is delivered after work completes, while explicit caller masking remains effective. No fsync/crash durability or exactly-once delivery is implied. Cleanup ownership failures become finalizer defects and retain the lease; an unfinished lease is never automatically removed.
+
+Transcript persistence, watermarks, and scheduling remain pending. MemoryConsolidator will be the sole writer of curated MEMORY.md within a 4,000-token budget. The local store reads curated memory but exposes no curated write operation.
 
 ## 8. Planned durable HITL integration
 
