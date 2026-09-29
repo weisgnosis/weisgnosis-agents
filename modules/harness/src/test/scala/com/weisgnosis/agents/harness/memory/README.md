@@ -88,3 +88,14 @@ The masked-acquisition regression failed before the worker was made explicitly i
 These seventeen added tests cover flush integration only. Maintenance gate/consolidator scheduling and automatic outcome monitoring remain excluded.
 
 - [x] `review_fp` and `review_harness` approved the final four-file flush-scheduler increment against `1c8e3ee` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 324 harness tests, including 17 new integration cases, with zero compiler warnings. No findings remain within shared pure preparation, successful-completion queue integration, immutable snapshots, worker-side triggers, ticket handoff, local reopen and awaited compactor flushing. Maintenance scheduling, automatic receipt monitoring, live-history reads and stronger durability remain outside this scope.
+
+## Consolidation scheduler verification
+
+- [MemoryConsolidationSchedulerSpec](MemoryConsolidationSchedulerSpec.scala): six cases for a blocked real gate outside agent completion, all returned results after cleanup, post-commit reporting failure, execution-time storage reads, shared-owner coalescing and disabled maintenance.
+- [MemoryConsolidationSchedulerLifecycleSpec](MemoryConsolidationSchedulerLifecycleSpec.scala): six cases for owner cancellation after commit, no-pending interval consumption, gate errors without retry, failed/cancelled turns, registration failure and closed/full admission.
+- [MemoryLifecycleIsolationSpec](MemoryLifecycleIsolationSpec.scala): eight local scope/order combinations use actual flush/consolidation work, shared gates, rebuilt adapters, invocation/report counts and committed curated state.
+- [MemorySchedulerCompositionSpec](MemorySchedulerCompositionSpec.scala): two cases establish opportunistic FIFO replacement order and local consolidation persistence after reporting failure and owner reopen.
+
+The [production contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md) owns source identities and acceptance. Background receipts acknowledge pipeline termination, not exactly-once reporting, unchanged storage after failure, or strict per-turn flush/consolidation dependencies. Remote matrix combinations and retention remain unfinished.
+
+- [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.

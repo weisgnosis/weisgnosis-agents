@@ -19,7 +19,7 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 552 core and 324 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 555 core and 346 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
@@ -50,3 +50,5 @@ Prior documentation reviews are preserved in Git through `40f6f05`. Current pack
 - [x] `review_docs` approved the corrected scoped queue documentation against `ad12c7b`: five identities, twenty new tests, bounded coalescing, explicit runtime ticket outcomes, host-owned cleanup and pending real middleware integration. Full verification passed 552 core / 307 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
 
 - [x] `review_docs` approved the corrected flush-scheduler documentation against `1c8e3ee`: four identities, seventeen new tests, immutable completed snapshots, explicit receipt handoff, four upstream runtime adaptations and pending maintenance work. Full verification passed 552 core / 324 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+
+- [x] `review_docs` approved the corrected consolidation/composition documentation against `3e817e3`: seven identities, 25 new cases, scoped composition, reporting limits, FIFO ordering and conservative parity classifications. Full verification passed 555 core / 346 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.

@@ -250,3 +250,33 @@ Final formatted four-file scope against `1c8e3ee`:
 - [x] `review_fp` and `review_harness` approved the final four-file flush-scheduler increment against `1c8e3ee` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 324 harness tests, including 17 new integration cases, with zero compiler warnings. No findings remain within shared pure preparation, successful-completion queue integration, immutable snapshots, worker-side triggers, ticket handoff, local reopen and awaited compactor flushing. Maintenance scheduling, automatic receipt monitoring, live-history reads and stronger durability remain outside this scope.
 
 - [x] `review_docs` approved the corrected flush-scheduler documentation against `1c8e3ee`: four identities, seventeen new tests, immutable completed snapshots, explicit receipt handoff, four upstream runtime adaptations and pending maintenance work. Full verification passed 552 core / 324 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+
+## Completion-triggered consolidation
+
+[MemoryConsolidationScheduler](MemoryConsolidationScheduler.scala) binds one consolidator, result callback, shared trigger gate and queue to a fresh owner token. Reuse one scheduler across conversations of that memory owner. Fresh schedulers do not coalesce with old tokens; sharing the same gate preserves trigger reservations. The owner must keep storage and queue scopes alive through all admitted work.
+
+submit only admits work. The serial worker claims Maintenance, then reads the latest committed storage snapshot through the consolidator. Disabled/Throttled jobs complete successfully without consolidation or result reporting. Admission reserves the interval even when consolidation returns NoPendingMemories or later fails. A subsequent daily append does not bypass the reserved interval.
+
+The mandatory report callback receives every returned ConsolidationResult: Committed, Conflict, EmptyResponse and NoPendingMemories. It runs after consolidator extraction cleanup. Its typed failure, defect or interruption remains in the task receipt; it cannot undo a completed commit. A Unit receipt does not retain a result that the host failed to record or distinguish consolidation failure from reporting failure. Failure, missing reports and interrupted receipts do not prove that storage stayed unchanged: cancellation can interrupt acknowledgement after mutation. Inspect storage before deciding whether to repeat extraction; there is no automatic retry or exactly-once reporting guarantee.
+
+completionObserver(registerTicket) admits only successful execution Exit values, including cooperative recovery, and skips failed/external-cancellation exits. The required synchronous ticket handoff follows the flush scheduler contract: host-owned retention and inspection, no invocation-scope monitor, and no implicit inspection guarantee. Closed/capacity rejection or registration failure fails required completion observation and suppresses AgentResultEvent; registration failure occurs after admission and does not roll back the job. Background gate, consolidation and reporting failures remain in tickets after the agent invocation finishes.
+
+TurnCompletionObserver.andThen composes lazy, fail-fast observations in separate scopes, closing the first before starting the next. Use it to combine transcript observation, flush admission and consolidation admission. This orders observer execution and admission, not execution dependencies between replaced jobs. With F1 running and M1 pending, the next flush F2 joins behind M1; replacing M1 with M2 preserves that earlier queue position. M2 can therefore consolidate F1 before F2 writes. This is opportunistic consolidation of currently committed daily data; F2 stays pending for a later maintenance trigger. A host requiring strict flush-then-consolidate execution must use one composite job or an external continuation after the flush ticket settles. Never await same-queue tickets inside the single worker.
+
+This scheduler performs consolidation only. Daily retention expiry, ledger archival, session-file pruning, distributed authority, durable work receipts and operational monitoring are separate unfinished capabilities. The local reopen regression establishes persisted consolidation despite a failed report, not crash or power-loss durability.
+
+## Current consolidation/composition identities
+
+Final formatted increment against `3e817e3`; independent acceptance is recorded below.
+
+| Source | Git blob |
+| --- | --- |
+| [MemoryConsolidationScheduler.scala](MemoryConsolidationScheduler.scala) | 866ade773a1f6f72aecc75c1808abf569cd5819f |
+| [MemoryConsolidationSchedulerLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidationSchedulerLifecycleSpec.scala) | 52cb68b9d9151cfca1924e09337af6f86f2df965 |
+| [MemoryConsolidationSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidationSchedulerSpec.scala) | 978a32d2c3a77dd93cc9b6e01a1e8213c1dcf5bd |
+| [MemoryLifecycleIsolationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryLifecycleIsolationSpec.scala) | b2834aa19526dc9a4c55b7ec2334b08abd7cc096 |
+| [MemorySchedulerCompositionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemorySchedulerCompositionSpec.scala) | 09dce79b7ea16b2e64c7c2720ad7a76feb28723a |
+
+- [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
+
+- [x] `review_docs` approved the corrected consolidation/composition documentation against `3e817e3`: seven identities, 25 new cases, scoped composition, reporting limits, FIFO ordering and conservative parity classifications. Full verification passed 555 core / 346 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.

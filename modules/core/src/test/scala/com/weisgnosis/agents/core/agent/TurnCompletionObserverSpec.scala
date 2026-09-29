@@ -50,6 +50,60 @@ object TurnCompletionObserverSpec extends ZIOSpecDefault:
         )
         .as(assertTrue(failed.history == completion.history))
     },
+    test("composition is lazy and closes each scope before observing the next") {
+      for
+        seen <- Ref.make(Chunk.empty[String])
+        first = TurnCompletionObserver(value =>
+          ZIO.addFinalizer(seen.update(_ :+ "first closed")) *> seen.update(_ :+ value.agentId)
+        )
+        second = TurnCompletionObserver(value =>
+          ZIO.addFinalizer(seen.update(_ :+ "second closed")) *> seen.update(
+            _ :+ value.history.map(_.text).mkString
+          )
+        )
+        composed = first.andThen(second)
+        before <- seen.get
+        _      <- ZIO.scoped(composed.observe(completion))
+        after  <- seen.get
+      yield assertTrue(
+        before.isEmpty,
+        after == Chunk("agent", "first closed", "q", "second closed")
+      )
+    },
+    test(
+      "composition preserves typed failure and cleanup defects without running the next observer"
+    ) {
+      val failure = AgentError.CompletionObservationError("first failed")
+      val defect  = new IllegalStateException("cleanup failed")
+      for
+        ran <- Ref.make(false)
+        first  = TurnCompletionObserver(_ => ZIO.addFinalizer(ZIO.die(defect)) *> ZIO.fail(failure))
+        second = TurnCompletionObserver(_ => ran.set(true))
+        exit    <- ZIO.scoped(first.andThen(second).observe(completion)).exit
+        nextRan <- ran.get
+      yield assertTrue(
+        !nextRan,
+        exit.causeOption.exists(cause =>
+          cause.failures.contains(failure) && cause.defects.contains(defect)
+        )
+      )
+    },
+    test("interrupting a composed observation closes the active scope and skips its successor") {
+      for
+        entered <- Promise.make[Nothing, Unit]
+        cleaned <- Ref.make(false)
+        ran     <- Ref.make(false)
+        first = TurnCompletionObserver(_ =>
+          ZIO.addFinalizer(cleaned.set(true)) *> entered.succeed(()) *> ZIO.never
+        )
+        second = TurnCompletionObserver(_ => ran.set(true))
+        fiber   <- ZIO.scoped(first.andThen(second).observe(completion)).forkScoped
+        _       <- entered.await
+        exit    <- fiber.interrupt
+        closed  <- cleaned.get
+        nextRan <- ran.get
+      yield assertTrue(exit.isInterrupted, closed, !nextRan)
+    },
     test("observation errors preserve wire identity and cannot be provider fallback errors") {
       val error = AgentError.CompletionObservationError("persist failed")
       for invalid <- typeCheck("""

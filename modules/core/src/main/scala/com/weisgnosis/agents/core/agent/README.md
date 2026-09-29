@@ -228,17 +228,34 @@ The previous ReActAgent.scala identity is preserved in `0349b1a`; its current id
 
 ## Current completion-observer identities
 
-Final formatted eight-file scope against `0349b1a`:
+Six unchanged identities from the eight-file scope against `0349b1a`; changed observer identities are recorded below, with their previous versions preserved in `3e817e3`:
 
 | File | Git blob |
 | --- | --- |
 | [ReActAgent.scala](ReActAgent.scala) | 3aa3e96aa3b6de6c8413b3f0fd6aa2cf794f05ac |
-| [TurnCompletionObserver.scala](TurnCompletionObserver.scala) | 502c191f4bc2ea2f73197e1b1886fa6ed277f2d2 |
 | [AgentError.scala](../error/AgentError.scala) | 4d3862fa5056580dc210b2273f9106436195a50c |
 | [ReActAgentCompletionInterruptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionInterruptSpec.scala) | c26004f7c289c66638e725857bc2225acb7e1a03 |
 | [ReActAgentCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionSpec.scala) | 2b6f5f8edad11ad0023c15c5905d9d69136e908f |
-| [TurnCompletionObserverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/TurnCompletionObserverSpec.scala) | 6c658885ede57eb1d542817c4e46ba8dade2a622 |
 | [SessionTranscriptWriter.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) | da27d3446e30ee7f77f4eaaac2d424200ac17383 |
 | [TranscriptCompletionSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/transcript/TranscriptCompletionSpec.scala) | 5a6a1a89ff46ae70df874db6b7826154a84065b5 |
 
 - [x] `review_docs` approved completion-observer documentation against `0349b1a`, including all eight identities, 28 new cases, late cancellation, early-stream error visibility, explicit anonymous policy, compactor offload and remaining lifecycle work. Full verification passed 552 core / 264 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+
+## Completion observer composition
+
+TurnCompletionObserver.andThen lazily composes two observations in separate scopes. The first scope closes before the second starts; typed failure, defects and interruption skip the successor and preserve their causes. Composition remains subject to the run-lock and completion-observation cancellation rules above. Composing background scheduler observers orders admission, not task dependencies after queue coalescing; see the [memory scheduling contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+
+Previous TurnCompletionObserver.scala and TurnCompletionObserverSpec.scala identities are preserved in `3e817e3`. Their current identities belong to the consolidation/composition increment below.
+
+## Current consolidation/composition identities
+
+Final formatted increment against `3e817e3`; independent acceptance is recorded below.
+
+| Source | Git blob |
+| --- | --- |
+| [TurnCompletionObserver.scala](TurnCompletionObserver.scala) | 8ac76932121b863c3de7a461452baea3c1bd3489 |
+| [TurnCompletionObserverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/TurnCompletionObserverSpec.scala) | 8a0a1031e7e8abf00c529a6bfe1b2b62d53dd0d1 |
+
+- [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
+
+- [x] `review_docs` approved the corrected consolidation/composition documentation against `3e817e3`: seven identities, 25 new cases, scoped composition, reporting limits, FIFO ordering and conservative parity classifications. Full verification passed 555 core / 346 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.

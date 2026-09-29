@@ -85,3 +85,9 @@ Ten ReActAgentToolResultProcessorSpec scenarios verify raw persistence before pr
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 264 harness tests, including 28 new cases, with zero compiler warnings. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
 Exact identities and callback restrictions are in the [source contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+## Completion observer composition
+
+TurnCompletionObserverSpec now has six tests, including three added composition cases: lazy execution with separate ordered scope cleanup, preservation of typed failure plus cleanup defects, and cancellation skipping the successor. Current source identities and acceptance are in the [core agent contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+- [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.

@@ -38,6 +38,12 @@ final case class TurnCompletion(
 trait TurnCompletionObserver:
   def observe(completion: TurnCompletion): ZIO[Scope, AgentError.CompletionObservationError, Unit]
 
+  /** Close this observer's scope before the next; failure or interruption skips remaining observers. */
+  final def andThen(next: TurnCompletionObserver): TurnCompletionObserver =
+    TurnCompletionObserver(completion =>
+      ZIO.scoped(observe(completion)) *> ZIO.scoped(next.observe(completion))
+    )
+
 object TurnCompletionObserver:
   val ignore: TurnCompletionObserver = TurnCompletionObserver(_ => ZIO.unit)
 

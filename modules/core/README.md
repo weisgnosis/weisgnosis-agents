@@ -20,7 +20,7 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 - [x] Revision `fb80428`: agent lifecycle and path traversal fixes explicitly approved by independent reviewer `review_harness` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
 - [x] Structured-output completion fixes based on `a58b0ca` approved by `review_fp` and `review_harness`; the agent package README records accepted revisions and current contracts.
-- [x] Repository verification: 552 core and 324 harness tests passed, with no compiler warnings.
+- [x] Repository verification: 555 core and 346 harness tests passed, with no compiler warnings.
 - [x] Strict model decoding, legacy usage compatibility, Base64 wire naming, and role validation approved by review_fp and review_harness; exact scope and source identities are recorded in the model READMEs.
 - [x] Correlated engine-attempt boundaries and private stream completion approved by review_fp and review_harness; the agent READMEs record accepted revisions, current contracts, and buffering assumptions.
 - [x] Consistent concrete/base event codecs and immutable tool-result event metadata reviewed independently; the event READMEs record exact scope and migration details.
@@ -70,4 +70,6 @@ Deprecated v1 coarse-event envelopes are explicitly excluded from core after ind
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 264 harness tests, including 28 new cases, with zero compiler warnings. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-The [core completion contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md) defines callback lifetime, late cancellation, and early-stream failure visibility. Transcript installation requires an explicit anonymous-message policy; maintenance scheduling remains pending.
+The [core completion contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md) defines callback lifetime, late cancellation, and early-stream failure visibility. Transcript installation requires an explicit anonymous-message policy. Completion observers compose with separate scopes; owned harness flush/consolidation scheduling is opt-in.
+
+- [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.

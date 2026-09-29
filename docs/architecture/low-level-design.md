@@ -143,3 +143,9 @@ TRef and TPromise commit registration, replacement, state transitions and receip
 MemoryFlushScheduler.make(queue, gate, scope, manager): UIO[MemoryFlushScheduler] allocates a conversation capability. submit(history): IO[AgentError, MemoryFlushSubmission] returns Empty or Queued(MemoryTaskSubmission). completionObserver(registerTicket: MemoryTaskTicket => IO[CompletionObservationError, Unit]) supplies the core adapter. MemoryFlushManager.prepare is package-private and pure, returning Empty or Ready with lazy effects; direct flush and scheduler reuse it.
 
 Runtime submissions include tickets and have no JSON codec. The injected callback is a receipt handoff contract, not an automatic background monitor. See the [scheduler source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryFlushScheduler.scala).
+
+## Consolidation worker contract
+
+MemoryConsolidationScheduler.submit enqueues a suspended Maintenance claim under its stable owner token. Admitted runs consolidator.consolidate and then the required result callback; Disabled/Throttled completes without a result report. Completion observation registers accepted tickets synchronously or fails with CompletionObservationError on Closed/Capacity. Registration failure follows admission and does not roll back work. Typed callback errors, defects and cancellation remain in the task receipt; storage can already contain the commit. Reporting is neither transactional with persistence nor automatically retried.
+
+TurnCompletionObserver.andThen runs each callback through its own ZIO.scoped region. Scope cleanup precedes the successor, and any failure prevents it. Queue replacement preserves pending FIFO positions, so admission composition does not impose flush/consolidation execution dependencies. See the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md) for ownership and current source identities.

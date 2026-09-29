@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: integrate owned background maintenance/consolidation scheduling and its asynchronous gate tests; remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement daily retention and session pruning with explicit storage ownership and conservative deletion semantics; remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -78,7 +78,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Implement typed memory trigger policies and explicit shared monotonic admission; independently review 23 new cases, local method adaptations and cleanup hardening, and verify 552 core / 287 harness tests.
 - [x] Implement the bounded host-owned task queue, per-owner serialization and pending conversation coalescing; reproduce/fix masked-worker shutdown, independently review twenty new cases and verify 552 core / 307 harness tests.
 - [x] Integrate completion-triggered background flush with pure eligibility, immutable snapshots, worker-side gates and explicit host receipts; map four upstream async-flush methods, independently review 17 new cases and verify 552 core / 324 harness tests.
-- [ ] Integrate owned maintenance/consolidation scheduling, asynchronous gate behavior and remaining throttle integration assertions.
+- [x] Integrate owned consolidation scheduling, separately scoped observer composition, asynchronous gate behavior and all eight local throttle integration combinations; independently review 25 added cases and verify 555 core / 346 harness tests.
+- [ ] Implement daily retention expiry and session pruning through explicit owned storage capabilities.
 - [ ] Implement remote memory/transcript storage, timestamp-watermark migration, and scheduling.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.
