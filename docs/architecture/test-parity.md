@@ -550,12 +550,14 @@ The new ConsolidationStore/MemoryConsolidator contracts deliberately strengthen 
 
 - [x] `review_fp` and `review_harness` approved the final six-file consolidation increment against `46c6174` on 2026-09-29. Twenty-one new tests and full formatting/fatal-warning verification passed 530 core / 175 harness tests. No findings remain within process-local atomic content/progress commits, separate writer capabilities, scoped extraction, configured-counter budget enforcement, and conflict handling. Filesystem transactions, persistent watermarks, crash recovery, and the five upstream filesystem mappings remain outside this scope.
 
-Pinned `agent/memory/MemoryConsolidatorFilesystemTest.java` contains five tests. All remain pending until a concrete persistent backend and compatibility decisions exist:
+Pinned `agent/memory/MemoryConsolidatorFilesystemTest.java` contains five tests. The local backend supplies three explicit adaptations below; the remote scenarios remain pending. These are not timestamp-wire equivalence claims:
 
-- [ ] `readWatermark_returnsEpochWhenStateAbsent`: missing-state timestamp semantics.
+- [x] `readWatermark_returnsEpochWhenStateAbsent`: reviewed local adaptation in LocalMemoryRepositorySpec; missing checkpoint leaves every daily input pending and creates no curated/checkpoint payload. No Instant.EPOCH semantics.
 - [ ] `watermark_roundTripThroughFilesystem`: injected backend timestamp round trip.
 - [ ] `watermark_doesNotCreateLocalFile`: selected remote authority with no local fallback write.
-- [ ] `stateFileRelPath_matchesConstant`: compatibility with memory/.consolidation_state.
-- [ ] `watermark_localFallback_whenNoFilesystem`: explicit local storage selection and physical state persistence.
+- [x] `stateFileRelPath_matchesConstant`: reviewed local adaptation in LocalMemoryRepositorySpec; exact memory/.consolidation_state location with versioned JSON contents.
+- [x] `watermark_localFallback_whenNoFilesystem`: reviewed local adaptation in LocalMemoryRepositorySpec; explicitly selected local repository persists checkpoint and progress across reopen, without automatic fallback or timestamp semantics.
 
 The 21 new Scala tests verify atomic content/progress, conflict preservation, deterministic inputs, configured-counter budget enforcement, writer capabilities, and failure/cancellation cleanup. They are not substitutes for these five persistence mappings.
+
+- [x] `review_fp` and `review_harness` approved the final nine-file persistence increment against `e4bd6b0` on 2026-09-29. No findings remain within cooperative local ownership, strict journal validation, recovery before API operations, conditional content/progress publication, and persisted generation tracking. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 209 harness tests, including 34 new persistence tests, with zero compiler warnings. Acceptance covers constructed interrupted-publication states on the tested Windows filesystem; live crash/fault-injection, fsync durability, remote storage, and hostile mutation are excluded.

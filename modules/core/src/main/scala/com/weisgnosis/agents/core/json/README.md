@@ -1,6 +1,6 @@
 # Shared JSON boundaries
 
-JsonBoundary is core-internal and pure. It has no dependency on model, agent, or transport packages. decode parses one complete document with JSON whitespace, validates container/string/primitive boundaries, and rejects duplicate object keys throughout the tree. validate checks an existing immutable AST directly, preserving its representation. Both operations return Either[String, Json].
+JsonBoundary is library-internal (private[agents]) and pure. It has no dependency on model, agent, or transport packages. decode parses one complete document with JSON whitespace, validates container/string/primitive boundaries, and rejects duplicate object keys throughout the tree. validate checks an existing immutable AST directly, preserving its representation. Both operations return Either[String, Json].
 
 The implementation moved from client.ProtocolJson so Msg, structured output, request encoding, delta decoding, and tool accumulation can share the same authority boundary. Existing AST validation avoids re-encoding and parsing. This is JSON syntax/ambiguity validation, not JSON Schema validation or a request-size limit.
 
@@ -20,7 +20,6 @@ The following identities supersede earlier acceptance records for changed files.
 | [ChatCompletionsRequest.scala](../client/ChatCompletionsRequest.scala) | ed7f2f592fe5ce0205f35521955dabed171a614a |
 | [ReasoningModelAdapter.scala](../client/ReasoningModelAdapter.scala) | 72ae618a2309d972887169d140863711fffe3123 |
 | [StreamAccumulator.scala](../client/StreamAccumulator.scala) | 223c6aeb22a15ee9d6fa45945b5b914d48c10a57 |
-| [JsonBoundary.scala](JsonBoundary.scala) | d7d83434ff76b2a89943edb60b2b2878742fc458 |
 | [StructuredJsonBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredJsonBoundarySpec.scala) | d967396a6c6e6cd9842c0fe69eb5ba14def41685 |
 | [StructuredOutputHttpSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputHttpSpec.scala) | 93610a93773fb649034e575803c6fc49d1d15ca2 |
 | [JsonBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/json/JsonBoundarySpec.scala) | c08295405b54cd3684e23f21344fe0fa2fbe35a3 |
@@ -30,3 +29,5 @@ The ReActAgent identity from this increment is preserved in `06bd2e1`; its subse
 StructuredOutput from the JSON increment is preserved in `06bd2e1`; its subsequent single-transfer usage correction is covered by current agent acceptance.
 
 Commit `06bd2e1` preserves the reviewed JSON-scope Msg identity; its current occurrence-update scope is recorded in the core tool README.
+
+The previous JsonBoundary identity is preserved in e4bd6b0. Its visibility now permits harness memory checkpoints/journals to reuse strict parsing without exposing a public API; parsing behavior is unchanged. Current persistence review and identity are recorded in the [harness memory README](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).

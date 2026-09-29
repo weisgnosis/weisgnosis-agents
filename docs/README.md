@@ -19,7 +19,7 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 530 core and 175 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 530 core and 209 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
@@ -36,3 +36,5 @@ Prior documentation reviews are preserved in Git through `40f6f05`. Current pack
 - [x] Independent documentation review approved scoped local daily-memory storage against `d1a4cf2`, including current identities, cancellation and ownership semantics, atomic-move requirements, and explicit stale-lease/durability limits.
 
 - [x] Independent documentation review approved atomic in-memory consolidation against `46c6174`, including current identities, capability separation, estimator limits, conflict handling, and five pending filesystem mappings.
+
+- [x] `review_docs` approved recoverable local consolidation documentation against `e4bd6b0`: all nine identities, 34 new cases, migration, three local adaptations/two pending remote scenarios, and API-only recovery guarantees. Full verification passed 530 core / 209 harness tests; all 59 Markdown files passed link/script checks.

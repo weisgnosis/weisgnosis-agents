@@ -28,7 +28,7 @@ The host owns durable transactions, replay, tenant authentication, and execution
 
 Core provides pure domain models and codecs, 39 event variants, typed tools, effectful path screening, SSE framing/assembly, scripted clients, and the ReAct state machine. ReAct supports bounded retries/iterations, timeout and interruption reconciliation, inline provider tools, and native/synthetic structured output. ChatCompletionsClient integrates scoped text/function HTTP completion with correlated incremental events.
 
-Harness provides pair-safe compaction, summary replacement and user provenance, token estimation, daily-memory extraction with scoped local storage and atomic in-memory consolidation, offload effects, immediate eviction, permission decisions, interactive Promise coordination, and serializable approval values.
+Harness provides pair-safe compaction, summary replacement and user provenance, token estimation, daily-memory extraction with scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, offload effects, immediate eviction, permission decisions, interactive Promise coordination, and serializable approval values.
 
 Local persistence explicitly requires WorkspaceTrust.HostControlled and OS-protected ancestors. Tool-result publication requires hard-link support; daily-memory publication requires atomic-move support. Untrusted fails closed. Canonical checks do not make attacker-writable directories safe.
 
@@ -42,13 +42,13 @@ ModelInputTransform projects a request-only history after canonical preparation 
 
 LocalDailyMemoryStore.open provides a scoped daily-only backend for a host-controlled workspace. A CREATE_NEW ownership file excludes cooperating competitors; admitted filesystem work completes before cancellation/release. Whole UTF-8 ledgers are published through atomic replacement. Stale leases require explicit operator recovery; crash durability and untrusted workspace protection are not provided.
 
-MemoryConsolidator validates replacement memory against a 1–4,000 token budget using the supplied counter before committing. Its store snapshot revision covers curated and daily state, so stale output conflicts instead of overwriting newer memory. MemoryRepository.inMemory atomically updates curated content and acknowledged daily inputs; the filesystem consolidation backend remains pending.
+MemoryConsolidator validates replacement memory against a 1–4,000 token budget using the supplied counter before committing. Its store snapshot revision covers curated and daily state, so stale output conflicts instead of overwriting newer memory. MemoryRepository.inMemory atomically updates curated content and acknowledged daily inputs; LocalMemoryRepository gives cooperating API users coherent content/progress visibility through an exclusive lease and roll-forward journal. Raw filesystem readers can observe intermediate files; no fsync or power-loss durability is claimed.
 
 ## Planned platform
 
 - [ ] Remaining provider/event integrations and retry/failover policies.
 - [ ] Agent middleware and durable HITL integration.
-- [ ] Persistent consolidation transactions, transcript persistence, and memory scheduling.
+- [ ] Remote memory storage and timestamp-watermark migration, transcript persistence, and memory scheduling.
 - [ ] Scoped subagents, depth limits, and persistent TaskSupervisor promotion.
 - [ ] Plan-mode tool restrictions and shell inspection.
 - [ ] MCP protocol, transports, discovery, and toolkit bridging.

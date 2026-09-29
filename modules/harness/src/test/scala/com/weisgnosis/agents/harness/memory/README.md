@@ -12,7 +12,7 @@ Existing hardening regressions retain occurrence pairing, inline/local isolation
 
 - [x] `review_fp` and `review_harness` approved both changed compactor suites against `52da827` on 2026-09-29; no findings remain in this scope.
 - [x] Full formatting, fatal-warning compilation, and verification passed 529 core / 114 harness tests, including all 39 compactor cases. Thirteen cases were added and existing routing assertions strengthened.
-- [ ] Add persistent consolidation, transcript, and scheduling suites with their implementations.
+- [ ] Add transcript and scheduling suites with their implementations; local consolidation acceptance follows below.
 
 Exact current test identities and failure/ownership contracts are maintained in the [memory README](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md). Prior acceptance remains in Git through `52da827`. Run `sbt "harness / test"` or repository-wide `sbt verify`.
 
@@ -41,6 +41,18 @@ The admitted-cancellation test failed before the explicit pending-interruption c
 - [MemoryRepositorySpec](MemoryRepositorySpec.scala): six tests for daily/curated writer separation, atomic content/progress observations, stale revisions, later pending appends, domain codecs, and compile-time rejection of cross-store revision tokens.
 - [MemoryConsolidatorSpec](MemoryConsolidatorSpec.scala): 15 tests for deterministic prompts, blank/no-input behavior, exact budget boundaries, default estimation, malformed inputs, scope-before-commit, errors/cancellation, concurrent mutation, competing consolidators, per-instance serialization, and shared daily/client-backed integration.
 
-These are process-local atomicity and service-contract tests. All five upstream watermark filesystem methods remain explicitly pending in the [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md). No timestamp watermark, local fallback, filesystem transaction, or crash guarantee is inferred from the in-memory repository.
+These are process-local atomicity and service-contract tests. The earlier increment left all five upstream watermark filesystem methods pending; current local adaptations are tracked in the [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md). No timestamp watermark, local fallback, filesystem transaction, or crash guarantee is inferred from the in-memory repository.
 
 - [x] `review_fp` and `review_harness` approved the final six-file consolidation increment against `46c6174` on 2026-09-29. Twenty-one new tests and full formatting/fatal-warning verification passed 530 core / 175 harness tests. No findings remain within process-local atomic content/progress commits, separate writer capabilities, scoped extraction, configured-counter budget enforcement, and conflict handling. Filesystem transactions, persistent watermarks, crash recovery, and the five upstream filesystem mappings remain outside this scope.
+
+## Recovery and persistence verification
+
+- [LocalMemoryRepositorySpec](LocalMemoryRepositorySpec.scala): 25 cases for exact checkpoint placement, reopen/progress, stale revisions, identical-content generations, all four old/new publication combinations through both entry points, recovery before every operation, mismatch retention, absent/empty distinction, malformed/legacy data, shared ownership, stale leases, and consolidator integration.
+- [MemoryJournalSpec](MemoryJournalSpec.scala): six strict-decoding and fingerprint cases.
+- [MemoryFilesSpec](MemoryFilesSpec.scala): three real filesystem cases for enumeration, nonregular targets, and journal-only removal.
+
+The recovery matrix seeds deterministic interrupted-publication states. These are not real process-crash tests or injected I/O failures midway through a live commit. Existing DailyMemoryLeaseSpec verifies admitted-work cancellation and scope ordering; LocalDailyMemoryStoreSpec remains the shared backend's daily regression suite. Test evidence does not establish fsync/power-loss durability, cross-process races, or dynamic symlink/junction resistance. Three upstream filesystem methods have explicit local adaptations; two remote scenarios remain pending in the parity mapping.
+
+Current persistence review status and exact identities are maintained in the source memory README.
+
+- [x] `review_fp` and `review_harness` approved the final nine-file persistence increment against `e4bd6b0` on 2026-09-29. No findings remain within cooperative local ownership, strict journal validation, recovery before API operations, conditional content/progress publication, and persisted generation tracking. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 209 harness tests, including 34 new persistence tests, with zero compiler warnings. Acceptance covers constructed interrupted-publication states on the tested Windows filesystem; live crash/fault-injection, fsync durability, remote storage, and hostile mutation are excluded.

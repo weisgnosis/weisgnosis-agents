@@ -1,6 +1,6 @@
 # Mid-level behavior and planned integrations
 
-Sections 1-6 describe current components. Section 7 describes implemented daily extraction, scoped daily storage, and process-local consolidation, with persistent consolidation explicitly pending. Sections 8-10 describe planned behavior. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
+Sections 1-6 describe current components. Section 7 describes implemented daily extraction, scoped daily storage, and process-local consolidation, and recoverable local consolidation. Sections 8-10 describe planned behavior. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
 
 ## 1. ReAct lifecycle
 
@@ -79,7 +79,9 @@ MemoryConsolidator receives a separate ConsolidationStore capability with no dai
 
 A snapshot revision covers every curated/daily/progress mutation and must never be reused. Commit atomically replaces curated content and acknowledges precisely that snapshot, or returns Conflict without change. Stale output is never retried against a refreshed revision. MemoryRepository.inMemory provides concrete Ref-based authority with separate daily and consolidation ports and a non-wrapping BigInt revision. Later appends make the complete changed day pending again. No timestamps are used as progress authority.
 
-Persistent consolidation, watermark-format compatibility, transcript persistence, and scheduling remain pending. LocalDailyMemoryStore only reads curated MEMORY.md; it does not implement ConsolidationStore. Two independent file replacements would not satisfy the atomic content/progress contract.
+LocalMemoryRepository opens both capabilities under the same cooperative .daily-writer.lease. Every operation first recovers a pending consolidation journal. The journal binds old/new curated content, checkpoint generations, and all daily SHA-256 fingerprints; mismatches fail before writes and retain the journal. Recovery publishes missing new components, verifies them, then removes the journal. Publishing the journal commits the candidate to recovery; a later failure may therefore have uncertain acknowledgement. This is coherent visibility through cooperating APIs, not a multi-file transaction for arbitrary filesystem readers or fsync/power-loss durability.
+
+LocalDailyMemoryStore delegates to this repository. Its capability cannot propose curated changes, but opening or using it may publish an already journaled curated transaction during recovery. Open one full repository and distribute its ports; independent owners conflict. The versioned JSON checkpoint uses memory/.consolidation_state and rejects legacy timestamps instead of silently resetting progress. Remote storage, watermark migration, transcripts, and scheduling remain pending.
 
 ## 8. Planned durable HITL integration
 

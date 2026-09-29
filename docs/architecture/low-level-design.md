@@ -69,6 +69,7 @@ ModelInputTransform projects a request-only history after canonical preparation 
 | MemoryConsolidator | make validates budget 1..4000; consolidate returns typed no-op/commit/conflict outcomes | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidator.scala) |
 | ConsolidationStore | Abstract Revision, atomic snapshot, conditional atomic content/progress commit; no daily writer | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConsolidationStore.scala) |
 | MemoryRepository | inMemory returns separate daily/consolidation ports sharing Ref authority | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryRepository.scala) |
+| LocalMemoryRepository | scoped shared lease; journal recovery precedes every daily/consolidation operation | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/LocalMemoryRepository.scala) |
 | LocalDailyMemoryStore | open returns ZIO[Scope, AgentError, DailyMemoryStore]; cooperative lease, canonical paths, atomic daily replacement | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryStore.scala) |
 | MemoryExtractor | Scoped extract to visible text; fromClient removes tools/response formatting and preserves interruption | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryExtractor.scala) |
 | CompactorConfig | 120k trigger, 40k keep/protect, six retained messages, 2k pruning threshold | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/CompactorConfig.scala) |
@@ -86,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, persistent consolidation/transcripts/scheduling, durable checkpoint storage, subagents, plan-mode enforcement, and MCP are not implemented. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory storage, transcript persistence/scheduling, durable checkpoint storage, subagents, plan-mode enforcement, and MCP are not implemented. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -104,6 +105,6 @@ ToolResultProcessor returns a payload of output blocks and metadata. Runtime app
 
 ## Shared JSON authority
 
-The core-internal json.JsonBoundary replaces client.ProtocolJson. Its decode operation requires one complete unique-key JSON document; validate checks AST fields directly. Msg structured extraction, agent preparation, synthetic wrapper decoding, and client boundaries share these contracts. Invalid authoritative metadata does not fall back to text, and duplicate wrapper fields fail before subtree selection. Native/synthetic HTTP integration is verified without claiming a general JSON Schema validator.
+The library-internal json.JsonBoundary replaces client.ProtocolJson. Its decode operation requires one complete unique-key JSON document; validate checks AST fields directly. Msg structured extraction, agent preparation, synthetic wrapper decoding, and client boundaries share these contracts. Harness memory checkpoints and journals also reuse its syntax validation. Invalid authoritative metadata does not fall back to text, and duplicate wrapper fields fail before subtree selection. Native/synthetic HTTP integration is verified without claiming a general JSON Schema validator.
 
 ToolResultProcessor applies to completed local observations and matched provider inline results. Local observations own appended Tool-message positions; inline observations own assistant positions and result ordinals. Scope cleanup precedes processed payload commit and completion events. A bounded failed acting phase pairs unrecorded local calls with Error observations while preserving the original cause. Explicit worker ownership retains cancellation-finalizer defects; ordinary cancellation retains recovery semantics. See the [agent contracts](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).

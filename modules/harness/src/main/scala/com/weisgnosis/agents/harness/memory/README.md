@@ -1,6 +1,6 @@
 # Conversation compaction
 
-ConversationCompactor accepts an effectful summarizer, a pure TokenCounter, and optional flush/offload callbacks. Defaults: triggerTokens=120000, keepTokens=40000, preserveTailMessages=6, maxPruneOutputChars=2000, protectTokens=40000. Valid histories below the trigger remain unchanged. Compaction prunes older payloads, preserves matched call/result pairs and protected tails, deduplicates summaries, and coalesces adjacent user messages. Retained-user provenance survives coalescing for later flushing. MemoryFlushManager implements daily extraction through an injected store; a scoped local backend and atomic in-memory consolidation are available; persistent consolidation remains pending.
+ConversationCompactor accepts an effectful summarizer, a pure TokenCounter, and optional flush/offload callbacks. Defaults: triggerTokens=120000, keepTokens=40000, preserveTailMessages=6, maxPruneOutputChars=2000, protectTokens=40000. Valid histories below the trigger remain unchanged. Compaction prunes older payloads, preserves matched call/result pairs and protected tails, deduplicates summaries, and coalesces adjacent user messages. Retained-user provenance survives coalescing for later flushing. MemoryFlushManager implements daily extraction through an injected store; scoped local storage, atomic in-memory consolidation, and recoverable local consolidation are available.
 
 ## Pairing and pruning
 
@@ -39,7 +39,7 @@ ToolResultEvictor.preparer can precede ConversationCompactor.preparer via Histor
 - [x] `review_fp` and `review_harness` approved the two test-file diff against `52da827` on 2026-09-29, with no findings. Thirteen additional cases and strengthened existing assertions cover exact summary/flush/tail routing, short-circuiting, preparation and downstream cancellation, mixed causes, and separate-agent isolation.
 - [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 529 core and 114 harness tests, including 39 compactor tests, with zero compiler warnings. Production code is unchanged in this increment.
 - [x] All seven compactor and ten middleware methods have explicit [applicability decisions](../../../../../../../../../../docs/architecture/test-parity.md#compaction-method-applicability). Failure-policy divergences, summary identity, structured causes, session ownership, and the cyclic-Throwable exclusion are explicit; literal middleware equivalence is not claimed.
-- [ ] Implement persistent consolidation satisfying atomic content/progress publication.
+- [x] Complete the bounded local consolidation acceptance recorded below.
 
 Previous implementation/hardening approvals remain in Git through `52da827`. Current reviewed test blobs (Git-normalized):
 
@@ -60,7 +60,7 @@ One Clock instant and explicit zone (UTC default) bind the context lookup, entry
 
 - [x] `review_fp` and `review_harness` approved the seven-file daily-memory extraction increment against `738b216` on 2026-09-29. No findings remain within the injected-store capability, scoped client extraction, provenance/date handling, one-manager serialization, and compactor integration. Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new tests. Filesystem persistence, cross-manager/process guarantees, consolidation, watermarks, and transcript offloading are excluded.
 - [x] Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new daily-memory tests and all 39 compactor regressions.
-- [ ] Add persistent consolidation, transcript offloading, watermark compatibility, and scheduling.
+- [ ] Add remote memory storage, transcript offloading, watermark migration, and scheduling.
 
 Current daily-memory Git-normalized source identities; prior compactor implementation identity is preserved in `738b216`:
 
@@ -75,7 +75,7 @@ Current daily-memory Git-normalized source identities; prior compactor implement
 
 ## Scoped local daily store
 
-[LocalDailyMemoryStore.open](LocalDailyMemoryStore.scala) returns ZIO[Scope, AgentError, DailyMemoryStore] and requires WorkspaceTrust.HostControlled. The host must protect the workspace and every ancestor against uncoordinated mutation. Untrusted is rejected before filesystem access. The existing workspace is screened for traversal/sensitive paths and canonicalized; memory is created if absent and must be a canonical non-symlink directory. Payload targets must be regular non-symlink files within their expected parent. Only memory/<ISO-date>.md payloads are written. MEMORY.md remains read-only, including when a daily file was originally hard-linked to it.
+[LocalDailyMemoryStore.open](LocalDailyMemoryStore.scala) returns ZIO[Scope, AgentError, DailyMemoryStore] and requires WorkspaceTrust.HostControlled. The host must protect the workspace and every ancestor against uncoordinated mutation. Untrusted is rejected before filesystem access. The existing workspace is screened for traversal/sensitive paths and canonicalized; memory is created if absent and must be a canonical non-symlink directory. Payload targets must be regular non-symlink files within their expected parent. The daily capability can propose writes only to memory/<ISO-date>.md. Daily append preserves curated content even when a daily file was originally hard-linked to it. This entry point delegates to LocalMemoryRepository: opening or using the daily capability may publish a previously journaled curated replacement during recovery; it is not a globally read-only curated path.
 
 [DailyMemoryLease](DailyMemoryLease.scala) atomically creates memory/.daily-writer.lease with an opaque owner token using CREATE_NEW. Competing acquisitions never remove or overwrite it. One store serializes admitted operations; its scope waits for them, marks the handle Closed, verifies the token, then deletes the lease. Queued operations can be cancelled without entering. Admitted filesystem work runs with interruption masked; ordinary pending cancellation is delivered afterward, while an explicitly uninterruptible caller retains its policy. Slow filesystem operations can delay cancellation and scope closure. Handles escaped from a closed scope fail with MemoryStorageError.
 
@@ -87,7 +87,7 @@ The protocol uses the Java [CREATE_NEW contract](https://docs.oracle.com/en/java
 
 - [x] `review_fp` and `review_harness` approved the final seven-file local daily-memory backend against `d1a4cf2` on 2026-09-29. Nineteen added tests exposed and corrected pending cancellation being reported as success after admitted work. Full formatting/fatal-warning verification passed 530 core / 154 harness tests. Acceptance covers cooperative ownership, scoped cleanup, day-derived paths, atomic replacement, and typed storage errors on the tested Windows filesystem. Crash durability, exactly-once delivery, hostile mutation protection, dynamic symlink/junction behavior, and automatic stale-lease recovery are excluded.
 - [ ] Verify cross-process contention and dynamic symlink/junction cases on each supported platform; the current executable contention checks use independent store instances in one JVM.
-- [ ] Implement persistent consolidation and transcript/scheduling services. The daily backend adds no new upstream method-parity claim.
+- [ ] Implement transcript/scheduling services and remote memory storage. The earlier daily-only increment added no new upstream method-parity claim.
 
 Current local-backend Git-normalized identities:
 
@@ -95,7 +95,6 @@ Current local-backend Git-normalized identities:
 | --- | --- |
 | [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | 60bce493355c17de2bede7b72a9f8a3ed5c08f1f |
 | [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | 1f914bd470342b0c7db3dbb9202de0ac7096e171 |
-| [LocalDailyMemoryStore.scala](LocalDailyMemoryStore.scala) | e807a3148e2516719a27b0b47fafcdb3bdf17bce |
 | [DailyMemoryLease.scala](DailyMemoryLease.scala) | 0dedea9f6a4d67263455cf1dd358484e3b5810cd |
 | [MemoryTestSupport.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTestSupport.scala) | 9807cd55acc444c355095e4225e38e1b4f585f0d |
 | [LocalDailyMemoryStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryStoreSpec.scala) | 232a08a6ac50c6e4e32873cee36752765b4f51fb |
@@ -113,8 +112,8 @@ The output budget is enforced against counter.count(Msg.assistant(strippedOutput
 
 MemoryExtractor.fromClient also serves consolidation, preserving scoped text-only requests and rejecting tool observations. A MemoryFlushManager receives only the repository's daily writer; MemoryConsolidator receives only its curated writer. Hosts are trusted capability owners. Separate consolidator instances can extract concurrently, but only one can commit against a given revision.
 
-- [ ] Implement a persistent ConsolidationStore with recovery and coherent content/progress publication. LocalDailyMemoryStore is not that implementation; separate atomic moves of MEMORY.md and a progress file are insufficient by themselves.
-- [ ] Complete all five pinned upstream watermark filesystem mappings and transcript/scheduling integration. No new upstream filesystem equivalence is claimed by this process-local increment.
+The recoverable local implementation is described below; its journal and shared ownership gate supply the missing protocol around separate atomic file replacements.
+- [ ] Complete the two remote filesystem mappings, timestamp-watermark migration, and transcript/scheduling integration. The earlier process-local increment did not establish filesystem equivalence.
 
 - [x] `review_fp` and `review_harness` approved the final six-file consolidation increment against `46c6174` on 2026-09-29. Twenty-one new tests and full formatting/fatal-warning verification passed 530 core / 175 harness tests. No findings remain within process-local atomic content/progress commits, separate writer capabilities, scoped extraction, configured-counter budget enforcement, and conflict handling. Filesystem transactions, persistent watermarks, crash recovery, and the five upstream filesystem mappings remain outside this scope.
 
@@ -123,8 +122,37 @@ The previous MemoryExtractor comment identity is preserved in `46c6174`; its cur
 | Source | Blob identity |
 | --- | --- |
 | [ConsolidationStore.scala](ConsolidationStore.scala) | bc4d87299b785335051b8c44553c0c3670b859dd |
-| [MemoryRepository.scala](MemoryRepository.scala) | f1e5867eec1de34bca02e0fafc27af7d0adc34d4 |
 | [MemoryConsolidator.scala](MemoryConsolidator.scala) | 016e5611a60974cc47ac44e3bef109c573779be2 |
 | [MemoryExtractor.scala](MemoryExtractor.scala) | fe620774f366965032f4582046b8fc79282ec164 |
 | [MemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRepositorySpec.scala) | 090804a4d20f01d838c8d7e381175287374cadc2 |
 | [MemoryConsolidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidatorSpec.scala) | 49f460b8ba9e77b202e146b50a0c6b9b561445b1 |
+
+## Recoverable local consolidation
+
+[LocalMemoryRepository.open](LocalMemoryRepository.scala) returns a scoped MemoryRepository for a host-controlled workspace. Share its daily and consolidation ports instead of opening separate owners. Both ports use the existing .daily-writer.lease, canonical location checks, and the same admission gate. [MemoryFiles](MemoryFiles.scala) derives every destination from an internal typed identifier; journal data never selects a path. Directory enumeration considers canonical ISO-date Markdown names and ignores metadata, temporary files, and unrelated names; a nonregular date-matching entry fails explicitly.
+
+[MemoryJournal](MemoryJournal.scala) validates complete JSON documents, duplicate/unknown keys, numeric representation, supported versions, canonical dates/transaction identifiers, fingerprints, and generation transitions before recovery writes. Shared library-internal JsonBoundary supplies document/duplicate validation. Checkpoints retain a BigInt generation, transaction identity, and acknowledged SHA-256 daily content digests. Revisions bind curated presence/content, checkpoint, and current daily fingerprints; successful same-content commits still advance generation across reopen. Progress assumes cooperative append-only daily writes and SHA-256 collision resistance; external edits are outside the ownership contract.
+
+A conditional commit first compares the current snapshot. Conflict publishes no candidate. On success it atomically publishes memory/.consolidation_journal, then replaces MEMORY.md and memory/.consolidation_state. Every open/read/append/snapshot/commit first recovers under the same lease. Recovery accepts each component only in its recorded old or new state and validates all daily inputs before its first write. Absent curated content differs from a present empty file. Unexpected data fails closed and retains the journal. Missing new components are published, both are re-read and verified, and only then is the journal removed. Raw daily ledgers remain unchanged by consolidation.
+
+Journal publication commits the candidate to roll-forward recovery. An error or cancellation after publication can have uncertain acknowledgement: a later operation may complete the candidate. Inspect the recovered snapshot before deciding whether a new extraction is needed; do not automatically replay model output. API users honoring the shared lease observe coherent content/progress. Uncoordinated raw file readers can observe intermediate files. There is no fsync/power-loss durability, raw multi-file atomicity, exactly-once extraction, automatic stale-lease removal, or hostile-filesystem guarantee. The existing operator procedure for abandoned leases still applies before reopening.
+
+Migration: .consolidation_state is the upstream path, but its versioned JSON contents deliberately replace timestamp-only watermarks. Legacy timestamp content is rejected by consolidation without reset or overwrite; no timestamp migration or remote filesystem adapter is implemented. Daily-only open remains source compatible but participates in recovery and therefore may publish an already journaled curated transaction. The former LocalDailyMemoryStore and MemoryRepository identities are preserved in e4bd6b0.
+
+- [x] `review_fp` and `review_harness` approved the final nine-file persistence increment against `e4bd6b0` on 2026-09-29. No findings remain within cooperative local ownership, strict journal validation, recovery before API operations, conditional content/progress publication, and persisted generation tracking. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 209 harness tests, including 34 new persistence tests, with zero compiler warnings. Acceptance covers constructed interrupted-publication states on the tested Windows filesystem; live crash/fault-injection, fsync durability, remote storage, and hostile mutation are excluded.
+- [x] `review_docs` approved the final persistence documentation against `e4bd6b0`, including nine current identities, 34 new cases, three local upstream adaptations, two pending remote scenarios, migration, and durability limits. All 59 Markdown files passed local link/script checks; git diff --check passed.
+- [ ] Add remote storage/migration, transcript persistence, and scheduling; verify cross-process and dynamic path behavior on each supported platform.
+
+Current Git-normalized persistence identities (previous changed identities remain in e4bd6b0):
+
+| Source | Blob identity |
+| --- | --- |
+| [JsonBoundary.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/JsonBoundary.scala) | 12240a5fcf0d9e5d46dc2eb67963a5a963a003e5 |
+| [LocalDailyMemoryStore.scala](LocalDailyMemoryStore.scala) | 2a8c2ddfc0a7a9940bd0da7ead4a8b6c16ed5ed7 |
+| [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | 9059a5c65117261b5b24d2d9d22c340685364cfe |
+| [MemoryFiles.scala](MemoryFiles.scala) | cc7cd93dc6c64b40a2b956ed1341223ea7cf6521 |
+| [MemoryJournal.scala](MemoryJournal.scala) | 443dc330686ac166d5146852bf872d221531c3db |
+| [MemoryRepository.scala](MemoryRepository.scala) | 83df0fbf056c634b5f7cb44642a4c213f5ab7c0b |
+| [LocalMemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalMemoryRepositorySpec.scala) | 6fc453b560fd36612ba3eb5470d75814edc0b36d |
+| [MemoryFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFilesSpec.scala) | 80b616760f88a68fb8fb289cc87d079dcba7f259 |
+| [MemoryJournalSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryJournalSpec.scala) | 3ab28f0738b396ef5b277febb514564059cc5bf8 |

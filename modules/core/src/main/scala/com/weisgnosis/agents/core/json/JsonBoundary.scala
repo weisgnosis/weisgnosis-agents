@@ -18,8 +18,8 @@ package com.weisgnosis.agents.core.json
 import zio.json.*
 import zio.json.ast.Json
 
-/** Shared wire validation rejects ambiguous keys before interpreting provider data. */
-private[core] object JsonBoundary:
+/** Shared wire validation rejects ambiguous keys before interpreting external data. */
+private[agents] object JsonBoundary:
   private enum StringPosition:
     case Outside, Inside, Escaped
 

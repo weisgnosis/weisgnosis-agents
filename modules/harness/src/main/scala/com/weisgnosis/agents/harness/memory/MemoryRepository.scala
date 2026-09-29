@@ -20,7 +20,7 @@ import java.time.LocalDate
 import zio.*
 
 /** Distinct write capabilities sharing one authority for curated and daily content. */
-final class MemoryRepository private (
+final class MemoryRepository private[memory] (
     val daily: DailyMemoryStore,
     val consolidation: ConsolidationStore
 )
