@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: complete missing event payloads and runtime integrations against the pinned upstream revision; remaining structured-output API scenarios are explicitly unchecked in the parity task list.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: integrate event payloads into runtime publication and continue explicit wire/legacy compatibility mapping against the pinned upstream revision; remaining structured-output API scenarios are explicitly unchecked in the parity task list.
 
 ### Foundation and current core
 
@@ -27,7 +27,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Correct lifecycle correlation, private stream completion, and ordered draining; receive independent approval and verify 177 core / 40 harness tests.
 - [x] Correct all 31 concrete/base event codecs and existing tool-result metadata serialization; classify 30 upstream event declarations and verify 185 core / 40 harness tests.
 - [x] Implement and independently review all 31 protocol event identifiers and 11 aliases; verify 195 core / 40 harness tests.
-- [ ] Complete payload adapters, missing variants, runtime metadata emission, phase-stop integration, and event ordering.
+- [x] Add all eight missing event payloads and expand concrete/base codec coverage to 39 variants; verify 291 core / 40 harness tests.
+- [ ] Complete event payload adapters, runtime metadata emission, phase-stop integration, and event ordering.
 - [ ] Map every remaining applicable core method to Scala coverage, a justified difference, or a gap.
 - [ ] Close remaining structured-output and lifecycle parity gaps; see the [parity task list](test-parity.md).
 - [ ] Implement live HTTP transport and protocol integration tests.

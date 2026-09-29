@@ -22,7 +22,7 @@ Dependencies point from harness and mcp to core. Core must not import harness se
 - Toolkit registration and merging return typed errors. Tools retain input/output types; failures become Error observations and cancellation propagates.
 - AgentResult.state is Completed, Suspended, or Interrupted. ReAct currently produces Completed or Interrupted; Suspended is a domain capability, not installed durable middleware.
 - LlmClient is an interface with scripted implementations. Independent SSE parsing and assembly do not imply a live transport.
-- AgentEvent is a sealed hierarchy of 31 variants. Some variants belong to planned subsystems.
+- AgentEvent is a sealed hierarchy of 39 variants. Some variants belong to planned subsystems.
 - Native structured output supplies LlmConfig.responseFormat; transports serialize it. Synthetic output uses generate_response and removes only synthetic context blocks.
 
 ## Context and permissions

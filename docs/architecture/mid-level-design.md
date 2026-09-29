@@ -23,7 +23,7 @@ Cooperative interruption returns Interrupted AgentRunState. Fiber cancellation s
 
 StreamAccumulator groups parallel argument fragments by streamIndex and sanitizes incomplete interrupted JSON. ReasoningModelAdapter handles protocol deltas; SseParser handles framing. LlmClient is a port, not a live HTTP transport.
 
-AgentEvent defines 31 variants; streamEvents delivers those emitted by available components and propagates model failures. Closing the stream cancels its scoped producer.
+AgentEvent defines 39 variants; streamEvents delivers those emitted by available components and propagates model failures. Closing the stream cancels its scoped producer.
 
 ## 4. Structured output
 

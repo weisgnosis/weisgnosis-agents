@@ -10,3 +10,5 @@
 Update these living documents when behavior changes. Current acceptance belongs in the affected module/package README; resolved temporary review reports are removed after explicit reviewer approval.
 
 The message boundary contracts now document private construction, typed role factories, validated updates, and the 26 immutable factory adaptations. All 119 message methods now have checked coverage/adaptations; the tracker retains broader parity and runtime integration gaps. Content codecs and ToolUse protocol states now have explicit wire migration notes.
+
+Event contracts distinguish 39 Scala payload variants from 31 protocol identifiers. All 13 enabled stream-test methods have mapped identifier/payload evidence; runtime ordering and legacy event compatibility remain open.

@@ -1,50 +1,53 @@
-# Typed agent events
+# Typed agent event payloads
 
-AgentEvent defines 31 event variants with JSON codecs and source tagging through withSource. Runtime publication uses ZIO Hub; serialization does not allocate IDs or read the clock.
-
-## Implementation
+AgentEvent defines 39 immutable payload variants with JSON codecs and withSource tagging. Available runtime components publish through ZIO Hub, but class/codec support does not imply every event is emitted. Serialization never allocates IDs or reads the clock.
 
 - [AgentEvent](AgentEvent.scala)
 - [AgentEventType](AgentEventType.scala)
 
-See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md) for integration boundaries and invariant definitions.
+## Codec and metadata contracts
 
-## Codec compatibility and metadata
+All 39 concrete/base codecs encode the same object with exactly one lowercase event discriminator. Concrete decoders also read legacy untagged payloads; a supplied tag must match. Base decoding requires a unique valid tag. Missing required fields, malformed tags, and duplicate discriminators fail. Immutable source updates preserve every other field.
 
-All 31 concrete and base event codecs encode the same object with exactly one lowercase `event` discriminator. Leaf decoders also read legacy untagged payloads; a supplied tag must match that leaf. Base decoding requires a tag. Missing required fields, malformed tags, and duplicate discriminators fail decoding. Source tagging returns a fresh event without changing its payload.
+ToolResultStartEvent, ToolResultDeltaEvent, ToolResultEndEvent, and ToolResultDataDeltaEvent retain immutable metadata independently of source. Empty metadata is the default. Broader runtime metadata propagation remains pending. Isolated private payload derivation and a suspended root codec prevent encoder cycles; there is no silent AST encoding fallback.
 
-ToolResultStartEvent, ToolResultDeltaEvent, and ToolResultEndEvent carry immutable metadata maps, independent of their optional source. Empty metadata is the default; supplied malformed metadata fails decoding. This is a serialization contract: broader runtime metadata emission remains pending.
+## Additional payloads
 
-Private derived payload codecs are isolated from public tagged codecs to prevent recursive encoder selection. The parent uses normal discriminated-sum derivation. Custom glue validates compatibility input and shares the parent encoder; there is no manual field encoder, unchecked cast, or silent AST encoding fallback.
-
-Migration: concrete event encoding now includes the discriminator. Existing tagged base payloads and legacy untagged leaf payloads remain readable. Tool-result event payloads can now include metadata. Upstream uppercase type identifiers and aliases are available through AgentEventType, but full `type` payloads require a separate adapter; these codecs do not claim cross-language wire compatibility.
-
-## Codec review acceptance at b2901eb
-
-- [x] Independent reviewers `review_fp` and `review_harness` approved the codec and metadata changes based on `62478ce`, on 2026-09-29, with no unresolved findings in this scope.
-- [x] Formatting, fatal-warning compilation, and all 185 core / 40 harness tests passed. The focused suite reproduced concrete/base encoding, discriminator, and metadata defects before correction.
-- [x] Classify all 30 upstream legacy/current event declarations, distinguishing enabled tests from seven disabled ordering placeholders.
-- [x] Complete upstream type aliases in the separately reviewed identifier contract below.
-- [ ] Complete payload adapters, missing event variants, runtime metadata emission, and ordering scenarios in the parity task list.
-
-| Reviewed source | Git blob |
+| Variant | Fields |
 | --- | --- |
-| AgentEvent.scala | 9a000a4072808bea4d615615028c38ed6087c4c4 |
-| AgentEventSerdeSpec.scala | 7237d4965aa30732cd1a5d3fdaa85bcfb6524ed1 |
+| AgentResultEvent | Complete validated result Msg |
+| DataBlockStartEvent / DataBlockEndEvent | replyId, blockId |
+| DataBlockDeltaEvent | replyId, blockId, delta String |
+| ToolResultDataDeltaEvent | replyId, toolCallId, toolCallName, arbitrary ContentBlock data, metadata |
+| ExceedMaxItersEvent | replyId, maxIters, currentIter |
+| RequestStopEvent | reason, typed generateReason; absent/JSON-null classification defaults to MiddlewareStopRequested |
+| AllToolsDeniedEvent | Immutable deniedToolCalls; absent/JSON-null collection defaults to empty |
 
-## Protocol event identifiers
+Supplied malformed reasons/collections fail decoding. Result messages and data blocks retain their nested validation. RequestStop describes a requested phase stop; receiving or decoding it does not cancel a fiber, suspend a phase, or resume pending work. AgentResult payload support does not claim finalized structured result publication.
 
-AgentEventType provides 31 canonical uppercase names and all 11 legacy aliases, including REPLY_START/REPLY_END and THREAD_EXPOSED. fromValue is a pure immutable lookup returning Either[AgentError, AgentEventType]. Matching is case-sensitive; unknown identifiers and malformed JSON fail. Encoding always uses the canonical uppercase name.
+## Protocol identifiers and compatibility
 
-This identifier codec is independent of the established AgentEvent object codec. It does not translate `type` payloads to `event` payloads, add missing variants, allocate IDs/timestamps, or establish emitter support.
+AgentEventType remains a separate 31-name uppercase identifier contract with 11 aliases. fromValue is a pure lookup returning Either[AgentError, AgentEventType]; matching is case-sensitive and encoding uses the canonical uppercase name. Scala's 39 payload variants include extensions and differ from this identifier surface.
 
-- [x] `review_fp` and `review_harness` independently approved AgentEventType and AgentEventTypeSpec based on `b2901eb`, on 2026-09-29, with no unresolved findings in the identifier scope.
-- [x] Verify all 31 names, 11 aliases, nine enabled upstream identifier methods, and the legacy 25-name surface; JSON null rejection replaces the Java null-reference test.
-- [x] Formatting, fatal-warning compilation, and all 195 core / 40 harness tests passed.
-- [x] Provide typed generation reasons in the separately reviewed model package.
-- [ ] Complete missing payloads, runtime emitters, phase-stop integration, and explicit wire adapters.
+Existing lowercase event objects remain canonical. Concrete event encoding includes the discriminator; legacy untagged leaf decoding remains supported. The eight additions do not alter existing payload fields. Their presence does not translate upstream uppercase type objects or add the universal id/createdAt envelope. Explicit field/envelope adapters and effectful identity/time allocation remain separate work; full Java API/wire equivalence is not claimed.
 
-| Reviewed source | Git blob |
+## Current acceptance
+
+- [x] `review_fp` and `review_harness` approved shared event codecs/metadata at `b2901eb` and protocol identifiers at `d3d003d`.
+- [x] Both reviewers approved the final three-file payload increment against `66bb42d` on 2026-09-29; no findings remain in its scope.
+- [x] AgentEventSerdeSpec exercises all 39 variants through concrete/base codecs, legacy leaf input, repeated source tagging, and strict discriminator validation.
+- [x] AgentEventPayloadSpec adds seven payload tests, including toolResultDataDeltaEventMetadataRoundTrip, nested validation, immutable fields, and optional-value normalization.
+- [x] `sbt scalafmtAll scalafmtSbt verify` passed 291 core and 40 harness tests with zero compiler warnings.
+- [ ] Implement runtime publication/order, correlated block assembly, finalized structured result emission, and metadata propagation.
+- [ ] Implement phase-stop authority, durable pending-work resumption, and permission-driven denied-call publication.
+- [ ] Complete legacy coarse-event classification and explicit uppercase payload/envelope adapters.
+
+The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes the 13 enabled stream-test methods from seven disabled ordering placeholders and ten legacy coarse-event tests. Enabled payload/identifier method coverage is not runtime-ordering evidence. Current reviewed content:
+
+| File | Git blob |
 | --- | --- |
-| AgentEventType.scala | 7d3238de6b51d9bb9df817dd4f866b91c993654c |
-| AgentEventTypeSpec.scala | b881e98ba39ed97e292ac16acf3c4101f48b0d11 |
+| [AgentEvent.scala](AgentEvent.scala) | 189673e0cd692fe7fddf8db5e586bd50a122796f |
+| [AgentEventType.scala](AgentEventType.scala) | 7d3238de6b51d9bb9df817dd4f866b91c993654c |
+| [AgentEventSerdeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/AgentEventSerdeSpec.scala) | e03c43bdbaf2d97c4e43d32ba3f2aa0c8700d46f |
+| [AgentEventPayloadSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/AgentEventPayloadSpec.scala) | 0912c9e7f25e7e90440caeeb8aa3314eaa61488c |
+| [AgentEventTypeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/AgentEventTypeSpec.scala) | b881e98ba39ed97e292ac16acf3c4101f48b0d11 |

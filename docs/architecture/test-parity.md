@@ -280,20 +280,21 @@ MsgSpec test MsgTests.testConstructor preserves supplied timestamp and metadata 
 The independent audit found the following gaps; completed corrections are checked below. The earlier six Scala event tests did not establish upstream parity. The upstream legacy agent/EventTest and newer event/AgentEventStreamTest are separate contracts.
 
 - [x] Map the ten legacy EventTest methods and all 20 AgentEventStreamTest declarations, distinguishing 13 enabled tests from seven disabled ordering placeholders.
-- [x] Use one canonical tagged representation for all 31 concrete/base event codecs; cross-decoding and legacy leaf decoding are tested.
+- [x] Use one canonical tagged representation for all 39 concrete/base event codecs; cross-decoding and legacy leaf decoding are tested.
 - [x] Preserve immutable metadata on existing tool-result start/text-delta/end events through decoding, encoding, and repeated source tagging.
-- [ ] Add the missing tool-result data-delta event and its metadata contract.
+- [x] Add tool-result data-delta payload and its immutable metadata contract; AgentEventPayloadSpec verifies round-trip and repeated source tagging.
 - [ ] Carry applicable tool-result metadata through runtime event emitters; current acceptance covers codecs.
 - [x] Classify current event/lowercase and upstream type/uppercase wire formats as noninterchangeable; existing Scala wire tags remain canonical for compatibility.
 - [x] Implement the separate AgentEventType identifier codec for all 31 canonical names and 11 aliases.
 - [ ] Implement explicit field/payload adapters; identifier parsing alone cannot establish compatibility.
-- [ ] Implement or explicitly classify AgentResult, DataBlockStart/Delta/End, ToolResultDataDelta, ExceedMaxIters, RequestStop, and AllToolsDenied event kinds.
+- [x] Implement AgentResult, DataBlockStart/Delta/End, ToolResultDataDelta, ExceedMaxIters, RequestStop, and AllToolsDenied payloads and codecs.
+- [ ] Integrate these payloads with runtime publication, correlated block assembly, final structured results, phase stopping, and durable pending-work resumption.
 - [x] Correct AgentStart/AgentEnd correlation with one runtime pair per engine attempt. ReActAgentEventSpec verifies identity, private completion, buffering order, failure, cancellation, timeout, and early consumer cleanup. Structured-call completion remains a separate pending API.
-- [x] Exercise all 31 variants with repeated source tagging and verify tool-result metadata remains independent of source.
+- [x] Exercise all 39 variants with repeated source tagging and verify tool-result metadata remains independent of source.
 
 ## Event method mapping
 
-The legacy `agent/EventTest` wraps Msg in six coarse event kinds; the newer `event/AgentEventStreamTest` describes a separate event surface. Neither is identical to the current 31 Scala variants. Scala encodes `event` with lowercase names and different payload fields; upstream uses `type` and uppercase names/aliases. This slice preserves the established Scala format. Checked metadata methods below are behavioral adaptations, not cross-language wire fixtures. [AgentEventSerdeSpec](../../modules/core/src/test/scala/com/weisgnosis/agents/core/event/AgentEventSerdeSpec.scala) supplies their local evidence.
+The legacy `agent/EventTest` wraps Msg in six coarse event kinds; the newer `event/AgentEventStreamTest` describes a separate event surface. Neither is identical to the current 39 Scala variants. Scala encodes `event` with lowercase names and different payload fields; upstream uses `type` and uppercase names/aliases. This slice preserves the established Scala format. Checked metadata methods below are behavioral adaptations, not cross-language wire fixtures. [AgentEventSerdeSpec](../../modules/core/src/test/scala/com/weisgnosis/agents/core/event/AgentEventSerdeSpec.scala) supplies their local evidence.
 
 ### Legacy EventTest: ten enabled methods
 
@@ -322,7 +323,7 @@ Each method remains pending a reviewed applicability decision or explicit adapte
 - [x] `fromValueRejectsNull`: same-named AgentEventTypeSpec test; null/non-string JSON replaces the Java null-reference boundary.
 - [x] `toolResultEndEventMetadataRoundTrip`: same-named Scala serde test; immutable metadata and current Scala wire fields.
 - [x] `toolResultTextDeltaEventMetadataRoundTrip`: same-named Scala serde test; immutable metadata and current Scala wire fields.
-- [ ] `toolResultDataDeltaEventMetadataRoundTrip`: pending data-delta payload and metadata behavior; its identifier is already supported.
+- [x] `toolResultDataDeltaEventMetadataRoundTrip` -> AgentEventPayloadSpec, matching metadata/data/correlation assertions with immutable metadata and the established Scala wire representation.
 - [x] `toolResultStartEventEmptyMetadata`: same-named Scala serde test; immutable metadata and current Scala wire fields.
 - [x] `allPythonValuesResolve`: same-named AgentEventTypeSpec test of identifiers only; payload adaptation remains separate.
 
@@ -338,11 +339,11 @@ These upstream methods contain comments rather than executable assertions and th
 - [ ] `exceedMaxIters`: complete and verify the prescribed runtime sequence.
 - [ ] `streamBoundaries`: complete and verify the prescribed runtime sequence.
 
-### Remaining event payload contracts
+### Implemented payloads and remaining runtime contracts
 
-The pinned source audit establishes these target fields. None of these missing Scala payloads or integrations is marked complete by identifier support.
+The eight payload classes below are implemented and verified independently of their runtime integrations. AgentEvent now has 39 Scala variants; the separate upstream identifier enum retains its 31 names. Existing lowercase event payloads remain canonical.
 
-| Pending variant | Required payload | Integration dependency |
+| Implemented variant | Payload | Pending runtime integration |
 | --- | --- | --- |
 | AgentResult | result: Msg | Publish finalized result after structured postprocessing |
 | DataBlockStart / End | replyId, blockId | Stable block correlation and provider assembly |
@@ -352,4 +353,4 @@ The pinned source audit establishes these target fields. None of these missing S
 | RequestStop | reason, available typed GenerateReason; default MiddlewareStopRequested | Cooperative phase stop and durable pending-work resumption |
 | AllToolsDenied | Chunk[ToolUse], empty by default | Permission/HITL integration and middleware stop decision |
 
-Upstream base events also have identity/time, optional source, and metadata. Scala must use explicit supplied identity/time or an effectful allocator rather than copying eager UUID/clock access. Preserve immutable copies. Class presence alone is not runtime evidence: the pinned source has no production DataBlock event construction sites. A RequestStop event is distinct from fiber cancellation; supporting its type does not implement phase suspension or resumption.
+Upstream base events also have identity/time, optional source, and metadata. This payload increment preserves immutable optional source and data-delta metadata but does not add the universal id/createdAt envelope or translate uppercase type objects. A future envelope adapter must use explicitly supplied identity/time or an effectful allocator rather than eager UUID/clock access. Class presence alone is not runtime evidence: the pinned source has no production DataBlock event construction sites. A RequestStop event is distinct from fiber cancellation; supporting its type does not implement phase suspension or resumption.

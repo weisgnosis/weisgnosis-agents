@@ -1,49 +1,17 @@
-# Typed agent events: verification
+# Agent event verification
 
-These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity.
+These suites verify payload codecs and selected runtime boundaries. They do not establish exhaustive event integration or Java wire compatibility.
 
-- [AgentEventSerdeSpec](AgentEventSerdeSpec.scala)
-- [AgentEventTypeSpec](AgentEventTypeSpec.scala)
-- [AgentEventStreamingSpec](AgentEventStreamingSpec.scala)
+- [AgentEventSerdeSpec](AgentEventSerdeSpec.scala): all 39 concrete/base variants, strict tags, legacy leaf payloads, repeated source updates, and metadata preservation.
+- [AgentEventPayloadSpec](AgentEventPayloadSpec.scala): eight added payload contracts through seven tests, including nested Msg/content validation and optional stop/denied-call defaults.
+- [AgentEventTypeSpec](AgentEventTypeSpec.scala): 31 canonical protocol identifiers, 11 aliases, and nine upstream identifier methods.
+- [AgentEventStreamingSpec](AgentEventStreamingSpec.scala): selected Hub/ZStream behavior.
 
-Run `sbt "core / test"`, or `sbt verify` for repository-wide formatting, compilation, and tests. See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for gaps and intentional differences.
+## Current acceptance
 
-## Codec compatibility and metadata
+- [x] `review_fp` and `review_harness` approved the final three-file payload increment against `66bb42d` on 2026-09-29 with no unresolved findings.
+- [x] Full formatting, fatal-warning compilation, and tests passed: 291 core and 40 harness.
+- [x] All 13 enabled AgentEventStreamTest declarations now have identifier/payload evidence with documented adaptations.
+- [ ] Complete runtime event ordering, metadata propagation, stop/resume integration, and the legacy coarse-event surface.
 
-All 31 concrete and base event codecs encode the same object with exactly one lowercase `event` discriminator. Leaf decoders also read legacy untagged payloads; a supplied tag must match that leaf. Base decoding requires a tag. Missing required fields, malformed tags, and duplicate discriminators fail decoding. Source tagging returns a fresh event without changing its payload.
-
-ToolResultStartEvent, ToolResultDeltaEvent, and ToolResultEndEvent carry immutable metadata maps, independent of their optional source. Empty metadata is the default; supplied malformed metadata fails decoding. This is a serialization contract: broader runtime metadata emission remains pending.
-
-Private derived payload codecs are isolated from public tagged codecs to prevent recursive encoder selection. The parent uses normal discriminated-sum derivation. Custom glue validates compatibility input and shares the parent encoder; there is no manual field encoder, unchecked cast, or silent AST encoding fallback.
-
-Migration: concrete event encoding now includes the discriminator. Existing tagged base payloads and legacy untagged leaf payloads remain readable. Tool-result event payloads can now include metadata. Upstream uppercase type identifiers and aliases are available through AgentEventType, but full `type` payloads require a separate adapter; these codecs do not claim cross-language wire compatibility.
-
-## Codec review acceptance at b2901eb
-
-- [x] Independent reviewers `review_fp` and `review_harness` approved the codec and metadata changes based on `62478ce`, on 2026-09-29, with no unresolved findings in this scope.
-- [x] Formatting, fatal-warning compilation, and all 185 core / 40 harness tests passed. The focused suite reproduced concrete/base encoding, discriminator, and metadata defects before correction.
-- [x] Classify all 30 upstream legacy/current event declarations, distinguishing enabled tests from seven disabled ordering placeholders.
-- [x] Complete upstream type aliases in the separately reviewed identifier contract below.
-- [ ] Complete payload adapters, missing event variants, runtime metadata emission, and ordering scenarios in the parity task list.
-
-| Reviewed source | Git blob |
-| --- | --- |
-| AgentEvent.scala | 9a000a4072808bea4d615615028c38ed6087c4c4 |
-| AgentEventSerdeSpec.scala | 7237d4965aa30732cd1a5d3fdaa85bcfb6524ed1 |
-
-## Protocol event identifiers
-
-AgentEventType provides 31 canonical uppercase names and all 11 legacy aliases, including REPLY_START/REPLY_END and THREAD_EXPOSED. fromValue is a pure immutable lookup returning Either[AgentError, AgentEventType]. Matching is case-sensitive; unknown identifiers and malformed JSON fail. Encoding always uses the canonical uppercase name.
-
-This identifier codec is independent of the established AgentEvent object codec. It does not translate `type` payloads to `event` payloads, add missing variants, allocate IDs/timestamps, or establish emitter support.
-
-- [x] `review_fp` and `review_harness` independently approved AgentEventType and AgentEventTypeSpec based on `b2901eb`, on 2026-09-29, with no unresolved findings in the identifier scope.
-- [x] Verify all 31 names, 11 aliases, nine enabled upstream identifier methods, and the legacy 25-name surface; JSON null rejection replaces the Java null-reference test.
-- [x] Formatting, fatal-warning compilation, and all 195 core / 40 harness tests passed.
-- [x] Provide typed generation reasons in the separately reviewed model package.
-- [ ] Complete missing payloads, runtime emitters, phase-stop integration, and explicit wire adapters.
-
-| Reviewed source | Git blob |
-| --- | --- |
-| AgentEventType.scala | 7d3238de6b51d9bb9df817dd4f866b91c993654c |
-| AgentEventTypeSpec.scala | b881e98ba39ed97e292ac16acf3c4101f48b0d11 |
+The [current event contracts and reviewed source identities](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md) distinguish previously accepted identifiers/codecs from the latest payload increment. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) retains ten legacy methods and seven disabled upstream ordering declarations as pending work. Decoding an event does not establish runtime authority or publication.

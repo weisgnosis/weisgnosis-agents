@@ -15,12 +15,13 @@
  */
 package com.weisgnosis.agents.core.event
 
-import com.weisgnosis.agents.core.model.ToolResultState
+import com.weisgnosis.agents.core.model.{ContentBlock, GenerateReason, Msg, ToolResultState}
+import zio.Chunk
 import zio.json.*
 import zio.json.ast.Json
 
 /**
- * Sealed algebraic hierarchy of 31 typed events emitted across an agent turn.
+ * Sealed algebraic hierarchy of 39 typed event payloads for agent turns.
  *
  * Designed for real-time Server-Sent Events (SSE) streaming and telemetry.
  */
@@ -425,8 +426,143 @@ object AgentEvent:
   object CustomEvent:
     given JsonCodec[CustomEvent] = taggedCodec("custom", PayloadCodecs.customEvent)
 
+  // Payload support is distinct from runtime emission, phase stopping, and resumption.
+  @jsonHint("agent_result")
+  final case class AgentResultEvent(
+      result: Msg,
+      source: Option[String] = None
+  ) extends AgentEvent:
+    def withSource(src: String): AgentEvent = copy(source = Some(src))
+
+  object AgentResultEvent:
+    given JsonCodec[AgentResultEvent] = taggedCodec("agent_result", PayloadCodecs.agentResultEvent)
+
+  @jsonHint("data_block_start")
+  final case class DataBlockStartEvent(
+      replyId: String,
+      blockId: String,
+      source: Option[String] = None
+  ) extends AgentEvent:
+    def withSource(src: String): AgentEvent = copy(source = Some(src))
+
+  object DataBlockStartEvent:
+    given JsonCodec[DataBlockStartEvent] =
+      taggedCodec("data_block_start", PayloadCodecs.dataBlockStartEvent)
+
+  @jsonHint("data_block_delta")
+  final case class DataBlockDeltaEvent(
+      replyId: String,
+      blockId: String,
+      delta: String,
+      source: Option[String] = None
+  ) extends AgentEvent:
+    def withSource(src: String): AgentEvent = copy(source = Some(src))
+
+  object DataBlockDeltaEvent:
+    given JsonCodec[DataBlockDeltaEvent] =
+      taggedCodec("data_block_delta", PayloadCodecs.dataBlockDeltaEvent)
+
+  @jsonHint("data_block_end")
+  final case class DataBlockEndEvent(
+      replyId: String,
+      blockId: String,
+      source: Option[String] = None
+  ) extends AgentEvent:
+    def withSource(src: String): AgentEvent = copy(source = Some(src))
+
+  object DataBlockEndEvent:
+    given JsonCodec[DataBlockEndEvent] =
+      taggedCodec("data_block_end", PayloadCodecs.dataBlockEndEvent)
+
+  @jsonHint("tool_result_data_delta")
+  final case class ToolResultDataDeltaEvent(
+      replyId: String,
+      toolCallId: String,
+      toolCallName: String,
+      data: ContentBlock,
+      metadata: Map[String, Json] = Map.empty,
+      source: Option[String] = None
+  ) extends AgentEvent:
+    def withSource(src: String): AgentEvent = copy(source = Some(src))
+
+  object ToolResultDataDeltaEvent:
+    given JsonCodec[ToolResultDataDeltaEvent] =
+      taggedCodec("tool_result_data_delta", PayloadCodecs.toolResultDataDeltaEvent)
+
+  @jsonHint("exceed_max_iters")
+  final case class ExceedMaxItersEvent(
+      replyId: String,
+      maxIters: Int,
+      currentIter: Int,
+      source: Option[String] = None
+  ) extends AgentEvent:
+    def withSource(src: String): AgentEvent = copy(source = Some(src))
+
+  object ExceedMaxItersEvent:
+    given JsonCodec[ExceedMaxItersEvent] =
+      taggedCodec("exceed_max_iters", PayloadCodecs.exceedMaxItersEvent)
+
+  @jsonHint("request_stop")
+  final case class RequestStopEvent(
+      reason: String,
+      generateReason: GenerateReason = GenerateReason.MiddlewareStopRequested,
+      source: Option[String] = None
+  ) extends AgentEvent:
+    def withSource(src: String): AgentEvent = copy(source = Some(src))
+
+  object RequestStopEvent:
+    given JsonCodec[RequestStopEvent] = taggedCodec("request_stop", PayloadCodecs.requestStopEvent)
+
+  @jsonHint("all_tools_denied")
+  final case class AllToolsDeniedEvent(
+      deniedToolCalls: Chunk[ContentBlock.ToolUse] = Chunk.empty,
+      source: Option[String] = None
+  ) extends AgentEvent:
+    def withSource(src: String): AgentEvent = copy(source = Some(src))
+
+  object AllToolsDeniedEvent:
+    given JsonCodec[AllToolsDeniedEvent] =
+      taggedCodec("all_tools_denied", PayloadCodecs.allToolsDeniedEvent)
+
+  final private case class StopPayload(
+      reason: String,
+      generateReason: Option[GenerateReason],
+      source: Option[String]
+  ) derives JsonCodec
+
+  final private case class DeniedPayload(
+      deniedToolCalls: Option[Chunk[ContentBlock.ToolUse]],
+      source: Option[String]
+  ) derives JsonCodec
+
   // Isolate payload derivation so the root never selects a public leaf codec that delegates back to it.
   private object PayloadCodecs:
+    given agentResultEvent: JsonCodec[AgentResultEvent] = DeriveJsonCodec.gen[AgentResultEvent]
+    given dataBlockStartEvent: JsonCodec[DataBlockStartEvent] =
+      DeriveJsonCodec.gen[DataBlockStartEvent]
+    given dataBlockDeltaEvent: JsonCodec[DataBlockDeltaEvent] =
+      DeriveJsonCodec.gen[DataBlockDeltaEvent]
+    given dataBlockEndEvent: JsonCodec[DataBlockEndEvent] = DeriveJsonCodec.gen[DataBlockEndEvent]
+    given toolResultDataDeltaEvent: JsonCodec[ToolResultDataDeltaEvent] =
+      DeriveJsonCodec.gen[ToolResultDataDeltaEvent]
+    given exceedMaxItersEvent: JsonCodec[ExceedMaxItersEvent] =
+      DeriveJsonCodec.gen[ExceedMaxItersEvent]
+    given requestStopEvent: JsonCodec[RequestStopEvent] = JsonCodec(
+      DeriveJsonEncoder.gen[RequestStopEvent],
+      summon[JsonDecoder[StopPayload]].map(value =>
+        RequestStopEvent(
+          value.reason,
+          value.generateReason.getOrElse(GenerateReason.MiddlewareStopRequested),
+          value.source
+        )
+      )
+    )
+    given allToolsDeniedEvent: JsonCodec[AllToolsDeniedEvent] = JsonCodec(
+      DeriveJsonEncoder.gen[AllToolsDeniedEvent],
+      summon[JsonDecoder[DeniedPayload]].map(value =>
+        AllToolsDeniedEvent(value.deniedToolCalls.getOrElse(Chunk.empty), value.source)
+      )
+    )
     given agentStartEvent: JsonCodec[AgentStartEvent] = DeriveJsonCodec.gen[AgentStartEvent]
     given agentEndEvent: JsonCodec[AgentEndEvent]     = DeriveJsonCodec.gen[AgentEndEvent]
     given agentProgressEvent: JsonCodec[AgentProgressEvent] =

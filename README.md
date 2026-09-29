@@ -6,7 +6,7 @@ This repository is in development. The [implementation tracker](docs/architectur
 
 ## Implemented components
 
-- **core:** immutable messages, 31 typed event variants, JSON codecs, typed tools, path screening, SSE parsing and chunk assembly, and ReAct execution with interruption recovery, bounded thinking retries, and structured output.
+- **core:** immutable messages, 39 typed event variants, JSON codecs, typed tools, path screening, SSE parsing and chunk assembly, and ReAct execution with interruption recovery, bounded thinking retries, and structured output.
 - **harness:** conversation compaction, result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
 - **mcp:** architecture and package scaffolding only.
 
@@ -66,7 +66,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 - [x] Core lifecycle/path fixes and harness compactor/store fixes at `fb80428` received independent final approval after corrections and cross-review.
 - [x] Structured-output preservation and interruption fixes received final independent approval; exact scope and source identities are in the core agent README.
-- [x] Current verification: 324 tests passed, zero compiler warnings.
+- [x] Current verification: 331 tests passed, zero compiler warnings.
 - [ ] Complete the remaining work in the [progress tracker](docs/architecture/tracker.md).
 
 The [core README](modules/core/README.md) and [harness README](modules/harness/README.md) link the exact accepted scopes. Closed review reports live in Git history; current acceptance is maintained in these READMEs.

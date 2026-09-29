@@ -15,14 +15,14 @@
  */
 package com.weisgnosis.agents.core.event
 
-import com.weisgnosis.agents.core.model.ToolResultState
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import zio.Chunk
 import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
 /**
- * Complete round-trip serialization and discriminator verification for all 31 AgentEvent types.
+ * Complete round-trip serialization and discriminator verification for all 39 AgentEvent types.
  */
 object AgentEventSerdeSpec extends ZIOSpecDefault:
 
@@ -36,6 +36,24 @@ object AgentEventSerdeSpec extends ZIOSpecDefault:
     Example(value, value.toJson, json => json.fromJson[A])
 
   private val examples: Chunk[Example] = Chunk(
+    example(AgentEvent.AgentResultEvent(Msg.assistant("final"))),
+    example(AgentEvent.DataBlockStartEvent("reply", "block")),
+    example(AgentEvent.DataBlockDeltaEvent("reply", "block", "fragment")),
+    example(AgentEvent.DataBlockEndEvent("reply", "block")),
+    example(
+      AgentEvent.ToolResultDataDeltaEvent(
+        "reply",
+        "call",
+        "tool",
+        ContentBlock.Data.url("https://example.com/data"),
+        Map("trace" -> Json.Str("kept"))
+      )
+    ),
+    example(AgentEvent.ExceedMaxItersEvent("reply", 3, 3)),
+    example(AgentEvent.RequestStopEvent("checkpoint")),
+    example(
+      AgentEvent.AllToolsDeniedEvent(Chunk(ContentBlock.ToolUse("call", "tool", Json.Obj())))
+    ),
     example(AgentEvent.AgentStartEvent("sess-1", "rep-1", "ag-1")),
     example(AgentEvent.AgentEndEvent("rep-1")),
     example(AgentEvent.AgentProgressEvent("Processing step 1", 1, Some(5))),
@@ -78,10 +96,10 @@ object AgentEventSerdeSpec extends ZIOSpecDefault:
   )
 
   def spec: Spec[TestEnvironment, Any] = suite("AgentEventSerdeSpec")(
-    test("Round-trip serialization for all 31 AgentEvent variants") {
+    test("Round-trip serialization for all 39 AgentEvent variants") {
       val events = examples.map(_.value)
 
-      assertTrue(events.size == 31) &&
+      assertTrue(events.size == 39) &&
       assertTrue(
         events.forall { ev =>
           val json    = ev.toJson
