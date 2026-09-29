@@ -13,7 +13,7 @@ The message boundary contracts now document private construction, typed role fac
 
 Event contracts distinguish 39 Scala payload variants from 31 protocol identifiers. All 13 enabled stream-test methods have mapped identifier/payload evidence; the runtime limit-ordering requirement is now verified, while other ordering requirements remain open; ten deprecated legacy-envelope methods are explicitly excluded rather than counted as passing tests.
 
-Structured completion now resolves one payload AST, prepares within the attempt timeout, commits history, and emits AgentResult before AgentEnd. Direct and structured streaming APIs share the same path; Auto fallback retains two attempt boundary pairs. The agent README records the scoped acceptance and exact reviewed source identities.
+Structured completion now resolves one payload AST, prepares within the attempt timeout, commits history, completes required scoped observation, and emits AgentResult before AgentEnd. Direct and structured streaming APIs share the same path; Auto fallback retains two attempt boundary pairs. The agent README records the scoped acceptance and exact reviewed source identities.
 
 ChatCompletionsClient now connects scoped HTTP completion to ReAct. Runtime-assigned reply/request context correlates live deltas and successful model completion; only fully validated streams can dispatch tools. Live event ordering is an explicit adaptation from the disabled upstream buffered-order sketches. Completed local/inline tool results now retain request provenance, with local state committed before output publication. Incremental/structured tool output, richer provider content, and exhaustive transport mapping remain tracked work.
 

@@ -115,7 +115,13 @@ ToolResultProcessor applies to completed local observations and matched provider
 | --- | --- | --- |
 | TranscriptEntry | UUID/parent/recordedAt, structural stable key, typed payload and preview variants | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/TranscriptEntry.scala) |
 | TranscriptStore | per-transcript atomic append; inMemory provides Ref-backed authority | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/TranscriptStore.scala) |
-| SessionTranscriptWriter | pure projection, appendMessages returns committed observations, offload adapts the compactor hook | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) |
+| SessionTranscriptWriter | pure projection, appendMessages returns committed observations, offload adapts compaction, completionObserver requires explicit anonymous policy | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) |
 | LocalTranscriptStore | open(existingDirectory, HostControlled), scoped exclusive ownership, strict full-chain validation, atomic whole-log append | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptStore.scala) |
 
 These codecs are observation DTO codecs; LocalTranscriptStore uses a separate strict versioned disk envelope; remote backend APIs remain pending.
+
+## Completion declarations
+
+TurnCompletion(agentId, history, outcome: Exit[AgentError, AgentResult]) is runtime-only read-only data. TurnCompletionObserver.observe returns ZIO[Scope, AgentError.CompletionObservationError, Unit]. ReActAgent.make and Builder accept the optional observer. SessionTranscriptWriter.completionObserver(policy: AnonymousTranscriptPolicy) supplies the harness adapter. Required observation has one invocation-local Ref gate and a separate scope under the run lock; it cannot rewrite history or retry itself.
+
+See the [completion source contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) for exact publication/cancellation ordering, cause composition, callback restrictions, and early-stream error visibility.

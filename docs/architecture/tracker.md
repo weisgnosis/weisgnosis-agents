@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: integrate transcript recording at turn boundaries and define memory lifecycle policies; remote segment storage remains separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement typed memory lifecycle trigger policies and shared scoped throttle authority; background scheduling and remote segment storage remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -74,7 +74,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Implement recoverable local consolidation under shared ownership; independently review 34 new persistence tests, map three local upstream adaptations, and verify 530 core / 209 harness tests.
 - [x] Implement typed transcript observation projection and atomic in-memory store; independently review 22 new cases and verify 530 core / 231 harness tests.
 - [x] Implement scoped local transcript persistence and shared ownership; reproduce/fix Unicode preview splitting, independently review 27 new cases and four local method adaptations, and verify 530 core / 258 harness tests.
-- [ ] Integrate transcript turn boundaries and memory lifecycle policies.
+- [x] Integrate required transcript turn completion with explicit identity policy; independently review 28 new cases and verify 552 core / 264 harness tests.
+- [ ] Implement memory lifecycle trigger policies, shared throttle isolation, and background scheduling.
 - [ ] Implement remote memory/transcript storage, timestamp-watermark migration, and scheduling.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.

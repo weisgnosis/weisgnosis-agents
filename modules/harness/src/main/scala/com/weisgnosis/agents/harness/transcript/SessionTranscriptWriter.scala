@@ -16,9 +16,13 @@
 package com.weisgnosis.agents.harness.transcript
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.agent.TurnCompletionObserver
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
 import zio.*
 import zio.json.*
+
+enum AnonymousTranscriptPolicy derives JsonCodec:
+  case RequireStableIds, RecordEachSnapshot
 
 /** Lossy observation recording, independent of memory-extraction triggers and prompts. */
 final class SessionTranscriptWriter(store: TranscriptStore):
@@ -27,6 +31,22 @@ final class SessionTranscriptWriter(store: TranscriptStore):
 
   /** Install as the compactor offload callback; extraction and canonical history remain separate. */
   def offload(messages: Chunk[Msg]): IO[AgentError, Unit] = appendMessages(messages).unit
+
+  /** Required observation of each terminal canonical snapshot; anonymous replay policy is explicit. */
+  def completionObserver(policy: AnonymousTranscriptPolicy): TurnCompletionObserver =
+    TurnCompletionObserver: completion =>
+      val drafts = completion.history.flatMap(SessionTranscriptWriter.project)
+      if policy == AnonymousTranscriptPolicy.RequireStableIds && drafts.exists(_.key.isEmpty) then
+        ZIO.fail(
+          AgentError.CompletionObservationError(
+            "Transcript completion requires stable message identities"
+          )
+        )
+      else
+        store
+          .append(drafts)
+          .unit
+          .mapError(error => AgentError.CompletionObservationError(error.message))
 
 object SessionTranscriptWriter:
   val InputPreviewChars: Int  = 500

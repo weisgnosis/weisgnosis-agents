@@ -1,6 +1,6 @@
 # Session transcript observations
 
-[SessionTranscriptWriter](SessionTranscriptWriter.scala) records typed observations through a transcript-bound [TranscriptStore](TranscriptStore.scala). appendMessages returns only newly committed entries; offload discards that result for installation as ConversationCompactor's offload callback. Transcript recording is independent of memory extraction: summaries and thinking remain eligible, while user messages containing `<session_context>` are skipped. System messages remain eligible. Installing the compactor callback alone does not record every turn; host turn-boundary integration remains pending.
+[SessionTranscriptWriter](SessionTranscriptWriter.scala) records typed observations through a transcript-bound [TranscriptStore](TranscriptStore.scala). appendMessages returns only newly committed entries; offload discards that result for installation as ConversationCompactor's offload callback. Transcript recording is independent of memory extraction: summaries and thinking remain eligible, while user messages containing `<session_context>` are skipped. System messages remain eligible. Installing the compactor callback alone does not record every turn; install the completion observer described below as well.
 
 ## Projection and data contract
 
@@ -21,7 +21,7 @@ recordedAt is sampled before candidate allocation and commit; it is an observati
 - [x] `review_fp` and `review_harness` approved the final six-file transcript increment against `73458da` on 2026-09-29. No findings remain within pure observation projection, atomic in-memory batch deduplication/linkage, first-observation retention, collision rollback, and compactor callback integration. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 231 harness tests, including 22 new cases, with zero compiler warnings. Filesystem/remote persistence, automatic turn-boundary recording, strict persisted-input validation, and Java wire compatibility remain outside this scope.
 - [x] `review_docs` approved the corrected documentation against `73458da`, including all six identities, 22 tests, wire/timestamp limits, and explicit pending persistence mappings. All 61 Markdown files passed link/script checks; git diff --check passed.
 - [x] Implement scoped local transcript persistence and four explicit local method adaptations, with storage-layout/wire differences documented below.
-- [ ] Implement immutable segment storage, session indexes, and turn-boundary lifecycle integration.
+- [ ] Implement immutable segment storage and session indexes.
 
 [Tests](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/README.md) and [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md#transcript-observation-applicability) distinguish behavioral coverage from pending filesystem assertions. [Tracker](../../../../../../../../../../docs/architecture/tracker.md).
 
@@ -46,11 +46,12 @@ Every read and append validates the canonical directory, reads all current rows 
 
 Atomic replacement protects cooperative readers from partial file contents and preserves hard-linked source files by replacing the directory entry. It does not provide fsync/power-loss durability, exactly-once anonymous replay, hostile mutation protection, or an identity guarantee against uncoordinated directory replacement. Cancellation may be delivered after publication. Failed temporary cleanup is logged; abandoned temporary files can remain after process termination. Cross-process contention and dynamic symlink/junction behavior need platform-specific validation.
 
-Migration: shared lease extraction preserves memory/.daily-writer.lease and existing DailyMemoryLease entry points. The local transcript backend deliberately uses one host-selected directory and one versioned transcript.jsonl; it does not reproduce Java `agents/<agent>/sessions/<session>.jsonl/.log.jsonl` layout, mirror dual files, or wire IDs. The four local method mappings are behavioral/reopen adaptations with those differences; immutable remote segments, indexes, and full turn-boundary scheduling remain pending. Previous changed transcript, lease, and test-helper identities are preserved in e4dfc67.
+Migration: shared lease extraction preserves memory/.daily-writer.lease and existing DailyMemoryLease entry points. The local transcript backend deliberately uses one host-selected directory and one versioned transcript.jsonl; it does not reproduce Java `agents/<agent>/sessions/<session>.jsonl/.log.jsonl` layout, mirror dual files, or wire IDs. The four local method mappings are behavioral/reopen adaptations with those differences; immutable remote segments, indexes, and background memory scheduling remain pending. Previous changed transcript, lease, and test-helper identities are preserved in e4dfc67.
 
 - [x] `review_fp` and `review_harness` approved the final 14-file local transcript increment against `e4dfc67` on 2026-09-29. Twenty-seven new tests reproduced and fixed Unicode surrogate splitting; full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 258 harness tests with zero compiler warnings. No findings remain within shared cooperative ownership, strict complete-log validation, atomic batch replacement, reopen/deduplication, and Unicode-safe previews. Remote segments, Java layout/wire equivalence, hostile mutation, fsync/power-loss durability, and automatic turn scheduling remain excluded.
 - [x] `review_docs` approved the corrected local-transcript documentation against `e4dfc67`, including 14 identities, 27 new tests, strict storage/Unicode contracts, four local adaptations, and explicit remaining work. All 63 Markdown files passed link/script checks; git diff --check passed.
-- [ ] Integrate complete turn-boundary recording and memory lifecycle policies.
+- [x] Integrate required terminal snapshot recording through the completion observer described below.
+- [ ] Integrate memory lifecycle policies.
 - [ ] Implement remote immutable segments/indexes and platform-specific ownership validation.
 
 Current Git-normalized local persistence identities:
@@ -60,7 +61,6 @@ Current Git-normalized local persistence identities:
 | [DailyMemoryLease.scala](../memory/DailyMemoryLease.scala) | 7c1cddd14656f11e33228ecef785e75a9f60b4a4 |
 | [WorkspaceLease.scala](../storage/WorkspaceLease.scala) | 0e254e633efc59e5be52959e6a6c683f14f1fc34 |
 | [LocalTranscriptStore.scala](LocalTranscriptStore.scala) | 3352dc8a5b68bb455d9f484584ca86a8d675f6eb |
-| [SessionTranscriptWriter.scala](SessionTranscriptWriter.scala) | ded0b219512e7cb947ab788ba9ef207b46a7ba5d |
 | [TranscriptFiles.scala](TranscriptFiles.scala) | 3841959cda755c48b3d27a7e53deefcd3d5f5c2a |
 | [TranscriptLog.scala](TranscriptLog.scala) | 5566ad5cd64653e2b0f23c8cdc93b7ba8f28e398 |
 | [TranscriptState.scala](TranscriptState.scala) | e202ba895f83df0990d2c78e2e69118fae0cf131 |
@@ -71,3 +71,20 @@ Current Git-normalized local persistence identities:
 | [TranscriptFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptFilesSpec.scala) | fd5db63a28bc71b56bd645e1fd7db32c72301db4 |
 | [TranscriptLogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptLogSpec.scala) | 1ddd6fb146a2819f3b9afa217936293597d72b79 |
 | [TranscriptStateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptStateSpec.scala) | f3be77abf723e891e8a103d8482120fe40f0dd8f |
+
+## Terminal canonical snapshot recording
+
+Install writer.completionObserver(policy) through ReActAgent.make(completionObserver = ...) or Builder.completionObserver. The policy is mandatory: RequireStableIds rejects a snapshot containing any eligible anonymous draft before append; RecordEachSnapshot appends anonymous observations on every terminal snapshot. Stable keys still deduplicate across turns. Skipped internal session-context messages do not require IDs. The adapter never assigns or changes canonical message identities. Runtime-created system, tool, summary, and recovery messages can be anonymous, so strict mode requires an identity strategy covering every eligible message; RecordEachSnapshot explicitly accepts repeated retained anonymous history.
+
+The observer records success, final failure, timeout, and reconciled cancellation snapshots once per admitted invocation. It maps storage failures to CompletionObservationError and does not swallow them or retry after uncertain publication. Keep the store scope alive around every agent invocation. The standalone offload callback retains its existing anonymous append behavior and does not enforce the completion adapter policy. Install writer.offload on the compactor as well when removed prefixes must remain in the transcript; a terminal snapshot alone cannot recover content already removed by compaction.
+
+Required observation completes before successful result publication and before cancellation returns. Late cancellation may still coexist with an AgentResultEvent representing committed execution. Direct calls and drained streams expose terminal observer errors; early consumers abandon that error queue and cannot treat their own completion as persistence acknowledgement. Observers must not await operations requiring the same held agent run lock. See the [core completion contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) for cause, scope, and invocation boundaries.
+
+- [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 264 harness tests, including 28 new cases, with zero compiler warnings. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
+
+- [ ] Integrate memory lifecycle policies and background scheduling.
+- [ ] Implement remote immutable segments and session indexes.
+
+The previous SessionTranscriptWriter.scala identity is preserved in `0349b1a`; its current identity and acceptance are in the completion-observer table in the [core agent contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+- [x] `review_docs` approved completion-observer documentation against `0349b1a`, including all eight identities, 28 new cases, late cancellation, early-stream error visibility, explicit anonymous policy, compactor offload and remaining lifecycle work. Full verification passed 552 core / 264 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.

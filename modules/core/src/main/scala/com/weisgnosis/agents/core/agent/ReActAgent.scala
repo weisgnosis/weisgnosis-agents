@@ -55,7 +55,8 @@ final class ReActAgent private (
     val toolResultProcessor: ToolResultProcessor,
     val toolAuthorizer: ToolAuthorizer,
     val historyPreparer: HistoryPreparer,
-    val modelInputTransform: ModelInputTransform
+    val modelInputTransform: ModelInputTransform,
+    val completionObserver: TurnCompletionObserver
 ):
 
   def name: String        = config.name
@@ -98,10 +99,14 @@ final class ReActAgent private (
 
   /** Full run returning complete AgentResult. */
   def run(messages: Chunk[Msg]): ZIO[Scope, AgentError, AgentResult] =
-    runLock.withPermit(ZIO.scoped(for
-      hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-      result <- runOrdinaryWithHub(messages, hub)
-    yield result))
+    runLock.withPermit(
+      observeInvocation(complete =>
+        ZIO.scoped(for
+          hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+          result <- runOrdinaryWithHub(messages, hub, complete)
+        yield result)
+      )
+    )
 
   def run(message: Msg): ZIO[Scope, AgentError, AgentResult] =
     run(Chunk(message))
@@ -112,16 +117,21 @@ final class ReActAgent private (
       schema: Json,
       mode: StructuredMode = StructuredMode.Auto
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
-    runLock.withPermit(ZIO.scoped(for
-      hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-      result <- runStructuredWithHub[A](messages, schema, mode, hub)
-    yield result))
+    runLock.withPermit(
+      observeInvocation(complete =>
+        ZIO.scoped(for
+          hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+          result <- runStructuredWithHub[A](messages, schema, mode, hub, complete)
+        yield result)
+      )
+    )
 
   private def runStructuredWithHub[A: JsonCodec](
       messages: Chunk[Msg],
       schema: Json,
       mode: StructuredMode,
-      hub: Hub[AgentEvent]
+      hub: Hub[AgentEvent],
+      complete: AgentResult => IO[AgentError, Unit]
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
     Ref.make[Option[Json]](None).zip(Ref.make[Option[ChatUsage]](None)).flatMap {
       case (capturedRef, usageRef) =>
@@ -140,7 +150,9 @@ final class ReActAgent private (
             .flatMap(captured => ZIO.fromEither(prepareStructured[A](result, captured)))
 
         def nativeAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
-          runWithHub(messages, hub, toolkit, usageRef, nativeConfig, Some(capturedRef))(prepare)
+          runWithHub(messages, hub, toolkit, usageRef, complete, nativeConfig, Some(capturedRef))(
+            prepare
+          )
 
         val syntheticConfig = llmConfig.copy(responseFormat = None)
 
@@ -148,7 +160,15 @@ final class ReActAgent private (
           ZIO
             .fromEither(toolkit.register(syntheticTool))
             .flatMap(active =>
-              runWithHub(input, hub, active, usageRef, syntheticConfig, Some(capturedRef))(prepare)
+              runWithHub(
+                input,
+                hub,
+                active,
+                usageRef,
+                complete,
+                syntheticConfig,
+                Some(capturedRef)
+              )(prepare)
             )
 
         def nativeWithFallback: ZIO[Scope, AgentError, (AgentResult, A)] =
@@ -224,7 +244,7 @@ final class ReActAgent private (
 
   /** Streams typed lifecycle and delta events while running the turn in the background. */
   def streamEvents(messages: Chunk[Msg]): ZStream[Scope, AgentError, AgentEvent] =
-    streamRun(hub => runOrdinaryWithHub(messages, hub))
+    streamRun((hub, complete) => runOrdinaryWithHub(messages, hub, complete))
 
   /** Streams an attempt through validated structured completion before its result/end events. */
   def streamStructuredEvents[A: JsonCodec](
@@ -232,7 +252,7 @@ final class ReActAgent private (
       schema: Json,
       mode: StructuredMode = StructuredMode.Auto
   ): ZStream[Scope, AgentError, AgentEvent] =
-    streamRun(hub => runStructuredWithHub[A](messages, schema, mode, hub))
+    streamRun((hub, complete) => runStructuredWithHub[A](messages, schema, mode, hub, complete))
 
   def streamStructuredEvents[A: JsonCodec](
       message: Msg,
@@ -241,7 +261,7 @@ final class ReActAgent private (
     streamStructuredEvents[A](Chunk(message), schema, StructuredMode.Auto)
 
   private def streamRun[A](
-      runEffect: Hub[AgentEvent] => ZIO[Scope, AgentError, A]
+      runEffect: (Hub[AgentEvent], AgentResult => IO[AgentError, Unit]) => ZIO[Scope, AgentError, A]
   ): ZStream[Scope, AgentError, AgentEvent] =
     ZStream.unwrapScoped {
       for
@@ -254,7 +274,11 @@ final class ReActAgent private (
           .forkScoped
         _ <- ZIO.uninterruptibleMask { restore =>
           for
-            exit <- restore(runLock.withPermit(ZIO.scoped(runEffect(hub)))).exit
+            exit <- restore(
+              runLock.withPermit(
+                observeInvocation(complete => ZIO.scoped(runEffect(hub, complete)))
+              )
+            ).exit
             // Join the claimed prefix before appending the unclaimed suffix and terminal signal.
             tail <- sub.takeAll
             _    <- sub.shutdown
@@ -274,12 +298,14 @@ final class ReActAgent private (
 
   private def runOrdinaryWithHub(
       messages: Chunk[Msg],
-      hub: Hub[AgentEvent]
+      hub: Hub[AgentEvent],
+      complete: AgentResult => IO[AgentError, Unit]
   ): ZIO[Scope, AgentError, AgentResult] =
     Ref
       .make[Option[ChatUsage]](None)
       .flatMap(usage =>
-        runWithHub(messages, hub, toolkit, usage)(result => ZIO.succeed((result, ()))).map(_._1)
+        runWithHub(messages, hub, toolkit, usage, complete)(result => ZIO.succeed((result, ())))
+          .map(_._1)
       )
 
   private def runWithHub[A](
@@ -287,6 +313,7 @@ final class ReActAgent private (
       eventHub: Hub[AgentEvent],
       activeToolkit: Toolkit,
       usageRef: Ref[Option[ChatUsage]],
+      complete: AgentResult => IO[AgentError, Unit],
       requestConfig: LlmConfig = llmConfig,
       structuredResponse: Option[Ref[Option[Json]]] = None
   )(
@@ -333,11 +360,49 @@ final class ReActAgent private (
                 case Right(value) => ZIO.succeed(value)
             )
             _ <- stateRef.set(completed._1.history)
+            _ <- complete(completed._1)
             _ <- eventHub.publish(AgentEvent.AgentResultEvent(completed._1.reply))
           yield completed
         }
       }
     yield result
+
+  private enum ObservationState:
+    case Pending, Started
+
+  private def observeInvocation[A](
+      runEffect: (AgentResult => IO[AgentError, Unit]) => ZIO[Scope, AgentError, A]
+  ): ZIO[Scope, AgentError, A] =
+    ZIO.uninterruptibleMask: restore =>
+      for
+        observation <- Ref.make(ObservationState.Pending)
+        execution <- restore(
+          ZIO.scoped(runEffect(result => observeOnce(observation, Exit.succeed(result))))
+        ).exit
+        value <- execution match
+          case Exit.Success(value) => ZIO.succeed(value)
+          case Exit.Failure(original) =>
+            observeOnce(observation, Exit.failCause(original)).exit.flatMap:
+              case Exit.Success(_)       => ZIO.refailCause(original)
+              case Exit.Failure(failure) => ZIO.refailCause(original ++ failure)
+      yield value
+
+  private def observeOnce(
+      state: Ref[ObservationState],
+      outcome: Exit[AgentError, AgentResult]
+  ): IO[AgentError.CompletionObservationError, Unit] =
+    state
+      .modify(current => current -> ObservationState.Started)
+      .flatMap:
+        case ObservationState.Started => ZIO.unit
+        case ObservationState.Pending =>
+          stateRef.get.flatMap(history =>
+            ZIO.scoped(
+              ZIO.suspendSucceed(
+                completionObserver.observe(TurnCompletion(agentId, history, outcome))
+              )
+            )
+          )
 
   /** Own the worker separately so cancellation cannot discard its resource-cleanup failures. */
   private def raceWithSignal[R, E, A](
@@ -982,7 +1047,8 @@ object ReActAgent:
       toolResultProcessor: ToolResultProcessor = ToolResultProcessor.identity,
       toolAuthorizer: ToolAuthorizer = ToolAuthorizer.allow,
       historyPreparer: HistoryPreparer = HistoryPreparer.identity,
-      modelInputTransform: ModelInputTransform = ModelInputTransform.identity
+      modelInputTransform: ModelInputTransform = ModelInputTransform.identity,
+      completionObserver: TurnCompletionObserver = TurnCompletionObserver.ignore
   ): IO[AgentError, ReActAgent] =
     for
       _                     <- ZIO.fromEither(config.validated)
@@ -1004,7 +1070,8 @@ object ReActAgent:
       toolResultProcessor,
       toolAuthorizer,
       historyPreparer,
-      modelInputTransform
+      modelInputTransform,
+      completionObserver
     )
 
   def builder(): Builder = Builder()
@@ -1019,7 +1086,8 @@ object ReActAgent:
       private val _toolResultProcessor: ToolResultProcessor = ToolResultProcessor.identity,
       private val _toolAuthorizer: ToolAuthorizer = ToolAuthorizer.allow,
       private val _historyPreparer: HistoryPreparer = HistoryPreparer.identity,
-      private val _modelInputTransform: ModelInputTransform = ModelInputTransform.identity
+      private val _modelInputTransform: ModelInputTransform = ModelInputTransform.identity,
+      private val _completionObserver: TurnCompletionObserver = TurnCompletionObserver.ignore
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -1047,6 +1115,9 @@ object ReActAgent:
     def modelInputTransform(transform: ModelInputTransform): Builder =
       copy(_modelInputTransform = transform)
 
+    def completionObserver(observer: TurnCompletionObserver): Builder =
+      copy(_completionObserver = observer)
+
     def build: IO[AgentError, ReActAgent] =
       ZIO
         .fromOption(_client)
@@ -1062,6 +1133,7 @@ object ReActAgent:
             _toolResultProcessor,
             _toolAuthorizer,
             _historyPreparer,
-            _modelInputTransform
+            _modelInputTransform,
+            _completionObserver
           )
         )

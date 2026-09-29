@@ -75,3 +75,13 @@ Ten ReActAgentToolResultProcessorSpec scenarios verify raw persistence before pr
 - [x] `review_fp` and `review_harness` approved the final seven-file model-input scope against `40f6f05` on 2026-09-29. Sixteen added regressions and full formatting/fatal-warning verification passed: 529 core and 101 harness tests. No findings remain within request-only projection, structural validation, canonical-state isolation, and eviction integration. Broader legacy hook/middleware parity remains pending. Exact identities and migration are in the [agent contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).
 
 [ModelInputTransformSpec](ModelInputTransformSpec.scala) has three port/validation/error-channel tests. [ReActAgentModelInputSpec](ReActAgentModelInputSpec.scala) adds ten scenarios for canonical preparation visibility, scope/event ordering, invalid projections, fallback isolation, shorter-view cancellation with reused IDs, cooperative/fiber cancellation, timeout, finalizer defects, thinking usage/retries, and native fallback contexts. Three harness eviction scenarios verify real stored payloads, request omissions across repeated requests, and view-only metadata/state rewrites.
+
+## Completion observation verification
+
+- [TurnCompletionObserverSpec](TurnCompletionObserverSpec.scala): three port laziness/scope, ignore, codec and compile-time channel cases.
+- [ReActAgentCompletionSpec](ReActAgentCompletionSpec.scala): nine canonical/native/Auto, publication ordering, typed/defect cause, and held-lock cases.
+- [ReActAgentCompletionInterruptSpec](ReActAgentCompletionInterruptSpec.scala): ten cooperative/external/timeout/mixed-cause, observer-cleanup, late cancellation, and early stream termination cases. The early-consumer failure test deliberately establishes the abandoned-queue visibility limit.
+
+- [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 264 harness tests, including 28 new cases, with zero compiler warnings. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
+
+Exact identities and callback restrictions are in the [source contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).

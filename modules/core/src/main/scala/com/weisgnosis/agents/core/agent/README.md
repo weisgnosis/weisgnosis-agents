@@ -7,10 +7,11 @@ ReActAgent retains history and serializes runs. Model requests receive their own
 - [PostReasoningHook](PostReasoningHook.scala)
 - [ReActAgent](ReActAgent.scala)
 - [StructuredOutput](StructuredOutput.scala)
+- [TurnCompletionObserver](TurnCompletionObserver.scala)
 
 ## Runtime events and result pairing
 
-One correlated AgentStart/AgentEnd pair surrounds each engine attempt. End follows loop termination/reconciliation, including failure or interruption. Successful preparation commits history and publishes one runtime AgentResultEvent before End. Ordinary cooperative interruption publishes its recovery reply; failed structured preparation publishes no finalized result. Streaming uses a private Take queue carrying the original exit, joins the claimed event prefix, then drains the buffered suffix before termination. A provider-published AgentEnd cannot terminate delivery. Early consumer completion closes owned producer/model scopes. Publishers must remain within those scopes; the unbounded hub/queue do not provide backpressure.
+One correlated AgentStart/AgentEnd pair surrounds each engine attempt. End follows loop termination/reconciliation, including failure or interruption. Successful preparation commits history, completes required observation and its scope cleanup, then publishes one runtime AgentResultEvent before End. Observation failure suppresses the result event while retaining committed history. Ordinary cooperative interruption publishes its recovery reply; failed structured preparation publishes no finalized result. Streaming uses a private Take queue carrying the original exit, joins the claimed event prefix, then drains the buffered suffix before termination. A provider-published AgentEnd cannot terminate delivery. Early consumer completion closes owned producer/model scopes. Publishers must remain within those scopes; the unbounded hub/queue do not provide backpressure.
 
 After all configured iterations complete without a final response, the runtime emits exactly one ExceedMaxItersEvent with the attempt's replyId, configured maximum, and completed iteration count before the normal end. Completion on the last permitted iteration does not emit a limit event. Unlike the pinned upstream guard, this event never intentionally uses an empty replyId.
 
@@ -22,7 +23,7 @@ Cancellation reconciliation also consumes completed local observations by occurr
 
 StructuredOutput supports native formatting and synthetic generate_response with root definition hoisting. Synthetic output completes only after acting finishes in the Completed state, without another model turn. Ordinary tool pairs and unrelated empty history remain. Final replies retain signed thinking exactly once and generating-request usage; AgentResult usage aggregates the run. Incomplete runs fail with AgentError.Interrupted and retain recovery history even after payload capture.
 
-runStructured and streamStructuredEvents share the same preparation and commit path. Structured payload resolution selects existing metadata or parses visible text exactly once; that AST supplies both decoding and committed metadata. Preparation remains interruptible and timeout-bounded. A short masked section commits finalized history and publishes AgentResultEvent before AgentEnd. Cancellation after this commit may follow an already published result. Auto fallback retains two attempt boundary pairs, with no result from the failed native attempt; the run lock covers both attempts. Input event payloads and ToolCallState metadata do not grant runtime permission or stop/resume authority.
+runStructured and streamStructuredEvents share the same preparation and commit path. Structured payload resolution selects existing metadata or parses visible text exactly once; that AST supplies both decoding and committed metadata. Preparation remains interruptible and timeout-bounded. A masked completion section commits finalized history, completes required observation and cleanup, then publishes AgentResultEvent before AgentEnd. Required observation can delay cancellation without the attempt timeout bounding it. Late cancellation may coexist with committed result publication while the caller ultimately exits interrupted. Auto fallback retains two attempt boundary pairs, with no result from the failed native attempt; the run lock covers both attempts. Input event payloads and ToolCallState metadata do not grant runtime permission or stop/resume authority.
 
 ## Model request correlation
 
@@ -197,7 +198,6 @@ Final formatted scope against `40f6f05`:
 | --- | --- |
 | [HistoryPreparer.scala](HistoryPreparer.scala) | 088d1464febe6be050ce43856305a0efe3b7f0e5 |
 | [ModelInputTransform.scala](ModelInputTransform.scala) | 4dd6b57426cdc37ac37c7453a75eb7159acdba99 |
-| [ReActAgent.scala](ReActAgent.scala) | 1edf2d31529e00a994de063aa2b486ac6f712d40 |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 8a42440fcdbc2d5662cb67fbbf541483f2b865e5 |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 84d4648bf879e523cbf39f8d3bce74a2f90fac99 |
 | [ToolResultEvictorHistorySpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorHistorySpec.scala) | 3070eb8d3caf57c99243fb7675b5fbbe8d7f25e8 |
@@ -207,3 +207,38 @@ The changed compactor integration test identity from the history-preparation tab
 The compactor identity from the earlier preparation table is preserved in `738b216`; shared retained-user validation and daily extraction are reviewed in the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
 
 The changed AgentError.scala identity from the earlier table is preserved in `d1a4cf2`; current local-memory error acceptance is in the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+
+## Required turn completion observation
+
+[TurnCompletionObserver](TurnCompletionObserver.scala) is an optional runtime dependency of ReActAgent.make and Builder.completionObserver; the default ignore preserves existing behavior. TurnCompletion contains agentId, the terminal canonical history, and the original execution Exit. It is runtime data with full Cause information, not a serialized callback or wire event. The snapshot is read-only and cannot replace canonical history.
+
+One admitted invocation owns one observation attempt, including both attempts of structured Auto fallback. Calls cancelled while waiting for the run lock do not observe. Success is observed after request/tool cleanup, structured preparation, and canonical history commit, before AgentResultEvent. A final execution failure, defect, timeout, or external cancellation is observed after execution scope closure and reconciliation. Cooperative interruption may produce a successful Exit containing an interrupted AgentResult. Attempt-level AgentEnd can precede failure observation; it is not a persistence acknowledgement.
+
+Observation runs in its own scope under the held run lock and cancellation mask. Resources close before successful result publication or completion. A slow observer delays cancellation; callbacks must not await this same agent's run, runStructured, streams, or resetHistory, including through another fiber. The model/tool timeout does not bound mandatory observation. No detached background work or automatic retry is introduced.
+
+AgentResultEvent means committed execution output, not caller delivery acknowledgement. Cancellation arriving during successful observation can coexist with subsequent result publication while the caller ultimately exits interrupted. The observer sees the original successful execution outcome; it does not receive a second callback for late cancellation or its own failure. An observation failure suppresses AgentResultEvent. The dedicated CompletionObservationError cannot trigger native-format fallback; original execution and observation failure causes are preserved in sequential order, including interruption and cleanup defects.
+
+Direct calls and fully consumed streams expose terminal observer failures. A consumer that stops a stream early still waits for producer cleanup and mandatory observation, but no longer consumes the queue carrying later terminal errors. Such a consumer cannot infer successful persistence from its own successful take/runDrain. No separate durable acknowledgement capability is provided.
+
+Migration: the optional constructor/builder dependency is additive, but positional Builder matches must follow the current shape. Exhaustive AgentError matches must include CompletionObservationError. Hosts explicitly install the transcript adapter; the runtime does not assign missing Msg identities. See the [transcript contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md).
+
+- [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 264 harness tests, including 28 new cases, with zero compiler warnings. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
+
+The previous ReActAgent.scala identity is preserved in `0349b1a`; its current identity and acceptance are in the completion-observer table in the [core agent contract](README.md).
+
+## Current completion-observer identities
+
+Final formatted eight-file scope against `0349b1a`:
+
+| File | Git blob |
+| --- | --- |
+| [ReActAgent.scala](ReActAgent.scala) | 3aa3e96aa3b6de6c8413b3f0fd6aa2cf794f05ac |
+| [TurnCompletionObserver.scala](TurnCompletionObserver.scala) | 502c191f4bc2ea2f73197e1b1886fa6ed277f2d2 |
+| [AgentError.scala](../error/AgentError.scala) | 4d3862fa5056580dc210b2273f9106436195a50c |
+| [ReActAgentCompletionInterruptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionInterruptSpec.scala) | c26004f7c289c66638e725857bc2225acb7e1a03 |
+| [ReActAgentCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionSpec.scala) | 2b6f5f8edad11ad0023c15c5905d9d69136e908f |
+| [TurnCompletionObserverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/TurnCompletionObserverSpec.scala) | 6c658885ede57eb1d542817c4e46ba8dade2a622 |
+| [SessionTranscriptWriter.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) | da27d3446e30ee7f77f4eaaac2d424200ac17383 |
+| [TranscriptCompletionSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/transcript/TranscriptCompletionSpec.scala) | 5a6a1a89ff46ae70df874db6b7826154a84065b5 |
+
+- [x] `review_docs` approved completion-observer documentation against `0349b1a`, including all eight identities, 28 new cases, late cancellation, early-stream error visibility, explicit anonymous policy, compactor offload and remaining lifecycle work. Full verification passed 552 core / 264 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.

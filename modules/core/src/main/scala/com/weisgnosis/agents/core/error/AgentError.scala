@@ -48,6 +48,9 @@ object AgentError:
   /** Request-only history projection failure; never a provider rejection eligible for fallback. */
   final case class ModelInputError(message: String) extends AgentError derives JsonCodec
 
+  /** Required completion observation failed; never eligible for provider fallback. */
+  final case class CompletionObservationError(message: String) extends AgentError derives JsonCodec
+
   /** Memory backend I/O or ownership failure; never a provider request rejection. */
   final case class MemoryStorageError(message: String) extends AgentError derives JsonCodec
 
