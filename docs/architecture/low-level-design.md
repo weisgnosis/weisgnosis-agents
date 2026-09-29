@@ -185,3 +185,7 @@ See the [current configuration identity table](../../modules/harness/src/main/sc
 ## Static command inspection APIs
 
 PlanShellInspection.inspect(String) returns Either[ShellRejection, PosixReadCommand]. The result exposes PosixReadProgram, arguments and argv; construction is private to the plan package and no command codec bypasses validation. See the [exact grammar and identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md). No command execution, filesystem authorization or runtime plan gate is provided by this API.
+
+## Plan permission APIs
+
+PlanMode is Build or Plan. PlanToolAccess is ReadOnly, PlanControl, RequestExecution, Mutation or PosixReadCommand. PlanPermissionGate.make(UIO[PlanMode], Map[String, PlanToolAccess]) returns a PermissionGate without reading mode during construction. PlanShellInspection.inspectInput(Json) rejects missing/extra/duplicate/nonstring fields before parsing the sole command string. The [current plan identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities) cover runtime admission and its precise limits.

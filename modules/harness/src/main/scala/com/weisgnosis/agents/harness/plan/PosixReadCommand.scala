@@ -37,4 +37,4 @@ final class PosixReadCommand private[plan] (
   def argv: Chunk[String] = Chunk(program.name) ++ arguments
 
 enum ShellRejection derives JsonCodec:
-  case Empty, TooLong, UnsupportedSyntax, UnsupportedCommand, UnsupportedArguments
+  case InvalidInput, Empty, TooLong, UnsupportedSyntax, UnsupportedCommand, UnsupportedArguments

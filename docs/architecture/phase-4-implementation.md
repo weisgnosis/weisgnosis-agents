@@ -48,7 +48,7 @@ ModelInputTransform projects a request-only history after canonical preparation 
 
 Run `sbt scalafmtAll scalafmtSbt`, then `sbt verify`. The Scala suites use local scripted clients, ZIO Test services, and temporary filesystem resources. They do not exercise a live provider endpoint. The configured formatter plugin is required for the repository verification commands.
 
-The current implementation passed 555 core and 461 harness tests, with no failures or compiler warnings. The cleanup-failure regression intentionally emits a runtime warning. Current review acceptance is maintained in the [core README](../../modules/core/README.md) and [harness README](../../modules/harness/README.md), with package-level scope details. Resolved review reports are removed from the active tree; their history remains in Git. Remaining provider/event integration, exhaustive upstream parity, and host integration remain tracked work.
+The current implementation passed 555 core and 475 harness tests, with no failures or compiler warnings. The cleanup-failure regression intentionally emits a runtime warning. Current review acceptance is maintained in the [core README](../../modules/core/README.md) and [harness README](../../modules/harness/README.md), with package-level scope details. Resolved review reports are removed from the active tree; their history remains in Git. Remaining provider/event integration, exhaustive upstream parity, and host integration remain tracked work.
 
 SessionTranscriptWriter now supplies an independent offload callback using typed observations and atomic TranscriptStore.inMemory authority. Projection retains summaries and thinking, bounds tool previews, and separates structural stable keys from UUID identity. LocalTranscriptStore now provides strict versioned whole-log persistence through shared WorkspaceLease ownership. TurnCompletionObserver installs terminal canonical snapshot recording with an explicit anonymous-message policy. Immutable remote segments and session indexes remain pending; opt-in local flush/consolidation scheduling is implemented below.
 
@@ -78,4 +78,8 @@ Immutable MemoryConfig, strict MemoryTokenBudget and total ConsolidationPrompt n
 
 ## Plan-mode foundation
 
-A reviewed pure POSIX command-shape inspector now supplies ten syntax/type regressions. It is not installed into runtime authorization yet. Fourteen upstream plan-mode methods are inventoried as pending; static inspection alone closes none of their runtime assertions. Typed mode admission and modified-confirmation checks are next.
+A reviewed pure POSIX command-shape inspector now supplies ten syntax/type regressions. Opt-in runtime authorization is implemented below. Fourteen upstream plan-mode methods are inventoried; static inspection alone closes none, and the later admission increment adapts two.
+
+## Plan permission integration
+
+Fourteen new tests now verify opt-in plan restrictions through the real permission/ReAct path, including denied observation events, replacement input, mode activation during approval, mandatory Ask and already-admitted execution. Two middleware methods are explicitly adapted; twelve plan lifecycle/propagation methods remain pending. No process execution or automatic mode transition is provided.

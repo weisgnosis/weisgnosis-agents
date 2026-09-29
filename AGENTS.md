@@ -60,7 +60,7 @@ These IDs follow the Phase 3/4 handover. Requirements for planned systems do not
 | INV-6 | Offload tool text above 80,000 characters with 2,000-character head/tail previews. Persistence failure preserves the original observation. Historical pruning has a separate 2,000-character threshold. |
 | INV-7 | Independent permission gates combine as Deny > Ask > Passthrough > Allow. Unknown requests default to Ask. |
 | INV-8 | Planned subagents enforce depth <=3; promotion after a 30-second synchronous timeout transfers ownership to a persistent TaskSupervisor. |
-| INV-9 | Planned plan mode rejects mutating tools and statically inspects permitted exploration commands, rejecting redirection (>, >>) and mutations such as rm, mv, and sed -i. |
+| INV-9 | Plan mode rejects mutating tools and statically inspects permitted exploration commands, rejecting redirection (>, >>) and mutations such as rm, mv, and sed -i. |
 | INV-10 | Reject parent traversal before normalization; canonicalize existing ancestors through toRealPath and screen sensitive paths, including .env variants, shell startup files, .ssh, and .git. Canonical checks are not an atomic filesystem sandbox. Local persistence requires explicit ownership/trust. |
 | INV-11 | Support native formatting and synthetic generate_response; preserve root definition namespaces and compress only synthetic context. |
 | INV-12 | Group streaming arguments by streamIndex; sanitize incomplete interrupted JSON arguments to {}. |
@@ -68,7 +68,7 @@ These IDs follow the Phase 3/4 handover. Requirements for planned systems do not
 Additional requirements:
 
 - Coalesce adjacent user turns without losing provenance.
-- Planned daily memory flushes write memory/YYYY-MM-DD.md only. Only the consolidator writes curated MEMORY.md within 4,000 tokens.
+- Daily memory flushes write memory/YYYY-MM-DD.md only. Only the consolidator writes curated MEMORY.md within 4,000 tokens.
 - Interactive HITL uses Promise. Durable hosts persist pending state and resume from ConfirmResult without another model request; authentication, checkpoints, and idempotency belong to the host.
 - Server-hosted tools with inline results bypass local dispatch.
 - Interrupted recovery preserves the agentscope_generate_reason=interrupted compatibility metadata.

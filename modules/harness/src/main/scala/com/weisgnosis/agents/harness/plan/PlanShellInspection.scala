@@ -16,11 +16,20 @@
 package com.weisgnosis.agents.harness.plan
 
 import zio.Chunk
+import zio.json.ast.Json
 
 /** Conservative POSIX token grammar, not a shell parser or an execution authorization. */
 object PlanShellInspection:
   val MaximumCommandCharacters: Int = 4096
   val MaximumLineCount: Int         = 10000
+
+  /** The executor and permission gate must consume the same exact authoritative envelope. */
+  def inspectInput(input: Json): Either[ShellRejection, PosixReadCommand] = input match
+    case Json.Obj(fields) =>
+      fields.toList match
+        case ("command", Json.Str(command)) :: Nil => inspect(command)
+        case _                                     => Left(ShellRejection.InvalidInput)
+    case _ => Left(ShellRejection.InvalidInput)
 
   def inspect(command: String): Either[ShellRejection, PosixReadCommand] =
     if command.length > MaximumCommandCharacters then Left(ShellRejection.TooLong)

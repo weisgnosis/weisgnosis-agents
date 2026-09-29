@@ -17,9 +17,30 @@ package com.weisgnosis.agents.harness.plan
 
 import zio.*
 import zio.test.*
+import zio.json.ast.Json
 
 object PlanShellInspectionSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment & Scope, Any] = suite("PlanShellInspectionSpec")(
+    test("authoritative shell envelope requires exactly one string command field") {
+      val invalid = Chunk[Json](
+        Json.Str("pwd"),
+        Json.Arr(),
+        Json.Obj(),
+        Json.Obj("command" -> Json.Num(1)),
+        Json.Obj("other"   -> Json.Str("pwd")),
+        Json.Obj("command" -> Json.Str("pwd"), "command" -> Json.Str("rm file")),
+        Json.Obj("command" -> Json.Str("pwd"), "cwd"     -> Json.Str("elsewhere")),
+        Json.Obj("command" -> Json.Str("pwd"), "env"     -> Json.Obj())
+      )
+      assertTrue(
+        invalid.forall(input =>
+          PlanShellInspection.inspectInput(input) == Left(ShellRejection.InvalidInput)
+        ),
+        PlanShellInspection
+          .inspectInput(Json.Obj("command" -> Json.Str("head -n 2 file")))
+          .exists(_.argv == Chunk("head", "-n", "2", "file"))
+      )
+    },
     test("explicit command forms produce exact argv without executing a process") {
       val commands = List(
         "pwd",

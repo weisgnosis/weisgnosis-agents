@@ -20,7 +20,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 555 core and 461 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 555 core and 475 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -105,6 +105,12 @@ MemoryConfig now carries typed budgets, default/custom prompt selection, indepen
 
 ## Static plan-mode foundation
 
-PlanShellInspection accepts a narrow positive POSIX grammar and returns immutable program/argv values without executing commands. It rejects shell composition and unsupported programs/options. This does not authorize paths or provide runtime plan enforcement. See the [plan contract and review evidence](src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
+PlanShellInspection accepts a narrow positive POSIX grammar and returns immutable program/argv values without executing commands. It rejects shell composition and unsupported programs/options. The inspector does not authorize paths; opt-in runtime admission is implemented below. See the [plan contract and review evidence](src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
 
 - [x] `review_fp` and `review_harness` approved the final four-file static-shell increment against `2d4094b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 461 harness tests, including ten new cases, with zero compiler warnings. No findings remain within bounded positive syntax inspection and immutable argv results. Runtime plan enforcement, process execution, path authorization and resource isolation are excluded.
+
+## Dynamic plan admission
+
+PlanPermissionGate consumes explicit host mode and exact trusted tool classifications. Build and eligible Plan calls abstain, RequestExecution asks, and prohibited/unknown calls deny. Real ReAct tests verify denial persistence/events, modified-input checks and mode changes during confirmation. This supplies admission restrictions without automatic state transitions, process isolation or child propagation. See the [plan contract](src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission).
+
+- [x] `review_fp` and `review_harness` approved the final eight-file plan-admission increment against `0ad16e5` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 475 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within typed mode/classification, exact command input, dynamic permission admission and actual ReAct denial/confirmation behavior. Process isolation, plan lifecycle/storage/prompts and child propagation are excluded.

@@ -109,4 +109,8 @@ MemoryConfig now combines defaults and overrides without a mutable builder. Vali
 
 ## Plan-mode foundation
 
-Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Runtime plan enforcement, safe plan storage, confirmed exit and child propagation remain pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
+Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; safe plan storage, confirmed exit and child propagation remain pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
+
+## Plan admission authority
+
+PlanPermissionGate now integrates explicit host-owned mode and tool classifications into normal permission admission. It restricts capabilities without granting permission, and execution requests still require confirmation. The runtime persists and streams denied results. Mode changes affect later checks; they do not revoke already admitted work. Plan persistence, approved transitions and child restrictions remain separate work.

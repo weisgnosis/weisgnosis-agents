@@ -767,10 +767,10 @@ All four earlier trigger adaptations remain required. This closes the named conf
 
 ## Plan-mode inventory
 
-Pinned upstream has fourteen methods across four suites. The initial static-shell increment supplies ten additional Scala safety cases; it does not complete the runtime methods below. Upstream additionalAllowed permits shell tools without command inspection and adds only a prompt reminder; that bypass is intentionally not adopted. Spawn/send names must not be admitted before child restrictions exist.
+Pinned upstream has fourteen methods across four suites. The initial static-shell increment supplies ten additional Scala safety cases; it alone completes none of the runtime methods below; later permission integration adapts the two checked methods. Upstream additionalAllowed permits shell tools without command inspection and adds only a prompt reminder; that bypass is intentionally not adopted. Spawn/send names must not be admitted before child restrictions exist.
 
-- [ ] `PlanModeMiddlewareTest.deniesMutatingToolsButAllowsReadOnlyAndPlanTools`: corresponding runtime/state/storage/propagation integration remains pending.
-- [ ] `PlanModeMiddlewareTest.passesThroughWhenPlanModeInactive`: corresponding runtime/state/storage/propagation integration remains pending.
+- [x] `PlanModeMiddlewareTest.deniesMutatingToolsButAllowsReadOnlyAndPlanTools`: PlanPermissionIntegrationSpec verifies read/limited-plan pass-through and persisted Start/Delta/End denied observations for mutation and unclassified send; a separate RequestExecution case forces confirmation. Adaptation: exact host classifications replace implicit tool-name exemptions, and runtime preserves original occurrence order rather than upstream denied-first partitioning.
+- [x] `PlanModeMiddlewareTest.passesThroughWhenPlanModeInactive`: PlanPermissionGateSpec and real ReAct integration verify Build abstention and policy-approved mutation.
 - [ ] `PlanModeMiddlewareTest.systemPromptBannerOnlyWhenActive`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeMiddlewareTest.buildModeHintSurfacesPlanFilePath`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeMiddlewareTest.buildModeNoHintWhenNoPlanFile`: corresponding runtime/state/storage/propagation integration remains pending.
@@ -785,3 +785,14 @@ Pinned upstream has fourteen methods across four suites. The initial static-shel
 - [ ] `AgentSpawnToolPlanModeTest.agentSend_reappliesParentPlanModeBeforeInvokingExistingChild`: corresponding runtime/state/storage/propagation integration remains pending.
 
 The manager's persisted-flag test observes state fields, not save/reload durability. Plan directory slash normalization is not canonical path safety. Confirmed exit must retain the independent Ask decision. Propagation applies to reused children and does not automatically lift a child's restriction when the parent exits. Current static grammar acceptance is recorded in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
+
+
+## Plan permission integration evidence
+
+- [x] Verify fourteen new cases covering typed modes, trusted classifications, gate priority, strict envelopes, cleanup and real runtime admission.
+- [x] Reevaluate current mode and modified authoritative input after confirmation; reject replacement mutations and extra execution fields.
+- [x] Force Ask for RequestExecution without implementing or claiming a mode transition.
+- [x] Verify admitted execution can finish after a mode change while the next call is denied.
+- [ ] Complete the twelve remaining plan methods above and authenticated plan lifecycle/child propagation.
+
+This closes two explicit middleware adaptations only. Safe static commands abstain; they do not acquire path/process authority or bypass ordinary permission policy. Current identities are in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities).

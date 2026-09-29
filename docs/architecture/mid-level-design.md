@@ -93,7 +93,7 @@ Enforce MAX_SPAWN_DEPTH=3. In-turn children use scoped fibers and propagate canc
 
 ## 10. Planned plan-mode hardening
 
-Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. Plan exit requires explicit Ask approval. A conservative static POSIX grammar is implemented below. Runtime admission, policy propagation and plan tools remain pending.
+Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. Plan exit requires explicit Ask approval. A conservative static POSIX grammar is implemented below. Runtime admission is implemented below; policy propagation and plan tools remain pending.
 
 ## Transcript observation authority
 
@@ -166,3 +166,7 @@ The host supplies config.triggers to its shared gate and config.transcriptRetent
 ## Static shell eligibility
 
 PlanShellInspection rejects unsupported characters before tokenization, then matches exact pwd/ls/cat/head/tail/wc argument shapes. Inputs are bounded to 4,096 characters; head/tail counts are 1..10,000. No quotes, substitutions, pipelines, redirects or interpreter wrappers are supported. An eligible value contains immutable argv, not executable authority. Runtime gates must still default-deny unknown tools and preserve independent permission decisions.
+
+## Dynamic plan admission
+
+The host passes a suspended mode read and immutable exact-name classifications to PlanPermissionGate. Each check samples once. Build abstains; Plan eligible tools abstain, execution requests Ask and unknown/mutating tools Deny. Shell input must be exactly one string command field. Install the gate in InteractivePermissionAuthorizer so confirmed replacements and current mode are rechecked before dispatch. Mode evaluation remains cancellable; admission is not atomic revocation of in-flight execution.
