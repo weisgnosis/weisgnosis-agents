@@ -118,7 +118,6 @@ The previous MemoryExtractor comment identity is preserved in `46c6174`; its cur
 | Source | Blob identity |
 | --- | --- |
 | [ConsolidationStore.scala](ConsolidationStore.scala) | bc4d87299b785335051b8c44553c0c3670b859dd |
-| [MemoryConsolidator.scala](MemoryConsolidator.scala) | 016e5611a60974cc47ac44e3bef109c573779be2 |
 | [MemoryExtractor.scala](MemoryExtractor.scala) | fe620774f366965032f4582046b8fc79282ec164 |
 | [MemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRepositorySpec.scala) | 090804a4d20f01d838c8d7e381175287374cadc2 |
 | [MemoryConsolidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidatorSpec.scala) | 49f460b8ba9e77b202e146b50a0c6b9b561445b1 |
@@ -230,15 +229,14 @@ registerTicket is a required synchronous handoff callback returning IO[Completio
 
 Compaction preservation is separate. Install manager.flush as the compactor's awaited flush callback, and transcript offload as appropriate, before deleting a prefix. Enqueueing the old prefix on this coalescing scheduler is not a preservation guarantee because newer work could replace it. The integration tests establish local daily-store reopen and awaited-prefix extraction; they do not prove semantic memory fidelity, exactly-once facts, crash durability, automatic receipt monitoring or maintenance scheduling.
 
-The previous MemoryFlushManager.scala identity is preserved in `1c8e3ee`; its current identity is in the completion-triggered flush table below.
+The previous MemoryFlushManager.scala identity is preserved in `1c8e3ee`; the completion-triggered flush identity is preserved in 005bacf, and the current identity is in the configuration table below.
 
 ## Current completion-triggered flush identities
 
-Final formatted four-file scope against `1c8e3ee`:
+Three unchanged identities from the four-file scope against `1c8e3ee`:
 
 | Source | Git blob |
 | --- | --- |
-| [MemoryFlushManager.scala](MemoryFlushManager.scala) | b3b1619c07fc853f1f5d4a99a4702d64944b4e23 |
 | [MemoryFlushScheduler.scala](MemoryFlushScheduler.scala) | 1d42d91f92ed0a46816f28746a4ed2b9b7d722b4 |
 | [MemoryFlushSchedulerLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushSchedulerLifecycleSpec.scala) | bf9eecccbea5143e2c2aec09c688649d623e66b2 |
 | [MemoryFlushSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushSchedulerSpec.scala) | 02da0630ca918cbf9935adc1fd6533b1a4b21df2 |
@@ -324,7 +322,7 @@ Scheduled date selection happens in the worker, not when the observer admits the
 
 Consolidation, archival and aggregate reporting are sequential effects, not one transaction. Archive failure can follow a committed consolidation and produces no aggregate success report. Report failure can follow completed archival. Tickets retain the failed cause, but neither a failed receipt nor an absent report implies unchanged storage or supplies a durable phase/result journal. Inspect storage before retrying. The queue serializes scheduled owner work; direct concurrent service calls can interleave phases, with each repository CAS/lease/acknowledgement check retaining its individual guarantees. No extra cross-phase lock, exactly-once report or rollback promise is made.
 
-This intentionally differs from upstream expiry-before-consolidation and swallowed maintenance failures. The stronger acknowledged-only archival capability and observable task failures are retained. Automatic session pruning, custom consolidation prompts, unified configuration and remote scheduling remain unfinished. Prior MemoryConsolidationScheduler.scala is preserved in b3d2723.
+This intentionally differs from upstream expiry-before-consolidation and swallowed maintenance failures. The stronger acknowledged-only archival capability and observable task failures are retained. Automatic session discovery and remote scheduling remain unfinished; typed custom prompts and immutable configuration are implemented below. Prior MemoryConsolidationScheduler.scala is preserved in b3d2723.
 
 ## Current maintenance identities
 
@@ -333,7 +331,6 @@ Unchanged identities from the eight-file maintenance increment against `b3d2723`
 | Source | Git blob |
 | --- | --- |
 | [MemoryConsolidationScheduler.scala](MemoryConsolidationScheduler.scala) | 215b1a897951f7ae1be0259c8c45107c82822656 |
-| [MemoryMaintenance.scala](MemoryMaintenance.scala) | fb177720e497bad5f50a7f5c8061b34b26295a7e |
 | [MemoryMaintenanceTask.scala](MemoryMaintenanceTask.scala) | 2adffe5b970b0824d0092a15a78acf19ebd09512 |
 | [MemoryMaintenanceSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSchedulerSpec.scala) | d31c5ab3e0628f94d691ad4865c855d6671d4cc7 |
 | [MemoryMaintenanceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSpec.scala) | bbf02388ef56d1918059869fa8e6a37558ac28cd |
@@ -355,7 +352,7 @@ MemoryMaintenanceScheduler.make has an additive coordinator overload. The same p
 
 Effects are sequential and preserve partial progress: a later target failure can follow committed memory and earlier deletions; aggregate reporting can fail after every phase succeeds. Later targets are skipped after failure or cancellation, and owned shutdown waits for current cleanup. An absent aggregate or failed receipt is not proof of unchanged storage. There is no cross-phase transaction, rollback, durable result journal or exactly-once guarantee. Direct coordinator calls may interleave; scheduled calls use queue ownership. Hosts provide an immutable set of explicitly selected targets, retain active writer leases, retire deleted logical sessions and monitor receipts.
 
-The [transcript batch contract](../transcript/README.md) defines exact correlation IDs, capability ownership and replayable preparation. Discovery, remote pruning and the six complete MemoryConfig method adaptations remain pending. This is a hardened source-level maintenance adaptation, not a new named upstream test mapping.
+The [transcript batch contract](../transcript/README.md) defines exact correlation IDs, capability ownership and replayable preparation. Discovery and remote pruning remain pending; the six MemoryConfig method adaptations are completed below. This is a hardened source-level maintenance adaptation, not a new named upstream test mapping.
 
 ## Current batch and coordinator identities
 
@@ -375,3 +372,36 @@ Final formatted eight-file increment against b86fd14; the table is the canonical
 - [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.
 
 - [x] `review_docs` approved batch/coordinator documentation against `b86fd14`: eight identities, 22 new cases, explicit ordering, cutoff preparation and partial-progress contracts. Full verification passed 555 core / 434 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Configuration, discovery and remote integration remain visible as unfinished work.
+
+## Immutable memory configuration
+
+[MemoryConfig](MemoryConfig.scala) composes optional flush/custom consolidation prompts, a validated token budget, MemoryTriggerPolicy, daily retention and transcript retention. None selects the existing default prompt; Some(text), including an empty flush string, is literal customization. Defaults retain 4,000 tokens, Always flush, 30-minute maintenance, 90 calendar-day archival and 180 fixed-day transcript expiry. Copies are independent immutable values. Derived JSON codecs represent Scala configuration, not upstream wire compatibility.
+
+[MemoryTokenBudget](MemoryTokenBudget.scala) is the single 1..4000 authority. Its smart constructor and strict JSON-number codec reject invalid bounds, fractions, quoted numbers and overflow. Both legacy Int factories and configured consumers use it. Custom prompts never bypass actual TokenCounter enforcement before content/progress commit. Approximate character guidance is four times the validated budget (at most 16,000), not a second enforced limit.
+
+[ConsolidationPrompt](ConsolidationPrompt.scala) has three literal fields: beforeTokens, betweenBudgets and afterCharacters. render inserts the token count and approximate character count at two fixed positions. It performs no printf, interpolation-language or brace parsing; percent signs and apparent format directives remain literal. The default renderer preserves the previous prompt wording. This intentionally replaces Java placeholder-count validation with a typed template shape, rather than accepting legacy format strings.
+
+MemoryFlushManager.fromConfig consumes the flush prompt. MemoryConsolidator.fromConfig consumes the custom template and budget. MemoryMaintenance.fromConfig additionally consumes daily retention. All retain existing scoped extraction, semaphores and storage invariants. Hosts explicitly pass config.triggers to their shared MemoryTriggerGate and config.transcriptRetention to TranscriptRetentionBatch.make. No factory installs a gate, queue, scheduler or transcript catalog. A copied policy does not change existing authority; constructing a replacement gate starts new windows. Extractor injection continues to select the model; upstream model-registry configuration is not implemented.
+
+Existing make calls remain source-compatible; optional custom prompt parameters are appended to consolidation/maintenance factories. Binary compatibility is not asserted. The previous MemoryFlushManager, MemoryConsolidator and MemoryMaintenance identities are preserved in 005bacf; their retired table rows above are replaced by the current identities below. See the [test mapping](../../../../../../../../../../docs/architecture/test-parity.md#daily-policy-and-configuration-method-adaptations) for all six bounded method adaptations.
+
+## Current configuration identities
+
+Final formatted ten-file increment against 005bacf; this table owns current identities for the changed components and their new regression suites.
+
+| Source | Git blob |
+| --- | --- |
+| [MemoryTokenBudget.scala](MemoryTokenBudget.scala) | ea4942bf39b8a4e0a4ab97b9ce48026d6fbc9f6b |
+| [ConsolidationPrompt.scala](ConsolidationPrompt.scala) | 267aed5a80ab496b532fe17f540854ebea6f2efd |
+| [MemoryConfig.scala](MemoryConfig.scala) | 43fc031c469ef8275619d8af97213722f677c624 |
+| [MemoryConsolidator.scala](MemoryConsolidator.scala) | 9bda529fc30cd8f7999d5e86e63a5a5f84f876a8 |
+| [MemoryMaintenance.scala](MemoryMaintenance.scala) | 55ef865e4cf556e932a2b94f9c0ea0bf5a3ce827 |
+| [MemoryFlushManager.scala](MemoryFlushManager.scala) | 5d005f143881d4393c843ff5439f4e4c366c2f17 |
+| [MemoryTokenBudgetSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTokenBudgetSpec.scala) | 2b43e152c7ea5a14289e0cbbdca2790c43a0e182 |
+| [ConsolidationPromptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConsolidationPromptSpec.scala) | 4863fa628c7e10b034db9c6e187cd87042ecfebf |
+| [MemoryConfigSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConfigSpec.scala) | 4cfce91bf016eaaa72c6b5f73c6c84c664c050e2 |
+| [MemoryConfigIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConfigIntegrationSpec.scala) | 1fcd6e5da103fcd01bff6a1d3ae163386e35f869 |
+
+- [x] `review_fp` and `review_harness` approved the final ten-file memory-configuration increment against `005bacf` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 451 harness tests, including 17 new cases, with zero compiler warnings. No findings remain within immutable policy values, strict budgets, total prompt rendering, configuration factories and the six explicit upstream method adaptations. Java builder/null/printf compatibility, model selection and automatic gate/queue installation are excluded.
+
+- [x] `review_docs` approved corrected memory-configuration documentation against `005bacf`: ten identities, 17 new cases, preserved defaults, literal template semantics and all ten configuration-method classifications with explicit differences. Full verification passed 555 core / 451 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain in this scope.

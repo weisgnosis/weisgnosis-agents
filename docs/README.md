@@ -19,7 +19,7 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 555 core and 434 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 555 core and 451 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
@@ -62,3 +62,5 @@ Prior documentation reviews are preserved in Git through `40f6f05`. Current pack
 - [x] `review_docs` approved transcript-policy documentation against `f1a005e`: five identities, eight tests, fixed-day arithmetic, KeepAll bypass, additive API behavior and partial configuration mappings. Full verification passed 555 core / 412 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Batch, discovery, scheduling and remote integration remain excluded.
 
 - [x] `review_docs` approved batch/coordinator documentation against `b86fd14`: eight identities, 22 new cases, explicit ordering, cutoff preparation and partial-progress contracts. Full verification passed 555 core / 434 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Configuration, discovery and remote integration remain visible as unfinished work.
+
+- [x] `review_docs` approved corrected memory-configuration documentation against `005bacf`: ten identities, 17 new cases, preserved defaults, literal template semantics and all ten configuration-method classifications with explicit differences. Full verification passed 555 core / 451 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain in this scope.

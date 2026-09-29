@@ -20,7 +20,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 555 core and 434 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 555 core and 451 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -93,6 +93,12 @@ TranscriptRetentionPolicy adds an explicit KeepAll/180-day policy to selected lo
 
 ## Ordered transcript maintenance
 
-TranscriptRetentionBatch now runs explicit host-selected capabilities in order using one prepared cutoff. MemoryMaintenanceCoordinator integrates it after daily maintenance under the existing scheduler gate/job. Partial progress survives later failures; aggregate reporting does not establish rollback or exactly-once delivery. Discovery and complete configuration parity remain pending. See the [coordinator contract and current identities](src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).
+TranscriptRetentionBatch now runs explicit host-selected capabilities in order using one prepared cutoff. MemoryMaintenanceCoordinator integrates it after daily maintenance under the existing scheduler gate/job. Partial progress survives later failures; aggregate reporting does not establish rollback or exactly-once delivery. Discovery remains pending; configuration method adaptations are implemented below. See the [coordinator contract and current identities](src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).
 
 - [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.
+
+## Immutable memory policy
+
+MemoryConfig now carries typed budgets, default/custom prompt selection, independent trigger policies and daily/transcript retention. Component factories consume their relevant values while hosts retain explicit gate/queue/model ownership. A fixed two-position prompt template avoids runtime format parsing, and actual token enforcement remains authoritative. See the [configuration contract](src/main/scala/com/weisgnosis/agents/harness/memory/README.md#immutable-memory-configuration).
+
+- [x] `review_fp` and `review_harness` approved the final ten-file memory-configuration increment against `005bacf` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 451 harness tests, including 17 new cases, with zero compiler warnings. No findings remain within immutable policy values, strict budgets, total prompt rendering, configuration factories and the six explicit upstream method adaptations. Java builder/null/printf compatibility, model selection and automatic gate/queue installation are excluded.

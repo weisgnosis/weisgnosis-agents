@@ -88,6 +88,14 @@ object MemoryFlushManager:
   ): UIO[MemoryFlushManager] =
     Semaphore.make(1).map(new MemoryFlushManager(store, extractor, zone, prompt, _))
 
+  def fromConfig(
+      store: DailyMemoryStore,
+      extractor: MemoryExtractor,
+      config: MemoryConfig,
+      zone: ZoneId = ZoneOffset.UTC
+  ): UIO[MemoryFlushManager] =
+    make(store, extractor, zone, config.resolvedFlushPrompt)
+
   private def conversation(messages: Chunk[Msg]): Either[AgentError, String] =
     ConversationCompactor
       .expandCoalescedUsers(messages)

@@ -89,7 +89,7 @@ MemoryRepository now separates daily, consolidation and retention authority. Exp
 
 ## Combined daily maintenance
 
-The opt-in MemoryMaintenanceScheduler owns one job for cutoff selection, consolidation, acknowledged archival and aggregate reporting. It is an alternative to the consolidation-only scheduler for the same Maintenance window. Daily retention defaults to 90 calendar days with UTC interpretation, while KeepAll explicitly disables archival. A later failure cannot undo an earlier committed phase. Automatic session pruning and the full upstream configuration surface remain unfinished; explicit transcript retirement is available below.
+The opt-in MemoryMaintenanceScheduler owns one job for cutoff selection, consolidation, acknowledged archival and aggregate reporting. It is an alternative to the consolidation-only scheduler for the same Maintenance window. Daily retention defaults to 90 calendar days with UTC interpretation, while KeepAll explicitly disables archival. A later failure cannot undo an earlier committed phase. Automatic session discovery remains unfinished; explicit transcript retirement and immutable memory policy configuration are available below.
 
 ## Transcript retirement boundary
 
@@ -101,4 +101,8 @@ Selected transcript pruning now accepts KeepAll or a validated fixed-day policy,
 
 ## Combined explicit maintenance
 
-An opt-in MemoryMaintenanceCoordinator now joins daily maintenance and an ordered host-selected transcript batch under one existing owned job. Transcript cutoff validation precedes memory work; returned memory outcomes permit independent pruning, while effect failure stops later phases. Partial commits/deletions survive later failure. Session discovery and unified configuration remain separate work.
+An opt-in MemoryMaintenanceCoordinator now joins daily maintenance and an ordered host-selected transcript batch under one existing owned job. Transcript cutoff validation precedes memory work; returned memory outcomes permit independent pruning, while effect failure stops later phases. Partial commits/deletions survive later failure. Session discovery remains separate work; immutable configuration is implemented below.
+
+## Immutable memory policy
+
+MemoryConfig now combines defaults and overrides without a mutable builder. Validated budgets and a fixed-shape consolidation template preserve total rendering and runtime size enforcement. Hosts explicitly share gates, queues, repositories and extractors; configuration does not install ownership or select a model. All ten pinned MemoryConfigTest methods are classified through documented Scala adaptations.

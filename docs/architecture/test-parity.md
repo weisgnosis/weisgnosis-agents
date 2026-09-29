@@ -641,7 +641,7 @@ MemoryConfigTest trigger behavior:
 - [x] flushTrigger_throttledZeroDurationCollapsesToAlways: typed constructor normalization.
 - [x] flushTrigger_throttledPositiveDurationKeepsThrottledMode: validated finite duration is retained.
 - [x] flushTrigger_rejectsNullAndNegativeDuration: negative/infinite/bounds rejection is verified; Java null acceptance/rejection paths are explicitly excluded from this pure Scala API adaptation.
-- [ ] Map the remaining six full MemoryConfig default/builder/prompt scenarios; this increment is not a complete unified memory configuration port.
+- [x] Map the six remaining MemoryConfig default/builder/prompt methods through the explicit adaptations below. Model selection and Java builder/wire compatibility are not claimed.
 
 Additional hardening covers owner separation, exact clock origin, structural identifier collisions, strict numeric decoding, simultaneous claims, policy reset, signed elapsed wraparound and backward test-clock movement. Cleanup deliberately differs from upstream age-only eviction: an active interval survives shorter retention. Fixed policies require a new gate to change intervals, deliberately resetting windows. The gate samples the monotonic clock inside its serialized transition to avoid installing timestamps captured before competing claims.
 
@@ -690,7 +690,7 @@ A test-scope ownership review finding was corrected with acquireRelease so early
 
 - [x] Exercise all four consolidation outcomes, gate suppression/failure, no-input throttle consumption, coalescing, successful-completion hooks, failed/cancelled exits and closed/full/registration failures.
 - [x] Verify local persisted commit after report failure and owner reopen.
-- [ ] Implement automatic session pruning, eight remote matrix combinations and the remaining six full MemoryConfig scenarios; daily cutoff/maintenance policy is now implemented below.
+- [ ] Implement automatic session discovery and eight remote matrix combinations; daily cutoff, explicit batch maintenance and MemoryConfig method adaptations are implemented below.
 
 - [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
 
@@ -708,20 +708,20 @@ No live crash or mid-operation I/O fault injection is claimed. Archive copy publ
 
 - [x] `review_fp` and `review_harness` approved the final seven-file daily-retention increment against `b2ab23e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 370 harness tests, including 24 new cases, with zero compiler warnings. No findings remain within typed archive identity, exact acknowledged eligibility, atomic in-memory retirement, verified local copy/checkpoint/removal ordering, conservative partial progress and strict shared fingerprinting. Automatic policy, session pruning, crash durability and hostile concurrent filesystem mutation are excluded.
 
-## Daily policy and the remaining configuration assertions
+## Daily policy and configuration method adaptations
 
 The 21 new policy/service/scheduler tests verify one cutoff before side effects, zone and range boundaries, deferred/cancelled consolidation, one gate reservation, owner coalescing, post-commit failures and aggregate reporting. They preserve the existing consolidation-only adaptations. Upstream archives before consolidation and suppresses some failures; Scala deliberately consolidates first, requires exact acknowledgement and exposes failure in task receipts.
 
-The six remaining MemoryConfigTest methods stay individually visible:
+All six formerly pending MemoryConfigTest methods now have explicit adaptations in MemoryConfigSpec, supported by MemoryConfigIntegrationSpec, MemoryTokenBudgetSpec and ConsolidationPromptSpec:
 
-- [ ] defaults_matchHistoricalBehaviour: daily retention 90 is now verified, alongside existing 4,000-token/30-minute/Always defaults; session 180 is now verified; complete prompt/default selection remains pending.
-- [ ] builder_overridesAreCarried: immutable daily policy overrides are verified; complete cross-configuration assertions, custom prompts and session settings remain pending.
-- [ ] builder_consolidationPromptMustHaveTwoIntPlaceholders: implement or explicitly adapt the two token/character budget placeholders through a total typed renderer; no unchecked format-string port.
-- [ ] builder_rejectsInvalidNumericArgs: positive daily days and token bounds are verified; shared positive session-day validation is now verified; the full configuration mapping remains pending.
-- [ ] builder_rejectsNullDurationsAndTrigger: existing trigger validation covers negative durations; classify the whole configuration adaptation with Java-null paths excluded once the unified surface exists.
-- [ ] builder_isReusable_andEachBuildIsIndependent: immutable daily policy replacement is verified; prompt/token independence across complete configurations remains pending.
+- [x] defaults_matchHistoricalBehaviour: MemoryConfigSpec verifies None/default prompt selection, 4,000 tokens, 30-minute maintenance, Always flush and 90/180-day retention, including omitted-field JSON defaults. Java-null default selection is replaced by Option.
+- [x] builder_overridesAreCarried: MemoryConfigSpec verifies every custom field and codec round trip; MemoryConfigIntegrationSpec observes custom extraction prompts, token budget, actual daily archival, transcript cutoff and independent trigger windows.
+- [x] builder_consolidationPromptMustHaveTwoIntPlaceholders: ConsolidationPrompt has exactly two fixed budget insertion positions between three required literal segments. Prompt tests verify insertion order and literal percent/braces preservation. Java printf strings and rejection of 0/1/3 placeholders are deliberately replaced by the typed shape; arbitrary strings are not accepted as templates.
+- [x] builder_rejectsInvalidNumericArgs: typed constructors and codecs reject invalid budgets and daily/session days; the existing 4,000-token hard ceiling is retained as stricter runtime policy. Legacy Int factories use the same budget validation.
+- [x] builder_rejectsNullDurationsAndTrigger: typed trigger construction rejects negative/infinite durations and normalizes zero to Always; Java-null inputs are outside the supported Pure Scala contract. No runtime null-acceptance guarantee is claimed.
+- [x] builder_isReusable_andEachBuildIsIndependent: immutable config copy preserves the entire earlier value while independently replacing prompt, budget, triggers and retention; changed policies do not mutate an existing gate or its windows.
 
-KeepAll is an explicit Scala archival policy, not upstream null/sentinel compatibility. Both public schedulers share the Maintenance window, so installing the combined scheduler replaces the consolidation-only adapter for an owner requiring retention. No full MemoryConfig parity or session-pruning claim is made.
+KeepAll is an explicit Scala archival policy, not upstream null/sentinel compatibility. Both public schedulers share the Maintenance window, so installing the combined scheduler replaces the consolidation-only adapter for an owner requiring retention. All ten named MemoryConfigTest methods are classified through the four trigger adaptations and six configuration adaptations. This does not reproduce the Java builder, printf language, wire format or model-registry override API.
 
 - [x] `review_fp` and `review_harness` approved the final eight-file maintenance increment against `b3d2723` on 2026-09-29, including corrected consolidation-only ScalaDoc. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 391 harness tests, including 21 new cases, with zero compiler warnings. No findings remain within validated calendar policy, repository-bound sequential maintenance, typed aggregate outcomes, one owned gate/job and preserved consolidation-only behavior. Session pruning, unified configuration, cross-phase atomicity and durable reporting are excluded.
 
@@ -740,7 +740,7 @@ Cancellation-after-admission uses the previously reviewed WorkspaceLease contrac
 
 ## Transcript policy evidence
 
-Eight new tests verify the shared 180-day default, positive day decoding, exact fixed-day arithmetic, nanosecond preservation, range rejection, disabled/evaluated outcomes and one clock sample before ownership. These contribute default and numeric-validation assertions to the six still-partial MemoryConfigTest mappings; no complete builder/configuration method is newly marked as covered. KeepAll is a typed Scala extension and the existing explicit-cutoff API is unchanged.
+Eight new tests verify the shared 180-day default, positive day decoding, exact fixed-day arithmetic, nanosecond preservation, range rejection, disabled/evaluated outcomes and one clock sample before ownership. These supplied partial default and numeric-validation evidence; the six complete method adaptations are now documented above. KeepAll is a typed Scala extension and the existing explicit-cutoff API is unchanged.
 
 - [x] Verify disabled policy does not read Clock or access even an untrusted/missing target.
 - [x] Verify enabled underflow fails before ownership and cutoff equality retains data.
@@ -752,6 +752,15 @@ Eight new tests verify the shared 180-day default, positive day decoding, exact 
 
 - [x] Add three target, seven batch, eight coordinator and four scheduler cases, including real local partial persistence and actual ReAct completion observers.
 - [x] Verify one prepared transcript cutoff, exact target ordering, complete cause preservation, independent transcript work after all returned memory outcomes and one existing Maintenance admission.
-- [ ] Complete the six MemoryConfig method mappings above; this increment adds source-contract evidence only.
+- [x] Complete the six MemoryConfig method adaptations above in the later immutable-configuration increment; the batch increment itself adds source-contract evidence only.
 
 Selected capabilities intentionally replace broad directory scanning and swallowed per-file failures. Discovery, cross-phase atomicity and exactly-once reporting are not claimed. The canonical identities and scope are in the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).
+
+## Configuration integration evidence
+
+- [x] Verify six explicit MemoryConfig method adaptations, supported by three budget, three prompt and five end-to-end component configuration cases.
+- [x] Preserve default prompt wording and token rejection before memory/content acknowledgement changes for both consolidation consumers.
+- [x] Verify explicit gate/batch wiring and immutable configuration changes without mutating existing reservations.
+- [ ] Implement model-selection configuration if the host requires more than injected extractor selection; it is outside the ten pinned MemoryConfigTest methods.
+
+All four earlier trigger adaptations remain required. This closes the named configuration suite classification, not Java API/wire equivalence or exhaustive harness parity. Current source identities and review evidence are in the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#immutable-memory-configuration).

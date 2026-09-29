@@ -156,3 +156,9 @@ TranscriptRetentionPolicy reuses positive RetentionDays but interprets each day 
 TranscriptRetentionBatch holds explicit capabilities with unique exact IDs. Preparation captures one validated cutoff without invoking targets; KeepAll bypasses time and capabilities. Sequential execution preserves order and full failure causes, with no rollback of earlier effects. Prepared execution remains replayable. MemoryMaintenanceCoordinator prepares this batch before memory effects, then runs it after any returned memory outcome. Memory and transcript dates are separate clock samples.
 
 The additive MemoryMaintenanceScheduler overload uses the same owner token, Maintenance gate and serial queue job before aggregate reporting. Install it instead of competing maintenance adapters for the same scope. Failed receipts or absent reports can follow persisted memory/deletions; hosts must inspect state and monitor receipts. Explicit selection supplies no session discovery or activity authorization.
+
+## Configuration and prompt boundaries
+
+MemoryConfig contains immutable values only. Option distinguishes default selection from literal custom text, and MemoryTokenBudget owns 1..4000 validation. ConsolidationPrompt inserts validated token and approximate character values between three literal segments without interpreting format directives. Existing default wording is preserved. fromConfig factories feed prompts/budgets into existing extraction and commit paths; maintenance also consumes daily retention.
+
+The host supplies config.triggers to its shared gate and config.transcriptRetention to its selected batch. A config copy cannot change an existing gate's windows. Extractor/model selection and queue lifetime remain explicit dependencies. The six configuration method adaptations exclude Java null/mutable-builder/printf behavior rather than introducing unsafe compatibility paths.

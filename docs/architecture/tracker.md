@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement immutable memory configuration and typed prompt rendering, then close the six remaining MemoryConfig assertion mappings; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: audit pinned plan-mode contracts and tests, then implement typed execution restrictions and conservative shell inspection; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -84,7 +84,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Implement explicit local transcript pruning with writer-lease exclusion, complete-log validation, observation-aware recency and fixed-payload deletion; independently review thirteen added cases and verify 555 core / 404 harness tests.
 - [x] Add explicit KeepAll/180-day transcript policy with one validated cutoff before ownership; independently review eight new regressions and verify 555 core / 412 harness tests.
 - [x] Add explicit ordered target batches and integrate pruning into one owned maintenance job; independently review 22 new cases and verify 555 core / 434 harness tests.
-- [ ] Complete immutable memory configuration, typed prompt rendering and six remaining MemoryConfig mappings.
+- [x] Complete immutable memory configuration, typed prompt rendering and six remaining MemoryConfig adaptations; independently review 17 new cases and verify 555 core / 451 harness tests.
+- [ ] Complete model-selection configuration and remote memory adapters where required.
 - [ ] Implement remote memory/transcript storage, timestamp-watermark migration, and scheduling.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.

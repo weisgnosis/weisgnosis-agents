@@ -72,8 +72,26 @@ object MemoryMaintenance:
       policy: MemoryRetentionPolicy = MemoryRetentionPolicy.DailyDefault,
       zone: ZoneId = ZoneOffset.UTC,
       counter: TokenCounter = TokenCounter.approximate,
-      maxTokens: Int = MemoryConsolidator.MaximumMemoryTokens
+      maxTokens: Int = MemoryConsolidator.MaximumMemoryTokens,
+      prompt: Option[ConsolidationPrompt] = None
   ): IO[AgentError, MemoryMaintenance] =
     MemoryConsolidator
-      .make(repository.consolidation, extractor, counter, maxTokens)
+      .make(repository.consolidation, extractor, counter, maxTokens, prompt)
       .map(new MemoryMaintenance(_, repository.retention, policy, zone))
+
+  def fromConfig(
+      repository: MemoryRepository,
+      extractor: MemoryExtractor,
+      config: MemoryConfig,
+      zone: ZoneId = ZoneOffset.UTC,
+      counter: TokenCounter = TokenCounter.approximate
+  ): IO[AgentError, MemoryMaintenance] =
+    make(
+      repository,
+      extractor,
+      config.dailyRetention,
+      zone,
+      counter,
+      config.consolidationBudget.value,
+      config.consolidationPrompt
+    )

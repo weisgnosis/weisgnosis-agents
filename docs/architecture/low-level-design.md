@@ -160,7 +160,7 @@ This protocol favors preservation over multi-file atomicity: publication-only in
 
 RetentionDays is an opaque positive Int with a strict JSON-number codec. MemoryRetentionPolicy.KeepAll yields no cutoff; ArchiveAfter subtracts calendar days from a zoned LocalDate and rejects dates below LocalDate.MIN. MemoryMaintenance converts one Clock.instant inside ZIO before running consolidation. It retains that cutoff across extraction delays. Only Committed and NoPendingMemories invoke retention; blank pending input remains protected by checkpoint matching. DailyArchivalResult distinguishes Kept from Archived(cutoff, entries), including empty eligible passes.
 
-Both scheduling adapters delegate to one private suspended MemoryMaintenanceTask. A combined task claims Maintenance once, runs maintenance and then reports; suppression skips every phase. Admission coalescing and post-admission registration errors retain existing semantics. The adapters share a trigger window, so combined maintenance replaces consolidation-only installation when archival is wanted. Full configuration, automatic session pruning and remote authority remain pending.
+Both scheduling adapters delegate to one private suspended MemoryMaintenanceTask. A combined task claims Maintenance once, runs maintenance and then reports; suppression skips every phase. Admission coalescing and post-admission registration errors retain existing semantics. The adapters share a trigger window, so combined maintenance replaces consolidation-only installation when archival is wanted. Automatic session discovery and remote authority remain pending; immutable memory policy configuration is implemented below.
 
 ## Transcript pruning operation
 
@@ -175,3 +175,9 @@ For validated positive Int days, multiplying by 86,400 and subtracting from Inst
 TranscriptTargetId validates exact nonblank correlation strings. TranscriptRetentionTarget.apply suspends the callback; local delegates to lease-protected pruning. TranscriptRetentionBatch.make validates unique IDs; run prepares once then traverses sequentially. TranscriptBatchResult distinguishes Disabled from Evaluated(cutoff, ordered target results), including empty enabled batches. Private PreparedTranscriptPruning holds a replayable effect without acquiring resources.
 
 MemoryMaintenanceCoordinator.run prepares transcript timing, runs MemoryMaintenance, then executes the batch and returns MaintenanceResult. The new MemoryMaintenanceScheduler.make overload accepts this coordinator and a required aggregate callback, using the existing MemoryMaintenanceTask. Old daily-only and consolidation-only factories remain compatible. See the [current source identities and contracts](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).
+
+## Configuration APIs
+
+MemoryTokenBudget.fromInt validates 1..4000; its codec accepts integral JSON numbers only. ConsolidationPrompt(beforeTokens, betweenBudgets, afterCharacters).render(budget) inserts budget.value and budget.approximateCharacters. MemoryConfig resolves optional prompts and composes existing typed policies. MemoryFlushManager.fromConfig, MemoryConsolidator.fromConfig and MemoryMaintenance.fromConfig preserve prior runtime ownership and validation. Legacy Int make arguments delegate to the same budget authority; optional template arguments are appended with None defaults.
+
+See the [current configuration identity table](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#current-configuration-identities). Configuration does not install schedulers or gates and does not reproduce Java wire/model-registry APIs.

@@ -127,3 +127,14 @@ MemoryMaintenanceTask is a private extraction of the existing scheduling boundar
 The unchanged daily-only scheduler suite also passes. See the [coordinator contract and canonical eight-file identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).
 
 - [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.
+
+## Configuration verification
+
+- [MemoryTokenBudgetSpec](MemoryTokenBudgetSpec.scala): three cases for bounds, strict wire input and all 4,000 supported round trips.
+- [ConsolidationPromptSpec](ConsolidationPromptSpec.scala): three cases for literal rendering, fixed insertion positions and unchanged default wording.
+- [MemoryConfigSpec](MemoryConfigSpec.scala): six named upstream method adaptations covering defaults, overrides, template shape, invalid values, duration rules and independent immutable copies.
+- [MemoryConfigIntegrationSpec](MemoryConfigIntegrationSpec.scala): five cases for actual prompt delivery, daily/transcript retention propagation, budget failure without content/acknowledgement changes, independent gate windows and legacy validation.
+
+The [configuration contract and canonical identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md#immutable-memory-configuration) distinguish typed adaptations from Java builder/printf/null compatibility and model selection.
+
+- [x] `review_fp` and `review_harness` approved the final ten-file memory-configuration increment against `005bacf` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 451 harness tests, including 17 new cases, with zero compiler warnings. No findings remain within immutable policy values, strict budgets, total prompt rendering, configuration factories and the six explicit upstream method adaptations. Java builder/null/printf compatibility, model selection and automatic gate/queue installation are excluded.
