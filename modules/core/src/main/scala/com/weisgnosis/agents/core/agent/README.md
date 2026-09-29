@@ -83,19 +83,18 @@ Keep retains the original TurnOutput. Replace requires an assistant message, res
 
 Usage is now accumulated from returned model observations in one invocation-local Ref, using canonical-first chatUsage. It includes discarded and returned interrupted outputs, spans Auto native/synthetic attempts, excludes supplied history/new input, and resets for each public invocation. Accounting updates are briefly masked after model-scope completion. ModelResponseEnd uses the same canonical-first usage view. Synthetic completion transfers canonical and legacy usage exactly once, clearing both representations from any retained residual generating assistant. Reply usage remains the generating request's usage; AgentResult usage is the invocation aggregate.
 
-Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must include the added hook, processor, and authorizer fields. The hook and builder are in-memory runtime values, not durable policy serialization. ReasoningDecision has a derived codec, but decoded replacements still pass runtime validation. This API covers replacement/removal through typed decisions; legacy mutable hooks, stop/goto-reasoning commands, and general model-call interception remain separate work.
+Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. The hook and builder are in-memory runtime values, not durable policy serialization. ReasoningDecision has a derived codec, but decoded replacements still pass runtime validation. This API covers replacement/removal through typed decisions; legacy mutable hooks, stop/goto-reasoning commands, and general model-call interception remain separate work.
 
 - [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 456 core and 40 harness tests.
 
 ## Current post-reasoning identities
 
-Final formatted scope against `2a400e0`; these identities supersede earlier entries for changed files.
+Unchanged post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. Current ReActAgent and AgentError identities belong to the history-preparation scope below.
 
 | File | Git blob |
 | --- | --- |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 9817ce08dfefcbf69792204c8169914406e31fb9 |
 | [StructuredOutput.scala](StructuredOutput.scala) | 5d6d81c944530f8ff7094733abfc21885729e456 |
-| [AgentError.scala](../error/AgentError.scala) | 53ed178ec1e2534c9e8783faf85e550248efb0cb |
 | [PostReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PostReasoningHookSpec.scala) | 0a024cbdaf20b5a7d3be015b30a60c07118310ab |
 | [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | 3eefd816ae8cc44a7346f8eec63d1b2fcc01191f |
 
@@ -109,7 +108,7 @@ Cancellation during processing keeps the completed raw result and reconciles onl
 
 Tool execution still returns completed text. A processor can replace its output blocks and metadata for the existing typed result publisher; this does not implement incremental tool execution or native structured tool return values. Empty processed output emits only End after the original Start. Inline provider results bypass this processor, and preexisting history is not processed automatically. These integration gaps remain explicit.
 
-Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must account for the added hook, processor, and authorizer fields. Processor values are runtime dependencies, not serialized agent configuration.
+Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. Processor values are runtime dependencies, not serialized agent configuration.
 
 - [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests. Exact current identities are in the [tool package table](../tool/README.md). The post-reasoning ReActAgent identity is preserved in `8850a60`.
 
@@ -118,3 +117,33 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 The optional ToolAuthorizer runs after assistant persistence and before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs carrying either provider reasoning metadata key are denied. Failures and defects fail closed to Denied observations, while cancellation preserves completed work and reconciles unresolved calls. Matched inline results bypass the gate. See the [tool contracts](../tool/README.md) for argument provenance, scope ownership, failure semantics, migration, and exact current identities. The default allows calls; the harness InteractivePermissionAuthorizer provides opt-in policy/interactive confirmation. Durable approval resumption remains pending.
 
 - [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 45 harness tests, including fifteen added authorization tests. Interactive and durable policy adapters are excluded from this acceptance. See the [authorization table](../tool/README.md) for exact identities.
+
+## History preparation before model requests
+
+ReActAgent.make and Builder.historyPreparer accept HistoryPreparer, defaulting to identity. prepare returns ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]]. It runs before every model request, including thinking retries, discarded reasoning, and both Auto attempts. Preparation occurs only after prior authorization, tool execution, and result processing finish. Its scope closes before validation, canonical history commit, and ModelRequestStart. It shares the engine-attempt timeout and cooperative cancellation race; callbacks must not reenter mutating agent operations while the run lock is held.
+
+An equal candidate preserves the existing permissive supplied-history API without adding global validation. An actual rewrite must preserve the exact ordered system-message subsequence and contain complete occurrence-aware tool pairing, with no unmatched inline/local results or unfinished calls. The internal shared ToolHistory analysis isolates provider inline results to their own assistant message and matches local observations by ID and optional name. A changed incomplete history fails with HistoryPreparationError before state commit or model dispatch. A trusted rewriter may remove old incomplete context; structural validation cannot prove summary fidelity or semantic preservation. It is not a provider-specific request validator.
+
+The harness ConversationCompactor.preparer installs compaction through this port and maps summarizer/hook errors to the distinct preparation error. Such errors cannot masquerade as native-format ModelError rejection and trigger Auto fallback. Typed failure leaves canonical input history unchanged. Defects propagate; cancellation closes preparation resources and appends the current attempt's recovery. External flush/offload effects already completed cannot be rolled back.
+
+Recovery ownership is attempt-local: Ready before preparation, PersistedAssistant(position) after accepted assistant or interrupted partial output, and Recovered(message) after reconciliation. History and progress writes use a narrow interruption mask. The persisted position is valid only during the append-only active tool phase and is cleared before another rewrite. Nested cancellation finalizers reuse the exact recovery value; a later run, including empty-input continuation, owns a fresh recovery. Unaccepted hook output and supplied historical calls never become the current reconciliation target. Invocation usage remains independent of rewritten history and shared across Auto attempts.
+
+Appending the optional make argument preserves ordinary callers; positional Builder matches must follow the current Builder constructor, including historyPreparer. Adding HistoryPreparationError requires exhaustive AgentError matches to handle the new leaf. Preparer values are runtime dependencies, not serialized configuration. Core remains independent of harness implementations.
+
+- [x] `review_fp` and `review_harness` approved the final nine-file history-preparation increment against `3c6958f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 497 core and 73 harness tests, including twenty added tests. Acceptance covers structural rewrite validation and scoped compactor integration; semantic summary fidelity and exhaustive provider-format validation are excluded.
+
+## Current history-preparation identities
+
+Final formatted scope against `3c6958f`:
+
+| File | Git blob |
+| --- | --- |
+| [HistoryPreparer.scala](HistoryPreparer.scala) | 951d91a47b761bba9a8e361492e25a702519344b |
+| [ReActAgent.scala](ReActAgent.scala) | 3d28a8f189ca1edfd967f4ba398b807291853ec0 |
+| [AgentError.scala](../error/AgentError.scala) | 0b47377b0091f7a32343796bec02584d505f2fa7 |
+| [ToolHistory.scala](../model/ToolHistory.scala) | d6e19ed655b9df7a46a9bcfc0835b14ac858ebfe |
+| [HistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/HistoryPreparerSpec.scala) | 3069b24fefb799f752b800e71a689f4370d02f6c |
+| [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | 9f98df0f18d26e42766f1a41cdfe8c441b33c329 |
+| [ToolHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | 29ff87da90673afcaef220ab0ff5ec1593da508a |
+| [ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | 25d2843a2c2407773ae1871f1e168a595f14f617 |
+| [ConversationCompactorIntegrationSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorIntegrationSpec.scala) | caaf0660a6d54398e56fab046158c82758d6ea75 |

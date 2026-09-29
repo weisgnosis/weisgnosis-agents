@@ -8,3 +8,5 @@
 The [client transformation table](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) records unchanged text-transformation identities; commit `2a400e0` preserves all seven identities from that increment.
 
 [PostReasoningHookSpec](../agent/PostReasoningHookSpec.scala) separately verifies ReasoningHookError codec/provenance. The current [agent acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) records that increment.
+
+[HistoryPreparerSpec](../agent/HistoryPreparerSpec.scala) verifies the HistoryPreparationError codec and narrow callback channel. Runtime and harness tests additionally distinguish summary failures from native provider rejection; acceptance is recorded in the [agent table](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).

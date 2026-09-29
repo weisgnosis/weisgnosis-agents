@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: integrate pair-safe compaction into canonical runtime history with cancellation-safe progress tracking, then extend eviction to supplied history/inline results and expand remaining lifecycle/hook parity against the pinned upstream revision. Local-result eviction is now installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: extend eviction to supplied history/inline results and expand remaining lifecycle/hook parity against the pinned upstream revision. Local-result eviction is now installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -62,7 +62,7 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Integrate immediate local-result eviction through a scoped processor; independently review fifteen new tests, map five of seven eviction methods with explicit adaptations, and verify 466 core / 45 harness tests.
 - [x] Connect harness permission policy and interactive requests to ToolAuthorizer, including fresh dual-gate checks, atomic rule updates, and cancellation cleanup; verify sixteen added tests and 481 core / 61 harness tests.
 - [x] Harden standalone compaction for repeated call occurrences, inline/local isolation, stale argument caches, and reasoning metadata; reproduce eight failures, obtain independent approval, and verify 481 core / 69 harness tests.
-- [ ] Integrate compaction into canonical agent state before model invocation with safe attempt-local recovery progress and transformed-history validation.
+- [x] Integrate scoped compaction into canonical history before model requests, share occurrence validation, replace stale offsets with attempt-local recovery progress, independently review twenty added tests, and verify 497 core / 73 harness tests.
 - [ ] Extend eviction to supplied history, separate model-input views, and inline provider results; close the two remaining eviction method gaps.
 - [ ] Implement MemoryFlushManager and MemoryConsolidator with the specified writer isolation and budgets.
 - [ ] Verify durable host persistence and resumption without a second model request.

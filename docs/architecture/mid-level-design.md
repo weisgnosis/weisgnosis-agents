@@ -49,7 +49,7 @@ Below-trigger valid history remains unchanged. Summary, flush, and offload effec
 
 A token-window binary search respects a minimum recent-message count. Boundaries shift backward across paired calls/results, consuming each occurrence once with optional local result-name matching. Inline results consume only their own assistant provider calls. Unsigned argument pruning clears cached content; reasoning metadata keys protect arguments from rewriting. Orphaned tool results move into the prefix.
 
-Immediate local eviction is installed through ToolResultEvictor.processor and the core ToolResultProcessor port. The runtime appends raw completion atomically before scoped interruptible processing, then commits the processed observation before model continuation/publication. Typed failures retain original output; cancellation retains completed raw successes. Compaction, supplied history, and inline provider result processing remain pending.
+Immediate local eviction is installed through ToolResultEvictor.processor and the core ToolResultProcessor port. The runtime appends raw completion atomically before scoped interruptible processing, then commits the processed observation before model continuation/publication. Typed failures retain original output; cancellation retains completed raw successes. ConversationCompactor.preparer installs scoped canonical-history preparation before model requests. Changed history must preserve ordered system messages and complete occurrence pairing; unchanged input remains permissive. Supplied-history and inline provider result eviction remain pending.
 
 ## 6. Permission and storage boundaries
 

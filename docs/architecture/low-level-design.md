@@ -55,6 +55,8 @@ PostReasoningHook accepts typed Keep/Replace/Discard decisions before state pers
 
 ToolAuthorizer.authorize accepts ToolAuthorizationRequest(requestId, context, call) and returns ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization]. Approved(input) and Denied(reason) are the only decisions. ReActAgent.make and Builder.toolAuthorizer default to explicit allow. Host failures fail closed; approved rewrites preserve runtime identity, clear stale content, and retain original-input provenance. See the [tool contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md) for provider reasoning metadata restrictions and cancellation behavior. The harness InteractivePermissionAuthorizer implements policy and interactive confirmation through this port; durable resume remains pending.
 
+HistoryPreparer.prepare returns ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]], defaulting to identity. ReAct closes its scope, validates actual rewrites, commits canonical history, then emits ModelRequestStart. Attempt-local Ready/PersistedAssistant/Recovered progress replaces history-length offsets. Internal ToolHistory supplies shared occurrence analysis; structural checks do not prove summary fidelity. ConversationCompactor.preparer maps harness failures to the dedicated channel. See the [agent contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+
 ## Harness
 
 | Component | Contract | Declaration |

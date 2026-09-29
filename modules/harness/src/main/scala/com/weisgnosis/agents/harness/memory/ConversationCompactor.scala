@@ -16,7 +16,8 @@
 package com.weisgnosis.agents.harness.memory
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
+import com.weisgnosis.agents.core.agent.HistoryPreparer
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolHistory}
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -29,6 +30,11 @@ final class ConversationCompactor(
     flush: Chunk[Msg] => IO[AgentError, Unit] = _ => ZIO.unit,
     offload: Chunk[Msg] => IO[AgentError, Unit] = _ => ZIO.unit
 ):
+  /** Install compaction through the runtime's scoped, validated history boundary. */
+  def preparer: HistoryPreparer = HistoryPreparer(history =>
+    compactIfNeeded(history).mapError(error => AgentError.HistoryPreparationError(error.message))
+  )
+
   def compactIfNeeded(history: Chunk[Msg]): IO[AgentError, Chunk[Msg]] =
     ZIO.fromEither(expandCoalescedUsers(history)).flatMap { expanded =>
       val (systems, conversation) = expanded.partition(_.role == Role.System)
@@ -82,54 +88,13 @@ final class ConversationCompactor(
         else search(middle + 1, high)
     search(0, history.size)
 
-  final private case class PendingCall(call: ContentBlock.ToolUse, position: Int)
-  final private case class ToolPairing(
-      pending: Chunk[PendingCall],
-      spans: Chunk[(Int, Int)]
-  )
-
-  /** Consume one occurrence; inline eligibility and local name matching are separate contracts. */
-  private def consumeCall(
-      pending: Chunk[PendingCall],
-      result: ContentBlock.ToolResult,
-      eligible: ContentBlock.ToolUse => Boolean
-  ): (Option[PendingCall], Chunk[PendingCall]) =
-    val (before, matchingAndAfter) =
-      pending.span(value => value.call.id != result.id || !eligible(value.call))
-    matchingAndAfter.headOption match
-      case Some(matched) => (Some(matched), before ++ matchingAndAfter.drop(1))
-      case None          => (None, pending)
-
-  private def toolPairSpans(history: Chunk[Msg]): Chunk[(Int, Int)] =
-    history.zipWithIndex
-      .foldLeft(ToolPairing(Chunk.empty, Chunk.empty)) { case (pairing, (message, position)) =>
-        message.role match
-          case Role.Assistant =>
-            val calls = message.toolUses.map(PendingCall(_, position))
-            val local = message.toolResults.foldLeft(calls) { (pending, result) =>
-              consumeCall(pending, result, _.isServerTool)._2
-            }
-            pairing.copy(pending = pairing.pending ++ local)
-          case Role.Tool =>
-            message.toolResults.foldLeft(pairing) { (current, result) =>
-              val (matched, pending) =
-                consumeCall(current.pending, result, call => result.name.forall(_ == call.name))
-              current.copy(
-                pending = pending,
-                spans = current.spans ++ Chunk.fromIterable(matched.map(_.position -> position))
-              )
-            }
-          case _ => pairing
-      }
-      .spans
-
   /** Every matched retained result keeps the assistant owning that exact call occurrence. */
   private def safeCutoff(history: Chunk[Msg], candidate: Int): Int =
-    val pairs = toolPairSpans(history)
+    val pairs = ToolHistory.inspect(history).spans
     @annotation.tailrec
     def adjust(boundary: Int): Int =
       val crossing = pairs.collect {
-        case (start, end) if start < boundary && end >= boundary => start
+        case ToolHistory.Span(start, end) if start < boundary && end >= boundary => start
       }.minOption
       crossing match
         case Some(index) => adjust(index)

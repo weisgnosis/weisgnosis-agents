@@ -42,6 +42,9 @@ object AgentError:
   /** Host reasoning policy failure; distinct from provider request rejection. */
   final case class ReasoningHookError(message: String) extends AgentError derives JsonCodec
 
+  /** History preparation failure; cannot trigger provider-native structured output fallback. */
+  final case class HistoryPreparationError(message: String) extends AgentError derives JsonCodec
+
   final case class ToolExecutionError(
       toolName: String,
       message: String,

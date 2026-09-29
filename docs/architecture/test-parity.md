@@ -441,7 +441,7 @@ Pinned source: agentscope-harness/src/test/java/io/agentscope/harness/agent/midd
 
 - [x] Verify three processor tests, seven core lifecycle scenarios, and five harness integrations (including actual disk persistence).
 - [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
-- [ ] Integrate preexisting history and inline provider outputs; compaction remains separate work.
+- [ ] Integrate preexisting history and inline provider outputs; eviction of those histories remains separate work.
 
 Fifteen added tests are local evidence for these mappings and hardening boundaries, not fifteen upstream methods. Remaining harness domains still require exhaustive method-level audit.
 
@@ -471,4 +471,11 @@ The adapter publishes a narrow ToolAuthorizationRequest callback, not upstream a
 
 These eight Scala regressions cover occurrence pairing and safe argument pruning; they do not complete the upstream compaction inventory.
 
-- [x] `review_fp` and `review_harness` approved the final two-file compactor hardening against `6ed928a` on 2026-09-29. No findings remain in this scope. Eight new regressions failed before the correction; full formatting, fatal-warning compilation, and verification now pass 481 core and 69 harness tests. Acceptance covers standalone pairing and argument pruning; runtime integration and transformed-history validation remain pending.
+- [x] `review_fp` and `review_harness` approved the final two-file compactor hardening against `6ed928a` on 2026-09-29. No findings remain in this scope. Eight new regressions failed before the correction; full formatting, fatal-warning compilation, and verification now pass 481 core and 69 harness tests. That earlier acceptance covers standalone pairing and argument pruning; the integrated scope is recorded below.
+
+## Scoped history preparation and compactor integration
+
+- [x] `review_fp` and `review_harness` approved the final nine-file history-preparation increment against `3c6958f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 497 core and 73 harness tests, including twenty added tests. Acceptance covers structural rewrite validation and scoped compactor integration; semantic summary fidelity and exhaustive provider-format validation are excluded.
+
+- [x] Verify complete pairing and system-message preservation for changed histories, identity compatibility, recovery ownership after shrinkage, preparation cleanup/failure, and shared invocation usage across retries/fallback.
+- [ ] Complete method-level inventory and parity for pinned ConversationCompactorTest and CompactionMiddlewareTest. The twenty local boundary/integration tests do not establish exhaustive upstream middleware parity or semantic summary fidelity.

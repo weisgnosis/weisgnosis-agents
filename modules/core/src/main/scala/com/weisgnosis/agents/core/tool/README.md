@@ -33,7 +33,7 @@ Cancellation during processing keeps the completed raw result and reconciles onl
 
 Tool execution still returns completed text. A processor can replace its output blocks and metadata for the existing typed result publisher; this does not implement incremental tool execution or native structured tool return values. Empty processed output emits only End after the original Start. Inline provider results bypass this processor, and preexisting history is not processed automatically. These integration gaps remain explicit.
 
-Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must account for the appended processor and authorizer fields. Processor values are runtime dependencies, not serialized agent configuration.
+Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. Processor values are runtime dependencies, not serialized agent configuration.
 
 - [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
 
@@ -63,18 +63,17 @@ Denials never execute the tool. Typed PermissionDenied failures retain their rea
 
 Interruption reconciliation first consumes eligible inline observations, then matches remaining locally dispatched occurrences against Role.Tool results by ID and optional name. These pools cannot consume each other's observations. The internal Msg.mapToolUseAt helper updates by tool ordinal, preserving role/content compatibility; duplicate IDs and identical calls do not collapse into one rewrite.
 
-Appending the optional make argument preserves ordinary calls; positional Builder matches must include the new authorizer field. This core extension point is implemented by the opt-in harness InteractivePermissionAuthorizer for policy checks, interactive confirmation, and atomic policy updates. Durable suspension/resumption and full upstream permission event ordering remain pending.
+Appending the optional make argument preserves ordinary calls; positional Builder matches must follow the current Builder constructor. This core extension point is implemented by the opt-in harness InteractivePermissionAuthorizer for policy checks, interactive confirmation, and atomic policy updates. Durable suspension/resumption and full upstream permission event ordering remain pending.
 
 - [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 45 harness tests, including fifteen added authorization tests. Interactive and durable policy adapters are excluded from this acceptance.
 
 ## Current authorization identities
 
-Final formatted five-file scope against `a34201f`:
+Unchanged authorization identities from the five-file scope against `a34201f`; commit `5eb4bdc` preserves its full scope. Current ReActAgent identity is in the [history-preparation table](../agent/README.md).
 
 | File | Git blob |
 | --- | --- |
 | [ToolAuthorizer.scala](ToolAuthorizer.scala) | d0e3d498ddabc4f57b0ea28203b048b9696bb1dd |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | 0568d6e87c7e19a6796d56662743d19bacd0293f |
 | [Msg.scala](../model/Msg.scala) | 0f16756e28e6d24a24658e69769058d91979855f |
 | [ToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | 6e9b21dd13f4c23281f0672033bcc465ee8d3664 |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | aeb56e34bb6a7c7f2fce1c956a21e79d6e4ac6d9 |

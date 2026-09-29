@@ -30,3 +30,9 @@ ReasoningHookError is the sole typed callback failure for PostReasoningHook and 
 - [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 456 core and 40 harness tests.
 
 The [agent table](../agent/README.md) records unchanged post-reasoning identities; commit `8850a60` preserves all six identities from that increment.
+
+## History preparation failure boundary
+
+HistoryPreparationError is the sole typed HistoryPreparer callback failure and reports invalid structural rewrites. The compactor adapter maps summarizer/hook failures to this leaf, preventing provider-status confusion and Auto fallback. HistoryPreparerSpec covers its codec and compile-time boundary; core and harness integration tests verify no model dispatch or fallback on preparation failure. Exhaustive error matches must handle this added leaf.
+
+- [x] `review_fp` and `review_harness` approved the final nine-file history-preparation increment against `3c6958f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 497 core and 73 harness tests, including twenty added tests. Acceptance covers structural rewrite validation and scoped compactor integration; semantic summary fidelity and exhaustive provider-format validation are excluded. Current identities are in the [agent table](../agent/README.md).

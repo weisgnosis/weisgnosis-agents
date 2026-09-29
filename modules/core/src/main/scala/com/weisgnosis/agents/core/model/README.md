@@ -12,6 +12,7 @@ Pure domain values and codecs model messages, content, roles, media sources, usa
 - [Msg](Msg.scala)
 - [Role](Role.scala)
 - [ToolCallState](ToolCallState.scala)
+- [ToolHistory internal analysis](ToolHistory.scala)
 - [ToolResultState](ToolResultState.scala)
 
 ## Wire and construction contracts
@@ -90,3 +91,9 @@ This tightens previously permissive parsing; trailing input and ambiguous fields
 The internal mapToolUseAt operation updates one tool ordinal without changing message identity, unrelated content, or role/content compatibility. ReAct uses it to persist authorized arguments at the original assistant position before execution. Runtime cancellation consumes inline and local results separately. The [authorization scope](../tool/README.md) records current review and integration evidence.
 
 - [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 45 harness tests, including fifteen added authorization tests. Interactive and durable policy adapters are excluded from this acceptance. See the [authorization table](../tool/README.md) for exact identities.
+
+## Shared tool-history analysis
+
+ToolHistory is private to the agents package hierarchy and supplies the common occurrence analysis for core rewrite validation and harness cutoff selection. It reports matched spans, pending calls, and unmatched results. Inline results can consume only provider calls from their own assistant message; local results consume one matching ID/name occurrence. Same-message spans cannot cross a message cutoff. It performs no effects or provider encoding checks.
+
+- [x] `review_fp` and `review_harness` approved the final nine-file history-preparation increment against `3c6958f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 497 core and 73 harness tests, including twenty added tests. Acceptance covers structural rewrite validation and scoped compactor integration; semantic summary fidelity and exhaustive provider-format validation are excluded. Exact identities are in the [agent table](../agent/README.md).

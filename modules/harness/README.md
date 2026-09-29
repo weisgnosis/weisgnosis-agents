@@ -18,7 +18,7 @@ Local storage requires WorkspaceTrust.HostControlled, protected filesystem ances
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 481 core and 69 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 497 core and 73 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -29,4 +29,6 @@ Approval covers the named changes and their documented contracts; it does not ma
 
 - [x] `review_fp` and `review_harness` approved the final five-file interactive permission increment against `5eb4bdc` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 61 harness tests, including sixteen added permission tests. Approval covers in-memory active-invocation authorization; durable resumption, authentication, and post-decision revocation remain outside scope. See the [permission contracts and exact identities](src/main/scala/com/weisgnosis/agents/harness/permission/README.md).
 
-- [x] `review_fp` and `review_harness` approved the final two-file compactor hardening against `6ed928a` on 2026-09-29. No findings remain in this scope. Eight new regressions failed before the correction; full formatting, fatal-warning compilation, and verification now pass 481 core and 69 harness tests. Acceptance covers standalone pairing and argument pruning; runtime integration and transformed-history validation remain pending.
+- [x] `review_fp` and `review_harness` approved the final two-file compactor hardening against `6ed928a` on 2026-09-29. No findings remain in this scope. Eight new regressions failed before the correction; full formatting, fatal-warning compilation, and verification now pass 481 core and 69 harness tests. That earlier acceptance covers standalone pairing and argument pruning; current integration acceptance is linked from the memory README.
+
+- [x] `review_fp` and `review_harness` approved the final nine-file history-preparation increment against `3c6958f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 497 core and 73 harness tests, including twenty added tests. Acceptance covers structural rewrite validation and scoped compactor integration; semantic summary fidelity and exhaustive provider-format validation are excluded.
