@@ -25,7 +25,7 @@ import com.weisgnosis.agents.core.client.{
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
-import com.weisgnosis.agents.core.tool.Toolkit
+import com.weisgnosis.agents.core.tool.{Toolkit, ToolResultPayload, ToolResultProcessor}
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -50,7 +50,8 @@ final class ReActAgent private (
     private val interruptedPromiseRef: Ref[Promise[Nothing, Unit]],
     val agentId: String,
     private val runLock: Semaphore,
-    val postReasoningHook: PostReasoningHook
+    val postReasoningHook: PostReasoningHook,
+    val toolResultProcessor: ToolResultProcessor
 ):
 
   def name: String        = config.name
@@ -727,8 +728,17 @@ final class ReActAgent private (
         res <- restore(toolkit.executeSafe(call.name, call.input))
         resultBlock = ContentBlock.ToolResult.text(call.id, call.name, res.output, res.state)
         toolMsg     = Msg.tool(name = Some(call.name), content = Chunk(resultBlock))
-        _ <- stateRef.update(_ :+ toolMsg)
-        _ <- publishCompletedResult(call, resultBlock, context, eventHub)
+        position <- stateRef.modify(history => (history.size, history :+ toolMsg))
+        payload <- restore(
+          ZIO
+            .scoped(toolResultProcessor.process(resultBlock))
+            .catchAll(_ => ZIO.succeed(ToolResultPayload.fromResult(resultBlock)))
+        )
+        completed = payload.applyTo(resultBlock)
+        _ <- stateRef.update(_.zipWithIndex.map { case (message, index) =>
+          if index == position then toolMsg.mapToolResults(_ => completed) else message
+        })
+        _ <- publishCompletedResult(call, completed, context, eventHub)
       yield ()
 
   private def handleInterrupt(
@@ -819,7 +829,8 @@ object ReActAgent:
       client: LlmClient,
       llmConfig: LlmConfig = LlmConfig("default-model"),
       initialHistory: Chunk[Msg] = Chunk.empty,
-      postReasoningHook: PostReasoningHook = PostReasoningHook.keep
+      postReasoningHook: PostReasoningHook = PostReasoningHook.keep,
+      toolResultProcessor: ToolResultProcessor = ToolResultProcessor.identity
   ): IO[AgentError, ReActAgent] =
     for
       _                     <- ZIO.fromEither(config.validated)
@@ -837,7 +848,8 @@ object ReActAgent:
       interruptedPromiseRef,
       agentId,
       runLock,
-      postReasoningHook
+      postReasoningHook,
+      toolResultProcessor
     )
 
   def builder(): Builder = Builder()
@@ -848,7 +860,8 @@ object ReActAgent:
       private val _client: Option[LlmClient] = None,
       private val _llmConfig: LlmConfig = LlmConfig("default-model"),
       private val _initialHistory: Chunk[Msg] = Chunk.empty,
-      private val _postReasoningHook: PostReasoningHook = PostReasoningHook.keep
+      private val _postReasoningHook: PostReasoningHook = PostReasoningHook.keep,
+      private val _toolResultProcessor: ToolResultProcessor = ToolResultProcessor.identity
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -866,10 +879,21 @@ object ReActAgent:
 
     def postReasoningHook(hook: PostReasoningHook): Builder = copy(_postReasoningHook = hook)
 
+    def toolResultProcessor(processor: ToolResultProcessor): Builder =
+      copy(_toolResultProcessor = processor)
+
     def build: IO[AgentError, ReActAgent] =
       ZIO
         .fromOption(_client)
         .orElseFail(AgentError.InvalidConfiguration("A model client is required"))
         .flatMap(model =>
-          ReActAgent.make(_config, _toolkit, model, _llmConfig, _initialHistory, _postReasoningHook)
+          ReActAgent.make(
+            _config,
+            _toolkit,
+            model,
+            _llmConfig,
+            _initialHistory,
+            _postReasoningHook,
+            _toolResultProcessor
+          )
         )

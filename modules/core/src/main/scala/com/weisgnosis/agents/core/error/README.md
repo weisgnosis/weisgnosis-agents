@@ -29,4 +29,4 @@ ReasoningHookError is the sole typed callback failure for PostReasoningHook and 
 
 - [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 456 core and 40 harness tests.
 
-The [agent table](../agent/README.md) records all six exact current identities.
+The [agent table](../agent/README.md) records unchanged post-reasoning identities; commit `8850a60` preserves all six identities from that increment.

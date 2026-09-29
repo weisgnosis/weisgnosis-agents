@@ -16,3 +16,9 @@ Run `sbt "core / test"`, or `sbt verify` for repository-wide formatting, compila
 - [x] Verification at the reviewed revision: `sbt verify`, 108 core and 40 harness tests, no failed tests or compiler warnings.
 
 This is the accepted reference behavior for the scope above. Actual symlink/junction behavior was not dynamically verified; this acceptance does not cover all neighboring tool APIs. Changes to this behavior require renewed independent review and an updated acceptance entry.
+
+## Result processor verification
+
+[ToolResultProcessorSpec](ToolResultProcessorSpec.scala) adds three scenarios for payload codecs, control-key protection, and suspended ordered composition. Runtime ownership and eviction are covered by the agent/harness integration suites.
+
+- [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests. See the [tool package table](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md) for all eight exact identities.

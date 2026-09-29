@@ -6,6 +6,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [ReActAgentReasoningHookSpec](ReActAgentReasoningHookSpec.scala)
 - [AgentConfigSpec](AgentConfigSpec.scala)
 - [AgentResultSpec](AgentResultSpec.scala)
+- [ReActAgentToolResultProcessorSpec](ReActAgentToolResultProcessorSpec.scala)
 - [ReActAgentToolEventSpec](ReActAgentToolEventSpec.scala)
 - [ReActAgentEmissionSpec](ReActAgentEmissionSpec.scala)
 - [ReActAgentEventSpec](ReActAgentEventSpec.scala)
@@ -45,4 +46,10 @@ Three PostReasoningHookSpec tests verify decision/error codecs, suspended callba
 
 The upstream null-message scenario is adapted to typed Discard followed by a valid capture. It establishes safe continuation without dispatching discarded calls, not nullable-hook API equivalence. General middleware and other legacy hook operations remain outside this scope.
 
-The [agent table](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) records all six exact current identities.
+The [agent table](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) records unchanged post-reasoning identities; commit `8850a60` preserves all six identities from that increment.
+
+## Completed-result processing verification
+
+Seven ReActAgentToolResultProcessorSpec scenarios verify raw persistence before processing, committed payloads before continuation/events, typed failure fallback, cooperative/fiber cancellation, reversed parallel completion with reused IDs, inline provider exclusion, and composition cleanup. Cancellation assertions distinguish completed raw successes from genuinely unfinished calls.
+
+- [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests. Exact identities are in the [tool package table](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md).

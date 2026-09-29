@@ -49,6 +49,8 @@ Below-trigger valid history remains unchanged. Summary, flush, and offload effec
 
 A token-window binary search respects a minimum recent-message count. Boundaries shift backward across paired calls/results, matching repeated IDs by occurrence. Orphaned tool results move into the prefix.
 
+Immediate local eviction is installed through ToolResultEvictor.processor and the core ToolResultProcessor port. The runtime appends raw completion atomically before scoped interruptible processing, then commits the processed observation before model continuation/publication. Typed failures retain original output; cancellation retains completed raw successes. Compaction and permission runtime installation, supplied history, and inline provider result processing remain pending.
+
 ## 6. Permission and storage boundaries
 
 PermissionEngine combines gates as Deny > Ask > Passthrough > Allow. Restricted rules inspect their configured argumentPath. PermissionRequests registers before publishing, resolves once, and removes cancelled waiters.

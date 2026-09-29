@@ -51,13 +51,15 @@ Registration, withTool, and merging return Either[AgentError, Toolkit]. Duplicat
 
 [StructuredOutput](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/StructuredOutput.scala) hoists both definition namespaces without changing references. Native mode supplies responseFormat. Auto selects from LlmConfig.structuredOutputCapability, preserving prior routing for Unknown. Native() permits application tools; Native(NativeToolSupport.Unsupported) permits native only without them; Unsupported selects synthetic immediately. Explicit modes override declarations. Synthetic clears responseFormat, while native Auto retains status-400/422/501 fallback. Successful generate_response terminates without an extra model turn after the acting phase completes. Non-Completed runs produce AgentError.Interrupted without replacing reconciled history. The final reply retains generating-request thinking and usage; AgentResult.usage aggregates the run. Compression keeps ordinary tool pairs and unrelated empty messages. Native payload resolution prefers existing structured metadata over visible text and uses the same AST for decoding and committed metadata.
 
+PostReasoningHook accepts typed Keep/Replace/Discard decisions before state persistence and dispatch. Dedicated ReasoningHookError prevents provider-fallback confusion. Replacement restores model-owned usage, discard preserves thinking retries, and invocation-local accounting spans both Auto attempts. See the [agent contracts](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) for scope, ordering, and migration details.
+
 ## Harness
 
 | Component | Contract | Declaration |
 | --- | --- | --- |
 | ConversationCompactor | Injected summarizer/counter/hooks, safe cutoff, summary rebuilding, typed failures | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) |
 | CompactorConfig | 120k trigger, 40k keep/protect, six retained messages, 2k pruning threshold | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/CompactorConfig.scala) |
-| ToolResultEvictor | Above 80k text chars, 2k head/tail, persistence failure retains original | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictor.scala) |
+| ToolResultEvictor | Above 80k text chars, 2k head/tail, failure fallback, opt-in local-result processor | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictor.scala) |
 | ToolResultStore | Effectful persistence; local backend requires WorkspaceTrust and hard-link support | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/eviction/ToolResultStore.scala) |
 | PermissionEngine | Immutable evaluate/authorize/resume, no model request or durable storage | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/PermissionEngine.scala) |
 | PermissionRule | Tool-name/glob matching against explicit argumentPath, command by default | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/PermissionRule.scala) |
@@ -77,10 +79,10 @@ StreamAccumulator.empty is the construction boundary; feed and toTurnOutput now 
 
 ## Completed tool-result publication
 
-ToolResultStart/Delta/End and ToolResultDataDelta carry optional ModelStreamContext. Local execution commits its Tool observation before publishing completed text and End; normalization preserves failures as Error observations. Inline results keep ordered text/data and metadata in their assistant message. Parallel calls retain per-call ordering and request provenance. Interruption reconciles only unfinished history without inventing completed result events. Incremental local output and structured result metadata remain pending.
+ToolResultStart/Delta/End and ToolResultDataDelta carry optional ModelStreamContext. Local execution commits its Tool observation before publishing completed text and End; normalization preserves failures as Error observations. Inline results keep ordered text/data and metadata in their assistant message. Parallel calls retain per-call ordering and request provenance. Interruption reconciles only unfinished history without inventing completed result events. Processed completed local output blocks and metadata are published through the same event path. Native structured tool returns and incremental execution remain pending.
+
+ToolResultProcessor returns a payload of output blocks and metadata. Runtime application preserves call identity/state and control keys; processing has a per-result scope and cannot erase raw completion on cancellation. ReActAgent.make and its builder accept the optional processor. The harness adapter processes new local observations only.
 
 ## Shared JSON authority
 
 The core-internal json.JsonBoundary replaces client.ProtocolJson. Its decode operation requires one complete unique-key JSON document; validate checks AST fields directly. Msg structured extraction, agent preparation, synthetic wrapper decoding, and client boundaries share these contracts. Invalid authoritative metadata does not fall back to text, and duplicate wrapper fields fail before subtree selection. Native/synthetic HTTP integration is verified without claiming a general JSON Schema validator.
-
-PostReasoningHook accepts typed Keep/Replace/Discard decisions before state persistence and dispatch. Dedicated ReasoningHookError prevents provider-fallback confusion. Replacement restores model-owned usage, discard preserves thinking retries, and invocation-local accounting spans both Auto attempts. See the [agent contracts](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) for scope, ordering, and migration details.

@@ -10,18 +10,19 @@ ToolResultEvictor offloads text exceeding 80,000 characters with 2,000-character
 
 See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md) for integration boundaries and invariant definitions.
 
-## Current review acceptance
+## Runtime integration
 
-- [x] Reviewed revision: `fb80428`; accepted files: ToolResultStore.scala and ToolResultStoreSpec.scala.
-- [x] Independent final approval: `review_fp`, reconfirmed for unchanged code on 2026-09-29 after corrections and cross-review.
-- [x] No unresolved findings in the accepted scope: Atomic completed-file publication, explicit workspace trust, and cleanup failure handling.
-- [x] Verification at the reviewed revision: `sbt verify`, 108 core and 40 harness tests, no failed tests or compiler warnings.
+ToolResultEvictor.evictResult processes one immutable observation with the same thresholds, exclusions, and persistence fallback as evictOversizedToolResults. processor(config) adapts it to the core ToolResultProcessor port; pass that value to ReActAgent.make or its builder. Raw completed output is persisted in runtime history before the cancellable storage operation. Successful previews and cache metadata replace that observation before model continuation and result deltas/end. Cancellation preserves raw success without duplicate interruption observations.
 
-This is the accepted reference behavior for the scope above. HostControlled ownership and hard-link support are required. Hostile concurrent filesystem mutation, crash durability, and exhaustive upstream parity are outside this acceptance. Changes to this behavior require renewed independent review and an updated acceptance entry.
+The adapter covers new local tool completions only. Standalone history eviction remains available, but automatic eviction of supplied history and inline provider results is not installed. Storage paths and cache metadata follow the Scala store contract: a content-addressed filename under large_tool_results, with eviction_cache_key/eviction_path. This differs from the upstream per-agent subdirectory and middleware metadata. The host must provide read_file access if the model is expected to retrieve stored output.
 
-## Message API migration acceptance
+## Current acceptance
 
-- [x] `review_fp` and `review_harness` approved this package's changed Scala files against `9c47bf5` on 2026-09-29, with no unresolved findings in the message-boundary migration.
-- [x] Repository verification passed 242 core and 40 harness tests with zero compiler warnings.
+- [x] Unchanged local store safety/publication contracts retain earlier acceptance through `8850a60`; Git preserves prior source identities and reviews.
+- [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
+- [ ] Integrate supplied history, separate model-input views, and inline provider results.
+- [ ] Complete remaining upstream mappings, including hook-modified reasoning input and configurable absolute eviction directories.
 
-The accepted migration is recorded in commit `a701612`. See the [validated message API](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/model/README.md) for source compatibility changes, scope, and evidence. Core callers preserve roles and optional fields; reasoning/structured-output filtering preserves message identity and metadata. Harness transformations preserve tool pairing, retained-user provenance, eviction fallback, and cancellation. This acceptance covers the changed files only; broader package and upstream parity gaps remain tracked.
+HostControlled ownership and hard-link support remain required. Hostile concurrent filesystem mutation and crash durability remain outside acceptance.
+
+The [core tool table](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md) records all eight exact current identities.

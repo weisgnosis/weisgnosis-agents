@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: integrate harness compaction/eviction/permissions through explicit runtime extension points, then expand general middleware and remaining lifecycle/hook parity against the pinned upstream revision.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: integrate permission gates and compaction through explicit runtime extension points, then extend eviction to supplied history/inline results and expand remaining lifecycle/hook parity against the pinned upstream revision. Local-result eviction is now installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -34,7 +34,7 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Classify all ten deprecated coarse-event methods as explicit legacy API/wire exclusions, with shared domain evidence distinguished from parity.
 - [x] Correlate actual model streams with runtime-assigned reply/request identities.
 - [ ] Complete richer subagent attribution through the typed API.
-- [ ] Complete local structured-result metadata, explicit event adapters, phase-stop integration, and remaining event ordering.
+- [ ] Complete native structured tool returns and incremental execution, explicit event adapters, phase-stop integration, and remaining event ordering.
 - [ ] Map every remaining applicable core method to Scala coverage, a justified difference, or a gap.
 - [ ] Close remaining structured-output and lifecycle parity gaps; see the [parity task list](test-parity.md).
 - [x] Replace silent completion-delta parsing with typed errors, strict indexes/counts, required choices, duplicate-field rejection, and provider-error handling; verify 326 core / 40 harness tests.
@@ -58,7 +58,9 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Resolve compactor/store review findings; obtain final independent approval for the scope recorded in the [harness README](../../modules/harness/README.md).
 - [x] Verify 40 harness tests at revision `fb80428`.
 - [ ] Complete exhaustive harness upstream scenario mapping and close its gaps.
-- [ ] Integrate compaction, eviction, and permission gates into agent execution.
+- [x] Integrate immediate local-result eviction through a scoped processor; independently review fifteen new tests, map five of seven eviction methods with explicit adaptations, and verify 466 core / 45 harness tests.
+- [ ] Integrate compaction and permission gates into agent execution.
+- [ ] Extend eviction to supplied history, separate model-input views, and inline provider results; close the two remaining eviction method gaps.
 - [ ] Implement MemoryFlushManager and MemoryConsolidator with the specified writer isolation and budgets.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.
@@ -101,7 +103,7 @@ Package indexes enumerate actual source and spec files. Planned package document
 | INV-3: Thinking-only loopback | Thinking retry suite covers reminders and retry bounds |
 | INV-4: Safe compaction cutoff | Compactor tests cover pairs, repeated call IDs, orphan results and protected tails |
 | INV-5: Summary deduplication | Compactor tests cover repeated summaries and retained-user provenance |
-| INV-6: Tool eviction | Evictor tests cover the 80k threshold, 2k previews and persistence failure fallback |
+| INV-6: Tool eviction | Standalone and runtime suites cover 80k/2k limits, persistence fallback, raw-result retention on cancellation, parallel slot isolation, and actual disk storage |
 | INV-7: Permission priority | Gate tests cover Deny > Ask > Passthrough > Allow |
 | INV-8: Subagent supervision | Planned |
 | INV-9: Plan mode hardening | Planned |

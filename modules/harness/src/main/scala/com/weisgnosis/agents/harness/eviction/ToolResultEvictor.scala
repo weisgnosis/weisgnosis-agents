@@ -17,6 +17,7 @@ package com.weisgnosis.agents.harness.eviction
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
+import com.weisgnosis.agents.core.tool.{ToolResultPayload, ToolResultProcessor}
 import zio.*
 import zio.json.ast.Json
 import java.nio.charset.StandardCharsets
@@ -29,13 +30,22 @@ final class ToolResultEvictor(store: ToolResultStore, agentName: String = "assis
       config: EvictionConfig = EvictionConfig()
   ): UIO[Chunk[Msg]] =
     ZIO.foreach(history) { message =>
-      message.mapToolResultsZIO { result =>
-        if result.text.length > config.maxResultChars.max(0) &&
-          !result.name.exists(config.excludedTools.contains)
-        then evict(result, config).catchAll(_ => ZIO.succeed(result))
-        else ZIO.succeed(result)
-      }
+      message.mapToolResultsZIO(result => evictResult(result, config))
     }
+
+  /** Processes one completed observation, retaining the original on typed persistence failure. */
+  def evictResult(
+      result: ContentBlock.ToolResult,
+      config: EvictionConfig = EvictionConfig()
+  ): UIO[ContentBlock.ToolResult] =
+    if result.text.length > config.maxResultChars.max(0) &&
+      !result.name.exists(config.excludedTools.contains)
+    then evict(result, config).catchAll(_ => ZIO.succeed(result))
+    else ZIO.succeed(result)
+
+  /** Installs immediate local-result eviction at the core runtime's post-persistence boundary. */
+  def processor(config: EvictionConfig = EvictionConfig()): ToolResultProcessor =
+    ToolResultProcessor(result => evictResult(result, config).map(ToolResultPayload.fromResult))
 
   private def evict(
       result: ContentBlock.ToolResult,

@@ -10,7 +10,7 @@ AgentEvent defines 39 immutable payload variants with JSON codecs and withSource
 
 All 39 concrete/base codecs encode the same object with exactly one lowercase event discriminator. Concrete decoders also read legacy untagged payloads; a supplied tag must match. Base decoding requires a unique valid tag. Missing required fields, malformed tags, and duplicate discriminators fail. Immutable source updates preserve every other field.
 
-ToolResultStartEvent, ToolResultDeltaEvent, ToolResultEndEvent, and ToolResultDataDeltaEvent retain immutable metadata independently of source. Empty metadata is the default. Inline provider text/data events now preserve complete result metadata in output order; local structured/streaming result metadata remains pending. Isolated private payload derivation and a suspended root codec prevent encoder cycles; there is no silent AST encoding fallback.
+ToolResultStartEvent, ToolResultDeltaEvent, ToolResultEndEvent, and ToolResultDataDeltaEvent retain immutable metadata independently of source. Empty metadata is the default. Inline provider text/data events now preserve complete result metadata in output order; processed completed local output blocks retain metadata; native structured tool returns and incremental execution remain pending. Isolated private payload derivation and a suspended root codec prevent encoder cycles; there is no silent AST encoding fallback.
 
 ## Additional payloads
 
@@ -40,7 +40,7 @@ Existing lowercase event objects remain canonical. Concrete event encoding inclu
 - [x] AgentEventPayloadSpec adds seven payload tests, including toolResultDataDeltaEventMetadataRoundTrip, nested validation, immutable fields, and optional-value normalization.
 - [x] `sbt scalafmtAll scalafmtSbt verify` passed 291 core and 40 harness tests with zero compiler warnings.
 - [x] Correlated iteration-limit publication and inline provider text/data/metadata delivery are verified in ReActAgentEmissionSpec and reviewed in the [agent scope](../agent/README.md).
-- [ ] Implement remaining runtime publication/order, model data-block assembly, and local structured-result metadata.
+- [ ] Implement remaining runtime publication/order, model data-block assembly, and native structured tool returns with incremental execution.
 - [ ] Implement phase-stop authority, durable pending-work resumption, and permission-driven denied-call publication.
 - [x] Classify all ten deprecated coarse-event methods as excluded API/wire compatibility, without claiming their assertions pass.
 - [x] Implement request/reply correlation for live model and content events.
@@ -64,10 +64,10 @@ The deprecated v1 Event/EventType/EventSource envelope is outside this core API.
 
 Sixteen text/thinking/function/model/result event variants now carry optional ModelStreamContext(replyId, requestId). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
 
-ModelStreamContextSpec verifies all sixteen contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); complete uppercase envelope and incremental/structured local tool-result integration remain pending.
+ModelStreamContextSpec verifies all sixteen contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); processed completed local blocks and metadata are supported; complete uppercase envelopes, native structured tool returns, and incremental execution remain pending.
 
 - [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
 
 Earlier live client/event identities and approval are recorded in `84e4eb3`; the [current client contracts](../client/README.md) link subsequent accepted changes.
 
-- [x] The completed local/inline result increment against `84e4eb3` was approved by `review_fp` and `review_harness`; commit `9c165a7` preserves its five final source identities and six new regressions; the [agent README](../agent/README.md) describes current runtime contracts. All sixteen contextual variants and full 392 core / 40 harness verification pass. Partial tool-output streaming and richer local structured output remain pending.
+- [x] The completed local/inline result increment against `84e4eb3` was approved by `review_fp` and `review_harness`; commit `9c165a7` preserves its five final source identities and six new regressions; the [agent README](../agent/README.md) describes current runtime contracts. All sixteen contextual variants and full 392 core / 40 harness verification pass. Processed completed local blocks and metadata are now supported through ToolResultProcessor; native structured tool returns and incremental execution remain pending.

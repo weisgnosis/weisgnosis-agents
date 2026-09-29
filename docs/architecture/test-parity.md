@@ -360,7 +360,7 @@ The eight payload classes below are implemented and verified independently of th
 | AgentResult | result: Msg | Runtime publishes after preparation and history commit, before AgentEnd; pre-commit failures publish no finalized result |
 | DataBlockStart / End | replyId, blockId | Stable block correlation and provider assembly |
 | DataBlockDelta | replyId, blockId, delta: String | Delta is text; it is not a ContentBlock |
-| ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Inline provider output is published in order with full metadata; local structured/streaming output remains pending |
+| ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Inline provider and processed completed local output blocks are published with full metadata; native structured tool returns and incremental execution remain pending |
 | ExceedMaxIters | replyId, maxIters, currentIter | Runtime guard verified with correlated replyId and completed iteration count |
 | RequestStop | reason, available typed GenerateReason; default MiddlewareStopRequested | Cooperative phase stop and durable pending-work resumption |
 | AllToolsDenied | Chunk[ToolUse], empty by default | Permission/HITL integration and middleware stop decision |
@@ -426,3 +426,21 @@ This increment closes one previously pending upstream method through a documente
 - [ ] Map remaining legacy hook suites and general middleware scenarios; eighteen closed structured-output mappings do not establish those domains.
 
 Twenty-two added local tests cover more than the one newly closed upstream mapping. Replacement cannot forge canonical or legacy usage, discard does not reset thinking retries, and all returned model observations count across fallback attempts. Synthetic residual history clears both usage representations. The legacy duplication regression failed before correction. Existing model events remain original observations, while final results/history and dispatch reflect accepted policy decisions.
+
+## ToolResultEvictionMiddlewareTest: seven methods
+
+Pinned source: agentscope-harness/src/test/java/io/agentscope/harness/agent/middleware/ToolResultEvictionMiddlewareTest.java at `f98a685fdc4589f81e626e1686ac2c63d14a2304`. These mappings distinguish runtime/standalone adaptations from the upstream mutable two-view middleware contract.
+
+- [x] `evictsImmediateReasoningInputAndAgentStateUsingDefaultLocalPath` -> same-named ToolResultEvictorIntegrationSpec disk test plus its history/model-input/event scenario. Adaptation: eviction occurs after local completion, with one committed immutable history and an explicit trusted store, rather than independently rewriting ReasoningInput and AgentState. Scala uses large_tool_results with agent/call/hash filename prefixes, not an agent subdirectory; cache metadata uses eviction_cache_key/eviction_path.
+- [ ] `evictsCanonicalAgentStateWhenReasoningHookRemovedLargeResult`: separate hook-modified input and canonical-state views are not implemented. PostReasoningHook operates on the new model reply, not an independent input history view.
+- [x] `cachedEvictionPreservesHookRewrittenMetadataAndState` -> ToolResultEvictorSpec cached-content scenario. Adaptation: independently supplied immutable results preserve changed metadata/state across repeated content; this is not Java object-identity or middleware-view equivalence.
+- [x] `realLargeOutputUsingPlaceholderPrefixIsStillEvicted` -> same-behavior ToolResultEvictorSpec regression checks that original full content reaches the store despite a placeholder-like prefix.
+- [x] `writeFailureLeavesReasoningInputAndAgentStateUntouched` -> runtime persistence-failure integration and standalone fallback. Adaptation: exact raw result values remain in committed history and the next model request; Java reference identity and RuntimeContext forwarding are not replicated.
+- [ ] `preservesConfiguredAbsolutePathWhileTrimmingTrailingSlashes`: no evictionPath configuration field exists; the current local store fixes large_tool_results under an explicitly owned workspace.
+- [x] `reusedToolCallIdUpdatesOnlyLatestOccurrenceAndKeepsBothFiles` -> runtime reused-ID integration plus standalone content-key tests. Earlier previews remain unchanged and distinct content retains distinct cache entries. Actual local store publication is verified separately; path layout is intentionally different.
+
+- [x] Verify three processor tests, seven core lifecycle scenarios, and five harness integrations (including actual disk persistence).
+- [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
+- [ ] Integrate preexisting history and inline provider outputs; compaction and permission runtime installation remain separate work.
+
+Fifteen added tests are local evidence for these mappings and hardening boundaries, not fifteen upstream methods. Remaining harness domains still require exhaustive method-level audit.

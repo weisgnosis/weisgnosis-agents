@@ -18,26 +18,9 @@ package com.weisgnosis.agents.harness.eviction
 import zio.*
 import zio.test.*
 import java.nio.file.{Files, Path}
-import scala.jdk.CollectionConverters.*
+import EvictionTestSupport.temporaryDirectory
 
 object ToolResultStoreSpec extends ZIOSpecDefault:
-  private def temporaryDirectory: ZIO[Scope, Throwable, Path] =
-    ZIO.acquireRelease(ZIO.attemptBlocking(Files.createTempDirectory("agent-results-"))) {
-      directory =>
-        ZIO.scoped {
-          ZIO
-            .acquireRelease(ZIO.attemptBlocking(Files.walk(directory)))(stream =>
-              ZIO.attemptBlocking(stream.close()).orDie
-            )
-            .flatMap(stream =>
-              ZIO.attemptBlocking(stream.iterator().asScala.toList.sortBy(_.getNameCount).reverse)
-            )
-            .flatMap(paths =>
-              ZIO.foreachDiscard(paths)(path => ZIO.attemptBlocking(Files.deleteIfExists(path)))
-            )
-        }.orDie
-    }
-
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolResultStoreSpec")(
     test("writes UTF-8 content below the canonical workspace and reuses identical files") {
       for

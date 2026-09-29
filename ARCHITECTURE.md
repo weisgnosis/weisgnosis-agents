@@ -11,7 +11,7 @@ ReActAgent retains in-memory history through private Ref values and serializes r
 | Module | Available | Pending |
 | --- | --- | --- |
 | core | Models/codecs, event ADT, tools, path checks, SSE parsing/assembly, scoped HTTP completion, client port, ReAct and structured output | Provider extensions, complete event integration, and exhaustive upstream parity |
-| harness | Compactor, token estimator, eviction/store interface, policies, interactive approval requests, durable approval DTOs | Middleware, durable checkpoints, memory services, subagents, plan mode |
+| harness | Compactor, token estimator, opt-in local-result eviction/store adapter, policies, interactive approval requests, durable approval DTOs | Compaction/permission middleware, durable checkpoints, memory services, subagents, plan mode |
 | mcp | Design scaffolding | Protocol, transports, discovery and toolkit bridge |
 
 Dependencies point from harness and mcp to core. Core must not import harness services. Hosts compose components and supply external dependencies.
@@ -40,3 +40,5 @@ Filesystem protection requires canonical paths and a valid ownership contract. T
 Test counts do not establish exhaustive parity. Map each applicable upstream scenario and state pending or inapplicable cases explicitly in the [parity audit](docs/architecture/test-parity.md).
 
 The typed AgentEvent API is the core event contract. Deprecated upstream v1 Event/EventType/EventSource envelopes are deliberately outside this port: no legacy filtering, cumulative snapshots, isLast field, or Java diagnostic compatibility is implied. The parity audit records all ten applicability decisions separately from behavioral evidence. Actual model streams now carry reply/request correlation; richer subagent attribution and remaining model/tool ordering are still required work.
+
+Completed local tool results can use a scoped ToolResultProcessor. The runtime stores raw completion before processing; cancellation preserves it, and successful payloads commit before model continuation/events. Harness ToolResultEvictor.processor installs immediate local eviction. Compaction, permissions, supplied history, and inline provider integration remain pending.

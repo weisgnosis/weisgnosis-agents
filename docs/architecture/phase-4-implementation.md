@@ -10,6 +10,8 @@ Old tool output and arguments are pruned before summarization, leaving the prote
 
 ## Tool result eviction
 
+`ToolResultEvictor.processor(config)` installs opt-in processing of newly completed local observations in ReAct. Raw completion is stored before cancellable persistence; processed previews commit before continuation and result events. Typed failures preserve raw output. Supplied history and inline provider results remain outside the adapter.
+
 `ToolResultEvictor` offloads text exceeding 80,000 characters, retaining 2,000 characters at each end and a read_file instruction. Configured file and memory tools are excluded. Content hashes distinguish reused call IDs with different output. Rewritten metadata, result states, and non-text blocks survive eviction. Failed persistence preserves the complete original observation; interruption remains cancellation.
 
 `ToolResultStore.local(workspace, WorkspaceTrust.HostControlled)` resolves the workspace and output directory canonically. The explicit trust argument requires OS protection against untrusted mutation of the workspace, storage directory, and their ancestors; `WorkspaceTrust.Untrusted` is rejected. Canonical checks are defense in depth, not an atomic sandbox for attacker-writable directories.
@@ -38,4 +40,4 @@ Structured completion resolves one payload AST for decoding and metadata, prepar
 
 Run `sbt scalafmtAll scalafmtSbt`, then `sbt verify`. The Scala suites use local scripted clients, ZIO Test services, and temporary filesystem resources. They do not exercise a live provider endpoint. The configured formatter plugin is required for the repository verification commands.
 
-The current implementation passed 456 core and 40 harness tests, with no failures or compiler warnings. The cleanup-failure regression intentionally emits a runtime warning. Current review acceptance is maintained in the [core README](../../modules/core/README.md) and [harness README](../../modules/harness/README.md), with package-level scope details. Resolved review reports are removed from the active tree; their history remains in Git. Remaining provider/event integration, exhaustive upstream parity, and host integration remain tracked work.
+The current implementation passed 466 core and 45 harness tests, with no failures or compiler warnings. The cleanup-failure regression intentionally emits a runtime warning. Current review acceptance is maintained in the [core README](../../modules/core/README.md) and [harness README](../../modules/harness/README.md), with package-level scope details. Resolved review reports are removed from the active tree; their history remains in Git. Remaining provider/event integration, exhaustive upstream parity, and host integration remain tracked work.

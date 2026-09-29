@@ -32,7 +32,7 @@ ReAct allocates a fresh requestId under the current attempt replyId and passes M
 
 All four result-event variants now retain the originating ModelStreamContext. Local execution publishes Start, executes interruptibly, then records the completed observation before publishing its text Delta and End under the existing interruption mask. Empty text remains an explicit empty delta. Normalized failures remain Error observations and continue the loop. Each parallel call keeps its own ordered events; completion order may differ from call order. Later turns reusing a call ID remain distinguishable through requestId.
 
-Inline provider results share the completed-output publisher, preserve text/data ordering and metadata, and remain inside the assistant message without separate Tool messages. Local tools currently produce completed text observations, not partial streaming output or structured result metadata. Cancellation preserves completed results/events and reconciles unfinished history; it does not publish a false ToolResultEnd for interrupted work. AgentEnd still terminates the attempt.
+Inline provider results share the completed-output publisher, preserve text/data ordering and metadata, and remain inside the assistant message without separate Tool messages. Local tools produce completed text observations. An optional ToolResultProcessor rewrites payload blocks and metadata before completed publication; partial tool execution and native structured tool return values remain pending. Cancellation preserves completed results/events and reconciles unfinished history; it does not publish a false ToolResultEnd for interrupted work. AgentEnd still terminates the attempt.
 
 ## Strict structured JSON
 
@@ -83,7 +83,7 @@ Keep retains the original TurnOutput. Replace requires an assistant message, res
 
 Usage is now accumulated from returned model observations in one invocation-local Ref, using canonical-first chatUsage. It includes discarded and returned interrupted outputs, spans Auto native/synthetic attempts, excludes supplied history/new input, and resets for each public invocation. Accounting updates are briefly masked after model-scope completion. ModelResponseEnd uses the same canonical-first usage view. Synthetic completion transfers canonical and legacy usage exactly once, clearing both representations from any retained residual generating assistant. Reply usage remains the generating request's usage; AgentResult usage is the invocation aggregate.
 
-Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must include its new final field. The hook and builder are in-memory runtime values, not durable policy serialization. ReasoningDecision has a derived codec, but decoded replacements still pass runtime validation. This API covers replacement/removal through typed decisions; legacy mutable hooks, stop/goto-reasoning commands, and general model-call interception remain separate work.
+Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must include the added hook and processor fields. The hook and builder are in-memory runtime values, not durable policy serialization. ReasoningDecision has a derived codec, but decoded replacements still pass runtime validation. This API covers replacement/removal through typed decisions; legacy mutable hooks, stop/goto-reasoning commands, and general model-call interception remain separate work.
 
 - [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 456 core and 40 harness tests.
 
@@ -93,9 +93,22 @@ Final formatted scope against `2a400e0`; these identities supersede earlier entr
 
 | File | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | 3bd394a550ce0dea1cfe351c4446c0ddd625801d |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 9817ce08dfefcbf69792204c8169914406e31fb9 |
 | [StructuredOutput.scala](StructuredOutput.scala) | 5d6d81c944530f8ff7094733abfc21885729e456 |
 | [AgentError.scala](../error/AgentError.scala) | 53ed178ec1e2534c9e8783faf85e550248efb0cb |
 | [PostReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PostReasoningHookSpec.scala) | 0a024cbdaf20b5a7d3be015b30a60c07118310ab |
 | [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | 3eefd816ae8cc44a7346f8eec63d1b2fcc01191f |
+
+## Local-result processing boundary
+
+ReActAgent.make and Builder.toolResultProcessor accept a ToolResultProcessor, defaulting to identity. Its suspended process callback returns ZIO[Scope, AgentError, ToolResultPayload]. The payload contains output blocks and metadata only. applyTo preserves the original call ID, name, state, and serverTool/agentscope_server_tool/agentscope_suspended control keys. Composition applies each payload safely before passing the observation onward; host processors cannot change execution authority through these fields.
+
+After local execution finishes, the runtime atomically appends the complete raw observation and captures its history position. It then runs processing interruptibly in a separate scope. Typed processing failures restore the original payload; defects propagate. Scope cleanup finishes before a short masked section replaces that exact observation and publishes its text/data deltas and End. Parallel calls own distinct append positions, including calls that reuse IDs; completion may arrive in a different order. Processing assumes history remains append-only during the acting phase under the run lock.
+
+Cancellation during processing keeps the completed raw result and reconciles only unfinished executions. It does not rerun the tool or publish a false ToolResultEnd. A subsequent model request sees the committed processed payload; observers may see the raw result while processing is pending. Processor side effects already performed before failure/cancellation are not rolled back. Callbacks must not reenter a mutating agent operation that requires the held run lock.
+
+Tool execution still returns completed text. A processor can replace its output blocks and metadata for the existing typed result publisher; this does not implement incremental tool execution or native structured tool return values. Empty processed output emits only End after the original Start. Inline provider results bypass this processor, and preexisting history is not processed automatically. These integration gaps remain explicit.
+
+Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must account for the added hook and processor fields. Processor values are runtime dependencies, not serialized agent configuration.
+
+- [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests. Exact current identities are in the [tool package table](../tool/README.md). The post-reasoning ReActAgent identity is preserved in `8850a60`.

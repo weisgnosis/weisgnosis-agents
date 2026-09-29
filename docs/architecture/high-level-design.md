@@ -32,7 +32,7 @@ Harness provides pair-safe compaction, summary replacement and user provenance, 
 
 Local persistence explicitly requires WorkspaceTrust.HostControlled, OS-protected ancestors, and hard-link support. Untrusted fails closed. Canonical checks do not make attacker-writable directories safe.
 
-Harness services are standalone components, not installed ReAct middleware. Permission decisions are not durable execution checkpoints.
+ToolResultEvictor.processor is an opt-in adapter for completed local results in ReAct. Compaction and permission components remain standalone; they are not installed runtime middleware. Permission decisions are not durable execution checkpoints.
 
 ## Planned platform
 
