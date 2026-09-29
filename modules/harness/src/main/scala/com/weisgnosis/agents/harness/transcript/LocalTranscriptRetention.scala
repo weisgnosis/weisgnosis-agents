@@ -40,3 +40,19 @@ object LocalTranscriptRetention:
       lease  <- WorkspaceLease.open(files.directory, WorkspaceOwner.Transcript)
       result <- lease.protect(files.pruneBefore(before))
     yield result
+
+  /** KeepAll bypasses clock and filesystem access; enabled policy validates one cutoff before ownership. */
+  def pruneWithPolicy(
+      directory: Path,
+      trust: WorkspaceTrust,
+      policy: TranscriptRetentionPolicy = TranscriptRetentionPolicy.Default
+  ): IO[AgentError, TranscriptRetentionResult] = policy match
+    case TranscriptRetentionPolicy.KeepAll => ZIO.succeed(TranscriptRetentionResult.Disabled)
+    case TranscriptRetentionPolicy.PruneAfter(_) =>
+      Clock.instant
+        .flatMap(now => ZIO.fromEither(policy.cutoff(now)))
+        .flatMap:
+          case None => ZIO.succeed(TranscriptRetentionResult.Disabled)
+          case Some(cutoff) =>
+            prune(directory, trust, cutoff)
+              .map(TranscriptRetentionResult.Evaluated(cutoff, _))

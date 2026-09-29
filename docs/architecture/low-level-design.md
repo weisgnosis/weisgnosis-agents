@@ -165,3 +165,7 @@ Both scheduling adapters delegate to one private suspended MemoryMaintenanceTask
 ## Transcript pruning operation
 
 TranscriptFiles.pruneBefore branches on existingFile rather than the read API's empty-string fallback, preserving Missing versus empty-log semantics. Under WorkspaceLease.protect it reads modification time and content, applies TranscriptLog.decode/TranscriptState restoration, folds all recordedAt values into the metadata timestamp, and checks strict isBefore. Only then can Files.delete remove the already validated fixed payload. Retained/Pruned results expose effective activity, with Pruned also exposing entry count. Final lease release remains scoped and cannot delete a competing token. Admitted cancellation may follow completed deletion; this is not an atomic undo contract.
+
+## Transcript cutoff arithmetic
+
+For validated positive Int days, multiplying by 86,400 and subtracting from Instant epoch seconds stays within Long. Compare the resulting seconds to Instant.MIN before constructing the cutoff with the original nanoseconds. KeepAll bypasses Clock and target validation. Enabled execution performs this check before WorkspaceLease acquisition and preserves the evaluated cutoff in its result. The explicit-cutoff API remains unchanged.

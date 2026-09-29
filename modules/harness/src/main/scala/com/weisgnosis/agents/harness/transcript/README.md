@@ -52,7 +52,8 @@ Migration: shared lease extraction preserves memory/.daily-writer.lease and exis
 - [x] `review_docs` approved the corrected local-transcript documentation against `e4dfc67`, including 14 identities, 27 new tests, strict storage/Unicode contracts, four local adaptations, and explicit remaining work. All 63 Markdown files passed link/script checks; git diff --check passed.
 - [x] Integrate required terminal snapshot recording through the completion observer described below.
 - [x] Integrate opt-in background flush and combined daily-memory maintenance in the memory package.
-- [ ] Integrate automatic transcript retention policy and session enumeration.
+- [x] Add explicit transcript-retention policy below.
+- [ ] Integrate session enumeration and owned batch pruning.
 - [ ] Implement remote immutable segments/indexes and platform-specific ownership validation.
 
 Unchanged Git-normalized local persistence identities; the changed TranscriptFiles identity is preserved in 9ddee3a and indexed in the pruning table below:
@@ -83,7 +84,8 @@ Required observation completes before successful result publication and before c
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 264 harness tests, including 28 new cases, with zero compiler warnings. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
 - [x] Integrate scoped background flush and combined daily-memory maintenance; choose the appropriate owner scheduler.
-- [ ] Integrate automatic transcript retention policy and session enumeration.
+- [x] Add explicit transcript-retention policy below.
+- [ ] Integrate session enumeration and owned batch pruning.
 - [ ] Implement remote immutable segments and session indexes.
 
 The previous SessionTranscriptWriter.scala identity is preserved in `0349b1a`; its current identity and acceptance are in the completion-observer table in the [core agent contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
@@ -102,18 +104,43 @@ Deletion removes only that validated payload entry. It does not recurse, enumera
 
 Successful pruning retires the persisted deduplication keys and parent chain. A later open starts an empty transcript and accepts formerly used stable keys as new observations. The host must retire the corresponding logical session rather than assume identity continuity or a retained tombstone. This is an explicit destructive storage capability for a host-selected inactive session, not automatic application session discovery or authentication.
 
-The backend still requires a host-controlled directory and ancestors. Cooperative leases and canonical checks do not protect against hostile external path replacement. This is a hardened source-level adaptation of upstream pruneOldSessions: explicit target selection, strict validation, active-owner refusal and observation-aware recency replace a broad filename scan, mtime-only decision and swallowed failures. No new named upstream pruning test is claimed. Session enumeration, the 180-day policy, maintenance scheduling and remote pruning remain unfinished. Prior TranscriptFiles.scala is preserved in 9ddee3a.
+The backend still requires a host-controlled directory and ancestors. Cooperative leases and canonical checks do not protect against hostile external path replacement. This is a hardened source-level adaptation of upstream pruneOldSessions: explicit target selection, strict validation, active-owner refusal and observation-aware recency replace a broad filename scan, mtime-only decision and swallowed failures. No new named upstream pruning test is claimed. The 180-day policy is implemented below; session enumeration, maintenance scheduling and remote pruning remain unfinished. Prior TranscriptFiles.scala is preserved in 9ddee3a.
 
 ## Current pruning identities
 
-Final formatted three-file increment against `9ddee3a`; independent acceptance is recorded below.
+Unchanged identities from the three-file pruning increment against `9ddee3a`; LocalTranscriptRetention changed for policy support and its previous identity is preserved in f1a005e. Independent acceptance of the earlier scope is recorded below.
 
 | Source | Git blob |
 | --- | --- |
-| [LocalTranscriptRetention.scala](LocalTranscriptRetention.scala) | c3a083a94375d26d90df35d6ce30acee4046b263 |
 | [TranscriptFiles.scala](TranscriptFiles.scala) | 603cd66973f453f7bedeb4d06f21eca175538cc9 |
 | [LocalTranscriptRetentionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptRetentionSpec.scala) | 2065dc1bedcabfa2710969db9bb7b641292ae097 |
 
 - [x] `review_fp` and `review_harness` approved the final three-file transcript-pruning increment against `9ddee3a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 404 harness tests, including thirteen new cases, with zero compiler warnings. No findings remain within explicit local targets, shared writer ownership, strict log validation, observation-aware activity, fixed-payload deletion and generation retirement. Session discovery, automatic expiry, remote pruning and crash/hostile-mutation guarantees are excluded.
 
 - [x] `review_docs` approved transcript-pruning documentation against `9ddee3a`: three identities, thirteen tests, activity/cutoff rules, shared ownership, cancellation limits and generation retirement. Full verification passed 555 core / 404 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Automatic policy/discovery, remote pruning and crash guarantees remain excluded.
+
+## Explicit transcript retention policy
+
+[TranscriptRetentionPolicy](TranscriptRetentionPolicy.scala) is KeepAll or PruneAfter(RetentionDays). Its explicit default is 180 days; the validated positive day type is shared with daily memory policy, with separately named DailyDefault and SessionDefault values. Transcript days mean exact 24-hour intervals, not zoned calendar subtraction. Cutoff arithmetic preserves the input nanoseconds, accepts the full validated positive Int range and returns typed InvalidConfiguration on Instant underflow.
+
+LocalTranscriptRetention.pruneWithPolicy is additive; the original explicit-cutoff prune API keeps its behavior. KeepAll returns TranscriptRetentionResult.Disabled without reading the clock or validating/accessing the directory, trust or payload. Enabled policy samples Clock.instant once, validates its cutoff before acquiring ownership, then delegates to the same scoped explicit-target pruner. Evaluated(cutoff, result) preserves the cutoff and Missing/Retained/Pruned outcome; Disabled is not confused with a missing file or a retained payload.
+
+Calling this policy API explicitly selects the target and enables the chosen operation. It does not enumerate directories, install a timer, create a session catalog or claim a separate maintenance gate. Existing strict decoding, activity calculation, ownership refusal, generation retirement and uncertain cancellation acknowledgement remain unchanged. The default is not silently applied to the older prune API. Owned multi-target coordination remains the next integration step.
+
+Previous LocalTranscriptRetention.scala and MemoryRetentionPolicy.scala identities are preserved in f1a005e. Existing callers remain source-compatible. The new default/validation assertions add evidence to the partial MemoryConfig mapping; a complete unified configuration or upstream builder port is not claimed.
+
+## Current transcript-policy identities
+
+Final formatted five-file increment against `f1a005e`; independent acceptance is recorded below.
+
+| Source | Git blob |
+| --- | --- |
+| [MemoryRetentionPolicy.scala](../memory/MemoryRetentionPolicy.scala) | ab432f467f13a90d931371fd40aba929e1551117 |
+| [LocalTranscriptRetention.scala](LocalTranscriptRetention.scala) | 6bdbf68975968b22a13441ab473782fc8eb32fb5 |
+| [TranscriptRetentionPolicy.scala](TranscriptRetentionPolicy.scala) | 7174ebf8629c722090ed4dfbfb203341ec75a53d |
+| [LocalTranscriptRetentionPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptRetentionPolicySpec.scala) | 8010eb1e6985b80790f475225af9e3930479a31f |
+| [TranscriptRetentionPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptRetentionPolicySpec.scala) | ccf0ccbc082334dbb87f94b9b6a563a152b1f73e |
+
+- [x] `review_fp` and `review_harness` approved the final five-file transcript-policy increment against `f1a005e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 412 harness tests, including eight new cases, with zero compiler warnings. No findings remain within explicit 180-day policy, strict shared day validation, safe Instant arithmetic, one pre-ownership clock sample and complete KeepAll bypass. Batch/scheduler integration and complete upstream configuration parity are excluded.
+
+- [x] `review_docs` approved transcript-policy documentation against `f1a005e`: five identities, eight tests, fixed-day arithmetic, KeepAll bypass, additive API behavior and partial configuration mappings. Full verification passed 555 core / 412 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Batch, discovery, scheduling and remote integration remain excluded.

@@ -714,10 +714,10 @@ The 21 new policy/service/scheduler tests verify one cutoff before side effects,
 
 The six remaining MemoryConfigTest methods stay individually visible:
 
-- [ ] defaults_matchHistoricalBehaviour: daily retention 90 is now verified, alongside existing 4,000-token/30-minute/Always defaults; session 180 and complete prompt/default selection remain pending.
+- [ ] defaults_matchHistoricalBehaviour: daily retention 90 is now verified, alongside existing 4,000-token/30-minute/Always defaults; session 180 is now verified; complete prompt/default selection remains pending.
 - [ ] builder_overridesAreCarried: immutable daily policy overrides are verified; complete cross-configuration assertions, custom prompts and session settings remain pending.
 - [ ] builder_consolidationPromptMustHaveTwoIntPlaceholders: implement or explicitly adapt the two token/character budget placeholders through a total typed renderer; no unchecked format-string port.
-- [ ] builder_rejectsInvalidNumericArgs: positive daily days and token bounds are verified; session-day validation remains pending.
+- [ ] builder_rejectsInvalidNumericArgs: positive daily days and token bounds are verified; shared positive session-day validation is now verified; the full configuration mapping remains pending.
 - [ ] builder_rejectsNullDurationsAndTrigger: existing trigger validation covers negative durations; classify the whole configuration adaptation with Java-null paths excluded once the unified surface exists.
 - [ ] builder_isReusable_andEachBuildIsIndependent: immutable daily policy replacement is verified; prompt/token independence across complete configurations remains pending.
 
@@ -730,9 +730,20 @@ KeepAll is an explicit Scala archival policy, not upstream null/sentinel compati
 Pinned MemoryMaintenanceMiddleware.pruneOldSessions scans session log names, compares modification timestamps and suppresses per-file failures. LocalTranscriptRetention instead accepts one explicit directory, acquires the writer lease, validates the complete versioned log and uses maximum metadata/recorded activity before removing its fixed payload. This is a deliberately hardened source-contract adaptation, not Java layout equivalence or a newly mapped named pruning test.
 
 - [x] Verify thirteen local cases covering cutoff/activity, missing/empty data, corruption preservation, owner refusal, unrelated files, generation reset and concurrent attempts.
-- [ ] Add session enumeration, the 180-day policy and owned maintenance integration.
+- [x] Add explicit 180-day policy and KeepAll semantics with eight new cases.
+- [ ] Add explicit target batches and owned maintenance integration.
 - [ ] Implement remote pruning and platform-specific hostile-mutation/crash validation if those guarantees are required.
 
 Cancellation-after-admission uses the previously reviewed WorkspaceLease contract; interruption may follow completed deletion. No mid-delete fault injection is claimed. A successful prune discards persisted keys and parent linkage, so hosts must retire the logical session rather than assume continuation.
 
 - [x] `review_fp` and `review_harness` approved the final three-file transcript-pruning increment against `9ddee3a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 404 harness tests, including thirteen new cases, with zero compiler warnings. No findings remain within explicit local targets, shared writer ownership, strict log validation, observation-aware activity, fixed-payload deletion and generation retirement. Session discovery, automatic expiry, remote pruning and crash/hostile-mutation guarantees are excluded.
+
+## Transcript policy evidence
+
+Eight new tests verify the shared 180-day default, positive day decoding, exact fixed-day arithmetic, nanosecond preservation, range rejection, disabled/evaluated outcomes and one clock sample before ownership. These contribute default and numeric-validation assertions to the six still-partial MemoryConfigTest mappings; no complete builder/configuration method is newly marked as covered. KeepAll is a typed Scala extension and the existing explicit-cutoff API is unchanged.
+
+- [x] Verify disabled policy does not read Clock or access even an untrusted/missing target.
+- [x] Verify enabled underflow fails before ownership and cutoff equality retains data.
+- [ ] Integrate explicit target batches into one existing maintenance admission, without a competing session-only throttle.
+
+- [x] `review_fp` and `review_harness` approved the final five-file transcript-policy increment against `f1a005e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 412 harness tests, including eight new cases, with zero compiler warnings. No findings remain within explicit 180-day policy, strict shared day validation, safe Instant arithmetic, one pre-ownership clock sample and complete KeepAll bypass. Batch/scheduler integration and complete upstream configuration parity are excluded.

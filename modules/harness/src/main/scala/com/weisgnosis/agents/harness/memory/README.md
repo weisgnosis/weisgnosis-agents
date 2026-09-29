@@ -324,11 +324,11 @@ Scheduled date selection happens in the worker, not when the observer admits the
 
 Consolidation, archival and aggregate reporting are sequential effects, not one transaction. Archive failure can follow a committed consolidation and produces no aggregate success report. Report failure can follow completed archival. Tickets retain the failed cause, but neither a failed receipt nor an absent report implies unchanged storage or supplies a durable phase/result journal. Inspect storage before retrying. The queue serializes scheduled owner work; direct concurrent service calls can interleave phases, with each repository CAS/lease/acknowledgement check retaining its individual guarantees. No extra cross-phase lock, exactly-once report or rollback promise is made.
 
-This intentionally differs from upstream expiry-before-consolidation and swallowed maintenance failures. The stronger acknowledged-only archival capability and observable task failures are retained. Automatic session pruning, session retention defaults, custom consolidation prompts, unified configuration and remote scheduling remain unfinished. Prior MemoryConsolidationScheduler.scala is preserved in b3d2723.
+This intentionally differs from upstream expiry-before-consolidation and swallowed maintenance failures. The stronger acknowledged-only archival capability and observable task failures are retained. Automatic session pruning, custom consolidation prompts, unified configuration and remote scheduling remain unfinished. Prior MemoryConsolidationScheduler.scala is preserved in b3d2723.
 
 ## Current maintenance identities
 
-Final formatted eight-file increment against `b3d2723`; independent acceptance is recorded below.
+Unchanged identities from the eight-file maintenance increment against `b3d2723`; MemoryRetentionPolicy changed to add the shared session default, with its previous identity preserved in f1a005e and its current identity in the transcript policy contract. Independent acceptance of the earlier scope is recorded below.
 
 | Source | Git blob |
 | --- | --- |
@@ -336,7 +336,6 @@ Final formatted eight-file increment against `b3d2723`; independent acceptance i
 | [MemoryMaintenance.scala](MemoryMaintenance.scala) | fb177720e497bad5f50a7f5c8061b34b26295a7e |
 | [MemoryMaintenanceScheduler.scala](MemoryMaintenanceScheduler.scala) | 72f531f61397b298bb6461428f5403f5218e047a |
 | [MemoryMaintenanceTask.scala](MemoryMaintenanceTask.scala) | 2adffe5b970b0824d0092a15a78acf19ebd09512 |
-| [MemoryRetentionPolicy.scala](MemoryRetentionPolicy.scala) | e7d3d3d1a4aea4d828ff25d4ed232ad819d100cf |
 | [MemoryMaintenanceSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSchedulerSpec.scala) | d31c5ab3e0628f94d691ad4865c855d6671d4cc7 |
 | [MemoryMaintenanceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSpec.scala) | bbf02388ef56d1918059869fa8e6a37558ac28cd |
 | [MemoryRetentionPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRetentionPolicySpec.scala) | 775e786516e5201925ede608ed1f5a9d3981c43d |
@@ -344,3 +343,7 @@ Final formatted eight-file increment against `b3d2723`; independent acceptance i
 - [x] `review_fp` and `review_harness` approved the final eight-file maintenance increment against `b3d2723` on 2026-09-29, including corrected consolidation-only ScalaDoc. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 391 harness tests, including 21 new cases, with zero compiler warnings. No findings remain within validated calendar policy, repository-bound sequential maintenance, typed aggregate outcomes, one owned gate/job and preserved consolidation-only behavior. Session pruning, unified configuration, cross-phase atomicity and durable reporting are excluded.
 
 - [x] `review_docs` approved the corrected maintenance documentation against `b3d2723`: eight identities, 21 new tests, policy and shared-window contracts, reporting limits and incomplete configuration mappings. Full verification passed 555 core / 391 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+
+RetentionDays now supplies separately named DailyDefault (90) and SessionDefault (180) values. The [transcript policy contract](../transcript/README.md) owns the updated MemoryRetentionPolicy.scala identity and acceptance. Daily calendar-cutoff behavior is unchanged; transcript policy uses exact 24-hour Instant subtraction.
+
+- [x] `review_fp` and `review_harness` approved the final five-file transcript-policy increment against `f1a005e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 412 harness tests, including eight new cases, with zero compiler warnings. No findings remain within explicit 180-day policy, strict shared day validation, safe Instant arithmetic, one pre-ownership clock sample and complete KeepAll bypass. Batch/scheduler integration and complete upstream configuration parity are excluded.

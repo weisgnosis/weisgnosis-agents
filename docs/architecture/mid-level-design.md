@@ -146,3 +146,7 @@ The private MemoryMaintenanceTask supplies the existing owner token, Maintenance
 ## Explicit transcript pruning
 
 LocalTranscriptRetention.prune owns a fresh Scope and the existing Transcript workspace lease for one host-selected directory. It validates location and complete log structure, computes maximum modification/recording activity and removes transcript.jsonl only when strictly before the explicit Instant cutoff. Missing payload differs from a valid empty payload; missing directories, active/stale leases, corrupt logs and unsafe targets fail through typed errors. No session tree is enumerated and no directory is removed. Reopening after pruning starts a fresh parent/deduplication chain.
+
+## Transcript policy boundary
+
+TranscriptRetentionPolicy reuses positive RetentionDays but interprets each day as exactly 86,400 seconds, independent of the daily-memory calendar zone. KeepAll yields no cutoff. PruneAfter preserves Instant nanoseconds and rejects underflow before construction. LocalTranscriptRetention.pruneWithPolicy reads Clock once only when enabled, then delegates to the existing fixed-target pruner. Disabled and Evaluated(cutoff, result) are distinct outcomes; no directory scan or second maintenance claim is introduced.

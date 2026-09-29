@@ -23,7 +23,8 @@ import zio.json.ast.Json
 opaque type RetentionDays = Int
 
 object RetentionDays:
-  val DailyDefault: RetentionDays = 90
+  val DailyDefault: RetentionDays   = 90
+  val SessionDefault: RetentionDays = 180
 
   def fromInt(value: Int): Either[AgentError.InvalidConfiguration, RetentionDays] =
     if value > 0 then Right(value)

@@ -93,4 +93,8 @@ The opt-in MemoryMaintenanceScheduler owns one job for cutoff selection, consoli
 
 ## Transcript retirement boundary
 
-Explicit local transcript pruning now shares writer ownership and validates complete persisted history before removing the fixed payload. Recency uses both filesystem metadata and every recorded observation. Successful pruning ends the persisted transcript generation; the host retires that logical session. Automatic session enumeration, the 180-day policy and background pruning integration remain separate work.
+Explicit local transcript pruning now shares writer ownership and validates complete persisted history before removing the fixed payload. Recency uses both filesystem metadata and every recorded observation. Successful pruning ends the persisted transcript generation; the host retires that logical session. The explicit 180-day policy is available below; automatic session enumeration and background pruning integration remain separate work.
+
+## Transcript expiry policy
+
+Selected transcript pruning now accepts KeepAll or a validated fixed-day policy, defaulting explicitly to 180 days. The disabled policy performs no clock/filesystem work; enabled policy uses one validated cutoff before ownership. Batch selection and integration into the existing maintenance job remain unfinished.
