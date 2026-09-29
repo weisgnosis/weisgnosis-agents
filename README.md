@@ -4,6 +4,8 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
+Implementation is paused at the user's request. The [current handoff](docs/architecture/tracker.md#paused-handoff-2026-09-29) records the accepted revision, verification, preserved local drafts and exact next steps.
+
 ## Implemented components
 
 - **core:** immutable messages, 39 typed event variants, JSON codecs, typed tools, path screening, SSE parsing and chunk assembly, and ReAct execution with interruption recovery, bounded thinking retries, and structured output.

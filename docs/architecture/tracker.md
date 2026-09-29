@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement configured child construction and task registry, then integrate inherited plan restrictions for new and reused children; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Paused by explicit user request on 2026-09-29. On resumption, next task: implement configured child construction and task registry, then integrate inherited plan restrictions for new and reused children; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -158,3 +158,58 @@ Research references describe longer-term targets: [porting guide](../deep-resear
 
 - [x] Verify and independently approve standalone plan-draft storage, explicit scoped ownership and atomic publication; fifteen new cases, 556 core / 520 harness tests.
 - [x] Bind stored draft publication to session generations without stale approval on failure/cancellation; fourteen new cases and independent technical approval.
+
+
+## Paused handoff: 2026-09-29
+
+The user explicitly requested a pause for several days. Do not resume implementation automatically. Resume only when the user asks. This is the current handoff, not a completed-review report; update or remove this section when work resumes.
+
+- [x] Last accepted implementation: f5bc9a0d9c46ad6b162315ba760b98b1ce89276a on main, runtime-owned descendant lineage and depth.
+- [x] Last full verification: scalafmtAll, scalafmtSbt and verify passed 557 core / 601 harness tests (1,158 total), with zero compiler warnings. Local evidence: subagent-lineage-final-verify.log (ignored build log).
+- [x] FP, invariant and documentation reviewers approved that committed scope. Current accepted identities are in the affected package READMEs. All 63 Markdown files passed local-link/script checks.
+- [x] No task-started sbt build remains running at the checkpoint; unrelated IDE processes are not stopped.
+- [x] review_docs independently approved this documentation-only pause checkpoint, verified the draft backup and reproduced all source-volume measurements.
+- [ ] Finish the two untracked draft sources below. They have NOT been formatted, compiled, tested or accepted by final source review. Preserve them locally; do not discard them with git clean. They are intentionally excluded from the accepted implementation commit and from code-volume measurements.
+- [ ] Add paired tests, run full verification, obtain renewed FP/invariant/documentation reviews, update current contracts and commit the factory increment only after those gates pass.
+
+| Untracked draft | Canonical Git blob identity at pause |
+| --- | --- |
+| [SubagentFactory.scala](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentFactory.scala) | 6d5d813dc0afcb28733e5afde1f60eb2cd1e55df |
+| [SubagentToolBoundary.scala](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundary.scala) | c2b97546952b24efe3adcfbf005d399790ba41ad |
+
+The drafts remain untracked in the working tree and are also preserved in the local Git stash commit 45f2275f3d29cb825964913d9bb4f2b7db6186dd, named pause checkpoint: unreviewed child factory drafts after f5bc9a0. The backup contains only those two draft files; it is not an accepted implementation commit and has not been pushed. Keep this stash until the resumed scope is safely accepted/committed. If a draft is missing, inspect its backup with git show using that stash commit followed by ^3: and the repository-relative file path. Do not apply a stash over newer edits. The draft links require this local workspace; the files are not tracked on main. The draft implements a proposed final tool filter and a scoped child factory. SubagentToolSelection distinguishes AllAvailable from Only(empty). Boundary narrowing intersects selections and unions exact-name denials. Assembly validates Toolkit key/definition-name consistency, merges with collision rejection, then filters the complete inherited plus construction-registered toolkit. Factory build suspends registration/client callbacks, preserves the injected ToolAuthorizer and extends resources into the caller Scope. Factory spawn uses SubagentSpawner so build and execution share the supervised task Scope. No tests for these two drafts exist yet.
+
+### Resume this exact next scope
+
+- [ ] Read AGENTS.md, this checkpoint and the current subagent/plan contracts before editing. Inspect git status; preserve unrelated user changes.
+- [ ] Re-read pinned upstream ManagedSubagentBoundaryTest at C:/workspace/agentscope-java, revision f98a685fdc4589f81e626e1686ac2c63d14a2304. Its two methods are declarationFiltersAutoRegisteredToolsAsWellAsInheritedTools and childCannotReenableParentDeniedTool.
+- [ ] Verify final filtering AFTER all registrations and BEFORE ReActAgent.make. Parent allowlists/denials and child selection/denials constrain both advertised schemas and actual dispatch, with no plan/task/platform exemptions.
+- [ ] Verify AllAvailable versus Only(empty), parent toolkit immutability, narrowing across factory derivatives, collisions even on excluded names, and key/name mismatches. Make diagnostic ordering deterministic; current Toolkit merge iteration may require attention.
+- [ ] Verify an actual built child receives only the selected model tool definitions and cannot execute a hallucinated excluded tool, including a parent-denied tool selected by the child.
+- [ ] Verify the supplied authorizer is preserved, registration/client resources close on cancellation/failure, assembly failure precedes client acquisition, and factory execution actually goes through SubagentSpawner.
+- [ ] Decide whether inherited Toolkit consistency should also be validated at make; the current draft defers assembly checks to build. Do not close a resource Scope inside build and return a runtime whose dependencies have already closed.
+- [ ] Record the two upstream methods as explicit adaptations only after actual factory tests and independent review. The primitive factory boundary does NOT automatically propagate through raw SubagentSpawner capabilities: trusted host callbacks can construct another factory/task. Future model-facing nested spawning must retain the narrowed factory capability.
+- [ ] Keep dynamic argument-sensitive parent Deny inheritance, child Allow/Ask preservation, plan propagation, persistent reuse/send, registry and event forwarding as separate unfinished integration. Static exact-name filtering is not PermissionEngine inheritance.
+
+Design feedback was received from review_fp and review_harness, but it is not final implementation approval. Reuse those agents if available, or request fresh independent reviewers with this scope and evidence.
+
+### Environment and verified lifecycle constraints
+
+Workspace: C:/workspace/weisgnosis-agents; branch main. Upstream reference: C:/workspace/agentscope-java. Build launcher: C:/tools/sbt/bin/sbt.bat. JDK: Microsoft OpenJDK 21.0.11. Scala 3.9.0 and ZIO 2.1.26 remain pinned. Follow AGENTS.md; all repository text is English and all progress tasks use checkboxes.
+
+The configured proxy was unavailable during this session, and Windows commit pressure prevented JVM startup with the normal heap. The following process-local override completed full checks without changing repository JVM settings. Run one sbt process at a time:
+
+```powershell
+$env:JAVA_TOOL_OPTIONS='-Xms128m -Xmx768m -Xss2m -XX:ActiveProcessorCount=4'
+& C:\tools\sbt\bin\sbt.bat --mem 768 '-Dhttp.nonProxyHosts=*' '-Dhttps.nonProxyHosts=*' scalafmtAll scalafmtSbt verify
+```
+
+TaskSupervisor already contains a reproduced and fixed ZIO 2.1.26 forkIn self-join issue. Keep the outer owner Scope parallel and each worker scope sequential, with explicit worker-owner completion closure. Directly forking into the parallel owner caused immediate-completion tasks to hang. Cancellation and full-Exit tests cover the corrected shape. Each awaitOrPromote invocation deliberately starts its own 30-second wait; this is not a global timer from attachment.
+
+Current plan inventory remains eight adapted / six pending methods. Runtime depth is zero for host roots and one through three for descendants; depth four rejects before UUID allocation/callback invocation. Root distribution and retained spawner capabilities remain trusted-host responsibilities.
+
+### Measured checkpoint
+
+At accepted implementation f5bc9a0, tracked Scala contains 115 production files (11,245 physical lines) and 157 test files (28,299 physical lines). Excluding blank/comment-only lines with the Scala lexer gives 8,069 production and 25,235 test lines. There are 63 Markdown files. These counts exclude the two untracked drafts and build/generated outputs.
+
+The original 2,300-3,300 production / 2,800-4,300 test SLOC projection was materially too optimistic. Current production is already about 2.4-3.5 times that estimate and tests about 5.9-9.0 times, before the remaining platform work. Detailed state machines, strict protocol/path validation, local recovery/ownership and meaningful cancellation/parity tests account for much of the added scope. No reliable calendar completion estimate is established by this checkpoint. See the corrected [measurement reference](../deep-research-and-porting-guide.md#1-measured-codebase-and-estimate-correction).

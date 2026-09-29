@@ -11,34 +11,23 @@
 
 ---
 
-## 1. Quantitative Codebase Forecast (LOC Forecast)
+## 1. Measured Codebase and Estimate Correction
 
-The upstream AgentScope Java repository contains **>600,000 lines of code** distributed across 96 Maven modules. The cognitive core is concentrated in `agentscope-core` (96k SLOC) and `agentscope-harness` (60k SLOC). A significant portion of this bulk consists of Java enterprise ceremony (getters, setters, fluent builders, Jackson annotations), custom task queues, and platform adapters.
+Measured on 2026-09-29 at accepted implementation f5bc9a0. Tracked Scala source only; generated outputs and two untracked factory drafts are excluded. Physical lines include comments and blanks. Code lines exclude blank/comment-only lines using the Scala lexer.
 
-### 1.1. Comparative SLOC Breakdown by Subsystem
+| Component | Production files | Production physical lines | Production code lines | Test files | Test physical lines | Test code lines |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| core | 42 | 5,624 | 4,202 | 66 | 12,457 | 11,051 |
+| harness | 73 | 5,621 | 3,867 | 91 | 15,842 | 14,184 |
+| Total | 115 | 11,245 | 8,069 | 157 | 28,299 | 25,235 |
 
-| Subsystem / Module | Upstream Java SLOC | Role in Upstream Source | Target Scala 3.9 SLOC (Main) | Target ZIO Test SLOC (Test) | Reduction Ratio |
-| :--- | :---: | :--- | :---: | :---: | :---: |
-| **Message Model (`model`)** | 1,701 | `Msg`, 12 block classes, builders, copies | **120 – 180** | **150 – 250** | **~10x** |
-| **Event Stream (`event`)** | 1,397 | 35 event classes, Jackson polymorphism | **100 – 150** | **150 – 200** | **~10x** |
-| **Tool Engine (`tool`)** | 3,676 | Reflection, method parsing, validation | **250 – 350** | **300 – 450** | **~10x** |
-| **Streaming Client (`client`)** | 3,030 | OkHttp/Netty, chunk parsing, mapping | **400 – 600** | **350 – 500** | **~6x** |
-| **ReAct Loop & State Machine** | 3,898 | Reactor loop, interruptions, retries | **350 – 500** | **500 – 800** | **~8x** |
-| **TOTAL: `agents-core`** | **13,702** | *Cognitive ReAct kernel* | **~1,200 – 1,780** | **~1,450 – 2,200** | **~8x** |
-| **Memory Compaction (`memory`)** | 1,051 | Summarization, deduplication, splitting | **150 – 250** | **250 – 400** | **~5x** |
-| **Tool Eviction (`eviction`)** | 500 | Offloading large outputs with previews | **120 – 180** | **200 – 300** | **~3x** |
-| **Human-in-the-Loop (`permission`)** | 662 | Three-tier gating, suspension tokens | **150 – 220** | **250 – 350** | **~4x** |
-| **Subagents on Fibers (`subagent`)** | 2,558 | Stream multiplexing, task lifecycles | **200 – 300** | **300 – 450** | **~8x** |
-| **TOTAL: `agents-harness`** | **4,771** | *Context engineering & coordination* | **~620 – 950** | **~1,000 – 1,500** | **~6x** |
-| **Model Context Protocol (`mcp`)** | 1,051 | JSON-RPC 2.0, Stdio & SSE transports | **400 – 600** | **400 – 600** | **~2.5x** |
-| **TOTAL: `agents-mcp`** | **1,051** | *Native ZIO MCP client* | **~400 – 600** | **~400 – 600** | **~2.5x** |
-| **PROJECT TOTAL:** | **~19,524** *(core)* | *(excluding ~500k corporate legacy)* | **~2,220 – 3,330** | **~2,850 – 4,300** | **~7x** |
+The last full verification passed 1,158 tests: 557 core and 601 harness, with zero compiler warnings. These are test counts, not exhaustive upstream parity or production-readiness percentages. MCP remains unimplemented; configured child factories, registry, inherited policy, additional protocol scenarios and host integration remain tracked work.
 
-### 1.2. Projected Implementation Target:
-* **Production Code (Main SLOC):** **2,300 – 3,300 lines**
-* **Test Code (Test SLOC):** **2,800 – 4,300 lines**
-* **Total Repository Scope:** **~5,100 – 7,600 lines** of idiomatic, type-safe Scala 3.9 LTS code.
-* *Context Comparison:* The existing `weisgnosis-os` codebase contains **7,774 lines of adapter glue** solely to interface with AgentScope Java. This entire pure library with comprehensive test suites is **smaller than the existing adapter layer**.
+The initial projection of 2,300-3,300 production SLOC and 2,800-4,300 test SLOC did not hold. Current production already exceeds it by approximately 2.4-3.5 times and tests by 5.9-9.0 times. The earlier claim that the complete library and comprehensive tests would fit below 7,600 lines is withdrawn.
+
+The original estimate underestimated explicit runtime state machines, strict protocol validation, scoped ownership, recoverable local persistence, interruption races and the number of meaningful safety/parity scenarios. Scala/ZIO removes much implementation ceremony, but that does not make these contracts or their tests disappear. Code volume is a measurement, not a quality target. Do not compress away domain guarantees or tests to match the earlier projection.
+
+No validated calendar forecast or new final LOC ceiling is established here. A remaining-work estimate needs the unfinished method-level inventory and integration scope. The [implementation tracker and pause handoff](architecture/tracker.md#paused-handoff-2026-09-29) record the exact accepted state and next work.
 
 ---
 
