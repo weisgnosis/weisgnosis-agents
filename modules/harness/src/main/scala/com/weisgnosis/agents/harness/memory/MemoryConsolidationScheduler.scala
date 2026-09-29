@@ -19,44 +19,16 @@ import com.weisgnosis.agents.core.agent.TurnCompletionObserver
 import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 
-/** One memory owner's consolidation work; this does not archive ledgers or delete session files. */
-final class MemoryConsolidationScheduler private (
-    queue: MemoryTaskQueue,
-    gate: MemoryTriggerGate,
-    scope: MemoryScope,
-    consolidator: MemoryConsolidator,
-    report: ConsolidationResult => IO[AgentError, Unit],
-    owner: MemoryConversationToken
-):
-  /** Gate admission and the latest store snapshot are resolved only in the owned worker. */
-  def submit: UIO[MemoryTaskSubmission] =
-    queue.submit(owner):
-      gate
-        .claim(MemoryOperation.Maintenance, scope)
-        .flatMap:
-          case MemoryTriggerDecision.Admitted =>
-            consolidator.consolidate.flatMap(result => ZIO.suspendSucceed(report(result)))
-          case MemoryTriggerDecision.Disabled | MemoryTriggerDecision.Throttled => ZIO.unit
+/** Consolidation-only scheduling; reuse one instance across conversations sharing its owner. */
+final class MemoryConsolidationScheduler private (task: MemoryMaintenanceTask):
+  def submit: UIO[MemoryTaskSubmission] = task.submit
 
-  /** The host retains accepted tickets; reporting failures cannot roll back admitted work. */
   def completionObserver(
       registerTicket: MemoryTaskTicket => IO[AgentError.CompletionObservationError, Unit]
-  ): TurnCompletionObserver =
-    TurnCompletionObserver: completion =>
-      completion.outcome match
-        case Exit.Failure(_) => ZIO.unit
-        case Exit.Success(_) =>
-          submit.flatMap:
-            case MemoryTaskSubmission.Accepted(ticket) => ZIO.suspendSucceed(registerTicket(ticket))
-            case MemoryTaskSubmission.Rejected(reason) =>
-              ZIO.fail(
-                AgentError.CompletionObservationError(
-                  s"Memory consolidation scheduling rejected: $reason"
-                )
-              )
+  ): TurnCompletionObserver = task.completionObserver(registerTicket)
 
 object MemoryConsolidationScheduler:
-  /** Reuse this scheduler across conversations sharing its owner to coalesce pending maintenance. */
+  /** Reporting follows consolidation and cannot roll back committed memory. */
   def make(
       queue: MemoryTaskQueue,
       gate: MemoryTriggerGate,
@@ -64,6 +36,8 @@ object MemoryConsolidationScheduler:
       consolidator: MemoryConsolidator,
       report: ConsolidationResult => IO[AgentError, Unit]
   ): UIO[MemoryConsolidationScheduler] =
-    MemoryConversationToken.make.map(
-      new MemoryConsolidationScheduler(queue, gate, scope, consolidator, report, _)
-    )
+    MemoryMaintenanceTask
+      .make(queue, gate, scope, MemoryMaintenanceTask.Kind.Consolidation)(
+        consolidator.consolidate.flatMap(result => ZIO.suspendSucceed(report(result)))
+      )
+      .map(new MemoryConsolidationScheduler(_))

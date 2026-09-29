@@ -689,7 +689,7 @@ A test-scope ownership review finding was corrected with acquireRelease so early
 
 - [x] Exercise all four consolidation outcomes, gate suppression/failure, no-input throttle consumption, coalescing, successful-completion hooks, failed/cancelled exits and closed/full/registration failures.
 - [x] Verify local persisted commit after report failure and owner reopen.
-- [ ] Install automatic daily cutoff/maintenance policy, session pruning, eight remote matrix combinations and the remaining six full MemoryConfig scenarios.
+- [ ] Implement session pruning, eight remote matrix combinations and the remaining six full MemoryConfig scenarios; daily cutoff/maintenance policy is now implemented below.
 
 - [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
 
@@ -700,9 +700,26 @@ Pinned MemoryMaintenanceMiddleware.expireDailyFiles archives old daily files bef
 - [x] Add twelve shared in-memory/local storage cases plus two fingerprint/codec cases and ten local publication/ownership cases.
 - [x] Reproduce and fix unpaired-UTF-16 digest aliasing; reuse the strict fingerprint boundary in consolidation.
 - [x] Exercise stable partial states after archive publication and checkpoint advancement; verify same-content recreation and old-revision conflicts.
-- [ ] Wire explicit retention policy into owned maintenance and map any applicable upstream integration assertions.
+- [x] Wire explicit daily retention policy into one owned maintenance job, with consolidation-first hardening and 21 new scenarios. This adds source-contract adaptations, not a named upstream retention test mapping.
 - [ ] Implement session pruning, remote retention and timestamp migration separately.
 
 No live crash or mid-operation I/O fault injection is claimed. Archive copy publication can precede failed checkpoint advancement, and a successfully advanced checkpoint can precede incomplete source removal. Surviving daily content then remains pending; reporting failure does not imply rollback.
 
 - [x] `review_fp` and `review_harness` approved the final seven-file daily-retention increment against `b2ab23e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 370 harness tests, including 24 new cases, with zero compiler warnings. No findings remain within typed archive identity, exact acknowledged eligibility, atomic in-memory retirement, verified local copy/checkpoint/removal ordering, conservative partial progress and strict shared fingerprinting. Automatic policy, session pruning, crash durability and hostile concurrent filesystem mutation are excluded.
+
+## Daily policy and the remaining configuration assertions
+
+The 21 new policy/service/scheduler tests verify one cutoff before side effects, zone and range boundaries, deferred/cancelled consolidation, one gate reservation, owner coalescing, post-commit failures and aggregate reporting. They preserve the existing consolidation-only adaptations. Upstream archives before consolidation and suppresses some failures; Scala deliberately consolidates first, requires exact acknowledgement and exposes failure in task receipts.
+
+The six remaining MemoryConfigTest methods stay individually visible:
+
+- [ ] defaults_matchHistoricalBehaviour: daily retention 90 is now verified, alongside existing 4,000-token/30-minute/Always defaults; session 180 and complete prompt/default selection remain pending.
+- [ ] builder_overridesAreCarried: immutable daily policy overrides are verified; complete cross-configuration assertions, custom prompts and session settings remain pending.
+- [ ] builder_consolidationPromptMustHaveTwoIntPlaceholders: implement or explicitly adapt the two token/character budget placeholders through a total typed renderer; no unchecked format-string port.
+- [ ] builder_rejectsInvalidNumericArgs: positive daily days and token bounds are verified; session-day validation remains pending.
+- [ ] builder_rejectsNullDurationsAndTrigger: existing trigger validation covers negative durations; classify the whole configuration adaptation with Java-null paths excluded once the unified surface exists.
+- [ ] builder_isReusable_andEachBuildIsIndependent: immutable daily policy replacement is verified; prompt/token independence across complete configurations remains pending.
+
+KeepAll is an explicit Scala archival policy, not upstream null/sentinel compatibility. Both public schedulers share the Maintenance window, so installing the combined scheduler replaces the consolidation-only adapter for an owner requiring retention. No full MemoryConfig parity or session-pruning claim is made.
+
+- [x] `review_fp` and `review_harness` approved the final eight-file maintenance increment against `b3d2723` on 2026-09-29, including corrected consolidation-only ScalaDoc. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 391 harness tests, including 21 new cases, with zero compiler warnings. No findings remain within validated calendar policy, repository-bound sequential maintenance, typed aggregate outcomes, one owned gate/job and preserved consolidation-only behavior. Session pruning, unified configuration, cross-phase atomicity and durable reporting are excluded.

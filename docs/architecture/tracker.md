@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: install explicit retention policy into owned maintenance, then implement session pruning with storage ownership; remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement session pruning with explicit storage ownership and session identity/liveness; remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -80,7 +80,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Integrate completion-triggered background flush with pure eligibility, immutable snapshots, worker-side gates and explicit host receipts; map four upstream async-flush methods, independently review 17 new cases and verify 552 core / 324 harness tests.
 - [x] Integrate owned consolidation scheduling, separately scoped observer composition, asynchronous gate behavior and all eight local throttle integration combinations; independently review 25 added cases and verify 555 core / 346 harness tests.
 - [x] Implement explicit acknowledged-daily archive authority for in-memory/local repositories, with typed identities and conservative partial progress; independently review 24 new regressions and verify 555 core / 370 harness tests.
-- [ ] Integrate automatic cutoff policy into owned maintenance and implement session pruning through explicit storage capabilities.
+- [x] Integrate explicit calendar cutoff policy and acknowledged archival into one owned maintenance job; independently review 21 added scenarios and verify 555 core / 391 harness tests, including the existing consolidation-only regression suites.
+- [ ] Implement session retention/pruning through explicit identity and storage ownership capabilities.
 - [ ] Implement remote memory/transcript storage, timestamp-watermark migration, and scheduling.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.

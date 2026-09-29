@@ -165,7 +165,7 @@ Operation and scope form structural keys, so flush and maintenance remain indepe
 
 cleanup(retention) samples the same monotonic clock under the same state authority. It removes only claims whose reserved interval has elapsed and whose age strictly exceeds retention. A shorter retention therefore cannot reopen an active interval. Claim renewal racing cleanup retains the new active reservation. Cleanup is an explicit host operation; no background fiber is started and entries remain until renewal or cleanup.
 
-A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. This increment supplies local admission only. The scoped queue foundation described below now supplies owned execution and pending coalescing. Completion-triggered flush integration is described below. Owned consolidation integration and explicit acknowledged-daily archival are available below; automatic retention policy, remote authority and session deletion remain pending.
+A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. This increment supplies local admission only. The scoped queue foundation described below now supplies owned execution and pending coalescing. Completion-triggered flush integration is described below. Owned consolidation integration and explicit acknowledged-daily archival are available below; combined retention maintenance is available below; remote authority and session deletion remain pending.
 
 ## Current memory-trigger identities
 
@@ -259,15 +259,14 @@ completionObserver(registerTicket) admits only successful execution Exit values,
 
 TurnCompletionObserver.andThen composes lazy, fail-fast observations in separate scopes, closing the first before starting the next. Use it to combine transcript observation, flush admission and consolidation admission. This orders observer execution and admission, not execution dependencies between replaced jobs. With F1 running and M1 pending, the next flush F2 joins behind M1; replacing M1 with M2 preserves that earlier queue position. M2 can therefore consolidate F1 before F2 writes. This is opportunistic consolidation of currently committed daily data; F2 stays pending for a later maintenance trigger. A host requiring strict flush-then-consolidate execution must use one composite job or an external continuation after the flush ticket settles. Never await same-queue tickets inside the single worker.
 
-This scheduler performs consolidation only. Explicit acknowledged-daily archival is available below. Automatic retention policy, session-file pruning, distributed authority, durable work receipts and operational monitoring remain unfinished. The local reopen regression establishes persisted consolidation despite a failed report, not crash or power-loss durability.
+This scheduler performs consolidation only. Explicit acknowledged-daily archival is available below. The combined scheduler below adds retention policy. Session-file pruning, distributed authority, durable work receipts and operational monitoring remain unfinished. The local reopen regression establishes persisted consolidation despite a failed report, not crash or power-loss durability.
 
 ## Current consolidation/composition identities
 
-Final formatted increment against `3e817e3`; independent acceptance is recorded below.
+Unchanged harness identities from the consolidation/composition increment against `3e817e3`; the changed scheduler identity is preserved in b3d2723 and indexed in the maintenance table below. Independent acceptance of the earlier scope is recorded below.
 
 | Source | Git blob |
 | --- | --- |
-| [MemoryConsolidationScheduler.scala](MemoryConsolidationScheduler.scala) | 866ade773a1f6f72aecc75c1808abf569cd5819f |
 | [MemoryConsolidationSchedulerLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidationSchedulerLifecycleSpec.scala) | 52cb68b9d9151cfca1924e09337af6f86f2df965 |
 | [MemoryConsolidationSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidationSchedulerSpec.scala) | 978a32d2c3a77dd93cc9b6e01a1e8213c1dcf5bd |
 | [MemoryLifecycleIsolationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryLifecycleIsolationSpec.scala) | b2834aa19526dc9a4c55b7ec2334b08abd7cc096 |
@@ -289,7 +288,7 @@ Local archives live at `memory/archive/<date>_<fingerprint>.md`. The archive dir
 
 Retention is not an atomic multi-file filesystem transaction. A failure before checkpoint advancement can leave reusable archive copies alongside acknowledged daily files. A failure after advancement can leave surviving daily files pending again, requiring reconsolidation before later archival. Sources are removed only after a verified copy exists; stale acknowledgements are never restored to conceal a failure. Equal-content recreation remains pending because the acknowledgement was removed and the generation advanced; old consolidation snapshots conflict. Failure or interruption may therefore have partial effects and an uncertain acknowledgement. Inspect archives and active snapshots before deciding how to proceed. No automatic retry, archive deletion, crash/power-loss durability or hostile-mutation protection is promised.
 
-This deliberately hardens upstream expireDailyFiles, which archives old files before consolidation without checking acknowledgement. It is a source-level behavioral adaptation with new regressions, not a newly mapped upstream test method. Maintenance integration and session pruning remain separate tasks. The local intermediate-state tests seed states after copy publication and checkpoint advancement; they are not live I/O fault injection or process-crash tests.
+This deliberately hardens upstream expireDailyFiles, which archives old files before consolidation without checking acknowledgement. It is a source-level behavioral adaptation with new regressions, not a newly mapped upstream test method. Combined maintenance is implemented below; session pruning remains separate. The local intermediate-state tests seed states after copy publication and checkpoint advancement; they are not live I/O fault injection or process-crash tests.
 
 Migration: MemoryRepository now exposes retention alongside its existing ports. Public open/make call sites remain compatible; callers opt into archival explicitly. Archive files are outside daily enumeration and cannot become consolidation input or implicit acknowledgement. The existing checkpoint format remains version 1; retention legitimately advances its generation while removing acknowledged days. Previous changed source identities are preserved in b2ab23e.
 
@@ -310,3 +309,38 @@ Final formatted seven-file increment against `b2ab23e`; independent acceptance i
 - [x] `review_fp` and `review_harness` approved the final seven-file daily-retention increment against `b2ab23e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 370 harness tests, including 24 new cases, with zero compiler warnings. No findings remain within typed archive identity, exact acknowledged eligibility, atomic in-memory retirement, verified local copy/checkpoint/removal ordering, conservative partial progress and strict shared fingerprinting. Automatic policy, session pruning, crash durability and hostile concurrent filesystem mutation are excluded.
 
 - [x] `review_docs` approved the corrected daily-retention documentation against `b2ab23e`: seven identities, 24 new tests, archive ordering, migration and conservative partial-progress limits. Full verification passed 555 core / 370 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Automatic policy, session pruning and crash guarantees remain excluded, with no new named upstream test parity claimed.
+
+## Daily retention maintenance
+
+[MemoryRetentionPolicy](MemoryRetentionPolicy.scala) is KeepAll or ArchiveAfter(RetentionDays), with an explicit daily default of 90 positive calendar days. RetentionDays has a strict numeric codec and rejects zero, negative, fractional, string-coerced and out-of-Int values. The pure cutoff calculation returns an exclusive LocalDate or a typed range error; it never clamps underflow. This is daily archival policy, not session expiry or the complete upstream memory configuration.
+
+[MemoryMaintenance.make](MemoryMaintenance.scala) takes one MemoryRepository and constructs its consolidator from that repository's consolidation port, retaining the same repository's retention port. It accepts an explicit zone (UTC by default), extractor and validated consolidation budget. The service calculates and validates one cutoff at execution start before any consolidation effects. Clock/date conversion errors and cutoff underflow fail through InvalidConfiguration. KeepAll bypasses clock/date conversion entirely. A run crossing midnight retains its original cutoff.
+
+run consolidates first. Committed and NoPendingMemories may proceed to archival; EmptyResponse and Conflict defer it. Typed failures, defects or interruption in extraction/cleanup stop the sequence. NoPendingMemories can include blank unacknowledged entries, so it never grants deletion authority: the retention port independently requires exact acknowledgement. KeepAll yields DailyArchivalResult.Kept; an enabled pass yields Archived(cutoff, entries), even when entries is empty. MemoryMaintenanceResult uses separate Committed/NoPendingMemories cases carrying the archival result and bare EmptyResponse/Conflict cases, preventing deferred outcomes from carrying archival success.
+
+[MemoryMaintenanceScheduler](MemoryMaintenanceScheduler.scala) runs the complete service under one Maintenance admission and one owned queue job, then invokes the required aggregate report callback. Queue, owner-token coalescing, observer registration and error semantics are shared through the private [MemoryMaintenanceTask](MemoryMaintenanceTask.scala). The existing MemoryConsolidationScheduler remains source-compatible and consolidation-only. Choose the combined scheduler for an owner requiring archival; installing both with the same gate/scope shares one Maintenance window, so the first can suppress the other's work. They are alternatives, not stages to compose as separate gated observers.
+
+Scheduled date selection happens in the worker, not when the observer admits the job. A superseded pending task never samples its cutoff or runs maintenance. Disabled/throttled gates skip the entire service and result report. Existing flush-versus-maintenance independence remains intact; flush/maintenance observer composition still orders admission only, with the FIFO replacement limitations described above.
+
+Consolidation, archival and aggregate reporting are sequential effects, not one transaction. Archive failure can follow a committed consolidation and produces no aggregate success report. Report failure can follow completed archival. Tickets retain the failed cause, but neither a failed receipt nor an absent report implies unchanged storage or supplies a durable phase/result journal. Inspect storage before retrying. The queue serializes scheduled owner work; direct concurrent service calls can interleave phases, with each repository CAS/lease/acknowledgement check retaining its individual guarantees. No extra cross-phase lock, exactly-once report or rollback promise is made.
+
+This intentionally differs from upstream expiry-before-consolidation and swallowed maintenance failures. The stronger acknowledged-only archival capability and observable task failures are retained. Session pruning, session retention defaults, custom consolidation prompts, unified configuration and remote scheduling remain unfinished. Prior MemoryConsolidationScheduler.scala is preserved in b3d2723.
+
+## Current maintenance identities
+
+Final formatted eight-file increment against `b3d2723`; independent acceptance is recorded below.
+
+| Source | Git blob |
+| --- | --- |
+| [MemoryConsolidationScheduler.scala](MemoryConsolidationScheduler.scala) | 215b1a897951f7ae1be0259c8c45107c82822656 |
+| [MemoryMaintenance.scala](MemoryMaintenance.scala) | fb177720e497bad5f50a7f5c8061b34b26295a7e |
+| [MemoryMaintenanceScheduler.scala](MemoryMaintenanceScheduler.scala) | 72f531f61397b298bb6461428f5403f5218e047a |
+| [MemoryMaintenanceTask.scala](MemoryMaintenanceTask.scala) | 2adffe5b970b0824d0092a15a78acf19ebd09512 |
+| [MemoryRetentionPolicy.scala](MemoryRetentionPolicy.scala) | e7d3d3d1a4aea4d828ff25d4ed232ad819d100cf |
+| [MemoryMaintenanceSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSchedulerSpec.scala) | d31c5ab3e0628f94d691ad4865c855d6671d4cc7 |
+| [MemoryMaintenanceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSpec.scala) | bbf02388ef56d1918059869fa8e6a37558ac28cd |
+| [MemoryRetentionPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRetentionPolicySpec.scala) | 775e786516e5201925ede608ed1f5a9d3981c43d |
+
+- [x] `review_fp` and `review_harness` approved the final eight-file maintenance increment against `b3d2723` on 2026-09-29, including corrected consolidation-only ScalaDoc. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 391 harness tests, including 21 new cases, with zero compiler warnings. No findings remain within validated calendar policy, repository-bound sequential maintenance, typed aggregate outcomes, one owned gate/job and preserved consolidation-only behavior. Session pruning, unified configuration, cross-phase atomicity and durable reporting are excluded.
+
+- [x] `review_docs` approved the corrected maintenance documentation against `b3d2723`: eight identities, 21 new tests, policy and shared-window contracts, reporting limits and incomplete configuration mappings. Full verification passed 555 core / 391 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
