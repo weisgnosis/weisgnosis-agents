@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: project truthful plan-session context into model requests without changing canonical history, then implement safe draft storage and model-facing review tools; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement explicit safe plan-draft storage with reviewed publication/ownership boundaries, then connect model-facing controls to version-bound host review; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -95,7 +95,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Inventory fourteen upstream plan-mode methods and implement conservative static shell inspection; independently review ten cases and verify 555 core / 461 harness tests.
 - [x] Integrate typed plan admission with strict inputs, actual runtime denials and confirmation rechecks; independently review fourteen new cases and verify 555 core / 475 harness tests.
 - [x] Implement typed in-memory plan-session lifecycle with exact-draft host review, atomic waiter settlement and scoped cancellation; independently review eighteen new cases and verify 555 core / 493 harness tests.
-- [ ] Implement prompt projection, safe draft storage, model-facing confirmed exit and child propagation.
+- [x] Implement truthful request-only plan projection with unchanged canonical/System/tool history; independently review thirteen new cases and verify 555 core / 506 harness tests.
+- [ ] Implement safe draft storage, model-facing confirmed exit and child propagation.
 - [ ] Implement subagent depth bounds, scoped supervision, and timeout promotion.
 - [ ] Implement MCP protocol codecs, transports, discovery, and tool bridging.
 - [ ] Validate live end-to-end behavior, cancellation, resource release, and operational controls.

@@ -87,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan prompt projection/files/control tools/child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan files/control tools/child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -193,3 +193,7 @@ PlanMode is Build or Plan. PlanToolAccess is ReadOnly, PlanControl, RequestExecu
 ## Plan-session APIs
 
 PlanSession.make returns control and reviewer capabilities. Control exposes snapshot/mode, enter, replaceDraft(PlanDraft), and scoped requestReview. PlanReview.await returns Approved(exact ApprovedPlan), Declined, Superseded or Cancelled. Reviewer.resolve returns Applied or NotCurrent after exact current-ticket comparison. PlanSessionSnapshot has Build, Planning and AwaitingReview cases; its codec is observational data, not a restore API. See the [five current identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-session-identities).
+
+## Plan projection APIs
+
+PlanPrompt.render(PlanSessionSnapshot) returns Option[String]. PlanInputTransform.make(UIO[PlanSessionSnapshot]) returns the existing scoped ModelInputTransform. It preserves fresh Build input, appends validated content to a final User, or adds a synthetic User named system with reminder kind plan_context. Snapshot failures/cancellation receive no fallback. See the [five current projection identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-projection-identities).

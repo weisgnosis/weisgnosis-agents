@@ -16,7 +16,7 @@ An operand must not begin with a hyphen. Implicit stdin, unknown options, wrappe
 
 ## Current acceptance and identities
 
-The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; persistence, prompt projection, safe plan-file storage and child propagation remain pending. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with twelve still pending. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
+The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; persistence, safe plan-file storage and child propagation remain pending; request-only prompt projection is implemented below. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with eleven still pending after the projection adaptation below. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
 
 | Source | Git blob |
 | --- | --- |
@@ -32,7 +32,8 @@ The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs wer
 - [x] Install an opt-in permission gate that abstains for eligible calls, denies unsafe calls and rechecks confirmed input.
 - [x] Verify actual ReAct denial persistence/events and mode-change admission boundaries.
 - [x] Implement in-memory draft/review lifecycle with separately held host approval authority.
-- [ ] Implement prompt projection, safe plan storage and model-facing confirmed exit tools.
+- [x] Implement request-only prompt projection from one live session snapshot.
+- [ ] Implement safe plan storage and model-facing confirmed exit tools.
 - [ ] Propagate restrictions to new and reused children before admitting spawn/send tools.
 
 - [x] `review_docs` approved corrected static-shell documentation against `2d4094b`: four identities, ten tests, exact grammar and fourteen pending upstream methods. Full verification passed 555 core / 461 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Runtime enforcement and executor/path/sandbox authority remain explicitly outside this scope.
@@ -55,7 +56,7 @@ Install this gate as InteractivePermissionAuthorizer's interceptorGate, or as on
 
 PlanShellInspection.inspectInput accepts exactly one JSON object field named command with a string value. Missing, duplicate, nonstring and extra fields all produce InvalidInput. The same boundary must be used by a host command executor, consuming the resulting program/argv without shell re-parsing. Raw cached tool content is not inspected instead of authoritative input. Migration: existing inspect(String) behavior is unchanged. ShellRejection now includes InvalidInput for the new envelope boundary; consumers with exhaustive matches or serialized-case handling must support that additional variant. Build mode leaves normal tool-schema/input validation to the host/runtime. Static eligibility still supplies no filesystem/process authority; all executor responsibilities above remain applicable.
 
-The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/README.md) records actual runtime evidence. Two upstream middleware methods are adapted; the remaining twelve require plan lifecycle, prompt projection, skill/subagent capabilities and propagation work.
+The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/README.md) records actual runtime evidence. The admission increment adapts two upstream middleware methods, and the projection below adds a third; eleven still require path lifecycle, skill/subagent capabilities and propagation work.
 
 ## Current admission identities
 
@@ -88,7 +89,7 @@ One TRef and each request's TPromise share STM authority. Re-entry, edits and ne
 
 Request registration uses acquireRelease. The owning Scope must remain alive while the host reviews: await review.await within that scope, or deliberately retain a host owner scope. Returning a ticket from a tool whose scope immediately closes cancels it; tickets are not durable handoff records. Scope closure or interruption settles Cancelled only if that exact ticket is still current. Closing an older scope cannot cancel a replacement, undo approval or alter a later generation. No lock is held while waiting for human input.
 
-Pass session.control.mode directly to PlanPermissionGate to avoid mirrored flags. The existing admission-only rule remains: a mode transition affects later checks without revoking already admitted tools. Drafts and approvals here are in memory only. No plan-file path, file existence, filesystem publication, restore protocol, request projection or model-facing control tool is claimed. The upstream manager's live mode assertions are adapted with stricter review authority; its path recording/retention assertions remain pending.
+Pass session.control.mode directly to PlanPermissionGate to avoid mirrored flags. The existing admission-only rule remains: a mode transition affects later checks without revoking already admitted tools. Drafts and approvals here are in memory only. No plan-file path, file existence, filesystem publication, restore protocol or model-facing control tool is claimed by the session; request projection is implemented below. The upstream manager's live mode assertions are adapted with stricter review authority; its path recording/retention assertions remain pending.
 
 ## Current session identities
 
@@ -105,3 +106,31 @@ Final formatted five-file increment against 87b2d8b.
 - [x] `review_fp` and `review_harness` approved the final five-file in-memory plan-session increment against `87b2d8b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 493 harness tests, including eighteen new cases, with zero compiler warnings. No findings remain within typed snapshots, exact-ticket host review, atomic settlement, scoped cancellation and live gate integration. Paths/files, durable restoration, prompt projection and control-tool/authenticated-UI integration are excluded.
 
 - [x] `review_docs` approved corrected plan-session documentation against `87b2d8b`, including current baseline architecture/module summaries. Five identities, eighteen new cases and bounded 2/14 parity status are verified. Full verification passed 555 core / 493 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Projection, persistence, control tools and child propagation remain explicitly pending.
+
+## Request-only plan context
+
+[PlanPrompt.render](PlanPrompt.scala) describes one PlanSessionSnapshot. Fresh Build contributes no reminder. Planning without a draft truthfully reports that absence; a concrete draft is identified as unapproved. AwaitingReview names the exact pending revision. Build with ApprovedPlan identifies the exact host-reviewed revision and draft without claiming execution has occurred or bypassing ordinary tool permissions. No file/path existence is inferred. Draft content is JSON-quoted and labeled as context data; quoting is presentation, not an instruction-injection security boundary.
+
+[PlanInputTransform.make](PlanInputTransform.scala) accepts a suspended snapshot read and samples it exactly once for each model request. Install it through ReActAgent.make(modelInputTransform = ...), normally passing session.control.snapshot and using the same session.control.mode for PlanPermissionGate. A prompt is guidance; if mode changes during reasoning, the current gate still governs tool admission. The snapshot and later permission check are deliberately separate observations, not a lock spanning model work.
+
+Build(None) returns the supplied history unchanged. Otherwise the transform appends a request-only User reminder. If the final message is already User, validated withContent appends one text block to that message, preserving its original identity, name, metadata, timestamp, usage and content prefix; the existing user message is not marked synthetic. For other final roles or empty history, a new User named system has agentscope_synthetic=true and agentscope_reminder_kind=plan_context. Only that newly created message is marked synthetic.
+
+Ordered System messages and complete tool pairs remain unchanged. The core rewrite validator still rejects incomplete tool history when the projection changes it; fresh Build preserves the unchanged-history equality fast path. Canonical agent history is never replaced by the request view, so repeated model requests do not accumulate reminders or contaminate transcript/memory inputs. Snapshot cancellation and defects propagate without a permissive fallback. This adapter does not compose other transforms automatically; hosts installing multiple request projections remain responsible for explicit composition and the same validation contract.
+
+Migration from upstream: request-only User context replaces System-prompt mutation. Fresh Build preserves the no-hint behavior. Other prompt methods' path assertions remain pending because this service has no filesystem publication contract; approved in-memory content is never presented as an existing approved file. The upstream Build-hint test checks recorded path text, not actual file existence. Model-facing controls, authenticated host routing, durable restoration and child propagation remain separate work.
+
+## Current projection identities
+
+Final formatted five-file increment against 132a81a.
+
+| Source | Git blob |
+| --- | --- |
+| [PlanPrompt.scala](PlanPrompt.scala) | 20390b8588ec56154fba6a68e79f5fda80add23e |
+| [PlanInputTransform.scala](PlanInputTransform.scala) | e7d07aafaca556099df9c55b84dcf26f95035070 |
+| [PlanPromptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPromptSpec.scala) | f6fd0a3e0bc5870bdcb76fadeddb5cdf2fe755d3 |
+| [PlanInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputTransformSpec.scala) | a63dee4e6d8d1258c2f020fce788f07547a2c230 |
+| [PlanInputIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputIntegrationSpec.scala) | aef817a3b44b424ce94894e4fb412d54b6753d03 |
+
+- [x] `review_fp` and `review_harness` approved the final five-file plan-input increment against `132a81a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 506 harness tests, including thirteen new cases, with zero compiler warnings. No findings remain within truthful snapshot rendering, request-only projection, final-user coalescing, preserved canonical/system/tool history and live gate authority. Files/restoration and automatic tool/UI/child integration are excluded.
+
+- [x] `review_docs` approved corrected projection documentation against `132a81a`: five identities, thirteen new cases, truthful scope and 3/14 parity classification. Full verification passed 555 core / 506 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Recorded-path assertions, core equality validation behavior and live permission authority remain explicit. No findings remain in this scope.

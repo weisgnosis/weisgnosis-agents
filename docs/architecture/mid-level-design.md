@@ -174,3 +174,7 @@ The host passes a suspended mode read and immutable exact-name classifications t
 ## Atomic plan review
 
 PlanSession uses one TRef state and a TPromise per request. Registration, supersession and resolution bind exact live ticket identity and unbounded revision; state publication and waiter settlement share a transaction. requestReview is scoped via acquireRelease, so interruption cancels only the still-current request. The owner must keep the scope alive while awaiting human review. Separate control/reviewer capabilities prevent a model-facing handle from approving itself. Direct gate mode projection avoids mirrored flags.
+
+## Truthful request projection
+
+PlanPrompt renders pure snapshot guidance and JSON-quoted draft data. PlanInputTransform reads once per model request. Fresh Build preserves history exactly; other states append a User reminder or coalesce its text into the final User while preserving all original fields. Only standalone reminders are marked synthetic. Core System/tool-pair validation remains unchanged, and canonical history is never replaced by the projected view. Live plan admission does not depend on the reminder snapshot.

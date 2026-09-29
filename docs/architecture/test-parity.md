@@ -771,9 +771,9 @@ Pinned upstream has fourteen methods across four suites. The initial static-shel
 
 - [x] `PlanModeMiddlewareTest.deniesMutatingToolsButAllowsReadOnlyAndPlanTools`: PlanPermissionIntegrationSpec verifies read/limited-plan pass-through and persisted Start/Delta/End denied observations for mutation and unclassified send; a separate RequestExecution case forces confirmation. Adaptation: exact host classifications replace implicit tool-name exemptions, and runtime preserves original occurrence order rather than upstream denied-first partitioning.
 - [x] `PlanModeMiddlewareTest.passesThroughWhenPlanModeInactive`: PlanPermissionGateSpec and real ReAct integration verify Build abstention and policy-approved mutation.
-- [ ] `PlanModeMiddlewareTest.systemPromptBannerOnlyWhenActive`: corresponding runtime/state/storage/propagation integration remains pending.
-- [ ] `PlanModeMiddlewareTest.buildModeHintSurfacesPlanFilePath`: corresponding runtime/state/storage/propagation integration remains pending.
-- [ ] `PlanModeMiddlewareTest.buildModeNoHintWhenNoPlanFile`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeMiddlewareTest.systemPromptBannerOnlyWhenActive`: active/inactive guidance and preserved base System messages now have request-only projection evidence; the plan-file path assertion remains pending.
+- [ ] `PlanModeMiddlewareTest.buildModeHintSurfacesPlanFilePath`: exact approved in-memory draft context is available; the recorded plan-file path assertion remains pending and is never fabricated.
+- [x] `PlanModeMiddlewareTest.buildModeNoHintWhenNoPlanFile`: PlanPromptSpec and PlanInputTransformSpec verify fresh Build has no hint and preserves the exact supplied history. Explicit adaptation: no in-memory draft provenance replaces the absent file reference; System messages are not modified.
 - [ ] `PlanModeMiddlewareTest.allowsSubagentToolsInPlanMode`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeMiddlewareTest.skillLoadToolIsReadOnlyAndPermittedInPlanMode`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeManagerTest.enterAndExitTogglePersistedFlag`: live mode assertions are adapted by PlanSessionSpec with mandatory concrete-draft host approval; path default/recording/retention assertions remain pending. The upstream test itself does not verify disk durability.
@@ -793,7 +793,7 @@ The manager's persisted-flag test observes state fields, not save/reload durabil
 - [x] Reevaluate current mode and modified authoritative input after confirmation; reject replacement mutations and extra execution fields.
 - [x] Force Ask for RequestExecution without implementing or claiming a mode transition.
 - [x] Verify admitted execution can finish after a mode change while the next call is denied.
-- [ ] Complete the twelve remaining plan methods above and authenticated plan lifecycle/child propagation.
+- [ ] Complete the eleven remaining plan methods above and authenticated plan-file/control-tool/child integration.
 
 This closes two explicit middleware adaptations only. Safe static commands abstain; they do not acquire path/process authority or bypass ordinary permission policy. Current identities are in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities).
 
@@ -804,6 +804,17 @@ This closes two explicit middleware adaptations only. Safe static commands absta
 - [x] Require a concrete exact draft; edits/re-entry/new requests invalidate old approvals and atomically settle superseded waiters.
 - [x] Verify foreign/stale/replayed tickets, concurrent resolution, edit-versus-approval ordering and scope/cancellation ownership.
 - [ ] Complete manager path-recording/retention assertions, safe files and restoration; no additional entire upstream method is closed by this increment.
-- [ ] Implement truthful prompt projection and model-facing review tool/UI integration.
+- [x] Implement truthful request-only prompt projection from one snapshot.
+- [ ] Implement model-facing review tool/UI integration.
 
 This deliberately hardens upstream unconditional exit and unversioned approval. The eighteen added tests establish in-memory state and capability ownership, not a file or approval-delivery protocol. Current identities are in the [session contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-session-identities).
+
+
+## Plan projection evidence
+
+- [x] Add thirteen render/transform/real-runtime cases; preserve System messages, canonical history, complete tool pairs and original final-user fields.
+- [x] Sample one snapshot per request; prove mode changes during reasoning still use live gate authority.
+- [x] Adapt fresh Build no-hint behavior, bringing complete named plan adaptations to 3/14.
+- [ ] Complete eleven remaining methods, including path assertions in both other prompt methods.
+
+Request-only User context intentionally replaces upstream System-prompt mutation. JSON-quoted drafts remain data rather than a security or authorization boundary. Current identities and acceptance are in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-projection-identities).

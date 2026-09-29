@@ -20,7 +20,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 555 core and 493 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 555 core and 506 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -117,6 +117,12 @@ PlanPermissionGate consumes explicit host mode and exact trusted tool classifica
 
 ## In-memory plan review
 
-PlanSession separates model-facing drafting from host-only approval. One STM authority binds pending tickets to exact drafts, consumes approval once and settles superseded/cancelled waiters atomically. The same session mode feeds PlanPermissionGate. This provides no file, restoration, prompt projection or automatic tool/UI registration. See the [session contract](src/main/scala/com/weisgnosis/agents/harness/plan/README.md#in-memory-plan-session-lifecycle).
+PlanSession separates model-facing drafting from host-only approval. One STM authority binds pending tickets to exact drafts, consumes approval once and settles superseded/cancelled waiters atomically. The same session mode feeds PlanPermissionGate. The session provides no file, restoration or automatic tool/UI registration; request projection is implemented below. See the [session contract](src/main/scala/com/weisgnosis/agents/harness/plan/README.md#in-memory-plan-session-lifecycle).
 
 - [x] `review_fp` and `review_harness` approved the final five-file in-memory plan-session increment against `87b2d8b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 493 harness tests, including eighteen new cases, with zero compiler warnings. No findings remain within typed snapshots, exact-ticket host review, atomic settlement, scoped cancellation and live gate integration. Paths/files, durable restoration, prompt projection and control-tool/authenticated-UI integration are excluded.
+
+## Request-only plan context
+
+PlanPrompt renders one truthful session snapshot, and PlanInputTransform adds it only to the model request view. Final-user coalescing preserves existing fields; standalone reminders are explicitly synthetic. Canonical history/System messages/tool pairs stay intact and live admission remains independent of snapshot timing. See the [projection contract](src/main/scala/com/weisgnosis/agents/harness/plan/README.md#request-only-plan-context).
+
+- [x] `review_fp` and `review_harness` approved the final five-file plan-input increment against `132a81a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 506 harness tests, including thirteen new cases, with zero compiler warnings. No findings remain within truthful snapshot rendering, request-only projection, final-user coalescing, preserved canonical/system/tool history and live gate authority. Files/restoration and automatic tool/UI/child integration are excluded.

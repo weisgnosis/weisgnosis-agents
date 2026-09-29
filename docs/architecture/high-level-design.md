@@ -51,7 +51,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [ ] Remote memory storage and timestamp-watermark migration, remote transcript persistence, and memory scheduling.
 - [ ] Scoped subagents, depth limits, and persistent TaskSupervisor promotion.
 - [x] Static plan inspection, opt-in tool restrictions and in-memory reviewed sessions.
-- [ ] Plan prompt projection, safe files, control tools and child propagation.
+- [x] Truthful request-only plan projection with preserved canonical history.
+- [ ] Safe plan files, control tools and child propagation.
 - [ ] MCP protocol, transports, discovery, and toolkit bridging.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
@@ -119,3 +120,7 @@ PlanPermissionGate now integrates explicit host-owned mode and tool classificati
 ## Plan-session review authority
 
 An in-memory PlanSession now distinguishes unprepared planning, concrete drafts, pending review and a host-approved draft in Build. The host retains approval authority separately from model-facing control. Edits and re-entry invalidate previous requests; old waiters are settled rather than left suspended. Approval records exactly the reviewed draft. This is not evidence of a plan file or a durable user approval record.
+
+## Plan request context
+
+PlanInputTransform now projects one session snapshot into each model request without mutating canonical history or System messages. It distinguishes absent drafts, pending review and exact approved content, never inventing files or completed execution. Current permission state remains authoritative if the mode changes during model reasoning.

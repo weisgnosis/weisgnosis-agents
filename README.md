@@ -68,7 +68,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 - [x] Core lifecycle/path fixes and harness compactor/store fixes at `fb80428` received independent final approval after corrections and cross-review.
 - [x] Structured-output preservation and interruption fixes received final independent approval; accepted revisions and current contracts are in the core agent README.
-- [x] Current verification: 1048 tests passed, zero compiler warnings.
+- [x] Current verification: 1061 tests passed, zero compiler warnings.
 - [ ] Complete the remaining work in the [progress tracker](docs/architecture/tracker.md).
 
 The [core README](modules/core/README.md) and [harness README](modules/harness/README.md) link the exact accepted scopes. Closed review reports live in Git history; current acceptance is maintained in these READMEs.
@@ -84,3 +84,5 @@ Conservative static POSIX command inspection is now available as a [plan-mode fo
 Opt-in plan admission now denies mutating/unclassified tools, preserves permission priority and rechecks confirmed input/current mode. See the [reviewed plan contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission).
 
 In-memory planning sessions now bind host approval to the exact draft and review generation, atomically rejecting stale/replayed requests. The [session contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#in-memory-plan-session-lifecycle) records scoped review ownership and remaining persistence/tool work.
+
+Plan-session context can now be projected into each model request without changing canonical history or System messages. The [projection contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#request-only-plan-context) distinguishes descriptive reminders from live permission authority.
