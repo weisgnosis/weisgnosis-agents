@@ -54,7 +54,8 @@ final class ReActAgent private (
     val postReasoningHook: PostReasoningHook,
     val toolResultProcessor: ToolResultProcessor,
     val toolAuthorizer: ToolAuthorizer,
-    val historyPreparer: HistoryPreparer
+    val historyPreparer: HistoryPreparer,
+    val modelInputTransform: ModelInputTransform
 ):
 
   def name: String        = config.name
@@ -528,10 +529,11 @@ final class ReActAgent private (
                   progressRef
                 )
 
-          def requestModel(history: Chunk[Msg]): ZIO[Scope, AgentError, AgentResult] =
+          def dispatchModel(
+              history: Chunk[Msg],
+              context: ModelStreamContext
+          ): ZIO[Scope, AgentError, AgentResult] =
             for
-              requestId <- Random.nextUUID.map(_.toString)
-              context = ModelStreamContext(replyId, requestId)
               _ <- eventHub.publish(
                 AgentEvent.ModelRequestStartEvent(requestConfig.model, 0, context = Some(context))
               )
@@ -599,6 +601,21 @@ final class ReActAgent private (
                       )
                     case Right(Some(turnOutput)) => acceptTurn(turnOutput, context)
             yield outcome
+
+          def requestModel(history: Chunk[Msg]): ZIO[Scope, AgentError, AgentResult] =
+            for
+              requestId <- Random.nextUUID.map(_.toString)
+              context = ModelStreamContext(replyId, requestId)
+              transformed <- raceWithInterrupt(
+                ZIO.scoped(ZIO.suspendSucceed(modelInputTransform(context, history)))
+              )
+              result <- transformed match
+                case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
+                case Right(candidate) =>
+                  ZIO
+                    .fromEither(ModelInputTransform.validate(history, candidate))
+                    .flatMap(view => dispatchModel(view, context))
+            yield result
 
           for
             _        <- progressRef.set(RunProgress.Ready)
@@ -964,7 +981,8 @@ object ReActAgent:
       postReasoningHook: PostReasoningHook = PostReasoningHook.keep,
       toolResultProcessor: ToolResultProcessor = ToolResultProcessor.identity,
       toolAuthorizer: ToolAuthorizer = ToolAuthorizer.allow,
-      historyPreparer: HistoryPreparer = HistoryPreparer.identity
+      historyPreparer: HistoryPreparer = HistoryPreparer.identity,
+      modelInputTransform: ModelInputTransform = ModelInputTransform.identity
   ): IO[AgentError, ReActAgent] =
     for
       _                     <- ZIO.fromEither(config.validated)
@@ -985,7 +1003,8 @@ object ReActAgent:
       postReasoningHook,
       toolResultProcessor,
       toolAuthorizer,
-      historyPreparer
+      historyPreparer,
+      modelInputTransform
     )
 
   def builder(): Builder = Builder()
@@ -999,7 +1018,8 @@ object ReActAgent:
       private val _postReasoningHook: PostReasoningHook = PostReasoningHook.keep,
       private val _toolResultProcessor: ToolResultProcessor = ToolResultProcessor.identity,
       private val _toolAuthorizer: ToolAuthorizer = ToolAuthorizer.allow,
-      private val _historyPreparer: HistoryPreparer = HistoryPreparer.identity
+      private val _historyPreparer: HistoryPreparer = HistoryPreparer.identity,
+      private val _modelInputTransform: ModelInputTransform = ModelInputTransform.identity
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -1024,6 +1044,9 @@ object ReActAgent:
 
     def historyPreparer(preparer: HistoryPreparer): Builder = copy(_historyPreparer = preparer)
 
+    def modelInputTransform(transform: ModelInputTransform): Builder =
+      copy(_modelInputTransform = transform)
+
     def build: IO[AgentError, ReActAgent] =
       ZIO
         .fromOption(_client)
@@ -1038,6 +1061,7 @@ object ReActAgent:
             _postReasoningHook,
             _toolResultProcessor,
             _toolAuthorizer,
-            _historyPreparer
+            _historyPreparer,
+            _modelInputTransform
           )
         )

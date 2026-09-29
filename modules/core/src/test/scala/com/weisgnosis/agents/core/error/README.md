@@ -10,3 +10,5 @@ The [client transformation table](../../../../../../../main/scala/com/weisgnosis
 [PostReasoningHookSpec](../agent/PostReasoningHookSpec.scala) separately verifies ReasoningHookError codec/provenance. The current [agent acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) records that increment.
 
 [HistoryPreparerSpec](../agent/HistoryPreparerSpec.scala) verifies the HistoryPreparationError codec and narrow callback channel. Runtime and harness tests additionally distinguish summary failures from native provider rejection; acceptance is recorded in the [agent table](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+[ModelInputTransformSpec](../agent/ModelInputTransformSpec.scala) verifies ModelInputError JSON and compile-time separation from ModelError. Runtime projection tests verify no dispatch or native fallback on this channel. Acceptance belongs to the agent model-input scope.

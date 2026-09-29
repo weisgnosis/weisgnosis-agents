@@ -47,17 +47,23 @@ object HistoryPreparer:
       original: Chunk[Msg],
       candidate: Chunk[Msg]
   ): Either[AgentError.HistoryPreparationError, Chunk[Msg]] =
+    HistoryRewrite
+      .validate(original, candidate)
+      .left
+      .map: violation =>
+        AgentError.HistoryPreparationError(violation.message)
+
+private[agent] object HistoryRewrite:
+  enum Violation:
+    case SystemMessagesChanged, IncompleteToolHistory
+
+    def message: String = this match
+      case SystemMessagesChanged => "History rewriting must preserve ordered system messages"
+      case IncompleteToolHistory => "Rewritten history contains unmatched tool calls or results"
+
+  def validate(original: Chunk[Msg], candidate: Chunk[Msg]): Either[Violation, Chunk[Msg]] =
     if candidate == original then Right(original)
     else if original.filter(_.role == Role.System) != candidate.filter(_.role == Role.System) then
-      Left(
-        AgentError.HistoryPreparationError(
-          "History preparation must preserve ordered system messages"
-        )
-      )
-    else if !ToolHistory.inspect(candidate).isComplete then
-      Left(
-        AgentError.HistoryPreparationError(
-          "Prepared history contains unmatched tool calls or results"
-        )
-      )
+      Left(Violation.SystemMessagesChanged)
+    else if !ToolHistory.inspect(candidate).isComplete then Left(Violation.IncompleteToolHistory)
     else Right(candidate)

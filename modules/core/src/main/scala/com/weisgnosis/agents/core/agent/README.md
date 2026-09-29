@@ -138,7 +138,6 @@ Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserve
 
 | File | Git blob |
 | --- | --- |
-| [AgentError.scala](../error/AgentError.scala) | 0b47377b0091f7a32343796bec02584d505f2fa7 |
 | [ToolHistory.scala](../model/ToolHistory.scala) | d6e19ed655b9df7a46a9bcfc0835b14ac858ebfe |
 | [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | 9f98df0f18d26e42766f1a41cdfe8c441b33c329 |
 | [ToolHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | 29ff87da90673afcaef220ab0ff5ec1593da508a |
@@ -163,7 +162,6 @@ Unchanged identities from the seven-file scope against `2b99226`; commit `cc8fa7
 
 | File | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | b4b189c1282bc1298ab19d64349e060ec2b7580e |
 | [Msg.scala](../model/Msg.scala) | d8c616052015b59c18b69cd52bfa66840edfcae6 |
 | [ToolResultProcessor.scala](../tool/ToolResultProcessor.scala) | 8f9b40dca0a19f0b716eb02bc706405a3cfc941f |
 | [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | e9c65325833d69a340fb596f1cada358e3d257f1 |
@@ -171,6 +169,38 @@ Unchanged identities from the seven-file scope against `2b99226`; commit `cc8fa7
 
 Superseded history/eviction source identities remain in `cc8fa7b`; changed identities are in the [eviction table](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/eviction/README.md).
 
-- [x] `review_fp` and `review_harness` approved the final nine-file history-eviction scope against `cc8fa7b` on 2026-09-29. Twenty-two added regressions and full formatting/fatal-warning verification passed: 516 core and 90 harness tests. Two new regressions exposed and closed strict-number and Windows storage-layout gaps. No findings remain within store-backed integrity, explicit workspace trust, and validated composition; absolute storage is covered by a later scope; separate input views remain pending. See the [eviction contract/table](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/eviction/README.md).
+- [x] `review_fp` and `review_harness` approved the final nine-file history-eviction scope against `cc8fa7b` on 2026-09-29. Twenty-two added regressions and full formatting/fatal-warning verification passed: 516 core and 90 harness tests. Two new regressions exposed and closed strict-number and Windows storage-layout gaps. No findings remain within store-backed integrity, explicit workspace trust, and validated composition; absolute storage is covered by a later scope; request-only input views are covered by a later scope. See the [eviction contract/table](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/eviction/README.md).
 
 HistoryPreparer.andThen runs stages in order within the caller's request scope. Each changed intermediate and final output is structurally validated before proceeding, so later stages cannot conceal an invalid prior rewrite. Failure/cancellation skips remaining stages and releases earlier resources. Only the complete prepared history is committed by ReAct; external stage side effects are not transactional. The eviction adapter can precede compaction to save raw payloads before pruning.
+
+Superseded model-input scope identities remain in `40f6f05`; changed identities are in the [agent model-input table](README.md).
+
+## Request-only model history
+
+ModelInputTransform is distinct from HistoryPreparer: it returns a transient model-request view and has no canonical write authority. Install it through the optional ReActAgent.make argument or Builder.modelInputTransform; the default identity preserves existing callers. Its lazy callback receives ModelStreamContext and already-prepared canonical history, returning ZIO[Scope, AgentError.ModelInputError, Chunk[Msg]].
+
+The runtime prepares, validates, and commits canonical history first, allocates a request context, runs projection in a separate interruptible scope, closes that scope, validates the view, then publishes ModelRequestStart and invokes the client with the view. The same context reaches model events. This runs for every request, including thinking retries, discarded reasoning, and native/synthetic Auto attempts. It does not change tool definitions or model configuration.
+
+Shared HistoryRewrite validation retains unchanged-input compatibility and requires changed views to preserve exact ordered system messages and complete occurrence-aware call/result pairing. A host may omit complete closed pairs or rewrite request-only content/state/metadata. Structural checks do not prove semantic fidelity or provider grammar. The host controls projection semantics and any additional pruning of new content it injects.
+
+Projected values never replace stateRef, AgentResult.history, accepted model output, recovery positions, or usage accounting. Canonical eviction therefore survives a view that removes its result; removed pairs are not reintroduced into the request. ModelInputTransform alone does not run eviction on newly injected view content. Install canonical eviction through ToolResultEvictor.preparer or immediate completion processing as appropriate.
+
+Typed projection failures and invalid views use ModelInputError, never provider ModelError, and cannot trigger native-format fallback. Defects propagate. Cooperative/fiber cancellation and timeout close projection resources before returning, preserve prepared canonical history, and retain the existing recovery contract; cleanup defects are preserved rather than reported as a clean interruption. A shorter view cannot change the position used to reconcile a new in-flight call. Completed preparation side effects/state are not rolled back when projection fails. Callbacks must not reenter operations needing the held agent run lock.
+
+The make argument is additive; positional Builder matches must follow its current constructor. Exhaustive AgentError matches must include ModelInputError. Callback values remain runtime dependencies, not serialized configuration. This history-only port is not the complete upstream ReasoningInput/middleware API; Java object identity and mutable hook ordering are intentionally adapted to immutable values and deterministic runtime authority.
+
+- [x] `review_fp` and `review_harness` approved the final seven-file model-input scope against `40f6f05` on 2026-09-29. Sixteen added regressions and full formatting/fatal-warning verification passed: 529 core and 101 harness tests. No findings remain within request-only projection, structural validation, canonical-state isolation, and eviction integration. Broader legacy hook/middleware parity remains pending.
+
+## Current model-input identities
+
+Final formatted scope against `40f6f05`:
+
+| File | Git blob |
+| --- | --- |
+| [HistoryPreparer.scala](HistoryPreparer.scala) | 088d1464febe6be050ce43856305a0efe3b7f0e5 |
+| [ModelInputTransform.scala](ModelInputTransform.scala) | 4dd6b57426cdc37ac37c7453a75eb7159acdba99 |
+| [ReActAgent.scala](ReActAgent.scala) | 1edf2d31529e00a994de063aa2b486ac6f712d40 |
+| [AgentError.scala](../error/AgentError.scala) | a38fbf1d56ae73e0951a6142d1d4d9ed067155a5 |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 8a42440fcdbc2d5662cb67fbbf541483f2b865e5 |
+| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 84d4648bf879e523cbf39f8d3bce74a2f90fac99 |
+| [ToolResultEvictorHistorySpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorHistorySpec.scala) | 3070eb8d3caf57c99243fb7675b5fbbe8d7f25e8 |

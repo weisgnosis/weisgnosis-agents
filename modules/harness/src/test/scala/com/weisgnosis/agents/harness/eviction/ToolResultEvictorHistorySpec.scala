@@ -15,11 +15,13 @@
  */
 package com.weisgnosis.agents.harness.eviction
 
-import com.weisgnosis.agents.core.agent.ReActAgent
+import com.weisgnosis.agents.core.agent.{ModelInputTransform, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.AgentEvent
 import com.weisgnosis.agents.core.model.*
+import com.weisgnosis.agents.core.tool.*
+import java.nio.file.{Files, Path}
 import com.weisgnosis.agents.harness.memory.{CompactorConfig, ConversationCompactor, TokenCounter}
 import zio.*
 import zio.json.ast.Json
@@ -71,6 +73,138 @@ object ToolResultEvictorHistorySpec extends ZIOSpecDefault:
         history.filter(_.role == Role.System) == original.filter(_.role == Role.System),
         ToolHistory.inspect(history).isComplete,
         !events.exists(_.isInstanceOf[AgentEvent.ToolResultStartEvent])
+      )
+    },
+    test("evictsCanonicalAgentStateWhenReasoningHookRemovedLargeResult") {
+      for
+        directory <- EvictionTestSupport.temporaryDirectory
+        store     <- ToolResultStore.local(directory, WorkspaceTrust.HostControlled)
+        observed  <- Ref.make(Chunk.empty[Msg])
+        projected <- Ref.make(Chunk.empty[Msg])
+        client = LlmClient.mockEffectful((history, _, _) =>
+          observed.set(history).as(TurnOutput.FinalText(Msg.assistant("done")))
+        )
+        agent <- ReActAgent.make(
+          client = client,
+          initialHistory = original,
+          historyPreparer = new ToolResultEvictor(store).preparer(),
+          modelInputTransform = ModelInputTransform((_, history) =>
+            val view =
+              history.filter(message => message.toolUses.isEmpty && message.role != Role.Tool)
+            projected.set(view).as(view)
+          )
+        )
+        result   <- agent.run(Msg.user("q"))
+        input    <- observed.get
+        expected <- projected.get
+        path <- ZIO
+          .fromOption(
+            result.history
+              .flatMap(_.toolResults)
+              .headOption
+              .flatMap(_.metadata.get("eviction_path"))
+              .flatMap(_.asString)
+          )
+          .orElseFail(AgentError.InvalidMessage("missing eviction path"))
+        content <- ZIO.attemptBlocking(Files.readString(Path.of(path)))
+      yield assertTrue(
+        input == expected,
+        input.flatMap(_.toolResults).isEmpty,
+        input.flatMap(_.toolUses).isEmpty,
+        content == large,
+        result.history.flatMap(_.toolResults).size == 2,
+        result.history.flatMap(_.toolResults).forall(_.text.length < 5000),
+        ToolHistory.inspect(result.history).isComplete
+      )
+    },
+    test(
+      "newly completed observations stay canonical while successive model views omit their pairs"
+    ) {
+      for
+        saved      <- Ref.make(Map.empty[String, String])
+        input      <- Ref.make(Chunk.empty[Chunk[Msg]])
+        calls      <- Ref.make(0)
+        executions <- Ref.make(0)
+        evictor = new ToolResultEvictor(memoryStore(saved))
+        client = LlmClient.mockEffectful((history, _, _) =>
+          input.update(_ :+ history) *> calls
+            .getAndUpdate(_ + 1)
+            .map:
+              case 0 => TurnOutput.ToolCalls(Msg.assistant(Chunk(call)))
+              case 1 =>
+                TurnOutput.ThinkingOnly(Msg.assistant(Chunk(ContentBlock.Thinking("thinking"))))
+              case _ => TurnOutput.FinalText(Msg.assistant("done"))
+        )
+        toolkit = Toolkit(
+          Map(
+            "lookup" -> Tool.make(ToolDef("lookup", "Lookup", Json.Obj()))(_ =>
+              executions.update(_ + 1).as(large)
+            )
+          )
+        )
+        agent <- ReActAgent.make(
+          client = client,
+          toolkit = toolkit,
+          historyPreparer = evictor.preparer(),
+          toolResultProcessor = evictor.processor(),
+          modelInputTransform = ModelInputTransform((_, history) =>
+            ZIO.succeed(
+              history.filter(message => message.toolUses.isEmpty && message.role != Role.Tool)
+            )
+          )
+        )
+        result <- agent.run(Msg.user("q"))
+        views  <- input.get
+        count  <- executions.get
+        files  <- saved.get
+      yield assertTrue(
+        views.size == 3,
+        views.flatten.flatMap(_.toolResults).isEmpty,
+        views.flatten.flatMap(_.toolUses).isEmpty,
+        count == 1,
+        result.history.flatMap(_.toolUses).size == 1,
+        result.history.flatMap(_.toolResults).size == 1,
+        result.history.flatMap(_.toolResults).forall(_.text.length < 5000),
+        files.values.toSet == Set(large),
+        ToolHistory.inspect(result.history).isComplete
+      )
+    },
+    test(
+      "request-only metadata and observation-state rewrites never replace canonical eviction state"
+    ) {
+      for
+        saved <- Ref.make(Map.empty[String, String])
+        input <- Ref.make(Chunk.empty[Msg])
+        client = LlmClient.mockEffectful((history, _, _) =>
+          input.set(history).as(TurnOutput.FinalText(Msg.assistant("done")))
+        )
+        agent <- ReActAgent.make(
+          client = client,
+          initialHistory = original,
+          historyPreparer = new ToolResultEvictor(memoryStore(saved)).preparer(),
+          modelInputTransform = ModelInputTransform((_, history) =>
+            ZIO.succeed(
+              history.map(
+                _.mapToolResults(result =>
+                  result.copy(
+                    state = ToolResultState.Error,
+                    metadata = result.metadata.updated("request_note", Json.Str("view only"))
+                  )
+                )
+              )
+            )
+          )
+        )
+        result <- agent.run(Msg.user("q"))
+        sent   <- input.get
+      yield assertTrue(
+        sent
+          .flatMap(_.toolResults)
+          .forall(r => r.state == ToolResultState.Error && r.metadata.contains("request_note")),
+        result.history
+          .flatMap(_.toolResults)
+          .forall(r => r.state == ToolResultState.Success && !r.metadata.contains("request_note")),
+        result.history.flatMap(_.toolResults).map(_.text) == sent.flatMap(_.toolResults).map(_.text)
       )
     },
     test("storage failure leaves supplied observations intact and permits model dispatch") {

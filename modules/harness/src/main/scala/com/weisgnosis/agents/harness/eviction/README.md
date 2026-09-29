@@ -20,8 +20,8 @@ The adapter covers new local tool completions and matched inline provider observ
 
 - [x] Unchanged local store safety/publication contracts retain earlier acceptance through `8850a60`; Git preserves prior source identities and reviews.
 - [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
-- [ ] Integrate separate model-input views.
-- [ ] Complete the remaining eviction mapping for hook-modified reasoning input.
+- [x] Integrate validated request-only model-input views through ModelInputTransform.
+- [x] Map hook-modified reasoning input while retaining canonical eviction; all seven eviction methods now have explicit adaptations.
 
 HostControlled ownership and hard-link support remain required. Hostile concurrent filesystem mutation and crash durability remain outside acceptance.
 
@@ -45,18 +45,16 @@ The local resolver validates the key before filesystem access, creates no direct
 
 Custom ToolResultStore implementations must now implement resolve as well as persist and return their authoritative path with the complete original content. There is no default missing lookup that would silently weaken idempotency. Existing ToolResultEvictor constructors remain pure and source-compatible. StoredToolResult has a derived JSON codec; serialized values alone do not establish trust. HistoryPreparer.andThen is additive and validates intermediate as well as final stage output.
 
-- [x] `review_fp` and `review_harness` approved the final nine-file history-eviction scope against `cc8fa7b` on 2026-09-29. Twenty-two added regressions and full formatting/fatal-warning verification passed: 516 core and 90 harness tests. Two new regressions exposed and closed strict-number and Windows storage-layout gaps. No findings remain within store-backed integrity, explicit workspace trust, and validated composition; absolute storage is covered by a later scope; separate input views remain pending.
+- [x] `review_fp` and `review_harness` approved the final nine-file history-eviction scope against `cc8fa7b` on 2026-09-29. Twenty-two added regressions and full formatting/fatal-warning verification passed: 516 core and 90 harness tests. Two new regressions exposed and closed strict-number and Windows storage-layout gaps. No findings remain within store-backed integrity, explicit workspace trust, and validated composition; absolute storage is covered by a later scope; request-only input views are covered by a later scope.
 
 ## Current history-eviction identities
 
-Unchanged identities from the scope against `cc8fa7b`; commit `3718e18` preserves all nine original identities. The changed ToolResultStore identity belongs to the location scope below:
+Unchanged identities from the scope against `cc8fa7b`; commit `3718e18` preserves all nine original identities. The changed ToolResultStore identity belongs to the location scope below; changed preparation/history-test identities belong to the agent model-input table linked at the end:
 
 | File | Git blob |
 | --- | --- |
-| [HistoryPreparer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/HistoryPreparer.scala) | c639fb9337584d3543a86ed5d767b442fa28300e |
 | [HistoryPreparerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/HistoryPreparerSpec.scala) | 087459eab0ad56b15ee3c53fe81667505bff6a71 |
 | [ToolResultEvictor.scala](ToolResultEvictor.scala) | 9821483cf3f617f55ffa3487df357c4967365f20 |
-| [ToolResultEvictorHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorHistorySpec.scala) | 3c8f08870bd655c581c15c6f863b34e9a8020e24 |
 | [ToolResultEvictorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorIntegrationSpec.scala) | de74b515f7915dab886ef995dd18e5d9fb4e4a3b |
 | [ToolResultEvictorRecognitionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorRecognitionSpec.scala) | 4c81fae29456c429589d6d8f646ac8f6d2ce96c0 |
 | [ToolResultEvictorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorSpec.scala) | c59677db41b87de222575f446a5d6212be87668a |
@@ -83,3 +81,7 @@ Final formatted scope against `3718e18`:
 | [ResultStorageLocation.scala](ResultStorageLocation.scala) | efbdf1b6a7065acf9a9d4e7fa5bf7814e744de07 |
 | [ToolResultStore.scala](ToolResultStore.scala) | 03ca61724459ce839c3bb5ae62011bd99bb8f950 |
 | [ResultStorageLocationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ResultStorageLocationSpec.scala) | 5eeec2f1e5d2af688336047e4683582a96aec5ca |
+
+Superseded model-input scope identities remain in `40f6f05`; changed identities are in the [agent model-input table](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+- [x] `review_fp` and `review_harness` approved the final seven-file model-input scope against `40f6f05` on 2026-09-29. Sixteen added regressions and full formatting/fatal-warning verification passed: 529 core and 101 harness tests. No findings remain within request-only projection, structural validation, canonical-state isolation, and eviction integration. Broader legacy hook/middleware parity remains pending. Exact identities and migration are in the [agent contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).

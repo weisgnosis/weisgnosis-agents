@@ -45,6 +45,9 @@ object AgentError:
   /** History preparation failure; cannot trigger provider-native structured output fallback. */
   final case class HistoryPreparationError(message: String) extends AgentError derives JsonCodec
 
+  /** Request-only history projection failure; never a provider rejection eligible for fallback. */
+  final case class ModelInputError(message: String) extends AgentError derives JsonCodec
+
   final case class ToolExecutionError(
       toolName: String,
       message: String,

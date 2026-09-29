@@ -57,6 +57,8 @@ ToolAuthorizer.authorize accepts ToolAuthorizationRequest(requestId, context, ca
 
 HistoryPreparer.prepare returns ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]], defaulting to identity. ReAct closes its scope, validates actual rewrites, commits canonical history, then emits ModelRequestStart. Attempt-local Ready/PersistedAssistant/Recovered progress replaces history-length offsets. Internal ToolHistory supplies shared occurrence analysis; structural checks do not prove summary fidelity. ConversationCompactor.preparer maps harness failures to the dedicated channel. See the [agent contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
 
+ModelInputTransform projects a request-only history after canonical preparation commits and before ModelRequestStart. Its scope closes before structural validation and dispatch. Canonical history, recovery positions, and usage remain authoritative; projection failures use ModelInputError and cannot trigger native fallback. Complete pairs may be omitted without losing canonical eviction or stored payloads. The port transforms history only; semantic fidelity and newly injected content remain host responsibilities.
+
 ## Harness
 
 | Component | Contract | Declaration |

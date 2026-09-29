@@ -5,13 +5,15 @@ Sections 1-6 describe current components. Sections 7-10 describe planned behavio
 ## 1. ReAct lifecycle
 
 1. Acquire the instance run permit, establish run-owned resources, initialize interruption, and append input.
-2. Invoke the client in a request-owned scope. Race its Exit against cooperative interruption so success and failure both complete promptly.
+2. Prepare and commit canonical history, close and validate a scoped request-only projection, then invoke the client in its own scope. Explicit worker ownership preserves completion and cleanup causes across cooperative interruption and timeout.
 3. Persist assistant tool calls before dispatch. Parallel execution requires ToolExecution.Parallel and all pending tools to be concurrency-safe.
 4. Persist completed observations under a narrow interruption mask. Tool failures/defects become Error observations; cancellation propagates.
 5. Restore interruptibility before recursive reasoning. Bound iteration count, total duration, and thinking retries.
 6. Finish on visible output, completed inline provider results, synthetic capture, or a bounded termination.
 
 Cleanup completes before returning. Concurrent runs on one instance serialize; upstream concurrent-call rejection is an intentional difference.
+
+ModelInputTransform projects a request-only history after canonical preparation commits and before ModelRequestStart. Its scope closes before structural validation and dispatch. Canonical history, recovery positions, and usage remain authoritative; projection failures use ModelInputError and cannot trigger native fallback. Complete pairs may be omitted without losing canonical eviction or stored payloads. The port transforms history only; semantic fidelity and newly injected content remain host responsibilities.
 
 ## 2. Thinking and interruption
 
