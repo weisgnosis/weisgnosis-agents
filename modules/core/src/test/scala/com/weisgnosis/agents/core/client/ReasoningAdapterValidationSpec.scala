@@ -37,6 +37,11 @@ object ReasoningAdapterValidationSpec extends ZIOSpecDefault:
         )
       )
     },
+    test("valid frame prefixes cannot conceal trailing response garbage") {
+      assertTrue(
+        ReasoningModelAdapter.parseChunk(delta("\"content\":\"answer\"") + " trailing").isLeft
+      )
+    },
     test("usage cannot conceal a missing required choices array") {
       assertTrue(ReasoningModelAdapter.parseChunk("""{"usage":{"prompt_tokens":1}}""").isLeft)
     },

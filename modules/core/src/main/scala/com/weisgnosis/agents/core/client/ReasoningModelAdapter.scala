@@ -97,8 +97,7 @@ object ReasoningModelAdapter:
    */
   def parseChunk(jsonStr: String): Either[AgentError, Chunk[LlmChunk]] =
     for
-      json <- jsonStr.fromJson[Json].left.map(AgentError.DeserializationError(_))
-      _    <- uniqueFields(json).left.map(AgentError.DeserializationError(_))
+      json <- ProtocolJson.decode(jsonStr).left.map(AgentError.DeserializationError(_))
       chunks <- json match
         case obj: Json.Obj =>
           obj.get("error") match
@@ -129,17 +128,6 @@ object ReasoningModelAdapter:
               yield decoded).left.map(AgentError.DeserializationError(_))
         case _ => Left(AgentError.DeserializationError("Completion chunk must be an object"))
     yield chunks
-
-  private def uniqueFields(json: Json): Either[String, Unit] =
-    @annotation.tailrec
-    def loop(pending: List[Json]): Either[String, Unit] = pending match
-      case Nil => Right(())
-      case Json.Obj(fields) :: rest =>
-        if fields.map(_._1).distinct.size != fields.size then Left("Duplicate JSON object fields")
-        else loop(fields.map(_._2).toList ::: rest)
-      case Json.Arr(values) :: rest => loop(values.toList ::: rest)
-      case _ :: rest                => loop(rest)
-    loop(List(json))
 
   private def decodeCompletion(value: Completion): Either[String, Chunk[LlmChunk]] =
     for choices <- value.choices.toList match

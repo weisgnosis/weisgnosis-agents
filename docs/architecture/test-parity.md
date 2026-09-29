@@ -369,8 +369,12 @@ Inline event metadata intentionally preserves the complete result map; pinned up
 ## Completion parser hardening
 
 - [x] Preserve the three original reasoning/tool/usage parsing scenarios through a typed Either result.
-- [x] Add fifteen Scala protocol-boundary regressions in ReasoningAdapterValidationSpec, including required choices, strict integer/index handling, duplicate keys, provider errors, legacy function-call rejection, and mixed-choice rejection.
-- [ ] Complete the method-level inventory of provider extension parser suites and transport suites; these new hardening tests are not claimed as fifteen upstream methods.
-- [ ] Implement request codecs, signed/block-aware assembly, strict completed tool arguments, and scoped HTTP integration.
+- [x] Add sixteen Scala protocol-boundary regressions in ReasoningAdapterValidationSpec, including required choices, strict integer/index handling, duplicate keys, provider errors, legacy function-call rejection, and mixed-choice rejection.
+- [ ] Complete the method-level inventory of provider extension parser suites and transport suites; these new hardening tests are not claimed as sixteen upstream methods.
+- [x] Implement indexed text/thinking assembly with signatures, typed finish validation, strict completed object arguments, preserved raw content, and interrupted sanitization; thirteen accumulator regressions cover this scope.
+- [x] Validate full JSON documents and duplicate keys through ProtocolJson, with five paired tests and frame/tool suffix regressions.
+- [ ] Implement request codecs, provider signature/tool-metadata decoding, and scoped HTTP integration.
 
 The pinned extension OpenAIStreamingToolCallTest and OpenAIResponseParserTest were inspected for fragment, usage, and error semantics. They are outside the earlier core-only inventory, and their full applicability mapping remains open. The current adapter intentionally supports indexed function-call deltas and fails unsupported legacy calls instead of silently dropping them.
+
+The pinned core ToolCallsAccumulatorTest and ReasoningContextTest were inspected for parallel calls, raw argument preservation, interruption sanitization, and latest-snapshot usage. Mandatory compatible finish markers, strict complete object arguments, and stable identities are deliberate Scala hardening. LlmChunk has raw argument fragments rather than mutable parsed-map updates. Tool metadata, parsed-map merge scenarios, richer reasoning details, and the full method-level accumulator mapping remain pending; current signature support is for ThinkingDelta, not tool signatures.

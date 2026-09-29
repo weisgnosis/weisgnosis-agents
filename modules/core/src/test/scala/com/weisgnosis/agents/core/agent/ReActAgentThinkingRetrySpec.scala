@@ -67,11 +67,13 @@ object ReActAgentThinkingRetrySpec extends ZIOSpecDefault:
         )
       },
       test("blank text with reasoning triggers the reminder") {
-        val output = StreamAccumulator.empty
+        val assembled = StreamAccumulator.empty
           .feed(LlmChunk.ThinkingDelta("reasoning"))
-          .feed(LlmChunk.TextDelta("   "))
-          .toTurnOutput
+          .flatMap(_.feed(LlmChunk.TextDelta("   ")))
+          .flatMap(_.feed(LlmChunk.FinishReason("stop")))
+          .flatMap(_.toTurnOutput)
         for
+          output <- ZIO.fromEither(assembled)
           client <- LlmClient.mock(Chunk(output, TurnOutput.FinalText(Msg.assistant("answer"))))
           agent  <- ReActAgent.make(client = client)
           result <- agent.run(Msg.user("question"))
@@ -81,11 +83,13 @@ object ReActAgentThinkingRetrySpec extends ZIOSpecDefault:
         )
       },
       test("thinking with tool calls is an acting turn rather than an empty response") {
-        val output = StreamAccumulator.empty
+        val assembled = StreamAccumulator.empty
           .feed(LlmChunk.ThinkingDelta("reasoning"))
-          .feed(LlmChunk.ToolCallChunk(0, Some("call"), Some("missing"), "{}"))
-          .toTurnOutput
+          .flatMap(_.feed(LlmChunk.ToolCallChunk(0, Some("call"), Some("missing"), "{}")))
+          .flatMap(_.feed(LlmChunk.FinishReason("tool_calls")))
+          .flatMap(_.toTurnOutput)
         for
+          output <- ZIO.fromEither(assembled)
           client <- LlmClient.mock(Chunk(output, TurnOutput.FinalText(Msg.assistant("answer"))))
           agent  <- ReActAgent.make(client = client)
           result <- agent.run(Msg.user("question"))

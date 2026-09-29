@@ -37,7 +37,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [ ] Map every remaining applicable core method to Scala coverage, a justified difference, or a gap.
 - [ ] Close remaining structured-output and lifecycle parity gaps; see the [parity task list](test-parity.md).
 - [x] Replace silent completion-delta parsing with typed errors, strict indexes/counts, required choices, duplicate-field rejection, and provider-error handling; verify 326 core / 40 harness tests.
-- [ ] Implement request serialization, model-block/argument assembly hardening, live HTTP transport, and protocol integration tests.
+- [x] Require successful stream completion and complete unambiguous tool JSON; preserve raw arguments, indexed content/signatures, and usage snapshots; verify 345 core / 40 harness tests.
+- [ ] Implement request serialization, provider signature/tool metadata decoding, live HTTP transport, and protocol integration tests.
 - [ ] Validate platform-specific symlink/junction behavior.
 
 ### Phase 4: harness

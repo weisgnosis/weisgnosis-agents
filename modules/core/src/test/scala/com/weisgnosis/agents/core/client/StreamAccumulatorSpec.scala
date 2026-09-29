@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.client
 
+import com.weisgnosis.agents.core.error.AgentError
 import zio.json.ast.Json
 import zio.test.*
 
@@ -23,6 +24,11 @@ import zio.test.*
  * and sanitization of malformed JSON on interruption.
  */
 object StreamAccumulatorSpec extends ZIOSpecDefault:
+
+  private def accumulate(chunks: Seq[LlmChunk]): Either[AgentError, StreamAccumulator] =
+    chunks.foldLeft[Either[AgentError, StreamAccumulator]](Right(StreamAccumulator.empty))(
+      (acc, chunk) => acc.flatMap(_.feed(chunk))
+    )
 
   def spec: Spec[TestEnvironment, Any] = suite("StreamAccumulatorSpec (INV-12)")(
     test("Assembles interleaved parallel tool calls keyed by streamIndex") {
@@ -49,12 +55,12 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
         )
       )
 
-      val acc    = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
-      val output = acc.toTurnOutput
+      val acc    = accumulate(chunks)
+      val output = acc.flatMap(_.feed(LlmChunk.FinishReason("tool_calls"))).flatMap(_.toTurnOutput)
 
       assertTrue(
         output match
-          case TurnOutput.ToolCalls(msg) =>
+          case Right(TurnOutput.ToolCalls(msg)) =>
             msg.toolUses.size == 2 &&
             msg.toolUses.lift(0).exists(_.id == "call_1") &&
             msg.toolUses.lift(0).exists(_.name == "calculator") &&
@@ -71,12 +77,12 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
         LlmChunk.ThinkingDelta(" Thinking step 2...")
       )
 
-      val acc    = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
-      val output = acc.toTurnOutput
+      val acc    = accumulate(chunks)
+      val output = acc.flatMap(_.feed(LlmChunk.FinishReason("stop"))).flatMap(_.toTurnOutput)
 
       assertTrue(
         output match
-          case TurnOutput.ThinkingOnly(msg) =>
+          case Right(TurnOutput.ThinkingOnly(msg)) =>
             msg.thinking == "Thinking step 1... Thinking step 2..." &&
             msg.text.isEmpty &&
             msg.toolUses.isEmpty
@@ -89,12 +95,12 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
         LlmChunk.TextDelta("world!")
       )
 
-      val acc    = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
-      val output = acc.toTurnOutput
+      val acc    = accumulate(chunks)
+      val output = acc.flatMap(_.feed(LlmChunk.FinishReason("stop"))).flatMap(_.toTurnOutput)
 
       assertTrue(
         output match
-          case TurnOutput.FinalText(msg) =>
+          case Right(TurnOutput.FinalText(msg)) =>
             msg.text == "Hello world!"
           case _ => false
       )
@@ -109,16 +115,17 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
         )
       )
 
-      val acc         = chunks.foldLeft(StreamAccumulator.empty)(_.feed(_))
-      val interrupted = acc.toInterrupted
+      val acc         = accumulate(chunks)
+      val interrupted = acc.map(_.toInterrupted)
 
       assertTrue(
         interrupted match
-          case TurnOutput.Interrupted(msg) =>
+          case Right(TurnOutput.Interrupted(msg)) =>
             msg.toolUses.size == 1 &&
             msg.toolUses.headOption.exists(call =>
               call.id == "call_interrupted" && call.input == Json.Obj()
             )
+          case _ => false
       )
     }
   )
