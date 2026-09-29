@@ -20,7 +20,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 552 core and 264 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 552 core and 287 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -60,3 +60,5 @@ Approval covers the named changes and their documented contracts; it does not ma
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 264 harness tests, including 28 new cases, with zero compiler warnings. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
 The [core completion contract](../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) defines callback lifetime, late cancellation, and early-stream failure visibility. Transcript installation requires an explicit anonymous-message policy; memory scheduling remains pending.
+
+- [x] `review_fp` and `review_harness` approved the final six-file memory-trigger increment against `73cd376` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 287 harness tests, including 23 new cases, with zero compiler warnings. No findings remain within typed finite intervals, strict numeric codecs, immutable policies, explicit shared ownership, atomic monotonic admission and active-window-safe cleanup. Scheduling, execution locks, remote authority and full memory configuration parity remain outside this scope.

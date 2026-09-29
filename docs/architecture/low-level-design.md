@@ -125,3 +125,9 @@ These codecs are observation DTO codecs; LocalTranscriptStore uses a separate st
 TurnCompletion(agentId, history, outcome: Exit[AgentError, AgentResult]) is runtime-only read-only data. TurnCompletionObserver.observe returns ZIO[Scope, AgentError.CompletionObservationError, Unit]. ReActAgent.make and Builder accept the optional observer. SessionTranscriptWriter.completionObserver(policy: AnonymousTranscriptPolicy) supplies the harness adapter. Required observation has one invocation-local Ref gate and a separate scope under the run lock; it cannot rewrite history or retry itself.
 
 See the [completion source contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) for exact publication/cancellation ordering, cause composition, callback restrictions, and early-stream error visibility.
+
+## Memory trigger declarations
+
+MemoryInterval.fromDuration validates a positive finite duration below Long.MaxValue nanoseconds. MemoryTrigger.throttled normalizes zero to Always; policy ADTs derive codecs and the opaque interval validates numeric JSON shape. MemoryTriggerGate.inMemory(policy) returns a shared capability with claim(operation, scope): IO[AgentError, MemoryTriggerDecision] and cleanup(retention): IO[AgentError, Int]. Policies are immutable per gate; owner identity is supplied by capability sharing, not inferred from strings.
+
+The in-memory implementation uses Ref.Synchronized.modifyZIO around Clock.nanoTime plus the immutable map transition. Expiry uses elapsed subtraction. No scopes, background fibers or external resources are allocated by gate construction; the host owns its lifetime and cleanup cadence.

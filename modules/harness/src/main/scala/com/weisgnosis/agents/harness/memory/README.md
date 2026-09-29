@@ -138,7 +138,7 @@ Migration: .consolidation_state is the upstream path, but its versioned JSON con
 
 - [x] `review_fp` and `review_harness` approved the final nine-file persistence increment against `e4bd6b0` on 2026-09-29. No findings remain within cooperative local ownership, strict journal validation, recovery before API operations, conditional content/progress publication, and persisted generation tracking. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 209 harness tests, including 34 new persistence tests, with zero compiler warnings. Acceptance covers constructed interrupted-publication states on the tested Windows filesystem; live crash/fault-injection, fsync durability, remote storage, and hostile mutation are excluded.
 - [x] `review_docs` approved the final persistence documentation against `e4bd6b0`, including nine current identities, 34 new cases, three local upstream adaptations, two pending remote scenarios, migration, and durability limits. All 59 Markdown files passed local link/script checks; git diff --check passed.
-- [ ] Add remote storage/migration, transcript persistence, and scheduling; verify cross-process and dynamic path behavior on each supported platform.
+- [ ] Add remote storage/migration, remote transcript persistence, and scheduling; verify cross-process and dynamic path behavior on each supported platform.
 
 Current Git-normalized persistence identities (previous changed identities remain in e4bd6b0):
 
@@ -157,3 +157,34 @@ Current Git-normalized persistence identities (previous changed identities remai
 DailyMemoryLease now delegates to the shared internal [WorkspaceLease](../storage/WorkspaceLease.scala) with the same memory ownership filename and interruption policy. The former lease and test-helper identities are preserved in e4dfc67; current extraction acceptance and identities belong to the [transcript persistence scope](../transcript/README.md). Existing memory ownership/regression suites remain required.
 
 The previous AgentError.scala identity is preserved in `0349b1a`; its current identity and acceptance are in the completion-observer table in the [core agent contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+## Memory lifecycle admission
+
+[MemoryTrigger](MemoryTrigger.scala) models Always, Never and Throttled with a validated [MemoryInterval](MemoryInterval.scala). The smart constructor normalizes zero duration to Always; negative, infinite and overflowing intervals fail through InvalidConfiguration. A positive interval is strictly smaller than Long.MaxValue nanoseconds. Its custom JSON codec requires an integral JSON number in that range, rejecting quoted numbers and fractional/coerced values. Policy, operation, scope and decision ADTs use derived codecs; these are Scala configuration DTOs, not Java wire adapters.
+
+MemoryTriggerPolicy is immutable and fixed for a gate lifetime. Flush defaults to Always; maintenance defaults to 30 minutes. Creating a new gate starts fresh windows, including when changing policy. Never disables only admission through that operation; it does not disable compactor offload or flush callbacks installed independently.
+
+[MemoryTriggerGate.inMemory](MemoryTriggerGate.scala) creates one explicitly shared authority. Hosts reuse that capability across callers belonging to the same memory domain. Separate gates are separate owners, even for equal textual identities; there is no static process-global registry. User and Session scope variants carry optional identities; absent and blank values share an anonymous slot within that scope, while distinct nonblank strings retain whitespace and delimiters. User scope does not fall back to session identity. Agent and Global each represent a constant slot within the host-selected owner. The gate does not authenticate callers, select filesystem paths, or infer workspace/agent ownership.
+
+Operation and scope form structural keys, so flush and maintenance remain independent in all four scopes. Always and Never return Admitted or Disabled without allocating reservations. Throttled admission samples Clock.nanoTime inside Ref.Synchronized.modifyZIO and atomically records the protected sample on the first or elapsed claim. Later calls return Throttled until the exact interval boundary. No epoch sentinel or wall-clock timestamp is used. Elapsed subtraction tolerates signed clock wraparound while actual elapsed time remains below 2^63 nanoseconds; arbitrary multi-century pauses are outside that horizon. Backward test-clock movement preserves a previous claim and fails closed.
+
+cleanup(retention) samples the same monotonic clock under the same state authority. It removes only claims whose reserved interval has elapsed and whose age strictly exceeds retention. A shorter retention therefore cannot reopen an active interval. Claim renewal racing cleanup retains the new active reservation. Cleanup is an explicit host operation; no background fiber is started and entries remain until renewal or cleanup.
+
+A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. This increment supplies local admission only. Runtime memory hooks, background scheduling/coalescing, supervision, remote/distributed authority, and retention file deletion remain pending.
+
+## Current memory-trigger identities
+
+Final formatted six-file scope against `73cd376`:
+
+| Source | Git blob |
+| --- | --- |
+| [MemoryInterval.scala](MemoryInterval.scala) | 0332f778d040180cbea43bbb7744a077f3a1c122 |
+| [MemoryTrigger.scala](MemoryTrigger.scala) | 7bec798b921f00857f213e0d19ad91febcde7c70 |
+| [MemoryTriggerGate.scala](MemoryTriggerGate.scala) | f37ce1546add8d78787bda1a1f7c204b2dd24551 |
+| [MemoryIntervalSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryIntervalSpec.scala) | 66085f594567f5703712911b93a26d4f909ab845 |
+| [MemoryTriggerGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTriggerGateSpec.scala) | 6cc2e51535a30f857fceecf0710caa4f1fb5bacf |
+| [MemoryTriggerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTriggerSpec.scala) | 0bdce255c3008037ffb077011130836c60c46b02 |
+
+- [x] `review_fp` and `review_harness` approved the final six-file memory-trigger increment against `73cd376` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 287 harness tests, including 23 new cases, with zero compiler warnings. No findings remain within typed finite intervals, strict numeric codecs, immutable policies, explicit shared ownership, atomic monotonic admission and active-window-safe cleanup. Scheduling, execution locks, remote authority and full memory configuration parity remain outside this scope.
+
+- [x] `review_docs` approved the corrected memory-trigger documentation against `73cd376`: six identities, 23 tests, finite/monotonic admission, active-window cleanup, explicit owner sharing and conservative upstream applicability. Full verification passed 552 core / 287 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.

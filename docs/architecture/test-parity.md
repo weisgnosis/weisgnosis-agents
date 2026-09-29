@@ -589,3 +589,61 @@ The pinned upstream has no TranscriptMiddlewareTest counterpart. TranscriptMiddl
 - [ ] Implement remote immutable transcript segments and session indexes.
 
 Exact reviewed identities are in the [core agent contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+## Memory trigger admission applicability
+
+The pinned gate and middleware suites are adapted to MemoryTriggerGateSpec and the typed policy/interval suites. Tests use an explicitly shared in-memory authority instead of Java static maps; the host binds that authority to one memory owner. Structural keys preserve operation/scope separation without delimiter concatenation. User identity remains user-or-anonymous rather than adopting filesystem-specific session fallback. Admission is not scheduler or execution-lock evidence.
+
+PeriodicGateTest:
+
+- [x] localGate_firstClaimWinsThenThrottles: first admission at clock origin, immediate rejection, exact renewal.
+- [x] localGate_differentNamesAreIndependent: independent structural user/session keys and operation keys replace arbitrary string names.
+- [x] localGate_releasesAfterGap: just-before/exact expiry replaces Thread.sleep timing.
+- [ ] storeBackedGate_firstClaimWinsThenThrottles: distributed/storage-backed gate remains unimplemented.
+- [ ] storeBackedGate_sharedAcrossInstances: shared local capability does not establish remote CAS behavior.
+
+MemoryFlushMiddlewareTriggerTest:
+
+- [x] alwaysMode_returnsTrueOnEveryCall: repeated Admitted decisions without reservation allocation.
+- [x] neverMode_returnsFalseOnEveryCall: repeated Disabled decisions without reservation allocation.
+- [x] throttledMode_firstCallWinsThenBackOff: immediate first admission followed by suppression.
+- [x] throttledMode_smallGapEventuallyReleases: deterministic exact-expiry renewal.
+- [x] throttledMode_zeroGapNormalisesToAlways: smart-constructor normalization and repeated admission.
+- [x] throttledMode_perUserIsolation_userBNotBlockedByUserA: distinct user slots.
+- [x] throttledMode_anonymousCallersShareOneSlot: absent/empty/blank optional identity adaptation; Java null fixtures are not reproduced.
+- [x] sessionScope_timerKeyUsesSessionId: typed Session identity keys; no public string-key API.
+- [x] sessionScope_sameUserDifferentSessionsAreIndependent: distinct session identities remain independent; unrelated user identity is absent from that ADT case.
+- [x] agentScope_timerKeyIsConstant: constant Agent slot in one explicit owner.
+- [x] agentScope_allCallersShareOneThrottleSlot: repeated Agent admissions share the same reservation.
+- [x] globalScope_allCallersShareOneThrottleSlot: constant Global slot in one explicit owner.
+- [x] userScope_timerKeyUsesUserId: typed User identity and anonymous normalization.
+- [x] throttledMode_crossInstanceSharesOneThrottleSlot: reconstructed callers reuse the same injected authority.
+- [x] throttledMode_crossInstance_differentUsersAreIndependent: shared authority retains separate user slots.
+- [x] cleanupStaleEntries_removesOldEntries: stale elapsed reservations are removed.
+- [x] cleanupStaleEntries_preservesRecentEntries: recent and exact-retention reservations remain.
+
+MemoryMaintenanceMiddlewareStaleEntryTest:
+
+- [x] cleanupStaleEntries_removesOldEntries: shared cleanup removes stale elapsed reservations.
+- [x] cleanupStaleEntries_preservesRecentEntries: shared cleanup preserves recent claims.
+- [x] cleanupStaleEntries_onlyRemovesStaleEntries: one old and one recent key verify mixed-state cleanup. These state-machine adaptations do not imply a maintenance middleware scheduler.
+
+MemoryMiddlewareThrottleIsolationTest:
+
+- [x] flushAndMaintenanceHaveIndependentWindows, local admission-only adaptation: all eight scope/order combinations are verified with typed operation keys.
+- [ ] Complete its middleware reconstruction and background consolidator execution-count assertions; gate evidence does not establish those integration assertions.
+- [ ] Its eight store-backed combinations remain pending with remote coordination.
+
+MemoryConfigTest trigger behavior:
+
+- [x] flushTrigger_alwaysAndNeverAreSingletons: Scala enum cases provide stable value alternatives; Java object-reference assertions are excluded.
+- [x] flushTrigger_throttledZeroDurationCollapsesToAlways: typed constructor normalization.
+- [x] flushTrigger_throttledPositiveDurationKeepsThrottledMode: validated finite duration is retained.
+- [x] flushTrigger_rejectsNullAndNegativeDuration: negative/infinite/bounds rejection is verified; Java null acceptance/rejection paths are explicitly excluded from this pure Scala API adaptation.
+- [ ] Map the remaining six full MemoryConfig default/builder/prompt scenarios; this increment is not a complete unified memory configuration port.
+
+Additional hardening covers owner separation, exact clock origin, structural identifier collisions, strict numeric decoding, simultaneous claims, policy reset, signed elapsed wraparound and backward test-clock movement. Cleanup deliberately differs from upstream age-only eviction: an active interval survives shorter retention. Fixed policies require a new gate to change intervals, deliberately resetting windows. The gate samples the monotonic clock inside its serialized transition to avoid installing timestamps captured before competing claims.
+
+- [ ] Implement and map MemoryFlushMiddlewareAsyncFlushTest, MemoryMaintenanceMiddlewareAsyncGateTest and runtime lifecycle scheduling. Remote gates, filesystem retention and broader middleware parity remain open.
+
+- [x] `review_fp` and `review_harness` approved the final six-file memory-trigger increment against `73cd376` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 287 harness tests, including 23 new cases, with zero compiler warnings. No findings remain within typed finite intervals, strict numeric codecs, immutable policies, explicit shared ownership, atomic monotonic admission and active-window-safe cleanup. Scheduling, execution locks, remote authority and full memory configuration parity remain outside this scope.

@@ -108,3 +108,9 @@ ReActAgent accepts a scoped TurnCompletionObserver dependency, defaulting to ign
 SessionTranscriptWriter.completionObserver requires AnonymousTranscriptPolicy. RequireStableIds rejects eligible anonymous drafts before writing; RecordEachSnapshot knowingly repeats retained anonymous observations. No IDs are synthesized. Compactor offload remains necessary to preserve removed prefixes. Memory extraction/scheduling stays independent.
 
 Result events denote committed execution, not delivery acknowledgement. A late-cancelled caller can receive interruption after a successful observation and result publication. An early stream consumer no longer drains later terminal errors; successful early consumption does not confirm persistence. See the [core contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+## Local memory trigger authority
+
+MemoryTriggerPolicy fixes flush and maintenance policies for one gate lifetime; defaults are Always and a 30-minute throttle. MemoryScope.User/Session carry optional identities while Agent/Global are constant slots within an explicit host memory owner. MemoryTriggerGate.inMemory holds a synchronized immutable reservation map; first claims succeed immediately and monotonic samples occur inside serialized transitions. Cleanup requires both reserved interval expiry and strict retention expiry. Fresh gates reset windows. Independent operations and scopes cannot collide, and no process-global state is used.
+
+The gate reports Admitted, Disabled or Throttled. It neither executes nor serializes jobs, and no scheduler is started. Cancellation can follow a committed admission. Signed elapsed subtraction is defined within a less-than-2^63-nanosecond horizon. See the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md) for codec, owner and lifecycle limits.

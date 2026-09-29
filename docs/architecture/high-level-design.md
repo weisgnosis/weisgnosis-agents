@@ -66,3 +66,7 @@ The build pins Scala 3.9.0, ZIO/ZIO Streams 2.1.26, zio-json 0.9.1, and zio-http
 ## Transcript observations
 
 SessionTranscriptWriter records summaries, text/thinking and bounded tool observations through one transcript-bound store. TranscriptStore.inMemory owns atomic batch deduplication and parent linkage; stable keys preserve the first observation. The compactor offload callback and required TurnCompletionObserver adapter are available; the host explicitly selects stable-only or repeated-anonymous snapshot recording. Remote persistence and memory scheduling remain pending. LocalTranscriptStore now supplies strict versioned JSONL in one explicitly selected host-controlled directory, with cooperative scope ownership and atomic whole-log replacement. See the [transcript contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md).
+
+## Memory lifecycle policy
+
+Typed MemoryTrigger policies and a shared in-memory MemoryTriggerGate now provide operation/scope admission with monotonic intervals and cleanup that preserves active windows. The host chooses the owner and explicitly shares its capability. This is admission timing only; background memory hooks and execution supervision remain planned. See the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).

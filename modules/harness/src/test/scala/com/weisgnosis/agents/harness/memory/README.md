@@ -58,3 +58,13 @@ Current persistence review status and exact identities are maintained in the sou
 - [x] `review_fp` and `review_harness` approved the final nine-file persistence increment against `e4bd6b0` on 2026-09-29. No findings remain within cooperative local ownership, strict journal validation, recovery before API operations, conditional content/progress publication, and persisted generation tracking. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 209 harness tests, including 34 new persistence tests, with zero compiler warnings. Acceptance covers constructed interrupted-publication states on the tested Windows filesystem; live crash/fault-injection, fsync durability, remote storage, and hostile mutation are excluded.
 
 DailyMemoryLeaseSpec now exercises the extracted WorkspaceLease through the existing memory adapter. MemoryTestSupport is harness-internal for shared scoped filesystem fixtures; no test behavior changed. Current extraction identity and approval are recorded in the transcript persistence README.
+
+## Lifecycle trigger verification
+
+- [MemoryIntervalSpec](MemoryIntervalSpec.scala): three exact-duration, invalid-bound and strict numeric-codec cases.
+- [MemoryTriggerSpec](MemoryTriggerSpec.scala): four zero/positive/negative trigger, immutable defaults, and derived DTO codec cases.
+- [MemoryTriggerGateSpec](MemoryTriggerGateSpec.scala): sixteen cases covering first admission at clock origin, exact expiry, anonymous/user/session/owner isolation, independent operations across eight scope/order combinations, shared caller authority, delimiter preservation, 100 simultaneous claims, stale/mixed cleanup, active-window protection, cleanup/renewal races, explicit policy reset, signed wraparound and backward clock movement.
+
+TestClock controls ordinary timing. The wraparound fixture delegates clock services and supplies only nanoTime through Ref, because TestClock's Instant-to-nanosecond conversion overflows at that boundary. No blocking sleeps or process-global test resets are used. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#memory-trigger-admission-applicability) records local adaptations and pending remote/scheduling evidence.
+
+- [x] `review_fp` and `review_harness` approved the final six-file memory-trigger increment against `73cd376` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 287 harness tests, including 23 new cases, with zero compiler warnings. No findings remain within typed finite intervals, strict numeric codecs, immutable policies, explicit shared ownership, atomic monotonic admission and active-window-safe cleanup. Scheduling, execution locks, remote authority and full memory configuration parity remain outside this scope.
