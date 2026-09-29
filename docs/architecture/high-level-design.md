@@ -93,8 +93,12 @@ The opt-in MemoryMaintenanceScheduler owns one job for cutoff selection, consoli
 
 ## Transcript retirement boundary
 
-Explicit local transcript pruning now shares writer ownership and validates complete persisted history before removing the fixed payload. Recency uses both filesystem metadata and every recorded observation. Successful pruning ends the persisted transcript generation; the host retires that logical session. The explicit 180-day policy is available below; automatic session enumeration and background pruning integration remain separate work.
+Explicit local transcript pruning now shares writer ownership and validates complete persisted history before removing the fixed payload. Recency uses both filesystem metadata and every recorded observation. Successful pruning ends the persisted transcript generation; the host retires that logical session. The explicit 180-day policy is available below; automatic session enumeration remains separate work; explicit batch integration is implemented below.
 
 ## Transcript expiry policy
 
-Selected transcript pruning now accepts KeepAll or a validated fixed-day policy, defaulting explicitly to 180 days. The disabled policy performs no clock/filesystem work; enabled policy uses one validated cutoff before ownership. Batch selection and integration into the existing maintenance job remain unfinished.
+Selected transcript pruning now accepts KeepAll or a validated fixed-day policy, defaulting explicitly to 180 days. The disabled policy performs no clock/filesystem work; enabled policy uses one validated cutoff before ownership. Explicit batch selection and integration into the existing maintenance job are implemented below.
+
+## Combined explicit maintenance
+
+An opt-in MemoryMaintenanceCoordinator now joins daily maintenance and an ordered host-selected transcript batch under one existing owned job. Transcript cutoff validation precedes memory work; returned memory outcomes permit independent pruning, while effect failure stops later phases. Partial commits/deletions survive later failure. Session discovery and unified configuration remain separate work.

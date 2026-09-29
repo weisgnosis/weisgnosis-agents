@@ -45,3 +45,12 @@ Cancellation-after-admission and scope-release mechanics remain inherited from t
 The existing MemoryRetentionPolicySpec remains required for the shared positive day type and unchanged daily calendar semantics. Explicit policy support does not install batch discovery or background scheduling. The [transcript contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/transcript/README.md) records the five-file scope and remaining integration work.
 
 - [x] `review_fp` and `review_harness` approved the final five-file transcript-policy increment against `f1a005e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 412 harness tests, including eight new cases, with zero compiler warnings. No findings remain within explicit 180-day policy, strict shared day validation, safe Instant arithmetic, one pre-ownership clock sample and complete KeepAll bypass. Batch/scheduler integration and complete upstream configuration parity are excluded.
+
+## Batch verification
+
+- [TranscriptRetentionTargetSpec](TranscriptRetentionTargetSpec.scala): three cases for exact ID codecs, lazy replay and deferred local ownership.
+- [TranscriptRetentionBatchSpec](TranscriptRetentionBatchSpec.scala): seven cases for duplicate rejection, KeepAll bypass, one cutoff/order/codecs, complete failure causes, cancellation cleanup, replay and enabled empty batches.
+
+See the [current batch contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/transcript/README.md#ordered-explicit-retention-batches) and its linked canonical identity table. No filesystem discovery or automatic inactivity proof is claimed.
+
+- [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.

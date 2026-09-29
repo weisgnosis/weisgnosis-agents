@@ -731,7 +731,7 @@ Pinned MemoryMaintenanceMiddleware.pruneOldSessions scans session log names, com
 
 - [x] Verify thirteen local cases covering cutoff/activity, missing/empty data, corruption preservation, owner refusal, unrelated files, generation reset and concurrent attempts.
 - [x] Add explicit 180-day policy and KeepAll semantics with eight new cases.
-- [ ] Add explicit target batches and owned maintenance integration.
+- [x] Add explicit target batches and owned maintenance integration with 22 additional regressions.
 - [ ] Implement remote pruning and platform-specific hostile-mutation/crash validation if those guarantees are required.
 
 Cancellation-after-admission uses the previously reviewed WorkspaceLease contract; interruption may follow completed deletion. No mid-delete fault injection is claimed. A successful prune discards persisted keys and parent linkage, so hosts must retire the logical session rather than assume continuation.
@@ -744,6 +744,14 @@ Eight new tests verify the shared 180-day default, positive day decoding, exact 
 
 - [x] Verify disabled policy does not read Clock or access even an untrusted/missing target.
 - [x] Verify enabled underflow fails before ownership and cutoff equality retains data.
-- [ ] Integrate explicit target batches into one existing maintenance admission, without a competing session-only throttle.
+- [x] Integrate explicit target batches into one existing maintenance admission, without a competing session-only throttle.
 
 - [x] `review_fp` and `review_harness` approved the final five-file transcript-policy increment against `f1a005e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 412 harness tests, including eight new cases, with zero compiler warnings. No findings remain within explicit 180-day policy, strict shared day validation, safe Instant arithmetic, one pre-ownership clock sample and complete KeepAll bypass. Batch/scheduler integration and complete upstream configuration parity are excluded.
+
+## Explicit batch maintenance evidence
+
+- [x] Add three target, seven batch, eight coordinator and four scheduler cases, including real local partial persistence and actual ReAct completion observers.
+- [x] Verify one prepared transcript cutoff, exact target ordering, complete cause preservation, independent transcript work after all returned memory outcomes and one existing Maintenance admission.
+- [ ] Complete the six MemoryConfig method mappings above; this increment adds source-contract evidence only.
+
+Selected capabilities intentionally replace broad directory scanning and swallowed per-file failures. Discovery, cross-phase atomicity and exactly-once reporting are not claimed. The canonical identities and scope are in the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).

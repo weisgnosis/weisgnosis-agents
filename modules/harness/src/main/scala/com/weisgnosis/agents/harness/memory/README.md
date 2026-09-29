@@ -263,7 +263,7 @@ This scheduler performs consolidation only. Explicit acknowledged-daily archival
 
 ## Current consolidation/composition identities
 
-Unchanged harness identities from the consolidation/composition increment against `3e817e3`; the changed scheduler identity is preserved in b3d2723 and indexed in the maintenance table below. Independent acceptance of the earlier scope is recorded below.
+Unchanged harness identities from the consolidation/composition increment against `3e817e3`; the changed scheduler identity is preserved in b3d2723 and indexed in the maintenance table below. MemoryMaintenanceScheduler also changed for coordinator support; its previous identity is preserved in b86fd14. Independent acceptance of the earlier scope is recorded below.
 
 | Source | Git blob |
 | --- | --- |
@@ -328,13 +328,12 @@ This intentionally differs from upstream expiry-before-consolidation and swallow
 
 ## Current maintenance identities
 
-Unchanged identities from the eight-file maintenance increment against `b3d2723`; MemoryRetentionPolicy changed to add the shared session default, with its previous identity preserved in f1a005e and its current identity in the transcript policy contract. Independent acceptance of the earlier scope is recorded below.
+Unchanged identities from the eight-file maintenance increment against `b3d2723`; MemoryRetentionPolicy changed to add the shared session default, with its previous identity preserved in f1a005e and its current identity in the transcript policy contract. MemoryMaintenanceScheduler also changed for coordinator support; its previous identity is preserved in b86fd14. Independent acceptance of the earlier scope is recorded below.
 
 | Source | Git blob |
 | --- | --- |
 | [MemoryConsolidationScheduler.scala](MemoryConsolidationScheduler.scala) | 215b1a897951f7ae1be0259c8c45107c82822656 |
 | [MemoryMaintenance.scala](MemoryMaintenance.scala) | fb177720e497bad5f50a7f5c8061b34b26295a7e |
-| [MemoryMaintenanceScheduler.scala](MemoryMaintenanceScheduler.scala) | 72f531f61397b298bb6461428f5403f5218e047a |
 | [MemoryMaintenanceTask.scala](MemoryMaintenanceTask.scala) | 2adffe5b970b0824d0092a15a78acf19ebd09512 |
 | [MemoryMaintenanceSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSchedulerSpec.scala) | d31c5ab3e0628f94d691ad4865c855d6671d4cc7 |
 | [MemoryMaintenanceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSpec.scala) | bbf02388ef56d1918059869fa8e6a37558ac28cd |
@@ -347,3 +346,32 @@ Unchanged identities from the eight-file maintenance increment against `b3d2723`
 RetentionDays now supplies separately named DailyDefault (90) and SessionDefault (180) values. The [transcript policy contract](../transcript/README.md) owns the updated MemoryRetentionPolicy.scala identity and acceptance. Daily calendar-cutoff behavior is unchanged; transcript policy uses exact 24-hour Instant subtraction.
 
 - [x] `review_fp` and `review_harness` approved the final five-file transcript-policy increment against `f1a005e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 412 harness tests, including eight new cases, with zero compiler warnings. No findings remain within explicit 180-day policy, strict shared day validation, safe Instant arithmetic, one pre-ownership clock sample and complete KeepAll bypass. Batch/scheduler integration and complete upstream configuration parity are excluded.
+
+## Selected transcript maintenance
+
+[MemoryMaintenanceCoordinator](MemoryMaintenanceCoordinator.scala) prepares the transcript cutoff before invoking MemoryMaintenance, then executes the ordered target batch and returns MaintenanceResult. Invalid transcript time arithmetic fails before memory extraction or writes. Daily and transcript policies read time separately; this is not a shared cross-policy clock snapshot. Every returned memory outcome, including EmptyResponse and Conflict, permits the independent transcript phase. A failed or interrupted memory effect prevents that phase.
+
+MemoryMaintenanceScheduler.make has an additive coordinator overload. The same private task claims Maintenance once, runs all phases in the owned serial queue, then invokes the required MaintenanceResult report. Install this overload instead of a competing daily-only or consolidation-only scheduler for the same gate/scope. Pending work coalesces under the scheduler owner token, and superseded work never prepares cutoffs. Gate suppression skips all phases and reporting. Existing observer registration and receipt semantics are unchanged.
+
+Effects are sequential and preserve partial progress: a later target failure can follow committed memory and earlier deletions; aggregate reporting can fail after every phase succeeds. Later targets are skipped after failure or cancellation, and owned shutdown waits for current cleanup. An absent aggregate or failed receipt is not proof of unchanged storage. There is no cross-phase transaction, rollback, durable result journal or exactly-once guarantee. Direct coordinator calls may interleave; scheduled calls use queue ownership. Hosts provide an immutable set of explicitly selected targets, retain active writer leases, retire deleted logical sessions and monitor receipts.
+
+The [transcript batch contract](../transcript/README.md) defines exact correlation IDs, capability ownership and replayable preparation. Discovery, remote pruning and the six complete MemoryConfig method adaptations remain pending. This is a hardened source-level maintenance adaptation, not a new named upstream test mapping.
+
+## Current batch and coordinator identities
+
+Final formatted eight-file increment against b86fd14; the table is the canonical identity index for this scope.
+
+| Source | Git blob |
+| --- | --- |
+| [TranscriptRetentionTarget.scala](../transcript/TranscriptRetentionTarget.scala) | c6d59b3dfb5c1552724d1fe01bd7e396a64eced4 |
+| [TranscriptRetentionBatch.scala](../transcript/TranscriptRetentionBatch.scala) | bcc9091212e255872605a2c797b96c2ad22b865d |
+| [MemoryMaintenanceCoordinator.scala](MemoryMaintenanceCoordinator.scala) | 73e81f2ce7e33e37dabcaf94e009d6de397515c3 |
+| [MemoryMaintenanceScheduler.scala](MemoryMaintenanceScheduler.scala) | bf449d58b9f02088c3ddc8f0be4237d2eaab3a09 |
+| [TranscriptRetentionTargetSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptRetentionTargetSpec.scala) | a8996c67dfabf98a6dd1e4a3516316f1b8c43a1f |
+| [TranscriptRetentionBatchSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptRetentionBatchSpec.scala) | 75b880e114dfca0d60b16e3fe0c25fd90de6a06c |
+| [MemoryMaintenanceCoordinatorSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceCoordinatorSchedulerSpec.scala) | fb7a06ce627b87980f17080500522b666fa7d697 |
+| [MemoryMaintenanceCoordinatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceCoordinatorSpec.scala) | fe6a61638f8dc8a296d187929a57e69e8fa7e759 |
+
+- [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.
+
+- [x] `review_docs` approved batch/coordinator documentation against `b86fd14`: eight identities, 22 new cases, explicit ordering, cutoff preparation and partial-progress contracts. Full verification passed 555 core / 434 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Configuration, discovery and remote integration remain visible as unfinished work.

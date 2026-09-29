@@ -150,3 +150,9 @@ LocalTranscriptRetention.prune owns a fresh Scope and the existing Transcript wo
 ## Transcript policy boundary
 
 TranscriptRetentionPolicy reuses positive RetentionDays but interprets each day as exactly 86,400 seconds, independent of the daily-memory calendar zone. KeepAll yields no cutoff. PruneAfter preserves Instant nanoseconds and rejects underflow before construction. LocalTranscriptRetention.pruneWithPolicy reads Clock once only when enabled, then delegates to the existing fixed-target pruner. Disabled and Evaluated(cutoff, result) are distinct outcomes; no directory scan or second maintenance claim is introduced.
+
+## Ordered batch coordination
+
+TranscriptRetentionBatch holds explicit capabilities with unique exact IDs. Preparation captures one validated cutoff without invoking targets; KeepAll bypasses time and capabilities. Sequential execution preserves order and full failure causes, with no rollback of earlier effects. Prepared execution remains replayable. MemoryMaintenanceCoordinator prepares this batch before memory effects, then runs it after any returned memory outcome. Memory and transcript dates are separate clock samples.
+
+The additive MemoryMaintenanceScheduler overload uses the same owner token, Maintenance gate and serial queue job before aggregate reporting. Install it instead of competing maintenance adapters for the same scope. Failed receipts or absent reports can follow persisted memory/deletions; hosts must inspect state and monitor receipts. Explicit selection supplies no session discovery or activity authorization.

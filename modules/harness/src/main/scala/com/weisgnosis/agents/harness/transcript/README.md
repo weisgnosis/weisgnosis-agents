@@ -53,7 +53,8 @@ Migration: shared lease extraction preserves memory/.daily-writer.lease and exis
 - [x] Integrate required terminal snapshot recording through the completion observer described below.
 - [x] Integrate opt-in background flush and combined daily-memory maintenance in the memory package.
 - [x] Add explicit transcript-retention policy below.
-- [ ] Integrate session enumeration and owned batch pruning.
+- [x] Integrate explicit owned batch pruning below.
+- [ ] Implement session enumeration.
 - [ ] Implement remote immutable segments/indexes and platform-specific ownership validation.
 
 Unchanged Git-normalized local persistence identities; the changed TranscriptFiles identity is preserved in 9ddee3a and indexed in the pruning table below:
@@ -85,7 +86,8 @@ Required observation completes before successful result publication and before c
 
 - [x] Integrate scoped background flush and combined daily-memory maintenance; choose the appropriate owner scheduler.
 - [x] Add explicit transcript-retention policy below.
-- [ ] Integrate session enumeration and owned batch pruning.
+- [x] Integrate explicit owned batch pruning below.
+- [ ] Implement session enumeration.
 - [ ] Implement remote immutable segments and session indexes.
 
 The previous SessionTranscriptWriter.scala identity is preserved in `0349b1a`; its current identity and acceptance are in the completion-observer table in the [core agent contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
@@ -104,7 +106,7 @@ Deletion removes only that validated payload entry. It does not recurse, enumera
 
 Successful pruning retires the persisted deduplication keys and parent chain. A later open starts an empty transcript and accepts formerly used stable keys as new observations. The host must retire the corresponding logical session rather than assume identity continuity or a retained tombstone. This is an explicit destructive storage capability for a host-selected inactive session, not automatic application session discovery or authentication.
 
-The backend still requires a host-controlled directory and ancestors. Cooperative leases and canonical checks do not protect against hostile external path replacement. This is a hardened source-level adaptation of upstream pruneOldSessions: explicit target selection, strict validation, active-owner refusal and observation-aware recency replace a broad filename scan, mtime-only decision and swallowed failures. No new named upstream pruning test is claimed. The 180-day policy is implemented below; session enumeration, maintenance scheduling and remote pruning remain unfinished. Prior TranscriptFiles.scala is preserved in 9ddee3a.
+The backend still requires a host-controlled directory and ancestors. Cooperative leases and canonical checks do not protect against hostile external path replacement. This is a hardened source-level adaptation of upstream pruneOldSessions: explicit target selection, strict validation, active-owner refusal and observation-aware recency replace a broad filename scan, mtime-only decision and swallowed failures. No new named upstream pruning test is claimed. The 180-day policy is implemented below; session enumeration and remote pruning remain unfinished; owned batch maintenance is implemented below. Prior TranscriptFiles.scala is preserved in 9ddee3a.
 
 ## Current pruning identities
 
@@ -125,7 +127,7 @@ Unchanged identities from the three-file pruning increment against `9ddee3a`; Lo
 
 LocalTranscriptRetention.pruneWithPolicy is additive; the original explicit-cutoff prune API keeps its behavior. KeepAll returns TranscriptRetentionResult.Disabled without reading the clock or validating/accessing the directory, trust or payload. Enabled policy samples Clock.instant once, validates its cutoff before acquiring ownership, then delegates to the same scoped explicit-target pruner. Evaluated(cutoff, result) preserves the cutoff and Missing/Retained/Pruned outcome; Disabled is not confused with a missing file or a retained payload.
 
-Calling this policy API explicitly selects the target and enables the chosen operation. It does not enumerate directories, install a timer, create a session catalog or claim a separate maintenance gate. Existing strict decoding, activity calculation, ownership refusal, generation retirement and uncertain cancellation acknowledgement remain unchanged. The default is not silently applied to the older prune API. Owned multi-target coordination remains the next integration step.
+Calling this policy API explicitly selects the target and enables the chosen operation. It does not enumerate directories, install a timer, create a session catalog or claim a separate maintenance gate. Existing strict decoding, activity calculation, ownership refusal, generation retirement and uncertain cancellation acknowledgement remain unchanged. The default is not silently applied to the older prune API. Owned multi-target coordination is implemented below.
 
 Previous LocalTranscriptRetention.scala and MemoryRetentionPolicy.scala identities are preserved in f1a005e. Existing callers remain source-compatible. The new default/validation assertions add evidence to the partial MemoryConfig mapping; a complete unified configuration or upstream builder port is not claimed.
 
@@ -144,3 +146,17 @@ Final formatted five-file increment against `f1a005e`; independent acceptance is
 - [x] `review_fp` and `review_harness` approved the final five-file transcript-policy increment against `f1a005e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 412 harness tests, including eight new cases, with zero compiler warnings. No findings remain within explicit 180-day policy, strict shared day validation, safe Instant arithmetic, one pre-ownership clock sample and complete KeepAll bypass. Batch/scheduler integration and complete upstream configuration parity are excluded.
 
 - [x] `review_docs` approved transcript-policy documentation against `f1a005e`: five identities, eight tests, fixed-day arithmetic, KeepAll bypass, additive API behavior and partial configuration mappings. Full verification passed 555 core / 412 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Batch, discovery, scheduling and remote integration remain excluded.
+
+## Ordered explicit retention batches
+
+[TranscriptRetentionTarget](TranscriptRetentionTarget.scala) pairs an exact nonblank TranscriptTargetId with a suspended prune capability. IDs are correlation values, not paths, authorization or proof of inactivity; nonblank whitespace is preserved. The local constructor delegates to the existing scoped lease-protected pruner. Custom capabilities own their effect/resource contracts. Different IDs may alias one directory; the batch does not canonicalize or deduplicate paths, so a later alias can report Missing after an earlier deletion.
+
+[TranscriptRetentionBatch](TranscriptRetentionBatch.scala) rejects duplicate exact IDs before invoking capabilities. KeepAll returns Disabled without reading Clock or invoking targets. Enabled preparation samples Clock.instant once, validates the policy cutoff, and captures sequential traversal without executing any target. Each target receives that cutoff in supplied order. An enabled empty batch reports Evaluated with an empty target list. Prepared execution is replayable, not a once-only receipt or durable plan.
+
+A typed failure, defect or cancellation stops later targets and preserves the full cause. Earlier effects remain observable; no aggregate success is returned for a partially completed batch. Local lease refusal still protects active/stale-owned transcripts, and local pruning retains all validation and generation-retirement rules. Explicit immutable selection is supplied by the host; there is no session discovery, catalog, automatic activity authorization or multi-file transaction.
+
+The [memory coordinator contract and current identities](../memory/README.md#selected-transcript-maintenance) cover background integration, partial-progress reporting, all eight source identities and acceptance. Existing single-target APIs remain source-compatible.
+
+- [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.
+
+- [x] `review_docs` approved batch/coordinator documentation against `b86fd14`: eight identities, 22 new cases, explicit ordering, cutoff preparation and partial-progress contracts. Full verification passed 555 core / 434 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Configuration, discovery and remote integration remain visible as unfinished work.

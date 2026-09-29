@@ -118,3 +118,12 @@ The UTF-16 surrogate aliasing test failed before strict hashing validation was a
 MemoryMaintenanceTask is a private extraction of the existing scheduling boundary; these tests and the unchanged MemoryConsolidationSchedulerSpec/LifecycleSpec, MemoryLifecycleIsolationSpec and MemorySchedulerCompositionSpec jointly verify its behavior. Its extraction does not add another worker or gate. The [production contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md) records current identities and acceptance. Twenty-one new tests do not close the six full upstream configuration scenarios or session retention.
 
 - [x] `review_fp` and `review_harness` approved the final eight-file maintenance increment against `b3d2723` on 2026-09-29, including corrected consolidation-only ScalaDoc. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 391 harness tests, including 21 new cases, with zero compiler warnings. No findings remain within validated calendar policy, repository-bound sequential maintenance, typed aggregate outcomes, one owned gate/job and preserved consolidation-only behavior. Session pruning, unified configuration, cross-phase atomicity and durable reporting are excluded.
+
+## Coordinated maintenance verification
+
+- [MemoryMaintenanceCoordinatorSpec](MemoryMaintenanceCoordinatorSpec.scala): eight cases for all four memory outcomes, pre-memory cutoff validation, memory failure/cancellation, captured timing and codecs, and real persisted partial progress when a later target is actively owned.
+- [MemoryMaintenanceCoordinatorSchedulerSpec](MemoryMaintenanceCoordinatorSchedulerSpec.scala): four cases for actual agent observers, coalescing/one gate claim, later target failure, aggregate-report failure and owned cleanup.
+
+The unchanged daily-only scheduler suite also passes. See the [coordinator contract and canonical eight-file identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).
+
+- [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.

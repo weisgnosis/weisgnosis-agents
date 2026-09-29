@@ -169,3 +169,9 @@ TranscriptFiles.pruneBefore branches on existingFile rather than the read API's 
 ## Transcript cutoff arithmetic
 
 For validated positive Int days, multiplying by 86,400 and subtracting from Instant epoch seconds stays within Long. Compare the resulting seconds to Instant.MIN before constructing the cutoff with the original nanoseconds. KeepAll bypasses Clock and target validation. Enabled execution performs this check before WorkspaceLease acquisition and preserves the evaluated cutoff in its result. The explicit-cutoff API remains unchanged.
+
+## Explicit batch APIs
+
+TranscriptTargetId validates exact nonblank correlation strings. TranscriptRetentionTarget.apply suspends the callback; local delegates to lease-protected pruning. TranscriptRetentionBatch.make validates unique IDs; run prepares once then traverses sequentially. TranscriptBatchResult distinguishes Disabled from Evaluated(cutoff, ordered target results), including empty enabled batches. Private PreparedTranscriptPruning holds a replayable effect without acquiring resources.
+
+MemoryMaintenanceCoordinator.run prepares transcript timing, runs MemoryMaintenance, then executes the batch and returns MaintenanceResult. The new MemoryMaintenanceScheduler.make overload accepts this coordinator and a required aggregate callback, using the existing MemoryMaintenanceTask. Old daily-only and consolidation-only factories remain compatible. See the [current source identities and contracts](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).

@@ -20,7 +20,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 555 core and 412 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 555 core and 434 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -83,10 +83,16 @@ MemoryMaintenance runs a repository-bound consolidator followed by acknowledged-
 
 ## Explicit transcript pruning
 
-LocalTranscriptRetention prunes one explicitly selected inactive transcript under the same scoped ownership lease as its writer. Strict decoding and the maximum of file modification time/all recording times protect corrupt or recent data. Deletion retires persisted identity and touches only transcript.jsonl. Active/stale ownership fails safely; explicit expiry policy is available below, while automatic session discovery and maintenance integration remain pending. See the [transcript contract](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md).
+LocalTranscriptRetention prunes one explicitly selected inactive transcript under the same scoped ownership lease as its writer. Strict decoding and the maximum of file modification time/all recording times protect corrupt or recent data. Deletion retires persisted identity and touches only transcript.jsonl. Active/stale ownership fails safely; explicit expiry policy is available below, while automatic session discovery remains pending; explicit batch maintenance is implemented below. See the [transcript contract](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md).
 
 - [x] `review_fp` and `review_harness` approved the final three-file transcript-pruning increment against `9ddee3a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 404 harness tests, including thirteen new cases, with zero compiler warnings. No findings remain within explicit local targets, shared writer ownership, strict log validation, observation-aware activity, fixed-payload deletion and generation retirement. Session discovery, automatic expiry, remote pruning and crash/hostile-mutation guarantees are excluded.
 
 TranscriptRetentionPolicy adds an explicit KeepAll/180-day policy to selected local transcript pruning. Enabled execution validates one fixed-24-hour-day cutoff before ownership; disabled execution bypasses both Clock and filesystem access. This additive API does not install directory discovery or a separately gated scheduler.
 
 - [x] `review_fp` and `review_harness` approved the final five-file transcript-policy increment against `f1a005e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 412 harness tests, including eight new cases, with zero compiler warnings. No findings remain within explicit 180-day policy, strict shared day validation, safe Instant arithmetic, one pre-ownership clock sample and complete KeepAll bypass. Batch/scheduler integration and complete upstream configuration parity are excluded.
+
+## Ordered transcript maintenance
+
+TranscriptRetentionBatch now runs explicit host-selected capabilities in order using one prepared cutoff. MemoryMaintenanceCoordinator integrates it after daily maintenance under the existing scheduler gate/job. Partial progress survives later failures; aggregate reporting does not establish rollback or exactly-once delivery. Discovery and complete configuration parity remain pending. See the [coordinator contract and current identities](src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).
+
+- [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.

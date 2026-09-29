@@ -41,3 +41,17 @@ object MemoryMaintenanceScheduler:
         maintenance.run.flatMap(result => ZIO.suspendSucceed(report(result)))
       )
       .map(new MemoryMaintenanceScheduler(_))
+
+  /** One admission covers memory work, the prepared transcript batch, and aggregate reporting. */
+  def make(
+      queue: MemoryTaskQueue,
+      gate: MemoryTriggerGate,
+      scope: MemoryScope,
+      maintenance: MemoryMaintenanceCoordinator,
+      report: MaintenanceResult => IO[AgentError, Unit]
+  ): UIO[MemoryMaintenanceScheduler] =
+    MemoryMaintenanceTask
+      .make(queue, gate, scope, MemoryMaintenanceTask.Kind.Maintenance)(
+        maintenance.run.flatMap(result => ZIO.suspendSucceed(report(result)))
+      )
+      .map(new MemoryMaintenanceScheduler(_))
