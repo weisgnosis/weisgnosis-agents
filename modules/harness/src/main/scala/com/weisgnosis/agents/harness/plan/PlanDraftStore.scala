@@ -20,5 +20,6 @@ import zio.IO
 
 /** Draft persistence only; stored text confers no session mode or review authority. */
 trait PlanDraftStore:
+  def location: Option[PlanLocation] = None
   def read: IO[AgentError, Option[PlanDraft]]
   def write(draft: PlanDraft): IO[AgentError, Unit]

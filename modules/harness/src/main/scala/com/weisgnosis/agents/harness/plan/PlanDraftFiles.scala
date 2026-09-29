@@ -30,9 +30,9 @@ import java.nio.file.{
 }
 import zio.*
 
-final private[plan] class PlanDraftFiles private (val directory: Path):
+final private[plan] class PlanDraftFiles private (val directory: Path, val location: PlanLocation):
   import PlanDraftFiles.*
-  private val target = directory.resolve("PLAN.md")
+  private val target = directory.resolve(FileName)
 
   def read: IO[AgentError, Option[PlanDraft]] =
     validateLocation *> existingFile(target, directory).flatMap:
@@ -80,6 +80,8 @@ final private[plan] class PlanDraftFiles private (val directory: Path):
     )
 
 private[plan] object PlanDraftFiles:
+  private val FileName: String = "PLAN.md"
+
   def open(directory: Path, trust: WorkspaceTrust): IO[AgentError, PlanDraftFiles] = trust match
     case WorkspaceTrust.Untrusted =>
       deny("Untrusted plan storage requires a secure platform backend")
@@ -93,7 +95,8 @@ private[plan] object PlanDraftFiles:
         _ <- deny("Filesystem roots cannot own plans").when(
           Option(canonical.getParent).isEmpty
         )
-      yield new PlanDraftFiles(canonical)
+        location <- ZIO.fromEither(PlanLocation.fromString(canonical.resolve(FileName).toString))
+      yield new PlanDraftFiles(canonical, location)
 
   private def canonicalDirectory(path: Path): IO[AgentError, Path] =
     for

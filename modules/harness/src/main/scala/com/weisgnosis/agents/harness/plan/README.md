@@ -16,7 +16,7 @@ An operand must not begin with a hyphen. Implicit stdin, unknown options, wrappe
 
 ## Current acceptance and identities
 
-The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; stored-session publication is implemented below; model controls are implemented below; saved-location provenance and child propagation remain pending; standalone draft storage is described below; request-only prompt projection is implemented below. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with eleven still pending after the projection adaptation below. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
+The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; stored-session publication is implemented below; model controls are implemented below; location context is implemented below; custom-directory compatibility and child propagation remain pending; standalone draft storage is described below; request-only prompt projection is implemented below. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with seven still pending after the location adaptations below. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
 
 | Source | Git blob |
 | --- | --- |
@@ -36,7 +36,8 @@ The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs wer
 - [x] Independently verify standalone draft storage, ownership, encoding and atomic publication.
 - [x] Integrate stored publication with session generations and failure/cancellation settlement.
 - [x] Implement strict model-facing controls and exact-ticket confirmed exit through an explicit publisher.
-- [ ] Add saved-location provenance and remaining manager/prompt method parity.
+- [x] Add descriptive configured/observed locations and request-context projection.
+- [ ] Complete remaining custom-directory policy and skill/child method parity.
 - [ ] Integrate authenticated host UI routing in the consuming application.
 - [ ] Propagate restrictions to new and reused children before admitting spawn/send tools.
 
@@ -60,7 +61,7 @@ Install this gate as InteractivePermissionAuthorizer's interceptorGate, or as on
 
 PlanShellInspection.inspectInput accepts exactly one JSON object field named command with a string value. Missing, duplicate, nonstring and extra fields all produce InvalidInput. The same boundary must be used by a host command executor, consuming the resulting program/argv without shell re-parsing. Raw cached tool content is not inspected instead of authoritative input. Migration: existing inspect(String) behavior is unchanged. ShellRejection now includes InvalidInput for the new envelope boundary; consumers with exhaustive matches or serialized-case handling must support that additional variant. Build mode leaves normal tool-schema/input validation to the host/runtime. Static eligibility still supplies no filesystem/process authority; all executor responsibilities above remain applicable.
 
-The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/README.md) records actual runtime evidence. The admission increment adapts two upstream middleware methods, and the projection below adds a third; eleven still require path lifecycle, skill/subagent capabilities and propagation work.
+The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/README.md) records actual runtime evidence. The admission increment adapts two upstream middleware methods, and projection adds a third and location context adds four more; seven still require custom-directory compatibility, skill/subagent capabilities and propagation work.
 
 ## Current admission identities
 
@@ -93,11 +94,11 @@ One TRef and each request's TPromise share STM authority. Re-entry, edits and ne
 
 Request registration uses acquireRelease. The owning Scope must remain alive while the host reviews: await review.await within that scope, or deliberately retain a host owner scope. Returning a ticket from a tool whose scope immediately closes cancels it; tickets are not durable handoff records. Scope closure or interruption settles Cancelled only if that exact ticket is still current. Closing an older scope cannot cancel a replacement, undo approval or alter a later generation. No lock is held while waiting for human input.
 
-Pass session.control.mode directly to PlanPermissionGate to avoid mirrored flags. The existing admission-only rule remains: a mode transition affects later checks without revoking already admitted tools. For PlanSession.make, drafts and approvals are in memory only; the stored factory below persists drafts but still keeps approval in memory only. The in-memory factory claims no plan-file path, file existence, filesystem publication, restore protocol or model-facing control tool; request projection is implemented below. The upstream manager's live mode assertions are adapted with stricter review authority; its path recording/retention assertions remain pending.
+Pass session.control.mode directly to PlanPermissionGate to avoid mirrored flags. The existing admission-only rule remains: a mode transition affects later checks without revoking already admitted tools. For PlanSession.make, drafts and approvals are in memory only; the stored factory below persists drafts but still keeps approval in memory only. The in-memory factory claims no plan-file path, file existence, filesystem publication, restore protocol or model-facing control tool; request projection is implemented below. The upstream manager's live mode assertions are adapted with stricter review authority; its path recording/retention assertions are now adapted by location context below.
 
 ## Current session identities
 
-Three unchanged identities from the five-file increment against 87b2d8b. Changed PlanSession and PlanSessionReviewSpec identities are preserved in 2a73621 and replaced in the stored-session table below.
+Three unchanged identities from the five-file increment against 87b2d8b. Their earlier PlanSession and PlanSessionReviewSpec identities are preserved in 2a73621. The current PlanSession identity is in the location-context table; PlanSessionReviewSpec remains in the stored-session table.
 
 | Source | Git blob |
 | --- | --- |
@@ -111,7 +112,7 @@ Three unchanged identities from the five-file increment against 87b2d8b. Changed
 
 ## Request-only plan context
 
-[PlanPrompt.render](PlanPrompt.scala) describes one PlanSessionSnapshot. Fresh Build contributes no reminder. Planning without a draft truthfully reports that absence; a concrete draft is identified as unapproved. AwaitingReview names the exact pending revision. Build with ApprovedPlan identifies the exact host-reviewed revision and draft without claiming execution has occurred or bypassing ordinary tool permissions. No file/path existence is inferred. Draft content is JSON-quoted and labeled as context data; quoting is presentation, not an instruction-injection security boundary.
+[PlanPrompt.render](PlanPrompt.scala) describes one PlanSessionSnapshot. Fresh Build contributes no reminder. Planning without a reviewable draft truthfully reports that state; a concrete draft is identified as unapproved. AwaitingReview names the exact pending revision. Build with ApprovedPlan identifies the exact host-reviewed revision and draft without claiming execution has occurred or bypassing ordinary tool permissions. No file/path existence is inferred. Draft content is JSON-quoted and labeled as context data; quoting is presentation, not an instruction-injection security boundary.
 
 [PlanInputTransform.make](PlanInputTransform.scala) accepts a suspended snapshot read and samples it exactly once for each model request. Install it through ReActAgent.make(modelInputTransform = ...), normally passing session.control.snapshot and using the same session.control.mode for PlanPermissionGate. A prompt is guidance; if mode changes during reasoning, the current gate still governs tool admission. The snapshot and later permission check are deliberately separate observations, not a lock spanning model work.
 
@@ -119,15 +120,14 @@ Build(None) returns the supplied history unchanged. Otherwise the transform appe
 
 Ordered System messages and complete tool pairs remain unchanged. The core rewrite validator still rejects incomplete tool history when the projection changes it; fresh Build preserves the unchanged-history equality fast path. Canonical agent history is never replaced by the request view, so repeated model requests do not accumulate reminders or contaminate transcript/memory inputs. Snapshot cancellation and defects propagate without a permissive fallback. This adapter does not compose other transforms automatically; hosts installing multiple request projections remain responsible for explicit composition and the same validation contract.
 
-Migration from upstream: request-only User context replaces System-prompt mutation. Fresh Build preserves the no-hint behavior. Other prompt methods' path assertions remain pending because the projection has no saved-location provenance; approved in-memory content is never presented as an existing approved file. The upstream Build-hint test checks recorded path text, not actual file existence. Opt-in controls are implemented below; authenticated host routing, durable restoration and child propagation remain separate work.
+Migration from upstream: request-only User context replaces System-prompt mutation. Fresh Build preserves the no-hint behavior. Legacy snapshot-only projection has no location metadata; the additive context projection below supplies configured/observed location data without presenting in-memory content as an existing approved file. The upstream Build-hint test checks recorded path text, not actual file existence. Opt-in controls are implemented below; authenticated host routing, durable restoration and child propagation remain separate work.
 
 ## Current projection identities
 
-Three unchanged identities from the five-file increment against 132a81a. Changed PlanPrompt and PlanPromptSpec identities are preserved in 2a73621 and replaced in the stored-session table below.
+Two unchanged identities from the five-file increment against 132a81a; PlanInputTransform is now preserved in fd496a4 and replaced in the location table. Their earlier PlanPrompt and PlanPromptSpec identities are preserved in 2a73621. Current PlanPrompt is in the location-context table; PlanPromptSpec remains in the stored-session table.
 
 | Source | Git blob |
 | --- | --- |
-| [PlanInputTransform.scala](PlanInputTransform.scala) | e7d07aafaca556099df9c55b84dcf26f95035070 |
 | [PlanInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputTransformSpec.scala) | a63dee4e6d8d1258c2f020fce788f07547a2c230 |
 | [PlanInputIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputIntegrationSpec.scala) | aef817a3b44b424ce94894e4fb412d54b6753d03 |
 
@@ -147,19 +147,16 @@ Lease acquisition refuses live and stale owners without deleting their token. Af
 
 AgentError.PlanStorageError distinguishes plan I/O, invalid stored content and ownership/closed-handle failures. Path policy continues to use PermissionDenied. Existing memory/transcript owner errors remain MemoryStorageError. Migration: exhaustive matches on the sealed AgentError hierarchy must include PlanStorageError; its individual JSON codec is derived. This does not make finalizer defects ordinary typed failures.
 
-The standalone backend itself changes no session state; the stored-session integration below connects publication to PlanSession. Opt-in model-facing controls are implemented below; saved-path prompts and restoration of session mode/approval remain pending. No additional complete upstream method is claimed: the inventory remains three adaptations and eleven pending methods.
+The standalone backend itself changes no session state; the stored-session integration below connects publication to PlanSession. Opt-in model-facing controls are implemented below; location-aware prompts are implemented below; restoration of session mode/approval remains pending. No additional complete upstream method is claimed: the current inventory has seven adaptations and seven pending methods after the location evidence below.
 
 ## Current draft-storage identities
 
-Final formatted nine-file increment against 083617b. Earlier changed AgentError, AgentErrorSpec and WorkspaceLease identities are preserved in that revision.
+Six unchanged identities from the nine-file increment against 083617b; the three changed store/files identities are preserved in fd496a4 and replaced in the location table. The original storage migration's earlier AgentError, AgentErrorSpec and WorkspaceLease identities are preserved in 083617b.
 
 | Source | Git blob |
 | --- | --- |
 | [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | ccc65bd076cc44a53cf85720dc035331030803e9 |
 | [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | f32ca3dd7cca41e95a1a0518ad84f9522ff5193a |
-| [LocalPlanDraftStore.scala](LocalPlanDraftStore.scala) | 0a6f886340ad675b07adb85b3c5a2f19ca565a08 |
-| [PlanDraftFiles.scala](PlanDraftFiles.scala) | 3e6907fa0d80603514a56477f23730e3328206ac |
-| [PlanDraftStore.scala](PlanDraftStore.scala) | c997151bbbfa36dc996ebed970beb52ceaf473f2 |
 | [WorkspaceLease.scala](../storage/WorkspaceLease.scala) | 409edda77d0fcf5b8846d1cc89e3050d190d2740 |
 | [LocalPlanDraftStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/LocalPlanDraftStoreSpec.scala) | 564df5e17f6c8c0998e060aea890adcf0bed5fc7 |
 | [PlanDraftFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDraftFilesSpec.scala) | 6ec27d1d45c1259dfcc7bd7984c9be3fa515dd1c |
@@ -183,16 +180,14 @@ Queued cancellation changes no state. Cancellation during writing can follow ext
 
 Storage callbacks must not await mutation methods or review resolution on the same session: those operations need the permit held during publication. Snapshot/mode reads are safe. The semaphore coordinates one session, not independent store clients, distributed hosts or remote transactions. The local backend's lease separately coordinates cooperative filesystem ownership.
 
-Migration: PlanSessionControl.replaceDraft now returns IO[AgentError, Unit], widening its former InvalidMessage-only channel so stored failures retain their identity. Callers explicitly declaring the narrower channel must widen or handle storage errors. PlanSession.make retains initial Build behavior and atomic in-memory replacement. Snapshot and review DTO shapes are unchanged. Existing stored text initializes Plan rather than restoring Build or pending approval, and ticket identities remain session-local. This integration provides no saved-path identity, durable approval record or automatic tool/UI registration; no additional whole upstream plan method is marked complete.
+Migration: PlanSessionControl.replaceDraft now returns IO[AgentError, Unit], widening its former InvalidMessage-only channel so stored failures retain their identity. Callers explicitly declaring the narrower channel must widen or handle storage errors. PlanSession.make retains initial Build behavior and atomic in-memory replacement. Snapshot and review DTO shapes are unchanged. Existing stored text initializes Plan rather than restoring Build or pending approval, and ticket identities remain session-local. The initial stored-session increment provided no location identity; descriptive location context is now implemented below. It still provides no durable approval record or automatic tool/UI registration; no additional whole upstream plan method is marked complete.
 
 ## Current stored-session identities
 
-Final formatted six-file increment against 2a73621. Earlier changed identities remain in that revision.
+Four unchanged identities from the six-file increment against 2a73621; changed PlanSession and PlanPrompt identities are preserved in fd496a4 and replaced in the location table. Earlier changed identities remain in that revision.
 
 | Source | Git blob |
 | --- | --- |
-| [PlanPrompt.scala](PlanPrompt.scala) | ba4679b355faed6c695ef82e9dfd0d8fa086ed04 |
-| [PlanSession.scala](PlanSession.scala) | 47d50c2131f284db31424fc4b1481d59555ce4a6 |
 | [PlanPromptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPromptSpec.scala) | 4b9f7d2127023a6f3d37645c3b281ccb1edaf3fd |
 | [PlanSessionReviewSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanSessionReviewSpec.scala) | 1cafefc8ef32aea7f391991665b30eb175b01c58 |
 | [PlanStoredPublicationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanStoredPublicationSpec.scala) | 3e7c47eb387816b6ece46d1224ab89fdd9a4b6ff |
@@ -224,7 +219,7 @@ Publisher failure closes the scope and cancels only a still-current request. Int
 
 The same controls work with make and stored sessions. In-memory DraftReplaced does not claim disk persistence. Stored failures become Error observations and leave no reviewable draft according to the stored-session contract. Integration tests use a real local store, normal permission admission and Parallel agent configuration, with only the plan controls requiring sequential batch execution. They verify assistant persistence before actions, a denied mutation before review, exact host approve/decline, subsequent live gate behavior and ordered result history/events.
 
-This is an explicit adaptation of the pinned PlanModeTools implementation: strict total input replaces coercion, separate exact-ticket review replaces an unversioned generic permission exit, and typed observations replace path claims. The fourteen-method manager/middleware/propagation inventory remains three adaptations and eleven pending methods because saved-location and child assertions are still outstanding.
+This is an explicit adaptation of the pinned PlanModeTools implementation: strict total input replaces coercion, separate exact-ticket review replaces an unversioned generic permission exit, and typed observations replace path claims. The control increment alone closes no additional named method; location context below adds four adaptations. The current inventory has seven adaptations and seven pending methods for custom-directory compatibility, skills and child propagation.
 
 ## Current model-control identities
 
@@ -243,3 +238,38 @@ Final formatted seven-file increment against bfca341.
 - [x] `review_fp` and `review_harness` approved the final seven-file model-control increment against `bfca341` on 2026-09-29 after strengthening the concurrency fixture. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 549 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within strict inputs, suspended/scoped delivery, mandatory exact-ticket review, failure/cancellation handling and actual ReAct ordering under Allow/Parallel configuration. Authenticated UI transport, saved-path evidence, durable handoff and child propagation are excluded.
 
 - [x] `review_docs` approved corrected model-control documentation against `bfca341`: seven identities, fifteen new cases, 556 core / 549 harness tests and unchanged 3/14 plan parity. Exact-ticket review is distinguished from independent generic Ask policy; delivery and cancellation limits are explicit. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
+
+## Descriptive locations and context provenance
+
+[PlanLocation](PlanContext.scala) is validated display text, not a filesystem capability. It preserves exact text and has a strict string codec. Total code-point validation rejects blank text, ISO controls, Unicode FORMAT characters including supplementary tag characters, line/paragraph separators and malformed UTF-16; legitimate supplementary visible characters are preserved. It performs no path resolution or normalization. A relative-looking or remote description does not authorize traversal or any I/O.
+
+PlanDraftStore.location defaults to None for existing/custom stores. LocalPlanDraftStore supplies the canonical configured directory's fixed PLAN.md destination after validation. A local destination whose display text is invalid fails opening with InvalidConfiguration before lease acquisition. Canonical path and ownership checks remain in the local backend; the metadata codec cannot manufacture those capabilities. The host must provide truthful immutable location metadata for custom stores.
+
+PlanSession.stored captures optional location once, alongside its initial store read. PlanSessionControl.location defaults to None and the concrete stored session retains the captured value through entry, replacement, review, approval and failure. PlanSessionControl.context reads exactly one snapshot and associates it with that immutable location. PlanContext has a derived codec for data exchange, not restoration, path authorization or approval credentials. Reopening local content retains the descriptive destination but initializes an unapproved Plan draft.
+
+PlanPrompt.fromContext and PlanInputTransform.fromContext are additive opt-in APIs. The existing render(snapshot) and make(UIO[PlanSessionSnapshot]) remain location-free. The new transform samples one context per model request and uses the same validated user coalescing and canonical-history isolation. System messages and tool pairs remain unchanged. Fresh Build without an approved draft still contributes no hint, even if a context has configured location metadata.
+
+Planning(None), including active/failed publication, labels the location only as a configured draft destination. That state does not establish whether a file is missing, old or ambiguously replaced. A current draft associates the location with the session's last successful read/publication. Approved Build additionally states that approval applies to the captured draft and revision, not arbitrary current contents at the path. Location text is JSON-quoted as data; it is never interpolated into executable syntax. Quoting is presentation, not a complete prompt-injection defense.
+
+This is recorded provenance, not continuous existence or content revalidation. External edits, independent sessions and raw store writes remain outside the session's exclusive-publication contract. No default workspace directory is created or discovered, and custom Java slash stripping is not adopted: local opening requires an existing explicit host-selected directory and preserves absolute-path meaning. Canonical dot/trailing-separator handling is tested separately from the upstream rebasing of /docs/plans/ to a workspace-relative destination.
+
+## Current location-context identities
+
+Final formatted ten-file increment against fd496a4, including the corrected code-point validator. Changed prior identities remain in that revision.
+
+| Source | Git blob |
+| --- | --- |
+| [LocalPlanDraftStore.scala](LocalPlanDraftStore.scala) | f8d62e332644533b186ca5397c028e7bee70a953 |
+| [PlanContext.scala](PlanContext.scala) | 37e323f303235e6bdce70c22da21aafd596266e1 |
+| [PlanDraftFiles.scala](PlanDraftFiles.scala) | 4fc563ad279ee74e77848bfe0f1dca5f7e39145e |
+| [PlanDraftStore.scala](PlanDraftStore.scala) | 478bd5c4de6c8eb39c6d4b857f09c171d3c2639b |
+| [PlanInputTransform.scala](PlanInputTransform.scala) | 837dad25472ab01d561ec26781b33b5564cc3625 |
+| [PlanPrompt.scala](PlanPrompt.scala) | ec2b932b615ef600235e6ece6da21191f662a7ec |
+| [PlanSession.scala](PlanSession.scala) | 2bd0ebde5a2d1e95e0cb223f3f68f74ec321dabd |
+| [PlanContextInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanContextInputSpec.scala) | 0662a99969dce13aadec27a8768c9de47ed088db |
+| [PlanContextSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanContextSpec.scala) | 619b5e074a59bd73a70178e6e44010edaff1ed82 |
+| [PlanLocationIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanLocationIntegrationSpec.scala) | f38b42608f683db7c0b18c5c8a383e58e990a387 |
+
+- [x] `review_fp` and `review_harness` approved the final ten-file location-context increment against `fd496a4` on 2026-09-29 after reproducing and fixing supplementary Unicode FORMAT validation. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 563 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within validated descriptive locations, canonical local metadata, single-snapshot context, provenance wording and four explicit manager/prompt adaptations. Continuous file revalidation, approval restoration, arbitrary third-party store truthfulness and legacy workspace-relative slash rebasing are excluded.
+
+- [x] `review_docs` approved corrected location-context documentation against `fd496a4`: ten identities, fourteen new cases, 556 core / 563 harness tests and seven of fourteen plan methods adapted. Metadata/provenance limits, Unicode validation and retired identity references are explicit; custom-directory rebasing, skills and child propagation remain pending. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.

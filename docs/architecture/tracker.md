@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: add explicit saved-plan location provenance and close the remaining manager/prompt path assertions, then implement supervised child propagation; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: define and implement safe typed workspace-relative plan-directory configuration for the remaining custom-directory method, then implement supervised child propagation; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -98,7 +98,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Implement truthful request-only plan projection with unchanged canonical/System/tool history; independently review thirteen new cases and verify 555 core / 506 harness tests.
 - [x] Integrate stored publication with the plan session without reviving stale approval after failure/cancellation.
 - [x] Implement strict model-facing controls with scoped exact-ticket host review and actual ReAct approve/decline flows.
-- [ ] Add saved-location provenance and remaining plan manager/prompt method parity.
+- [x] Add configured/observed location context, fourteen safety cases and four manager/prompt adaptations; verify 556 core / 563 harness tests.
+- [ ] Complete custom plan-directory normalization with explicit workspace-relative semantics.
 - [ ] Implement supervised child propagation.
 - [ ] Implement subagent depth bounds, scoped supervision, and timeout promotion.
 - [ ] Implement MCP protocol codecs, transports, discovery, and tool bridging.
@@ -138,7 +139,7 @@ Package indexes enumerate actual source and spec files. Planned package document
 | INV-6: Tool eviction | Standalone and runtime suites cover 80k/2k limits, persistence fallback, raw-result retention on cancellation, parallel slot isolation, and actual disk storage |
 | INV-7: Permission priority | Gate tests and installed interactive adapter cover Deny > Ask > Passthrough > Allow, fresh modified-input checks, and latest-policy denial |
 | INV-8: Subagent supervision | Planned |
-| INV-9: Plan mode hardening | Static grammar and opt-in runtime permission admission reviewed; in-memory review lifecycle, request projection and standalone draft storage are available; stored-session publication is available; model controls are available; saved-location provenance and child propagation remain pending |
+| INV-9: Plan mode hardening | Static grammar and opt-in runtime permission admission reviewed; in-memory review lifecycle, request projection and standalone draft storage are available; stored-session publication is available; model controls are available; location context is available; custom-directory compatibility and child propagation remain pending |
 | INV-10: Path safety | Canonical paths and parent traversal are tested; privileged symlink creation was unavailable on this host. The portable store requires host-controlled ancestors |
 | INV-11: Structured output | Schema hoisting, native/synthetic selection and capture tests; broader parity gaps remain |
 | INV-12: Indexed stream assembly | Interleaved deltas and interrupted partial JSON tests |

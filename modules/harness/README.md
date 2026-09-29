@@ -10,7 +10,7 @@ Standalone context and permission components built on core.
 | [eviction](src/main/scala/com/weisgnosis/agents/harness/eviction/README.md) | Above-80k eviction, 2k head/tail previews, explicit-trust local store |
 | [permission](src/main/scala/com/weisgnosis/agents/harness/permission/README.md) | Immutable decisions, Promise coordination, serializable durable approval values |
 | [subagent](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) | Planned supervision and task promotion |
-| [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) | Static command inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage; saved-location provenance and child propagation pending |
+| [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) | Static command inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage; custom-directory compatibility and child propagation pending |
 
 MemoryFlushManager supplies daily extraction through an injected DailyMemoryStore and can be installed as the compactor flush callback. LocalDailyMemoryStore supplies a scoped backend for host-controlled workspaces with exclusive cooperative ownership and atomic daily replacement. MemoryConsolidator enforces its counter budget before an atomic content/progress commit; MemoryRepository.inMemory implements shared daily/consolidation authority. LocalMemoryRepository supplies the daily/consolidation ports with shared ownership and journal recovery before each operation. Transcript recording can be installed through TurnCompletionObserver with an explicit anonymous-message policy. Completion-triggered flush scheduling is available through MemoryFlushScheduler. MemoryConsolidationScheduler adds opt-in owner-coalesced background consolidation with explicit result reporting. Explicit acknowledged-daily archival is available through MemoryRepository.retention. Remote memory/transcript storage, automatic session pruning, general middleware, and durable workflow storage remain pending. Hosts choose a memory store and supply summarization/offload effects and authenticated approval routing.
 
@@ -20,7 +20,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 556 core and 549 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 556 core and 563 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -131,10 +131,14 @@ Standalone local plan-draft storage now preserves exact content under scoped coo
 
 - [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 520 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
 
-Stored plan sessions now invalidate review before writing and reopen content only as unapproved Plan drafts. Opt-in model-facing controls are now available; saved-path identity and durable approval restoration remain separate work.
+Stored plan sessions now invalidate review before writing and reopen content only as unapproved Plan drafts. Opt-in model-facing controls are now available; descriptive location context is available; custom-directory compatibility and durable approval restoration remain separate work.
 
 - [x] `review_fp` and `review_harness` approved the final six-file stored-session increment against `2a73621` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 534 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within unapproved initialization, pre-write review invalidation, serialized mutations, cause-preserving settlement, early/late cancellation and local reopen. Saved-path evidence, durable approval, external store mutation and automatic tool/UI integration are excluded.
 
 PlanTools now adds strict opt-in enter/write/exit capabilities. Exact-ticket host review is mandatory inside exit even with ordinary Allow rules; publisher transport and authenticated decision routing remain host responsibilities.
 
 - [x] `review_fp` and `review_harness` approved the final seven-file model-control increment against `bfca341` on 2026-09-29 after strengthening the concurrency fixture. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 549 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within strict inputs, suspended/scoped delivery, mandatory exact-ticket review, failure/cancellation handling and actual ReAct ordering under Allow/Parallel configuration. Authenticated UI transport, saved-path evidence, durable handoff and child propagation are excluded.
+
+PlanContext now associates one snapshot with configured/observed location metadata. Four additional manager/prompt scenarios are adapted; legacy slash rebasing remains pending and no location value grants filesystem or approval authority.
+
+- [x] `review_fp` and `review_harness` approved the final ten-file location-context increment against `fd496a4` on 2026-09-29 after reproducing and fixing supplementary Unicode FORMAT validation. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 563 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within validated descriptive locations, canonical local metadata, single-snapshot context, provenance wording and four explicit manager/prompt adaptations. Continuous file revalidation, approval restoration, arbitrary third-party store truthfulness and legacy workspace-relative slash rebasing are excluded.

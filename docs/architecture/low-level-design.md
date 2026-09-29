@@ -87,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan saved-location provenance/child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan custom-directory compatibility/child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -206,8 +206,12 @@ PlanDraftStore exposes read: IO[AgentError, Option[PlanDraft]] and write(PlanDra
 
 PlanSession.stored(PlanDraftStore): IO[AgentError, PlanSession] reads once into unapproved Plan state. It does not acquire the injected store's lifetime. PlanSessionControl.replaceDraft now returns IO[AgentError, Unit]; explicitly narrower callers must widen or handle storage failures. Existing make and DTO shapes remain compatible. Stored publication uses the same STM review authority and a per-session mutation semaphore; host callbacks must not reenter mutations. See the [stored-session contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#stored-session-publication-and-review) for cause, cancellation and ownership limits.
 
-Changed session and prompt files now have [current stored-session identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-stored-session-identities); the earlier tables retain only unchanged files.
+Changed session and prompt production files now have [current location-context identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-location-context-identities); the earlier tables retain only unchanged files.
 
 ## Plan control APIs
 
 PlanTools.make(PlanSessionControl, PlanReviewPublisher): Toolkit is pure construction; PlanTools.access supplies exact trusted PlanControl classifications. PlanReviewPublisher.publish(PlanReviewRequest) is scoped and typed; its adapter suspends delivery. PlanReviewRequest contains a runtime PlanReview and optional untrusted summary, with no credential codec. PlanToolResult is a derived-codec enum for EnteredPlan, DraftReplaced and ReviewSettled(PlanReviewOutcome). See the [control contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#model-facing-controls-and-host-review-delivery) for schemas, installation and lifecycle limits.
+
+## Plan location APIs
+
+PlanLocation.fromString returns Either[AgentError.InvalidConfiguration, PlanLocation]; the opaque value exposes text and a validated string codec. PlanDraftStore.location and PlanSessionControl.location default to None for existing implementations. Control.context: UIO[PlanContext] associates one snapshot with immutable metadata. PlanPrompt.fromContext(PlanContext) and PlanInputTransform.fromContext(UIO[PlanContext]) add location-aware projection without changing legacy signatures. These values cannot authorize reads/writes or restore approval. See the [location contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#descriptive-locations-and-context-provenance).

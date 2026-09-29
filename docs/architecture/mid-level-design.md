@@ -190,3 +190,7 @@ PlanSession.stored initializes unapproved Planning state from one store read. A 
 ## Plan tool execution
 
 PlanTools uses exact AST input validation and non-concurrency-safe definitions for enter/write/exit. PlanControl classification abstains at the plan restriction gate while preserving ordinary permission authority. Exit scopes request registration, explicit publication and outcome waiting; the host alone resolves the exact ticket. A blocked publisher delays tool completion even after supersession. Decline/supersession are successful delivered observations, not execution permission; failed tools remain Error observations and cancellation remains interruption.
+
+## Location-aware plan context
+
+PlanContext combines one PlanSessionSnapshot with optional immutable PlanLocation. Stored sessions capture backend metadata once. Context projection uses configured-destination wording during absent/publishing/failed draft states and recorded read/publication wording for reviewable drafts; approved context retains exact-content authority. The existing snapshot-only APIs remain location-free. Display validation processes complete Unicode code points, rejects malformed surrogates and hidden formatting, and preserves valid supplementary characters. Local paths remain governed by canonical backend checks, independently of display codecs.

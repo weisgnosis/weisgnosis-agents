@@ -21,6 +21,8 @@ import zio.stm.*
 
 /** Model-facing planning capabilities; no method grants execution authority. */
 trait PlanSessionControl:
+  def location: Option[PlanLocation] = None
+  def context: UIO[PlanContext]      = snapshot.map(current => PlanContext(current, location))
   def snapshot: UIO[PlanSessionSnapshot]
   def mode: UIO[PlanMode] = snapshot.map(_.mode)
   def enter: UIO[Unit]
@@ -73,21 +75,28 @@ object PlanSession:
 
   final private case class State(revision: PlanRevision, status: Status)
 
-  def make: UIO[PlanSession] = create(Status.Build(None), DraftPersistence.Memory)
+  def make: UIO[PlanSession] = create(Status.Build(None), DraftPersistence.Memory, None)
 
   /** Existing stored content starts unapproved in Plan mode. The host retains the store's scope. */
   def stored(store: PlanDraftStore): IO[AgentError, PlanSession] =
-    ZIO
-      .suspendSucceed(store.read)
-      .flatMap(draft => create(Status.Planning(draft), DraftPersistence.Stored(store)))
+    ZIO.suspendSucceed:
+      val location = store.location
+      store.read.flatMap(draft =>
+        create(Status.Planning(draft), DraftPersistence.Stored(store), location)
+      )
 
-  private def create(initial: Status, persistence: DraftPersistence): UIO[PlanSession] =
+  private def create(
+      initial: Status,
+      persistence: DraftPersistence,
+      configuredLocation: Option[PlanLocation]
+  ): UIO[PlanSession] =
     for
       state     <- TRef.make(State(PlanRevision.Initial, initial)).commit
       mutations <- Semaphore.make(1)
     yield
       val control = new PlanSessionControl:
-        def snapshot: UIO[PlanSessionSnapshot] = state.get.map(_.status.snapshot).commit
+        override val location: Option[PlanLocation] = configuredLocation
+        def snapshot: UIO[PlanSessionSnapshot]      = state.get.map(_.status.snapshot).commit
 
         def enter: UIO[Unit] = mutations.withPermit((for
           current <- state.get

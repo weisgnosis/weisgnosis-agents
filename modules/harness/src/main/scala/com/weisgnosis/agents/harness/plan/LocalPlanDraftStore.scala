@@ -28,6 +28,7 @@ object LocalPlanDraftStore:
       files <- PlanDraftFiles.open(directory, trust)
       lease <- WorkspaceLease.open(files.directory, WorkspaceOwner.Plan)
       store = new PlanDraftStore:
+        override val location: Option[PlanLocation]       = Some(files.location)
         def read: IO[AgentError, Option[PlanDraft]]       = lease.protect(files.read)
         def write(draft: PlanDraft): IO[AgentError, Unit] = lease.protect(files.write(draft))
       _ <- store.read

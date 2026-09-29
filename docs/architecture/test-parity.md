@@ -771,14 +771,14 @@ Pinned upstream has fourteen methods across four suites. The initial static-shel
 
 - [x] `PlanModeMiddlewareTest.deniesMutatingToolsButAllowsReadOnlyAndPlanTools`: PlanPermissionIntegrationSpec verifies read/limited-plan pass-through and persisted Start/Delta/End denied observations for mutation and unclassified send; a separate RequestExecution case forces confirmation. Adaptation: exact host classifications replace implicit tool-name exemptions, and runtime preserves original occurrence order rather than upstream denied-first partitioning.
 - [x] `PlanModeMiddlewareTest.passesThroughWhenPlanModeInactive`: PlanPermissionGateSpec and real ReAct integration verify Build abstention and policy-approved mutation.
-- [ ] `PlanModeMiddlewareTest.systemPromptBannerOnlyWhenActive`: active/inactive guidance and preserved base System messages now have request-only projection evidence; the plan-file path assertion remains pending.
-- [ ] `PlanModeMiddlewareTest.buildModeHintSurfacesPlanFilePath`: exact approved in-memory draft context is available; the recorded plan-file path assertion remains pending and is never fabricated.
+- [x] `PlanModeMiddlewareTest.systemPromptBannerOnlyWhenActive`: PlanContextInputSpec verifies active planning context with configured location and unchanged canonical System/history; approved Build has distinct context. Adaptation: request-only User projection replaces Java System-prompt mutation.
+- [x] `PlanModeMiddlewareTest.buildModeHintSurfacesPlanFilePath`: PlanContextSpec and real request integration retain recorded location in approved Build. Adaptation: exact concrete-draft host review is required; upstream enter-then-unconditional-exit without writing is not adopted. Approval concerns captured content, not current contents at the path.
 - [x] `PlanModeMiddlewareTest.buildModeNoHintWhenNoPlanFile`: PlanPromptSpec and PlanInputTransformSpec verify fresh Build has no hint and preserves the exact supplied history. Explicit adaptation: no in-memory draft provenance replaces the absent file reference; System messages are not modified.
 - [ ] `PlanModeMiddlewareTest.allowsSubagentToolsInPlanMode`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeMiddlewareTest.skillLoadToolIsReadOnlyAndPermittedInPlanMode`: corresponding runtime/state/storage/propagation integration remains pending.
-- [ ] `PlanModeManagerTest.enterAndExitTogglePersistedFlag`: live mode assertions are adapted by PlanSessionSpec with mandatory concrete-draft host approval; path default/recording/retention assertions remain pending. The upstream test itself does not verify disk durability.
-- [ ] `PlanModeManagerTest.customPlanDirNormalised`: corresponding runtime/state/storage/propagation integration remains pending.
-- [ ] `PlanModeManagerTest.writePlanRecordsPathAndDoesNotThrow`: corresponding runtime/state/storage/propagation integration remains pending.
+- [x] `PlanModeManagerTest.enterAndExitTogglePersistedFlag`: PlanLocationIntegrationSpec verifies location retention across entry, exact publication, approved exit and re-entry. Adaptation: explicit host-selected canonical destination replaces implicit plans-directory discovery, and approval is version-bound. Reopen restores only unapproved content; the Java test does not prove restart durability.
+- [ ] `PlanModeManagerTest.customPlanDirNormalised`: canonical existing-directory selection is tested, but Java leading/trailing slash stripping and workspace-relative rebasing remain unimplemented. Do not equate these contracts.
+- [x] `PlanModeManagerTest.writePlanRecordsPathAndDoesNotThrow`: PlanLocationIntegrationSpec verifies actual on-disk exact draft text and matching canonical descriptive destination. Typed failures remain observable rather than being hidden by a no-throw assertion.
 - [ ] `PlanModeSubagentPropagationTest.declaredSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeSubagentPropagationTest.generalPurposeSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `AgentSpawnToolPlanModeTest.persistentSpawnReuse_reappliesParentPlanModeBeforeReturningOrInvoking`: corresponding runtime/state/storage/propagation integration remains pending.
@@ -793,7 +793,7 @@ The manager's persisted-flag test observes state fields, not save/reload durabil
 - [x] Reevaluate current mode and modified authoritative input after confirmation; reject replacement mutations and extra execution fields.
 - [x] Force Ask for RequestExecution without implementing or claiming a mode transition.
 - [x] Verify admitted execution can finish after a mode change while the next call is denied.
-- [ ] Complete the eleven remaining plan methods above, saved-location provenance, authenticated host UI and child integration.
+- [ ] Complete the seven remaining plan methods above, custom-directory compatibility, authenticated host UI and child integration.
 
 This closes two explicit middleware adaptations only. Safe static commands abstain; they do not acquire path/process authority or bypass ordinary permission policy. Current identities are in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities).
 
@@ -804,7 +804,8 @@ This closes two explicit middleware adaptations only. Safe static commands absta
 - [x] Require a concrete exact draft; edits/re-entry/new requests invalidate old approvals and atomically settle superseded waiters.
 - [x] Verify foreign/stale/replayed tickets, concurrent resolution, edit-versus-approval ordering and scope/cancellation ownership.
 - [x] Implement safe standalone files and stored-session publication as recorded below.
-- [ ] Complete manager path-recording/retention assertions and approval restoration; no additional entire upstream method is closed by the in-memory increment.
+- [x] Adapt manager path-recording/retention through explicit canonical location context and exact host approval.
+- [ ] Implement the remaining custom-directory contract and separately specified approval restoration.
 - [x] Implement truthful request-only prompt projection from one snapshot.
 - [x] Implement the model-facing review tool adapter.
 - [ ] Integrate authenticated host UI transport.
@@ -816,14 +817,16 @@ This deliberately hardens upstream unconditional exit and unversioned approval. 
 
 - [x] Add thirteen render/transform/real-runtime cases; preserve System messages, canonical history, complete tool pairs and original final-user fields.
 - [x] Sample one snapshot per request; prove mode changes during reasoning still use live gate authority.
-- [x] Adapt fresh Build no-hint behavior, bringing complete named plan adaptations to 3/14.
-- [ ] Complete eleven remaining methods, including path assertions in both other prompt methods.
+- [x] Adapt fresh Build no-hint behavior, bringing named adaptations to 3/14 at the projection increment; location evidence later brings the current total to 7/14.
+- [ ] Complete seven remaining methods covering custom-directory configuration, skills and child propagation.
 
 Request-only User context intentionally replaces upstream System-prompt mutation. JSON-quoted drafts remain data rather than a security or authorization boundary. Current identities and acceptance are in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-projection-identities).
 
-- [x] Add fifteen standalone plan-store hardening cases for content/Unicode, ownership, atomic replacement and typed error provenance. This supports future manager/path integration but closes no additional whole upstream method; three of fourteen remain adapted and eleven pending.
+- [x] Add fifteen standalone plan-store hardening cases for content/Unicode, ownership, atomic replacement and typed error provenance. This storage increment alone closes no additional whole method; location integration below now supplies four more adaptations.
 - [x] Integrate persisted draft publication with session generations, with fourteen new failure/cancellation and local-reopen cases.
 - [x] Adapt model-facing enter/write/exit behavior with strict inputs and mandatory exact-ticket host review; fifteen new control/delivery/runtime cases.
-- [ ] Add explicit location provenance before closing manager path/write assertions or adding saved-file prompt claims.
+- [x] Add explicit configured/observed location provenance and four manager/prompt method adaptations without claiming continuous file existence.
 
-PlanModeTools has no separately named pinned test suite in this inventory. Its implementation is adapted through PlanToolsSpec and PlanToolsIntegrationSpec, with stricter input, scoped review and typed outcomes. These new scenarios do not close the eleven remaining manager/middleware/propagation methods.
+PlanModeTools has no separately named pinned test suite in this inventory. Its implementation is adapted through PlanToolsSpec and PlanToolsIntegrationSpec, with stricter input, scoped review and typed outcomes. These scenarios alone closed no additional named method. Location evidence subsequently brings the current inventory to seven adaptations and seven pending methods.
+
+- [x] Independently review fourteen location/context cases after reproducing and fixing supplementary Unicode FORMAT validation. Current plan inventory: seven adapted methods and seven pending; legacy custom-directory rebasing remains pending.

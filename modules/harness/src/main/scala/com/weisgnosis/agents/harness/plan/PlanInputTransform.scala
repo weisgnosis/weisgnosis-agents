@@ -24,8 +24,11 @@ import zio.json.ast.Json
 /** One snapshot per request; reminder views never replace canonical conversation history. */
 object PlanInputTransform:
   def make(snapshot: UIO[PlanSessionSnapshot]): ModelInputTransform =
+    fromContext(snapshot.map(current => PlanContext(current)))
+
+  def fromContext(context: UIO[PlanContext]): ModelInputTransform =
     ModelInputTransform: (_, history) =>
-      snapshot.flatMap(current => ZIO.fromEither(append(history, PlanPrompt.render(current))))
+      context.flatMap(current => ZIO.fromEither(append(history, PlanPrompt.fromContext(current))))
 
   private def append(
       history: Chunk[Msg],

@@ -50,6 +50,20 @@ object PlanPrompt:
         ) + context(approved.draft)
       )
 
+  def fromContext(context: PlanContext): Option[String] =
+    render(context.snapshot).map: prompt =>
+      context.location.fold(prompt): location =>
+        val label = context.snapshot match
+          case PlanSessionSnapshot.Planning(None) =>
+            "Configured draft destination (no current reviewable draft): "
+          case _ =>
+            "Draft location associated with the last successful session read or publication: "
+        val approval = context.snapshot match
+          case PlanSessionSnapshot.Build(Some(_)) =>
+            "\nApproval applies to the captured draft and revision, not to whatever currently occupies this location."
+          case _ => ""
+        s"$prompt\n\n$label${location.text.toJson}$approval"
+
   private def reminder(text: String): String = s"<system-reminder>\n$text\n</system-reminder>"
 
   private def context(draft: PlanDraft): String =
