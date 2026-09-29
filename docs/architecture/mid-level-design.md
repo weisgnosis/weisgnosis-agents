@@ -93,7 +93,7 @@ Enforce MAX_SPAWN_DEPTH=3. In-turn children use scoped fibers and propagate canc
 
 ## 10. Plan-mode hardening and remaining integration
 
-Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. Plan exit requires explicit Ask approval. A conservative static POSIX grammar is implemented below. Runtime admission is implemented below; policy propagation and plan tools remain pending.
+Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. PlanTools exit requires authenticated exact-ticket host review. Generic RequestExecution classification and ordinary policy may independently require Ask; they do not replace that review. A conservative static POSIX grammar is implemented below. Runtime admission is implemented below; policy propagation remains pending; opt-in plan tools are implemented below.
 
 ## Transcript observation authority
 
@@ -186,3 +186,7 @@ A host explicitly opens an existing trusted directory. One cooperative lease ser
 ## Stored-session mutation ordering
 
 PlanSession.stored initializes unapproved Planning state from one store read. A per-session mutation semaphore surrounds entry, writes, review registration and resolution, while snapshots remain available. Stored writes atomically supersede prior review before I/O, expose no reviewable draft while publishing, then either publish the successful candidate or clear the draft while propagating the complete failure cause. Queued mutations remain interruptible; human waiting holds no semaphore. The host retains store lifetime and exclusive logical publication ownership. Storage callbacks may read snapshots but must not wait on session mutations while the publication permit is held.
+
+## Plan tool execution
+
+PlanTools uses exact AST input validation and non-concurrency-safe definitions for enter/write/exit. PlanControl classification abstains at the plan restriction gate while preserving ordinary permission authority. Exit scopes request registration, explicit publication and outcome waiting; the host alone resolves the exact ticket. A blocked publisher delays tool completion even after supersession. Decline/supersession are successful delivered observations, not execution permission; failed tools remain Error observations and cancellation remains interruption.

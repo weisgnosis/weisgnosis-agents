@@ -54,7 +54,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Truthful request-only plan projection with preserved canonical history.
 - [x] Standalone scoped local plan-draft storage with atomic publication.
 - [x] Stored-session publication with exact review invalidation and unapproved reopening.
-- [ ] Plan control tools and child propagation.
+- [x] Opt-in strict plan controls with exact-ticket host review.
+- [ ] Saved-location provenance and child propagation.
 - [ ] MCP protocol, transports, discovery, and toolkit bridging.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
@@ -113,11 +114,11 @@ MemoryConfig now combines defaults and overrides without a mutable builder. Vali
 
 ## Plan-mode foundation
 
-Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; standalone safe plan storage is implemented below; stored-session publication is available; model-facing transition tools and child propagation remain pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
+Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; standalone safe plan storage is implemented below; stored-session publication is available; model-facing controls are available; saved-location provenance and child propagation remain pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
 
 ## Plan admission authority
 
-PlanPermissionGate now integrates explicit host-owned mode and tool classifications into normal permission admission. It restricts capabilities without granting permission, and execution requests still require confirmation. The runtime persists and streams denied results. Mode changes affect later checks; they do not revoke already admitted work. In-memory host-approved transitions are implemented below; plan persistence, model-facing transition tools and child restrictions remain separate work.
+PlanPermissionGate now integrates explicit host-owned mode and tool classifications into normal permission admission. It restricts capabilities without granting permission, and execution requests still require confirmation. The runtime persists and streams denied results. Mode changes affect later checks; they do not revoke already admitted work. In-memory host-approved transitions are implemented below; stored publication and opt-in transition tools are available; saved-location provenance and child restrictions remain separate work.
 
 ## Plan-session review authority
 
@@ -129,8 +130,12 @@ PlanInputTransform now projects one session snapshot into each model request wit
 
 ## Plan draft persistence boundary
 
-LocalPlanDraftStore now provides explicit host-owned storage of one draft with scoped ownership and atomic replacement. Filesystem content confers no approval authority. Integration with review generations is now available; model-facing controls remain separate work; an interrupted write may have published content, so future integration must not infer rollback from a failed/cancelled effect.
+LocalPlanDraftStore now provides explicit host-owned storage of one draft with scoped ownership and atomic replacement. Filesystem content confers no approval authority. Integration with review generations is now available; model-facing controls are available below; saved-location provenance remains separate work; an interrupted write may have published content, so future integration must not infer rollback from a failed/cancelled effect.
 
 ## Stored plans and authority
 
 PlanSession.stored now joins one host-owned draft store to the existing review state machine. Writes invalidate old review authority before external publication; only a completed write publishes a new unapproved draft. Failed or cancelled writes never reinstate an old approval. Reopening reads content into Plan, preserving no prior execution permission. One session must own publication for its store; direct/external edits and independent sessions are not coordinated by this API.
+
+## Plan control boundary
+
+PlanTools exposes opt-in enter/write/exit capabilities without host approval authority. Exit publishes the exact review ticket and waits for the independently authenticated host decision. Ordinary Allow rules cannot bypass this review. The consuming host owns UI routing and publisher responsiveness; delivery failure cannot undo approval already committed. No saved path or durable handoff is inferred.

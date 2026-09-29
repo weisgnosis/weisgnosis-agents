@@ -784,7 +784,7 @@ Pinned upstream has fourteen methods across four suites. The initial static-shel
 - [ ] `AgentSpawnToolPlanModeTest.persistentSpawnReuse_reappliesParentPlanModeBeforeReturningOrInvoking`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `AgentSpawnToolPlanModeTest.agentSend_reappliesParentPlanModeBeforeInvokingExistingChild`: corresponding runtime/state/storage/propagation integration remains pending.
 
-The manager's persisted-flag test observes state fields, not save/reload durability. Plan directory slash normalization is not canonical path safety. Confirmed exit must retain the independent Ask decision. Propagation applies to reused children and does not automatically lift a child's restriction when the parent exits. Current static grammar acceptance is recorded in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
+The manager's persisted-flag test observes state fields, not save/reload durability. Plan directory slash normalization is not canonical path safety. Confirmed exit requires exact-ticket authenticated host review; generic RequestExecution Ask and independent policy gates remain separate admission decisions. Propagation applies to reused children and does not automatically lift a child's restriction when the parent exits. Current static grammar acceptance is recorded in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
 
 
 ## Plan permission integration evidence
@@ -793,7 +793,7 @@ The manager's persisted-flag test observes state fields, not save/reload durabil
 - [x] Reevaluate current mode and modified authoritative input after confirmation; reject replacement mutations and extra execution fields.
 - [x] Force Ask for RequestExecution without implementing or claiming a mode transition.
 - [x] Verify admitted execution can finish after a mode change while the next call is denied.
-- [ ] Complete the eleven remaining plan methods above and authenticated plan-file/control-tool/child integration.
+- [ ] Complete the eleven remaining plan methods above, saved-location provenance, authenticated host UI and child integration.
 
 This closes two explicit middleware adaptations only. Safe static commands abstain; they do not acquire path/process authority or bypass ordinary permission policy. Current identities are in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities).
 
@@ -803,9 +803,11 @@ This closes two explicit middleware adaptations only. Safe static commands absta
 - [x] Adapt live Build/Plan transitions through a separate host review capability and use the same session mode for the installed permission gate.
 - [x] Require a concrete exact draft; edits/re-entry/new requests invalidate old approvals and atomically settle superseded waiters.
 - [x] Verify foreign/stale/replayed tickets, concurrent resolution, edit-versus-approval ordering and scope/cancellation ownership.
-- [ ] Complete manager path-recording/retention assertions, safe files and restoration; no additional entire upstream method is closed by this increment.
+- [x] Implement safe standalone files and stored-session publication as recorded below.
+- [ ] Complete manager path-recording/retention assertions and approval restoration; no additional entire upstream method is closed by the in-memory increment.
 - [x] Implement truthful request-only prompt projection from one snapshot.
-- [ ] Implement model-facing review tool/UI integration.
+- [x] Implement the model-facing review tool adapter.
+- [ ] Integrate authenticated host UI transport.
 
 This deliberately hardens upstream unconditional exit and unversioned approval. The eighteen added tests establish in-memory state and capability ownership, not a file or approval-delivery protocol. Current identities are in the [session contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-session-identities).
 
@@ -821,4 +823,7 @@ Request-only User context intentionally replaces upstream System-prompt mutation
 
 - [x] Add fifteen standalone plan-store hardening cases for content/Unicode, ownership, atomic replacement and typed error provenance. This supports future manager/path integration but closes no additional whole upstream method; three of fourteen remain adapted and eleven pending.
 - [x] Integrate persisted draft publication with session generations, with fourteen new failure/cancellation and local-reopen cases.
-- [ ] Add explicit location provenance and control-tool integration before closing manager path/write assertions or adding saved-file prompt claims.
+- [x] Adapt model-facing enter/write/exit behavior with strict inputs and mandatory exact-ticket host review; fifteen new control/delivery/runtime cases.
+- [ ] Add explicit location provenance before closing manager path/write assertions or adding saved-file prompt claims.
+
+PlanModeTools has no separately named pinned test suite in this inventory. Its implementation is adapted through PlanToolsSpec and PlanToolsIntegrationSpec, with stricter input, scoped review and typed outcomes. These new scenarios do not close the eleven remaining manager/middleware/propagation methods.

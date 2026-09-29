@@ -16,7 +16,7 @@ An operand must not begin with a hyphen. Implicit stdin, unknown options, wrappe
 
 ## Current acceptance and identities
 
-The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; stored-session publication is implemented below; control tools and child propagation remain pending; standalone draft storage is described below; request-only prompt projection is implemented below. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with eleven still pending after the projection adaptation below. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
+The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; stored-session publication is implemented below; model controls are implemented below; saved-location provenance and child propagation remain pending; standalone draft storage is described below; request-only prompt projection is implemented below. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with eleven still pending after the projection adaptation below. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
 
 | Source | Git blob |
 | --- | --- |
@@ -35,7 +35,9 @@ The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs wer
 - [x] Implement request-only prompt projection from one live session snapshot.
 - [x] Independently verify standalone draft storage, ownership, encoding and atomic publication.
 - [x] Integrate stored publication with session generations and failure/cancellation settlement.
-- [ ] Implement model-facing confirmed exit tools and authenticated host routing.
+- [x] Implement strict model-facing controls and exact-ticket confirmed exit through an explicit publisher.
+- [ ] Add saved-location provenance and remaining manager/prompt method parity.
+- [ ] Integrate authenticated host UI routing in the consuming application.
 - [ ] Propagate restrictions to new and reused children before admitting spawn/send tools.
 
 - [x] `review_docs` approved corrected static-shell documentation against `2d4094b`: four identities, ten tests, exact grammar and fourteen pending upstream methods. Full verification passed 555 core / 461 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Runtime enforcement and executor/path/sandbox authority remain explicitly outside this scope.
@@ -81,7 +83,7 @@ Final formatted eight-file increment against 0ad16e5; prior changed grammar iden
 
 ## In-memory plan-session lifecycle
 
-[PlanSession.make](PlanSession.scala) returns two capabilities. Give model-facing tools only control: snapshot, mode, enter, replaceDraft and scoped requestReview. Retain reviewer with the authenticated host; only reviewer.resolve can approve or decline. There is no unconditional exit or approval method on the control interface. The service itself authenticates no user and automatically registers no tools or UI routing.
+[PlanSession.make](PlanSession.scala) returns two capabilities. Give model-facing tools only control: snapshot, mode, enter, replaceDraft and scoped requestReview. Retain reviewer with the authenticated host; only reviewer.resolve can approve or decline. There is no unconditional exit or approval method on the control interface. The service itself authenticates no user and automatically registers no tools or UI routing; opt-in PlanTools are implemented below.
 
 [PlanSessionSnapshot](PlanSessionState.scala) distinguishes Build(approved), Planning(optional draft) and AwaitingReview(draft, revision). PlanDraft is validated nonblank text and retains its exact contents. PlanRevision is a nonnegative unbounded integer with a strict numeric codec; it cannot wrap at a machine integer boundary. Snapshot/decision/outcome codecs represent data, not permission to restore state or manufacture an active review. PlanSession.make starts fresh in Build without an approved plan. The additive stored factory below starts in Plan with unapproved stored content.
 
@@ -117,7 +119,7 @@ Build(None) returns the supplied history unchanged. Otherwise the transform appe
 
 Ordered System messages and complete tool pairs remain unchanged. The core rewrite validator still rejects incomplete tool history when the projection changes it; fresh Build preserves the unchanged-history equality fast path. Canonical agent history is never replaced by the request view, so repeated model requests do not accumulate reminders or contaminate transcript/memory inputs. Snapshot cancellation and defects propagate without a permissive fallback. This adapter does not compose other transforms automatically; hosts installing multiple request projections remain responsible for explicit composition and the same validation contract.
 
-Migration from upstream: request-only User context replaces System-prompt mutation. Fresh Build preserves the no-hint behavior. Other prompt methods' path assertions remain pending because the projection has no saved-location provenance; approved in-memory content is never presented as an existing approved file. The upstream Build-hint test checks recorded path text, not actual file existence. Model-facing controls, authenticated host routing, durable restoration and child propagation remain separate work.
+Migration from upstream: request-only User context replaces System-prompt mutation. Fresh Build preserves the no-hint behavior. Other prompt methods' path assertions remain pending because the projection has no saved-location provenance; approved in-memory content is never presented as an existing approved file. The upstream Build-hint test checks recorded path text, not actual file existence. Opt-in controls are implemented below; authenticated host routing, durable restoration and child propagation remain separate work.
 
 ## Current projection identities
 
@@ -145,7 +147,7 @@ Lease acquisition refuses live and stale owners without deleting their token. Af
 
 AgentError.PlanStorageError distinguishes plan I/O, invalid stored content and ownership/closed-handle failures. Path policy continues to use PermissionDenied. Existing memory/transcript owner errors remain MemoryStorageError. Migration: exhaustive matches on the sealed AgentError hierarchy must include PlanStorageError; its individual JSON codec is derived. This does not make finalizer defects ordinary typed failures.
 
-The standalone backend itself changes no session state; the stored-session integration below connects publication to PlanSession. Model-facing control tools, saved-path prompts and restoration of session mode/approval remain pending. No additional complete upstream method is claimed: the inventory remains three adaptations and eleven pending methods.
+The standalone backend itself changes no session state; the stored-session integration below connects publication to PlanSession. Opt-in model-facing controls are implemented below; saved-path prompts and restoration of session mode/approval remain pending. No additional complete upstream method is claimed: the inventory remains three adaptations and eleven pending methods.
 
 ## Current draft-storage identities
 
@@ -199,3 +201,45 @@ Final formatted six-file increment against 2a73621. Earlier changed identities r
 - [x] `review_fp` and `review_harness` approved the final six-file stored-session increment against `2a73621` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 534 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within unapproved initialization, pre-write review invalidation, serialized mutations, cause-preserving settlement, early/late cancellation and local reopen. Saved-path evidence, durable approval, external store mutation and automatic tool/UI integration are excluded.
 
 - [x] `review_docs` approved corrected stored-session documentation against `2a73621`: six identities, fourteen new cases, 556 core / 534 harness tests and unchanged 3/14 plan parity. Ownership, failure/cancellation limits and the widened error channel are explicit. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain in this scope.
+
+## Model-facing controls and host review delivery
+
+[PlanTools.make](PlanTools.scala) creates an immutable Toolkit using only PlanSessionControl and [PlanReviewPublisher](PlanReviewPublisher.scala). Construction invokes neither capability. Merge it into an existing toolkit using the collision-checking registration/combination APIs. It installs no permission rules, publisher transport, UI or global mode. The host separately retains PlanReviewAuthority and authenticates decision delivery.
+
+| Tool | Exact accepted input | Completed observation |
+| --- | --- | --- |
+| plan_enter | Empty JSON object | EnteredPlan |
+| plan_write | Exactly one nonblank string content field | DraftReplaced |
+| plan_exit | Empty object, or exactly one string summary field | ReviewSettled(outcome) |
+
+Unknown fields, duplicates, explicit nulls, wrong types and blank drafts are rejected before execution. The public JSON schemas forbid extra properties; runtime validation independently enforces the exact envelope. A summary is optional untrusted display text, never the approved draft or a credential. The publisher receives the runtime PlanReviewRequest containing the exact ticket/draft/revision and summary. It must present that exact draft for authenticated host review; only the separately held reviewer can resolve the ticket.
+
+All three definitions are mutating and not concurrency-safe. PlanTools.access classifies these exact implementations as PlanControl, including plan_exit. Its mandatory internal exact-ticket review supplies the execution handoff; classifying it RequestExecution would add a separate generic Ask before that review. Ordinary independent permission rules/gates still apply, and no implicit Allow is installed. A host selecting Allow for these controls cannot bypass plan_exit's internal review. Do not apply these trusted classifications to unrelated implementations merely because their names match.
+
+Exit owns a Scope containing request registration, publisher resources and the subsequent review wait. Publication must finish before waiting continues. Supersession settles the ticket immediately but does not cancel a blocked publisher; the tool remains pending until publication finishes or is interrupted. Hosts should publish/deliver promptly rather than await a separate workflow inside that callback. No background delivery, timeout, durable approval handoff or UI routing is provided.
+
+Publisher failure closes the scope and cancels only a still-current request. Interruption preserves cancellation and waits for scoped cleanup. Stale finalizers cannot undo another generation or an approval already committed by the host. In particular, failure/interruption after an authenticated approval may leave Build active: delivery failure does not roll back the decision. The result describes the settled review occurrence, not a promise that current mode remains unchanged after delivery.
+
+[PlanToolResult](PlanToolResult.scala) has a derived codec and distinguishes entry, draft replacement and all review outcomes. Declined, Superseded and Cancelled are delivered control observations; when successfully encoded, Toolkit marks them Success, which does not mean approval. Only Approved carries the exact reviewed draft/revision. Typed/defective tool failures become Error observations through the existing Toolkit boundary; interruption remains cancellation. That generic boundary does not preserve all composite failure details in tool output. No output invents a saved file path or completed plan execution.
+
+The same controls work with make and stored sessions. In-memory DraftReplaced does not claim disk persistence. Stored failures become Error observations and leave no reviewable draft according to the stored-session contract. Integration tests use a real local store, normal permission admission and Parallel agent configuration, with only the plan controls requiring sequential batch execution. They verify assistant persistence before actions, a denied mutation before review, exact host approve/decline, subsequent live gate behavior and ordered result history/events.
+
+This is an explicit adaptation of the pinned PlanModeTools implementation: strict total input replaces coercion, separate exact-ticket review replaces an unversioned generic permission exit, and typed observations replace path claims. The fourteen-method manager/middleware/propagation inventory remains three adaptations and eleven pending methods because saved-location and child assertions are still outstanding.
+
+## Current model-control identities
+
+Final formatted seven-file increment against bfca341.
+
+| Source | Git blob |
+| --- | --- |
+| [PlanReviewPublisher.scala](PlanReviewPublisher.scala) | ae1ef6ba98941228500602a494defe7cfa3ab92e |
+| [PlanToolResult.scala](PlanToolResult.scala) | 5d816a3438c938b1df1e5e3afb2924f9dc742018 |
+| [PlanTools.scala](PlanTools.scala) | b4319d9c0bef3e8a6861a8a22ffff30364b75398 |
+| [PlanReviewPublisherSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanReviewPublisherSpec.scala) | 417dd96dfb195dd28a65fbdda7bc6ac2288ea058 |
+| [PlanToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolResultSpec.scala) | c910dc8c1d439941a31bbbe448c864a05a3021ee |
+| [PlanToolsIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolsIntegrationSpec.scala) | 6977f7ece6a49a632721a56b9b7268e23ac2a3c1 |
+| [PlanToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolsSpec.scala) | f0a2f26074b60baf5dbc30b07c1ac7330fd663cd |
+
+- [x] `review_fp` and `review_harness` approved the final seven-file model-control increment against `bfca341` on 2026-09-29 after strengthening the concurrency fixture. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 549 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within strict inputs, suspended/scoped delivery, mandatory exact-ticket review, failure/cancellation handling and actual ReAct ordering under Allow/Parallel configuration. Authenticated UI transport, saved-path evidence, durable handoff and child propagation are excluded.
+
+- [x] `review_docs` approved corrected model-control documentation against `bfca341`: seven identities, fifteen new cases, 556 core / 549 harness tests and unchanged 3/14 plan parity. Exact-ticket review is distinguished from independent generic Ask policy; delivery and cancellation limits are explicit. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
