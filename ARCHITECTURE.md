@@ -11,7 +11,7 @@ ReActAgent retains in-memory history through private Ref values and serializes r
 | Module | Available | Pending |
 | --- | --- | --- |
 | core | Models/codecs, event ADT, tools, path checks, SSE parsing/assembly, scoped HTTP completion, client port, ReAct and structured output | Provider extensions, complete event integration, and exhaustive upstream parity |
-| harness | Daily-memory extraction/local storage, in-memory/recoverable local consolidation, in-memory/local transcript observations, compactor, token estimator, opt-in local/inline result eviction/store adapter, interactive policy adapter, approval requests, durable approval DTOs, static plan inspection, opt-in plan admission and in-memory reviewed sessions and request-only plan context, standalone local plan drafts | Durable checkpoints, remote memory/transcript storage, subagents, plan child propagation |
+| harness | Daily-memory extraction/local storage, in-memory/recoverable local consolidation, in-memory/local transcript observations, compactor, token estimator, opt-in local/inline result eviction/store adapter, interactive policy adapter, approval requests, durable approval DTOs, static plan inspection, opt-in plan admission and in-memory reviewed sessions and request-only plan context, standalone local plan drafts, local scoped task supervision | Durable checkpoints, remote memory/transcript storage, child factories/depth/registry, plan child propagation |
 | mcp | Design scaffolding | Protocol, transports, discovery and toolkit bridge |
 
 Dependencies point from harness and mcp to core. Core must not import harness services. Hosts compose components and supply external dependencies.
@@ -51,6 +51,6 @@ Stored plan sessions now invalidate review before writing and reopen content onl
 
 PlanTools now adds strict opt-in enter/write/exit capabilities. Exact-ticket host review is mandatory inside exit even with ordinary Allow rules; publisher transport and authenticated decision routing remain host responsibilities.
 
-PlanContext now associates one snapshot with configured/observed location metadata. Four additional manager/prompt scenarios are adapted; legacy slash rebasing remains pending and no location value grants filesystem or approval authority.
+PlanContext now associates one snapshot with configured/observed location metadata. Four additional manager/prompt scenarios and the stricter typed-directory scenario are adapted; no location value grants filesystem or approval authority.
 
 Typed PlanDirectory configuration now selects an existing strict descendant of an explicit host-controlled workspace. Native Path opening retains its semantics; no directory creation or implicit workspace discovery is provided. Plan parity now records eight of fourteen named adaptations; skills and supervised child propagation remain pending.

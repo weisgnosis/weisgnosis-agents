@@ -1,6 +1,6 @@
 # Mid-level behavior and planned integrations
 
-Sections 1-6 describe current components. Section 7 describes implemented daily extraction, scoped daily storage, and process-local consolidation, and recoverable local consolidation. Sections 8-9 describe planned behavior; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
+Sections 1-6 describe current components. Section 7 describes implemented daily extraction, scoped daily storage, and process-local consolidation, and recoverable local consolidation. Section 8 describes planned behavior; section 9 distinguishes implemented supervision from pending child factories; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
 
 ## 1. ReAct lifecycle
 
@@ -87,9 +87,11 @@ LocalDailyMemoryStore delegates to this repository. Its capability cannot propos
 
 Middleware checks permission before execution. Interactive hosts route authenticated confirmations to Promise waiters. Durable hosts persist partial history and pending approvals before ending an activity, then resume pending execution from ConfirmResult without re-prompting the model. Tool execution checkpoints and idempotency belong to the host.
 
-## 9. Planned subagents
+## 9. Subagent supervision and remaining factories
 
-Enforce MAX_SPAWN_DEPTH=3. In-turn children use scoped fibers and propagate cancellation. At a 30-second synchronous timeout, promotion transfers ownership to a persistent TaskSupervisor; finishing the parent turn must not terminate promoted tasks. Task inspection and cancellation interfaces remain design targets.
+TaskSupervisor now owns local executions and parent cancellation leases. Each awaitOrPromote invocation starts a fresh 30-second wait; after the timer wins, masked promotion relinquishes the parent lease without moving/restarting execution. Explicit cancellation and owner closure join cleanup and full Exit remains observable. The owner Scope outlives promoted work only when the host retains it. Runtime-owned depth <=3, child factories, task registry and model-facing spawn/send remain pending.
+
+The supervisor owner uses parallel closure, but each worker scope is sequential. ZIO 2.1.26 forkIn self-cleanup depends on same-fiber identity; direct inheritance of parallel finalizers caused a reproduced self-join hang. Explicit worker-scope completion closes/unregisters it. Short admission serialization ends before user work or waiting; owner closure closes admission before shutdown.
 
 ## 10. Plan-mode hardening and remaining integration
 

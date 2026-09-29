@@ -1,23 +1,16 @@
-# com.weisgnosis.agents.harness.subagent (Tests)
+# Scoped task supervision verification
 
-> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+[TaskSupervisorSpec](TaskSupervisorSpec.scala) supplies sixteen cases covering completed/repeated observation, typed failure plus cleanup defect, self-interruption, parent cleanup joining, 30-second same-execution promotion, host closure and closed admission, early/late parent cancellation, explicit cancellation, masked acquisition, per-invocation wait budgets, concurrent parent/explicit cancellation, parallel shutdown fan-out, retained interruption/cleanup causes, cancellation/deadline races and admission/shutdown races. Race scenarios repeat twenty times using ZIO Test clocks and explicit promises; they do not establish exhaustive schedule coverage.
 
-ZIO Test parity suite for `com.weisgnosis.agents.harness.subagent`.
+[TaskSupervisorAgentSpec](TaskSupervisorAgentSpec.scala) supplies two actual ReAct cases. Attached cancellation verifies assistant-before-tool persistence, exactly one Error result, recovery history and tool cleanup. Promotion verifies one tool execution continues after parent closure and completes the following model turn without interrupted recovery. No model-facing spawn tool or event forwarding is installed.
 
----
+The [current contract and source identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md) define scope ownership, per-wait deadlines and cause observation. Parallel owner closure with sequential worker scopes prevents the reproduced forkIn self-join hang while cancelling all children before waiting on blocked cleanup.
 
-## 🧪 Planned Test Specs
+- [x] Verify eighteen supervision and runtime integration cases.
+- [ ] Verify runtime-owned depth enforcement before factory/model invocation.
+- [ ] Verify child identity/registry, capability narrowing and actual spawn/send entry points.
+- [ ] Verify correlated child event forwarding and exact source attribution.
+- [ ] Verify declared/general-purpose and reused-child plan propagation.
+- [ ] Complete applicable upstream task/tool mappings after those APIs exist.
 
-1. **`SubagentSpawnSpec.scala`** (corresponds to `AgentSpawnToolTest.java`):
-   - Invoking `agent_spawn` and initializing child agent state.
-   - Enforcing spawn depth cap (`MAX_SPAWN_DEPTH = 3`).
-   - Tool isolation: verifying child agents cannot invoke unauthorized parent tools.
-
-2. **`SubagentCancelSpec.scala`** (corresponds to `AgentSpawnToolCancelEndEventTest.java`):
-   - Interrupting the parent fiber during child execution.
-   - Verifying child fiber termination.
-   - Verifying emission of `SubagentEndEvent(status = "interrupted")`.
-
-3. **`SubagentPlanModePropagationSpec.scala`** (corresponds to `AgentSpawnToolPlanModeTest.java`):
-   - Propagating plan mode restrictions from parent to child.
-   - Disallowing write tools in child agents when parent is in plan mode.
+- [x] `review_fp` and `review_harness` renewed approval of the final five-file supervision scope against `26f524c` on 2026-09-29 after reproducing and correcting the parallel forkIn self-join. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 593 harness tests, including eighteen new cases, with zero compiler warnings. No findings remain within local scoped admission, cancellation leases, same-execution promotion, full-Exit observation, parallel shutdown and actual ReAct continuation/reconciliation. Registry, depth enforcement, spawn/send tools, persistence, event forwarding and plan propagation are excluded.

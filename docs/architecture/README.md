@@ -33,6 +33,8 @@ Stored plan sessions now invalidate review before writing and reopen content onl
 
 PlanTools now adds strict opt-in enter/write/exit capabilities. Exact-ticket host review is mandatory inside exit even with ordinary Allow rules; publisher transport and authenticated decision routing remain host responsibilities.
 
-PlanContext now associates one snapshot with configured/observed location metadata. Four additional manager/prompt scenarios are adapted; legacy slash rebasing remains pending and no location value grants filesystem or approval authority.
+PlanContext now associates one snapshot with configured/observed location metadata. Four additional manager/prompt scenarios and the stricter typed-directory scenario are adapted; no location value grants filesystem or approval authority.
 
 Typed PlanDirectory configuration now selects an existing strict descendant of an explicit host-controlled workspace. Native Path opening retains its semantics; no directory creation or implicit workspace discovery is provided. Plan parity now records eight of fourteen named adaptations; skills and supervised child propagation remain pending.
+
+Local scoped task supervision now has reviewed execution ownership and promotion. The subagent inventory distinguishes eighteen supporting tests from still-pending actual spawn/task-method parity. Runtime-owned depth and child construction are the next tracked scope.

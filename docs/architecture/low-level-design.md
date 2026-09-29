@@ -87,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, child factories/depth/registry, plan child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -219,3 +219,7 @@ PlanLocation.fromString returns Either[AgentError.InvalidConfiguration, PlanLoca
 ## Plan directory API
 
 PlanDirectory.fromString returns Either[AgentError.InvalidConfiguration, PlanDirectory]; its strict string codec shares validation. LocalPlanDraftStore.inWorkspace(workspace, trust, directory = PlanDirectory.Default) returns ZIO[Scope, AgentError, PlanDraftStore]. Both directories must already exist. Native open(Path, trust) remains available with unchanged relative/absolute semantics. Normalization uses strip, preserving non-whitespace controls for rejection.
+
+## Task supervision API
+
+TaskSupervisor.open[A] returns ZIO[Scope, Nothing, TaskSupervisor[A]]. attach accepts a suspended ZIO[Scope, AgentError, A] and returns scoped TaskAdmission.Accepted(handle) or Closed. SupervisedTask.await and cancel return UIO[Exit[AgentError, A]]; awaitOrPromote returns Completed(exit) or Promoted after its own 30-second deadline. These are runtime capabilities without codecs. Parent/host cleanup joins the task; callers inspect its Exit for failures. Tasks must not await their own handle or closure of a scope currently joining them. Explicitly masked work/finalizers can delay cancellation.

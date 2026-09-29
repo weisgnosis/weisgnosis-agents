@@ -832,3 +832,20 @@ PlanModeTools has no separately named pinned test suite in this inventory. Its i
 - [x] Independently review fourteen location/context cases after reproducing and fixing supplementary Unicode FORMAT validation. At that increment, seven methods were adapted; directory configuration below adds one further adaptation.
 
 - [x] Independently review twelve directory/ownership cases, including a reproduced boundary-control defect; adapt customPlanDirNormalised with stricter logical-directory validation. Current plan inventory: eight adapted methods and six pending.
+
+
+## Subagent supervision inventory
+
+Pinned upstream f98a685fdc4589f81e626e1686ac2c63d14a2304 contains the following related lifecycle methods. TaskSupervisorSpec and TaskSupervisorAgentSpec establish scoped execution ownership only. They do not invoke agent_spawn, create task IDs/list entries, forward child events or persist adopted tasks. No entire upstream method below is closed by this first supervision increment.
+
+- [x] Verify eighteen local supervision cases, including real ReAct cancellation and same-execution continuation.
+- [ ] AgentSpawnToolPromotionTest.innerTimeoutPromotesToAdoptedTaskRunSpec: continuation is covered; spawn-tool result, task identity and adoption registry remain pending.
+- [ ] AgentSpawnToolOrphanCancelTest.orphanAgentInterruptedOnParentCancel: direct child interruption/reconciliation is covered; actual spawn-tool wiring remains pending.
+- [ ] AgentSpawnToolCancelEndEventTest.parentCancel_emitsAgentEndEvent: correlated child event forwarding remains pending.
+- [ ] AgentSpawnToolCancelEndEventTest.normalCompletion_emitsPairedEvents: actual child Start/End forwarding remains pending.
+- [ ] AgentSpawnToolForceSyncTest.helpers, zeroTimeoutCoercedToSync and timeoutHardFailsWithoutPromotion: typed execution policy and spawn-tool integration remain pending; the local primitive currently has a fixed per-wait promotion budget.
+- [ ] AdoptedTaskRunSpecTest.adoptedFuture_completesSuccessfully, adoptedFuture_failsTransitionsToFailed and adoptedFuture_alreadyCompleted: local full-Exit observation is covered; adopted task state/registry remains pending.
+- [ ] AdoptedTaskRunSpecTest.adoptedFuture_appearsInTaskList and adoptedFuture_eligibleForPushDelivery: task inspection and push delivery remain pending.
+- [ ] ManagedSubagentBoundaryTest.declarationFiltersAutoRegisteredToolsAsWellAsInheritedTools and childCannotReenableParentDeniedTool: actual child construction and capability narrowing remain pending.
+
+The six unfinished plan-mode methods above remain unfinished. A child approval must never bypass an inherited parent restriction, and parent Build must not manufacture child approval. These requirements need real factory/reuse/send integration, not only a restriction-combining function.

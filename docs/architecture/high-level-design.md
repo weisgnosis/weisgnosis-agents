@@ -49,7 +49,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [ ] Remaining provider/event integrations and retry/failover policies.
 - [ ] Agent middleware and durable HITL integration.
 - [ ] Remote memory storage and timestamp-watermark migration, remote transcript persistence, and memory scheduling.
-- [ ] Scoped subagents, depth limits, and persistent TaskSupervisor promotion.
+- [x] Scoped local task ownership, cancellation and same-execution promotion.
+- [ ] Child factories, runtime-owned depth limits, registry and spawn/send integration.
 - [x] Static plan inspection, opt-in tool restrictions and in-memory reviewed sessions.
 - [x] Truthful request-only plan projection with preserved canonical history.
 - [x] Standalone scoped local plan-draft storage with atomic publication.
@@ -149,3 +150,7 @@ Stored sessions can now retain the backend's immutable descriptive destination a
 ## Workspace-relative plan selection
 
 PlanDirectory separates logical workspace configuration from native paths. LocalPlanDraftStore.inWorkspace validates an existing canonical strict descendant before ownership acquisition; host-controlled ancestors remain required. No automatic directory creation, discovery, approval restoration or child permission is implied.
+
+## Scoped local task ownership
+
+TaskSupervisor owns execution from creation while the attaching parent Scope owns a cancellable lease. A 30-second wait can commit promotion without restarting the task; only the host owner keeps it alive beyond the parent. Closing that owner interrupts independent workers in parallel and joins cleanup. This is process-local resource ownership, not durable task adoption or child creation authority.

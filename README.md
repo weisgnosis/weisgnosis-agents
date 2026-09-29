@@ -10,7 +10,7 @@ This repository is in development. The [implementation tracker](docs/architectur
 - **harness:** daily-memory extraction, scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, typed transcript observations with in-memory and scoped local stores and opt-in completion recording, typed memory triggers with shared monotonic admission, a scoped task queue with pending conversation coalescing and completion-triggered memory flush, conversation compaction, opt-in runtime result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
 - **mcp:** architecture and package scaffolding only.
 
-LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable storage, middleware integration, remote memory/transcript storage, subagent supervision, plan child propagation remain separate work. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available.
+LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable storage, middleware integration, remote memory/transcript storage, subagent factories/depth limits and plan child propagation remain separate work. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available.
 
 ## Build and verification
 
@@ -68,7 +68,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 - [x] Core lifecycle/path fixes and harness compactor/store fixes at `fb80428` received independent final approval after corrections and cross-review.
 - [x] Structured-output preservation and interruption fixes received final independent approval; accepted revisions and current contracts are in the core agent README.
-- [x] Current verification: 1131 tests passed, zero compiler warnings.
+- [x] Current verification: 1149 tests passed, zero compiler warnings.
 - [ ] Complete the remaining work in the [progress tracker](docs/architecture/tracker.md).
 
 The [core README](modules/core/README.md) and [harness README](modules/harness/README.md) link the exact accepted scopes. Closed review reports live in Git history; current acceptance is maintained in these READMEs.
@@ -93,6 +93,8 @@ Stored plan sessions now invalidate review before writing and reopen content onl
 
 PlanTools now adds strict opt-in enter/write/exit capabilities. Exact-ticket host review is mandatory inside exit even with ordinary Allow rules; publisher transport and authenticated decision routing remain host responsibilities.
 
-PlanContext now associates one snapshot with configured/observed location metadata. Four additional manager/prompt scenarios are adapted; legacy slash rebasing remains pending and no location value grants filesystem or approval authority.
+PlanContext now associates one snapshot with configured/observed location metadata. Four additional manager/prompt scenarios and the stricter typed-directory scenario are adapted; no location value grants filesystem or approval authority.
 
 Typed PlanDirectory configuration now selects an existing strict descendant of an explicit host-controlled workspace. Native Path opening retains its semantics; no directory creation or implicit workspace discovery is provided. Plan parity now records eight of fourteen named adaptations; skills and supervised child propagation remain pending.
+
+Local TaskSupervisor now owns scoped tasks, parent cancellation leases and same-execution promotion after a 30-second wait. The host must retain its owner Scope for background work. Depth enforcement, registry, model-facing spawn/send and plan propagation remain pending.
