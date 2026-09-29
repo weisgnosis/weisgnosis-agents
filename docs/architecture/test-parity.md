@@ -23,7 +23,7 @@ The reference is the clean local `agentscope-java` checkout at commit `f98a685fd
 - [ ] Complete ReAct and interruption scenario mappings, including lifecycle hooks not yet implemented.
 - [ ] Complete the thinking-only empty-response scenario mapping.
 - [x] Cover empty-input structured runs, signed thinking preservation, full reply usage, and immediate repeated calls.
-- [ ] Complete the remaining structured-output capability, dynamic-schema, streaming, and hook scenarios below.
+- [ ] Complete the remaining structured-output capability and hook scenarios below.
 - [ ] Complete compaction/eviction mappings and document storage-backend applicability.
 - [ ] Complete permission mappings and durable host integration tests.
 - [ ] Close every applicable gap before declaring exhaustive 1:1 parity.
@@ -302,18 +302,23 @@ The legacy `agent/EventTest` wraps Msg in six coarse event kinds; the newer `eve
 
 ### Legacy EventTest: ten enabled methods
 
-Each method remains pending a reviewed applicability decision or explicit adapter; replacing mutable objects with immutable values does not automatically satisfy payload or serialization assertions.
+The pinned upstream Event, EventType, and EventSource classes are explicitly deprecated since 2.0 in favor of typed AgentEvent. Their retained consumers include upstream harness, AGUI, A2A, chat-completions-web, and Kotlin integrations; this Scala port does not claim compatibility with those legacy consumers. This Scala core deliberately excludes the deprecated envelope instead of introducing a second public event contract without a consumer. The checklist below records completed applicability decisions, **not passing legacy tests or equivalent wire coverage**.
 
-- [ ] `testEventTypeValues`: pending legacy Event/EventType compatibility classification.
-- [ ] `testEventCreation`: pending legacy Event/EventType compatibility classification.
-- [ ] `testEventIsLast`: pending legacy Event/EventType compatibility classification.
-- [ ] `testEventGetMessageId`: pending legacy Event/EventType compatibility classification.
-- [ ] `testEventToString`: pending legacy Event/EventType compatibility classification.
-- [ ] `testEventWithEmptyContent`: pending legacy Event/EventType compatibility classification.
-- [ ] `testEventWithMultipleContentBlocks`: pending legacy Event/EventType compatibility classification.
-- [ ] `testEventDifferentTypes`: pending legacy Event/EventType compatibility classification.
-- [ ] `testStreamingScenario`: pending legacy Event/EventType compatibility classification.
-- [ ] `testEventJsonSerializationIsLastFieldName`: pending legacy Event/EventType compatibility classification.
+- [x] `testEventTypeValues`: exclude the six-value coarse enum, including ALL filtering; AgentEventType is a distinct identifier contract.
+- [x] `testEventCreation`: exclude REASONING/message/isLast construction. Shared message preservation is covered by AgentEventPayloadSpec and StructuredCompletionSpec, without claiming the legacy wrapper semantics.
+- [x] `testEventIsLast`: exclude the Boolean legacy accessor. Scoped completion and AgentEnd are separate runtime contracts, not a replacement for per-message isLast.
+- [x] `testEventGetMessageId`: exclude the delegating getter. Msg.id and AgentResultEvent.result preserve optional identity; no eager ID allocation is added.
+- [x] `testEventToString`: exclude exact Java diagnostic formatting and getter-based representations.
+- [x] `testEventWithEmptyContent`: exclude the HINT wrapper and diagnostics. Msg factory/codec tests cover valid empty content independently.
+- [x] `testEventWithMultipleContentBlocks`: exclude the SUMMARY wrapper. Immutable Msg content and AgentResult payload preservation have separate tests.
+- [x] `testEventDifferentTypes`: exclude arbitrary wrapping in the five coarse message categories.
+- [x] `testStreamingScenario`: exclude cumulative Msg snapshots sharing an ID with isLast. Complete model-stream correlation remains a separate pending implementation requirement below.
+- [x] `testEventJsonSerializationIsLastFieldName`: exclude the legacy type/message/isLast wire format; current lowercase event codecs are not equivalent fixtures.
+
+Unsupported legacy behavior includes StreamOptions filtering, ALL, default final-result exclusion, cumulative message snapshots, Java constructors/getters, and structured EventSource attribution (agent/session/task IDs, depth, and path). Current optional string source tagging is not an EventSource adapter. A future consumer requiring that protocol needs an explicit separately scoped adapter; no compatibility adapter is currently promised or implemented.
+
+- [ ] Complete actual model-stream correlation and model/tool block ordering through the typed event API.
+- [ ] Define and integrate richer subagent source attribution with the planned supervisor.
 
 ### AgentEventStreamTest: 13 enabled methods
 

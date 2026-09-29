@@ -41,9 +41,10 @@ Existing lowercase event objects remain canonical. Concrete event encoding inclu
 - [x] Correlated iteration-limit publication and inline provider text/data/metadata delivery are verified in ReActAgentEmissionSpec and reviewed in the [agent scope](../agent/README.md).
 - [ ] Implement remaining runtime publication/order, model data-block assembly, and local structured-result metadata.
 - [ ] Implement phase-stop authority, durable pending-work resumption, and permission-driven denied-call publication.
-- [ ] Complete legacy coarse-event classification and explicit uppercase payload/envelope adapters.
+- [x] Classify all ten deprecated coarse-event methods as excluded API/wire compatibility, without claiming their assertions pass.
+- [ ] Complete explicit uppercase typed-payload/envelope adapters and actual model-stream correlation.
 
-The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes the 13 enabled stream-test methods from seven disabled ordering placeholders and ten legacy coarse-event tests. Enabled payload/identifier method coverage is not runtime-ordering evidence. Current reviewed content:
+The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes the 13 enabled stream-test methods from seven disabled ordering placeholders and ten explicitly excluded deprecated coarse-event methods. Enabled payload/identifier method coverage is not runtime-ordering evidence. Current reviewed content:
 
 | File | Git blob |
 | --- | --- |
@@ -52,3 +53,7 @@ The [parity mapping](../../../../../../../../../../docs/architecture/test-parity
 | [AgentEventSerdeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/AgentEventSerdeSpec.scala) | e03c43bdbaf2d97c4e43d32ba3f2aa0c8700d46f |
 | [AgentEventPayloadSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/AgentEventPayloadSpec.scala) | 0912c9e7f25e7e90440caeeb8aa3314eaa61488c |
 | [AgentEventTypeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/AgentEventTypeSpec.scala) | b881e98ba39ed97e292ac16acf3c4101f48b0d11 |
+
+The deprecated v1 Event/EventType/EventSource envelope is outside this core API. Shared Msg/result preservation tests do not establish cumulative snapshots, isLast, filtering, Java diagnostics, or structured source compatibility. See the method-level decisions in the parity mapping. Richer typed subagent attribution remains planned.
+
+- [x] `review_fp` and `review_harness` independently approved the deprecated-envelope scope decision against `e110321` on 2026-09-29 after inspecting all ten upstream methods. Approval covers applicability classification, not legacy API or wire implementation. No Scala source changed; the 311 core / 40 harness verification remains the current executable baseline.

@@ -46,3 +46,5 @@ The accepted implementation and tests are recorded in commit `8b96ce3`. Canonica
 - [x] Runtime inline-result emission, correlated iteration limits, and occurrence-sensitive reconciliation were independently approved against `9768064`; current agent READMEs record exact scope and source identities.
 
 - [x] Finalized result publication and streamStructuredEvents were approved by `review_fp` and `review_harness` against `5451e03`; the agent READMEs record all four reviewed file identities and the 309+40 verification.
+
+Deprecated v1 coarse-event envelopes are explicitly excluded from core after independent applicability review. Typed events remain authoritative; shared message tests do not establish legacy wire compatibility. Full model-stream correlation and richer subagent attribution remain in the tracker.

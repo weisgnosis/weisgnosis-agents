@@ -17,25 +17,12 @@ Current implementation and future platform requirements are separate. The projec
 
 ## Current documentation acceptance
 
-- [x] Independent reviewer `review_docs` approved the pinned inventory, 18-method structured-output, 119-method message, and 30-declaration event classifications, README acceptance scopes, and architecture contracts on 2026-09-29 after corrections.
-- [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, and pending behavior.
-- [x] No unresolved findings in this documentation scope. English, local links, maintained-directory README coverage, whitespace, and the reviewed source identities were checked.
-- [x] Repository verification: `sbt scalafmtAll scalafmtSbt verify`, 311 core and 40 harness tests passed with zero compiler warnings.
+- [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
+- [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 311 core and 40 harness tests passed with zero compiler warnings.
 
-The agent READMEs describe engine-attempt lifecycle boundaries and private stream completion, including scoped publisher ownership and unbounded buffering. Structured calls now prepare and commit their result before AgentResult and AgentEnd publication; direct calls and streamStructuredEvents share this path. Auto fallback retains two attempt boundaries. Event wire parity remains pending.
+The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive model capability/hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while retaining actual typed model-stream correlation and richer source attribution as pending work.
 
-Implementation acceptance is scoped in the module/package READMEs. The [tracker](architecture/tracker.md) and [parity task list](architecture/test-parity.md) retain unfinished work as unchecked items. Closed review reports remain only in Git history.
+The [tracker](architecture/tracker.md) and [parity task list](architecture/test-parity.md) keep incomplete work unchecked. Checked applicability decisions are labeled as exclusions, not passed tests. Current contracts replace closed review journals; Git preserves prior findings and acceptance records.
 
-- [x] `review_docs` approved the message construction API migration notes, all 26 factory adaptations, 22 reviewed Scala blob identities, current test counts, English, and local links against `9c47bf5` on 2026-09-29; no findings remain in this slice.
-
-- [x] `review_docs` approved content codec/state/server-marker contracts, all 17 ToolUse method mappings, five source hashes, current counts, English and links against `a701612` on 2026-09-29 after correcting one stale pending task.
-
-- [x] `review_docs` approved the consolidated current model READMEs, seven DataBlock adaptations, 119 checked message-method mappings, scoped review identities, current hashes/counts, English, and links against `8b96ce3` on 2026-09-29 after narrowing one cumulative approval statement.
-
-- [x] `review_docs` approved the eight additional event payload contracts, 39-variant/31-identifier distinction, 13 enabled method mappings, exact hashes, 291+40 verification, English and links against `66bb42d` on 2026-09-29; runtime and legacy compatibility tasks remain pending.
-
-- [x] `review_docs` approved runtime inline-result metadata/order, correlated limit publication, occurrence-sensitive reconciliation, nine-test scope, exact hashes, 300+40 verification, English and links against `9768064` on 2026-09-29 after correcting incoming historical identity claims.
-
-- [x] `review_docs` approved the final structured-completion documentation against `5451e03` on 2026-09-29 after correcting two stale parity phrases: four source identities, commit/result/end ordering, fallback/cancellation distinctions, exact payload preservation, streaming contracts, 309+40 verification, English, and local links. That accepted slice is retained at `3963104`; subsequent dynamic-schema scenario coverage is recorded in the agent READMEs. Remaining integrations stay unchecked.
-
-- [x] `review_docs` approved the dynamic-scenario documentation against `3963104` on 2026-09-29: both method mappings, typed-event adaptation, flat-fixture and validation limits, source identities, 311+40 verification, English, and links; no findings remain in this scope.
+- [x] `review_docs` approved the eight-file deprecated-envelope classification against `e110321` on 2026-09-29: ten explicit exclusions, retained compatibility limitations, pending correlation/source requirements, English, links, and checkbox wording. No unresolved findings; no executable changes were made.

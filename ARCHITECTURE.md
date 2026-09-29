@@ -38,3 +38,5 @@ Filesystem protection requires canonical paths and a valid ownership contract. T
 [AGENTS.md](AGENTS.md) owns canonical invariant IDs and engineering rules. The [tracker](docs/architecture/tracker.md) separates implemented contracts, tests, and pending integration. [High-level](docs/architecture/high-level-design.md), [mid-level](docs/architecture/mid-level-design.md), and [low-level](docs/architecture/low-level-design.md) documents describe current contracts and planned behavior. Source declarations remain authoritative for signatures.
 
 Test counts do not establish exhaustive parity. Map each applicable upstream scenario and state pending or inapplicable cases explicitly in the [parity audit](docs/architecture/test-parity.md).
+
+The typed AgentEvent API is the core event contract. Deprecated upstream v1 Event/EventType/EventSource envelopes are deliberately outside this port: no legacy filtering, cumulative snapshots, isLast field, or Java diagnostic compatibility is implied. The parity audit records all ten applicability decisions separately from behavioral evidence. Actual model-stream correlation and richer subagent attribution remain required work.
