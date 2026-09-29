@@ -4,13 +4,13 @@ Standalone context and permission components built on core.
 
 | Package | Current status |
 | --- | --- |
-| [memory](src/main/scala/com/weisgnosis/agents/harness/memory/README.md) | Pair-safe compaction, summary/user provenance, token estimation; memory services pending |
+| [memory](src/main/scala/com/weisgnosis/agents/harness/memory/README.md) | Pair-safe compaction, summary/user provenance, token estimation and daily extraction; memory backend/consolidation pending |
 | [eviction](src/main/scala/com/weisgnosis/agents/harness/eviction/README.md) | Above-80k eviction, 2k head/tail previews, explicit-trust local store |
 | [permission](src/main/scala/com/weisgnosis/agents/harness/permission/README.md) | Immutable decisions, Promise coordination, serializable durable approval values |
 | [subagent](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) | Planned supervision and task promotion |
 | [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) | Planned mutation restrictions and shell inspection |
 
-Agent middleware, durable workflow storage, MemoryFlushManager, and MemoryConsolidator are not implemented. Hosts supply summarization/flush/offload effects and authenticated approval routing.
+MemoryFlushManager supplies daily extraction through an injected DailyMemoryStore and can be installed as the compactor flush callback. A filesystem memory backend, MemoryConsolidator, transcript persistence, general middleware, and durable workflow storage remain pending. Hosts supply memory storage, summarization/offload effects, and authenticated approval routing.
 
 Local storage requires WorkspaceTrust.HostControlled, protected filesystem ancestors, and hard-link support. It is not a sandbox for untrusted workspaces. See [implementation notes](../../docs/architecture/phase-4-implementation.md) and the [tracker](../../docs/architecture/tracker.md).
 
@@ -18,7 +18,7 @@ Local storage requires WorkspaceTrust.HostControlled, protected filesystem ances
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 529 core and 114 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 529 core and 136 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -42,3 +42,5 @@ Approval covers the named changes and their documented contracts; it does not ma
 - [x] `review_fp` and `review_harness` approved the final seven-file model-input scope against `40f6f05` on 2026-09-29. Sixteen added regressions and full formatting/fatal-warning verification passed: 529 core and 101 harness tests. No findings remain within request-only projection, structural validation, canonical-state isolation, and eviction integration. Broader legacy hook/middleware parity remains pending. Exact identities and migration are in the [agent contract](../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
 
 - [x] Independently review exact compaction routing and interruption/session regressions against `52da827`; account for all 17 methods in the two pinned compaction suites with explicit adaptations/divergences/exclusion, and verify 529 core / 114 harness tests. See the [memory contract and current identities](src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+
+- [x] `review_fp` and `review_harness` approved the seven-file daily-memory extraction increment against `738b216` on 2026-09-29. No findings remain within the injected-store capability, scoped client extraction, provenance/date handling, one-manager serialization, and compactor integration. Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new tests. Filesystem persistence, cross-manager/process guarantees, consolidation, watermarks, and transcript offloading are excluded. Exact source identities are maintained in the [memory contract](src/main/scala/com/weisgnosis/agents/harness/memory/README.md).

@@ -12,6 +12,16 @@ Existing hardening regressions retain occurrence pairing, inline/local isolation
 
 - [x] `review_fp` and `review_harness` approved both changed compactor suites against `52da827` on 2026-09-29; no findings remain in this scope.
 - [x] Full formatting, fatal-warning compilation, and verification passed 529 core / 114 harness tests, including all 39 compactor cases. Thirteen cases were added and existing routing assertions strengthened.
-- [ ] Add memory-service suites when daily flushing and curated consolidation are implemented.
+- [ ] Add filesystem, curated consolidation, transcript, and scheduling suites with their implementations.
 
 Exact current test identities and failure/ownership contracts are maintained in the [memory README](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md). Prior acceptance remains in Git through `52da827`. Run `sbt "harness / test"` or repository-wide `sbt verify`.
+
+## Daily-memory verification
+
+- [MemoryFlushManagerSpec](MemoryFlushManagerSpec.scala): 14 tests including both named upstream daily-flush methods, context/date binding, midnight rollover, provenance, preview bounds, no-content output, resource cleanup, storage errors, and one-manager serialization.
+- [MemoryExtractorSpec](MemoryExtractorSpec.scala): five client-adapter tests for inputs/configuration, scoped hub cleanup, thinking-only output, rejected tool observations, interruption, and typed failure cleanup.
+- [MemoryFlushManagerIntegrationSpec](MemoryFlushManagerIntegrationSpec.scala): three runtime tests for append/offload/summary/dispatch ordering, append failure preserving canonical input, and cancelled extraction with cleanup/recovery.
+
+The store is an injected capability exercised with Ref-backed test implementations. These tests do not establish filesystem persistence, cross-process atomicity, semantic deduplication, or curated writes. Current source identities and review evidence belong in the [memory contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md).
+
+- [x] `review_fp` and `review_harness` approved the seven-file daily-memory extraction increment against `738b216` on 2026-09-29. No findings remain within the injected-store capability, scoped client extraction, provenance/date handling, one-manager serialization, and compactor integration. Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new tests. Filesystem persistence, cross-manager/process guarantees, consolidation, watermarks, and transcript offloading are excluded.

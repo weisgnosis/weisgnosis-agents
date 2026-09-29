@@ -36,7 +36,7 @@ final class ConversationCompactor(
   )
 
   def compactIfNeeded(history: Chunk[Msg]): IO[AgentError, Chunk[Msg]] =
-    ZIO.fromEither(expandCoalescedUsers(history)).flatMap { expanded =>
+    ZIO.fromEither(ConversationCompactor.expandCoalescedUsers(history)).flatMap { expanded =>
       val (systems, conversation) = expanded.partition(_.role == Role.System)
       val triggered               = counter.count(conversation) > config.triggerTokens.max(0)
       val pruned                  = if triggered then prune(conversation) else conversation
@@ -137,7 +137,33 @@ final class ConversationCompactor(
     val head = limit / 2
     text.take(head) + "\n... pruned ...\n" + text.takeRight(limit - head)
 
-  private def retainedUsers(message: Msg): Either[AgentError, Chunk[Msg]] =
+  private def coalesceUsers(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =
+    history.foldLeft[Either[AgentError, Chunk[Msg]]](Right(Chunk.empty)) { (accumulated, message) =>
+      accumulated.flatMap { result =>
+        result.lastOption match
+          case Some(previous) if previous.role == Role.User && message.role == Role.User =>
+            for
+              merged <- previous.withContent(previous.content ++ message.content)
+              metadata <-
+                if ConversationCompactor.isSummary(previous) then
+                  ConversationCompactor.retainedUsers(previous).map { retained =>
+                    (message.metadata ++ previous.metadata).updated(
+                      ConversationCompactor.RetainedUsersKey,
+                      Json.Str((retained :+ message).toJson)
+                    )
+                  }
+                else Right(message.metadata ++ previous.metadata)
+            yield result.dropRight(1) :+ merged.withMetadata(metadata)
+          case _ => Right(result :+ message)
+      }
+    }
+
+object ConversationCompactor:
+  private[memory] val RetainedUsersKey: String = "_compaction_retained_users"
+  val SummaryName: String                      = "__compaction_summary__"
+  def isSummary(message: Msg): Boolean         = message.name.contains(SummaryName)
+
+  private[memory] def retainedUsers(message: Msg): Either[AgentError, Chunk[Msg]] =
     message.metadata.get(ConversationCompactor.RetainedUsersKey) match
       case None => Right(Chunk.empty)
       case Some(Json.Str(encoded)) =>
@@ -150,7 +176,7 @@ final class ConversationCompactor(
       case Some(_) =>
         Left(AgentError.DeserializationError("Invalid retained compaction users metadata"))
 
-  private def expandCoalescedUsers(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =
+  private[memory] def expandCoalescedUsers(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =
     history.foldLeft[Either[AgentError, Chunk[Msg]]](Right(Chunk.empty)) { (accumulated, message) =>
       for
         previous <- accumulated
@@ -177,29 +203,3 @@ final class ConversationCompactor(
             }
       yield result
     }
-
-  private def coalesceUsers(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =
-    history.foldLeft[Either[AgentError, Chunk[Msg]]](Right(Chunk.empty)) { (accumulated, message) =>
-      accumulated.flatMap { result =>
-        result.lastOption match
-          case Some(previous) if previous.role == Role.User && message.role == Role.User =>
-            for
-              merged <- previous.withContent(previous.content ++ message.content)
-              metadata <-
-                if ConversationCompactor.isSummary(previous) then
-                  retainedUsers(previous).map { retained =>
-                    (message.metadata ++ previous.metadata).updated(
-                      ConversationCompactor.RetainedUsersKey,
-                      Json.Str((retained :+ message).toJson)
-                    )
-                  }
-                else Right(message.metadata ++ previous.metadata)
-            yield result.dropRight(1) :+ merged.withMetadata(metadata)
-          case _ => Right(result :+ message)
-      }
-    }
-
-object ConversationCompactor:
-  private[memory] val RetainedUsersKey: String = "_compaction_retained_users"
-  val SummaryName: String                      = "__compaction_summary__"
-  def isSummary(message: Msg): Boolean         = message.name.contains(SummaryName)
