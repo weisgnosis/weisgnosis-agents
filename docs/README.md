@@ -19,12 +19,12 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 466 core and 45 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 481 core and 45 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
 The [tracker](architecture/tracker.md) and [parity task list](architecture/test-parity.md) keep incomplete work unchecked. Checked applicability decisions are labeled as exclusions, not passed tests. Current contracts replace closed review journals; Git preserves prior findings and acceptance records.
 
-Prior documentation reviews are preserved in Git through `8850a60`. Current package READMEs retain exact accepted implementation scopes and source identities.
+Prior documentation reviews are preserved in Git through `a34201f`. Current package READMEs retain exact accepted implementation scopes and source identities.
 
-- [x] `review_docs` approved the final local-result processing and eviction documentation against `8850a60`: eight source identities, fifteen added tests, five mapped eviction adaptations and two explicit gaps, raw-completion persistence, cancellation, storage trust, 466 core / 45 harness verification, English, and local links. No findings remain in this scope.
+- [x] `review_docs` approved the final core authorization documentation against `a34201f`: five source identities, fifteen added tests, precise argument provenance, signed/detailed reasoning protection, fail-closed denial, cancellation pairing, 481 core / 45 harness verification, English, and local links. Interactive/durable harness adapters and upstream two-call confirmation mapping remain explicitly pending. No findings remain in this scope.

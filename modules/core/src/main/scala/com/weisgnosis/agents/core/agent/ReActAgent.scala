@@ -25,7 +25,8 @@ import com.weisgnosis.agents.core.client.{
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
-import com.weisgnosis.agents.core.tool.{Toolkit, ToolResultPayload, ToolResultProcessor}
+import com.weisgnosis.agents.core.tool.*
+import com.weisgnosis.agents.core.json.JsonBoundary
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -51,7 +52,8 @@ final class ReActAgent private (
     val agentId: String,
     private val runLock: Semaphore,
     val postReasoningHook: PostReasoningHook,
-    val toolResultProcessor: ToolResultProcessor
+    val toolResultProcessor: ToolResultProcessor,
+    val toolAuthorizer: ToolAuthorizer
 ):
 
   def name: String        = config.name
@@ -443,12 +445,14 @@ final class ReActAgent private (
 
               case TurnOutput.ToolCalls(assistantMsg) =>
                 for
-                  _ <- stateRef.update(_ :+ assistantMsg)
+                  assistantPosition <- stateRef
+                    .modify(history => (history.size, history :+ assistantMsg))
                   allCalls = assistantMsg.toolUses
                   inline = partitionToolResults(
                     allCalls,
                     assistantMsg.toolResults,
-                    _.isServerTool
+                    _.isServerTool,
+                    (call, result) => call.id == result.id
                   )
                   pendingCalls = inline.pending
                   _ <- ZIO.foreachDiscard(inline.completed) { case (call, result) =>
@@ -466,12 +470,13 @@ final class ReActAgent private (
                       )
                     else
                       val allSafe = config.streamParallelTools && pendingCalls
-                        .forall(c => activeToolkit.resolve(c.name).forall(_.isConcurrencySafe))
+                        .forall(c => activeToolkit.resolve(c.call.name).forall(_.isConcurrencySafe))
                       val execEffect =
                         if allSafe then
                           ZIO.foreachPar(pendingCalls)(call =>
                             executeAndRecord(
                               call,
+                              assistantPosition,
                               activeToolkit,
                               stateRef,
                               eventHub,
@@ -482,6 +487,7 @@ final class ReActAgent private (
                           ZIO.foreach(pendingCalls)(call =>
                             executeAndRecord(
                               call,
+                              assistantPosition,
                               activeToolkit,
                               stateRef,
                               eventHub,
@@ -631,9 +637,11 @@ final class ReActAgent private (
                 else TurnOutput.FinalText(accepted)
               ZIO.some(classified)
 
+  final private case class IndexedToolCall(call: ContentBlock.ToolUse, ordinal: Int)
+
   final private case class ToolResultPartition(
       completed: Chunk[(ContentBlock.ToolUse, ContentBlock.ToolResult)],
-      pending: Chunk[ContentBlock.ToolUse],
+      pending: Chunk[IndexedToolCall],
       unmatched: Chunk[ContentBlock.ToolResult]
   )
 
@@ -641,21 +649,24 @@ final class ReActAgent private (
   private def partitionToolResults(
       calls: Chunk[ContentBlock.ToolUse],
       results: Chunk[ContentBlock.ToolResult],
-      eligible: ContentBlock.ToolUse => Boolean
+      eligible: ContentBlock.ToolUse => Boolean,
+      matches: (ContentBlock.ToolUse, ContentBlock.ToolResult) => Boolean = (call, result) =>
+        result.id == call.id && result.name.forall(_ == call.name)
   ): ToolResultPartition =
-    calls.foldLeft(ToolResultPartition(Chunk.empty, Chunk.empty, results)) { (partition, call) =>
-      if !eligible(call) then partition.copy(pending = partition.pending :+ call)
-      else
-        val (before, matchingAndAfter) = partition.unmatched.span(result =>
-          result.id != call.id || (!call.isServerTool && result.name.exists(_ != call.name))
-        )
-        matchingAndAfter.headOption match
-          case Some(result) =>
-            partition.copy(
-              completed = partition.completed :+ (call -> result),
-              unmatched = before ++ matchingAndAfter.drop(1)
-            )
-          case None => partition.copy(pending = partition.pending :+ call)
+    calls.zipWithIndex.foldLeft(ToolResultPartition(Chunk.empty, Chunk.empty, results)) {
+      case (partition, (call, ordinal)) =>
+        val indexed = IndexedToolCall(call, ordinal)
+        if !eligible(call) then partition.copy(pending = partition.pending :+ indexed)
+        else
+          val (before, matchingAndAfter) =
+            partition.unmatched.span(result => !matches(call, result))
+          matchingAndAfter.headOption match
+            case Some(result) =>
+              partition.copy(
+                completed = partition.completed :+ (call -> result),
+                unmatched = before ++ matchingAndAfter.drop(1)
+              )
+            case None => partition.copy(pending = partition.pending :+ indexed)
     }
 
   private def publishInlineResult(
@@ -713,19 +724,74 @@ final class ReActAgent private (
       )
     yield ()
 
-  private def executeAndRecord(
+  private def authorizeTool(
       call: ContentBlock.ToolUse,
+      context: ModelStreamContext
+  ): UIO[ToolAuthorization] =
+    val decision = for
+      requestId <- Random.nextUUID.map(_.toString)
+      result <- ZIO.scoped(
+        ZIO.suspendSucceed(
+          toolAuthorizer.authorize(ToolAuthorizationRequest(requestId, context, call))
+        )
+      )
+    yield result match
+      case ToolAuthorization.Approved(input) =>
+        JsonBoundary.validate(input) match
+          case Left(error) => ToolAuthorization.Denied(s"Invalid approved input: $error")
+          case Right(_)
+              if input != call.input && (call.metadata.contains("thoughtSignature") || call.metadata
+                .contains("reasoningDetails")) =>
+            ToolAuthorization.Denied(
+              "Cannot modify arguments carrying provider reasoning metadata"
+            )
+          case Right(_) => result
+      case _ => result
+    decision.foldCauseZIO(
+      cause =>
+        if cause.isInterrupted then ZIO.interrupt
+        else
+          ZIO.succeed(
+            ToolAuthorization.Denied(
+              cause.failureOption.map(_.reason).getOrElse("Tool authorization failed")
+            )
+          )
+      ,
+      ZIO.succeed(_)
+    )
+
+  private def executeAndRecord(
+      indexed: IndexedToolCall,
+      assistantPosition: Int,
       toolkit: Toolkit,
       stateRef: Ref[Chunk[Msg]],
       eventHub: Hub[AgentEvent],
       context: ModelStreamContext
   ): ZIO[Any, Nothing, Unit] =
     ZIO.uninterruptibleMask: restore =>
+      val call = indexed.call
       for
+        authorization <- restore(authorizeTool(call, context))
         _ <- eventHub.publish(
           AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))
         )
-        res <- restore(toolkit.executeSafe(call.name, call.input))
+        res <- authorization match
+          case ToolAuthorization.Denied(reason) =>
+            ZIO.succeed(ToolExecutionResult(reason, ToolResultState.Denied))
+          case ToolAuthorization.Approved(input) =>
+            val approved =
+              if input == call.input then call
+              else
+                call.copy(
+                  input = input,
+                  content = None,
+                  metadata = call.metadata.updated("agentscope_original_tool_input", call.input)
+                )
+            stateRef.update(_.zipWithIndex.map { case (message, position) =>
+              if position == assistantPosition then
+                message.mapToolUseAt(indexed.ordinal)(_ => approved)
+              else message
+            }) *> restore(toolkit.executeSafe(call.name, input))
         resultBlock = ContentBlock.ToolResult.text(call.id, call.name, res.output, res.state)
         toolMsg     = Msg.tool(name = Some(call.name), content = Chunk(resultBlock))
         position <- stateRef.modify(history => (history.size, history :+ toolMsg))
@@ -772,12 +838,19 @@ final class ReActAgent private (
           (asst, history)
 
         case Some(asst) =>
+          val withoutInline = partitionToolResults(
+            asst.toolUses,
+            asst.toolResults,
+            _.isServerTool,
+            (call, result) => call.id == result.id
+          ).pending
           val pendingCalls = partitionToolResults(
-            asst.toolUses.filterNot(_.isServerTool),
+            withoutInline.map(_.call),
             currentTurn.flatMap(_.toolResults),
             _ => true
           ).pending
-          val synthesizedResults = pendingCalls.map { call =>
+          val synthesizedResults = pendingCalls.map { indexed =>
+            val call = indexed.call
             Msg.tool(
               name = Some(call.name),
               content = Chunk(
@@ -830,7 +903,8 @@ object ReActAgent:
       llmConfig: LlmConfig = LlmConfig("default-model"),
       initialHistory: Chunk[Msg] = Chunk.empty,
       postReasoningHook: PostReasoningHook = PostReasoningHook.keep,
-      toolResultProcessor: ToolResultProcessor = ToolResultProcessor.identity
+      toolResultProcessor: ToolResultProcessor = ToolResultProcessor.identity,
+      toolAuthorizer: ToolAuthorizer = ToolAuthorizer.allow
   ): IO[AgentError, ReActAgent] =
     for
       _                     <- ZIO.fromEither(config.validated)
@@ -849,7 +923,8 @@ object ReActAgent:
       agentId,
       runLock,
       postReasoningHook,
-      toolResultProcessor
+      toolResultProcessor,
+      toolAuthorizer
     )
 
   def builder(): Builder = Builder()
@@ -861,7 +936,8 @@ object ReActAgent:
       private val _llmConfig: LlmConfig = LlmConfig("default-model"),
       private val _initialHistory: Chunk[Msg] = Chunk.empty,
       private val _postReasoningHook: PostReasoningHook = PostReasoningHook.keep,
-      private val _toolResultProcessor: ToolResultProcessor = ToolResultProcessor.identity
+      private val _toolResultProcessor: ToolResultProcessor = ToolResultProcessor.identity,
+      private val _toolAuthorizer: ToolAuthorizer = ToolAuthorizer.allow
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -882,6 +958,8 @@ object ReActAgent:
     def toolResultProcessor(processor: ToolResultProcessor): Builder =
       copy(_toolResultProcessor = processor)
 
+    def toolAuthorizer(authorizer: ToolAuthorizer): Builder = copy(_toolAuthorizer = authorizer)
+
     def build: IO[AgentError, ReActAgent] =
       ZIO
         .fromOption(_client)
@@ -894,6 +972,7 @@ object ReActAgent:
             _llmConfig,
             _initialHistory,
             _postReasoningHook,
-            _toolResultProcessor
+            _toolResultProcessor,
+            _toolAuthorizer
           )
         )

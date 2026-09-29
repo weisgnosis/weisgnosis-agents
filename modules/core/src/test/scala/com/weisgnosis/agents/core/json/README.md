@@ -21,7 +21,6 @@ The following identities supersede earlier acceptance records for changed files.
 | [ReasoningModelAdapter.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/ReasoningModelAdapter.scala) | 72ae618a2309d972887169d140863711fffe3123 |
 | [StreamAccumulator.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/StreamAccumulator.scala) | 223c6aeb22a15ee9d6fa45945b5b914d48c10a57 |
 | [JsonBoundary.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/json/JsonBoundary.scala) | d7d83434ff76b2a89943edb60b2b2878742fc458 |
-| [Msg.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/model/Msg.scala) | ca34a6225c004dbb6f39e0d502ccd7886e9cc2dd |
 | [StructuredJsonBoundarySpec.scala](../agent/StructuredJsonBoundarySpec.scala) | d967396a6c6e6cd9842c0fe69eb5ba14def41685 |
 | [StructuredOutputHttpSpec.scala](../agent/StructuredOutputHttpSpec.scala) | 93610a93773fb649034e575803c6fc49d1d15ca2 |
 | [JsonBoundarySpec.scala](JsonBoundarySpec.scala) | c08295405b54cd3684e23f21344fe0fa2fbe35a3 |
@@ -29,3 +28,5 @@ The following identities supersede earlier acceptance records for changed files.
 The ReActAgent identity from this increment is preserved in `06bd2e1`; its subsequent capability routing is covered by the current client/agent acceptance.
 
 StructuredOutput from the JSON increment is preserved in `06bd2e1`; its subsequent single-transfer usage correction is covered by current agent acceptance.
+
+Commit `06bd2e1` preserves the reviewed JSON-scope Msg identity; its current occurrence-update scope is recorded in the core tool README.

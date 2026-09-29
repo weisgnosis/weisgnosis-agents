@@ -136,6 +136,17 @@ final class Msg private (
       case block                      => block
     })
 
+  /** Update one tool occurrence without changing role/content compatibility. */
+  private[core] def mapToolUseAt(
+      ordinal: Int
+  )(f: ContentBlock.ToolUse => ContentBlock.ToolUse): Msg =
+    val (_, updated) = content.foldLeft((0, Chunk.empty[ContentBlock])) {
+      case ((index, blocks), call: ContentBlock.ToolUse) =>
+        (index + 1, blocks :+ (if index == ordinal then f(call) else call))
+      case ((index, blocks), block) => (index, blocks :+ block)
+    }
+    rebuild(content = updated)
+
   def mapToolResults(f: ContentBlock.ToolResult => ContentBlock.ToolResult): Msg =
     rebuild(content = content.map {
       case result: ContentBlock.ToolResult => f(result)

@@ -21,4 +21,10 @@ This is the accepted reference behavior for the scope above. Actual symlink/junc
 
 [ToolResultProcessorSpec](ToolResultProcessorSpec.scala) adds three scenarios for payload codecs, control-key protection, and suspended ordered composition. Runtime ownership and eviction are covered by the agent/harness integration suites.
 
-- [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests. See the [tool package table](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md) for all eight exact identities.
+- [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests. See the [tool package table](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md) for retained processor/eviction identities; commit `a34201f` preserves all eight reviewed identities.
+
+## Authorization verification
+
+[ToolAuthorizerSpec](ToolAuthorizerSpec.scala) verifies request/decision codecs, lazy default-preserving authorization, and compile-time exclusion of provider errors from the permission channel. Runtime evidence is in [ReActAgentToolAuthorizerSpec](../agent/ReActAgentToolAuthorizerSpec.scala).
+
+- [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 45 harness tests, including fifteen added authorization tests. Interactive and durable policy adapters are excluded from this acceptance. See the [authorization table](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md) for exact identities.

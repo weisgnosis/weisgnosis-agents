@@ -61,7 +61,7 @@ The declaration is serialized with LlmConfig but excluded from the HTTP request 
 - [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.
 - [ ] Complete general model-call middleware and remaining legacy hook behavior.
 - [ ] Complete provider continuation, incremental/structured local tool results, full event ordering, and event adapters.
-- [ ] Integrate permissions, phase stopping, durable pending work, and harness middleware.
+- [ ] Integrate harness permission policies, phase stopping, durable pending work, and harness middleware.
 
 The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes verified contracts from remaining scenarios. General JSON Schema validation and exhaustive provider compatibility are not claimed.
 
@@ -83,7 +83,7 @@ Keep retains the original TurnOutput. Replace requires an assistant message, res
 
 Usage is now accumulated from returned model observations in one invocation-local Ref, using canonical-first chatUsage. It includes discarded and returned interrupted outputs, spans Auto native/synthetic attempts, excludes supplied history/new input, and resets for each public invocation. Accounting updates are briefly masked after model-scope completion. ModelResponseEnd uses the same canonical-first usage view. Synthetic completion transfers canonical and legacy usage exactly once, clearing both representations from any retained residual generating assistant. Reply usage remains the generating request's usage; AgentResult usage is the invocation aggregate.
 
-Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must include the added hook and processor fields. The hook and builder are in-memory runtime values, not durable policy serialization. ReasoningDecision has a derived codec, but decoded replacements still pass runtime validation. This API covers replacement/removal through typed decisions; legacy mutable hooks, stop/goto-reasoning commands, and general model-call interception remain separate work.
+Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must include the added hook, processor, and authorizer fields. The hook and builder are in-memory runtime values, not durable policy serialization. ReasoningDecision has a derived codec, but decoded replacements still pass runtime validation. This API covers replacement/removal through typed decisions; legacy mutable hooks, stop/goto-reasoning commands, and general model-call interception remain separate work.
 
 - [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 456 core and 40 harness tests.
 
@@ -109,6 +109,12 @@ Cancellation during processing keeps the completed raw result and reconciles onl
 
 Tool execution still returns completed text. A processor can replace its output blocks and metadata for the existing typed result publisher; this does not implement incremental tool execution or native structured tool return values. Empty processed output emits only End after the original Start. Inline provider results bypass this processor, and preexisting history is not processed automatically. These integration gaps remain explicit.
 
-Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must account for the added hook and processor fields. Processor values are runtime dependencies, not serialized agent configuration.
+Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must account for the added hook, processor, and authorizer fields. Processor values are runtime dependencies, not serialized agent configuration.
 
 - [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests. Exact current identities are in the [tool package table](../tool/README.md). The post-reasoning ReActAgent identity is preserved in `8850a60`.
+
+## Authorization before local execution
+
+The optional ToolAuthorizer runs after assistant persistence and before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs carrying either provider reasoning metadata key are denied. Failures and defects fail closed to Denied observations, while cancellation preserves completed work and reconciles unresolved calls. Matched inline results bypass the gate. See the [tool contracts](../tool/README.md) for argument provenance, scope ownership, failure semantics, migration, and exact current identities. The default allows calls; harness policy and interactive/durable approval adapters remain pending.
+
+- [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 45 harness tests, including fifteen added authorization tests. Interactive and durable policy adapters are excluded from this acceptance. See the [authorization table](../tool/README.md) for exact identities.

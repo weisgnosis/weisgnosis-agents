@@ -49,9 +49,11 @@ Below-trigger valid history remains unchanged. Summary, flush, and offload effec
 
 A token-window binary search respects a minimum recent-message count. Boundaries shift backward across paired calls/results, matching repeated IDs by occurrence. Orphaned tool results move into the prefix.
 
-Immediate local eviction is installed through ToolResultEvictor.processor and the core ToolResultProcessor port. The runtime appends raw completion atomically before scoped interruptible processing, then commits the processed observation before model continuation/publication. Typed failures retain original output; cancellation retains completed raw successes. Compaction and permission runtime installation, supplied history, and inline provider result processing remain pending.
+Immediate local eviction is installed through ToolResultEvictor.processor and the core ToolResultProcessor port. The runtime appends raw completion atomically before scoped interruptible processing, then commits the processed observation before model continuation/publication. Typed failures retain original output; cancellation retains completed raw successes. Compaction and harness permission policy installation, supplied history, and inline provider result processing remain pending.
 
 ## 6. Permission and storage boundaries
+
+The core ToolAuthorizer port runs in a per-call scope after assistant persistence and before local execution. The default allows calls; an installed authorizer can approve validated input or deny. Input rewrites target exact occurrences, clear cached arguments, and preserve original-input provenance. Changed inputs carrying thoughtSignature or reasoningDetails are denied. Typed failures and defects become Denied observations; cancellation remains interruption. The harness policy/interactive adapter is not yet installed.
 
 PermissionEngine combines gates as Deny > Ask > Passthrough > Allow. Restricted rules inspect their configured argumentPath. PermissionRequests registers before publishing, resolves once, and removes cancelled waiters.
 

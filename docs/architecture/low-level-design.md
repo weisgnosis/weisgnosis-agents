@@ -53,6 +53,8 @@ Registration, withTool, and merging return Either[AgentError, Toolkit]. Duplicat
 
 PostReasoningHook accepts typed Keep/Replace/Discard decisions before state persistence and dispatch. Dedicated ReasoningHookError prevents provider-fallback confusion. Replacement restores model-owned usage, discard preserves thinking retries, and invocation-local accounting spans both Auto attempts. See the [agent contracts](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) for scope, ordering, and migration details.
 
+ToolAuthorizer.authorize accepts ToolAuthorizationRequest(requestId, context, call) and returns ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization]. Approved(input) and Denied(reason) are the only decisions. ReActAgent.make and Builder.toolAuthorizer default to explicit allow. Host failures fail closed; approved rewrites preserve runtime identity, clear stale content, and retain original-input provenance. See the [tool contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md) for provider reasoning metadata restrictions and cancellation behavior. This core port does not install harness policy or implement durable resume.
+
 ## Harness
 
 | Component | Contract | Declaration |

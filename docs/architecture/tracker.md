@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: integrate permission gates and compaction through explicit runtime extension points, then extend eviction to supplied history/inline results and expand remaining lifecycle/hook parity against the pinned upstream revision. Local-result eviction is now installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: connect harness permission policy and interactive requests to the core authorization port, then integrate compaction, then extend eviction to supplied history/inline results and expand remaining lifecycle/hook parity against the pinned upstream revision. Local-result eviction is now installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -47,6 +47,7 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Implement typed structured-output capabilities, complete two pending upstream routing/default mappings, and correct preset-format leakage; independently review sixteen tests and verify 420 core / 40 harness tests.
 - [x] Implement scoped visible-text transformation with a distinct failure channel, close the mapped streamed structured-text replacement scenario, independently review fourteen tests, and verify 434 core / 40 harness tests.
 - [x] Implement scoped post-reasoning decisions and invocation accounting, close the last structured-output method mapping, correct legacy usage duplication, independently review twenty-two tests, and verify 456 core / 40 harness tests.
+- [x] Add the scoped core authorization port, persist approved arguments by occurrence, normalize denial safely, close reasoning-metadata rewrite gaps, independently review fifteen tests, and verify 481 core / 45 harness tests.
 - [ ] Implement incremental/structured local tool-result output, provider signature/tool metadata decoding, and remaining protocol scenarios.
 - [ ] Validate platform-specific symlink/junction behavior.
 
@@ -59,7 +60,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Verify 40 harness tests at revision `fb80428`.
 - [ ] Complete exhaustive harness upstream scenario mapping and close its gaps.
 - [x] Integrate immediate local-result eviction through a scoped processor; independently review fifteen new tests, map five of seven eviction methods with explicit adaptations, and verify 466 core / 45 harness tests.
-- [ ] Integrate compaction and permission gates into agent execution.
+- [ ] Connect harness permission policy and interactive requests to ToolAuthorizer, including modified-input gate rechecks and concurrent policy updates.
+- [ ] Integrate compaction into canonical agent state before model invocation.
 - [ ] Extend eviction to supplied history, separate model-input views, and inline provider results; close the two remaining eviction method gaps.
 - [ ] Implement MemoryFlushManager and MemoryConsolidator with the specified writer isolation and budgets.
 - [ ] Verify durable host persistence and resumption without a second model request.

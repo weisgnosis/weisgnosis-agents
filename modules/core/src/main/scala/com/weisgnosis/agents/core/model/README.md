@@ -70,7 +70,7 @@ Current main-source identities are listed below; the review scopes above disting
 | [GenerateReason.scala](GenerateReason.scala) | e4e6dd03a73941b19557f413be343fa4643dcf33 |
 | [JsonFields.scala](JsonFields.scala) | 92bba6f226762fa2324c3211310fad6bf1c879e2 |
 | [MediaSource.scala](MediaSource.scala) | 8047c1845b5ec41a22ae8c1200ce2e60964a26c6 |
-| [Msg.scala](Msg.scala) | ca34a6225c004dbb6f39e0d502ccd7886e9cc2dd |
+| [Msg.scala](Msg.scala) | 0f16756e28e6d24a24658e69769058d91979855f |
 | [Role.scala](Role.scala) | 1fd28896fe37d9b7da11ceb30c922b10b7f6cca6 |
 | [ToolCallState.scala](ToolCallState.scala) | d6f3636a99cff6c696e3617eef95c4bfd72d33b8 |
 | [ToolResultState.scala](ToolResultState.scala) | e51c81870d3a88e90d69629ca33a0fc20608f775 |
@@ -84,3 +84,9 @@ This tightens previously permissive parsing; trailing input and ambiguous fields
 - [x] Six boundary regressions cover full text, duplicate text/metadata/captures/wrappers, metadata authority, and valid wrapped/direct values. Five real loopback HTTP tests cover native schema/thinking/usage, synthetic definition hoisting and compression, HTTP-400 fallback without duplicate input, no retry on HTTP 503, and rejection of trailing native JSON.
 - [x] `review_fp` and `review_harness` approved the final shared JSON/structured HTTP scope against `9c165a7` on 2026-09-29 after the wrapper-boundary correction. Full verification passed 404 core and 40 harness tests. No findings remain; the [JSON package table](../json/README.md) records exact current identities.
 - [ ] Complete hook parity and broader provider compatibility; general JSON Schema validation is outside this acceptance.
+
+## Runtime occurrence updates
+
+The internal mapToolUseAt operation updates one tool ordinal without changing message identity, unrelated content, or role/content compatibility. ReAct uses it to persist authorized arguments at the original assistant position before execution. Runtime cancellation consumes inline and local results separately. The [authorization scope](../tool/README.md) records current review and integration evidence.
+
+- [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 45 harness tests, including fifteen added authorization tests. Interactive and durable policy adapters are excluded from this acceptance. See the [authorization table](../tool/README.md) for exact identities.
