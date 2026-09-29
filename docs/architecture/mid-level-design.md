@@ -91,7 +91,7 @@ Middleware checks permission before execution. Interactive hosts route authentic
 
 Enforce MAX_SPAWN_DEPTH=3. In-turn children use scoped fibers and propagate cancellation. At a 30-second synchronous timeout, promotion transfers ownership to a persistent TaskSupervisor; finishing the parent turn must not terminate promoted tasks. Task inspection and cancellation interfaces remain design targets.
 
-## 10. Planned plan-mode hardening
+## 10. Plan-mode hardening and remaining integration
 
 Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. Plan exit requires explicit Ask approval. A conservative static POSIX grammar is implemented below. Runtime admission is implemented below; policy propagation and plan tools remain pending.
 
@@ -170,3 +170,7 @@ PlanShellInspection rejects unsupported characters before tokenization, then mat
 ## Dynamic plan admission
 
 The host passes a suspended mode read and immutable exact-name classifications to PlanPermissionGate. Each check samples once. Build abstains; Plan eligible tools abstain, execution requests Ask and unknown/mutating tools Deny. Shell input must be exactly one string command field. Install the gate in InteractivePermissionAuthorizer so confirmed replacements and current mode are rechecked before dispatch. Mode evaluation remains cancellable; admission is not atomic revocation of in-flight execution.
+
+## Atomic plan review
+
+PlanSession uses one TRef state and a TPromise per request. Registration, supersession and resolution bind exact live ticket identity and unbounded revision; state publication and waiter settlement share a transaction. requestReview is scoped via acquireRelease, so interruption cancels only the still-current request. The owner must keep the scope alive while awaiting human review. Separate control/reviewer capabilities prevent a model-facing handle from approving itself. Direct gate mode projection avoids mirrored flags.

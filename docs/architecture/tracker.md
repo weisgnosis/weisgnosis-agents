@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement typed plan-session lifecycle and prompt projection, then safe draft storage and confirmed transitions; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: project truthful plan-session context into model requests without changing canonical history, then implement safe draft storage and model-facing review tools; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -94,7 +94,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 
 - [x] Inventory fourteen upstream plan-mode methods and implement conservative static shell inspection; independently review ten cases and verify 555 core / 461 harness tests.
 - [x] Integrate typed plan admission with strict inputs, actual runtime denials and confirmation rechecks; independently review fourteen new cases and verify 555 core / 475 harness tests.
-- [ ] Implement plan-session lifecycle, prompt projection, safe draft storage, confirmed exit and child propagation.
+- [x] Implement typed in-memory plan-session lifecycle with exact-draft host review, atomic waiter settlement and scoped cancellation; independently review eighteen new cases and verify 555 core / 493 harness tests.
+- [ ] Implement prompt projection, safe draft storage, model-facing confirmed exit and child propagation.
 - [ ] Implement subagent depth bounds, scoped supervision, and timeout promotion.
 - [ ] Implement MCP protocol codecs, transports, discovery, and tool bridging.
 - [ ] Validate live end-to-end behavior, cancellation, resource release, and operational controls.
@@ -133,7 +134,7 @@ Package indexes enumerate actual source and spec files. Planned package document
 | INV-6: Tool eviction | Standalone and runtime suites cover 80k/2k limits, persistence fallback, raw-result retention on cancellation, parallel slot isolation, and actual disk storage |
 | INV-7: Permission priority | Gate tests and installed interactive adapter cover Deny > Ask > Passthrough > Allow, fresh modified-input checks, and latest-policy denial |
 | INV-8: Subagent supervision | Planned |
-| INV-9: Plan mode hardening | Static grammar and opt-in runtime permission admission reviewed; plan lifecycle and child propagation remain pending |
+| INV-9: Plan mode hardening | Static grammar and opt-in runtime permission admission reviewed; in-memory review lifecycle is available; plan files/tools and child propagation remain pending |
 | INV-10: Path safety | Canonical paths and parent traversal are tested; privileged symlink creation was unavailable on this host. The portable store requires host-controlled ancestors |
 | INV-11: Structured output | Schema hoisting, native/synthetic selection and capture tests; broader parity gaps remain |
 | INV-12: Indexed stream assembly | Interleaved deltas and interrupted partial JSON tests |

@@ -50,7 +50,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [ ] Agent middleware and durable HITL integration.
 - [ ] Remote memory storage and timestamp-watermark migration, remote transcript persistence, and memory scheduling.
 - [ ] Scoped subagents, depth limits, and persistent TaskSupervisor promotion.
-- [ ] Plan-mode tool restrictions and shell inspection.
+- [x] Static plan inspection, opt-in tool restrictions and in-memory reviewed sessions.
+- [ ] Plan prompt projection, safe files, control tools and child propagation.
 - [ ] MCP protocol, transports, discovery, and toolkit bridging.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
@@ -109,8 +110,12 @@ MemoryConfig now combines defaults and overrides without a mutable builder. Vali
 
 ## Plan-mode foundation
 
-Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; safe plan storage, confirmed exit and child propagation remain pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
+Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; safe plan storage, model-facing transition tools and child propagation remain pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
 
 ## Plan admission authority
 
-PlanPermissionGate now integrates explicit host-owned mode and tool classifications into normal permission admission. It restricts capabilities without granting permission, and execution requests still require confirmation. The runtime persists and streams denied results. Mode changes affect later checks; they do not revoke already admitted work. Plan persistence, approved transitions and child restrictions remain separate work.
+PlanPermissionGate now integrates explicit host-owned mode and tool classifications into normal permission admission. It restricts capabilities without granting permission, and execution requests still require confirmation. The runtime persists and streams denied results. Mode changes affect later checks; they do not revoke already admitted work. In-memory host-approved transitions are implemented below; plan persistence, model-facing transition tools and child restrictions remain separate work.
+
+## Plan-session review authority
+
+An in-memory PlanSession now distinguishes unprepared planning, concrete drafts, pending review and a host-approved draft in Build. The host retains approval authority separately from model-facing control. Edits and re-entry invalidate previous requests; old waiters are settled rather than left suspended. Approval records exactly the reviewed draft. This is not evidence of a plan file or a durable user approval record.

@@ -87,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan-mode enforcement, and MCP are not implemented. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan prompt projection/files/control tools/child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -189,3 +189,7 @@ PlanShellInspection.inspect(String) returns Either[ShellRejection, PosixReadComm
 ## Plan permission APIs
 
 PlanMode is Build or Plan. PlanToolAccess is ReadOnly, PlanControl, RequestExecution, Mutation or PosixReadCommand. PlanPermissionGate.make(UIO[PlanMode], Map[String, PlanToolAccess]) returns a PermissionGate without reading mode during construction. PlanShellInspection.inspectInput(Json) rejects missing/extra/duplicate/nonstring fields before parsing the sole command string. The [current plan identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities) cover runtime admission and its precise limits.
+
+## Plan-session APIs
+
+PlanSession.make returns control and reviewer capabilities. Control exposes snapshot/mode, enter, replaceDraft(PlanDraft), and scoped requestReview. PlanReview.await returns Approved(exact ApprovedPlan), Declined, Superseded or Cancelled. Reviewer.resolve returns Applied or NotCurrent after exact current-ticket comparison. PlanSessionSnapshot has Build, Planning and AwaitingReview cases; its codec is observational data, not a restore API. See the [five current identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-session-identities).

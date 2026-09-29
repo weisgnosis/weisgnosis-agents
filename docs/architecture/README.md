@@ -22,3 +22,5 @@ Shared JSON validation now lives in core.json, independent of client/model layer
 The core authorization boundary is implemented and reviewed; the interactive harness adapter now connects policy and approval requests. Durable confirmation/resumption stays explicitly pending in the tracker.
 
 Plan-mode contracts now distinguish reviewed static syntax and opt-in runtime admission from pending plan-file lifecycle and child propagation. The parity inventory keeps all fourteen upstream methods individually visible, with two adapted and twelve pending.
+
+PlanSession now adds reviewed in-memory draft and approval authority to plan admission. The tracker keeps prompt projection, plan files, restore semantics and model-facing review tools separate; partial manager mode evidence does not close its path assertions.

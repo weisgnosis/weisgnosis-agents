@@ -776,7 +776,7 @@ Pinned upstream has fourteen methods across four suites. The initial static-shel
 - [ ] `PlanModeMiddlewareTest.buildModeNoHintWhenNoPlanFile`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeMiddlewareTest.allowsSubagentToolsInPlanMode`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeMiddlewareTest.skillLoadToolIsReadOnlyAndPermittedInPlanMode`: corresponding runtime/state/storage/propagation integration remains pending.
-- [ ] `PlanModeManagerTest.enterAndExitTogglePersistedFlag`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeManagerTest.enterAndExitTogglePersistedFlag`: live mode assertions are adapted by PlanSessionSpec with mandatory concrete-draft host approval; path default/recording/retention assertions remain pending. The upstream test itself does not verify disk durability.
 - [ ] `PlanModeManagerTest.customPlanDirNormalised`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeManagerTest.writePlanRecordsPathAndDoesNotThrow`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeSubagentPropagationTest.declaredSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration`: corresponding runtime/state/storage/propagation integration remains pending.
@@ -796,3 +796,14 @@ The manager's persisted-flag test observes state fields, not save/reload durabil
 - [ ] Complete the twelve remaining plan methods above and authenticated plan lifecycle/child propagation.
 
 This closes two explicit middleware adaptations only. Safe static commands abstain; they do not acquire path/process authority or bypass ordinary permission policy. Current identities are in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities).
+
+
+## In-memory plan-session evidence
+
+- [x] Adapt live Build/Plan transitions through a separate host review capability and use the same session mode for the installed permission gate.
+- [x] Require a concrete exact draft; edits/re-entry/new requests invalidate old approvals and atomically settle superseded waiters.
+- [x] Verify foreign/stale/replayed tickets, concurrent resolution, edit-versus-approval ordering and scope/cancellation ownership.
+- [ ] Complete manager path-recording/retention assertions, safe files and restoration; no additional entire upstream method is closed by this increment.
+- [ ] Implement truthful prompt projection and model-facing review tool/UI integration.
+
+This deliberately hardens upstream unconditional exit and unversioned approval. The eighteen added tests establish in-memory state and capability ownership, not a file or approval-delivery protocol. Current identities are in the [session contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-session-identities).

@@ -10,7 +10,7 @@ Standalone context and permission components built on core.
 | [eviction](src/main/scala/com/weisgnosis/agents/harness/eviction/README.md) | Above-80k eviction, 2k head/tail previews, explicit-trust local store |
 | [permission](src/main/scala/com/weisgnosis/agents/harness/permission/README.md) | Immutable decisions, Promise coordination, serializable durable approval values |
 | [subagent](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) | Planned supervision and task promotion |
-| [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) | Planned mutation restrictions and shell inspection |
+| [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) | Static command inspection, opt-in permission admission and in-memory reviewed sessions; files/tools/child propagation pending |
 
 MemoryFlushManager supplies daily extraction through an injected DailyMemoryStore and can be installed as the compactor flush callback. LocalDailyMemoryStore supplies a scoped backend for host-controlled workspaces with exclusive cooperative ownership and atomic daily replacement. MemoryConsolidator enforces its counter budget before an atomic content/progress commit; MemoryRepository.inMemory implements shared daily/consolidation authority. LocalMemoryRepository supplies the daily/consolidation ports with shared ownership and journal recovery before each operation. Transcript recording can be installed through TurnCompletionObserver with an explicit anonymous-message policy. Completion-triggered flush scheduling is available through MemoryFlushScheduler. MemoryConsolidationScheduler adds opt-in owner-coalesced background consolidation with explicit result reporting. Explicit acknowledged-daily archival is available through MemoryRepository.retention. Remote memory/transcript storage, automatic session pruning, general middleware, and durable workflow storage remain pending. Hosts choose a memory store and supply summarization/offload effects and authenticated approval routing.
 
@@ -20,7 +20,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 555 core and 475 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 555 core and 493 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -114,3 +114,9 @@ PlanShellInspection accepts a narrow positive POSIX grammar and returns immutabl
 PlanPermissionGate consumes explicit host mode and exact trusted tool classifications. Build and eligible Plan calls abstain, RequestExecution asks, and prohibited/unknown calls deny. Real ReAct tests verify denial persistence/events, modified-input checks and mode changes during confirmation. This supplies admission restrictions without automatic state transitions, process isolation or child propagation. See the [plan contract](src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission).
 
 - [x] `review_fp` and `review_harness` approved the final eight-file plan-admission increment against `0ad16e5` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 475 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within typed mode/classification, exact command input, dynamic permission admission and actual ReAct denial/confirmation behavior. Process isolation, plan lifecycle/storage/prompts and child propagation are excluded.
+
+## In-memory plan review
+
+PlanSession separates model-facing drafting from host-only approval. One STM authority binds pending tickets to exact drafts, consumes approval once and settles superseded/cancelled waiters atomically. The same session mode feeds PlanPermissionGate. This provides no file, restoration, prompt projection or automatic tool/UI registration. See the [session contract](src/main/scala/com/weisgnosis/agents/harness/plan/README.md#in-memory-plan-session-lifecycle).
+
+- [x] `review_fp` and `review_harness` approved the final five-file in-memory plan-session increment against `87b2d8b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 493 harness tests, including eighteen new cases, with zero compiler warnings. No findings remain within typed snapshots, exact-ticket host review, atomic settlement, scoped cancellation and live gate integration. Paths/files, durable restoration, prompt projection and control-tool/authenticated-UI integration are excluded.
