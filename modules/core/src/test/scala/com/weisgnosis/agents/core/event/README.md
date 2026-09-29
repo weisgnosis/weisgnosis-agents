@@ -12,6 +12,7 @@ These suites verify payload codecs and selected runtime boundaries. They do not 
 - [x] `review_fp` and `review_harness` approved the final three-file payload increment against `66bb42d` on 2026-09-29 with no unresolved findings.
 - [x] Full formatting, fatal-warning compilation, and tests passed: 291 core and 40 harness.
 - [x] All 13 enabled AgentEventStreamTest declarations now have identifier/payload evidence with documented adaptations.
-- [ ] Complete runtime event ordering, metadata propagation, stop/resume integration, and the legacy coarse-event surface.
+- [x] ReActAgentEmissionSpec verifies correlated iteration-limit publication and inline provider metadata/text/data order with occurrence-sensitive cancellation handling.
+- [ ] Complete remaining runtime event ordering, local structured-result metadata, stop/resume integration, and the legacy coarse-event surface.
 
-The [current event contracts and reviewed source identities](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md) distinguish previously accepted identifiers/codecs from the latest payload increment. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) retains ten legacy methods and seven disabled upstream ordering declarations as pending work. Decoding an event does not establish runtime authority or publication.
+The [current event contracts and reviewed source identities](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md) distinguish previously accepted identifiers/codecs from the latest payload increment. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) retains ten legacy methods and six ordering requirements as pending work; the seventh disabled upstream ordering declaration now has an implemented Scala limit-event regression. Decoding an event does not establish runtime authority or publication.

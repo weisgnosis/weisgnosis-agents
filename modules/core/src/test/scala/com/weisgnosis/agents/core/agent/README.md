@@ -1,9 +1,10 @@
-# ReAct execution and structured output: verification
+# ReAct and structured-output verification
 
-These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity.
+These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. Exhaustive upstream parity, structured streaming, and complete runtime event ordering remain pending.
 
 - [AgentConfigSpec](AgentConfigSpec.scala)
 - [AgentResultSpec](AgentResultSpec.scala)
+- [ReActAgentEmissionSpec](ReActAgentEmissionSpec.scala)
 - [ReActAgentEventSpec](ReActAgentEventSpec.scala)
 - [ReActAgentInterruptSpec](ReActAgentInterruptSpec.scala)
 - [ReActAgentLifecycleSpec](ReActAgentLifecycleSpec.scala)
@@ -11,52 +12,13 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [ReActAgentThinkingRetrySpec](ReActAgentThinkingRetrySpec.scala)
 - [StructuredOutputSpec](StructuredOutputSpec.scala)
 
-Run `sbt "core / test"`, or `sbt verify` for repository-wide formatting, compilation, and tests. See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for gaps and intentional differences.
+## Current evidence
 
-Structured completion preserves signed thinking on the final reply exactly once. The reply carries the generating request's usage; AgentResult carries the aggregate for the run. Ordinary tool pairs and unrelated empty messages remain in history. If the run is incomplete, runStructured fails with AgentError.Interrupted and preserves recovery history even when generate_response already captured a payload.
+- [x] Lifecycle suites verify request/run resource ownership, timeout, cancellation, original failure propagation, private stream completion, ordered draining, and fresh correlated boundaries.
+- [x] StructuredOutputSpec verifies schema hoisting, thinking/usage/history preservation, mixed tools, capture isolation, and interruption after capture.
+- [x] ReActAgentEmissionSpec verifies nine limit/inline-result/duplicate-call regressions without sleeps; four initial publication tests reproduced missing behavior before correction.
+- [x] `review_fp` and `review_harness` approved the final two-file runtime increment against `9768064` on 2026-09-29 with no unresolved findings in that scope.
+- [x] `sbt scalafmtAll scalafmtSbt verify` passed 300 core and 40 harness tests with zero compiler warnings.
+- [ ] Complete remaining upstream ordering, structured streaming, provider continuation, local structured tool streams, and permission/phase-stop integration.
 
-## Structured-output review acceptance at 21bc69f
-
-- [x] Independent reviewers `review_fp` and `review_harness` explicitly approved the final structured-output changes on 2026-09-29 after correction of the interruption-after-capture finding.
-- [x] Accepted scope: completed-response thinking/signature transfer, per-request versus aggregate usage, unrelated empty history, mixed-tool pairing, capture isolation, and refusal to finalize incomplete runs.
-- [x] No unresolved findings in this scope. Full upstream parity, model-capability selection, structured streaming, and hooks remain pending in the parity task list.
-- [x] Verification: `sbt scalafmtAll scalafmtSbt verify`, 118 core and 40 harness tests passed with zero compiler warnings. Three newly added regressions failed before the preservation fixes and passed afterward.
-
-Reviewed change set is based on `a58b0ca`; exact Git blob identities are:
-
-| File | Reviewed blob |
-| --- | --- |
-| ReActAgent.scala | `d4cb87a525437a8d9193d078044ccd2d3ca9af25` |
-| StructuredOutput.scala | `a8a6498baf961f792dba4226cab56d9c6905b0e6` |
-| StructuredOutputSpec.scala | `620228e7ebe87e23aca045f8863c8aa856a3bcea` |
-
-This acceptance applies to the named behavior and reviewed content. Changed behavior requires renewed independent review. Prior lifecycle regressions remain part of the full verification suite.
-
-## Event delivery and lifecycle acceptance
-
-The runtime publishes one correlated AgentStart/AgentEnd pair per engine attempt. End follows loop termination and reconciliation even on failure or interruption. Streaming completion uses a private Take queue carrying the original exit; a provider-published AgentEnd cannot terminate delivery. The bridge joins its claimed event prefix before appending the buffered suffix and terminal signal. Early consumer completion closes the owned producer and model scopes before returning.
-
-Publishers must obey scoped ownership. The hub and delivery queue are unbounded; they do not provide backpressure. These boundaries describe engine attempts, not the entire structured-output API: Auto fallback can make two attempts, and structured decoding/history replacement follows the attempt boundary. Structured streaming remains pending.
-
-- [x] Independent reviewers `review_fp` and `review_harness` approved the lifecycle implementation and eight new regressions based on `906cc4a`, on 2026-09-29, with no unresolved findings in this scope.
-- [x] Formatting, fatal-warning compilation, and all 177 core / 40 harness tests passed. Three selected boundary regressions failed before this correction.
-- [ ] Complete event wire/schema parity and structured streaming; this approval does not include those APIs.
-
-| Reviewed source | Git blob |
-| --- | --- |
-| ReActAgent.scala | 52a77ff8cda912e8292ae470f765c795fd680d23 |
-| ReActAgentEventSpec.scala | 7303fd85ffbb5142f46ca89319a2a785b29b3a74 |
-
-## Message API migration acceptance
-
-- [x] `review_fp` and `review_harness` approved this package's changed Scala files against `9c47bf5` on 2026-09-29, with no unresolved findings in the message-boundary migration.
-- [x] Repository verification passed 242 core and 40 harness tests with zero compiler warnings.
-
-The accepted migration is recorded in commit `a701612`. See the [validated message API](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md) for source compatibility changes, scope, and evidence. Core callers preserve roles and optional fields; reasoning/structured-output filtering preserves message identity and metadata. Harness transformations preserve tool pairing, retained-user provenance, eviction fallback, and cancellation. This acceptance covers the changed files only; broader package and upstream parity gaps remain tracked.
-
-## Content protocol verification
-
-- [x] `review_fp` and `review_harness` approved the content protocol increment against `a701612` on 2026-09-29; no findings remain in the [current model contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md).
-- [x] Full verification passed 272 core and 40 harness tests with zero compiler warnings.
-
-The accepted implementation and tests are recorded in commit `8b96ce3`. Canonical serverTool markers preserve inline results without local dispatch, as verified in ReActAgentSpec alongside the legacy marker scenario. The model tests cover all ten content codecs and all 17 upstream ToolUse methods. ToolCallState remains protocol data; lifecycle and permission integration are still tracked work.
+The [current agent contracts and reviewed blobs](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) record exact scope, earlier accepted revisions, intentional upstream differences, and integration limits. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) retains incomplete tasks as unchecked items.

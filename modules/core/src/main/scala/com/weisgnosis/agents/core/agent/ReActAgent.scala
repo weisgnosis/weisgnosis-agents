@@ -251,6 +251,7 @@ final class ReActAgent private (
           0,
           activeToolkit,
           eventHub,
+          replyId,
           requestConfig,
           structuredResponse,
           runHistoryStart
@@ -271,12 +272,16 @@ final class ReActAgent private (
       emptyThinkingRetries: Int,
       activeToolkit: Toolkit,
       eventHub: Hub[AgentEvent],
+      replyId: String,
       requestConfig: LlmConfig,
       structuredResponse: Option[Ref[Option[Json]]],
       runHistoryStart: Int
   ): ZIO[Scope, AgentError, AgentResult] =
     if iteration > config.maxIterations then
       for
+        _ <- eventHub.publish(
+          AgentEvent.ExceedMaxItersEvent(replyId, config.maxIterations, iteration - 1)
+        )
         maxIterMsg <- ZIO.succeed(
           Msg.assistant(
             name = Some(config.name),
@@ -351,6 +356,7 @@ final class ReActAgent private (
                             emptyThinkingRetries + 1,
                             activeToolkit,
                             eventHub,
+                            replyId,
                             requestConfig,
                             structuredResponse,
                             runHistoryStart
@@ -379,20 +385,14 @@ final class ReActAgent private (
                     for
                       _ <- stateRef.update(_ :+ assistantMsg)
                       allCalls = assistantMsg.toolUses
-                      completedServerCalls = allCalls.filter(c =>
-                        c.isServerTool && assistantMsg.toolResults.exists(_.toolUseId == c.id)
+                      inline = partitionToolResults(
+                        allCalls,
+                        assistantMsg.toolResults,
+                        _.isServerTool
                       )
-                      pendingCalls = allCalls
-                        .filterNot(c => completedServerCalls.exists(_.id == c.id))
-
-                      _ <- ZIO.foreachDiscard(completedServerCalls) { sc =>
-                        val matchingResult = assistantMsg.toolResults.find(_.toolUseId == sc.id)
-                        val outText        = matchingResult.map(_.text).getOrElse("")
-                        val state = matchingResult.map(_.state).getOrElse(ToolResultState.Success)
-                        eventHub.publish(AgentEvent.ToolResultStartEvent(sc.id, sc.name)) *>
-                          eventHub.publish(
-                            AgentEvent.ToolResultEndEvent(sc.id, sc.name, outText, state)
-                          )
+                      pendingCalls = inline.pending
+                      _ <- ZIO.foreachDiscard(inline.completed) { case (call, result) =>
+                        publishInlineResult(call, result, replyId, eventHub)
                       }
 
                       turnRes <-
@@ -436,6 +436,7 @@ final class ReActAgent private (
                                         0,
                                         activeToolkit,
                                         eventHub,
+                                        replyId,
                                         requestConfig,
                                         structuredResponse,
                                         runHistoryStart
@@ -453,6 +454,64 @@ final class ReActAgent private (
         .onInterrupt {
           reconcileDanglingToolCalls(stateRef, runHistoryStart).ignore
         }
+
+  final private case class ToolResultPartition(
+      completed: Chunk[(ContentBlock.ToolUse, ContentBlock.ToolResult)],
+      pending: Chunk[ContentBlock.ToolUse],
+      unmatched: Chunk[ContentBlock.ToolResult]
+  )
+
+  /** Consume each observation at most once, retaining pending call order and duplicate occurrences. */
+  private def partitionToolResults(
+      calls: Chunk[ContentBlock.ToolUse],
+      results: Chunk[ContentBlock.ToolResult],
+      eligible: ContentBlock.ToolUse => Boolean
+  ): ToolResultPartition =
+    calls.foldLeft(ToolResultPartition(Chunk.empty, Chunk.empty, results)) { (partition, call) =>
+      if !eligible(call) then partition.copy(pending = partition.pending :+ call)
+      else
+        val (before, matchingAndAfter) = partition.unmatched.span(result =>
+          result.id != call.id || (!call.isServerTool && result.name.exists(_ != call.name))
+        )
+        matchingAndAfter.headOption match
+          case Some(result) =>
+            partition.copy(
+              completed = partition.completed :+ (call -> result),
+              unmatched = before ++ matchingAndAfter.drop(1)
+            )
+          case None => partition.copy(pending = partition.pending :+ call)
+    }
+
+  private def publishInlineResult(
+      call: ContentBlock.ToolUse,
+      result: ContentBlock.ToolResult,
+      replyId: String,
+      eventHub: Hub[AgentEvent]
+  ): UIO[Unit] =
+    for
+      _ <- eventHub.publish(
+        AgentEvent.ToolResultStartEvent(call.id, call.name, metadata = result.metadata)
+      )
+      _ <- ZIO.foreachDiscard(result.output) {
+        case ContentBlock.Text(text) =>
+          eventHub.publish(
+            AgentEvent.ToolResultDeltaEvent(call.id, text, metadata = result.metadata)
+          )
+        case data =>
+          eventHub.publish(
+            AgentEvent.ToolResultDataDeltaEvent(replyId, call.id, call.name, data, result.metadata)
+          )
+      }
+      _ <- eventHub.publish(
+        AgentEvent.ToolResultEndEvent(
+          call.id,
+          call.name,
+          result.text,
+          result.state,
+          metadata = result.metadata
+        )
+      )
+    yield ()
 
   private def executeAndRecord(
       call: ContentBlock.ToolUse,
@@ -494,10 +553,9 @@ final class ReActAgent private (
       runHistoryStart: Int
   ): UIO[Msg] =
     stateRef.modify { history =>
-      val runHistory        = history.drop(runHistoryStart)
-      val currentTurn       = runHistory.reverse.takeWhile(_.role != Role.Assistant).reverse
-      val existingResultIds = currentTurn.flatMap(_.toolResults).map(_.toolUseId).toSet
-      val lastAssistant     = runHistory.reverse.find(_.role == Role.Assistant)
+      val runHistory    = history.drop(runHistoryStart)
+      val currentTurn   = runHistory.reverse.takeWhile(_.role != Role.Assistant).reverse
+      val lastAssistant = runHistory.reverse.find(_.role == Role.Assistant)
 
       lastAssistant match
         case Some(asst)
@@ -505,8 +563,11 @@ final class ReActAgent private (
           (asst, history)
 
         case Some(asst) =>
-          val pendingCalls =
-            asst.toolUses.filterNot(tu => tu.isServerTool || existingResultIds.contains(tu.id))
+          val pendingCalls = partitionToolResults(
+            asst.toolUses.filterNot(_.isServerTool),
+            currentTurn.flatMap(_.toolResults),
+            _ => true
+          ).pending
           val synthesizedResults = pendingCalls.map { call =>
             Msg.tool(
               name = Some(call.name),

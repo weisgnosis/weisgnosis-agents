@@ -18,10 +18,10 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 
 - [x] Revision `fb80428`: agent lifecycle and path traversal fixes explicitly approved by independent reviewer `review_harness` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Structured-output completion fixes based on `a58b0ca` approved by `review_fp` and `review_harness`; the agent package README records exact source identities and scope.
-- [x] Repository verification: 291 core and 40 harness tests passed, with no compiler warnings.
+- [x] Structured-output completion fixes based on `a58b0ca` approved by `review_fp` and `review_harness`; the agent package README records accepted revisions and current contracts.
+- [x] Repository verification: 300 core and 40 harness tests passed, with no compiler warnings.
 - [x] Strict model decoding, legacy usage compatibility, Base64 wire naming, and role validation approved by review_fp and review_harness; exact scope and source identities are recorded in the model READMEs.
-- [x] Correlated engine-attempt boundaries and private stream completion approved by review_fp and review_harness; the agent READMEs record exact scope, buffering assumptions, and source identities.
+- [x] Correlated engine-attempt boundaries and private stream completion approved by review_fp and review_harness; the agent READMEs record accepted revisions, current contracts, and buffering assumptions.
 - [x] Consistent concrete/base event codecs and immutable tool-result event metadata reviewed independently; the event READMEs record exact scope and migration details.
 - [x] Protocol identifier lookup and canonical encoding cover 31 names and 11 legacy aliases with independent approval; event payload adaptation remains pending.
 - [x] Typed generation metadata covers 12 reasons and nine upstream methods, with immutable updates and raw-extension preservation independently approved.
@@ -42,3 +42,5 @@ The accepted implementation and tests are recorded in commit `8b96ce3`. Canonica
 - [x] Cumulative independently reviewed mappings cover all 119 message methods with explicit Pure FP and wire adaptations.
 
 - [x] Eight additional event payloads and the 39-variant codec matrix were approved by `review_fp` and `review_harness` against `66bb42d`; runtime emission, stop/resume authority, and envelope adapters remain pending.
+
+- [x] Runtime inline-result emission, correlated iteration limits, and occurrence-sensitive reconciliation were independently approved against `9768064`; current agent READMEs record exact scope and source identities.

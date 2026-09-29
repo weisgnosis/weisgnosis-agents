@@ -283,7 +283,8 @@ The independent audit found the following gaps; completed corrections are checke
 - [x] Use one canonical tagged representation for all 39 concrete/base event codecs; cross-decoding and legacy leaf decoding are tested.
 - [x] Preserve immutable metadata on existing tool-result start/text-delta/end events through decoding, encoding, and repeated source tagging.
 - [x] Add tool-result data-delta payload and its immutable metadata contract; AgentEventPayloadSpec verifies round-trip and repeated source tagging.
-- [ ] Carry applicable tool-result metadata through runtime event emitters; current acceptance covers codecs.
+- [x] Publish ordered inline provider result text/data events with complete result metadata and correlated data reply IDs; preserve call occurrences and cancellation reconciliation.
+- [ ] Extend local tool execution to structured/streaming results and propagate their metadata.
 - [x] Classify current event/lowercase and upstream type/uppercase wire formats as noninterchangeable; existing Scala wire tags remain canonical for compatibility.
 - [x] Implement the separate AgentEventType identifier codec for all 31 canonical names and 11 aliases.
 - [ ] Implement explicit field/payload adapters; identifier parsing alone cannot establish compatibility.
@@ -336,21 +337,23 @@ These upstream methods contain comments rather than executable assertions and th
 - [ ] `toolCallCycle`: complete and verify the prescribed runtime sequence.
 - [ ] `hitlReentry`: complete and verify the prescribed runtime sequence.
 - [ ] `dataBlockEmission`: complete and verify the prescribed runtime sequence.
-- [ ] `exceedMaxIters`: complete and verify the prescribed runtime sequence.
+- [x] `exceedMaxIters` -> ReActAgentEmissionSpec verifies the implemented limit event immediately before AgentEnd with the same replyId and completed iteration count; the upstream declaration itself remains disabled.
 - [ ] `streamBoundaries`: complete and verify the prescribed runtime sequence.
 
 ### Implemented payloads and remaining runtime contracts
 
 The eight payload classes below are implemented and verified independently of their runtime integrations. AgentEvent now has 39 Scala variants; the separate upstream identifier enum retains its 31 names. Existing lowercase event payloads remain canonical.
 
-| Implemented variant | Payload | Pending runtime integration |
+| Implemented variant | Payload | Runtime integration status |
 | --- | --- | --- |
 | AgentResult | result: Msg | Publish finalized result after structured postprocessing |
 | DataBlockStart / End | replyId, blockId | Stable block correlation and provider assembly |
 | DataBlockDelta | replyId, blockId, delta: String | Delta is text; it is not a ContentBlock |
-| ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Preserve arbitrary blocks and applicable metadata |
-| ExceedMaxIters | replyId, maxIters, currentIter | Runtime guard must use the correlated reply ID |
+| ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Inline provider output is published in order with full metadata; local structured/streaming output remains pending |
+| ExceedMaxIters | replyId, maxIters, currentIter | Runtime guard verified with correlated replyId and completed iteration count |
 | RequestStop | reason, available typed GenerateReason; default MiddlewareStopRequested | Cooperative phase stop and durable pending-work resumption |
 | AllToolsDenied | Chunk[ToolUse], empty by default | Permission/HITL integration and middleware stop decision |
 
 Upstream base events also have identity/time, optional source, and metadata. This payload increment preserves immutable optional source and data-delta metadata but does not add the universal id/createdAt envelope or translate uppercase type objects. A future envelope adapter must use explicitly supplied identity/time or an effectful allocator rather than eager UUID/clock access. Class presence alone is not runtime evidence: the pinned source has no production DataBlock event construction sites. A RequestStop event is distinct from fiber cancellation; supporting its type does not implement phase suspension or resumption.
+
+Inline event metadata intentionally preserves the complete result map; pinned upstream inline events synthesize only serverTool=true. ReActAgentEmissionSpec verifies this Scala contract, duplicate-ID occurrence handling, and local cancellation matching. It does not establish provider continuation without inline results, local structured tool streams, or complete event ordering.
