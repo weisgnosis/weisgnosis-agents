@@ -88,7 +88,7 @@ final class ReActAgent private (
   def run(messages: Chunk[Msg]): ZIO[Scope, AgentError, AgentResult] =
     runLock.withPermit(ZIO.scoped(for
       hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-      result <- runWithHub(messages, hub, toolkit)
+      result <- runWithHub(messages, hub, toolkit)(result => ZIO.succeed((result, ()))).map(_._1)
     yield result))
 
   def run(message: Msg): ZIO[Scope, AgentError, AgentResult] =
@@ -101,86 +101,91 @@ final class ReActAgent private (
       mode: StructuredMode = StructuredMode.Auto
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
     runLock.withPermit(ZIO.scoped(for
-      capturedRef <- Ref.make[Option[Json]](None)
-      syntheticTool = StructuredOutput.createTool(schema, json => capturedRef.set(Some(json)))
-      native = mode == StructuredMode.Native || (mode == StructuredMode.Auto && toolkit.isEmpty)
-      structuredToolkit <-
-        if native then ZIO.succeed(toolkit)
-        else
-          ZIO
-            .fromEither(toolkit.register(syntheticTool))
+      hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+      result <- runStructuredWithHub[A](messages, schema, mode, hub)
+    yield result))
 
-      requestConfig =
-        if native then
-          llmConfig.copy(responseFormat =
-            Some(
-              Json.Obj(
-                "type"        -> Json.Str("json_schema"),
-                "json_schema" -> Json.Obj("name" -> Json.Str("response"), "schema" -> schema)
-              )
-            )
+  private def runStructuredWithHub[A: JsonCodec](
+      messages: Chunk[Msg],
+      schema: Json,
+      mode: StructuredMode,
+      hub: Hub[AgentEvent]
+  ): ZIO[Scope, AgentError, (AgentResult, A)] =
+    Ref.make[Option[Json]](None).flatMap { capturedRef =>
+      val syntheticTool = StructuredOutput.createTool(schema, json => capturedRef.set(Some(json)))
+      val nativeConfig = llmConfig.copy(responseFormat =
+        Some(
+          Json.Obj(
+            "type"        -> Json.Str("json_schema"),
+            "json_schema" -> Json.Obj("name" -> Json.Str("response"), "schema" -> schema)
           )
-        else llmConfig
-      hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-      rawResult <- runWithHub(messages, hub, structuredToolkit, requestConfig, Some(capturedRef))
-        .catchAll {
-          case AgentError.ModelError(status, _, _)
-              if mode == StructuredMode.Auto && native && Set(400, 422, 501).contains(status) =>
-            ZIO
-              .fromEither(toolkit.register(syntheticTool))
-              .flatMap(fallback =>
-                runWithHub(Chunk.empty, hub, fallback, llmConfig, Some(capturedRef))
-              )
-          case error => ZIO.fail(error)
-        }
-      _ <- ZIO
-        .fail(AgentError.Interrupted("Structured output run ended before completion"))
-        .unless(rawResult.state == AgentRunState.Completed)
-      capturedOpt <- capturedRef.get
-      outcome <- capturedOpt match
-        case Some(jsonPayload) =>
-          jsonPayload.as[A] match
-            case Left(err) =>
-              ZIO.fail(
-                AgentError.DeserializationError(s"Failed to decode structured output payload: $err")
-              )
-            case Right(decoded) =>
-              for
-                currentHist <- stateRef.get
-                finalMsg = Msg.assistant(
-                  name = Some(config.name),
-                  content = rawResult.reply.content.collect {
-                    case thinking: ContentBlock.Thinking => thinking
-                  } :+ ContentBlock.Text(jsonPayload.toJson),
-                  metadata = rawResult.reply.metadata.updated(
-                    StructuredOutput.MetadataStructuredOutput,
-                    jsonPayload
-                  ),
-                  usage = rawResult.reply.usage
-                )
-                _         <- stateRef.set(StructuredOutput.completeHistory(currentHist, finalMsg))
-                finalHist <- stateRef.get
-                updatedResult = rawResult.copy(reply = finalMsg, history = finalHist)
-              yield (updatedResult, decoded)
+        )
+      )
 
-        case None =>
-          // Fallback: Check if reply has text JSON matching A
-          StructuredOutput.parseStructuredResult[A](rawResult.reply) match
-            case Left(err) =>
-              ZIO.fail(
-                AgentError.DeserializationError(
-                  s"Model did not provide structured output matching schema: $err"
-                )
-              )
-            case Right(decoded) =>
-              val structuredJson = rawResult.reply.text.fromJson[Json].getOrElse(Json.Null)
-              val updatedReply = rawResult.reply
-                .withMetadata(StructuredOutput.MetadataStructuredOutput, structuredJson)
-              for
-                _         <- stateRef.update(h => h.dropRight(1) :+ updatedReply)
-                finalHist <- stateRef.get
-              yield (rawResult.copy(reply = updatedReply, history = finalHist), decoded)
-    yield outcome))
+      def prepare(result: AgentResult): IO[AgentError, (AgentResult, A)] =
+        capturedRef.get.flatMap(captured => ZIO.fromEither(prepareStructured[A](result, captured)))
+
+      def nativeAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
+        runWithHub(messages, hub, toolkit, nativeConfig, Some(capturedRef))(prepare)
+
+      def syntheticAttempt(input: Chunk[Msg]): ZIO[Scope, AgentError, (AgentResult, A)] =
+        ZIO
+          .fromEither(toolkit.register(syntheticTool))
+          .flatMap(active => runWithHub(input, hub, active, llmConfig, Some(capturedRef))(prepare))
+
+      mode match
+        case StructuredMode.Native        => nativeAttempt
+        case StructuredMode.SyntheticTool => syntheticAttempt(messages)
+        case StructuredMode.Auto if toolkit.isEmpty =>
+          nativeAttempt.catchAll {
+            case AgentError.ModelError(status, _, _) if Set(400, 422, 501).contains(status) =>
+              syntheticAttempt(Chunk.empty)
+            case error => ZIO.fail(error)
+          }
+        case StructuredMode.Auto => syntheticAttempt(messages)
+    }
+
+  /** Prepare one validated payload and final history without publishing or mutating runtime state. */
+  private def prepareStructured[A: JsonCodec](
+      rawResult: AgentResult,
+      captured: Option[Json]
+  ): Either[AgentError, (AgentResult, A)] =
+    if rawResult.state != AgentRunState.Completed then
+      Left(AgentError.Interrupted("Structured output run ended before completion"))
+    else
+      val payload = captured match
+        case Some(json) => Right(json)
+        case None       => StructuredOutput.structuredPayload(rawResult.reply)
+      for
+        json <- payload.left.map(error =>
+          AgentError.DeserializationError(s"Invalid structured output payload: $error")
+        )
+        decoded <- json
+          .as[A]
+          .left
+          .map(error =>
+            AgentError.DeserializationError(s"Failed to decode structured output payload: $error")
+          )
+        completed = captured match
+          case Some(_) =>
+            val reply = Msg.assistant(
+              name = Some(config.name),
+              content = rawResult.reply.content.collect { case thinking: ContentBlock.Thinking =>
+                thinking
+              } :+ ContentBlock.Text(json.toJson),
+              metadata =
+                rawResult.reply.metadata.updated(StructuredOutput.MetadataStructuredOutput, json),
+              usage = rawResult.reply.usage
+            )
+            rawResult.copy(
+              reply = reply,
+              history = StructuredOutput.completeHistory(rawResult.history, reply)
+            )
+          case None =>
+            val reply =
+              rawResult.reply.withMetadata(StructuredOutput.MetadataStructuredOutput, json)
+            rawResult.copy(reply = reply, history = rawResult.history.dropRight(1) :+ reply)
+      yield (completed, decoded)
 
   def runStructured[A: JsonCodec](
       message: Msg,
@@ -190,6 +195,25 @@ final class ReActAgent private (
 
   /** Streams typed lifecycle and delta events while running the turn in the background. */
   def streamEvents(messages: Chunk[Msg]): ZStream[Scope, AgentError, AgentEvent] =
+    streamRun(hub => runWithHub(messages, hub, toolkit)(result => ZIO.succeed((result, ()))))
+
+  /** Streams an attempt through validated structured completion before its result/end events. */
+  def streamStructuredEvents[A: JsonCodec](
+      messages: Chunk[Msg],
+      schema: Json,
+      mode: StructuredMode = StructuredMode.Auto
+  ): ZStream[Scope, AgentError, AgentEvent] =
+    streamRun(hub => runStructuredWithHub[A](messages, schema, mode, hub))
+
+  def streamStructuredEvents[A: JsonCodec](
+      message: Msg,
+      schema: Json
+  ): ZStream[Scope, AgentError, AgentEvent] =
+    streamStructuredEvents[A](Chunk(message), schema, StructuredMode.Auto)
+
+  private def streamRun[A](
+      runEffect: Hub[AgentEvent] => ZIO[Scope, AgentError, A]
+  ): ZStream[Scope, AgentError, AgentEvent] =
     ZStream.unwrapScoped {
       for
         hub      <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
@@ -201,7 +225,7 @@ final class ReActAgent private (
           .forkScoped
         _ <- ZIO.uninterruptibleMask { restore =>
           for
-            exit <- restore(runLock.withPermit(ZIO.scoped(runWithHub(messages, hub, toolkit)))).exit
+            exit <- restore(runLock.withPermit(ZIO.scoped(runEffect(hub)))).exit
             // Join the claimed prefix before appending the unclaimed suffix and terminal signal.
             tail <- sub.takeAll
             _    <- sub.shutdown
@@ -219,13 +243,15 @@ final class ReActAgent private (
   def streamEvents(message: Msg): ZStream[Scope, AgentError, AgentEvent] =
     streamEvents(Chunk(message))
 
-  private def runWithHub(
+  private def runWithHub[A](
       newMessages: Chunk[Msg],
       eventHub: Hub[AgentEvent],
       activeToolkit: Toolkit,
       requestConfig: LlmConfig = llmConfig,
       structuredResponse: Option[Ref[Option[Json]]] = None
-  ): ZIO[Scope, AgentError, AgentResult] =
+  )(
+      prepareResult: AgentResult => IO[AgentError, (AgentResult, A)]
+  ): ZIO[Scope, AgentError, (AgentResult, A)] =
     for
       startingHistory <- stateRef.get
       p               <- Promise.make[Nothing, Unit]
@@ -246,26 +272,38 @@ final class ReActAgent private (
       result <- ZIO.acquireReleaseWith(
         eventHub.publish(AgentEvent.AgentStartEvent(agentId, replyId, agentId))
       )(_ => eventHub.publish(AgentEvent.AgentEndEvent(replyId)).unit) { _ =>
-        loop(
-          1,
-          0,
-          activeToolkit,
-          eventHub,
-          replyId,
-          requestConfig,
-          structuredResponse,
-          runHistoryStart
-        ).timeoutFail(AgentError.TimeoutError(config.timeout.toSeconds, "Agent run timed out"))(
-          config.timeout
-        )
+        ZIO.uninterruptibleMask { restore =>
+          val prepare = loop(
+            1,
+            0,
+            activeToolkit,
+            eventHub,
+            replyId,
+            requestConfig,
+            structuredResponse,
+            runHistoryStart
+          ).map(result =>
+            result.copy(usage =
+              result.history
+                .drop(startingHistory.size)
+                .filter(_.role == Role.Assistant)
+                .flatMap(_.usage)
+                .reduceOption(_.combine(_))
+            )
+          ).flatMap(prepareResult)
+            .onInterrupt(reconcileDanglingToolCalls(stateRef, runHistoryStart).unit)
+          for
+            completed <- restore(
+              prepare.timeoutFail(
+                AgentError.TimeoutError(config.timeout.toSeconds, "Agent run timed out")
+              )(config.timeout)
+            )
+            _ <- stateRef.set(completed._1.history)
+            _ <- eventHub.publish(AgentEvent.AgentResultEvent(completed._1.reply))
+          yield completed
+        }
       }
-    yield result.copy(usage =
-      result.history
-        .drop(startingHistory.size)
-        .filter(_.role == Role.Assistant)
-        .flatMap(_.usage)
-        .reduceOption(_.combine(_))
-    )
+    yield result
 
   private def loop(
       iteration: Int,

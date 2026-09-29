@@ -23,7 +23,7 @@ ToolResultStartEvent, ToolResultDeltaEvent, ToolResultEndEvent, and ToolResultDa
 | RequestStopEvent | reason, typed generateReason; absent/JSON-null classification defaults to MiddlewareStopRequested |
 | AllToolsDeniedEvent | Immutable deniedToolCalls; absent/JSON-null collection defaults to empty |
 
-Supplied malformed reasons/collections fail decoding. Result messages and data blocks retain their nested validation. RequestStop describes a requested phase stop; receiving or decoding it does not cancel a fiber, suspend a phase, or resume pending work. AgentResult payload support does not claim finalized structured result publication.
+Supplied malformed reasons/collections fail decoding. Result messages and data blocks retain their nested validation. RequestStop describes a requested phase stop; receiving or decoding it does not cancel a fiber, suspend a phase, or resume pending work. The runtime publishes AgentResult after structured preparation and history commit, then AgentEnd; pre-commit failures publish no finalized result.
 
 ## Protocol identifiers and compatibility
 
@@ -39,7 +39,7 @@ Existing lowercase event objects remain canonical. Concrete event encoding inclu
 - [x] AgentEventPayloadSpec adds seven payload tests, including toolResultDataDeltaEventMetadataRoundTrip, nested validation, immutable fields, and optional-value normalization.
 - [x] `sbt scalafmtAll scalafmtSbt verify` passed 291 core and 40 harness tests with zero compiler warnings.
 - [x] Correlated iteration-limit publication and inline provider text/data/metadata delivery are verified in ReActAgentEmissionSpec and reviewed in the [agent scope](../agent/README.md).
-- [ ] Implement remaining runtime publication/order, model data-block assembly, finalized structured result emission, and local structured-result metadata.
+- [ ] Implement remaining runtime publication/order, model data-block assembly, and local structured-result metadata.
 - [ ] Implement phase-stop authority, durable pending-work resumption, and permission-driven denied-call publication.
 - [ ] Complete legacy coarse-event classification and explicit uppercase payload/envelope adapters.
 

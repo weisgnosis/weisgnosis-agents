@@ -135,9 +135,13 @@ object StructuredOutput:
    * Extracts and decodes structured data from a Msg.
    */
   def parseStructuredResult[A: JsonDecoder](msg: Msg): Either[String, A] =
+    structuredPayload(msg).flatMap(_.as[A])
+
+  /** Resolve exactly the AST whose typed value will be validated and committed. */
+  private[agent] def structuredPayload(msg: Msg): Either[String, Json] =
     msg.metadata.get(MetadataStructuredOutput) match
-      case Some(ast) => ast.as[A]
-      case None      => msg.text.fromJson[A]
+      case Some(ast) => Right(ast)
+      case None      => msg.text.fromJson[Json]
 
   /**
    * Checks if a message is an internal structured-output transient message.

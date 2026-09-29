@@ -59,7 +59,7 @@ object ReActAgentEmissionSpec extends ZIOSpecDefault:
         limits.size == 1,
         limits.map(_.replyId) == starts,
         limits.forall(event => event.maxIters == 2 && event.currentIter == 2),
-        events.takeRight(2).collect { case event: AgentEvent.ExceedMaxItersEvent =>
+        events.takeRight(3).collect { case event: AgentEvent.ExceedMaxItersEvent =>
           event
         } == limits,
         history.flatMap(_.toolResults).size == 2,

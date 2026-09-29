@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: publish finalized result events with a complete structured-call boundary, then continue explicit wire/legacy compatibility mapping and live transport against the pinned upstream revision; remaining structured-output API scenarios are explicitly unchecked in the parity task list.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: verify the remaining dynamic-schema structured-output scenarios, then continue explicit wire/legacy compatibility mapping and live transport against the pinned upstream revision. Capability and hook scenarios remain explicitly unchecked in the parity task list.
 
 ### Foundation and current core
 
@@ -29,7 +29,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Implement and independently review all 31 protocol event identifiers and 11 aliases; verify 195 core / 40 harness tests.
 - [x] Add all eight missing event payloads and expand concrete/base codec coverage to 39 variants; verify 291 core / 40 harness tests.
 - [x] Publish correlated iteration-limit events and ordered inline text/data observations with full metadata; fix duplicate call/result pairing and cancellation reconciliation, and verify 300 core / 40 harness tests.
-- [ ] Complete finalized result publication, local structured-result metadata, explicit event adapters, phase-stop integration, and remaining event ordering.
+- [x] Publish finalized runtime results after structured preparation/history commit and expose streamStructuredEvents; obtain independent FP/invariant approval and verify 309 core / 40 harness tests.
+- [ ] Complete local structured-result metadata, explicit event adapters, phase-stop integration, and remaining event ordering.
 - [ ] Map every remaining applicable core method to Scala coverage, a justified difference, or a gap.
 - [ ] Close remaining structured-output and lifecycle parity gaps; see the [parity task list](test-parity.md).
 - [ ] Implement live HTTP transport and protocol integration tests.

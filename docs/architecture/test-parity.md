@@ -97,7 +97,7 @@ A checked method has a verified local contract or explicitly identified runtime 
 ### StructuredOutputDynamicDefineTest: three methods
 
 - [ ] `testDynamicComplexNestedStructure`: dedicated runtime-schema/arbitrary JSON scenario remains pending; typed nested decoding alone does not establish it.
-- [ ] `testDynamicComplexNestedStructureStreamingMode`: structured event streaming API remains pending.
+- [ ] `testDynamicComplexNestedStructureStreamingMode`: streamStructuredEvents is implemented; the dedicated dynamic nested-JSON scenario remains unverified.
 - [x] `testDefsHoistedToRootForRefResolution` -> same-named structured spec: a real `#/$defs/Material` reference remains unchanged, definitions are rooted, and nested materials decode correctly. This is not a general JSON Schema validator.
 
 Additional Scala regressions cover unrelated empty-message preservation, mixed ordinary call/result pairing, nonduplicated history usage, and interruption after capture. A captured value is not a successful structured response until the run is Completed. These regressions are runtime hardening, not invented upstream methods.
@@ -289,8 +289,9 @@ The independent audit found the following gaps; completed corrections are checke
 - [x] Implement the separate AgentEventType identifier codec for all 31 canonical names and 11 aliases.
 - [ ] Implement explicit field/payload adapters; identifier parsing alone cannot establish compatibility.
 - [x] Implement AgentResult, DataBlockStart/Delta/End, ToolResultDataDelta, ExceedMaxIters, RequestStop, and AllToolsDenied payloads and codecs.
-- [ ] Integrate these payloads with runtime publication, correlated block assembly, final structured results, phase stopping, and durable pending-work resumption.
-- [x] Correct AgentStart/AgentEnd correlation with one runtime pair per engine attempt. ReActAgentEventSpec verifies identity, private completion, buffering order, failure, cancellation, timeout, and early consumer cleanup. Structured-call completion remains a separate pending API.
+- [x] Publish finalized ordinary and structured results after preparation/history commit and before AgentEnd; StructuredCompletionSpec verifies failure, cancellation, fallback, and cleanup.
+- [ ] Integrate remaining runtime publication, correlated block assembly, phase stopping, and durable pending-work resumption.
+- [x] Correct AgentStart/AgentEnd correlation with one runtime pair per engine attempt. ReActAgentEventSpec verifies identity, private completion, buffering order, failure, cancellation, timeout, and early consumer cleanup. StructuredCompletionSpec now verifies finalized result publication and structured streaming through the same attempt boundary.
 - [x] Exercise all 39 variants with repeated source tagging and verify tool-result metadata remains independent of source.
 
 ## Event method mapping
@@ -337,7 +338,7 @@ These upstream methods contain comments rather than executable assertions and th
 - [ ] `toolCallCycle`: complete and verify the prescribed runtime sequence.
 - [ ] `hitlReentry`: complete and verify the prescribed runtime sequence.
 - [ ] `dataBlockEmission`: complete and verify the prescribed runtime sequence.
-- [x] `exceedMaxIters` -> ReActAgentEmissionSpec verifies the implemented limit event immediately before AgentEnd with the same replyId and completed iteration count; the upstream declaration itself remains disabled.
+- [x] `exceedMaxIters` -> ReActAgentEmissionSpec verifies the implemented limit event before AgentResult and AgentEnd, with the same attempt replyId and completed iteration count; the upstream declaration itself remains disabled.
 - [ ] `streamBoundaries`: complete and verify the prescribed runtime sequence.
 
 ### Implemented payloads and remaining runtime contracts
@@ -346,7 +347,7 @@ The eight payload classes below are implemented and verified independently of th
 
 | Implemented variant | Payload | Runtime integration status |
 | --- | --- | --- |
-| AgentResult | result: Msg | Publish finalized result after structured postprocessing |
+| AgentResult | result: Msg | Runtime publishes after preparation and history commit, before AgentEnd; pre-commit failures publish no finalized result |
 | DataBlockStart / End | replyId, blockId | Stable block correlation and provider assembly |
 | DataBlockDelta | replyId, blockId, delta: String | Delta is text; it is not a ContentBlock |
 | ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Inline provider output is published in order with full metadata; local structured/streaming output remains pending |

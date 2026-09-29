@@ -25,6 +25,8 @@ StreamAccumulator groups parallel argument fragments by streamIndex and sanitize
 
 AgentEvent defines 39 variants; streamEvents delivers those emitted by available components and propagates model failures. Closing the stream cancels its scoped producer.
 
+Structured completion resolves one payload AST for decoding and metadata, prepares within the attempt timeout, then commits history and publishes AgentResult before AgentEnd. Direct and structured streaming APIs share this path; Auto fallback retains two attempt boundary pairs. Pre-commit failures publish no finalized result.
+
 ## 4. Structured output
 
 Native mode supplies LlmConfig.responseFormat; the transport serializes it. Auto prefers native with an empty toolkit and can fall back on unsupported formatting. Synthetic mode registers generate_response, wrapping the schema and hoisting both definition namespaces. A captured response completes only after the acting phase finishes in the Completed state, without an extra model turn. Compression removes synthetic blocks while preserving mixed ordinary calls/results; AgentResult.usage aggregates model turns, while reply.usage records the generating request once. Signed thinking is transferred to the final reply without duplicating it in history. Unrelated empty messages survive compression. A non-Completed structured run fails with AgentError.Interrupted before decoding or rewriting recovery history.
