@@ -10,7 +10,7 @@ ReActAgent retains in-memory history through private Ref values and serializes r
 
 | Module | Available | Pending |
 | --- | --- | --- |
-| core | Models/codecs, event ADT, tools, path checks, SSE parsing/assembly, client port, ReAct and structured output | Live HTTP transport and exhaustive upstream parity |
+| core | Models/codecs, event ADT, tools, path checks, SSE parsing/assembly, scoped HTTP completion, client port, ReAct and structured output | Production client/event integration and exhaustive upstream parity |
 | harness | Compactor, token estimator, eviction/store interface, policies, interactive approval requests, durable approval DTOs | Middleware, durable checkpoints, memory services, subagents, plan mode |
 | mcp | Design scaffolding | Protocol, transports, discovery and toolkit bridge |
 
@@ -21,7 +21,7 @@ Dependencies point from harness and mcp to core. Core must not import harness se
 - Msg factories and codecs are pure. A private constructor, typed role factories, and validated dynamic updates make role/content checks unavoidable. The explicit identified effect allocates optional identity.
 - Toolkit registration and merging return typed errors. Tools retain input/output types; failures become Error observations and cancellation propagates.
 - AgentResult.state is Completed, Suspended, or Interrupted. ReAct currently produces Completed or Interrupted; Suspended is a domain capability, not installed durable middleware.
-- LlmClient is an interface with scripted implementations. Independent SSE parsing and assembly do not imply a live transport.
+- LlmClient is an interface with scripted implementations. ChatCompletionsTransport separately provides scoped text/function HTTP completion with strict SSE termination; its LlmClient/event adapter remains pending.
 - AgentEvent is a sealed hierarchy of 39 variants. Some variants belong to planned subsystems.
 - Native structured output supplies LlmConfig.responseFormat; transports serialize it. Synthetic output uses generate_response and removes only synthetic context blocks.
 

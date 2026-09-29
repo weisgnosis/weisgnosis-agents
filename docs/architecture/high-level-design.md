@@ -17,7 +17,7 @@ harness: compactor, eviction/store port, permission components
   |
   v
 core: models, codecs, events, tools, client port,
-      SSE parsing/assembly, ReAct lifecycle, structured output
+      SSE parsing/assembly, scoped HTTP completion, ReAct lifecycle, structured output
 
 mcp: design scaffolding; implementation pending
 ```
@@ -26,7 +26,7 @@ The host owns durable transactions, replay, tenant authentication, and execution
 
 ## Available components
 
-Core provides pure domain models and codecs, 39 event variants, typed tools, effectful path screening, SSE framing/assembly, scripted clients, and the ReAct state machine. ReAct supports bounded retries/iterations, timeout and interruption reconciliation, inline provider tools, and native/synthetic structured output. There is no live provider HTTP transport.
+Core provides pure domain models and codecs, 39 event variants, typed tools, effectful path screening, SSE framing/assembly, scripted clients, and the ReAct state machine. ReAct supports bounded retries/iterations, timeout and interruption reconciliation, inline provider tools, and native/synthetic structured output. A standalone scoped text/function HTTP transport is available; its LlmClient/event integration remains pending.
 
 Harness provides pair-safe compaction, summary replacement and user provenance, token estimation, injected flush/offload effects, immediate eviction, permission decisions, interactive Promise coordination, and serializable approval values.
 
@@ -36,12 +36,12 @@ Harness services are standalone components, not installed ReAct middleware. Perm
 
 ## Planned platform
 
-- Live transport and retry/failover policies.
-- Agent middleware and durable HITL integration.
-- MemoryFlushManager and MemoryConsolidator.
-- Scoped subagents, depth limits, and persistent TaskSupervisor promotion.
-- Plan-mode tool restrictions and shell inspection.
-- MCP protocol, transports, discovery, and toolkit bridging.
+- [ ] Production LlmClient/event integration and retry/failover policies.
+- [ ] Agent middleware and durable HITL integration.
+- [ ] MemoryFlushManager and MemoryConsolidator.
+- [ ] Scoped subagents, depth limits, and persistent TaskSupervisor promotion.
+- [ ] Plan-mode tool restrictions and shell inspection.
+- [ ] MCP protocol, transports, discovery, and toolkit bridging.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
 

@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement the live HTTP protocol adapter and transport against the pinned upstream revision, using the validated request/response codecs and adding deterministic streaming integration tests. Capability and hook scenarios remain explicitly unchecked in the parity task list.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: connect the scoped HTTP transport to LlmClient and correlated model events, then verify full ReAct streaming against the pinned upstream revision. Capability and hook scenarios remain explicitly unchecked in the parity task list.
 
 ### Foundation and current core
 
@@ -39,7 +39,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Replace silent completion-delta parsing with typed errors, strict indexes/counts, required choices, duplicate-field rejection, and provider-error handling; verify 326 core / 40 harness tests.
 - [x] Require successful stream completion and complete unambiguous tool JSON; preserve raw arguments, indexed content/signatures, and usage snapshots; verify 345 core / 40 harness tests.
 - [x] Serialize validated text/function requests, enforce complete history pairing, and independently review sixteen regressions; verify 361 core / 40 harness tests.
-- [ ] Implement provider signature/tool metadata decoding, live HTTP transport, and protocol integration tests.
+- [x] Implement scoped HTTP completion with bounded responses and strict [DONE] termination; verify fourteen transport tests and 375 core / 40 harness tests.
+- [ ] Integrate the transport with LlmClient and correlated events; implement provider signature/tool metadata decoding and remaining protocol scenarios.
 - [ ] Validate platform-specific symlink/junction behavior.
 
 ### Phase 4: harness

@@ -1,7 +1,8 @@
 # Model client port and stream assembly
 
-LlmClient.streamTurn requires Scope and returns TurnOutput. Implementations must acquire request resources in that scope. The package provides scripted clients, LlmConfig, SSE framing, strict completion-delta decoding, reasoning-history adaptation, and StreamAccumulator. A live HTTP client remains pending.
+LlmClient.streamTurn requires Scope and returns TurnOutput. Implementations must acquire request resources in that scope. The package provides scripted clients, LlmConfig, SSE framing, strict completion-delta decoding, reasoning-history adaptation, and StreamAccumulator. ChatCompletionsTransport provides a separate scoped HTTP completion operation. Its LlmClient/event adapter remains pending.
 
+- [ChatCompletionsTransport](ChatCompletionsTransport.scala)
 - [ChatCompletionsRequest](ChatCompletionsRequest.scala)
 - [LlmChunk](LlmChunk.scala)
 - [LlmClient](LlmClient.scala)
@@ -17,11 +18,11 @@ ReasoningModelAdapter.parseChunk now returns Either[AgentError, Chunk[LlmChunk]]
 
 Normal frames require an explicit choices array. Exactly one choice with an explicit integer index of zero is supported; alternative choices are rejected instead of combined. Empty choices are permitted with usage. Role-only and empty terminal deltas are valid. Tool fragments require nonnegative integer stream indexes, unique within each frame; optional IDs/names support later fragments without inventing index zero. Duplicate JSON fields are rejected throughout the input tree, including ignored extension objects.
 
-Missing/JSON-null usage counts normalize to zero. Supplied counts and indexes must be nonnegative JSON integers within Int bounds; strings, fractions, overflow, and malformed nested objects fail. Non-null provider error envelopes become ModelError with status 200, representing an error carried inside an otherwise successful streaming response. Missing/empty provider messages receive a deterministic fallback. Actual HTTP error status handling is still transport work.
+Missing/JSON-null usage counts normalize to zero. Supplied counts and indexes must be nonnegative JSON integers within Int bounds; strings, fractions, overflow, and malformed nested objects fail. Non-null provider error envelopes become ModelError with status 200, representing an error carried inside an otherwise successful streaming response. Missing/empty provider messages receive a deterministic fallback. The transport preserves actual HTTP rejection status separately.
 
 Indexed function tools, text, and reasoning_content/thinking strings are supported. Non-assistant roles, nonempty refusal deltas, unsupported tool kinds, and non-null legacy function_call payloads fail explicitly. Canonical reasoning_content takes precedence over thinking. Unknown extension fields remain ignored unless they contain duplicate keys; this does not establish support for audio, richer reasoning details/signatures, or other provider payloads. Their integration remains pending.
 
-The wire baseline uses [streamed function-call deltas](https://developers.openai.com/api/docs/guides/function-calling). Single-choice limits and strict validation are runtime policy. The accumulator enforces the completion contracts below. End-to-end block publication, provider signature decoding, and HTTP integration remain separate work.
+The wire baseline uses [streamed function-call deltas](https://developers.openai.com/api/docs/guides/function-calling). Single-choice limits and strict validation are runtime policy. The accumulator enforces the completion contracts below. End-to-end block publication, provider signature decoding, and agent HTTP integration remain separate work.
 
 ## Indexed assembly and completion
 
@@ -41,15 +42,28 @@ History must contain complete local call/result pairs. Orphan, duplicate, unknow
 
 ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. Signed/detailed thinking cannot be replayed by this codec. Media, provider-hosted server calls/results, signed calls, and non-text tool output fail explicitly. This is the text/function baseline, not a general provider formatter.
 
-Validation covers nonblank models, finite temperature in [0, 2], positive optional token limits, protocol names, unique definitions/call IDs, object schemas/arguments/response formats, and duplicate JSON fields. ToolUse.input is authoritative; stale raw content is not sent. Forwarding a schema object does not validate arbitrary JSON Schema semantics. Endpoint, authentication headers, HTTP status handling, and request resource lifetime belong to the pending transport.
+Validation covers nonblank models, finite temperature in [0, 2], positive optional token limits, protocol names, unique definitions/call IDs, object schemas/arguments/response formats, and duplicate JSON fields. ToolUse.input is authoritative; stale raw content is not sent. Forwarding a schema object does not validate arbitrary JSON Schema semantics. Endpoint, authentication headers, HTTP status handling, and request resource lifetime belong to ChatCompletionsTransport.
+
+## Scoped HTTP completion
+
+ChatCompletionsTransport.make accepts an injected zio-http Client, positive CompletionTransportLimits, and a ReasoningReplay policy. complete returns IO[AgentError, TurnOutput] and owns an inner request Scope. Success, failure, and cancellation close that scope before returning; cancellation stays interruption rather than a partial successful turn. The injected client layer and its connection pool belong to the host.
+
+The transport sends POST JSON with Accept: text/event-stream and an optional Authorization bearer header. It requires an absolute HTTP(S) endpoint with a host, valid port, and no user information or fragment. Invalid limits, endpoints, credentials, or request bodies fail before dispatch. Transport failures use ModelError status zero without leaking exception text. HTTP rejection keeps the actual status and a bounded raw error payload; it does not retry automatically.
+
+A successful HTTP status also requires one text/event-stream content type. UTF-8/SSE framing feeds the strict delta decoder and accumulator. Both a compatible finish marker and [DONE] are required. EOF without [DONE], malformed protocol data, truncated completion, or invalid tool arguments cannot yield executable output. [DONE] stops consumption without waiting for connection EOF. Usage frames after finish and before [DONE] remain available.
+
+The default success-body budget is 8 MiB and the error-body prefix is 8 KiB, both configurable. The success budget counts received byte chunks before decoding, including any suffix already received in the same chunk as [DONE]; it is not a bound on the injected HTTP driver's allocation or total assembled JVM memory. Error prefixes may end inside a UTF-8 character and use replacement decoding. Request-size bounds, per-frame limits, deadlines, retry policy, TLS/proxy/pool configuration, and provider extensions are separate host or planned concerns.
+
+Fourteen tests cover a real loopback POST/chunked SSE response plus deterministic driver fixtures for request headers/body, split UTF-8, parallel calls, usage, finish/[DONE] requirements, malformed data, provider/status failures, body limits, and interruption cleanup. These establish transport behavior only: the production LlmClient adapter and incremental correlated event publication remain pending.
 
 ## Current acceptance
 
 - [x] Message-boundary migration accepted at `a701612`; strict single-frame parsing accepted at `10019c2`.
 - [x] Thirteen accumulator-completion regressions, five shared-JSON tests, and an additional frame-suffix regression pass alongside migrated assembly/thinking-retry tests.
-- [x] Full formatting, fatal-warning compilation, and verification passed 361 core and 40 harness tests.
+- [x] Full formatting, fatal-warning compilation, and verification passed 375 core and 40 harness tests.
 - [x] Implement pure text/function request serialization with sixteen paired regression tests.
-- [ ] Implement live scoped HTTP transport, [DONE] termination, and deterministic integration tests.
+- [x] Implement scoped HTTP completion, [DONE] termination, bounded bodies, and fourteen tests including real loopback HTTP.
+- [ ] Integrate the transport with LlmClient, correlated model events, and end-to-end ReAct streaming.
 - [ ] Complete provider signature/tool-metadata decoding, inline server results, richer reasoning details, input-size bounds, event publication, and exhaustive upstream parser/transport mapping.
 
 See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) and [tracker](../../../../../../../../../../docs/architecture/tracker.md). Acceptance is limited to named files and reviewed contracts.
@@ -73,3 +87,10 @@ See the [parity audit](../../../../../../../../../../docs/architecture/test-pari
 | --- | --- |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | cbe28128f70333a2f7594cf4dbf70478c5c3a6f9 |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | 955e9811d921883838a5b71362c7c9a0488155d9 |
+
+- [x] `review_fp` and `review_harness` approved the scoped HTTP transport and fourteen tests against `38c48db` on 2026-09-29. No findings remain within this scope; LlmClient/event integration, retries, and full provider parity are excluded. Full verification passed 375 core and 40 harness tests.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | 955e6ddcfe25efb4e42a9f3c731ea4c97bf6a242 |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | 938047f7320998feea85eae23e5d665e09f6619d |

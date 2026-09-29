@@ -19,7 +19,7 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 361 core and 40 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 375 core and 40 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive model capability/hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while retaining actual typed model-stream correlation and richer source attribution as pending work.
 
@@ -28,3 +28,5 @@ The [tracker](architecture/tracker.md) and [parity task list](architecture/test-
 Prior independent documentation acceptance through `73f66d1` remains recorded in Git. The current client README contains strict JSON/delta/assembly contracts, the validated text/function request surface, exact reviewed source identities, and remaining transport/provider limits.
 
 - [x] `review_docs` approved the request-codec documentation against `73f66d1` on 2026-09-29: exact source identities, sixteen-test scope, pairing/state/reasoning contracts, 361+40 verification, English, and local links. No findings remain in this scope.
+
+- [x] `review_docs` approved the transport documentation against `38c48db` on 2026-09-29: exact identities, fourteen-test scope, resource ownership, response bounds, finish/[DONE], 375+40 verification, English, and links. No findings remain; client/event integration and full provider parity remain pending.

@@ -19,7 +19,8 @@ The reference is the clean local `agentscope-java` checkout at commit `f98a685fd
 - [x] Classify all 30 legacy/current event declarations below, including seven disabled ordering placeholders.
 - [ ] Close the remaining event type, payload, and emitter parity gaps.
 - [ ] Complete the tool matrix and platform-specific symlink integration coverage.
-- [ ] Add live HTTP/provider transport integration tests.
+- [x] Add one real loopback HTTP/chunked SSE test and thirteen deterministic transport boundary/lifecycle tests.
+- [ ] Add full ReAct/provider transport integration and exhaustive upstream transport mapping.
 - [ ] Complete ReAct and interruption scenario mappings, including lifecycle hooks not yet implemented.
 - [ ] Complete the thinking-only empty-response scenario mapping.
 - [x] Cover empty-input structured runs, signed thinking preservation, full reply usage, and immediate repeated calls.
@@ -35,7 +36,7 @@ Existing suites cover selected scenarios only. No unchecked mapping task is sati
 - Concurrent calls to the same ReActAgent are serialized. Upstream concurrent-call rejection tests cannot be claimed as ported unchanged.
 - Immutable Scala models and typed errors replace Java builder/null-specific contracts. Each inapplicable upstream case still needs a recorded rationale in the exhaustive mapping.
 - Interrupted unfinished local tools receive Error observations. Provider-hosted inline results do not create separate local tool messages.
-- The current LlmClient is a port with scripted clients, not a live provider transport.
+- The current LlmClient is a port with scripted clients. A separate scoped HTTP completion transport is tested; production client/event integration remains pending.
 
 ## Completion criterion
 
@@ -374,7 +375,7 @@ Inline event metadata intentionally preserves the complete result map; pinned up
 - [x] Implement indexed text/thinking assembly with signatures, typed finish validation, strict completed object arguments, preserved raw content, and interrupted sanitization; thirteen accumulator regressions cover this scope.
 - [x] Validate full JSON documents and duplicate keys through ProtocolJson, with five paired tests and frame/tool suffix regressions.
 - [x] Implement text/function request serialization with sixteen local regression tests, including paired histories, explicit reasoning replay, and unsupported-content rejection. These tests are not claimed as sixteen mapped upstream methods.
-- [ ] Map the full upstream formatter surface, implement remaining request extensions and provider signature/tool-metadata decoding, and add scoped HTTP integration.
+- [ ] Map the full upstream formatter surface, implement remaining request extensions and provider signature/tool-metadata decoding, and connect scoped HTTP completion to the agent/event runtime.
 
 The pinned extension OpenAIStreamingToolCallTest and OpenAIResponseParserTest were inspected for fragment, usage, and error semantics. They are outside the earlier core-only inventory, and their full applicability mapping remains open. The current adapter intentionally supports indexed function-call deltas and fails unsupported legacy calls instead of silently dropping them.
 

@@ -2,6 +2,7 @@
 
 These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity or live-provider behavior.
 
+- [ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala)
 - [ChatCompletionsRequestSpec](ChatCompletionsRequestSpec.scala)
 - [LlmClientSpec](LlmClientSpec.scala)
 - [ProtocolJsonSpec](ProtocolJsonSpec.scala)
@@ -19,8 +20,9 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [x] Thirteen StreamAccumulatorCompletionSpec regressions cover required finish markers, malformed/non-object/trailing tool arguments, interrupted sanitization, raw content, deferred/stable identity, duplicate IDs, interleaved indexes, signed blocks, usage snapshots, and post-finish rejection.
 - [x] ProtocolJsonSpec verifies five complete-document/duplicate/escape/numeric scenarios without effects.
 - [x] Existing accumulator scenarios and two ReAct thinking-retry integration tests now handle Either and explicit successful finish markers.
-- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 361 core and 40 harness tests with zero compiler warnings.
-- [ ] Complete live transport/resource integration, provider signature/metadata decoding, and exhaustive upstream scenario mapping.
+- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 375 core and 40 harness tests with zero compiler warnings.
+- [x] Fourteen transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
+- [ ] Complete LlmClient/event integration, provider signature/metadata decoding, and exhaustive upstream scenario mapping.
 
 The [client contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) record source migration, exact review scope, and remaining limits. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) separates runtime hardening from mapped upstream methods. Earlier message migration and strict-delta acceptance remain in `a701612` and `10019c2`.
 
@@ -43,3 +45,10 @@ The [client contracts](../../../../../../../main/scala/com/weisgnosis/agents/cor
 | --- | --- |
 | [ChatCompletionsRequest.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequest.scala) | cbe28128f70333a2f7594cf4dbf70478c5c3a6f9 |
 | [ChatCompletionsRequestSpec.scala](ChatCompletionsRequestSpec.scala) | 955e9811d921883838a5b71362c7c9a0488155d9 |
+
+- [x] `review_fp` and `review_harness` approved the scoped HTTP transport and fourteen tests against `38c48db` on 2026-09-29. No findings remain within this scope; LlmClient/event integration, retries, and full provider parity are excluded. Full verification passed 375 core and 40 harness tests.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [ChatCompletionsTransport.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransport.scala) | 955e6ddcfe25efb4e42a9f3c731ea4c97bf6a242 |
+| [ChatCompletionsTransportSpec.scala](ChatCompletionsTransportSpec.scala) | 938047f7320998feea85eae23e5d665e09f6619d |
