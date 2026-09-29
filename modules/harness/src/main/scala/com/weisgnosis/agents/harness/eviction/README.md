@@ -14,17 +14,51 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 
 ToolResultEvictor.evictResult processes one immutable observation with the same thresholds, exclusions, and persistence fallback as evictOversizedToolResults. processor(config) adapts it to the core ToolResultProcessor port; pass that value to ReActAgent.make or its builder. Raw completed output is persisted in runtime history before the cancellable storage operation. Successful previews and cache metadata replace that observation before model continuation and result deltas/end. Cancellation preserves raw success without duplicate interruption observations.
 
-The adapter covers new local tool completions and matched inline provider observations. Inline results remain within the assistant message, and returned replies/events use the committed preview. Standalone history eviction remains available, but automatic eviction of supplied history is not installed. Storage paths and cache metadata follow the Scala store contract: a content-addressed filename under large_tool_results, with eviction_cache_key/eviction_path. This differs from the upstream per-agent subdirectory and middleware metadata. The host must provide read_file access if the model is expected to retrieve stored output.
+The adapter covers new local tool completions and matched inline provider observations. Inline results remain within the assistant message, and returned replies/events use the committed preview. ToolResultEvictor.preparer installs eviction of supplied and accumulated history before each model request. Storage paths and cache metadata follow the Scala store contract: a content-addressed filename under large_tool_results, with eviction_cache_key/eviction_path. This differs from the upstream per-agent subdirectory and middleware metadata. The host must provide read_file access if the model is expected to retrieve stored output.
 
 ## Current acceptance
 
 - [x] Unchanged local store safety/publication contracts retain earlier acceptance through `8850a60`; Git preserves prior source identities and reviews.
 - [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
-- [ ] Integrate supplied history and separate model-input views.
+- [ ] Integrate separate model-input views and configurable absolute storage paths.
 - [ ] Complete remaining upstream mappings, including hook-modified reasoning input and configurable absolute eviction directories.
 
 HostControlled ownership and hard-link support remain required. Hostile concurrent filesystem mutation and crash durability remain outside acceptance.
 
 The [core tool table](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md) records unchanged processor/eviction identities; commit `a34201f` preserves the full eight-file scope.
 
-- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope; supplied-history eviction and exhaustive upstream middleware parity remain pending. Exact current identities are in the [agent table](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope. Supplied-history eviction is covered by a later scope; exhaustive upstream middleware parity remains pending. Exact current identities are in the [agent table](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+## Supplied history and preview integrity
+
+Install `evictor.preparer(config)` through `ReActAgent.make(historyPreparer = ...)` or `Builder.historyPreparer`. It visits supplied and accumulated tool observations, including inline provider results, before every model request without replaying tool execution events. To save complete payloads before historical pruning, compose `evictor.preparer(config).andThen(compactor.preparer)`. Each changed stage preserves ordered system messages and complete occurrence pairing before the next stage runs. Stage resources share the request-owned scope; runtime state changes only after the full pipeline and cleanup succeed. Completed storage/summarization side effects are not rolled back if a later stage fails.
+
+`ToolResultStore.resolve(key)` returns an optional `StoredToolResult(content, path)` from the trusted backend. The evictor first checks marker version, strict integer widths, the configured key prefix, and lowercase SHA-256 syntax. It then verifies the stored content hash, authoritative path, and exact preview text before recognizing an existing eviction. Metadata paths never select files. Numeric strings, fractional/overflowing widths, altered text, and malformed markers do not establish recognition.
+
+Verified previews are rendered from the original stored content with the current normalized head/tail settings without another write, even when the preview exceeds a small eviction threshold. Raising the threshold does not rehydrate raw output. Newly excluded tools bypass all processing and retain the exact observation. State, nontext blocks, and unrelated metadata remain unchanged. New previews add eviction_preview_version=1, eviction_preview_head_chars, and eviction_preview_tail_chars alongside eviction_cache_key/eviction_path.
+
+Recognition requires valid backing content and the configured sanitized/truncated agent/call key prefix. Changed prefixes, legacy previews without versioned hints, missing/corrupt backing content, and mismatched preview data become raw candidates and may be evicted again when oversized. Prefixes can collide; content hashes and rendering checks provide integrity, not unique identity isolation or authenticated provenance. Typed lookup/persistence failures retain the complete input. Interruption and defects propagate. Each recognition reads the original stored payload; no process-local receipt cache is maintained.
+
+The local resolver validates the key before filesystem access, creates no directory, rejects nonregular/symbolic-link targets with NOFOLLOW_LINKS, and checks canonical parent paths. Only genuinely missing storage returns None; invalid layouts and operational errors remain typed failures. HostControlled still requires protected ancestors and excludes concurrent hostile mutation. Dynamic symbolic-link/junction validation is not claimed.
+
+## API migration
+
+Custom ToolResultStore implementations must now implement resolve as well as persist and return their authoritative path with the complete original content. There is no default missing lookup that would silently weaken idempotency. Existing ToolResultEvictor constructors remain pure and source-compatible. StoredToolResult has a derived JSON codec; serialized values alone do not establish trust. HistoryPreparer.andThen is additive and validates intermediate as well as final stage output.
+
+- [x] `review_fp` and `review_harness` approved the final nine-file history-eviction scope against `cc8fa7b` on 2026-09-29. Twenty-two added regressions and full formatting/fatal-warning verification passed: 516 core and 90 harness tests. Two new regressions exposed and closed strict-number and Windows storage-layout gaps. No findings remain within store-backed integrity, explicit workspace trust, and validated composition; separate input views and configurable absolute paths remain pending.
+
+## Current history-eviction identities
+
+Final formatted scope against `cc8fa7b`:
+
+| File | Git blob |
+| --- | --- |
+| [HistoryPreparer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/HistoryPreparer.scala) | c639fb9337584d3543a86ed5d767b442fa28300e |
+| [HistoryPreparerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/HistoryPreparerSpec.scala) | 087459eab0ad56b15ee3c53fe81667505bff6a71 |
+| [ToolResultEvictor.scala](ToolResultEvictor.scala) | 9821483cf3f617f55ffa3487df357c4967365f20 |
+| [ToolResultStore.scala](ToolResultStore.scala) | aa42df82b7e063d40db141bb006001030208dbb6 |
+| [ToolResultEvictorHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorHistorySpec.scala) | 3c8f08870bd655c581c15c6f863b34e9a8020e24 |
+| [ToolResultEvictorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorIntegrationSpec.scala) | de74b515f7915dab886ef995dd18e5d9fb4e4a3b |
+| [ToolResultEvictorRecognitionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorRecognitionSpec.scala) | 4c81fae29456c429589d6d8f646ac8f6d2ce96c0 |
+| [ToolResultEvictorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorSpec.scala) | c59677db41b87de222575f446a5d6212be87668a |
+| [ToolResultStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultStoreSpec.scala) | 5b8bf8b5d152f9741dcc4339430a9eacf74983d2 |

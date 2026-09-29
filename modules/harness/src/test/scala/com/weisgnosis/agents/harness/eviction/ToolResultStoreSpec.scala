@@ -29,12 +29,54 @@ object ToolResultStoreSpec extends ZIOSpecDefault:
         first     <- store.persist("safe-key", "full output")
         second    <- store.persist("safe-key", "full output")
         text      <- ZIO.attemptBlocking(Files.readString(Path.of(first)))
+        resolved  <- store.resolve("safe-key")
         collision <- store.persist("safe-key", "different output").either
       yield assertTrue(
+        resolved.contains(StoredToolResult("full output", first)),
         text == "full output",
         first == second,
         Path.of(first).startsWith(directory),
         collision.isLeft
+      )
+    },
+    test("missing lookups and rejected keys create no storage directories") {
+      for
+        directory <- temporaryDirectory
+        store     <- ToolResultStore.local(directory, WorkspaceTrust.HostControlled)
+        missing   <- store.resolve("missing")
+        invalid   <- store.resolve("../escape").either
+        absolute  <- store.resolve("C:/private").either
+        created   <- ZIO.attemptBlocking(Files.exists(directory.resolve("large_tool_results")))
+      yield assertTrue(missing.isEmpty, invalid.isLeft, absolute.isLeft, !created)
+    },
+    test("lookup rejects nonregular targets and propagates storage-layout failures") {
+      for
+        directory <- temporaryDirectory
+        store     <- ToolResultStore.local(directory, WorkspaceTrust.HostControlled)
+        cache <- ZIO.attemptBlocking(Files.createDirectory(directory.resolve("large_tool_results")))
+        _     <- ZIO.attemptBlocking(Files.createDirectory(cache.resolve("directory.txt")))
+        target     <- store.resolve("directory").either
+        missing    <- store.resolve("missing")
+        other      <- temporaryDirectory
+        otherStore <- ToolResultStore.local(other, WorkspaceTrust.HostControlled)
+        _ <- ZIO.attemptBlocking(
+          Files.writeString(other.resolve("large_tool_results"), "not a directory")
+        )
+        broken <- otherStore.resolve("key").either
+      yield assertTrue(target.isLeft, missing.isEmpty, broken.isLeft)
+    },
+    test("concurrent resolution observes only absent or fully published content") {
+      val content = "complete" * 10000
+      for
+        directory <- temporaryDirectory
+        store     <- ToolResultStore.local(directory, WorkspaceTrust.HostControlled)
+        observations <- ZIO
+          .foreachPar(1 to 16)(_ => store.resolve("shared"))
+          .zipPar(store.persist("shared", content))
+        finalResult <- store.resolve("shared")
+      yield assertTrue(
+        observations._1.flatten.forall(_.content == content),
+        finalResult.contains(StoredToolResult(content, observations._2))
       )
     },
     test("untrusted workspaces fail closed without creating storage") {

@@ -40,6 +40,82 @@ object HistoryPreparerSpec extends ZIOSpecDefault:
         HistoryPreparer.validate(history, result) == Right(history)
       )
     },
+    test("composition passes committed stage values in order and stays lazy") {
+      val original = Chunk(Msg.user("original"))
+      for
+        calls <- Ref.make(Chunk.empty[String])
+        first = HistoryPreparer(history =>
+          calls.update(_ :+ "first").as(history :+ Msg.assistant("prepared"))
+        )
+        second = HistoryPreparer(history =>
+          calls
+            .update(_ :+ history.lastOption.fold("missing")(_.text))
+            .as(history :+ Msg.user("next"))
+        )
+        effect = first.andThen(second).prepare(original)
+        before <- calls.get
+        result <- ZIO.scoped(effect)
+        after  <- calls.get
+      yield assertTrue(
+        before.isEmpty,
+        after == Chunk("first", "prepared"),
+        result.map(_.text) == Chunk("original", "prepared", "next")
+      )
+    },
+    test("composition retains resources until the request scope closes") {
+      for
+        closed   <- Ref.make(false)
+        observed <- Ref.make(true)
+        first  = HistoryPreparer(history => ZIO.addFinalizer(closed.set(true)).as(history))
+        second = HistoryPreparer(history => closed.get.flatMap(observed.set).as(history))
+        _      <- ZIO.scoped(first.andThen(second).prepare(Chunk.empty))
+        during <- observed.get
+        after  <- closed.get
+      yield assertTrue(!during, after)
+    },
+    test("composition preserves typed failure skips later work and releases prior resources") {
+      val error = AgentError.HistoryPreparationError("second stage failed")
+      for
+        closed <- Ref.make(false)
+        later  <- Ref.make(false)
+        first  = HistoryPreparer(history => ZIO.addFinalizer(closed.set(true)).as(history))
+        second = HistoryPreparer(_ => ZIO.fail(error))
+        third  = HistoryPreparer(history => later.set(true).as(history))
+        exit     <- ZIO.scoped(first.andThen(second).andThen(third).prepare(Chunk.empty)).either
+        released <- closed.get
+        invoked  <- later.get
+      yield assertTrue(exit == Left(error), released, !invoked)
+    },
+    test("composition cancellation closes earlier resources without invoking subsequent stages") {
+      for
+        entered <- Promise.make[Nothing, Unit]
+        closed  <- Ref.make(false)
+        later   <- Ref.make(false)
+        first  = HistoryPreparer(history => ZIO.addFinalizer(closed.set(true)).as(history))
+        second = HistoryPreparer(_ => entered.succeed(()) *> ZIO.never)
+        third  = HistoryPreparer(history => later.set(true).as(history))
+        fiber    <- ZIO.scoped(first.andThen(second).andThen(third).prepare(Chunk.empty)).forkScoped
+        _        <- entered.await
+        exit     <- fiber.interrupt
+        released <- closed.get
+        invoked  <- later.get
+      yield assertTrue(exit.isInterrupted, released, !invoked)
+    },
+    test("composition rejects invalid intermediate rewrites before invoking the next stage") {
+      for
+        invoked <- Ref.make(false)
+        first  = HistoryPreparer(_ => ZIO.succeed(Chunk(Msg.assistant(Chunk(call)))))
+        second = HistoryPreparer(_ => invoked.set(true).as(Chunk.empty))
+        result <- ZIO.scoped(first.andThen(second).prepare(Chunk(Msg.user("original")))).either
+        after  <- invoked.get
+      yield assertTrue(result.isLeft, !after)
+    },
+    test("composition validates the final stage and preserves ordered system messages") {
+      val original = Chunk(Msg.system("system"), Msg.user("original"))
+      val second   = HistoryPreparer(_ => ZIO.succeed(Chunk(Msg.user("replacement"))))
+      for result <- ZIO.scoped(HistoryPreparer.identity.andThen(second).prepare(original)).either
+      yield assertTrue(result.isLeft)
+    },
     test("changed histories reject unfinished calls and orphan inline or local results") {
       val original = Chunk(Msg.user("original"))
       val result   = ContentBlock.ToolResult.text("same", "read", "result")

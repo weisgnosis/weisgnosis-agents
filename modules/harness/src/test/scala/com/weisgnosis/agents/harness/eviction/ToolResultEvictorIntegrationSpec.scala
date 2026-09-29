@@ -45,6 +45,10 @@ object ToolResultEvictorIntegrationSpec extends ZIOSpecDefault:
         saved <- Ref.make(Map.empty[String, String])
         input <- Ref.make(Chunk.empty[ContentBlock.ToolResult])
         store = new ToolResultStore:
+          def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+            saved.get.map(
+              _.get(key).map(content => StoredToolResult(content, s"large_tool_results/$key.txt"))
+            )
           def persist(key: String, content: String): IO[AgentError, String] =
             saved.update(_.updated(key, content)).as(s"large_tool_results/$key.txt")
         model = LlmClient.mockEffectful((history, _, _) =>
@@ -91,6 +95,10 @@ object ToolResultEvictorIntegrationSpec extends ZIOSpecDefault:
         saved    <- Ref.make(Map.empty[String, String])
         executed <- Ref.make(0)
         store = new ToolResultStore:
+          def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+            saved.get.map(
+              _.get(key).map(content => StoredToolResult(content, s"large_tool_results/$key.txt"))
+            )
           def persist(key: String, content: String): IO[AgentError, String] =
             saved.update(_.updated(key, content)).as(s"large_tool_results/$key.txt")
         client <- LlmClient.mock(
@@ -160,6 +168,8 @@ object ToolResultEvictorIntegrationSpec extends ZIOSpecDefault:
     },
     test("persistence failure keeps full output in runtime history and the next model request") {
       val store = new ToolResultStore:
+        def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+          ZIO.fail(AgentError.ToolExecutionError("store", "disk full"))
         def persist(key: String, content: String): IO[AgentError, String] =
           ZIO.fail(AgentError.ToolExecutionError("store", "disk full"))
       for
@@ -191,6 +201,8 @@ object ToolResultEvictorIntegrationSpec extends ZIOSpecDefault:
         closed   <- Ref.make(false)
         requests <- Ref.make(0)
         store = new ToolResultStore:
+          def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+            ZIO.none
           def persist(key: String, content: String): IO[AgentError, String] =
             (entered.succeed(()) *> ZIO.never).ensuring(closed.set(true))
         model = LlmClient.mockEffectful((_, _, _) => requests.update(_ + 1).as(firstTurn))
@@ -220,6 +232,10 @@ object ToolResultEvictorIntegrationSpec extends ZIOSpecDefault:
         executions <- Ref.make(0)
         saved      <- Ref.make(Map.empty[String, String])
         store = new ToolResultStore:
+          def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+            saved.get.map(
+              _.get(key).map(content => StoredToolResult(content, s"large_tool_results/$key.txt"))
+            )
           def persist(key: String, content: String): IO[AgentError, String] =
             saved.update(_.updated(key, content)).as(s"large_tool_results/$key.txt")
         changing = Tool.make(ToolDef("lookup", "Read output", Json.Obj()))(_ =>

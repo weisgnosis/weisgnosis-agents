@@ -99,6 +99,6 @@ ToolHistory is private to the agents package hierarchy and supplies the common o
 
 The internal mapToolResultAt operation updates one result ordinal while preserving message identity, role, and unrelated blocks. Inline processing uses it to avoid overwriting identical same-ID observations; integration evidence belongs to the [agent scope](../agent/README.md).
 
-- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope; supplied-history eviction and exhaustive upstream middleware parity remain pending. Exact current identities are in the [agent table](../agent/README.md).
+- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope. Supplied-history eviction is covered by a later scope; exhaustive upstream middleware parity remains pending. Exact current identities are in the [agent table](../agent/README.md).
 
 The prior Msg.scala identity is preserved in `2b99226`; the current occurrence-update identity belongs to the agent table above.

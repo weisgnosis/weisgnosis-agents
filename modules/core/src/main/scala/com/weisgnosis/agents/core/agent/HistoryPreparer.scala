@@ -23,6 +23,17 @@ import zio.*
 trait HistoryPreparer:
   def prepare(history: Chunk[Msg]): ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]]
 
+  /** Run the next preparation stage in the same request-owned scope. */
+  final def andThen(next: HistoryPreparer): HistoryPreparer =
+    HistoryPreparer(history =>
+      for
+        candidate    <- ZIO.suspendSucceed(prepare(history))
+        intermediate <- ZIO.fromEither(HistoryPreparer.validate(history, candidate))
+        result       <- ZIO.suspendSucceed(next.prepare(intermediate))
+        validated    <- ZIO.fromEither(HistoryPreparer.validate(intermediate, result))
+      yield validated
+    )
+
 object HistoryPreparer:
   val identity: HistoryPreparer = HistoryPreparer(history => ZIO.succeed(history))
 

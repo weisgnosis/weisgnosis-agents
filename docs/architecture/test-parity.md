@@ -441,7 +441,7 @@ Pinned source: agentscope-harness/src/test/java/io/agentscope/harness/agent/midd
 
 - [x] Verify three processor tests, seven core lifecycle scenarios, and five harness integrations (including actual disk persistence).
 - [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
-- [ ] Integrate preexisting history; automatic eviction of supplied histories remains separate work.
+- [x] Install opt-in supplied-history eviction through ToolResultEvictor.preparer; ToolResultEvictorHistorySpec covers local/inline input, failure, cancellation, and compaction order.
 
 Fifteen added tests are local evidence for these mappings and hardening boundaries, not fifteen upstream methods. Remaining harness domains still require exhaustive method-level audit.
 
@@ -484,5 +484,7 @@ These eight Scala regressions cover occurrence pairing and safe argument pruning
 
 - [x] Extend the installed result processor to matched inline provider observations, preserving local-dispatch exclusion and returning processed canonical content. ToolResultEvictorIntegrationSpec verifies actual full-payload storage and processed event/reply consistency.
 - [x] Add ten inline-processing and three local processor-defect regressions. Real cooperative and external cancellation failures were reproduced before explicit scoped worker ownership corrected the loss of finalizer defects; the timeout path has its own deterministic regression.
-- [x] Independently approve the final scope against `2b99226` and verify 510 core / 74 harness tests. Exact seven-file identities are in the agent README; the evictor source changes its comment only.
-- [ ] Complete supplied-history eviction and remaining upstream middleware method mappings; these local hardening tests do not establish additional Java method parity.
+- [x] Independently approve the final scope against `2b99226` and verify 510 core / 74 harness tests. Commit `cc8fa7b` preserves all seven identities from that review, including the evictor comment-only change. The agent README retains unchanged identities; current history-eviction identities are in the eviction README.
+- [ ] Complete remaining upstream middleware method mappings; local history/preview hardening tests do not establish additional Java method parity.
+
+- [x] `review_fp` and `review_harness` approved the final nine-file history-eviction scope against `cc8fa7b` on 2026-09-29. Twenty-two added regressions and full formatting/fatal-warning verification passed: 516 core and 90 harness tests. Two new regressions exposed and closed strict-number and Windows storage-layout gaps. No findings remain within store-backed integrity, explicit workspace trust, and validated composition; separate input views and configurable absolute paths remain pending.

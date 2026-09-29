@@ -34,6 +34,8 @@ Local persistence explicitly requires WorkspaceTrust.HostControlled, OS-protecte
 
 ToolResultEvictor.processor is an opt-in adapter for completed local and matched inline provider results in ReAct. ConversationCompactor.preparer installs compaction before model requests through the validated core history port. InteractivePermissionAuthorizer is an opt-in adapter for permission policy and active-invocation confirmation. Permission decisions are not durable execution checkpoints. Core ToolAuthorizer provides scoped local execution decisions and exact approved-input persistence; its default allows calls, and hosts can install the interactive harness adapter. Durable checkpoints remain pending.
 
+ToolResultEvictor.preparer can precede ConversationCompactor.preparer via HistoryPreparer.andThen. Changed stages are validated before the next runs; runtime commits once after scope cleanup. Store-backed preview verification prevents cache chains while valid original content remains available in the configured key namespace. Custom stores must implement resolve; missing or forged references are raw candidates, while typed storage failures preserve input. See the [eviction contract and migration](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/eviction/README.md).
+
 ## Planned platform
 
 - [ ] Remaining provider/event integrations and retry/failover policies.

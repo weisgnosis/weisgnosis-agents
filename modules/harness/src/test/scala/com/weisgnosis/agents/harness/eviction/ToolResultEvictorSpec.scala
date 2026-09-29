@@ -23,6 +23,10 @@ import zio.test.*
 
 object ToolResultEvictorSpec extends ZIOSpecDefault:
   private def memoryStore(saved: Ref[Map[String, String]]): ToolResultStore = new ToolResultStore:
+    def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+      saved.get.map(
+        _.get(key).map(content => StoredToolResult(content, s"large_tool_results/$key.txt"))
+      )
     def persist(key: String, content: String): IO[AgentError, String] =
       saved.update(_.updated(key, content)).as(s"large_tool_results/$key.txt")
 
@@ -56,6 +60,8 @@ object ToolResultEvictorSpec extends ZIOSpecDefault:
     },
     test("persistence failure preserves the full original observation") {
       val store = new ToolResultStore:
+        def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+          ZIO.fail(AgentError.ToolExecutionError("store", "disk full"))
         def persist(key: String, content: String): IO[AgentError, String] =
           ZIO.fail(AgentError.ToolExecutionError("store", "disk full"))
       val input = Chunk(Msg.tool("a", "shell", "a" * 80001))
@@ -98,6 +104,8 @@ object ToolResultEvictorSpec extends ZIOSpecDefault:
     },
     test("persistence interruption propagates instead of becoming an observation") {
       val store = new ToolResultStore:
+        def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+          ZIO.interrupt
         def persist(key: String, content: String): IO[AgentError, String] = ZIO.interrupt
       for exit <- new ToolResultEvictor(store)
           .evictOversizedToolResults(Chunk(Msg.tool("a", "shell", "x" * 80001)))

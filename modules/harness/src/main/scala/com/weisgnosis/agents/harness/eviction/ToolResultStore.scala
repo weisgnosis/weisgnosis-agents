@@ -20,11 +20,23 @@ import com.weisgnosis.agents.core.tool.PathSafety
 import zio.*
 import zio.json.JsonCodec
 import java.nio.charset.StandardCharsets
-import java.nio.file.{FileAlreadyExistsException, Files, LinkOption, Path, StandardOpenOption}
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.{
+  FileAlreadyExistsException,
+  Files,
+  LinkOption,
+  NoSuchFileException,
+  Path,
+  StandardOpenOption
+}
 
-/** Persists a content-addressed result and returns a path usable by read_file. */
+/** Original stored content and a path supplied by the trusted storage backend. */
+final case class StoredToolResult(content: String, path: String) derives JsonCodec
+
+/** Persists and resolves content-addressed results without accepting caller-supplied paths. */
 trait ToolResultStore:
   def persist(key: String, content: String): IO[AgentError, String]
+  def resolve(key: String): IO[AgentError, Option[StoredToolResult]]
 
 /** HostControlled requires OS-enforced protection against untrusted mutation of every ancestor. */
 enum WorkspaceTrust derives JsonCodec:
@@ -52,7 +64,7 @@ object ToolResultStore:
             .when(sensitive(root))
         yield new ToolResultStore:
           def persist(key: String, content: String): IO[AgentError, String] =
-            if key.isEmpty || !key.forall(c => c.isLetterOrDigit || c == '-' || c == '_') then
+            if !validKey(key) then
               ZIO.fail(AgentError.PermissionDenied("tool_result_store", "Invalid storage key"))
             else
               ZIO.scoped:
@@ -93,6 +105,76 @@ object ToolResultStore:
                     )
                     .unless(saved == content)
                 yield canonical.toString
+
+          def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+            if !validKey(key) then
+              ZIO.fail(AgentError.PermissionDenied("tool_result_store", "Invalid storage key"))
+            else
+              existingDirectory(root).flatMap:
+                case None => ZIO.none
+                case Some(directory) =>
+                  val target = directory.resolve(key + ".txt")
+                  for
+                    attributes <- ZIO
+                      .attemptBlocking(
+                        Files.readAttributes(
+                          target,
+                          classOf[BasicFileAttributes],
+                          LinkOption.NOFOLLOW_LINKS
+                        )
+                      )
+                      .map(Some(_))
+                      .catchSome { case _: NoSuchFileException => ZIO.none }
+                      .mapError(storageError)
+                    result <- attributes match
+                      case None => ZIO.none
+                      case Some(value) =>
+                        for
+                          _ <- ZIO
+                            .fail(
+                              AgentError.PermissionDenied(
+                                "tool_result_store",
+                                "Unsafe existing result file"
+                              )
+                            )
+                            .unless(value.isRegularFile)
+                          canonical <- io(target.toRealPath())
+                          _ <- ZIO
+                            .fail(
+                              AgentError.PermissionDenied(
+                                "tool_result_store",
+                                "Result file escapes its directory"
+                              )
+                            )
+                            .unless(canonical.getParent == directory)
+                          content <- io(Files.readString(canonical, StandardCharsets.UTF_8))
+                        yield Some(StoredToolResult(content, canonical.toString))
+                  yield result
+
+  private def validKey(key: String): Boolean =
+    key.nonEmpty && key.forall(c => c.isLetterOrDigit || c == '-' || c == '_')
+
+  private def existingDirectory(root: Path): IO[AgentError, Option[Path]] =
+    val target = root.resolve("large_tool_results")
+    for
+      link <- io(Files.isSymbolicLink(target))
+      _ <- ZIO
+        .fail(
+          AgentError.PermissionDenied("tool_result_store", "Result directory is a symbolic link")
+        )
+        .when(link)
+      real <- ZIO
+        .attemptBlocking(target.toRealPath())
+        .map(Some(_))
+        .catchSome { case _: NoSuchFileException => ZIO.none }
+        .mapError(storageError)
+      directory <- io(Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS))
+      _ <- ZIO
+        .fail(
+          AgentError.PermissionDenied("tool_result_store", "Result directory escapes the workspace")
+        )
+        .when(real.exists(path => !directory || path.getParent != root || sensitive(path)))
+    yield real
 
   /** Cleanup is best-effort: a retained temporary link must not invalidate a published result. */
   private[eviction] def cleanupTemporary(path: Path): UIO[Unit] =
