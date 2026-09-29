@@ -21,16 +21,18 @@ Shared JSON validation now lives in core.json, independent of client/model layer
 
 The core authorization boundary is implemented and reviewed; the interactive harness adapter now connects policy and approval requests. Durable confirmation/resumption stays explicitly pending in the tracker.
 
-Plan-mode contracts now distinguish reviewed static syntax, opt-in runtime admission and standalone draft storage from pending custom-directory compatibility and child propagation. The parity inventory keeps all fourteen upstream methods individually visible, with seven adapted and seven pending after the location increment.
+Plan-mode contracts now distinguish reviewed static syntax, opt-in runtime admission and standalone draft storage from pending child propagation. The parity inventory keeps all fourteen upstream methods individually visible, with eight adapted and six pending after the directory increment.
 
 PlanSession now adds reviewed in-memory draft and approval authority to plan admission. Request projection and standalone draft storage are now available; the tracker keeps approval restoration and model-facing review tools separate; partial manager mode evidence does not close its path assertions.
 
-Plan context now has a reviewed request-only projection adapter. It samples once, preserves canonical/System/tool history and never substitutes prompt text for live permission authority. The parity inventory records 7/14 plan adaptations; custom-directory compatibility, skills and child propagation remain pending.
+Plan context now has a reviewed request-only projection adapter. It samples once, preserves canonical/System/tool history and never substitutes prompt text for live permission authority. The parity inventory records 8/14 plan adaptations; skills and child propagation remain pending.
 
-Standalone local plan drafts now have reviewed ownership, exact encoding and atomic publication. Stored content is not an approval credential; session-generation integration is available; opt-in model-facing tools are available; location context is available; custom-directory compatibility is the next tracked task.
+Standalone local plan drafts now have reviewed ownership, exact encoding and atomic publication. Stored content is not an approval credential; session-generation integration is available; opt-in model-facing tools are available; location context is available; supervised child propagation is the next tracked task.
 
-Stored plan sessions now invalidate review before writing and reopen content only as unapproved Plan drafts. Opt-in model-facing controls are now available; descriptive location context is available; custom-directory compatibility and durable approval restoration remain separate work.
+Stored plan sessions now invalidate review before writing and reopen content only as unapproved Plan drafts. Opt-in model-facing controls are now available; descriptive location context is available; typed workspace-relative directories are available; durable approval restoration remains separate work.
 
 PlanTools now adds strict opt-in enter/write/exit capabilities. Exact-ticket host review is mandatory inside exit even with ordinary Allow rules; publisher transport and authenticated decision routing remain host responsibilities.
 
 PlanContext now associates one snapshot with configured/observed location metadata. Four additional manager/prompt scenarios are adapted; legacy slash rebasing remains pending and no location value grants filesystem or approval authority.
+
+Typed PlanDirectory configuration now selects an existing strict descendant of an explicit host-controlled workspace. Native Path opening retains its semantics; no directory creation or implicit workspace discovery is provided. Plan parity now records eight of fourteen named adaptations; skills and supervised child propagation remain pending.

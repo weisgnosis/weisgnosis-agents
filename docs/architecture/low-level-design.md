@@ -87,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan custom-directory compatibility/child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -215,3 +215,7 @@ PlanTools.make(PlanSessionControl, PlanReviewPublisher): Toolkit is pure constru
 ## Plan location APIs
 
 PlanLocation.fromString returns Either[AgentError.InvalidConfiguration, PlanLocation]; the opaque value exposes text and a validated string codec. PlanDraftStore.location and PlanSessionControl.location default to None for existing implementations. Control.context: UIO[PlanContext] associates one snapshot with immutable metadata. PlanPrompt.fromContext(PlanContext) and PlanInputTransform.fromContext(UIO[PlanContext]) add location-aware projection without changing legacy signatures. These values cannot authorize reads/writes or restore approval. See the [location contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#descriptive-locations-and-context-provenance).
+
+## Plan directory API
+
+PlanDirectory.fromString returns Either[AgentError.InvalidConfiguration, PlanDirectory]; its strict string codec shares validation. LocalPlanDraftStore.inWorkspace(workspace, trust, directory = PlanDirectory.Default) returns ZIO[Scope, AgentError, PlanDraftStore]. Both directories must already exist. Native open(Path, trust) remains available with unchanged relative/absolute semantics. Normalization uses strip, preserving non-whitespace controls for rejection.

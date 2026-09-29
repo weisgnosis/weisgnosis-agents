@@ -56,7 +56,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Stored-session publication with exact review invalidation and unapproved reopening.
 - [x] Opt-in strict plan controls with exact-ticket host review.
 - [x] Descriptive configured/observed plan locations and request projection.
-- [ ] Custom-directory compatibility, skills and child propagation.
+- [x] Typed workspace-relative directory selection with explicit stricter normalization.
+- [ ] Skills and child propagation.
 - [ ] MCP protocol, transports, discovery, and toolkit bridging.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
@@ -115,11 +116,11 @@ MemoryConfig now combines defaults and overrides without a mutable builder. Vali
 
 ## Plan-mode foundation
 
-Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; standalone safe plan storage is implemented below; stored-session publication is available; model-facing controls are available; descriptive location context is available; custom-directory compatibility and child propagation remain pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
+Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; standalone safe plan storage is implemented below; stored-session publication is available; model-facing controls are available; descriptive location context is available; typed workspace-relative directories are available; child propagation remains pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
 
 ## Plan admission authority
 
-PlanPermissionGate now integrates explicit host-owned mode and tool classifications into normal permission admission. It restricts capabilities without granting permission, and execution requests still require confirmation. The runtime persists and streams denied results. Mode changes affect later checks; they do not revoke already admitted work. In-memory host-approved transitions are implemented below; stored publication and opt-in transition tools are available; location context is available; custom-directory compatibility and child restrictions remain separate work.
+PlanPermissionGate now integrates explicit host-owned mode and tool classifications into normal permission admission. It restricts capabilities without granting permission, and execution requests still require confirmation. The runtime persists and streams denied results. Mode changes affect later checks; they do not revoke already admitted work. In-memory host-approved transitions are implemented below; stored publication and opt-in transition tools are available; location context is available; typed workspace-relative directories are available; child restrictions remain separate work.
 
 ## Plan-session review authority
 
@@ -144,3 +145,7 @@ PlanTools exposes opt-in enter/write/exit capabilities without host approval aut
 ## Recorded plan locations
 
 Stored sessions can now retain the backend's immutable descriptive destination and project it with one snapshot into requests. No-draft states name only a configured destination; reviewable drafts associate the location with the last successful session read/publication. Approval remains bound to captured content/revision, never whatever later occupies the path. Locations grant no filesystem authority and require no eager I/O. Default-directory discovery and legacy slash rebasing remain separate work.
+
+## Workspace-relative plan selection
+
+PlanDirectory separates logical workspace configuration from native paths. LocalPlanDraftStore.inWorkspace validates an existing canonical strict descendant before ownership acquisition; host-controlled ancestors remain required. No automatic directory creation, discovery, approval restoration or child permission is implied.

@@ -777,7 +777,7 @@ Pinned upstream has fourteen methods across four suites. The initial static-shel
 - [ ] `PlanModeMiddlewareTest.allowsSubagentToolsInPlanMode`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeMiddlewareTest.skillLoadToolIsReadOnlyAndPermittedInPlanMode`: corresponding runtime/state/storage/propagation integration remains pending.
 - [x] `PlanModeManagerTest.enterAndExitTogglePersistedFlag`: PlanLocationIntegrationSpec verifies location retention across entry, exact publication, approved exit and re-entry. Adaptation: explicit host-selected canonical destination replaces implicit plans-directory discovery, and approval is version-bound. Reopen restores only unapproved content; the Java test does not prove restart durability.
-- [ ] `PlanModeManagerTest.customPlanDirNormalised`: canonical existing-directory selection is tested, but Java leading/trailing slash stripping and workspace-relative rebasing remain unimplemented. Do not equate these contracts.
+- [x] `PlanModeManagerTest.customPlanDirNormalised`: PlanDirectorySpec and PlanWorkspaceStoreSpec normalize /docs/plans/ to docs/plans, resolve beneath an explicit canonical workspace and publish actual PLAN.md content at that destination. Adaptation: a validated logical descriptor rejects traversal, empty internal segments, unsafe/native syntax and reserved device names; the host must supply existing directories. Native open(Path) semantics remain unchanged. This is not hostile-filesystem isolation.
 - [x] `PlanModeManagerTest.writePlanRecordsPathAndDoesNotThrow`: PlanLocationIntegrationSpec verifies actual on-disk exact draft text and matching canonical descriptive destination. Typed failures remain observable rather than being hidden by a no-throw assertion.
 - [ ] `PlanModeSubagentPropagationTest.declaredSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration`: corresponding runtime/state/storage/propagation integration remains pending.
 - [ ] `PlanModeSubagentPropagationTest.generalPurposeSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration`: corresponding runtime/state/storage/propagation integration remains pending.
@@ -793,7 +793,7 @@ The manager's persisted-flag test observes state fields, not save/reload durabil
 - [x] Reevaluate current mode and modified authoritative input after confirmation; reject replacement mutations and extra execution fields.
 - [x] Force Ask for RequestExecution without implementing or claiming a mode transition.
 - [x] Verify admitted execution can finish after a mode change while the next call is denied.
-- [ ] Complete the seven remaining plan methods above, custom-directory compatibility, authenticated host UI and child integration.
+- [ ] Complete the six remaining plan methods above, authenticated host UI and child integration.
 
 This closes two explicit middleware adaptations only. Safe static commands abstain; they do not acquire path/process authority or bypass ordinary permission policy. Current identities are in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities).
 
@@ -805,7 +805,7 @@ This closes two explicit middleware adaptations only. Safe static commands absta
 - [x] Verify foreign/stale/replayed tickets, concurrent resolution, edit-versus-approval ordering and scope/cancellation ownership.
 - [x] Implement safe standalone files and stored-session publication as recorded below.
 - [x] Adapt manager path-recording/retention through explicit canonical location context and exact host approval.
-- [ ] Implement the remaining custom-directory contract and separately specified approval restoration.
+- [ ] Implement separately specified approval restoration; typed workspace-relative directory selection is available.
 - [x] Implement truthful request-only prompt projection from one snapshot.
 - [x] Implement the model-facing review tool adapter.
 - [ ] Integrate authenticated host UI transport.
@@ -817,8 +817,8 @@ This deliberately hardens upstream unconditional exit and unversioned approval. 
 
 - [x] Add thirteen render/transform/real-runtime cases; preserve System messages, canonical history, complete tool pairs and original final-user fields.
 - [x] Sample one snapshot per request; prove mode changes during reasoning still use live gate authority.
-- [x] Adapt fresh Build no-hint behavior, bringing named adaptations to 3/14 at the projection increment; location evidence later brings the current total to 7/14.
-- [ ] Complete seven remaining methods covering custom-directory configuration, skills and child propagation.
+- [x] Adapt fresh Build no-hint behavior, bringing named adaptations to 3/14 at the projection increment; location evidence later brings the total to 7/14 at that increment; directory configuration now brings the current total to 8/14.
+- [ ] Complete six remaining methods covering skills and child propagation.
 
 Request-only User context intentionally replaces upstream System-prompt mutation. JSON-quoted drafts remain data rather than a security or authorization boundary. Current identities and acceptance are in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-projection-identities).
 
@@ -827,6 +827,8 @@ Request-only User context intentionally replaces upstream System-prompt mutation
 - [x] Adapt model-facing enter/write/exit behavior with strict inputs and mandatory exact-ticket host review; fifteen new control/delivery/runtime cases.
 - [x] Add explicit configured/observed location provenance and four manager/prompt method adaptations without claiming continuous file existence.
 
-PlanModeTools has no separately named pinned test suite in this inventory. Its implementation is adapted through PlanToolsSpec and PlanToolsIntegrationSpec, with stricter input, scoped review and typed outcomes. These scenarios alone closed no additional named method. Location evidence subsequently brings the current inventory to seven adaptations and seven pending methods.
+PlanModeTools has no separately named pinned test suite in this inventory. Its implementation is adapted through PlanToolsSpec and PlanToolsIntegrationSpec, with stricter input, scoped review and typed outcomes. These scenarios alone closed no additional named method. Location and directory evidence subsequently bring the current inventory to eight adaptations and six pending methods.
 
-- [x] Independently review fourteen location/context cases after reproducing and fixing supplementary Unicode FORMAT validation. Current plan inventory: seven adapted methods and seven pending; legacy custom-directory rebasing remains pending.
+- [x] Independently review fourteen location/context cases after reproducing and fixing supplementary Unicode FORMAT validation. At that increment, seven methods were adapted; directory configuration below adds one further adaptation.
+
+- [x] Independently review twelve directory/ownership cases, including a reproduced boundary-control defect; adapt customPlanDirNormalised with stricter logical-directory validation. Current plan inventory: eight adapted methods and six pending.

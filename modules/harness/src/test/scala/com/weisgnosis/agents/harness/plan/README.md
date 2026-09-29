@@ -11,8 +11,10 @@ These tests execute no shell and establish no path/process isolation. The [curre
 - [x] Verify permission integration, modified confirmation arguments and real runtime denials.
 - [x] Adapt two upstream middleware methods through actual runtime admission.
 - [x] Adapt fresh Build no-hint behavior through request-only projection.
-- [ ] Adapt the other eleven upstream methods after their services exist.
-- [ ] Verify child inheritance, safe plan persistence and authenticated exit approval.
+- [x] Adapt four manager/prompt methods through location context and one directory method through validated workspace selection.
+- [ ] Adapt the remaining six upstream methods after their services exist.
+- [x] Verify scoped local persistence and exact-ticket host exit approval.
+- [ ] Verify child inheritance and authenticated host UI routing.
 
 ## Admission verification
 
@@ -70,3 +72,11 @@ Changed session/prompt production identities and renewed acceptance are in the [
 [PlanContextSpec](PlanContextSpec.scala) covers exact descriptive values, strict codecs, all snapshot forms, quoted rendering and a reproduced supplementary-Unicode formatting defect with malformed/valid surrogate regressions. [PlanLocationIntegrationSpec](PlanLocationIntegrationSpec.scala) covers missing configured targets, actual writes, retained locations across review/entry/reopen, explicit custom directories, blocked/failed publication provenance and legacy location-free stores. [PlanContextInputSpec](PlanContextInputSpec.scala) covers one lazy context sample, preserved legacy APIs and actual configured-to-approved model requests without canonical/System/tool-history contamination. Fourteen new cases cover this increment.
 
 - [x] `review_fp` and `review_harness` approved the final ten-file location-context increment against `fd496a4` on 2026-09-29 after reproducing and fixing supplementary Unicode FORMAT validation. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 563 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within validated descriptive locations, canonical local metadata, single-snapshot context, provenance wording and four explicit manager/prompt adaptations. Continuous file revalidation, approval restoration, arbitrary third-party store truthfulness and legacy workspace-relative slash rebasing are excluded.
+
+## Directory configuration verification
+
+[PlanDirectorySpec](PlanDirectorySpec.scala) supplies six cases for normalization/defaults, codec validation, traversal/native syntax, device stems, visible Unicode and the reproduced trim boundary-control defect. [PlanWorkspaceStoreSpec](PlanWorkspaceStoreSpec.scala) supplies five real-store cases for normalized publication/location, default-directory shared ownership, missing/non-directory inputs, sensitive/untrusted rejection and closed capability behavior. [PlanDraftFilesSpec](PlanDraftFilesSpec.scala) adds one canonical path-component containment case rejecting root equality, ancestors and prefix-sharing siblings. These twelve cases do not claim privileged dynamic link or hostile mutation coverage.
+
+- [x] `review_fp` and `review_harness` approved the final six-file directory increment against `f147a99` on 2026-09-29 after reproducing and correcting boundary control normalization. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 575 harness tests, including twelve new cases, with zero compiler warnings. No findings remain within validated logical directory selection, canonical strict containment, shared ownership and the explicit manager-method adaptation. Directory creation, hostile mutation isolation, dynamic privileged link fixtures and child propagation are excluded.
+
+Current identities are in the [directory table](../../../../../../../main/scala/com/weisgnosis/agents/harness/plan/README.md#current-directory-identities).

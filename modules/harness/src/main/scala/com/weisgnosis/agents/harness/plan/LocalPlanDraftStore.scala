@@ -24,8 +24,17 @@ import zio.*
 /** A single PLAN.md in an existing host-controlled directory, with scoped cooperative ownership. */
 object LocalPlanDraftStore:
   def open(directory: Path, trust: WorkspaceTrust): ZIO[Scope, AgentError, PlanDraftStore] =
+    PlanDraftFiles.open(directory, trust).flatMap(owned)
+
+  def inWorkspace(
+      workspace: Path,
+      trust: WorkspaceTrust,
+      directory: PlanDirectory = PlanDirectory.Default
+  ): ZIO[Scope, AgentError, PlanDraftStore] =
+    PlanDraftFiles.inWorkspace(workspace, trust, directory).flatMap(owned)
+
+  private def owned(files: PlanDraftFiles): ZIO[Scope, AgentError, PlanDraftStore] =
     for
-      files <- PlanDraftFiles.open(directory, trust)
       lease <- WorkspaceLease.open(files.directory, WorkspaceOwner.Plan)
       store = new PlanDraftStore:
         override val location: Option[PlanLocation]       = Some(files.location)

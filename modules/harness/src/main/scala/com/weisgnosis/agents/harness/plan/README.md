@@ -16,7 +16,7 @@ An operand must not begin with a hyphen. Implicit stdin, unknown options, wrappe
 
 ## Current acceptance and identities
 
-The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; stored-session publication is implemented below; model controls are implemented below; location context is implemented below; custom-directory compatibility and child propagation remain pending; standalone draft storage is described below; request-only prompt projection is implemented below. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with seven still pending after the location adaptations below. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
+The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; stored-session publication is implemented below; model controls are implemented below; location context is implemented below; typed workspace-relative directories are available; child propagation remains pending; standalone draft storage is described below; request-only prompt projection is implemented below. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with six still pending after the directory adaptation below. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
 
 | Source | Git blob |
 | --- | --- |
@@ -37,7 +37,8 @@ The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs wer
 - [x] Integrate stored publication with session generations and failure/cancellation settlement.
 - [x] Implement strict model-facing controls and exact-ticket confirmed exit through an explicit publisher.
 - [x] Add descriptive configured/observed locations and request-context projection.
-- [ ] Complete remaining custom-directory policy and skill/child method parity.
+- [x] Implement validated workspace-relative directory selection and its explicit upstream adaptation.
+- [ ] Complete remaining skill/child method parity.
 - [ ] Integrate authenticated host UI routing in the consuming application.
 - [ ] Propagate restrictions to new and reused children before admitting spawn/send tools.
 
@@ -61,7 +62,7 @@ Install this gate as InteractivePermissionAuthorizer's interceptorGate, or as on
 
 PlanShellInspection.inspectInput accepts exactly one JSON object field named command with a string value. Missing, duplicate, nonstring and extra fields all produce InvalidInput. The same boundary must be used by a host command executor, consuming the resulting program/argv without shell re-parsing. Raw cached tool content is not inspected instead of authoritative input. Migration: existing inspect(String) behavior is unchanged. ShellRejection now includes InvalidInput for the new envelope boundary; consumers with exhaustive matches or serialized-case handling must support that additional variant. Build mode leaves normal tool-schema/input validation to the host/runtime. Static eligibility still supplies no filesystem/process authority; all executor responsibilities above remain applicable.
 
-The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/README.md) records actual runtime evidence. The admission increment adapts two upstream middleware methods, and projection adds a third and location context adds four more; seven still require custom-directory compatibility, skill/subagent capabilities and propagation work.
+The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/README.md) records actual runtime evidence. The admission increment adapts two upstream middleware methods, and projection adds a third and location context adds four more; directory configuration adds an eighth; six still require skill/subagent capabilities and propagation work.
 
 ## Current admission identities
 
@@ -147,11 +148,11 @@ Lease acquisition refuses live and stale owners without deleting their token. Af
 
 AgentError.PlanStorageError distinguishes plan I/O, invalid stored content and ownership/closed-handle failures. Path policy continues to use PermissionDenied. Existing memory/transcript owner errors remain MemoryStorageError. Migration: exhaustive matches on the sealed AgentError hierarchy must include PlanStorageError; its individual JSON codec is derived. This does not make finalizer defects ordinary typed failures.
 
-The standalone backend itself changes no session state; the stored-session integration below connects publication to PlanSession. Opt-in model-facing controls are implemented below; location-aware prompts are implemented below; restoration of session mode/approval remains pending. No additional complete upstream method is claimed: the current inventory has seven adaptations and seven pending methods after the location evidence below.
+The standalone backend itself changes no session state; the stored-session integration below connects publication to PlanSession. Opt-in model-facing controls are implemented below; location-aware prompts are implemented below; restoration of session mode/approval remains pending. No additional complete upstream method is claimed: the current inventory has eight adaptations and six pending methods after the location evidence below.
 
 ## Current draft-storage identities
 
-Six unchanged identities from the nine-file increment against 083617b; the three changed store/files identities are preserved in fd496a4 and replaced in the location table. The original storage migration's earlier AgentError, AgentErrorSpec and WorkspaceLease identities are preserved in 083617b.
+Five unchanged identities from the nine-file increment against 083617b. Earlier store/files identities are preserved in fd496a4; changed PlanDraftFilesSpec, LocalPlanDraftStore and PlanDraftFiles identities are preserved in f147a99 and replaced in the directory table. PlanDraftStore remains in the location table. The original storage migration's earlier AgentError, AgentErrorSpec and WorkspaceLease identities are preserved in 083617b.
 
 | Source | Git blob |
 | --- | --- |
@@ -159,7 +160,6 @@ Six unchanged identities from the nine-file increment against 083617b; the three
 | [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | f32ca3dd7cca41e95a1a0518ad84f9522ff5193a |
 | [WorkspaceLease.scala](../storage/WorkspaceLease.scala) | 409edda77d0fcf5b8846d1cc89e3050d190d2740 |
 | [LocalPlanDraftStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/LocalPlanDraftStoreSpec.scala) | 564df5e17f6c8c0998e060aea890adcf0bed5fc7 |
-| [PlanDraftFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDraftFilesSpec.scala) | 6ec27d1d45c1259dfcc7bd7984c9be3fa515dd1c |
 | [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | 631725c6b84598e9cc2b3641f0b33a7ec5b691bc |
 
 - [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 520 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
@@ -219,7 +219,7 @@ Publisher failure closes the scope and cancels only a still-current request. Int
 
 The same controls work with make and stored sessions. In-memory DraftReplaced does not claim disk persistence. Stored failures become Error observations and leave no reviewable draft according to the stored-session contract. Integration tests use a real local store, normal permission admission and Parallel agent configuration, with only the plan controls requiring sequential batch execution. They verify assistant persistence before actions, a denied mutation before review, exact host approve/decline, subsequent live gate behavior and ordered result history/events.
 
-This is an explicit adaptation of the pinned PlanModeTools implementation: strict total input replaces coercion, separate exact-ticket review replaces an unversioned generic permission exit, and typed observations replace path claims. The control increment alone closes no additional named method; location context below adds four adaptations. The current inventory has seven adaptations and seven pending methods for custom-directory compatibility, skills and child propagation.
+This is an explicit adaptation of the pinned PlanModeTools implementation: strict total input replaces coercion, separate exact-ticket review replaces an unversioned generic permission exit, and typed observations replace path claims. The control increment alone closes no additional named method; location context below adds four adaptations. The current inventory has eight adaptations and six pending methods for skills and child propagation.
 
 ## Current model-control identities
 
@@ -251,17 +251,15 @@ PlanPrompt.fromContext and PlanInputTransform.fromContext are additive opt-in AP
 
 Planning(None), including active/failed publication, labels the location only as a configured draft destination. That state does not establish whether a file is missing, old or ambiguously replaced. A current draft associates the location with the session's last successful read/publication. Approved Build additionally states that approval applies to the captured draft and revision, not arbitrary current contents at the path. Location text is JSON-quoted as data; it is never interpolated into executable syntax. Quoting is presentation, not a complete prompt-injection defense.
 
-This is recorded provenance, not continuous existence or content revalidation. External edits, independent sessions and raw store writes remain outside the session's exclusive-publication contract. No default workspace directory is created or discovered, and custom Java slash stripping is not adopted: local opening requires an existing explicit host-selected directory and preserves absolute-path meaning. Canonical dot/trailing-separator handling is tested separately from the upstream rebasing of /docs/plans/ to a workspace-relative destination.
+This is recorded provenance, not continuous existence or content revalidation. External edits, independent sessions and raw store writes remain outside the session's exclusive-publication contract. No default workspace directory is created or discovered. Native open(Path) accepts an explicit existing relative or absolute directory and preserves native path meaning. The additive logical-directory adapter below supports workspace-relative slash normalization through a separate validated type.
 
 ## Current location-context identities
 
-Final formatted ten-file increment against fd496a4, including the corrected code-point validator. Changed prior identities remain in that revision.
+Eight unchanged identities from the ten-file increment against fd496a4, including the corrected code-point validator. Changed LocalPlanDraftStore and PlanDraftFiles identities are preserved in f147a99 and replaced in the directory table. Earlier identities remain in their recorded revisions.
 
 | Source | Git blob |
 | --- | --- |
-| [LocalPlanDraftStore.scala](LocalPlanDraftStore.scala) | f8d62e332644533b186ca5397c028e7bee70a953 |
 | [PlanContext.scala](PlanContext.scala) | 37e323f303235e6bdce70c22da21aafd596266e1 |
-| [PlanDraftFiles.scala](PlanDraftFiles.scala) | 4fc563ad279ee74e77848bfe0f1dca5f7e39145e |
 | [PlanDraftStore.scala](PlanDraftStore.scala) | 478bd5c4de6c8eb39c6d4b857f09c171d3c2639b |
 | [PlanInputTransform.scala](PlanInputTransform.scala) | 837dad25472ab01d561ec26781b33b5564cc3625 |
 | [PlanPrompt.scala](PlanPrompt.scala) | ec2b932b615ef600235e6ece6da21191f662a7ec |
@@ -273,3 +271,30 @@ Final formatted ten-file increment against fd496a4, including the corrected code
 - [x] `review_fp` and `review_harness` approved the final ten-file location-context increment against `fd496a4` on 2026-09-29 after reproducing and fixing supplementary Unicode FORMAT validation. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 563 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within validated descriptive locations, canonical local metadata, single-snapshot context, provenance wording and four explicit manager/prompt adaptations. Continuous file revalidation, approval restoration, arbitrary third-party store truthfulness and legacy workspace-relative slash rebasing are excluded.
 
 - [x] `review_docs` approved corrected location-context documentation against `fd496a4`: ten identities, fourteen new cases, 556 core / 563 harness tests and seven of fourteen plan methods adapted. Metadata/provenance limits, Unicode validation and retired identity references are explicit; custom-directory rebasing, skills and child propagation remain pending. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
+
+## Workspace-relative plan directories
+
+[PlanDirectory](PlanDirectory.scala) is a validated logical workspace-relative descriptor, separate from native Path. Blank or slash-only input selects plans. Unicode outer whitespace and leading/trailing forward slashes normalize away, so /docs/plans/ becomes docs/plans. Non-whitespace controls remain visible to validation: NUL/SOH are rejected, including during JSON decoding. Internal empty segments, dot/parent segments, hidden formatting, malformed UTF-16, leading/trailing segment whitespace, trailing dots, native path punctuation and reserved device stems are rejected. Valid visible Unicode and internal spaces are retained. The string codec validates and emits the normalized value; it grants no filesystem authority.
+
+[LocalPlanDraftStore.inWorkspace](LocalPlanDraftStore.scala) accepts an explicit workspace Path, WorkspaceTrust and optional PlanDirectory (default plans). It canonicalizes the existing workspace and candidate through the same sensitive-path/trust checks as native open. The candidate must be a strict path-component descendant of the canonical workspace; equal paths, ancestors and prefix-sharing siblings are denied. Only after validation does the exact validated PlanDraftFiles acquire its scoped lease and perform the initial read. Native open(Path) keeps its previous relative/absolute semantics. No directory is created, and no workspace is discovered implicitly.
+
+Both entry points share the same canonical directory lease, fixed PLAN.md publication and descriptive location. Competing opens are denied in either direction; use after scope closure fails. Hosts must create the selected directory and protect the workspace, candidate and their ancestors under HostControlled ownership. Canonical checks are not race-free isolation against hostile mutation; privileged dynamic symlink/junction fixtures remain separate platform validation. These changes restore no approval and grant no child capability.
+
+The explicit customPlanDirNormalised adaptation now brings the named inventory to eight of fourteen. Directory normalization is stricter than the upstream string helper and requires existing directories. Skill and child runtime integration remain pending.
+
+## Current directory identities
+
+Final formatted six-file increment against f147a99, including the reproduced boundary-control regression and strip correction.
+
+| Source | Git blob |
+| --- | --- |
+| [PlanDirectory.scala](PlanDirectory.scala) | ea44ad54387a7740036cf13426552a8d2e3eafb3 |
+| [LocalPlanDraftStore.scala](LocalPlanDraftStore.scala) | 956baf6fdda01f07eb67fe813b3c425cb0684f3d |
+| [PlanDraftFiles.scala](PlanDraftFiles.scala) | 3f91a78cd27db273d672aaeb092bee8acf02faf1 |
+| [PlanDirectorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDirectorySpec.scala) | 58baa98395e59ab3314e090cac54c9b6b8cc66ec |
+| [PlanWorkspaceStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanWorkspaceStoreSpec.scala) | fd907878d89368b10bcd75c9483941b8d964a27c |
+| [PlanDraftFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDraftFilesSpec.scala) | 2123dde5a64c716a5e76df7a1d0cfaba208361a2 |
+
+- [x] `review_fp` and `review_harness` approved the final six-file directory increment against `f147a99` on 2026-09-29 after reproducing and correcting boundary control normalization. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 575 harness tests, including twelve new cases, with zero compiler warnings. No findings remain within validated logical directory selection, canonical strict containment, shared ownership and the explicit manager-method adaptation. Directory creation, hostile mutation isolation, dynamic privileged link fixtures and child propagation are excluded.
+
+- [x] `review_docs` approved corrected directory documentation against `f147a99`: six identities, twelve new cases, 556 core / 575 harness tests and eight of fourteen named plan adaptations. Strict normalization, existing-directory requirements and unchanged native Path semantics are explicit. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.

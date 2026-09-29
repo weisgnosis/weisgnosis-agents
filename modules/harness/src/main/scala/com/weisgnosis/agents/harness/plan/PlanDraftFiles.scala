@@ -98,6 +98,26 @@ private[plan] object PlanDraftFiles:
         location <- ZIO.fromEither(PlanLocation.fromString(canonical.resolve(FileName).toString))
       yield new PlanDraftFiles(canonical, location)
 
+  def inWorkspace(
+      workspace: Path,
+      trust: WorkspaceTrust,
+      directory: PlanDirectory
+  ): IO[AgentError, PlanDraftFiles] =
+    for
+      root <- open(workspace, trust)
+      candidate <- open(
+        directory.segments.foldLeft(root.directory)((parent, segment) => parent.resolve(segment)),
+        trust
+      )
+      _ <- validateDescendant(root.directory, candidate.directory)
+    yield candidate
+
+  /** Both arguments are already canonical directories; string-prefix checks are insufficient. */
+  private[plan] def validateDescendant(workspace: Path, candidate: Path): IO[AgentError, Unit] =
+    deny("Plan directory must remain strictly inside its configured workspace")
+      .unless(candidate != workspace && candidate.startsWith(workspace))
+      .unit
+
   private def canonicalDirectory(path: Path): IO[AgentError, Path] =
     for
       _ <- deny("Sensitive plan location").when(PathSafety.isSensitivePath(path))

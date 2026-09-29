@@ -24,6 +24,26 @@ import zio.test.*
 
 object PlanDraftFilesSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment & Scope, Any] = suite("PlanDraftFilesSpec")(
+    test("canonical containment rejects the workspace itself and sibling string-prefix collisions") {
+      for
+        root      <- temporaryDirectory
+        workspace <- ZIO.attemptBlocking(Files.createDirectory(root.resolve("plan")).toRealPath())
+        child <- ZIO.attemptBlocking(
+          Files.createDirectory(workspace.resolve("nested")).toRealPath()
+        )
+        sibling <- ZIO.attemptBlocking(
+          Files.createDirectory(root.resolve("plan-extra")).toRealPath()
+        )
+        ancestor <- ZIO.attemptBlocking(root.toRealPath())
+        accepted <- PlanDraftFiles.validateDescendant(workspace, child).either
+        rejected <- ZIO.foreach(Chunk(workspace, sibling, ancestor))(candidate =>
+          PlanDraftFiles.validateDescendant(workspace, candidate).either
+        )
+      yield assertTrue(
+        accepted.isRight,
+        rejected.forall(_.left.exists(_.isInstanceOf[AgentError.PermissionDenied]))
+      )
+    },
     test("atomic replacement preserves the other name of a hard-linked destination") {
       for
         root      <- temporaryDirectory

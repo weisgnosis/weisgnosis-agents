@@ -19,7 +19,7 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 556 core and 563 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 556 core and 575 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
@@ -80,3 +80,5 @@ Prior documentation reviews are preserved in Git through `40f6f05`. Current pack
 - [x] `review_docs` approved corrected model-control documentation against `bfca341`: seven identities, fifteen new cases, 556 core / 549 harness tests and unchanged 3/14 plan parity. Exact-ticket review is distinguished from independent generic Ask policy; delivery and cancellation limits are explicit. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
 
 - [x] `review_docs` approved corrected location-context documentation against `fd496a4`: ten identities, fourteen new cases, 556 core / 563 harness tests and seven of fourteen plan methods adapted. Metadata/provenance limits, Unicode validation and retired identity references are explicit; custom-directory rebasing, skills and child propagation remain pending. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
+
+- [x] `review_docs` approved corrected directory documentation against `f147a99`: six identities, twelve new cases, 556 core / 575 harness tests and eight of fourteen named plan adaptations. Strict normalization, existing-directory requirements and unchanged native Path semantics are explicit. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.

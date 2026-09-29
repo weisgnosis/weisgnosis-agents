@@ -194,3 +194,7 @@ PlanTools uses exact AST input validation and non-concurrency-safe definitions f
 ## Location-aware plan context
 
 PlanContext combines one PlanSessionSnapshot with optional immutable PlanLocation. Stored sessions capture backend metadata once. Context projection uses configured-destination wording during absent/publishing/failed draft states and recorded read/publication wording for reviewable drafts; approved context retains exact-content authority. The existing snapshot-only APIs remain location-free. Display validation processes complete Unicode code points, rejects malformed surrogates and hidden formatting, and preserves valid supplementary characters. Local paths remain governed by canonical backend checks, independently of display codecs.
+
+## Plan directory preparation
+
+PlanDirectory normalizes outer whitespace and forward slashes, validates every segment and defaults blank/slash-only input to plans. The factory resolves its immutable segments against a canonical workspace, reuses normal trust/sensitive checks, verifies strict path-component containment and opens the exact validated files capability under the shared lease.
