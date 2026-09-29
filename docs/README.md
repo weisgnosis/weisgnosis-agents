@@ -20,7 +20,7 @@ Current implementation and future platform requirements are separate. The projec
 - [x] Independent reviewer `review_docs` approved the pinned inventory, 18-method structured-output, 119-method message, and 30-declaration event classifications, README acceptance scopes, and architecture contracts on 2026-09-29 after corrections.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, and pending behavior.
 - [x] No unresolved findings in this documentation scope. English, local links, maintained-directory README coverage, whitespace, and the reviewed source identities were checked.
-- [x] Repository verification: `sbt scalafmtAll scalafmtSbt verify`, 309 core and 40 harness tests passed with zero compiler warnings.
+- [x] Repository verification: `sbt scalafmtAll scalafmtSbt verify`, 311 core and 40 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe engine-attempt lifecycle boundaries and private stream completion, including scoped publisher ownership and unbounded buffering. Structured calls now prepare and commit their result before AgentResult and AgentEnd publication; direct calls and streamStructuredEvents share this path. Auto fallback retains two attempt boundaries. Event wire parity remains pending.
 
@@ -36,4 +36,6 @@ Implementation acceptance is scoped in the module/package READMEs. The [tracker]
 
 - [x] `review_docs` approved runtime inline-result metadata/order, correlated limit publication, occurrence-sensitive reconciliation, nine-test scope, exact hashes, 300+40 verification, English and links against `9768064` on 2026-09-29 after correcting incoming historical identity claims.
 
-- [x] `review_docs` approved the final structured-completion documentation against `5451e03` on 2026-09-29 after correcting two stale parity phrases: four source identities, commit/result/end ordering, fallback/cancellation distinctions, exact payload preservation, streaming contracts, 309+40 verification, English, and local links. Dynamic-schema and remaining integration tasks stay unchecked.
+- [x] `review_docs` approved the final structured-completion documentation against `5451e03` on 2026-09-29 after correcting two stale parity phrases: four source identities, commit/result/end ordering, fallback/cancellation distinctions, exact payload preservation, streaming contracts, 309+40 verification, English, and local links. That accepted slice is retained at `3963104`; subsequent dynamic-schema scenario coverage is recorded in the agent READMEs. Remaining integrations stay unchecked.
+
+- [x] `review_docs` approved the dynamic-scenario documentation against `3963104` on 2026-09-29: both method mappings, typed-event adaptation, flat-fixture and validation limits, source identities, 311+40 verification, English, and links; no findings remain in this scope.

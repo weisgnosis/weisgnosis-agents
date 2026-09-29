@@ -11,6 +11,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [ReActAgentSpec](ReActAgentSpec.scala)
 - [ReActAgentThinkingRetrySpec](ReActAgentThinkingRetrySpec.scala)
 - [StructuredCompletionSpec](StructuredCompletionSpec.scala)
+- [StructuredOutputDynamicSpec](StructuredOutputDynamicSpec.scala)
 - [StructuredOutputSpec](StructuredOutputSpec.scala)
 
 ## Current evidence
@@ -20,7 +21,11 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [x] ReActAgentEmissionSpec verifies nine limit/inline-result/duplicate-call regressions without sleeps; four initial publication tests reproduced missing behavior before correction.
 - [x] `review_fp` and `review_harness` approved the final four-file structured completion increment against `5451e03` on 2026-09-29 with no unresolved findings in that scope.
 - [x] StructuredCompletionSpec verifies nine final-result/structured-stream scenarios, including exact metadata AST preservation, fallback boundaries, pre-commit failure, cooperative recovery, and consumer cleanup.
-- [x] `sbt scalafmtAll scalafmtSbt verify` passed 309 core and 40 harness tests with zero compiler warnings.
-- [ ] Complete remaining upstream ordering, dynamic-schema scenarios, provider continuation, local structured tool streams, and permission/phase-stop integration.
+- [x] `sbt scalafmtAll scalafmtSbt verify` passed 311 core and 40 harness tests with zero compiler warnings.
+- [ ] Complete remaining upstream ordering, capability/hook scenarios, provider continuation, local structured tool streams, and permission/phase-stop integration.
 
 The [current agent contracts and reviewed blobs](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) record exact scope, earlier accepted revisions, intentional upstream differences, and integration limits. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) retains incomplete tasks as unchecked items.
+
+StructuredOutputDynamicSpec covers the two runtime-schema weather scenarios through Json values and verifies schema delivery, metadata/history preservation, and one-request completion. The upstream names mention nested structures, but these two fixtures are flat; nested definition resolution remains covered separately.
+
+- [x] `review_fp` and `review_harness` approved the two-scenario [dynamic JSON spec](StructuredOutputDynamicSpec.scala) against `3963104` on 2026-09-29, with no findings. Exact reviewed Git blob: `9f4a3360e8064a9e5ae72d5bb88588b1997ef2e9`. Verification passed 311 core and 40 harness tests; general JSON Schema validation and legacy event envelopes are outside this scope.

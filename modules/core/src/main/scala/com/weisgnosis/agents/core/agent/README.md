@@ -28,9 +28,9 @@ runStructured and streamStructuredEvents share the same preparation and commit p
 - [x] `review_fp` and `review_harness` approved structured preservation at `21bc69f`, lifecycle delivery at `62478ce`, validated-message migration at `a701612`, and canonical server markers at `8b96ce3`.
 - [x] Both reviewers approved runtime emission/occurrence matching at `5451e03` and the final four-file structured completion increment against `5451e03` on 2026-09-29, with no unresolved findings in scope.
 - [x] Nine new ReActAgentEmissionSpec regressions cover limits, mixed/empty inline output, metadata, repeated server IDs, local/server collisions, and sequential/parallel cancellation. Four initial emission tests failed before the fix.
-- [x] Full formatting, fatal-warning compilation, and verification passed 309 core and 40 harness tests.
+- [x] Full formatting, fatal-warning compilation, and verification passed 311 core and 40 harness tests.
 - [x] Publish finalized runtime results and expose structured event streaming; nine StructuredCompletionSpec regressions cover preparation, metadata preservation, failure, cancellation, fallback, and consumer cleanup. The native metadata-loss regression failed before correction.
-- [ ] Complete hooks/model-capability parity, dynamic-schema scenarios, and explicit event wire adapters.
+- [ ] Complete hooks/model-capability parity and explicit event wire adapters.
 - [ ] Integrate provider continuation without inline results, local structured tool streams/metadata, and complete model/tool event ordering.
 - [ ] Integrate permissions, phase stopping, durable pending work, and harness middleware.
 
@@ -44,3 +44,5 @@ Exact reviewed structured completion increment:
 | [StructuredOutput.scala](StructuredOutput.scala) | b149f43ad3c02f86931336b975a90c5cba1a6347 |
 | [ReActAgentEmissionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEmissionSpec.scala) | 53b32191a7d4977b6e28a3bee8d639667bec9ef1 |
 | [StructuredCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredCompletionSpec.scala) | 8968d4aa477bb64cea74e257a3e3b28976677afb |
+
+- [x] `review_fp` and `review_harness` approved the two-scenario [dynamic JSON spec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputDynamicSpec.scala) against `3963104` on 2026-09-29, with no findings. Exact reviewed Git blob: `9f4a3360e8064a9e5ae72d5bb88588b1997ef2e9`. Verification passed 311 core and 40 harness tests; general JSON Schema validation and legacy event envelopes are outside this scope.

@@ -96,9 +96,11 @@ A checked method has a verified local contract or explicitly identified runtime 
 
 ### StructuredOutputDynamicDefineTest: three methods
 
-- [ ] `testDynamicComplexNestedStructure`: dedicated runtime-schema/arbitrary JSON scenario remains pending; typed nested decoding alone does not establish it.
-- [ ] `testDynamicComplexNestedStructureStreamingMode`: streamStructuredEvents is implemented; the dedicated dynamic nested-JSON scenario remains unverified.
+- [x] `testDynamicComplexNestedStructure` -> same-named StructuredOutputDynamicSpec test: parse the runtime schema, request synthetic output as Json, and preserve the weather object in decoded data, metadata, and committed history.
+- [x] `testDynamicComplexNestedStructureStreamingMode` -> same-named StructuredOutputDynamicSpec test: streamed finalized Json metadata, committed history, exact synthetic schema, and one model request. Adaptation: typed AgentResultEvent followed by AgentEnd replaces the legacy Event/isLast envelope.
 - [x] `testDefsHoistedToRootForRefResolution` -> same-named structured spec: a real `#/$defs/Material` reference remains unchanged, definitions are rooted, and nested materials decode correctly. This is not a general JSON Schema validator.
+
+Despite the upstream method names, these two weather fixtures are flat objects. The tests preserve that contract without claiming general JSON Schema validation or legacy wire equivalence. Both inspect the actual synthetic parameters received by the model. The separate materials scenario verifies nested references.
 
 Additional Scala regressions cover unrelated empty-message preservation, mixed ordinary call/result pairing, nonduplicated history usage, and interruption after capture. A captured value is not a successful structured response until the run is Completed. These regressions are runtime hardening, not invented upstream methods.
 
