@@ -12,6 +12,7 @@ Msg, ContentBlock, Role, MediaSource, ToolResultState, and ChatUsage form the sh
 - [GenerateReason](GenerateReason.scala)
 - [Role](Role.scala)
 - [ToolResultState](ToolResultState.scala)
+- [ToolCallState](ToolCallState.scala)
 
 See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md) for integration boundaries and invariant definitions.
 
@@ -47,7 +48,7 @@ The typed withGenerateReason overload preserves all other fields and metadata. I
 - [x] `review_fp` and `review_harness` independently approved GenerateReason, the additive Msg methods, and GenerateReasonSpec based on `d3d003d`, on 2026-09-29, with no unresolved findings in this scope.
 - [x] Cover all nine upstream GenerateReasonTest methods plus lowercase/uppercase compatibility, malformed/raw metadata, and all-field preservation regressions.
 - [x] Formatting, fatal-warning compilation, and all 207 core / 40 harness tests passed.
-- [ ] Close remaining content and ToolUse parity gaps.
+- [ ] Close remaining DataBlock parity gaps.
 - [ ] Integrate typed stop reasons with planned phase suspension and resumption; classifying metadata alone does not implement runtime production of every reason.
 
 | Reviewed source | Git blob |
@@ -69,7 +70,7 @@ This is a source-breaking API change: Msg.create and validateRoleContent now ret
 - [x] Independent reviewers `review_fp` and `review_harness` approved the final Scala diff against `9c47bf5` on 2026-09-29 after restoring four unrelated corrupted temperature fixtures; no findings remain in this scope.
 - [x] Verify nine construction regressions, all 26 MsgSubclassesTest adaptations, and existing agent/client/compactor/evictor regressions: 242 core and 40 harness tests pass with zero compiler warnings under `sbt scalafmtAll scalafmtSbt verify`.
 - [x] Preserve all previous message fields during migration; compaction propagates typed reconstruction/provenance failures rather than replacing them with empty history.
-- [ ] Close remaining content/ToolUse parity and runtime integration tasks in the architecture tracker.
+- [ ] Close remaining DataBlock parity and runtime integration tasks in the architecture tracker.
 
 Accepted scope: message role/content construction closure, safe immutable transformations, unchanged JSON representation, and migrated core/harness call sites. Historical acceptance entries above remain revision-specific. Exact reviewed Scala blobs for this increment:
 
@@ -97,3 +98,30 @@ Accepted scope: message role/content construction closure, safe immutable transf
 | [modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | 770a7fcc1b6ee5a5680e60f8b5322f6e53daa062 |
 | [modules/harness/src/test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorSpec.scala) | c539ef70ae1e2302ec0e066831292a2b2fcae4a2 |
 | [modules/harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | 7bfd00561387b750d3ec59534ed07783c390691b |
+
+## Content codecs and tool call protocol
+
+All ten content variants encode the same object through concrete and ContentBlock codecs, including exactly one type tag. Concrete decoders also accept legacy untagged payloads; supplied tags must match. Root and nested decoding require a unique valid tag. Private payload derivation and a suspended root codec avoid encoder cycles and silent AST fallback data loss. Recursive ToolResult output uses the public guarded root codec. Legacy string/null/missing output and Thinking defaults remain supported; malformed supplied fields fail.
+
+ToolUse appends ToolCallState (Pending, Asking, Allowed, Submitted, Finished), with a strict lowercase codec. Missing/JSON-null state defaults to Pending only at the block boundary. These values describe protocol data; the runtime still owns permission decisions and execution. Missing/JSON-null input normalizes to an empty object, including an explicitly constructed Json.Null on round-trip; all other JSON shapes remain unchanged. Optional content/metadata validation is consistent for concrete and base decoding.
+
+Both ToolUse and ToolResult recognize canonical serverTool metadata and the existing agentscope_server_tool alias. Presence of serverTool takes precedence, including false or malformed values; only Boolean true enables the marker. withServerTool keeps the legacy key and updates an existing canonical key so the setter cannot leave conflicting values. Copy/state updates preserve all unrelated fields. Canonical inline server results bypass local dispatch and remain in the assistant message.
+
+Compatibility changes: concrete leaf JSON now contains type; ToolUse encoding now contains state (including Pending). Existing constructor calls still compile because state is appended with a default, but positional pattern matches must include the new field. Consumers must allow the added fields. Accepted legacy decoding does not claim full Java payload/API equivalence.
+
+## Content protocol review acceptance
+
+- [x] `review_fp` and `review_harness` independently approved all five changed Scala files against `a701612` on 2026-09-29, with no unresolved findings in this scope.
+- [x] `sbt scalafmtAll scalafmtSbt verify` passed 272 core and 40 harness tests, with zero compiler warnings.
+- [x] Verify 13 concrete/base codec regressions, 16 ToolUse scenarios, and canonical inline-result integration; all 17 upstream ToolUseBlockTest methods are covered across the old and new suites.
+- [ ] Complete four DataBlock adaptations and later runtime state/HITL integration before claiming broader parity.
+
+Acceptance covers the codec, protocol-data, and server-marker contracts above. It does not establish state-driven tool execution, HITL integration, or complete Java API/wire equivalence. Exact reviewed Scala content:
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [modules/core/src/main/scala/com/weisgnosis/agents/core/model/ContentBlock.scala](ContentBlock.scala) | 93422cf85e056dac094877359945209c836e76a6 |
+| [modules/core/src/main/scala/com/weisgnosis/agents/core/model/ToolCallState.scala](ToolCallState.scala) | d6f3636a99cff6c696e3617eef95c4bfd72d33b8 |
+| [modules/core/src/test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala) | 783ef136faf632457c4801f0cf8046a0b867a644 |
+| [modules/core/src/test/scala/com/weisgnosis/agents/core/model/ContentBlockCodecSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ContentBlockCodecSpec.scala) | ec0456ff475d62020d43224ddad0fabeb9486316 |
+| [modules/core/src/test/scala/com/weisgnosis/agents/core/model/ToolUseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ToolUseSpec.scala) | b4fc9b70b76f44d8f30b1c7c92b8b6e813ab7b2c |

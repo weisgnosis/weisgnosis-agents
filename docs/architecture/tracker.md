@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: close remaining content/ToolUse parity gaps, then complete missing event payloads and runtime integrations against the pinned upstream revision; remaining structured-output API scenarios are explicitly unchecked in the parity task list.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: close the four remaining DataBlock parity scenarios, then complete missing event payloads and runtime integrations against the pinned upstream revision; remaining structured-output API scenarios are explicitly unchecked in the parity task list.
 
 ### Foundation and current core
 
@@ -22,7 +22,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Verify 169 core and 40 harness tests after the model corrections.
 - [x] Implement 12 typed generation reasons and nine upstream message-reason scenarios; receive independent approval and verify 207 core / 40 harness tests.
 - [x] Close unchecked Msg construction/update paths and all 26 factory scenarios; verify 242 core / 40 harness tests.
-- [ ] Close remaining content and ToolUse parity gaps.
+- [x] Unify all ten concrete/base content codecs, remove silent encoding fallbacks, and cover all 17 ToolUse methods plus strict states and canonical server-tool pass-through; verify 272 core / 40 harness tests.
+- [ ] Close the four remaining DataBlock scenarios before claiming complete message-method coverage.
 - [x] Correct lifecycle correlation, private stream completion, and ordered draining; receive independent approval and verify 177 core / 40 harness tests.
 - [x] Correct all 31 concrete/base event codecs and existing tool-result metadata serialization; classify 30 upstream event declarations and verify 185 core / 40 harness tests.
 - [x] Implement and independently review all 31 protocol event identifiers and 11 aliases; verify 195 core / 40 harness tests.

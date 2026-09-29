@@ -280,6 +280,25 @@ object ReActAgentSpec extends ZIOSpecDefault:
           !hasLocalToolMsg // Server tool must not produce local tool execution messages
         )
       },
+      test("canonical provider tool markers preserve inline results without local dispatch") {
+        val marker = Map("serverTool" -> Json.Bool(true))
+        val use    = ContentBlock.ToolUse("server", "web_search", Json.Obj(), metadata = marker)
+        val result =
+          ContentBlock.ToolResult.text("server", "web_search", "inline", metadata = marker)
+        val reply  = Msg.assistant(Chunk(use, result, ContentBlock.Text("done")))
+        val client = LlmClient.mockFunction((_, _) => TurnOutput.ToolCalls(reply))
+        for
+          agent     <- ReActAgent.builder().model(client).maxIters(2).build
+          completed <- agent.run(Msg.user("search"))
+          history   <- agent.history
+        yield assertTrue(
+          completed.iterationCount == 1,
+          completed.reply == reply,
+          !history.exists(_.role == Role.Tool),
+          completed.reply.toolUses.forall(_.isServerTool),
+          completed.reply.toolResults.forall(_.isServerTool)
+        )
+      },
       test("Should emit events while streaming turn") {
         val mockClient = LlmClient.mockFunction { (_, _) =>
           TurnOutput.FinalText(Msg.assistant("Streamed reply"))

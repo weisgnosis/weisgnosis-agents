@@ -53,3 +53,10 @@ Publishers must obey scoped ownership. The hub and delivery queue are unbounded;
 - [x] Repository verification passed 242 core and 40 harness tests with zero compiler warnings.
 
 See the [validated message API and exact reviewed blobs](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md) for source compatibility changes, scope, and evidence. Core callers preserve roles and optional fields; reasoning/structured-output filtering preserves message identity and metadata. Harness transformations preserve tool pairing, retained-user provenance, eviction fallback, and cancellation. This acceptance covers the changed files only; broader package and upstream parity gaps remain tracked.
+
+## Content protocol verification
+
+- [x] `review_fp` and `review_harness` approved the content protocol increment against `a701612` on 2026-09-29; no findings remain in the [recorded scope and exact source identities](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md).
+- [x] Full verification passed 272 core and 40 harness tests with zero compiler warnings.
+
+Canonical serverTool markers preserve inline results without local dispatch, as verified in ReActAgentSpec alongside the legacy marker scenario. The model tests cover all ten content codecs and all 17 upstream ToolUse methods. ToolCallState remains protocol data; lifecycle and permission integration are still tracked work.

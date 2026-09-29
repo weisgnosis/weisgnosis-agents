@@ -244,25 +244,25 @@ Same-named ContentBlockSerdeSpec tests cover runtime error and server-tool marke
 
 ### ToolUseBlockTest: 17 methods
 
-Only the three complete decoding assertions below are accepted here. Existing serialization checks omit some fields; builder, null normalization, immutability, and server-marker cases need explicit evidence.
+All 17 methods have assertion-level coverage. ContentBlockSerdeSpec covers serialization and three original decode scenarios; ToolUseSpec covers the remaining 13 methods. Immutable JSON AST/Map and named case-class arguments replace mutable maps and builders; compile-time checks reject mutation. Java null constructor arguments adapt to explicit Scala absence and missing/JSON-null fields at decoding boundaries. Any other JSON input remains supported, including pruned string arguments. Both canonical serverTool and legacy agentscope_server_tool markers are recognized with canonical presence taking precedence. ToolCallState values are protocol data; no permission or lifecycle authority is inferred from model-supplied state.
 
-- [ ] `testJsonSerializationWithAllFields`: pending assertion-level coverage or reviewed adaptation.
+- [x] `testJsonSerializationWithAllFields` -> ContentBlockSerdeSpec, matching all upstream assertions; ContentBlockCodecSpec additionally checks identical concrete/base representation.
 - [x] `testJsonDeserializationWithAllFields` -> ContentBlockSerdeSpec, matching scenario name.
 - [x] `testJsonDeserializationWithoutContent` -> ContentBlockSerdeSpec, matching scenario name.
-- [ ] `testJsonDeserializationWithoutMetadata`: pending assertion-level coverage or reviewed adaptation.
+- [x] `testJsonDeserializationWithoutMetadata` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
 - [x] `testJsonDeserializationWithEmptyInput` -> ContentBlockSerdeSpec, matching scenario name.
-- [ ] `testJsonDeserializationWithNullContent`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testRoundTripSerialization`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testInputMapIsUnmodifiable`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testMetadataMapIsUnmodifiable`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testConstructorWithThreeParameters`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testConstructorWithFourParameters`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testConstructorWithAllFiveParameters`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testBuilderPattern`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `serverToolMarkerDistinguishesServerAndLocalCalls`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `serverToolMarkerSurvivesJsonRoundTrip`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `withStatePreservesServerToolMarker`: pending assertion-level coverage or reviewed adaptation.
-- [ ] `testEmptyMapsForNullInputAndMetadata`: pending assertion-level coverage or reviewed adaptation.
+- [x] `testJsonDeserializationWithNullContent` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `testRoundTripSerialization` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `testInputMapIsUnmodifiable` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `testMetadataMapIsUnmodifiable` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `testConstructorWithThreeParameters` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `testConstructorWithFourParameters` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `testConstructorWithAllFiveParameters` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `testBuilderPattern` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `serverToolMarkerDistinguishesServerAndLocalCalls` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `serverToolMarkerSurvivesJsonRoundTrip` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `withStatePreservesServerToolMarker` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
+- [x] `testEmptyMapsForNullInputAndMetadata` -> ToolUseSpec, matching scenario name with the stated immutable adaptation.
 
 ### MsgTests: 1 method
 
