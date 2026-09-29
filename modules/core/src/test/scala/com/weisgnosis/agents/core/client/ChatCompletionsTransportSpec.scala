@@ -22,6 +22,7 @@ import zio.*
 import zio.http.*
 import zio.stream.ZStream
 import zio.test.*
+import HttpClientTestSupport.scripted
 
 object ChatCompletionsTransportSpec extends ZIOSpecDefault:
   private val config  = LlmConfig("test-model", endpoint = "http://localhost/completion")
@@ -271,24 +272,3 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
     ChatCompletionsTransport
       .make(scripted(_ => ZIO.succeed(response)))
       .flatMap(_.complete(Chunk(Msg.user("q")), Chunk.empty, config))
-
-  private def scripted(f: Request => ZIO[Scope, Throwable, Response]): Client =
-    ZClient.fromDriver(new ZClient.Driver[Any, Scope, Throwable]:
-      def request(
-          version: Version,
-          method: Method,
-          url: URL,
-          headers: Headers,
-          body: Body,
-          sslConfig: Option[ClientSSLConfig],
-          proxy: Option[Proxy]
-      )(using Trace): ZIO[Scope, Throwable, Response] =
-        f(Request(version = version, method = method, url = url, headers = headers, body = body))
-
-      def socket[Env1 <: Any](
-          version: Version,
-          url: URL,
-          headers: Headers,
-          app: WebSocketApp[Env1]
-      )(using Trace, Scope =:= Scope): ZIO[Env1 & Scope, Throwable, Response] =
-        ZIO.fail(AgentError.InvalidConfiguration("WebSockets are outside this HTTP test driver")))

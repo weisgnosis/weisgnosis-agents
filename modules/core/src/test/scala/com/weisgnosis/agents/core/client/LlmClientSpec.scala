@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.core.client
 
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.Msg
 import zio.*
 import zio.test.*
@@ -35,9 +35,27 @@ object LlmClientSpec extends ZIOSpecDefault:
           client <- LlmClient.mock(Chunk(resp1, resp2))
           hub    <- Hub.bounded[AgentEvent](16)
           config = LlmConfig(model = "test-model")
-          out1 <- client.streamTurn(Chunk.empty, Chunk.empty, config, hub)
-          out2 <- client.streamTurn(Chunk.empty, Chunk.empty, config, hub)
-          out3 <- client.streamTurn(Chunk.empty, Chunk.empty, config, hub)
+          out1 <- client.streamTurn(
+            Chunk.empty,
+            Chunk.empty,
+            config,
+            hub,
+            ModelStreamContext("reply", "request")
+          )
+          out2 <- client.streamTurn(
+            Chunk.empty,
+            Chunk.empty,
+            config,
+            hub,
+            ModelStreamContext("reply", "request")
+          )
+          out3 <- client.streamTurn(
+            Chunk.empty,
+            Chunk.empty,
+            config,
+            hub,
+            ModelStreamContext("reply", "request")
+          )
         yield assertTrue(
           out1 == resp1,
           out2 == resp2,

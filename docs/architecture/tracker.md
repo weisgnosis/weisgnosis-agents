@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: connect the scoped HTTP transport to LlmClient and correlated model events, then verify full ReAct streaming against the pinned upstream revision. Capability and hook scenarios remain explicitly unchecked in the parity task list.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: complete local tool-result event correlation and ordering, then close remaining provider/harness integration scenarios against the pinned upstream revision. Capability and hook scenarios remain explicitly unchecked in the parity task list.
 
 ### Foundation and current core
 
@@ -32,7 +32,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Publish finalized runtime results after structured preparation/history commit and expose streamStructuredEvents; obtain independent FP/invariant approval and verify 309 core / 40 harness tests.
 - [x] Verify both runtime-schema/arbitrary-JSON direct and streaming scenarios from StructuredOutputDynamicDefineTest; full verification passed 311 core / 40 harness tests.
 - [x] Classify all ten deprecated coarse-event methods as explicit legacy API/wire exclusions, with shared domain evidence distinguished from parity.
-- [ ] Complete actual model-stream correlation and richer subagent attribution through the typed API.
+- [x] Correlate actual model streams with runtime-assigned reply/request identities.
+- [ ] Complete richer subagent attribution through the typed API.
 - [ ] Complete local structured-result metadata, explicit event adapters, phase-stop integration, and remaining event ordering.
 - [ ] Map every remaining applicable core method to Scala coverage, a justified difference, or a gap.
 - [ ] Close remaining structured-output and lifecycle parity gaps; see the [parity task list](test-parity.md).
@@ -40,7 +41,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Require successful stream completion and complete unambiguous tool JSON; preserve raw arguments, indexed content/signatures, and usage snapshots; verify 345 core / 40 harness tests.
 - [x] Serialize validated text/function requests, enforce complete history pairing, and independently review sixteen regressions; verify 361 core / 40 harness tests.
 - [x] Implement scoped HTTP completion with bounded responses and strict [DONE] termination; verify fourteen transport tests and 375 core / 40 harness tests.
-- [ ] Integrate the transport with LlmClient and correlated events; implement provider signature/tool metadata decoding and remaining protocol scenarios.
+- [x] Integrate live LlmClient and correlated incremental events; verify eleven new scenarios and 386 core / 40 harness tests.
+- [ ] Implement remaining local tool-result events, provider signature/tool metadata decoding, and remaining protocol scenarios.
 - [ ] Validate platform-specific symlink/junction behavior.
 
 ### Phase 4: harness

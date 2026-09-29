@@ -20,7 +20,8 @@ The reference is the clean local `agentscope-java` checkout at commit `f98a685fd
 - [ ] Close the remaining event type, payload, and emitter parity gaps.
 - [ ] Complete the tool matrix and platform-specific symlink integration coverage.
 - [x] Add one real loopback HTTP/chunked SSE test and thirteen deterministic transport boundary/lifecycle tests.
-- [ ] Add full ReAct/provider transport integration and exhaustive upstream transport mapping.
+- [x] Verify a real HTTP ReAct tool cycle and incremental correlated model events.
+- [ ] Complete remaining provider scenarios and exhaustive upstream transport mapping.
 - [ ] Complete ReAct and interruption scenario mappings, including lifecycle hooks not yet implemented.
 - [ ] Complete the thinking-only empty-response scenario mapping.
 - [x] Cover empty-input structured runs, signed thinking preservation, full reply usage, and immediate repeated calls.
@@ -36,7 +37,7 @@ Existing suites cover selected scenarios only. No unchecked mapping task is sati
 - Concurrent calls to the same ReActAgent are serialized. Upstream concurrent-call rejection tests cannot be claimed as ported unchanged.
 - Immutable Scala models and typed errors replace Java builder/null-specific contracts. Each inapplicable upstream case still needs a recorded rationale in the exhaustive mapping.
 - Interrupted unfinished local tools receive Error observations. Provider-hosted inline results do not create separate local tool messages.
-- The current LlmClient is a port with scripted clients. A separate scoped HTTP completion transport is tested; production client/event integration remains pending.
+- LlmClient has scripted clients and ChatCompletionsClient for scoped HTTP completion with validated incremental correlated events. Provider extensions and exhaustive mapping remain pending.
 
 ## Completion criterion
 
@@ -313,12 +314,13 @@ The pinned upstream Event, EventType, and EventSource classes are explicitly dep
 - [x] `testEventWithEmptyContent`: exclude the HINT wrapper and diagnostics. Msg factory/codec tests cover valid empty content independently.
 - [x] `testEventWithMultipleContentBlocks`: exclude the SUMMARY wrapper. Immutable Msg content and AgentResult payload preservation have separate tests.
 - [x] `testEventDifferentTypes`: exclude arbitrary wrapping in the five coarse message categories.
-- [x] `testStreamingScenario`: exclude cumulative Msg snapshots sharing an ID with isLast. Complete model-stream correlation remains a separate pending implementation requirement below.
+- [x] `testStreamingScenario`: exclude cumulative Msg snapshots sharing an ID with isLast. Actual live model streams now carry runtime reply/request correlation; cumulative snapshot compatibility remains excluded.
 - [x] `testEventJsonSerializationIsLastFieldName`: exclude the legacy type/message/isLast wire format; current lowercase event codecs are not equivalent fixtures.
 
 Unsupported legacy behavior includes StreamOptions filtering, ALL, default final-result exclusion, cumulative message snapshots, Java constructors/getters, and structured EventSource attribution (agent/session/task IDs, depth, and path). Current optional string source tagging is not an EventSource adapter. A future consumer requiring that protocol needs an explicit separately scoped adapter; no compatibility adapter is currently promised or implemented.
 
-- [ ] Complete actual model-stream correlation and model/tool block ordering through the typed event API.
+- [x] Implement actual model-stream reply/request correlation through the typed event API.
+- [ ] Complete remaining model/tool block ordering and attribution.
 - [ ] Define and integrate richer subagent source attribution with the planned supervisor.
 
 ### AgentEventStreamTest: 13 enabled methods
@@ -375,8 +377,16 @@ Inline event metadata intentionally preserves the complete result map; pinned up
 - [x] Implement indexed text/thinking assembly with signatures, typed finish validation, strict completed object arguments, preserved raw content, and interrupted sanitization; thirteen accumulator regressions cover this scope.
 - [x] Validate full JSON documents and duplicate keys through ProtocolJson, with five paired tests and frame/tool suffix regressions.
 - [x] Implement text/function request serialization with sixteen local regression tests, including paired histories, explicit reasoning replay, and unsupported-content rejection. These tests are not claimed as sixteen mapped upstream methods.
-- [ ] Map the full upstream formatter surface, implement remaining request extensions and provider signature/tool-metadata decoding, and connect scoped HTTP completion to the agent/event runtime.
+- [ ] Map the full upstream formatter surface, implement remaining request extensions and provider signature/tool-metadata decoding, and complete remaining provider and tool-result event integration.
 
 The pinned extension OpenAIStreamingToolCallTest and OpenAIResponseParserTest were inspected for fragment, usage, and error semantics. They are outside the earlier core-only inventory, and their full applicability mapping remains open. The current adapter intentionally supports indexed function-call deltas and fails unsupported legacy calls instead of silently dropping them.
 
 The pinned core ToolCallsAccumulatorTest and ReasoningContextTest were inspected for parallel calls, raw argument preservation, interruption sanitization, and latest-snapshot usage. Mandatory compatible finish markers, strict complete object arguments, and stable identities are deliberate Scala hardening. LlmChunk has raw argument fragments rather than mutable parsed-map updates. Tool metadata, parsed-map merge scenarios, richer reasoning details, and the full method-level accumulator mapping remain pending; current signature support is for ThinkingDelta, not tool signatures.
+
+## Live model stream adaptation
+
+- [x] Six ChatCompletionsClientSpec scenarios verify incremental publication, real HTTP tool cycles, request/reply correlation, late tool identity, incomplete/malformed input, and cancellation.
+- [x] Three ModelStreamPublisherSpec scenarios verify indexed text/thinking, interleaved tool deltas, and validated complete ending batches; two ModelStreamContextSpec scenarios cover all twelve affected event variants and legacy payloads.
+- [ ] Complete local tool-result ordering, richer provider content, and method-level formatter/transport mapping.
+
+The disabled upstream ordering sketches remain unchecked: they put MODEL_CALL_END before buffered content and close thinking before text starts. The implemented live contract publishes provisional deltas during the request and closes blocks only after validated completion. ModelResponseEnd follows scope cleanup. This is an explicit runtime adaptation, not exact ordering parity.

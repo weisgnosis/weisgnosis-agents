@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.*
@@ -40,7 +40,8 @@ trait LlmClient:
       history: Chunk[Msg],
       tools: Chunk[ToolDef],
       config: LlmConfig,
-      eventHub: Hub[AgentEvent]
+      eventHub: Hub[AgentEvent],
+      context: ModelStreamContext
   ): ZIO[Scope, AgentError, TurnOutput]
 
 object LlmClient:
@@ -53,7 +54,8 @@ object LlmClient:
             history: Chunk[Msg],
             tools: Chunk[ToolDef],
             config: LlmConfig,
-            eventHub: Hub[AgentEvent]
+            eventHub: Hub[AgentEvent],
+            context: ModelStreamContext
         ): ZIO[Scope, AgentError, TurnOutput] =
           queueRef.modify { chunk =>
             chunk.headOption match
@@ -73,7 +75,8 @@ object LlmClient:
           history: Chunk[Msg],
           tools: Chunk[ToolDef],
           config: LlmConfig,
-          eventHub: Hub[AgentEvent]
+          eventHub: Hub[AgentEvent],
+          context: ModelStreamContext
       ): ZIO[Scope, AgentError, TurnOutput] =
         ZIO.succeed(f(history, tools))
 
@@ -86,6 +89,7 @@ object LlmClient:
           history: Chunk[Msg],
           tools: Chunk[ToolDef],
           config: LlmConfig,
-          eventHub: Hub[AgentEvent]
+          eventHub: Hub[AgentEvent],
+          context: ModelStreamContext
       ): ZIO[Scope, AgentError, TurnOutput] =
         f(history, tools, eventHub)

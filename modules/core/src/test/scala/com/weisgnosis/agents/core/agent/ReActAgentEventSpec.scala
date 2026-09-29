@@ -73,7 +73,7 @@ object ReActAgentEventSpec extends ZIOSpecDefault:
         events <- agent.streamEvents(Msg.user("work")).runCollect
       yield assertTrue(
         events.exists {
-          case AgentEvent.TextBlockDeltaEvent("after marker", _, _) => true; case _ => false
+          case AgentEvent.TextBlockDeltaEvent("after marker", _, _, _) => true; case _ => false
         },
         paired(events.filter {
           case AgentEvent.AgentEndEvent("provider-marker", _) => false; case _ => true

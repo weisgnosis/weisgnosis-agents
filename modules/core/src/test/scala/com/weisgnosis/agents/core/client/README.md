@@ -2,6 +2,9 @@
 
 These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity or live-provider behavior.
 
+- [ChatCompletionsClientSpec](ChatCompletionsClientSpec.scala)
+- [ModelStreamPublisherSpec](ModelStreamPublisherSpec.scala)
+- [HttpClientTestSupport](HttpClientTestSupport.scala)
 - [ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala)
 - [ChatCompletionsRequestSpec](ChatCompletionsRequestSpec.scala)
 - [LlmClientSpec](LlmClientSpec.scala)
@@ -20,9 +23,11 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [x] Thirteen StreamAccumulatorCompletionSpec regressions cover required finish markers, malformed/non-object/trailing tool arguments, interrupted sanitization, raw content, deferred/stable identity, duplicate IDs, interleaved indexes, signed blocks, usage snapshots, and post-finish rejection.
 - [x] ProtocolJsonSpec verifies five complete-document/duplicate/escape/numeric scenarios without effects.
 - [x] Existing accumulator scenarios and two ReAct thinking-retry integration tests now handle Either and explicit successful finish markers.
-- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 375 core and 40 harness tests with zero compiler warnings.
+- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 386 core and 40 harness tests with zero compiler warnings.
 - [x] Fourteen transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
-- [ ] Complete LlmClient/event integration, provider signature/metadata decoding, and exhaustive upstream scenario mapping.
+- [x] Six live-client tests verify early deltas, real HTTP tool cycles, request identity, late call identity, malformed/incomplete streams, and cancellation.
+- [x] Three publisher tests verify indexed content, interleaved calls, and atomic ending-batch validation; two event-context tests cover all twelve correlated variants and legacy payloads.
+- [ ] Complete remaining event integration, provider signature/metadata decoding, and exhaustive upstream scenario mapping.
 
 The [client contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) record source migration, exact review scope, and remaining limits. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) separates runtime hardening from mapped upstream methods. Earlier message migration and strict-delta acceptance remain in `a701612` and `10019c2`.
 
@@ -39,7 +44,7 @@ The [client contracts](../../../../../../../main/scala/com/weisgnosis/agents/cor
 | [StreamAccumulatorCompletionSpec.scala](StreamAccumulatorCompletionSpec.scala) | 9e63fc534339d93594fe1c3f31c55e23b36b360c |
 | [ReActAgentThinkingRetrySpec.scala](../agent/ReActAgentThinkingRetrySpec.scala) | cb149ca6c95027ace970b5a6fad5df1586b9c99e |
 
-- [x] `review_fp` and `review_harness` approved the final request encoder and sixteen tests against `73f66d1` on 2026-09-29 after correcting pairing validation and negative fixtures. No findings remain within the text/function request scope; HTTP integration and exhaustive formatter parity remain pending.
+- [x] `review_fp` and `review_harness` approved the final request encoder and sixteen tests against `73f66d1` on 2026-09-29 after correcting pairing validation and negative fixtures. No findings remain within the text/function request scope; HTTP integration and exhaustive formatter parity were excluded from that earlier approval.
 
 | File | Reviewed Git blob |
 | --- | --- |
@@ -52,3 +57,26 @@ The [client contracts](../../../../../../../main/scala/com/weisgnosis/agents/cor
 | --- | --- |
 | [ChatCompletionsTransport.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransport.scala) | 955e6ddcfe25efb4e42a9f3c731ea4c97bf6a242 |
 | [ChatCompletionsTransportSpec.scala](ChatCompletionsTransportSpec.scala) | 938047f7320998feea85eae23e5d665e09f6619d |
+
+- [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
+
+Exact final integration scope (supersedes earlier identities for changed files):
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [ReActAgent.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | 508d37e17aa49cd88be4e80cfb990f698c03c1d0 |
+| [ChatCompletionsClient.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/ChatCompletionsClient.scala) | b80c5b8b3a46a07ba79804e311307df1d2bb7f39 |
+| [ChatCompletionsTransport.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransport.scala) | 696302acc494d81606ab264f29f0e1c97b2e2eab |
+| [LlmClient.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/LlmClient.scala) | 13094412a3b79d894182cc9b4e31d2bdf68364de |
+| [ModelStreamPublisher.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/ModelStreamPublisher.scala) | 1ad3bcf5c23e570bf0b86246c23d23efd435575b |
+| [AgentEvent.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/event/AgentEvent.scala) | 33df0c53ce69281401cff314812497875b499a1c |
+| [ModelStreamContext.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/event/ModelStreamContext.scala) | fc28f0f5accfa3c773f462eb1e2dd8f06c844d7c |
+| [ReActAgentEventSpec.scala](../agent/ReActAgentEventSpec.scala) | afac7dc6d5d58feed4ffd138368705df20f4619c |
+| [ReActAgentLifecycleSpec.scala](../agent/ReActAgentLifecycleSpec.scala) | 8e042037b425d84514741e42e2620f3d8b889891 |
+| [StructuredOutputSpec.scala](../agent/StructuredOutputSpec.scala) | 3e98f032ca5ce23fc6b6a5e08cfc2256edaf967b |
+| [ChatCompletionsClientSpec.scala](ChatCompletionsClientSpec.scala) | bd89eb872ee947587848fb9ef9d07ff4c4178641 |
+| [ChatCompletionsTransportSpec.scala](ChatCompletionsTransportSpec.scala) | 1d1a5947403ba5750bd2890c4dbfd84479c96bb2 |
+| [HttpClientTestSupport.scala](HttpClientTestSupport.scala) | 2e1a8bf59a6dae2d45aebcfc79c2416940821e9f |
+| [LlmClientSpec.scala](LlmClientSpec.scala) | 0f2cdb77254e8dbfa325265018a6a96bd85798d8 |
+| [ModelStreamPublisherSpec.scala](ModelStreamPublisherSpec.scala) | dbb35a012d48eda8be91a795b20588c49e1a3eff |
+| [ModelStreamContextSpec.scala](../event/ModelStreamContextSpec.scala) | bc75ea0694f96aed40e3d4d55c9617842edd644d |

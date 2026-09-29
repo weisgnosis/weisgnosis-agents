@@ -1,7 +1,9 @@
 # Model client port and stream assembly
 
-LlmClient.streamTurn requires Scope and returns TurnOutput. Implementations must acquire request resources in that scope. The package provides scripted clients, LlmConfig, SSE framing, strict completion-delta decoding, reasoning-history adaptation, and StreamAccumulator. ChatCompletionsTransport provides a separate scoped HTTP completion operation. Its LlmClient/event adapter remains pending.
+LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and returns TurnOutput. Implementations must acquire request resources in that scope. The package provides scripted clients, LlmConfig, SSE framing, strict completion-delta decoding, reasoning-history adaptation, and StreamAccumulator. ChatCompletionsTransport provides a separate scoped HTTP completion operation. ChatCompletionsClient connects it to ReAct with incremental correlated events.
 
+- [ChatCompletionsClient](ChatCompletionsClient.scala)
+- [ModelStreamPublisher](ModelStreamPublisher.scala)
 - [ChatCompletionsTransport](ChatCompletionsTransport.scala)
 - [ChatCompletionsRequest](ChatCompletionsRequest.scala)
 - [LlmChunk](LlmChunk.scala)
@@ -22,7 +24,7 @@ Missing/JSON-null usage counts normalize to zero. Supplied counts and indexes mu
 
 Indexed function tools, text, and reasoning_content/thinking strings are supported. Non-assistant roles, nonempty refusal deltas, unsupported tool kinds, and non-null legacy function_call payloads fail explicitly. Canonical reasoning_content takes precedence over thinking. Unknown extension fields remain ignored unless they contain duplicate keys; this does not establish support for audio, richer reasoning details/signatures, or other provider payloads. Their integration remains pending.
 
-The wire baseline uses [streamed function-call deltas](https://developers.openai.com/api/docs/guides/function-calling). Single-choice limits and strict validation are runtime policy. The accumulator enforces the completion contracts below. End-to-end block publication, provider signature decoding, and agent HTTP integration remain separate work.
+The wire baseline uses [streamed function-call deltas](https://developers.openai.com/api/docs/guides/function-calling). Single-choice limits and strict validation are runtime policy. The accumulator enforces the completion contracts below. Indexed text/thinking/function block publication and agent HTTP integration are implemented below. Provider signature decoding remains separate work.
 
 ## Indexed assembly and completion
 
@@ -54,17 +56,29 @@ A successful HTTP status also requires one text/event-stream content type. UTF-8
 
 The default success-body budget is 8 MiB and the error-body prefix is 8 KiB, both configurable. The success budget counts received byte chunks before decoding, including any suffix already received in the same chunk as [DONE]; it is not a bound on the injected HTTP driver's allocation or total assembled JVM memory. Error prefixes may end inside a UTF-8 character and use replacement decoding. Request-size bounds, per-frame limits, deadlines, retry policy, TLS/proxy/pool configuration, and provider extensions are separate host or planned concerns.
 
-Fourteen tests cover a real loopback POST/chunked SSE response plus deterministic driver fixtures for request headers/body, split UTF-8, parallel calls, usage, finish/[DONE] requirements, malformed data, provider/status failures, body limits, and interruption cleanup. These establish transport behavior only: the production LlmClient adapter and incremental correlated event publication remain pending.
+Fourteen tests cover a real loopback POST/chunked SSE response plus deterministic driver fixtures for request headers/body, split UTF-8, parallel calls, usage, finish/[DONE] requirements, malformed data, provider/status failures, body limits, and interruption cleanup. The separate client integration suite verifies actual incremental publication, a real HTTP tool cycle, late tool identity, malformed-frame rejection, and cooperative cancellation.
+
+## Live client and event correlation
+
+ChatCompletionsClient.make accepts the injected HTTP client and transport options, producing LlmClient. ReAct assigns a fresh ModelStreamContext(replyId, requestId) for every model invocation. replyId belongs to the enclosing agent attempt; requestId changes on each iteration or retry. The streamTurn signature now requires this argument: custom implementations and direct callers must migrate. Scripted callbacks keep their existing factory signatures, but hand-written events are not automatically enriched.
+
+The runtime emits ModelRequestStart before invocation and ModelResponseEnd only after a non-interrupted output and request-scope cleanup. The latter carries output/total token counts from the reply; request promptTokens remains zero because no estimate is available. Failed or interrupted requests have no successful response-end event. AgentEnd still closes the surrounding attempt. The live client publishes content events inside these model boundaries; direct streamTurn callers own their model-boundary publication.
+
+Each valid SSE JSON frame produces one ModelResponseChunk, then ordered text/thinking/function events. The entire frame is decoded and accepted by the accumulator before publication. Earlier valid events remain observable if a later frame fails. Deltas are provisional input, not completed conversation state or authorization to execute a tool.
+
+Text and thinking retain separate index namespaces and one start per index. Tool events use streamIndex as blockIndex; identity may arrive late, so arguments are buffered until both call ID and name exist, then emitted as one buffered delta. Subsequent fragments preserve their received order. Only a validated finish plus [DONE] closes blocks, in start order, and exposes the assembled turn. Failure/cancellation may leave observed starts without ends; consumers must use runtime termination/error rather than invent completion. Thinking signatures remain in the assembled Msg; these text-oriented events do not carry signature fragments.
+
+Live deltas precede ModelResponseEnd. Open text/thinking blocks remain open until validated completion, allowing interleaving without premature endings. This deliberately differs from disabled upstream ordering sketches that place model-end before buffered content and close thinking before text starts. Full ordering parity, local tool-result correlation, and richer provider content remain pending.
 
 ## Current acceptance
 
 - [x] Message-boundary migration accepted at `a701612`; strict single-frame parsing accepted at `10019c2`.
 - [x] Thirteen accumulator-completion regressions, five shared-JSON tests, and an additional frame-suffix regression pass alongside migrated assembly/thinking-retry tests.
-- [x] Full formatting, fatal-warning compilation, and verification passed 375 core and 40 harness tests.
+- [x] Full formatting, fatal-warning compilation, and verification passed 386 core and 40 harness tests.
 - [x] Implement pure text/function request serialization with sixteen paired regression tests.
 - [x] Implement scoped HTTP completion, [DONE] termination, bounded bodies, and fourteen tests including real loopback HTTP.
-- [ ] Integrate the transport with LlmClient, correlated model events, and end-to-end ReAct streaming.
-- [ ] Complete provider signature/tool-metadata decoding, inline server results, richer reasoning details, input-size bounds, event publication, and exhaustive upstream parser/transport mapping.
+- [x] Integrate ChatCompletionsClient, runtime request correlation, and end-to-end ReAct streaming with eleven new client/publisher/context tests.
+- [ ] Complete provider signature/tool-metadata decoding, inline server results, richer reasoning details, additional input-size bounds, remaining event publication, and exhaustive upstream parser/transport mapping.
 
 See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) and [tracker](../../../../../../../../../../docs/architecture/tracker.md). Acceptance is limited to named files and reviewed contracts.
 
@@ -81,7 +95,7 @@ See the [parity audit](../../../../../../../../../../docs/architecture/test-pari
 | [StreamAccumulatorCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorCompletionSpec.scala) | 9e63fc534339d93594fe1c3f31c55e23b36b360c |
 | [ReActAgentThinkingRetrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentThinkingRetrySpec.scala) | cb149ca6c95027ace970b5a6fad5df1586b9c99e |
 
-- [x] `review_fp` and `review_harness` approved the final request encoder and sixteen tests against `73f66d1` on 2026-09-29 after correcting pairing validation and negative fixtures. No findings remain within the text/function request scope; HTTP integration and exhaustive formatter parity remain pending.
+- [x] `review_fp` and `review_harness` approved the final request encoder and sixteen tests against `73f66d1` on 2026-09-29 after correcting pairing validation and negative fixtures. No findings remain within the text/function request scope; HTTP integration and exhaustive formatter parity were excluded from that earlier approval.
 
 | File | Reviewed Git blob |
 | --- | --- |
@@ -94,3 +108,26 @@ See the [parity audit](../../../../../../../../../../docs/architecture/test-pari
 | --- | --- |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | 955e6ddcfe25efb4e42a9f3c731ea4c97bf6a242 |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | 938047f7320998feea85eae23e5d665e09f6619d |
+
+- [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
+
+Exact final integration scope (supersedes earlier identities for changed files):
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | 508d37e17aa49cd88be4e80cfb990f698c03c1d0 |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | b80c5b8b3a46a07ba79804e311307df1d2bb7f39 |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | 696302acc494d81606ab264f29f0e1c97b2e2eab |
+| [LlmClient.scala](LlmClient.scala) | 13094412a3b79d894182cc9b4e31d2bdf68364de |
+| [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 1ad3bcf5c23e570bf0b86246c23d23efd435575b |
+| [AgentEvent.scala](../event/AgentEvent.scala) | 33df0c53ce69281401cff314812497875b499a1c |
+| [ModelStreamContext.scala](../event/ModelStreamContext.scala) | fc28f0f5accfa3c773f462eb1e2dd8f06c844d7c |
+| [ReActAgentEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEventSpec.scala) | afac7dc6d5d58feed4ffd138368705df20f4619c |
+| [ReActAgentLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentLifecycleSpec.scala) | 8e042037b425d84514741e42e2620f3d8b889891 |
+| [StructuredOutputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputSpec.scala) | 3e98f032ca5ce23fc6b6a5e08cfc2256edaf967b |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | bd89eb872ee947587848fb9ef9d07ff4c4178641 |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | 1d1a5947403ba5750bd2890c4dbfd84479c96bb2 |
+| [HttpClientTestSupport.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/HttpClientTestSupport.scala) | 2e1a8bf59a6dae2d45aebcfc79c2416940821e9f |
+| [LlmClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/LlmClientSpec.scala) | 0f2cdb77254e8dbfa325265018a6a96bd85798d8 |
+| [ModelStreamPublisherSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelStreamPublisherSpec.scala) | dbb35a012d48eda8be91a795b20588c49e1a3eff |
+| [ModelStreamContextSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/ModelStreamContextSpec.scala) | bc75ea0694f96aed40e3d4d55c9617842edd644d |

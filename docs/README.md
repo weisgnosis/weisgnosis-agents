@@ -19,9 +19,9 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 375 core and 40 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 386 core and 40 harness tests passed with zero compiler warnings.
 
-The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive model capability/hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while retaining actual typed model-stream correlation and richer source attribution as pending work.
+The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive model capability/hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
 The [tracker](architecture/tracker.md) and [parity task list](architecture/test-parity.md) keep incomplete work unchecked. Checked applicability decisions are labeled as exclusions, not passed tests. Current contracts replace closed review journals; Git preserves prior findings and acceptance records.
 
@@ -29,4 +29,6 @@ Prior independent documentation acceptance through `73f66d1` remains recorded in
 
 - [x] `review_docs` approved the request-codec documentation against `73f66d1` on 2026-09-29: exact source identities, sixteen-test scope, pairing/state/reasoning contracts, 361+40 verification, English, and local links. No findings remain in this scope.
 
-- [x] `review_docs` approved the transport documentation against `38c48db` on 2026-09-29: exact identities, fourteen-test scope, resource ownership, response bounds, finish/[DONE], 375+40 verification, English, and links. No findings remain; client/event integration and full provider parity remain pending.
+- [x] `review_docs` approved the transport documentation against `38c48db` on 2026-09-29: exact identities, fourteen-test scope, resource ownership, response bounds, finish/[DONE], 375+40 verification, English, and links. No findings remain within that earlier transport scope; client/event integration and full provider parity were excluded from its approval.
+
+- [x] `review_docs` approved the final live client/event documentation against `60b3799` on 2026-09-29: sixteen final identities, eleven new tests, required client context, optional event context, live-order adaptation, 386+40 verification, English, and links. No findings remain in this scope.

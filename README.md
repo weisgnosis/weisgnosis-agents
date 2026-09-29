@@ -10,7 +10,7 @@ This repository is in development. The [implementation tracker](docs/architectur
 - **harness:** conversation compaction, result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
 - **mcp:** architecture and package scaffolding only.
 
-LlmClient is a port with scripted test clients. A separate scoped text/function HTTP transport is implemented; its LlmClient/event adapter remains pending. Harness components are not automatically installed into ReActAgent. Durable storage, middleware integration, memory services, subagent supervision, and plan-mode enforcement remain separate work.
+LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable storage, middleware integration, memory services, subagent supervision, and plan-mode enforcement remain separate work.
 
 ## Build and verification
 
@@ -46,7 +46,9 @@ object SimpleAgentApp extends ZIOAppDefault:
       yield ()
 ```
 
-Model transports implement LlmClient.streamTurn. The agent owns request lifetime and conversation state. Filesystem stores and approval workflows must honor their documented trust and persistence contracts.
+For HTTP completion, obtain a zio-http Client from the host layer, pass it to ChatCompletionsClient.make, and supply that client plus LlmConfig to ReActAgent.make. The host selects endpoint, credentials, connection settings, and model compatibility; see the [client contracts](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md).
+
+Model transports implement LlmClient.streamTurn with an explicit ModelStreamContext. The agent owns request lifetime and conversation state. Filesystem stores and approval workflows must honor their documented trust and persistence contracts.
 
 ## Documentation
 
@@ -66,7 +68,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 - [x] Core lifecycle/path fixes and harness compactor/store fixes at `fb80428` received independent final approval after corrections and cross-review.
 - [x] Structured-output preservation and interruption fixes received final independent approval; accepted revisions and current contracts are in the core agent README.
-- [x] Current verification: 415 tests passed, zero compiler warnings.
+- [x] Current verification: 426 tests passed, zero compiler warnings.
 - [ ] Complete the remaining work in the [progress tracker](docs/architecture/tracker.md).
 
 The [core README](modules/core/README.md) and [harness README](modules/harness/README.md) link the exact accepted scopes. Closed review reports live in Git history; current acceptance is maintained in these READMEs.

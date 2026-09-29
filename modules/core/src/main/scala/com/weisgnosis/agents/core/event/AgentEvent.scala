@@ -72,7 +72,8 @@ object AgentEvent:
   @jsonHint("text_block_start")
   final case class TextBlockStartEvent(
       blockIndex: Int,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -84,7 +85,8 @@ object AgentEvent:
   final case class TextBlockDeltaEvent(
       delta: String,
       blockIndex: Int,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -96,7 +98,8 @@ object AgentEvent:
   final case class TextBlockEndEvent(
       blockIndex: Int,
       fullText: String,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -108,7 +111,8 @@ object AgentEvent:
   @jsonHint("thinking_block_start")
   final case class ThinkingBlockStartEvent(
       blockIndex: Int,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -120,7 +124,8 @@ object AgentEvent:
   final case class ThinkingBlockDeltaEvent(
       delta: String,
       blockIndex: Int,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -132,7 +137,8 @@ object AgentEvent:
   final case class ThinkingBlockEndEvent(
       blockIndex: Int,
       fullThought: String,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -147,7 +153,8 @@ object AgentEvent:
       name: String,
       blockIndex: Int,
       streamIndex: Option[Int] = None,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -161,7 +168,8 @@ object AgentEvent:
       delta: String,
       blockIndex: Int,
       streamIndex: Option[Int] = None,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -175,7 +183,8 @@ object AgentEvent:
       name: String,
       arguments: Json,
       blockIndex: Int,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -229,7 +238,8 @@ object AgentEvent:
   final case class ModelRequestStartEvent(
       model: String,
       promptTokens: Int,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -240,7 +250,8 @@ object AgentEvent:
   @jsonHint("model_response_chunk")
   final case class ModelResponseChunkEvent(
       chunk: String,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -253,7 +264,8 @@ object AgentEvent:
       model: String,
       completionTokens: Int,
       totalTokens: Int,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 

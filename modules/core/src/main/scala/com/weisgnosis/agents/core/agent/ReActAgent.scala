@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.Toolkit
 import zio.*
@@ -347,12 +347,36 @@ final class ReActAgent private (
             yield value
 
           for
-            history <- stateRef.get
-            _       <- eventHub.publish(AgentEvent.ModelRequestStartEvent(llmConfig.model, 0))
+            history   <- stateRef.get
+            requestId <- Random.nextUUID.map(_.toString)
+            context = ModelStreamContext(replyId, requestId)
+            _ <- eventHub.publish(
+              AgentEvent.ModelRequestStartEvent(requestConfig.model, 0, context = Some(context))
+            )
             turnOutputEither <- raceWithInterrupt(
-              ZIO.scoped(
-                client.streamTurn(history, activeToolkit.definitions, requestConfig, eventHub)
-              )
+              ZIO
+                .scoped(
+                  client.streamTurn(
+                    history,
+                    activeToolkit.definitions,
+                    requestConfig,
+                    eventHub,
+                    context
+                  )
+                )
+                .tap:
+                  case _: TurnOutput.Interrupted => ZIO.unit
+                  case output =>
+                    eventHub
+                      .publish(
+                        AgentEvent.ModelResponseEndEvent(
+                          requestConfig.model,
+                          output.message.usage.fold(0)(_.outputTokens),
+                          output.message.usage.fold(0)(_.totalTokens),
+                          context = Some(context)
+                        )
+                      )
+                      .unit
             )
 
             outcome <- turnOutputEither match

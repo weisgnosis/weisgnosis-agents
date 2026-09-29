@@ -10,7 +10,7 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 | [client](src/main/scala/com/weisgnosis/agents/core/client/README.md) | Client port, scripted clients, validated text/function requests, scoped HTTP completion, SSE framing and indexed assembly |
 | [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | ReAct lifecycle, interruption, thinking retries, structured output |
 
-Typed failures are defined in [AgentError.scala](src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala). Production LlmClient/event integration, automatic failover, and exhaustive upstream parity remain pending.
+Typed failures are defined in [AgentError.scala](src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala). Provider extensions, remaining event integrations, automatic failover, and exhaustive upstream parity remain pending.
 
 ReActAgent retains in-memory history and serializes runs. Resources are scoped per run/request; cancellation reconciles unfinished calls without overwriting completed observations. See [architecture](../../ARCHITECTURE.md) and the [parity audit](../../docs/architecture/test-parity.md).
 
@@ -19,7 +19,7 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 - [x] Revision `fb80428`: agent lifecycle and path traversal fixes explicitly approved by independent reviewer `review_harness` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
 - [x] Structured-output completion fixes based on `a58b0ca` approved by `review_fp` and `review_harness`; the agent package README records accepted revisions and current contracts.
-- [x] Repository verification: 375 core and 40 harness tests passed, with no compiler warnings.
+- [x] Repository verification: 386 core and 40 harness tests passed, with no compiler warnings.
 - [x] Strict model decoding, legacy usage compatibility, Base64 wire naming, and role validation approved by review_fp and review_harness; exact scope and source identities are recorded in the model READMEs.
 - [x] Correlated engine-attempt boundaries and private stream completion approved by review_fp and review_harness; the agent READMEs record accepted revisions, current contracts, and buffering assumptions.
 - [x] Consistent concrete/base event codecs and immutable tool-result event metadata reviewed independently; the event READMEs record exact scope and migration details.
@@ -47,4 +47,4 @@ The accepted implementation and tests are recorded in commit `8b96ce3`. Canonica
 
 - [x] Finalized result publication and streamStructuredEvents were approved by `review_fp` and `review_harness` against `5451e03`; the agent READMEs record all four reviewed file identities and the 309+40 verification.
 
-Deprecated v1 coarse-event envelopes are explicitly excluded from core after independent applicability review. Typed events remain authoritative; shared message tests do not establish legacy wire compatibility. Full model-stream correlation and richer subagent attribution remain in the tracker.
+Deprecated v1 coarse-event envelopes are explicitly excluded from core after independent applicability review. Typed events remain authoritative; shared message tests do not establish legacy wire compatibility. Actual model streams carry reply/request correlation. Remaining model/tool ordering and richer subagent attribution remain in the tracker.

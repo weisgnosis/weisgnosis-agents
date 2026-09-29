@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import zio.*
@@ -231,7 +231,8 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
             history: Chunk[Msg],
             tools: Chunk[ToolDef],
             config: LlmConfig,
-            eventHub: Hub[AgentEvent]
+            eventHub: Hub[AgentEvent],
+            context: ModelStreamContext
         ): ZIO[Scope, AgentError, TurnOutput] =
           if config.responseFormat.isDefined && tools.isEmpty then
             ZIO.succeed(TurnOutput.FinalText(Msg.assistant("42")))
@@ -251,7 +252,8 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
             history: Chunk[Msg],
             tools: Chunk[ToolDef],
             config: LlmConfig,
-            eventHub: Hub[AgentEvent]
+            eventHub: Hub[AgentEvent],
+            context: ModelStreamContext
         ): ZIO[Scope, AgentError, TurnOutput] =
           if config.responseFormat.isDefined then
             ZIO.fail(AgentError.ModelError(400, "unsupported response format"))

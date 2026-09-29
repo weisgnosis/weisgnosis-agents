@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import zio.*
@@ -50,7 +50,8 @@ object StructuredOutputSpec extends ZIOSpecDefault:
           history: Chunk[Msg],
           tools: Chunk[ToolDef],
           config: LlmConfig,
-          eventHub: Hub[AgentEvent]
+          eventHub: Hub[AgentEvent],
+          context: ModelStreamContext
       ): ZIO[Scope, AgentError, TurnOutput] =
         observe(tools, config).as(output)
 

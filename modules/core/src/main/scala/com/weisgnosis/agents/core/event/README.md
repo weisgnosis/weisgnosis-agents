@@ -2,6 +2,7 @@
 
 AgentEvent defines 39 immutable payload variants with JSON codecs and withSource tagging. Available runtime components publish through ZIO Hub, but class/codec support does not imply every event is emitted. Serialization never allocates IDs or reads the clock.
 
+- [ModelStreamContext](ModelStreamContext.scala)
 - [AgentEvent](AgentEvent.scala)
 - [AgentEventType](AgentEventType.scala)
 
@@ -42,9 +43,10 @@ Existing lowercase event objects remain canonical. Concrete event encoding inclu
 - [ ] Implement remaining runtime publication/order, model data-block assembly, and local structured-result metadata.
 - [ ] Implement phase-stop authority, durable pending-work resumption, and permission-driven denied-call publication.
 - [x] Classify all ten deprecated coarse-event methods as excluded API/wire compatibility, without claiming their assertions pass.
-- [ ] Complete explicit uppercase typed-payload/envelope adapters and actual model-stream correlation.
+- [x] Implement request/reply correlation for live model and content events.
+- [ ] Complete explicit uppercase typed-payload/envelope adapters and remaining local tool/subagent attribution.
 
-The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes the 13 enabled stream-test methods from seven disabled ordering placeholders and ten explicitly excluded deprecated coarse-event methods. Enabled payload/identifier method coverage is not runtime-ordering evidence. Current reviewed content:
+The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes the 13 enabled stream-test methods from seven disabled ordering placeholders and ten explicitly excluded deprecated coarse-event methods. Enabled payload/identifier method coverage is not runtime-ordering evidence. Earlier payload/identifier acceptance (the context increment below supersedes changed identities):
 
 | File | Git blob |
 | --- | --- |
@@ -56,4 +58,14 @@ The [parity mapping](../../../../../../../../../../docs/architecture/test-parity
 
 The deprecated v1 Event/EventType/EventSource envelope is outside this core API. Shared Msg/result preservation tests do not establish cumulative snapshots, isLast, filtering, Java diagnostics, or structured source compatibility. See the method-level decisions in the parity mapping. Richer typed subagent attribution remains planned.
 
-- [x] `review_fp` and `review_harness` independently approved the deprecated-envelope scope decision against `e110321` on 2026-09-29 after inspecting all ten upstream methods. Approval covers applicability classification, not legacy API or wire implementation. No Scala source changed; the 311 core / 40 harness verification remains the current executable baseline.
+- [x] `review_fp` and `review_harness` independently approved the deprecated-envelope scope decision against `e110321` on 2026-09-29 after inspecting all ten upstream methods. Approval covers applicability classification, not legacy API or wire implementation.
+
+## Model stream context
+
+Twelve text/thinking/function/model event variants now carry optional ModelStreamContext(replyId, requestId). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
+
+ModelStreamContextSpec verifies all twelve contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); complete uppercase envelope and local tool-result integration remain pending.
+
+- [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
+
+The [client acceptance table](../client/README.md) records the exact final Scala file identities, including this package.

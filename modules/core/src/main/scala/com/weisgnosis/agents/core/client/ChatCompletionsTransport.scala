@@ -42,6 +42,13 @@ final class ChatCompletionsTransport private (
       tools: Chunk[ToolDef],
       config: LlmConfig
   ): IO[AgentError, TurnOutput] =
+    observe(history, tools, config)((_, _) => ZIO.unit)
+
+  private[client] def observe(
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      config: LlmConfig
+  )(onFrame: (String, Chunk[LlmChunk]) => UIO[Unit]): IO[AgentError, TurnOutput] =
     ZIO.scoped:
       for
         body <- ZIO.fromEither(
@@ -62,7 +69,7 @@ final class ChatCompletionsTransport private (
           .streaming(request)
           .provideSomeEnvironment[Scope](_.add(http))
           .mapError(_ => AgentError.ModelError(0, "HTTP request failed"))
-        output <- if response.status.isSuccess then consume(response) else reject(response)
+        output <- if response.status.isSuccess then consume(response, onFrame) else reject(response)
       yield output
 
   private def endpoint(value: String): IO[AgentError, URL] =
@@ -84,7 +91,10 @@ final class ChatCompletionsTransport private (
       url <- ZIO.fromEither(URL.decode(value)).mapError(_ => invalid)
     yield url
 
-  private def consume(response: Response): IO[AgentError, TurnOutput] =
+  private def consume(
+      response: Response,
+      onFrame: (String, Chunk[LlmChunk]) => UIO[Unit]
+  ): IO[AgentError, TurnOutput] =
     val status = response.status.code
     val eventStream = response.rawHeaders("Content-Type") match
       case values if values.size == 1 =>
@@ -110,15 +120,15 @@ final class ChatCompletionsTransport private (
                 .fromEither(accumulator.toTurnOutput)
                 .map(ChatCompletionsTransport.StreamState.Completed(_))
             else
-              ZIO.fromEither:
-                ReasoningModelAdapter
-                  .parseChunk(frame.data)
-                  .flatMap: deltas =>
-                    deltas
-                      .foldLeft[Either[AgentError, StreamAccumulator]](Right(accumulator))(
-                        (current, delta) => current.flatMap(_.feed(delta))
-                      )
-                      .map(ChatCompletionsTransport.StreamState.Reading(_))
+              for
+                deltas <- ZIO.fromEither(ReasoningModelAdapter.parseChunk(frame.data))
+                next <- ZIO.fromEither(
+                  deltas.foldLeft[Either[AgentError, StreamAccumulator]](Right(accumulator))(
+                    (current, delta) => current.flatMap(_.feed(delta))
+                  )
+                )
+                _ <- onFrame(frame.data, deltas)
+              yield ChatCompletionsTransport.StreamState.Reading(next)
           case (completed: ChatCompletionsTransport.StreamState.Completed, _) =>
             ZIO.succeed(completed)
       output <- state match

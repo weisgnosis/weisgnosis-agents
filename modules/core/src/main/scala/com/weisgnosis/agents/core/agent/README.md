@@ -46,3 +46,11 @@ Exact reviewed structured completion increment:
 | [StructuredCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredCompletionSpec.scala) | 8968d4aa477bb64cea74e257a3e3b28976677afb |
 
 - [x] `review_fp` and `review_harness` approved the two-scenario [dynamic JSON spec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputDynamicSpec.scala) against `3963104` on 2026-09-29, with no findings. Exact reviewed Git blob: `9f4a3360e8064a9e5ae72d5bb88588b1997ef2e9`. Verification passed 311 core and 40 harness tests; general JSON Schema validation and legacy event envelopes are outside this scope.
+
+## Model request correlation
+
+ReAct allocates a fresh requestId under the current attempt replyId and passes ModelStreamContext explicitly to LlmClient.streamTurn. ModelRequestStart precedes invocation; ModelResponseEnd follows a non-interrupted result and request-scope cleanup. HTTP block deltas may be observed before completion, but incomplete/malformed responses never reach local dispatch. The [client contracts](../client/README.md) describe live ordering, source migration, and remaining parity limits.
+
+- [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
+
+The [client acceptance table](../client/README.md) records the exact final Scala file identities, including this package.

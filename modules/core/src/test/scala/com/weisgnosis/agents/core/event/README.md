@@ -2,6 +2,7 @@
 
 These suites verify payload codecs and selected runtime boundaries. They do not establish exhaustive event integration or Java wire compatibility.
 
+- [ModelStreamContextSpec](ModelStreamContextSpec.scala)
 - [AgentEventSerdeSpec](AgentEventSerdeSpec.scala): all 39 concrete/base variants, strict tags, legacy leaf payloads, repeated source updates, and metadata preservation.
 - [AgentEventPayloadSpec](AgentEventPayloadSpec.scala): eight added payload contracts through seven tests, including nested Msg/content validation and optional stop/denied-call defaults.
 - [AgentEventTypeSpec](AgentEventTypeSpec.scala): 31 canonical protocol identifiers, 11 aliases, and nine upstream identifier methods.
@@ -14,8 +15,19 @@ These suites verify payload codecs and selected runtime boundaries. They do not 
 - [x] All 13 enabled AgentEventStreamTest declarations now have identifier/payload evidence with documented adaptations.
 - [x] ReActAgentEmissionSpec verifies correlated iteration-limit publication and inline provider metadata/text/data order with occurrence-sensitive cancellation handling.
 - [x] StructuredCompletionSpec verifies finalized result publication after history commit and before AgentEnd; see the reviewed [agent scope](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).
-- [ ] Complete remaining runtime event ordering, local structured-result metadata, stop/resume integration, and full model-stream correlation.
+- [x] Verify reply/request correlation in actual live model streams.
+- [ ] Complete remaining runtime event ordering, local structured-result metadata, stop/resume integration, and richer source attribution.
 
 The [current event contracts and reviewed source identities](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md) distinguish previously accepted identifiers/codecs from the latest payload increment. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) records ten deprecated legacy methods as explicit exclusions and retains six ordering requirements as pending work; the seventh disabled upstream ordering declaration now has an implemented Scala limit-event regression. Decoding an event does not establish runtime authority or publication.
 
-- [x] `review_fp` and `review_harness` independently approved the deprecated-envelope scope decision against `e110321` on 2026-09-29 after inspecting all ten upstream methods. Approval covers applicability classification, not legacy API or wire implementation. No Scala source changed; the 311 core / 40 harness verification remains the current executable baseline.
+- [x] `review_fp` and `review_harness` independently approved the deprecated-envelope scope decision against `e110321` on 2026-09-29 after inspecting all ten upstream methods. Approval covers applicability classification, not legacy API or wire implementation.
+
+## Model stream context
+
+Twelve text/thinking/function/model event variants now carry optional ModelStreamContext(replyId, requestId). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
+
+ModelStreamContextSpec verifies all twelve contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); complete uppercase envelope and local tool-result integration remain pending.
+
+- [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
+
+The [client acceptance table](../client/README.md) records the exact final Scala file identities, including this package.
