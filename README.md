@@ -10,7 +10,7 @@ This repository is in development. The [implementation tracker](docs/architectur
 - **harness:** daily-memory extraction, scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, typed transcript observations with in-memory and scoped local stores and opt-in completion recording, typed memory triggers with shared monotonic admission, a scoped task queue with pending conversation coalescing and completion-triggered memory flush, conversation compaction, opt-in runtime result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
 - **mcp:** architecture and package scaffolding only.
 
-LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable storage, middleware integration, remote memory/transcript storage, subagent supervision, plan session/publication integration, control-tool integration and child propagation remain separate work. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available.
+LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable storage, middleware integration, remote memory/transcript storage, subagent supervision, plan control-tool integration and child propagation remain separate work. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available.
 
 ## Build and verification
 
@@ -68,7 +68,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 - [x] Core lifecycle/path fixes and harness compactor/store fixes at `fb80428` received independent final approval after corrections and cross-review.
 - [x] Structured-output preservation and interruption fixes received final independent approval; accepted revisions and current contracts are in the core agent README.
-- [x] Current verification: 1076 tests passed, zero compiler warnings.
+- [x] Current verification: 1090 tests passed, zero compiler warnings.
 - [ ] Complete the remaining work in the [progress tracker](docs/architecture/tracker.md).
 
 The [core README](modules/core/README.md) and [harness README](modules/harness/README.md) link the exact accepted scopes. Closed review reports live in Git history; current acceptance is maintained in these READMEs.
@@ -88,3 +88,5 @@ In-memory planning sessions now bind host approval to the exact draft and review
 Plan-session context can now be projected into each model request without changing canonical history or System messages. The [projection contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#request-only-plan-context) distinguishes descriptive reminders from live permission authority.
 
 Standalone local plan-draft storage now preserves exact content under scoped cooperative ownership and atomic replacement. Persisted text does not restore session mode or approval. The plan package README records its boundaries and current reviewed identities.
+
+Stored plan sessions now invalidate review before writing and reopen content only as unapproved Plan drafts. Model-facing controls, saved-path identity and durable approval restoration remain separate work.

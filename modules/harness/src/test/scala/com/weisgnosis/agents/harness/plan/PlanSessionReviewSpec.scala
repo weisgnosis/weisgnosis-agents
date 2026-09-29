@@ -20,7 +20,7 @@ import zio.*
 import zio.test.*
 
 object PlanSessionReviewSpec extends ZIOSpecDefault:
-  private def prepared: IO[AgentError.InvalidMessage, PlanSession] =
+  private def prepared: IO[AgentError, PlanSession] =
     for
       session <- PlanSession.make
       draft   <- ZIO.fromEither(PlanDraft.fromString("reviewed draft"))

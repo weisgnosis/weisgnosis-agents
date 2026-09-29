@@ -28,7 +28,7 @@ object PlanPromptSpec extends ZIOSpecDefault:
       val prompt = PlanPrompt.render(PlanSessionSnapshot.Planning(None))
       assertTrue(
         prompt.exists(_.contains("PLAN MODE is active")),
-        prompt.exists(_.contains("No draft has been recorded")),
+        prompt.exists(_.contains("No current reviewable draft is available")),
         prompt.forall(text => !text.contains("PLAN.md") && !text.contains("host approved"))
       )
     },

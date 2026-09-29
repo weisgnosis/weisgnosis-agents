@@ -24,7 +24,7 @@ object PlanPrompt:
     case PlanSessionSnapshot.Planning(None) =>
       Some(
         reminder(
-          "PLAN MODE is active. No draft has been recorded in this in-memory session. " +
+          "PLAN MODE is active. No current reviewable draft is available in this session. " +
             "Investigate without mutations and prepare a concrete draft before requesting host review."
         )
       )

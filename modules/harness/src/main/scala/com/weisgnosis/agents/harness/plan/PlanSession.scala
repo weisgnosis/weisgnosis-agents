@@ -24,7 +24,7 @@ trait PlanSessionControl:
   def snapshot: UIO[PlanSessionSnapshot]
   def mode: UIO[PlanMode] = snapshot.map(_.mode)
   def enter: UIO[Unit]
-  def replaceDraft(draft: PlanDraft): IO[AgentError.InvalidMessage, Unit]
+  def replaceDraft(draft: PlanDraft): IO[AgentError, Unit]
   def requestReview: ZIO[Scope, AgentError.InvalidMessage, PlanReview]
 
 /** Host-only decision authority; authenticated user delivery is the host's responsibility. */
@@ -45,20 +45,27 @@ final class PlanSession private (
 )
 
 object PlanSession:
+  private enum DraftPersistence:
+    case Memory
+    case Stored(store: PlanDraftStore)
+
   private enum Status:
     case Build(approved: Option[ApprovedPlan])
     case Planning(current: Option[PlanDraft])
     case Awaiting(review: PlanReview)
+    case Publishing
 
     def draft: Option[PlanDraft] = this match
       case Build(approved)   => approved.map(_.draft)
       case Planning(current) => current
       case Awaiting(review)  => Some(review.draft)
+      case Publishing        => None
 
     def snapshot: PlanSessionSnapshot = this match
       case Build(approved)  => PlanSessionSnapshot.Build(approved)
       case Planning(draft)  => PlanSessionSnapshot.Planning(draft)
       case Awaiting(review) => PlanSessionSnapshot.AwaitingReview(review.draft, review.revision)
+      case Publishing       => PlanSessionSnapshot.Planning(None)
 
     def supersede: USTM[Unit] = this match
       case Awaiting(review) => review.completion.succeed(PlanReviewOutcome.Superseded).unit
@@ -66,52 +73,87 @@ object PlanSession:
 
   final private case class State(revision: PlanRevision, status: Status)
 
-  def make: UIO[PlanSession] =
-    TRef
-      .make(State(PlanRevision.Initial, Status.Build(None)))
-      .commit
-      .map: state =>
-        val control = new PlanSessionControl:
-          def snapshot: UIO[PlanSessionSnapshot] = state.get.map(_.status.snapshot).commit
+  def make: UIO[PlanSession] = create(Status.Build(None), DraftPersistence.Memory)
 
-          def enter: UIO[Unit] = (for
-            current <- state.get
-            _       <- current.status.supersede
-            _ <- state.set(State(current.revision.next, Status.Planning(current.status.draft)))
-          yield ()).commit
+  /** Existing stored content starts unapproved in Plan mode. The host retains the store's scope. */
+  def stored(store: PlanDraftStore): IO[AgentError, PlanSession] =
+    ZIO
+      .suspendSucceed(store.read)
+      .flatMap(draft => create(Status.Planning(draft), DraftPersistence.Stored(store)))
 
-          def replaceDraft(draft: PlanDraft): IO[AgentError.InvalidMessage, Unit] = (for
-            current <- state.get
-            _ <- current.status match
-              case Status.Build(_) =>
-                STM.fail(AgentError.InvalidMessage("Enter Plan mode before replacing its draft"))
-              case _ =>
-                current.status.supersede *> state.set(
-                  State(current.revision.next, Status.Planning(Some(draft)))
-                )
-          yield ()).commit
+  private def create(initial: Status, persistence: DraftPersistence): UIO[PlanSession] =
+    for
+      state     <- TRef.make(State(PlanRevision.Initial, initial)).commit
+      mutations <- Semaphore.make(1)
+    yield
+      val control = new PlanSessionControl:
+        def snapshot: UIO[PlanSessionSnapshot] = state.get.map(_.status.snapshot).commit
 
-          def requestReview: ZIO[Scope, AgentError.InvalidMessage, PlanReview] =
+        def enter: UIO[Unit] = mutations.withPermit((for
+          current <- state.get
+          _       <- current.status.supersede
+          _       <- state.set(State(current.revision.next, Status.Planning(current.status.draft)))
+        yield ()).commit)
+
+        def replaceDraft(draft: PlanDraft): IO[AgentError, Unit] = mutations.withPermit:
+          persistence match
+            case DraftPersistence.Memory => prepare(state, Status.Planning(Some(draft))).commit
+            case DraftPersistence.Stored(store) => publish(state, store, draft)
+
+        def requestReview: ZIO[Scope, AgentError.InvalidMessage, PlanReview] =
+          mutations.withPermit(
             ZIO.acquireRelease(register(state).commit)(review => cancel(state, review).commit)
+          )
 
-        val reviewer = new PlanReviewAuthority:
-          def resolve(review: PlanReview, decision: PlanReviewDecision): UIO[PlanReviewResolution] =
-            (for
-              current <- state.get
-              resolution <- current.status match
-                case Status.Awaiting(pending) if pending eq review =>
-                  val (status, outcome) = decision match
-                    case PlanReviewDecision.Approve =>
-                      val approved = ApprovedPlan(review.draft, review.revision)
-                      Status.Build(Some(approved)) -> PlanReviewOutcome.Approved(approved)
-                    case PlanReviewDecision.Decline =>
-                      Status.Planning(Some(review.draft)) -> PlanReviewOutcome.Declined
-                  state.set(State(current.revision.next, status)) *>
-                    review.completion.succeed(outcome).as(PlanReviewResolution.Applied)
-                case _ => STM.succeed(PlanReviewResolution.NotCurrent)
-            yield resolution).commit
+      val reviewer = new PlanReviewAuthority:
+        def resolve(review: PlanReview, decision: PlanReviewDecision): UIO[PlanReviewResolution] =
+          mutations.withPermit((for
+            current <- state.get
+            resolution <- current.status match
+              case Status.Awaiting(pending) if pending eq review =>
+                val (status, outcome) = decision match
+                  case PlanReviewDecision.Approve =>
+                    val approved = ApprovedPlan(review.draft, review.revision)
+                    Status.Build(Some(approved)) -> PlanReviewOutcome.Approved(approved)
+                  case PlanReviewDecision.Decline =>
+                    Status.Planning(Some(review.draft)) -> PlanReviewOutcome.Declined
+                state.set(State(current.revision.next, status)) *>
+                  review.completion.succeed(outcome).as(PlanReviewResolution.Applied)
+              case _ => STM.succeed(PlanReviewResolution.NotCurrent)
+          yield resolution).commit)
 
-        new PlanSession(control, reviewer)
+      new PlanSession(control, reviewer)
+
+  private def prepare(state: TRef[State], next: Status): STM[AgentError.InvalidMessage, Unit] =
+    for
+      current <- state.get
+      _ <- current.status match
+        case Status.Build(_) =>
+          STM.fail(AgentError.InvalidMessage("Enter Plan mode before replacing its draft"))
+        case _ =>
+          current.status.supersede *> state.set(State(current.revision.next, next))
+    yield ()
+
+  private def publish(
+      state: TRef[State],
+      store: PlanDraftStore,
+      draft: PlanDraft
+  ): IO[AgentError, Unit] =
+    ZIO.checkInterruptible: interruptibility =>
+      ZIO.uninterruptibleMask: restore =>
+        for
+          _      <- prepare(state, Status.Publishing).commit
+          result <- restore(ZIO.suspendSucceed(store.write(draft))).exit
+          _ <- result match
+            case Exit.Success(_) =>
+              state
+                .update(current => State(current.revision.next, Status.Planning(Some(draft))))
+                .commit
+            case Exit.Failure(cause) =>
+              state.update(current => State(current.revision.next, Status.Planning(None))).commit *>
+                ZIO.refailCause(cause)
+          _ <- ZIO.allowInterrupt.when(interruptibility.isInterruptible)
+        yield ()
 
   private def register(state: TRef[State]): STM[AgentError.InvalidMessage, PlanReview] =
     for
