@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement supervised background memory flush scheduling, per-owner serialization and pending-task coalescing; remote storage remains separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: connect the owned task queue to real completion-triggered memory flush/maintenance, gate claims and extraction; remote storage remains separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -76,7 +76,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Implement scoped local transcript persistence and shared ownership; reproduce/fix Unicode preview splitting, independently review 27 new cases and four local method adaptations, and verify 530 core / 258 harness tests.
 - [x] Integrate required transcript turn completion with explicit identity policy; independently review 28 new cases and verify 552 core / 264 harness tests.
 - [x] Implement typed memory trigger policies and explicit shared monotonic admission; independently review 23 new cases, local method adaptations and cleanup hardening, and verify 552 core / 287 harness tests.
-- [ ] Integrate supervised memory lifecycle scheduling, per-owner execution serialization and pending-task coalescing.
+- [x] Implement the bounded host-owned task queue, per-owner serialization and pending conversation coalescing; reproduce/fix masked-worker shutdown, independently review twenty new cases and verify 552 core / 307 harness tests.
+- [ ] Integrate real memory completion hooks, worker-side trigger claims and extraction, preserving observable background outcomes.
 - [ ] Implement remote memory/transcript storage, timestamp-watermark migration, and scheduling.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.

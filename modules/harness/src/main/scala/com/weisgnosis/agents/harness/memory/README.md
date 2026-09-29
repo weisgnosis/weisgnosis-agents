@@ -170,7 +170,7 @@ Operation and scope form structural keys, so flush and maintenance remain indepe
 
 cleanup(retention) samples the same monotonic clock under the same state authority. It removes only claims whose reserved interval has elapsed and whose age strictly exceeds retention. A shorter retention therefore cannot reopen an active interval. Claim renewal racing cleanup retains the new active reservation. Cleanup is an explicit host operation; no background fiber is started and entries remain until renewal or cleanup.
 
-A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. This increment supplies local admission only. Runtime memory hooks, background scheduling/coalescing, supervision, remote/distributed authority, and retention file deletion remain pending.
+A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. This increment supplies local admission only. The scoped queue foundation described below now supplies owned execution and pending coalescing. Real memory-hook/trigger/extractor integration, remote/distributed authority, and retention file deletion remain pending.
 
 ## Current memory-trigger identities
 
@@ -188,3 +188,35 @@ Final formatted six-file scope against `73cd376`:
 - [x] `review_fp` and `review_harness` approved the final six-file memory-trigger increment against `73cd376` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 287 harness tests, including 23 new cases, with zero compiler warnings. No findings remain within typed finite intervals, strict numeric codecs, immutable policies, explicit shared ownership, atomic monotonic admission and active-window-safe cleanup. Scheduling, execution locks, remote authority and full memory configuration parity remain outside this scope.
 
 - [x] `review_docs` approved the corrected memory-trigger documentation against `73cd376`: six identities, 23 tests, finite/monotonic admission, active-window cleanup, explicit owner sharing and conservative upstream applicability. Full verification passed 552 core / 287 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+
+## Scoped memory task queue
+
+[MemoryTaskQueue.open](MemoryTaskQueue.scala) creates a host-owned queue with one serial worker and a positive maxPending capacity, defaulting to 256. Bind one queue to one memory owner and keep its Scope outside individual agent invocations. Independent queues can run concurrently. The queue does not select a workspace, identify tenants, install an agent hook, claim trigger slots, or invoke MemoryFlushManager automatically.
+
+[MemoryConversationToken](MemoryTaskTicket.scala) allocates an opaque runtime UUID in ZIO. Reuse the token for repeated work on one conversation; mint separate tokens for distinct agent/session owners even if their textual identifiers match. Tokens, tickets and task outcomes are runtime capabilities, not durable checkpoint DTOs. A host rebuilding a wrapper must retain the original token and queue to retain coalescing/ownership behavior.
+
+submit(token)(task) atomically registers a suspended by-name scoped effect and returns Accepted(ticket), or Rejected(Closed/Capacity). Capacity counts pending slots, with at most one additional running task. A new token is rejected at capacity; replacing an existing pending token is allowed. Replacement preserves its FIFO position and atomically settles the displaced ticket as Superseded. The running task is never replaced, even when it has the same token. Concurrent admission order is the STM commit order.
+
+The worker claims pending work and executes each task in a separate scoped child fiber. Typed failures, defects and task self-interruption become Completed(Exit) outcomes without stranding later work. The ticket preserves full Cause information, including finalizer defects. Completed denotes a terminal claimed-task outcome; a claimed task cancelled before child launch can receive an interrupted Exit without having executed. Pending jobs cancelled during shutdown receive CancelledBeforeStart. Interrupting ticket.await only cancels that waiter. Hosts must inspect ticket outcomes; there is no automatic retry, logging-based failure suppression or durable result journal.
+
+Admission and shutdown share STM authority. Closing first rejects new work and settles pending tickets, then interrupts the worker, joins task cleanup and closes the queue. It cancels pending work rather than draining it. awaitIdle can support graceful draining before closing, but it neither closes admission nor prevents new submissions; a host needing a drain barrier must first stop producers. Slow or deliberately uninterruptible task/finalizer code can delay closure. Task receipts and queue closure do not promise rollback of external effects.
+
+Acquisition and shutdown-finalizer registration are masked, while the persistent worker is explicitly interruptible regardless of the acquisition caller's status. This distinction fixes the reproduced masked-acquisition shutdown defect. A worker terminal finalizer settles any task claimed before child registration and closes outstanding admission, so cancellation cannot leave an indefinitely pending ticket. Running state remains active until task scope cleanup completes; awaitIdle accounts for both queued and running work.
+
+Tasks must not await their own ticket, another task on this serial queue, or the queue's idleness. Those dependencies deadlock. Read mutable host-owned conversation state inside the submitted effect when execution-time freshness is intended. Coalescing is safe only when newer work subsumes displaced work; compaction can remove earlier content, so preserve prefixes through offload/flush independently. This queue supplies the scheduling mechanism, not a proof that arbitrary user effects are coalescible or that memory lifecycle integration is complete.
+
+## Current task-queue identities
+
+Final formatted five-file scope against `ad12c7b`:
+
+| Source | Git blob |
+| --- | --- |
+| [MemoryTaskQueue.scala](MemoryTaskQueue.scala) | 4d69eeb49216544655bde81c4f2474f2baf73eac |
+| [MemoryTaskTicket.scala](MemoryTaskTicket.scala) | 11c7e15541e0cd9359d7e083d8fcf50f7067c012 |
+| [MemoryTaskQueueLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTaskQueueLifecycleSpec.scala) | 4a5f14172ec4e73ea3a0c23465bf0ae037028c6f |
+| [MemoryTaskQueueSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTaskQueueSpec.scala) | 149fed57f1be5d7848be0543e9d885ad8b478abb |
+| [MemoryTaskTicketSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTaskTicketSpec.scala) | d2604a73f310fe10ef04f11da85f4833d241c0e7 |
+
+- [x] `review_fp` and `review_harness` approved the final five-file scoped queue increment against `ad12c7b` on 2026-09-29. Twenty new tests reproduced and corrected masked-acquisition shutdown blocking; full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 307 harness tests with zero compiler warnings. No findings remain within bounded pending work, FIFO coalescing, runtime ticket outcomes, host-owned worker/task scopes and cancellation-safe cleanup. Real memory hooks, trigger/extractor integration, durable tasks and distributed scheduling remain outside this scope.
+
+- [x] `review_docs` approved the corrected scoped queue documentation against `ad12c7b`: five identities, twenty new tests, bounded coalescing, explicit runtime ticket outcomes, host-owned cleanup and pending real middleware integration. Full verification passed 552 core / 307 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.

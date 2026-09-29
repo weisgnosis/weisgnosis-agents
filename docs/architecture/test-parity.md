@@ -647,3 +647,21 @@ Additional hardening covers owner separation, exact clock origin, structural ide
 - [ ] Implement and map MemoryFlushMiddlewareAsyncFlushTest, MemoryMaintenanceMiddlewareAsyncGateTest and runtime lifecycle scheduling. Remote gates, filesystem retention and broader middleware parity remain open.
 
 - [x] `review_fp` and `review_harness` approved the final six-file memory-trigger increment against `73cd376` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 287 harness tests, including 23 new cases, with zero compiler warnings. No findings remain within typed finite intervals, strict numeric codecs, immutable policies, explicit shared ownership, atomic monotonic admission and active-window-safe cleanup. Scheduling, execution locks, remote authority and full memory configuration parity remain outside this scope.
+
+## Background memory queue foundations
+
+MemoryTaskQueueSpec and MemoryTaskQueueLifecycleSpec now establish generic host-owned scheduling mechanics. These foundations intentionally do not close the real middleware integration methods below.
+
+- [x] Verify nonblocking submission, one running job per queue owner, pending-only conversation coalescing, separate pending conversations, replacement retaining FIFO position and execution-time state reads.
+- [x] Verify bounded capacity, explicit receipt outcomes, self-interruption/defect progression, cleanup before subsequent execution and cancellation-safe host scope ownership.
+- [x] Reproduce and correct shutdown blocking after masked queue acquisition.
+- [ ] MemoryFlushMiddlewareAsyncFlushTest.onCompleteFiresBeforeAsyncFlushCompletes: install the real completion adapter, assert unchanged agent events and nonempty extractor input while extraction is blocked.
+- [ ] MemoryFlushMiddlewareAsyncFlushTest.flushesForSameIsolationKeyRunSerially: verify real extraction concurrency through the adapter; the generic queue already proves serial job/cleanup execution.
+- [ ] MemoryFlushMiddlewareAsyncFlushTest.backToBackSameSessionFlushesCoalesceIntoOnePendingTask: verify exactly two real extractions with an agent-owned conversation token.
+- [ ] MemoryFlushMiddlewareAsyncFlushTest.sameUserDifferentSessionsEachKeepTheirPendingFlush: verify three real extractions without displacing another conversation.
+- [ ] MemoryMaintenanceMiddlewareAsyncGateTest.gateClaimRunsOffTheCompletingThread: prove a blocked actual gate runs in owned background work and cannot block agent completion.
+- [ ] MemoryMaintenanceMiddlewareAsyncGateTest.completingThreadIsNotBoundedElastic: replace this Reactor thread-name fixture with deterministic ZIO submission/completion evidence in the real adapter.
+
+Java owns detached process-global subscriptions, waits only a bounded interval during shutdown and swallows task errors. The Scala queue deliberately binds workers to a host Scope, exposes complete task Exit values, bounds pending slots, and waits for owned cleanup. Closing cancels queued work; callers can stop producers and awaitIdle before closure when graceful draining is required. Opaque conversation tokens replace Java object-reference-plus-user/session keys and must be retained by the host. Fresh scopes/tokens do not implicitly share state.
+
+- [x] `review_fp` and `review_harness` approved the final five-file scoped queue increment against `ad12c7b` on 2026-09-29. Twenty new tests reproduced and corrected masked-acquisition shutdown blocking; full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 307 harness tests with zero compiler warnings. No findings remain within bounded pending work, FIFO coalescing, runtime ticket outcomes, host-owned worker/task scopes and cancellation-safe cleanup. Real memory hooks, trigger/extractor integration, durable tasks and distributed scheduling remain outside this scope.

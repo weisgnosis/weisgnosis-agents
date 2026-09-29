@@ -69,4 +69,8 @@ SessionTranscriptWriter records summaries, text/thinking and bounded tool observ
 
 ## Memory lifecycle policy
 
-Typed MemoryTrigger policies and a shared in-memory MemoryTriggerGate now provide operation/scope admission with monotonic intervals and cleanup that preserves active windows. The host chooses the owner and explicitly shares its capability. This is admission timing only; background memory hooks and execution supervision remain planned. See the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+Typed MemoryTrigger policies and a shared in-memory MemoryTriggerGate now provide operation/scope admission with monotonic intervals and cleanup that preserves active windows. The host chooses the owner and explicitly shares its capability. This is admission timing only. Generic owned queue supervision is available as described below; real memory lifecycle hooks and trigger/extractor integration remain pending. See the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+
+## Owned background task foundations
+
+MemoryTaskQueue supplies one bounded serial worker per explicit memory owner, coalesces only pending work for the same runtime conversation token, and exposes terminal outcomes through tickets. Worker lifetime belongs to the host Scope, surviving individual agent invocation scopes. Shutdown cancels queued work and joins running cleanup. Real memory lifecycle hooks and trigger/extractor integration remain next steps; see the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).

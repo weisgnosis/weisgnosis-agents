@@ -131,3 +131,9 @@ See the [completion source contract](../../modules/core/src/main/scala/com/weisg
 MemoryInterval.fromDuration validates a positive finite duration below Long.MaxValue nanoseconds. MemoryTrigger.throttled normalizes zero to Always; policy ADTs derive codecs and the opaque interval validates numeric JSON shape. MemoryTriggerGate.inMemory(policy) returns a shared capability with claim(operation, scope): IO[AgentError, MemoryTriggerDecision] and cleanup(retention): IO[AgentError, Int]. Policies are immutable per gate; owner identity is supplied by capability sharing, not inferred from strings.
 
 The in-memory implementation uses Ref.Synchronized.modifyZIO around Clock.nanoTime plus the immutable map transition. Expiry uses elapsed subtraction. No scopes, background fibers or external resources are allocated by gate construction; the host owns its lifetime and cleanup cadence.
+
+## Memory task declarations
+
+MemoryTaskQueue.open(maxPending = 256): ZIO[Scope, AgentError, MemoryTaskQueue] owns the persistent worker. MemoryConversationToken.make returns a runtime identity in ZIO. submit(token)(task: => ZIO[Scope, AgentError, Unit]) returns an Accepted ticket or a typed Closed/Capacity rejection decision. MemoryTaskTicket.await returns Completed(Exit), Superseded or CancelledBeforeStart. Runtime tokens/tickets/Exit payloads deliberately have no wire codecs; only serializable rejection decisions derive JsonCodec.
+
+TRef and TPromise commit registration, replacement, state transitions and receipt settlement atomically. Each job has its own child fiber; worker cancellation explicitly interrupts and awaits that child rather than discarding cleanup failures. A terminal worker finalizer also settles a claimed task if interruption preceded child registration. See the [memory source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryTaskQueue.scala).

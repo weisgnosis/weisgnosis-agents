@@ -20,7 +20,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 552 core and 287 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 552 core and 307 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -62,3 +62,5 @@ Approval covers the named changes and their documented contracts; it does not ma
 The [core completion contract](../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) defines callback lifetime, late cancellation, and early-stream failure visibility. Transcript installation requires an explicit anonymous-message policy; memory scheduling remains pending.
 
 - [x] `review_fp` and `review_harness` approved the final six-file memory-trigger increment against `73cd376` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 287 harness tests, including 23 new cases, with zero compiler warnings. No findings remain within typed finite intervals, strict numeric codecs, immutable policies, explicit shared ownership, atomic monotonic admission and active-window-safe cleanup. Scheduling, execution locks, remote authority and full memory configuration parity remain outside this scope.
+
+- [x] `review_fp` and `review_harness` approved the final five-file scoped queue increment against `ad12c7b` on 2026-09-29. Twenty new tests reproduced and corrected masked-acquisition shutdown blocking; full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 307 harness tests with zero compiler warnings. No findings remain within bounded pending work, FIFO coalescing, runtime ticket outcomes, host-owned worker/task scopes and cancellation-safe cleanup. Real memory hooks, trigger/extractor integration, durable tasks and distributed scheduling remain outside this scope.
