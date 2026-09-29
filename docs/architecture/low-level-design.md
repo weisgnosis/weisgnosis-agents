@@ -137,3 +137,9 @@ The in-memory implementation uses Ref.Synchronized.modifyZIO around Clock.nanoTi
 MemoryTaskQueue.open(maxPending = 256): ZIO[Scope, AgentError, MemoryTaskQueue] owns the persistent worker. MemoryConversationToken.make returns a runtime identity in ZIO. submit(token)(task: => ZIO[Scope, AgentError, Unit]) returns an Accepted ticket or a typed Closed/Capacity rejection decision. MemoryTaskTicket.await returns Completed(Exit), Superseded or CancelledBeforeStart. Runtime tokens/tickets/Exit payloads deliberately have no wire codecs; only serializable rejection decisions derive JsonCodec.
 
 TRef and TPromise commit registration, replacement, state transitions and receipt settlement atomically. Each job has its own child fiber; worker cancellation explicitly interrupts and awaits that child rather than discarding cleanup failures. A terminal worker finalizer also settles a claimed task if interruption preceded child registration. See the [memory source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryTaskQueue.scala).
+
+## Flush scheduler declarations
+
+MemoryFlushScheduler.make(queue, gate, scope, manager): UIO[MemoryFlushScheduler] allocates a conversation capability. submit(history): IO[AgentError, MemoryFlushSubmission] returns Empty or Queued(MemoryTaskSubmission). completionObserver(registerTicket: MemoryTaskTicket => IO[CompletionObservationError, Unit]) supplies the core adapter. MemoryFlushManager.prepare is package-private and pure, returning Empty or Ready with lazy effects; direct flush and scheduler reuse it.
+
+Runtime submissions include tickets and have no JSON codec. The injected callback is a receipt handoff contract, not an automatic background monitor. See the [scheduler source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryFlushScheduler.scala).

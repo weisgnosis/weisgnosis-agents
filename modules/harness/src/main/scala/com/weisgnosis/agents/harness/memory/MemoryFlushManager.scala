@@ -33,27 +33,43 @@ final class MemoryFlushManager private (
   /** Empty or internal-only windows do not read storage, invoke extraction, or append entries. */
   def flush(messages: Chunk[Msg]): IO[AgentError, Unit] =
     ZIO
-      .fromEither(MemoryFlushManager.conversation(messages))
-      .flatMap: conversation =>
-        if conversation.isEmpty then ZIO.unit
-        else
-          gate.withPermit:
-            for
-              instant <- Clock.instant
-              day = instant.atZone(zone).toLocalDate
-              curated <- store.readCurated
-              daily   <- store.readDaily(day)
-              input = Chunk(
-                Msg.system(prompt),
-                Msg.user(MemoryFlushManager.inputText(curated, daily, conversation))
-              )
-              extracted <- ZIO.scoped(extractor.extract(input))
-              _ <-
-                if extracted.isBlank || extracted.strip == "NO_REPLY" then ZIO.unit
-                else store.appendDaily(day, s"\n## Memory Flush - $instant\n$extracted\n")
-            yield ()
+      .fromEither(prepare(messages))
+      .flatMap:
+        case MemoryFlushManager.Preparation.Empty         => ZIO.unit
+        case MemoryFlushManager.Preparation.Ready(effect) => effect
+
+  /** Validate and render once, before a scheduler reserves capacity or consumes a trigger interval. */
+  private[memory] def prepare(
+      messages: Chunk[Msg]
+  ): Either[AgentError, MemoryFlushManager.Preparation] =
+    MemoryFlushManager
+      .conversation(messages)
+      .map: conversation =>
+        if conversation.isEmpty then MemoryFlushManager.Preparation.Empty
+        else MemoryFlushManager.Preparation.Ready(flushConversation(conversation))
+
+  private def flushConversation(conversation: String): IO[AgentError, Unit] =
+    gate.withPermit:
+      for
+        instant <- Clock.instant
+        day = instant.atZone(zone).toLocalDate
+        curated <- store.readCurated
+        daily   <- store.readDaily(day)
+        input = Chunk(
+          Msg.system(prompt),
+          Msg.user(MemoryFlushManager.inputText(curated, daily, conversation))
+        )
+        extracted <- ZIO.scoped(extractor.extract(input))
+        _ <-
+          if extracted.isBlank || extracted.strip == "NO_REPLY" then ZIO.unit
+          else store.appendDaily(day, s"\n## Memory Flush - $instant\n$extracted\n")
+      yield ()
 
 object MemoryFlushManager:
+  private[memory] enum Preparation:
+    case Empty
+    case Ready(effect: IO[AgentError, Unit])
+
   val DefaultPrompt: String =
     """Extract new durable facts, decisions, preferences, and commitments from the conversation.
       |Output only concise, self-contained Markdown bullets. Include relevant dates and specifics.

@@ -68,7 +68,6 @@ Current daily-memory Git-normalized source identities; prior compactor implement
 | --- | --- |
 | [ConversationCompactor.scala](ConversationCompactor.scala) | d2d9fc060cd2c5a5108b8da2bd8d731cdf4acbb6 |
 | [DailyMemoryStore.scala](DailyMemoryStore.scala) | 204a494090531403e1a7b2f3108787770a9bd5a0 |
-| [MemoryFlushManager.scala](MemoryFlushManager.scala) | 5ceee51cb042628041b6c4745fac9429b215eb81 |
 | [MemoryExtractorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryExtractorSpec.scala) | 2db567e78995479fd0c733f1346db8720d5df566 |
 | [MemoryFlushManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerSpec.scala) | 79446b9c488527138681526e79d777895f0d3bca |
 | [MemoryFlushManagerIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerIntegrationSpec.scala) | f97c09f6e95790fbac180608591f1d22bd3b6b2c |
@@ -170,7 +169,7 @@ Operation and scope form structural keys, so flush and maintenance remain indepe
 
 cleanup(retention) samples the same monotonic clock under the same state authority. It removes only claims whose reserved interval has elapsed and whose age strictly exceeds retention. A shorter retention therefore cannot reopen an active interval. Claim renewal racing cleanup retains the new active reservation. Cleanup is an explicit host operation; no background fiber is started and entries remain until renewal or cleanup.
 
-A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. This increment supplies local admission only. The scoped queue foundation described below now supplies owned execution and pending coalescing. Real memory-hook/trigger/extractor integration, remote/distributed authority, and retention file deletion remain pending.
+A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. This increment supplies local admission only. The scoped queue foundation described below now supplies owned execution and pending coalescing. Completion-triggered flush integration is described below. Maintenance integration, remote/distributed authority, and retention file deletion remain pending.
 
 ## Current memory-trigger identities
 
@@ -220,3 +219,34 @@ Final formatted five-file scope against `ad12c7b`:
 - [x] `review_fp` and `review_harness` approved the final five-file scoped queue increment against `ad12c7b` on 2026-09-29. Twenty new tests reproduced and corrected masked-acquisition shutdown blocking; full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 307 harness tests with zero compiler warnings. No findings remain within bounded pending work, FIFO coalescing, runtime ticket outcomes, host-owned worker/task scopes and cancellation-safe cleanup. Real memory hooks, trigger/extractor integration, durable tasks and distributed scheduling remain outside this scope.
 
 - [x] `review_docs` approved the corrected scoped queue documentation against `ad12c7b`: five identities, twenty new tests, bounded coalescing, explicit runtime ticket outcomes, host-owned cleanup and pending real middleware integration. Full verification passed 552 core / 307 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+
+## Completion-triggered memory flush
+
+[MemoryFlushScheduler.make](MemoryFlushScheduler.scala) binds a manager, shared queue, shared trigger gate and MemoryScope to one new runtime conversation token. Reuse that scheduler for the same agent/session conversation; separate instances retain independent pending work even with equal visible user/session identities. The host selects the memory owner and keeps the queue/store scopes alive around all agent calls and accepted work.
+
+Install scheduler.completionObserver(registerTicket) as the ReAct completion observer. It schedules Exit.Success outcomes, including cooperative recovery results whose AgentRunState is Interrupted; failed execution, timeout and external cancellation exits do not schedule work. The existing required observation boundary still controls admission/reporting before AgentResultEvent. Background extraction itself does not delay successful agent completion.
+
+MemoryFlushManager now exposes one package-private pure preparation path shared by direct flush and scheduling. Preparation validates retained-user provenance and renders the eligible conversation exactly once. Empty, blank and internal-only windows yield MemoryFlushSubmission.Empty before queue admission, so they cannot replace useful pending work or consume trigger intervals. Invalid provenance fails before admission. A ready plan retains lazy date/storage/extraction effects; queued work claims the Flush gate and executes the prepared plan only for Admitted. Disabled/Throttled outcomes complete the task successfully without extraction. A successful ticket therefore confirms pipeline completion, not that a ledger append occurred.
+
+The conversation is an immutable snapshot of the completed turn, prepared before queue admission. This deliberately differs from upstream reading live mutable agent history when a job starts: later reset or in-flight conversation mutation cannot alter an admitted snapshot. Replacing pending work selects the newer completed snapshot; it never replaces running work. Storage context, date and extraction are read when the prepared effect executes, so manager serialization still sees preceding ledger writes. Gate reservations remain consumed if subsequent extraction fails.
+
+registerTicket is a required synchronous handoff callback returning IO[CompletionObservationError, Unit], with no short-lived Scope supplied by this API. The host must retain tickets and inspect them in its own lifetime. Requiring the callback does not guarantee inspection: a callback may discard a ticket. Do not wait for ticket completion inside the observer when asynchronous agent completion is required, and do not attach monitoring to the short invocation scope. A callback failure occurs after queue admission and cannot roll back the job; it fails required observation and suppresses AgentResultEvent, while the job can still finish. Closed/capacity queue rejection also becomes CompletionObservationError without discarding canonical conversation state. Background gate/extraction errors remain in ticket Exit values rather than failing an already completed agent invocation.
+
+Compaction preservation is separate. Install manager.flush as the compactor's awaited flush callback, and transcript offload as appropriate, before deleting a prefix. Enqueueing the old prefix on this coalescing scheduler is not a preservation guarantee because newer work could replace it. The integration tests establish local daily-store reopen and awaited-prefix extraction; they do not prove semantic memory fidelity, exactly-once facts, crash durability, automatic receipt monitoring or maintenance scheduling.
+
+The previous MemoryFlushManager.scala identity is preserved in `1c8e3ee`; its current identity is in the completion-triggered flush table below.
+
+## Current completion-triggered flush identities
+
+Final formatted four-file scope against `1c8e3ee`:
+
+| Source | Git blob |
+| --- | --- |
+| [MemoryFlushManager.scala](MemoryFlushManager.scala) | b3b1619c07fc853f1f5d4a99a4702d64944b4e23 |
+| [MemoryFlushScheduler.scala](MemoryFlushScheduler.scala) | 1d42d91f92ed0a46816f28746a4ed2b9b7d722b4 |
+| [MemoryFlushSchedulerLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushSchedulerLifecycleSpec.scala) | bf9eecccbea5143e2c2aec09c688649d623e66b2 |
+| [MemoryFlushSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushSchedulerSpec.scala) | 02da0630ca918cbf9935adc1fd6533b1a4b21df2 |
+
+- [x] `review_fp` and `review_harness` approved the final four-file flush-scheduler increment against `1c8e3ee` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 324 harness tests, including 17 new integration cases, with zero compiler warnings. No findings remain within shared pure preparation, successful-completion queue integration, immutable snapshots, worker-side triggers, ticket handoff, local reopen and awaited compactor flushing. Maintenance scheduling, automatic receipt monitoring, live-history reads and stronger durability remain outside this scope.
+
+- [x] `review_docs` approved the corrected flush-scheduler documentation against `1c8e3ee`: four identities, seventeen new tests, immutable completed snapshots, explicit receipt handoff, four upstream runtime adaptations and pending maintenance work. Full verification passed 552 core / 324 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
