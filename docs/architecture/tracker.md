@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement session pruning with explicit storage ownership and session identity/liveness; remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: add explicit session-expiry policy and owned pruning integration, retaining host-selected targets and liveness; remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -81,7 +81,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Integrate owned consolidation scheduling, separately scoped observer composition, asynchronous gate behavior and all eight local throttle integration combinations; independently review 25 added cases and verify 555 core / 346 harness tests.
 - [x] Implement explicit acknowledged-daily archive authority for in-memory/local repositories, with typed identities and conservative partial progress; independently review 24 new regressions and verify 555 core / 370 harness tests.
 - [x] Integrate explicit calendar cutoff policy and acknowledged archival into one owned maintenance job; independently review 21 added scenarios and verify 555 core / 391 harness tests, including the existing consolidation-only regression suites.
-- [ ] Implement session retention/pruning through explicit identity and storage ownership capabilities.
+- [x] Implement explicit local transcript pruning with writer-lease exclusion, complete-log validation, observation-aware recency and fixed-payload deletion; independently review thirteen added cases and verify 555 core / 404 harness tests.
+- [ ] Add automatic session-expiry policy, explicit target enumeration and owned pruning integration.
 - [ ] Implement remote memory/transcript storage, timestamp-watermark migration, and scheduling.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.

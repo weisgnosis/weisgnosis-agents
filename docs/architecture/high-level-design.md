@@ -89,4 +89,8 @@ MemoryRepository now separates daily, consolidation and retention authority. Exp
 
 ## Combined daily maintenance
 
-The opt-in MemoryMaintenanceScheduler owns one job for cutoff selection, consolidation, acknowledged archival and aggregate reporting. It is an alternative to the consolidation-only scheduler for the same Maintenance window. Daily retention defaults to 90 calendar days with UTC interpretation, while KeepAll explicitly disables archival. A later failure cannot undo an earlier committed phase. Session pruning and the full upstream configuration surface remain unfinished.
+The opt-in MemoryMaintenanceScheduler owns one job for cutoff selection, consolidation, acknowledged archival and aggregate reporting. It is an alternative to the consolidation-only scheduler for the same Maintenance window. Daily retention defaults to 90 calendar days with UTC interpretation, while KeepAll explicitly disables archival. A later failure cannot undo an earlier committed phase. Automatic session pruning and the full upstream configuration surface remain unfinished; explicit transcript retirement is available below.
+
+## Transcript retirement boundary
+
+Explicit local transcript pruning now shares writer ownership and validates complete persisted history before removing the fixed payload. Recency uses both filesystem metadata and every recorded observation. Successful pruning ends the persisted transcript generation; the host retires that logical session. Automatic session enumeration, the 180-day policy and background pruning integration remain separate work.

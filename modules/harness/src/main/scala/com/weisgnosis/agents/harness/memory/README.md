@@ -324,7 +324,7 @@ Scheduled date selection happens in the worker, not when the observer admits the
 
 Consolidation, archival and aggregate reporting are sequential effects, not one transaction. Archive failure can follow a committed consolidation and produces no aggregate success report. Report failure can follow completed archival. Tickets retain the failed cause, but neither a failed receipt nor an absent report implies unchanged storage or supplies a durable phase/result journal. Inspect storage before retrying. The queue serializes scheduled owner work; direct concurrent service calls can interleave phases, with each repository CAS/lease/acknowledgement check retaining its individual guarantees. No extra cross-phase lock, exactly-once report or rollback promise is made.
 
-This intentionally differs from upstream expiry-before-consolidation and swallowed maintenance failures. The stronger acknowledged-only archival capability and observable task failures are retained. Session pruning, session retention defaults, custom consolidation prompts, unified configuration and remote scheduling remain unfinished. Prior MemoryConsolidationScheduler.scala is preserved in b3d2723.
+This intentionally differs from upstream expiry-before-consolidation and swallowed maintenance failures. The stronger acknowledged-only archival capability and observable task failures are retained. Automatic session pruning, session retention defaults, custom consolidation prompts, unified configuration and remote scheduling remain unfinished. Prior MemoryConsolidationScheduler.scala is preserved in b3d2723.
 
 ## Current maintenance identities
 

@@ -46,22 +46,22 @@ Every read and append validates the canonical directory, reads all current rows 
 
 Atomic replacement protects cooperative readers from partial file contents and preserves hard-linked source files by replacing the directory entry. It does not provide fsync/power-loss durability, exactly-once anonymous replay, hostile mutation protection, or an identity guarantee against uncoordinated directory replacement. Cancellation may be delivered after publication. Failed temporary cleanup is logged; abandoned temporary files can remain after process termination. Cross-process contention and dynamic symlink/junction behavior need platform-specific validation.
 
-Migration: shared lease extraction preserves memory/.daily-writer.lease and existing DailyMemoryLease entry points. The local transcript backend deliberately uses one host-selected directory and one versioned transcript.jsonl; it does not reproduce Java `agents/<agent>/sessions/<session>.jsonl/.log.jsonl` layout, mirror dual files, or wire IDs. The four local method mappings are behavioral/reopen adaptations with those differences; opt-in background memory flush is implemented in the memory package; owned consolidation scheduling is also available; immutable remote segments, indexes and transcript retention remain pending. Previous changed transcript, lease, and test-helper identities are preserved in e4dfc67.
+Migration: shared lease extraction preserves memory/.daily-writer.lease and existing DailyMemoryLease entry points. The local transcript backend deliberately uses one host-selected directory and one versioned transcript.jsonl; it does not reproduce Java `agents/<agent>/sessions/<session>.jsonl/.log.jsonl` layout, mirror dual files, or wire IDs. The four local method mappings are behavioral/reopen adaptations with those differences; opt-in background memory flush is implemented in the memory package; owned consolidation scheduling is also available; explicit local transcript pruning is implemented below; immutable remote segments, indexes and automatic transcript retention remain pending. Previous changed transcript, lease, and test-helper identities are preserved in e4dfc67.
 
 - [x] `review_fp` and `review_harness` approved the final 14-file local transcript increment against `e4dfc67` on 2026-09-29. Twenty-seven new tests reproduced and fixed Unicode surrogate splitting; full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 258 harness tests with zero compiler warnings. No findings remain within shared cooperative ownership, strict complete-log validation, atomic batch replacement, reopen/deduplication, and Unicode-safe previews. Remote segments, Java layout/wire equivalence, hostile mutation, fsync/power-loss durability, and automatic turn scheduling remain excluded.
 - [x] `review_docs` approved the corrected local-transcript documentation against `e4dfc67`, including 14 identities, 27 new tests, strict storage/Unicode contracts, four local adaptations, and explicit remaining work. All 63 Markdown files passed link/script checks; git diff --check passed.
 - [x] Integrate required terminal snapshot recording through the completion observer described below.
-- [ ] Integrate memory lifecycle policies.
+- [x] Integrate opt-in background flush and combined daily-memory maintenance in the memory package.
+- [ ] Integrate automatic transcript retention policy and session enumeration.
 - [ ] Implement remote immutable segments/indexes and platform-specific ownership validation.
 
-Current Git-normalized local persistence identities:
+Unchanged Git-normalized local persistence identities; the changed TranscriptFiles identity is preserved in 9ddee3a and indexed in the pruning table below:
 
 | Source | Blob identity |
 | --- | --- |
 | [DailyMemoryLease.scala](../memory/DailyMemoryLease.scala) | 7c1cddd14656f11e33228ecef785e75a9f60b4a4 |
 | [WorkspaceLease.scala](../storage/WorkspaceLease.scala) | 0e254e633efc59e5be52959e6a6c683f14f1fc34 |
 | [LocalTranscriptStore.scala](LocalTranscriptStore.scala) | 3352dc8a5b68bb455d9f484584ca86a8d675f6eb |
-| [TranscriptFiles.scala](TranscriptFiles.scala) | 3841959cda755c48b3d27a7e53deefcd3d5f5c2a |
 | [TranscriptLog.scala](TranscriptLog.scala) | 5566ad5cd64653e2b0f23c8cdc93b7ba8f28e398 |
 | [TranscriptState.scala](TranscriptState.scala) | e202ba895f83df0990d2c78e2e69118fae0cf131 |
 | [TranscriptStore.scala](TranscriptStore.scala) | d5978648ebdd370635c91bd7bef45d270796b764 |
@@ -82,9 +82,38 @@ Required observation completes before successful result publication and before c
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 264 harness tests, including 28 new cases, with zero compiler warnings. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-- [ ] Integrate memory lifecycle policies and background scheduling.
+- [x] Integrate scoped background flush and combined daily-memory maintenance; choose the appropriate owner scheduler.
+- [ ] Integrate automatic transcript retention policy and session enumeration.
 - [ ] Implement remote immutable segments and session indexes.
 
 The previous SessionTranscriptWriter.scala identity is preserved in `0349b1a`; its current identity and acceptance are in the completion-observer table in the [core agent contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
 
 - [x] `review_docs` approved completion-observer documentation against `0349b1a`, including all eight identities, 28 new cases, late cancellation, early-stream error visibility, explicit anonymous policy, compactor offload and remaining lifecycle work. Full verification passed 552 core / 264 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+
+## Explicit local transcript pruning
+
+[LocalTranscriptRetention.prune](LocalTranscriptRetention.scala) takes one existing host-selected directory, explicit WorkspaceTrust and an exclusive Instant cutoff. It acquires the same WorkspaceOwner.Transcript lease as LocalTranscriptStore, inside its own Scope, and protects the entire inspection/deletion operation. Active or stale leases cause typed storage failure and are never reclaimed. This observes storage ownership, not application-level user presence; hosts must keep writer ownership alive while the corresponding session is active.
+
+Only the fixed transcript.jsonl payload is eligible. Missing payload yields TranscriptPruneResult.Missing; an existing empty file is a valid zero-entry transcript. A missing directory is an error. The directory and payload must pass existing canonical/sensitive/nonregular checks, and the complete log must pass strict version/shape/key/parent-chain validation before deletion is considered. Corrupt logs are preserved for diagnosis, including logs that appear expired.
+
+Activity is the maximum of the file modification time and every persisted recordedAt timestamp. Recording clocks may move backwards, so the final row alone is insufficient. Strictly earlier activity is pruned; equality, recent metadata, recent observations and future timestamps retain the file. Retained reports the activity timestamp; Pruned reports that timestamp and the removed entry count. File metadata times retain the underlying filesystem's precision.
+
+Deletion removes only that validated payload entry. It does not recurse, enumerate sibling sessions, remove directories, touch unrelated files, or remove another owner's lease. The scoped finalizer releases this operation's lease. Admitted work retains WorkspaceLease's cancellation rule: deletion may finish before pending cancellation is delivered, so interruption/failure is not proof of unchanged storage. Slow filesystem work can delay cancellation; no rollback, undelete or power-loss durability is supplied.
+
+Successful pruning retires the persisted deduplication keys and parent chain. A later open starts an empty transcript and accepts formerly used stable keys as new observations. The host must retire the corresponding logical session rather than assume identity continuity or a retained tombstone. This is an explicit destructive storage capability for a host-selected inactive session, not automatic application session discovery or authentication.
+
+The backend still requires a host-controlled directory and ancestors. Cooperative leases and canonical checks do not protect against hostile external path replacement. This is a hardened source-level adaptation of upstream pruneOldSessions: explicit target selection, strict validation, active-owner refusal and observation-aware recency replace a broad filename scan, mtime-only decision and swallowed failures. No new named upstream pruning test is claimed. Session enumeration, the 180-day policy, maintenance scheduling and remote pruning remain unfinished. Prior TranscriptFiles.scala is preserved in 9ddee3a.
+
+## Current pruning identities
+
+Final formatted three-file increment against `9ddee3a`; independent acceptance is recorded below.
+
+| Source | Git blob |
+| --- | --- |
+| [LocalTranscriptRetention.scala](LocalTranscriptRetention.scala) | c3a083a94375d26d90df35d6ce30acee4046b263 |
+| [TranscriptFiles.scala](TranscriptFiles.scala) | 603cd66973f453f7bedeb4d06f21eca175538cc9 |
+| [LocalTranscriptRetentionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptRetentionSpec.scala) | 2065dc1bedcabfa2710969db9bb7b641292ae097 |
+
+- [x] `review_fp` and `review_harness` approved the final three-file transcript-pruning increment against `9ddee3a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 404 harness tests, including thirteen new cases, with zero compiler warnings. No findings remain within explicit local targets, shared writer ownership, strict log validation, observation-aware activity, fixed-payload deletion and generation retirement. Session discovery, automatic expiry, remote pruning and crash/hostile-mutation guarantees are excluded.
+
+- [x] `review_docs` approved transcript-pruning documentation against `9ddee3a`: three identities, thirteen tests, activity/cutoff rules, shared ownership, cancellation limits and generation retirement. Full verification passed 555 core / 404 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Automatic policy/discovery, remote pruning and crash guarantees remain excluded.

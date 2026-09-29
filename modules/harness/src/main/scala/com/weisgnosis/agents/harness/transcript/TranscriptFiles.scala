@@ -28,6 +28,7 @@ import java.nio.file.{
   StandardCopyOption,
   StandardOpenOption
 }
+import java.time.Instant
 import zio.*
 
 final private[transcript] class TranscriptFiles private (val directory: Path):
@@ -58,6 +59,25 @@ final private[transcript] class TranscriptFiles private (val directory: Path):
         )
       )
     yield ()
+
+  /** The caller holds exclusive transcript ownership through inspection and deletion. */
+  def pruneBefore(cutoff: Instant): IO[AgentError, TranscriptPruneResult] =
+    validateLocation *> existingFile(target, directory).flatMap:
+      case None => ZIO.succeed(TranscriptPruneResult.Missing)
+      case Some(path) =>
+        for
+          modified <- io(Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toInstant)
+          content  <- io(Files.readString(path, StandardCharsets.UTF_8))
+          state    <- ZIO.fromEither(TranscriptLog.decode(content))
+          lastActivity = state.entries.foldLeft(modified)((latest, entry) =>
+            if entry.recordedAt.isAfter(latest) then entry.recordedAt else latest
+          )
+          result <-
+            if lastActivity.isBefore(cutoff) then
+              io(Files.delete(path))
+                .as(TranscriptPruneResult.Pruned(lastActivity, state.entries.size))
+            else ZIO.succeed(TranscriptPruneResult.Retained(lastActivity))
+        yield result
 
   private def validateLocation: IO[AgentError, Unit] =
     canonicalDirectory(directory).flatMap(actual =>
