@@ -48,7 +48,11 @@ final class ChatCompletionsTransport private (
       history: Chunk[Msg],
       tools: Chunk[ToolDef],
       config: LlmConfig
-  )(onFrame: (String, Chunk[LlmChunk]) => UIO[Unit]): IO[AgentError, TurnOutput] =
+  )(
+      onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String] =
+        fragment => ZIO.succeed(fragment.delta)
+  ): IO[AgentError, TurnOutput] =
     ZIO.scoped:
       for
         body <- ZIO.fromEither(
@@ -69,7 +73,9 @@ final class ChatCompletionsTransport private (
           .streaming(request)
           .provideSomeEnvironment[Scope](_.add(http))
           .mapError(_ => AgentError.ModelError(0, "HTTP request failed"))
-        output <- if response.status.isSuccess then consume(response, onFrame) else reject(response)
+        output <-
+          if response.status.isSuccess then consume(response, onFrame, transformText)
+          else reject(response)
       yield output
 
   private def endpoint(value: String): IO[AgentError, URL] =
@@ -93,8 +99,9 @@ final class ChatCompletionsTransport private (
 
   private def consume(
       response: Response,
-      onFrame: (String, Chunk[LlmChunk]) => UIO[Unit]
-  ): IO[AgentError, TurnOutput] =
+      onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
+  ): ZIO[Scope, AgentError, TurnOutput] =
     val status = response.status.code
     val eventStream = response.rawHeaders("Content-Type") match
       case values if values.size == 1 =>
@@ -111,7 +118,7 @@ final class ChatCompletionsTransport private (
           case _ => AgentError.ModelError(status, "Failed to read a UTF-8 event stream")
         }
         .takeUntil(_.isDone)
-        .runFoldZIO[Any, AgentError, ChatCompletionsTransport.StreamState](
+        .runFoldZIO[Scope, AgentError, ChatCompletionsTransport.StreamState](
           ChatCompletionsTransport.StreamState.Reading(StreamAccumulator.empty)
         ):
           case (ChatCompletionsTransport.StreamState.Reading(accumulator), frame) =>
@@ -122,12 +129,13 @@ final class ChatCompletionsTransport private (
             else
               for
                 deltas <- ZIO.fromEither(ReasoningModelAdapter.parseChunk(frame.data))
-                next <- ZIO.fromEither(
-                  deltas.foldLeft[Either[AgentError, StreamAccumulator]](Right(accumulator))(
-                    (current, delta) => current.flatMap(_.feed(delta))
-                  )
-                )
-                _ <- onFrame(frame.data, deltas)
+                _      <- ZIO.fromEither(accumulate(accumulator, deltas))
+                transformed <- ZIO.foreach(deltas):
+                  case fragment: LlmChunk.TextDelta =>
+                    transformText(fragment).map(text => fragment.copy(delta = text))
+                  case other => ZIO.succeed(other)
+                next <- ZIO.fromEither(accumulate(accumulator, transformed))
+                _    <- onFrame(frame.data, transformed)
               yield ChatCompletionsTransport.StreamState.Reading(next)
           case (completed: ChatCompletionsTransport.StreamState.Completed, _) =>
             ZIO.succeed(completed)
@@ -136,6 +144,14 @@ final class ChatCompletionsTransport private (
         case ChatCompletionsTransport.StreamState.Reading(_) =>
           ZIO.fail(AgentError.ModelError(status, "Event stream ended before [DONE]"))
     yield output
+
+  private def accumulate(
+      initial: StreamAccumulator,
+      deltas: Chunk[LlmChunk]
+  ): Either[AgentError, StreamAccumulator] =
+    deltas.foldLeft[Either[AgentError, StreamAccumulator]](Right(initial))((current, delta) =>
+      current.flatMap(_.feed(delta))
+    )
 
   private def bounded(
       bytes: ZStream[Any, Throwable, Byte],

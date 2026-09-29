@@ -23,7 +23,10 @@ import zio.*
 import zio.http.Client
 
 /** Live text/function client; the runtime supplies request identity and model boundaries. */
-final class ChatCompletionsClient private (transport: ChatCompletionsTransport) extends LlmClient:
+final class ChatCompletionsClient private (
+    transport: ChatCompletionsTransport,
+    textTransform: ModelTextTransform
+) extends LlmClient:
   def streamTurn(
       history: Chunk[Msg],
       tools: Chunk[ToolDef],
@@ -33,14 +36,20 @@ final class ChatCompletionsClient private (transport: ChatCompletionsTransport) 
   ): ZIO[Scope, AgentError, TurnOutput] =
     for
       publisher <- ModelStreamPublisher.make(eventHub, context)
-      output    <- transport.observe(history, tools, config)(publisher.frame)
-      _         <- publisher.finish(output)
+      output <- transport.observe(history, tools, config)(
+        publisher.frame,
+        fragment => textTransform.transform(context, fragment)
+      )
+      _ <- publisher.finish(output)
     yield output
 
 object ChatCompletionsClient:
   def make(
       http: Client,
       limits: CompletionTransportLimits = CompletionTransportLimits(),
-      reasoningReplay: ReasoningReplay = ReasoningReplay.Omit
+      reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
+      textTransform: ModelTextTransform = ModelTextTransform.identity
   ): IO[AgentError, ChatCompletionsClient] =
-    ChatCompletionsTransport.make(http, limits, reasoningReplay).map(new ChatCompletionsClient(_))
+    ChatCompletionsTransport
+      .make(http, limits, reasoningReplay)
+      .map(new ChatCompletionsClient(_, textTransform))

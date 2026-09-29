@@ -36,6 +36,9 @@ object AgentError:
       errorPayload: Option[String] = None
   ) extends AgentError derives JsonCodec
 
+  /** Host text-transformation failure; never a provider rejection eligible for native fallback. */
+  final case class TextTransformationError(message: String) extends AgentError derives JsonCodec
+
   final case class ToolExecutionError(
       toolName: String,
       message: String,

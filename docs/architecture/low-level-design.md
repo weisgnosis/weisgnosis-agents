@@ -65,7 +65,7 @@ Registration, withTool, and merging return Either[AgentError, Toolkit]. Duplicat
 
 ## Pending interfaces
 
-Memory services, middleware, durable checkpoint storage, subagents, plan-mode enforcement, and MCP are not implemented. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, post-reasoning hooks, memory services, durable checkpoint storage, subagents, plan-mode enforcement, and MCP are not implemented. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
