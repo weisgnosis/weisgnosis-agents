@@ -101,7 +101,50 @@ object LocalMemoryRepository:
                 _ <- files.write(MemoryFile.Journal, journal.toJson)
                 _ <- finish(journal)
               yield ConsolidationCommit.Applied
-    val repository: MemoryRepository = new MemoryRepository(daily, consolidation)
+    private val retention: DailyMemoryRetention = new DailyMemoryRetention:
+      def archiveBefore(cutoff: LocalDate): IO[AgentError, Chunk[DailyMemoryArchive]] = owned:
+        for
+          state <- current
+          candidates <- ZIO.foreach(state.version.checkpoint): checkpoint =>
+            val eligible = state.daily.toList
+              .filter((day, _) =>
+                day.isBefore(cutoff) && checkpoint.acknowledged
+                  .get(day.toString)
+                  .exists(digest => state.version.daily.get(day.toString).contains(digest))
+              )
+              .sortBy(_._1.toEpochDay)
+            for
+              entries <- ZIO.foreach(eligible): (day, content) =>
+                MemoryFingerprint
+                  .of(content)
+                  .map(fingerprint => DailyMemoryArchive(day, fingerprint) -> content)
+              _ <- ZIO.foreachDiscard(entries)((archive, content) =>
+                files.validateArchive(archive, content)
+              )
+              _ <- ZIO.foreachDiscard(entries)((archive, content) =>
+                files.publishArchive(archive, content)
+              )
+              _ <- ZIO.when(entries.nonEmpty):
+                for
+                  transaction <- Random.nextUUID.map(_.toString)
+                  next = checkpoint.copy(
+                    generation = checkpoint.generation + 1,
+                    transaction = transaction,
+                    acknowledged = checkpoint.acknowledged -- entries.map(_._1.day.toString)
+                  )
+                  _ <- files.write(MemoryFile.Checkpoint, next.toJson)
+                  _ <- ZIO.foreachDiscard(entries)((archive, content) =>
+                    files.removeArchivedDaily(archive, content)
+                  )
+                yield ()
+            yield Chunk.fromIterable(entries.map(_._1))
+        yield candidates.getOrElse(Chunk.empty)
+
+      def archives: IO[AgentError, Chunk[DailyMemoryArchive]] = owned(files.archives)
+      def readArchive(archive: DailyMemoryArchive): IO[AgentError, Option[String]] =
+        owned(files.readArchive(archive))
+
+    val repository: MemoryRepository = new MemoryRepository(daily, consolidation, retention)
 
     private def current: IO[AgentError, State] =
       for

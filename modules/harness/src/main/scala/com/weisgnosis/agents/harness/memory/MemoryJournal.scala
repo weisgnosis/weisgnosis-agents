@@ -17,8 +17,6 @@ package com.weisgnosis.agents.harness.memory
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import java.time.LocalDate
 import java.util.UUID
 import zio.*
@@ -75,16 +73,7 @@ private[memory] object MemoryJournal:
   def fingerprints(daily: Map[LocalDate, String]): IO[AgentError, Map[String, String]] =
     ZIO
       .foreach(daily.toList): (day, content) =>
-        ZIO
-          .attempt:
-            val digest = MessageDigest
-              .getInstance("SHA-256")
-              .digest(content.getBytes(StandardCharsets.UTF_8))
-              .iterator
-              .map(byte => f"${byte & 0xff}%02x")
-              .mkString
-            day.toString -> digest
-          .mapError(error => AgentError.MemoryStorageError(error.toString))
+        MemoryFingerprint.of(content).map(fingerprint => day.toString -> fingerprint.value)
       .map(_.toMap)
 
   private def parsed(text: String): IO[AgentError, Json] =

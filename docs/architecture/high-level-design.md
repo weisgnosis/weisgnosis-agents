@@ -77,8 +77,12 @@ MemoryTaskQueue supplies one bounded serial worker per explicit memory owner, co
 
 ## Completion-triggered flush integration
 
-MemoryFlushScheduler now connects successful ReAct completion to owned background gate admission and daily-memory extraction. Empty/internal-only snapshots return Empty without queue admission; eligible work captures the immutable completed conversation. The host explicitly retains task receipts and preserves prefixes through awaited compactor flushing. Owned consolidation is available; retention and distributed scheduling remain pending; see the [memory lifecycle contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+MemoryFlushScheduler now connects successful ReAct completion to owned background gate admission and daily-memory extraction. Empty/internal-only snapshots return Empty without queue admission; eligible work captures the immutable completed conversation. The host explicitly retains task receipts and preserves prefixes through awaited compactor flushing. Owned consolidation is available; automatic retention policy and distributed scheduling remain pending; see the [memory lifecycle contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
 
 ## Owned background consolidation
 
-MemoryConsolidationScheduler shares the owner's bounded queue and claims an independent Maintenance interval inside the worker. It reads currently committed daily memory and reports every returned consolidation outcome. The host retains tickets and result reports; post-commit reporting failure cannot undo memory. Completion observer composition orders admission, while FIFO replacement can run consolidation before a newer flush. Retention and remote ownership remain roadmap work.
+MemoryConsolidationScheduler shares the owner's bounded queue and claims an independent Maintenance interval inside the worker. It reads currently committed daily memory and reports every returned consolidation outcome. The host retains tickets and result reports; post-commit reporting failure cannot undo memory. Completion observer composition orders admission, while FIFO replacement can run consolidation before a newer flush. Automatic retention policy and remote ownership remain roadmap work.
+
+## Conservative daily archival
+
+MemoryRepository now separates daily, consolidation and retention authority. Explicit archival preserves old unacknowledged content, stores acknowledged versions by date/content identity, and never discards an active file before verifying its archive copy. Local failures may leave duplicate copies or pending daily content; inspection and later consolidation remain possible. Automatic retention policy, session pruning and remote storage are not implemented by this capability.

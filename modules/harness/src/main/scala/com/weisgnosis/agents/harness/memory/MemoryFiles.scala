@@ -54,8 +54,10 @@ final private[memory] class MemoryFiles private (root: Path, val directory: Path
       case None            => ZIO.none
       case Some(canonical) => io(Files.readString(canonical, StandardCharsets.UTF_8)).map(Some(_))
 
-  def write(file: MemoryFile, content: String): IO[AgentError, Unit] = ZIO.scoped:
-    val target = path(file)
+  def write(file: MemoryFile, content: String): IO[AgentError, Unit] =
+    writeTarget(path(file), content)
+
+  private def writeTarget(target: Path, content: String): IO[AgentError, Unit] = ZIO.scoped:
     for
       temporary <- ZIO.acquireRelease(
         io(Files.createTempFile(target.getParent, ".memory-pending-", ".tmp"))
@@ -91,6 +93,125 @@ final private[memory] class MemoryFiles private (root: Path, val directory: Path
           .someOrFail(AgentError.MemoryStorageError("Listed daily memory disappeared"))
           .map(day -> _)
     yield contents.toMap
+
+  def readArchive(archive: DailyMemoryArchive): IO[AgentError, Option[String]] =
+    archiveDirectory.flatMap:
+      case None => ZIO.none
+      case Some(parent) =>
+        existingFile(archivePath(parent, archive), parent).flatMap:
+          case None => ZIO.none
+          case Some(target) =>
+            for
+              content     <- io(Files.readString(target, StandardCharsets.UTF_8))
+              fingerprint <- MemoryFingerprint.of(content)
+              _ <- ZIO
+                .fail(
+                  AgentError.MemoryStorageError("Archive content does not match its fingerprint")
+                )
+                .unless(fingerprint == archive.fingerprint)
+            yield Some(content)
+
+  def archives: IO[AgentError, Chunk[DailyMemoryArchive]] =
+    archiveDirectory.flatMap:
+      case None => ZIO.succeed(Chunk.empty)
+      case Some(parent) =>
+        ZIO.scoped:
+          for
+            stream <- ZIO.acquireRelease(io(Files.list(parent)))(value => io(value.close()).orDie)
+            names  <- io(stream.iterator().asScala.map(_.getFileName.toString).toList)
+            candidates <- ZIO.foreach(names): name =>
+              name.stripSuffix(".md").split("_", -1).toList match
+                case date :: fingerprint :: Nil if name.endsWith(".md") =>
+                  ZIO
+                    .attempt(LocalDate.parse(date))
+                    .option
+                    .map: parsed =>
+                      for
+                        day    <- parsed.filter(_.toString == date)
+                        digest <- MemoryFingerprint.fromString(fingerprint).toOption
+                      yield DailyMemoryArchive(day, digest)
+                case _ => ZIO.none
+            ordered = candidates.flatten.sortBy(archive =>
+              (archive.day.toEpochDay, archive.fingerprint.value)
+            )
+            _ <- ZIO.foreachDiscard(ordered)(archive =>
+              readArchive(archive).someOrFail(
+                AgentError.MemoryStorageError("Listed archive disappeared")
+              )
+            )
+          yield Chunk.fromIterable(ordered)
+
+  /** Preflight the complete batch before publishing archives or changing acknowledgements. */
+  def validateArchive(archive: DailyMemoryArchive, content: String): IO[AgentError, Unit] =
+    for
+      _     <- ensureArchiveDirectory
+      daily <- read(MemoryFile.Daily(archive.day))
+      _ <- ZIO
+        .fail(AgentError.MemoryStorageError("Archive source changed"))
+        .unless(daily.contains(content))
+      previous <- readArchive(archive)
+      _ <- ZIO
+        .fail(AgentError.MemoryStorageError("Archive destination conflicts with source"))
+        .when(previous.exists(_ != content))
+    yield ()
+
+  /** Publish and verify a copy before the caller removes acknowledgement and then the active file. */
+  def publishArchive(archive: DailyMemoryArchive, content: String): IO[AgentError, Unit] =
+    for
+      _        <- validateArchive(archive, content)
+      parent   <- ensureArchiveDirectory
+      previous <- readArchive(archive)
+      _        <- writeTarget(archivePath(parent, archive), content).when(previous.isEmpty)
+      stored   <- readArchive(archive)
+      _ <- ZIO
+        .fail(AgentError.MemoryStorageError("Archive publication verification failed"))
+        .unless(stored.contains(content))
+    yield ()
+
+  def removeArchivedDaily(archive: DailyMemoryArchive, content: String): IO[AgentError, Unit] =
+    for
+      _      <- validateArchive(archive, content)
+      stored <- readArchive(archive)
+      _ <- ZIO
+        .fail(
+          AgentError.MemoryStorageError("Verified archive required before removing daily memory")
+        )
+        .unless(stored.contains(content))
+      _ <- io(Files.delete(path(MemoryFile.Daily(archive.day))))
+    yield ()
+
+  private def archiveDirectory: IO[AgentError, Option[Path]] =
+    val target = directory.resolve("archive")
+    ZIO
+      .attemptBlocking(
+        Files.readAttributes(target, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS)
+      )
+      .map(Some(_))
+      .catchSome { case _: NoSuchFileException => ZIO.none }
+      .mapError(storageError)
+      .flatMap:
+        case None => ZIO.none
+        case Some(_) =>
+          canonicalDirectory(target).flatMap: canonical =>
+            deny("Archive directory escapes memory ownership")
+              .unless(canonical == target)
+              .as(Some(canonical))
+
+  private def ensureArchiveDirectory: IO[AgentError, Path] =
+    archiveDirectory.flatMap:
+      case Some(parent) => ZIO.succeed(parent)
+      case None =>
+        ZIO
+          .attemptBlocking(Files.createDirectory(directory.resolve("archive")))
+          .catchSome { case _: FileAlreadyExistsException =>
+            ZIO.succeed(directory.resolve("archive"))
+          }
+          .mapError(storageError) *> archiveDirectory.someOrFail(
+          AgentError.MemoryStorageError("Archive directory disappeared")
+        )
+
+  private def archivePath(parent: Path, archive: DailyMemoryArchive): Path =
+    parent.resolve(s"${archive.day}_${archive.fingerprint.value}.md")
 
   private def path(file: MemoryFile): Path = file match
     case MemoryFile.Curated    => root.resolve("MEMORY.md")

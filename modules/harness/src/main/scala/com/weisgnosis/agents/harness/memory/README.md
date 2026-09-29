@@ -100,7 +100,7 @@ Current local-backend Git-normalized identities:
 
 [ConsolidationStore](ConsolidationStore.scala) exposes an abstract path-dependent Revision, an atomic ConsolidationSnapshot, and commit(expected, content). Each snapshot includes current curated text and at most one complete pending entry per day. Every curated/daily/progress mutation must advance a never-reused revision. Commit must atomically update curated content and acknowledge exactly the consumed snapshot, or return Conflict without any change. The port has no daily append operation. Backend errors propagate; callers cannot infer rollback from an error or cancellation after a commit may have occurred.
 
-[MemoryRepository.inMemory](MemoryRepository.scala) returns daily and consolidation capabilities sharing one immutable Ref state. BigInt revisions cannot wrap; the public capability keeps their representation abstract. Appending daily content invalidates older consolidation snapshots. A successful conditional transition updates curated text and acknowledged inputs together. Later appends make the full changed day pending again, allowing the model to deduplicate against existing curated text. Raw daily content is never rewritten by consolidation. This repository is process-local and has no disk fallback or crash persistence.
+[MemoryRepository.inMemory](MemoryRepository.scala) returns daily, consolidation and retention capabilities sharing one immutable Ref.Synchronized state. BigInt revisions cannot wrap; the public capability keeps their representation abstract. Appending daily content invalidates older consolidation snapshots. A successful conditional transition updates curated text and acknowledged inputs together. Later appends make the full changed day pending again, allowing the model to deduplicate against existing curated text. Raw daily content is never rewritten by consolidation. This repository is process-local and has no disk fallback or crash persistence.
 
 [MemoryConsolidator.make](MemoryConsolidator.scala) validates maxTokens in 1..4000 and accepts a MemoryExtractor and TokenCounter. consolidate serializes calls on that consolidator, rejects duplicate snapshot days, skips blank/no-pending input, and sends deterministic chronological daily content alongside current curated text. Extraction scope closes before output validation or commit. Blank output returns EmptyResponse without acknowledgement; a validated replacement returns Committed or Conflict. Conflict does not automatically retry stale output; a later invocation must obtain a fresh snapshot and recompute.
 
@@ -125,7 +125,7 @@ The previous MemoryExtractor comment identity is preserved in `46c6174`; its cur
 
 ## Recoverable local consolidation
 
-[LocalMemoryRepository.open](LocalMemoryRepository.scala) returns a scoped MemoryRepository for a host-controlled workspace. Share its daily and consolidation ports instead of opening separate owners. Both ports use the existing .daily-writer.lease, canonical location checks, and the same admission gate. [MemoryFiles](MemoryFiles.scala) derives every destination from an internal typed identifier; journal data never selects a path. Directory enumeration considers canonical ISO-date Markdown names and ignores metadata, temporary files, and unrelated names; a nonregular date-matching entry fails explicitly.
+[LocalMemoryRepository.open](LocalMemoryRepository.scala) returns a scoped MemoryRepository for a host-controlled workspace. Share its daily, consolidation and retention ports instead of opening separate owners. All ports use the existing .daily-writer.lease, canonical location checks, and the same admission gate. [MemoryFiles](MemoryFiles.scala) derives every destination from an internal typed identifier; journal data never selects a path. Directory enumeration considers canonical ISO-date Markdown names and ignores metadata, temporary files, and unrelated names; a nonregular date-matching entry fails explicitly.
 
 [MemoryJournal](MemoryJournal.scala) validates complete JSON documents, duplicate/unknown keys, numeric representation, supported versions, canonical dates/transaction identifiers, fingerprints, and generation transitions before recovery writes. Shared library-internal JsonBoundary supplies document/duplicate validation. Checkpoints retain a BigInt generation, transaction identity, and acknowledged SHA-256 daily content digests. Revisions bind curated presence/content, checkpoint, and current daily fingerprints; successful same-content commits still advance generation across reopen. Progress assumes cooperative append-only daily writes and SHA-256 collision resistance; external edits are outside the ownership contract.
 
@@ -139,16 +139,12 @@ Migration: .consolidation_state is the upstream path, but its versioned JSON con
 - [x] `review_docs` approved the final persistence documentation against `e4bd6b0`, including nine current identities, 34 new cases, three local upstream adaptations, two pending remote scenarios, migration, and durability limits. All 59 Markdown files passed local link/script checks; git diff --check passed.
 - [ ] Add remote storage/migration, remote transcript persistence, and scheduling; verify cross-process and dynamic path behavior on each supported platform.
 
-Current Git-normalized persistence identities (previous changed identities remain in e4bd6b0):
+Unchanged Git-normalized persistence identities (earlier changes remain in e4bd6b0; the four files changed for retention are preserved in b2ab23e and indexed in the retention table below):
 
 | Source | Blob identity |
 | --- | --- |
 | [JsonBoundary.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/JsonBoundary.scala) | 12240a5fcf0d9e5d46dc2eb67963a5a963a003e5 |
 | [LocalDailyMemoryStore.scala](LocalDailyMemoryStore.scala) | 2a8c2ddfc0a7a9940bd0da7ead4a8b6c16ed5ed7 |
-| [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | 9059a5c65117261b5b24d2d9d22c340685364cfe |
-| [MemoryFiles.scala](MemoryFiles.scala) | cc7cd93dc6c64b40a2b956ed1341223ea7cf6521 |
-| [MemoryJournal.scala](MemoryJournal.scala) | 443dc330686ac166d5146852bf872d221531c3db |
-| [MemoryRepository.scala](MemoryRepository.scala) | 83df0fbf056c634b5f7cb44642a4c213f5ab7c0b |
 | [LocalMemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalMemoryRepositorySpec.scala) | 6fc453b560fd36612ba3eb5470d75814edc0b36d |
 | [MemoryFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFilesSpec.scala) | 80b616760f88a68fb8fb289cc87d079dcba7f259 |
 | [MemoryJournalSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryJournalSpec.scala) | 3ab28f0738b396ef5b277febb514564059cc5bf8 |
@@ -169,7 +165,7 @@ Operation and scope form structural keys, so flush and maintenance remain indepe
 
 cleanup(retention) samples the same monotonic clock under the same state authority. It removes only claims whose reserved interval has elapsed and whose age strictly exceeds retention. A shorter retention therefore cannot reopen an active interval. Claim renewal racing cleanup retains the new active reservation. Cleanup is an explicit host operation; no background fiber is started and entries remain until renewal or cleanup.
 
-A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. This increment supplies local admission only. The scoped queue foundation described below now supplies owned execution and pending coalescing. Completion-triggered flush integration is described below. Maintenance integration, remote/distributed authority, and retention file deletion remain pending.
+A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. This increment supplies local admission only. The scoped queue foundation described below now supplies owned execution and pending coalescing. Completion-triggered flush integration is described below. Owned consolidation integration and explicit acknowledged-daily archival are available below; automatic retention policy, remote authority and session deletion remain pending.
 
 ## Current memory-trigger identities
 
@@ -263,7 +259,7 @@ completionObserver(registerTicket) admits only successful execution Exit values,
 
 TurnCompletionObserver.andThen composes lazy, fail-fast observations in separate scopes, closing the first before starting the next. Use it to combine transcript observation, flush admission and consolidation admission. This orders observer execution and admission, not execution dependencies between replaced jobs. With F1 running and M1 pending, the next flush F2 joins behind M1; replacing M1 with M2 preserves that earlier queue position. M2 can therefore consolidate F1 before F2 writes. This is opportunistic consolidation of currently committed daily data; F2 stays pending for a later maintenance trigger. A host requiring strict flush-then-consolidate execution must use one composite job or an external continuation after the flush ticket settles. Never await same-queue tickets inside the single worker.
 
-This scheduler performs consolidation only. Daily retention expiry, ledger archival, session-file pruning, distributed authority, durable work receipts and operational monitoring are separate unfinished capabilities. The local reopen regression establishes persisted consolidation despite a failed report, not crash or power-loss durability.
+This scheduler performs consolidation only. Explicit acknowledged-daily archival is available below. Automatic retention policy, session-file pruning, distributed authority, durable work receipts and operational monitoring remain unfinished. The local reopen regression establishes persisted consolidation despite a failed report, not crash or power-loss durability.
 
 ## Current consolidation/composition identities
 
@@ -280,3 +276,37 @@ Final formatted increment against `3e817e3`; independent acceptance is recorded 
 - [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
 
 - [x] `review_docs` approved the corrected consolidation/composition documentation against `3e817e3`: seven identities, 25 new cases, scoped composition, reporting limits, FIFO ordering and conservative parity classifications. Full verification passed 555 core / 346 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+
+## Acknowledged daily-memory archival
+
+[DailyMemoryRetention](DailyMemoryRetention.scala) is the repository's separate archive capability. archiveBefore(cutoff) selects only days strictly before the explicit LocalDate whose current content is already acknowledged by consolidation. Unconfirmed or subsequently changed days stay active regardless of age. The cutoff is caller-supplied: this port does not read the clock, choose a retention duration, install a scheduler or prune sessions. Curated MEMORY.md is not changed by retention, except that the shared local entry point must first finish an already published consolidation journal.
+
+DailyMemoryArchive combines the original date with a validated MemoryFingerprint. Digests are canonical lowercase SHA-256 of valid UTF-8 text; malformed UTF-16 surrogate input fails rather than silently sharing the replacement-character digest. Consolidation fingerprints use the same implementation. Typed archive references cannot select arbitrary paths. archives lists recognized identities deterministically; readArchive reads a selected version. Local reads verify payloads against their fingerprint. Different contents for the same day coexist; identical acknowledged content reuses the same archive identity.
+
+The in-memory authority moves selected content to an immutable archive map, removes active entries and acknowledgements, and advances its revision in one synchronized transition. Existing archive identities must match exactly. Empty passes do not advance state. The local authority runs under the existing lease after location validation and journal recovery. It first validates every selected source and destination; then publishes and verifies every archive copy. Only after copies are verified does it advance checkpoint generation and transaction identity, remove selected acknowledgements, and delete the corresponding verified active files. Unrelated acknowledgements remain intact.
+
+Local archives live at `memory/archive/<date>_<fingerprint>.md`. The archive directory and recognized entries must be canonical non-symlink directories/regular files under the owned memory directory. Conflicting contents or nonregular targets fail before replacing anything. Cooperative ownership and explicit target checks govern publication; atomic file replacement alone is not an exclusive-create guarantee. The backend still requires a host-controlled workspace and ancestors.
+
+Retention is not an atomic multi-file filesystem transaction. A failure before checkpoint advancement can leave reusable archive copies alongside acknowledged daily files. A failure after advancement can leave surviving daily files pending again, requiring reconsolidation before later archival. Sources are removed only after a verified copy exists; stale acknowledgements are never restored to conceal a failure. Equal-content recreation remains pending because the acknowledgement was removed and the generation advanced; old consolidation snapshots conflict. Failure or interruption may therefore have partial effects and an uncertain acknowledgement. Inspect archives and active snapshots before deciding how to proceed. No automatic retry, archive deletion, crash/power-loss durability or hostile-mutation protection is promised.
+
+This deliberately hardens upstream expireDailyFiles, which archives old files before consolidation without checking acknowledgement. It is a source-level behavioral adaptation with new regressions, not a newly mapped upstream test method. Maintenance integration and session pruning remain separate tasks. The local intermediate-state tests seed states after copy publication and checkpoint advancement; they are not live I/O fault injection or process-crash tests.
+
+Migration: MemoryRepository now exposes retention alongside its existing ports. Public open/make call sites remain compatible; callers opt into archival explicitly. Archive files are outside daily enumeration and cannot become consolidation input or implicit acknowledgement. The existing checkpoint format remains version 1; retention legitimately advances its generation while removing acknowledged days. Previous changed source identities are preserved in b2ab23e.
+
+## Current retention identities
+
+Final formatted seven-file increment against `b2ab23e`; independent acceptance is recorded below.
+
+| Source | Git blob |
+| --- | --- |
+| [DailyMemoryRetention.scala](DailyMemoryRetention.scala) | b679d771b1aee3100d223816cde76c043927caec |
+| [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | 942d66ce70e4251b5430e779ab4515bd4894df0c |
+| [MemoryFiles.scala](MemoryFiles.scala) | 1b1bf9a91f118c1b99d2f891ad6c2a58b41b831d |
+| [MemoryJournal.scala](MemoryJournal.scala) | cc8f693e7fda49876f11ff07e842716ead0828d6 |
+| [MemoryRepository.scala](MemoryRepository.scala) | 8a209e9cbba1d7b3e3692eac81b494655624f24c |
+| [DailyMemoryRetentionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/DailyMemoryRetentionSpec.scala) | 87ca3e833ba23868dfdbe59f66dbe7ad6d47c5df |
+| [LocalDailyMemoryRetentionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryRetentionSpec.scala) | 8a6b13eb2f2736f869bb99be1c8cabeba74c4449 |
+
+- [x] `review_fp` and `review_harness` approved the final seven-file daily-retention increment against `b2ab23e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 370 harness tests, including 24 new cases, with zero compiler warnings. No findings remain within typed archive identity, exact acknowledged eligibility, atomic in-memory retirement, verified local copy/checkpoint/removal ordering, conservative partial progress and strict shared fingerprinting. Automatic policy, session pruning, crash durability and hostile concurrent filesystem mutation are excluded.
+
+- [x] `review_docs` approved the corrected daily-retention documentation against `b2ab23e`: seven identities, 24 new tests, archive ordering, migration and conservative partial-progress limits. Full verification passed 555 core / 370 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Automatic policy, session pruning and crash guarantees remain excluded, with no new named upstream test parity claimed.

@@ -22,7 +22,8 @@ import zio.*
 /** Distinct write capabilities sharing one authority for curated and daily content. */
 final class MemoryRepository private[memory] (
     val daily: DailyMemoryStore,
-    val consolidation: ConsolidationStore
+    val consolidation: ConsolidationStore,
+    val retention: DailyMemoryRetention
 )
 
 object MemoryRepository:
@@ -30,13 +31,14 @@ object MemoryRepository:
       revision: BigInt,
       curated: Option[String],
       daily: Map[LocalDate, String],
-      acknowledged: Map[LocalDate, String]
+      acknowledged: Map[LocalDate, String],
+      archived: Map[DailyMemoryArchive, String]
   )
 
   /** Process-local storage; snapshots and conditional commits are atomic immutable Ref transitions. */
   def inMemory(initialCurated: Option[String] = None): UIO[MemoryRepository] =
-    Ref
-      .make(State(BigInt(0), initialCurated, Map.empty, Map.empty))
+    Ref.Synchronized
+      .make(State(BigInt(0), initialCurated, Map.empty, Map.empty, Map.empty))
       .map: state =>
         val daily = new DailyMemoryStore:
           def readCurated: IO[AgentError, Option[String]] = state.get.map(_.curated)
@@ -75,4 +77,45 @@ object MemoryRepository:
                     acknowledged = current.daily
                   )
                 )
-        new MemoryRepository(daily, consolidation)
+        val retention = new DailyMemoryRetention:
+          def archiveBefore(cutoff: LocalDate): IO[AgentError, Chunk[DailyMemoryArchive]] =
+            state.modifyZIO: current =>
+              val eligible = current.daily.toList
+                .filter((day, content) =>
+                  day.isBefore(cutoff) && current.acknowledged.get(day).contains(content)
+                )
+                .sortBy(_._1.toEpochDay)
+              ZIO
+                .foreach(eligible): (day, content) =>
+                  MemoryFingerprint
+                    .of(content)
+                    .map(fingerprint => DailyMemoryArchive(day, fingerprint) -> content)
+                .flatMap: entries =>
+                  val days = entries.map(_._1.day).toSet
+                  val next =
+                    if entries.isEmpty then current
+                    else
+                      current.copy(
+                        revision = current.revision + 1,
+                        daily = current.daily -- days,
+                        acknowledged = current.acknowledged -- days,
+                        archived = current.archived ++ entries
+                      )
+                  ZIO
+                    .fail(AgentError.MemoryStorageError("Archive content identity conflict"))
+                    .when(
+                      entries.exists((archive, content) =>
+                        current.archived.get(archive).exists(_ != content)
+                      )
+                    )
+                    .as(Chunk.fromIterable(entries.map(_._1)) -> next)
+          def archives: IO[AgentError, Chunk[DailyMemoryArchive]] =
+            state.get.map(current =>
+              Chunk.fromIterable(
+                current.archived.keys.toList
+                  .sortBy(archive => (archive.day.toEpochDay, archive.fingerprint.value))
+              )
+            )
+          def readArchive(archive: DailyMemoryArchive): IO[AgentError, Option[String]] =
+            state.get.map(_.archived.get(archive))
+        new MemoryRepository(daily, consolidation, retention)
