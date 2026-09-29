@@ -48,7 +48,7 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 
 - [ ] Remaining provider/event integrations and retry/failover policies.
 - [ ] Agent middleware and durable HITL integration.
-- [ ] Remote memory storage and timestamp-watermark migration, transcript persistence, and memory scheduling.
+- [ ] Remote memory storage and timestamp-watermark migration, remote transcript persistence, and memory scheduling.
 - [ ] Scoped subagents, depth limits, and persistent TaskSupervisor promotion.
 - [ ] Plan-mode tool restrictions and shell inspection.
 - [ ] MCP protocol, transports, discovery, and toolkit bridging.
@@ -65,4 +65,4 @@ The build pins Scala 3.9.0, ZIO/ZIO Streams 2.1.26, zio-json 0.9.1, and zio-http
 
 ## Transcript observations
 
-SessionTranscriptWriter records summaries, text/thinking and bounded tool observations through one transcript-bound store. TranscriptStore.inMemory owns atomic batch deduplication and parent linkage; stable keys preserve the first observation. The compactor offload callback is available, while local/remote persistence and complete turn-boundary installation remain pending. See the [transcript contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md).
+SessionTranscriptWriter records summaries, text/thinking and bounded tool observations through one transcript-bound store. TranscriptStore.inMemory owns atomic batch deduplication and parent linkage; stable keys preserve the first observation. The compactor offload callback is available, while remote persistence and complete turn-boundary installation remain pending. LocalTranscriptStore now supplies strict versioned JSONL in one explicitly selected host-controlled directory, with cooperative scope ownership and atomic whole-log replacement. See the [transcript contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md).

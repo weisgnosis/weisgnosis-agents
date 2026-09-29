@@ -19,7 +19,7 @@ import java.nio.file.{Files, Path}
 import scala.jdk.CollectionConverters.*
 import zio.*
 
-private[memory] object MemoryTestSupport:
+private[harness] object MemoryTestSupport:
   def temporaryDirectory: ZIO[Scope, Throwable, Path] =
     ZIO.acquireRelease(ZIO.attemptBlocking(Files.createTempDirectory("agent-memory-"))):
       directory =>

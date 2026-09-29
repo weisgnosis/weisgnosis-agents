@@ -58,7 +58,7 @@ object SessionTranscriptWriter:
         val input = call.input.toJson
         val preview =
           if input.length > InputPreviewChars then
-            TranscriptPreview.Truncated(input.take(InputPreviewChars), input.length)
+            TranscriptPreview.Truncated(prefix(input, InputPreviewChars), input.length)
           else TranscriptPreview.Complete(call.input)
         TranscriptDraft(
           source.map(TranscriptKey.ToolUse(_, occurrence)),
@@ -68,7 +68,7 @@ object SessionTranscriptWriter:
         val output = result.outputText
         val preview =
           if output.length > OutputPreviewChars then
-            TranscriptPreview.Truncated(output.take(OutputPreviewChars), output.length)
+            TranscriptPreview.Truncated(prefix(output, OutputPreviewChars), output.length)
           else TranscriptPreview.Complete(output)
         TranscriptDraft(
           source.map(TranscriptKey.ToolResult(_, occurrence)),
@@ -81,6 +81,11 @@ object SessionTranscriptWriter:
           )
         )
       messageEntries ++ useEntries ++ resultEntries
+
+  private def prefix(text: String, limit: Int): String =
+    val candidate = text.take(limit)
+    if candidate.lastOption.exists(Character.isHighSurrogate) then candidate.dropRight(1)
+    else candidate
 
   private def blockType(block: ContentBlock): TranscriptBlockType = block match
     case _: ContentBlock.Text         => TranscriptBlockType.Text

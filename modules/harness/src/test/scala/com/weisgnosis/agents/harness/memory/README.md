@@ -56,3 +56,5 @@ The recovery matrix seeds deterministic interrupted-publication states. These ar
 Current persistence review status and exact identities are maintained in the source memory README.
 
 - [x] `review_fp` and `review_harness` approved the final nine-file persistence increment against `e4bd6b0` on 2026-09-29. No findings remain within cooperative local ownership, strict journal validation, recovery before API operations, conditional content/progress publication, and persisted generation tracking. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 209 harness tests, including 34 new persistence tests, with zero compiler warnings. Acceptance covers constructed interrupted-publication states on the tested Windows filesystem; live crash/fault-injection, fsync durability, remote storage, and hostile mutation are excluded.
+
+DailyMemoryLeaseSpec now exercises the extracted WorkspaceLease through the existing memory adapter. MemoryTestSupport is harness-internal for shared scoped filesystem fixtures; no test behavior changed. Current extraction identity and approval are recorded in the transcript persistence README.

@@ -16,8 +16,6 @@
 package com.weisgnosis.agents.harness.transcript
 
 import com.weisgnosis.agents.core.error.AgentError
-import java.time.Instant
-import java.util.UUID
 import zio.*
 
 /**
@@ -30,16 +28,10 @@ trait TranscriptStore:
   def append(drafts: Chunk[TranscriptDraft]): IO[AgentError, Chunk[TranscriptEntry]]
 
 object TranscriptStore:
-  final private case class State(
-      entries: Chunk[TranscriptEntry],
-      keys: Set[TranscriptKey],
-      ids: Set[UUID]
-  )
-
   /** Process-local authority; UUIDs and recording time are allocated outside the pure transition. */
   def inMemory: UIO[TranscriptStore] =
     Ref
-      .make(State(Chunk.empty, Set.empty, Set.empty))
+      .make(TranscriptState.empty)
       .map: state =>
         new TranscriptStore:
           def entries: IO[AgentError, Chunk[TranscriptEntry]] = state.get.map(_.entries)
@@ -50,30 +42,9 @@ object TranscriptStore:
                 instant    <- Clock.instant
                 candidates <- ZIO.foreach(drafts)(draft => Random.nextUUID.map(id => draft -> id))
                 result <- state.modify: current =>
-                  appendBatch(current, candidates, instant) match
+                  current.append(candidates, instant) match
                     case Left(error) => Left(error) -> current
                     case Right(updated) =>
                       Right(updated.entries.drop(current.entries.size)) -> updated
                 committed <- ZIO.fromEither(result)
               yield committed
-
-  private def appendBatch(
-      initial: State,
-      candidates: Chunk[(TranscriptDraft, UUID)],
-      instant: Instant
-  ): Either[AgentError, State] =
-    candidates.foldLeft[Either[AgentError, State]](Right(initial)):
-      case (result, (draft, id)) =>
-        result.flatMap: state =>
-          if draft.key.exists(state.keys.contains) then Right(state)
-          else if state.ids.contains(id) then
-            Left(AgentError.MemoryStorageError("Transcript entry identity collision"))
-          else
-            val entry = TranscriptEntry(
-              id,
-              state.entries.lastOption.map(_.id),
-              instant,
-              draft.key,
-              draft.payload
-            )
-            Right(State(state.entries :+ entry, state.keys ++ draft.key, state.ids + id))

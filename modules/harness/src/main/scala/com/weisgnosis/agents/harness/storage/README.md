@@ -1,0 +1,9 @@
+# Internal workspace ownership
+
+WorkspaceLease shares cooperative ownership machinery between local memory and transcript backends. WorkspaceOwner.Memory selects .daily-writer.lease; Transcript selects .transcript-writer.lease. These fixed names describe independent payload domains, not competing locks for the same files. Callers validate the canonical host-controlled directory before acquisition.
+
+CREATE_NEW publishes an opaque token; competitors never delete or overwrite ownership. Waiting remains interruptible; admitted work is masked and finishes before ordinary pending cancellation is delivered. Explicit caller masking is retained. Closing waits for admitted work, marks the handle closed, verifies its token, then deletes the lease. Cleanup verification failures remain observable finalizer defects. Slow filesystem work can delay shutdown; stale leases are never removed automatically.
+
+This is internal cooperative infrastructure, not a hostile-filesystem sandbox, file-object identity guarantee, distributed lock, or crash-durability mechanism. DailyMemoryLease remains a compatibility alias/adapter with the original memory filename. Exact reviewed identities and verification belong to the [transcript persistence contract](../transcript/README.md).
+
+- [x] `review_fp` and `review_harness` approved the final 14-file local transcript increment against `e4dfc67` on 2026-09-29. Twenty-seven new tests reproduced and fixed Unicode surrogate splitting; full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 258 harness tests with zero compiler warnings. No findings remain within shared cooperative ownership, strict complete-log validation, atomic batch replacement, reopen/deduplication, and Unicode-safe previews. Remote segments, Java layout/wire equivalence, hostile mutation, fsync/power-loss durability, and automatic turn scheduling remain excluded.

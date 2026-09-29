@@ -87,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory storage, transcript persistence/scheduling, durable checkpoint storage, subagents, plan-mode enforcement, and MCP are not implemented. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, subagents, plan-mode enforcement, and MCP are not implemented. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -116,5 +116,6 @@ ToolResultProcessor applies to completed local observations and matched provider
 | TranscriptEntry | UUID/parent/recordedAt, structural stable key, typed payload and preview variants | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/TranscriptEntry.scala) |
 | TranscriptStore | per-transcript atomic append; inMemory provides Ref-backed authority | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/TranscriptStore.scala) |
 | SessionTranscriptWriter | pure projection, appendMessages returns committed observations, offload adapts the compactor hook | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) |
+| LocalTranscriptStore | open(existingDirectory, HostControlled), scoped exclusive ownership, strict full-chain validation, atomic whole-log append | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptStore.scala) |
 
-These codecs are observation DTO codecs; strict persisted-state decoding and local/remote backend APIs remain pending.
+These codecs are observation DTO codecs; LocalTranscriptStore uses a separate strict versioned disk envelope; remote backend APIs remain pending.
