@@ -24,7 +24,7 @@ The store writes a scoped temporary file and publishes completed content through
 
 `PermissionRequests` registers a Promise before publishing an interactive request. Duplicate IDs fail, confirmations complete once, and interruption removes the pending entry. `PendingApproval` and `ConfirmResult` are serializable values for durable hosts. `PermissionEngine.resume` returns the updated policy and an approved or denied call, applying modified input without another model request. Deny rules are checked again against modified input.
 
-Hosts must persist pending state before ending an activity, validate request identity, rerun tool-specific safety checks on modified input, and commit execution checkpoints according to their workflow's idempotency contract. This component provides decisions and suspension data; it does not install middleware into ReActAgent or supply a durable database.
+InteractivePermissionAuthorizer installs policy through the core ToolAuthorizer port. It registers before publication, reruns both PermissionGate callbacks on approved name/input, closes their scopes, and atomically merges confirmed rules against the latest policy. Deny remains absolute. Confirmed rules are independent of subsequent execution; core may deny signed/invalid input after rule installation. Hosts authenticate confirmations and supply durable checkpoints/idempotency; this adapter waits within the active invocation and provides no durable database.
 
 ## Core API hardening
 
@@ -40,4 +40,4 @@ Structured completion resolves one payload AST for decoding and metadata, prepar
 
 Run `sbt scalafmtAll scalafmtSbt`, then `sbt verify`. The Scala suites use local scripted clients, ZIO Test services, and temporary filesystem resources. They do not exercise a live provider endpoint. The configured formatter plugin is required for the repository verification commands.
 
-The current implementation passed 481 core and 45 harness tests, with no failures or compiler warnings. The cleanup-failure regression intentionally emits a runtime warning. Current review acceptance is maintained in the [core README](../../modules/core/README.md) and [harness README](../../modules/harness/README.md), with package-level scope details. Resolved review reports are removed from the active tree; their history remains in Git. Remaining provider/event integration, exhaustive upstream parity, and host integration remain tracked work.
+The current implementation passed 481 core and 61 harness tests, with no failures or compiler warnings. The cleanup-failure regression intentionally emits a runtime warning. Current review acceptance is maintained in the [core README](../../modules/core/README.md) and [harness README](../../modules/harness/README.md), with package-level scope details. Resolved review reports are removed from the active tree; their history remains in Git. Remaining provider/event integration, exhaustive upstream parity, and host integration remain tracked work.

@@ -61,7 +61,7 @@ The declaration is serialized with LlmConfig but excluded from the HTTP request 
 - [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.
 - [ ] Complete general model-call middleware and remaining legacy hook behavior.
 - [ ] Complete provider continuation, incremental/structured local tool results, full event ordering, and event adapters.
-- [ ] Integrate harness permission policies, phase stopping, durable pending work, and harness middleware.
+- [ ] Integrate phase stopping, durable pending work, and harness middleware.
 
 The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes verified contracts from remaining scenarios. General JSON Schema validation and exhaustive provider compatibility are not claimed.
 
@@ -115,6 +115,6 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 ## Authorization before local execution
 
-The optional ToolAuthorizer runs after assistant persistence and before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs carrying either provider reasoning metadata key are denied. Failures and defects fail closed to Denied observations, while cancellation preserves completed work and reconciles unresolved calls. Matched inline results bypass the gate. See the [tool contracts](../tool/README.md) for argument provenance, scope ownership, failure semantics, migration, and exact current identities. The default allows calls; harness policy and interactive/durable approval adapters remain pending.
+The optional ToolAuthorizer runs after assistant persistence and before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs carrying either provider reasoning metadata key are denied. Failures and defects fail closed to Denied observations, while cancellation preserves completed work and reconciles unresolved calls. Matched inline results bypass the gate. See the [tool contracts](../tool/README.md) for argument provenance, scope ownership, failure semantics, migration, and exact current identities. The default allows calls; the harness InteractivePermissionAuthorizer provides opt-in policy/interactive confirmation. Durable approval resumption remains pending.
 
 - [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 45 harness tests, including fifteen added authorization tests. Interactive and durable policy adapters are excluded from this acceptance. See the [authorization table](../tool/README.md) for exact identities.

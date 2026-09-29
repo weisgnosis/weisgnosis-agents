@@ -441,7 +441,7 @@ Pinned source: agentscope-harness/src/test/java/io/agentscope/harness/agent/midd
 
 - [x] Verify three processor tests, seven core lifecycle scenarios, and five harness integrations (including actual disk persistence).
 - [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
-- [ ] Integrate preexisting history and inline provider outputs; compaction and harness permission policy installation remain separate work.
+- [ ] Integrate preexisting history and inline provider outputs; compaction remains separate work.
 
 Fifteen added tests are local evidence for these mappings and hardening boundaries, not fifteen upstream methods. Remaining harness domains still require exhaustive method-level audit.
 
@@ -450,6 +450,19 @@ Fifteen added tests are local evidence for these mappings and hardening boundari
 The core ToolAuthorizer port provides scoped approval/denial before local dispatch. ToolAuthorizerSpec and ReActAgentToolAuthorizerSpec cover fifteen local tests. These establish runtime argument provenance, denial observations/events, interruption, signed-input protection, and occurrence pairing; they do not establish the pinned two-call confirmation protocol.
 
 - [x] Independently review the core authorization port and fifteen local tests; verify 481 core / 45 harness tests. No two-call confirmation method is marked covered by this narrower scope.
-- [ ] Map ReActAgentHitlTest.pendingToolRecoveryPreservesModifiedArgumentsFromConfirmation after interactive/durable confirmation integration; direct core argument rewriting is supporting evidence only.
-- [ ] Map deniedConfirmResultWithCustomReasonWritesReasonToContext, deniedConfirmResultWithoutReasonKeepsDefaultText, and deniedConfirmResultOnResumeEmitsToolResultEventTriple after confirmation handling; direct core denial events are supporting evidence only.
+- [ ] Map ReActAgentHitlTest.pendingToolRecoveryPreservesModifiedArgumentsFromConfirmation after durable confirmation integration; interactive argument rewriting is shared behavioral evidence only.
+- [ ] Map deniedConfirmResultWithCustomReasonWritesReasonToContext, deniedConfirmResultWithoutReasonKeepsDefaultText, and deniedConfirmResultOnResumeEmitsToolResultEventTriple after durable confirmation handling; interactive denial events are shared behavioral evidence only.
 - [ ] Implement and map durable pause/resume, partial confirmations, persisted reply-ID recovery, and mixed-batch permission event ordering. Core approval scopes remain within one active invocation.
+
+## Interactive permission adaptation
+
+The opt-in harness adapter adds sixteen tests and runs within one active invocation. Verified shared behavior is narrower than the complete ReActAgentHitlTest methods at pinned upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304`:
+
+- [x] Execute modified confirmed arguments and persist their provenance before the tool runs; InteractivePermissionIntegrationSpec also verifies one initial model request and one post-tool continuation.
+- [x] Preserve custom denial reasons and emit exact correlated Start/Delta/End ordering with matching identity/text/state; no denied tool executes.
+- [x] Retain the Scala default decline text, "Tool execution declined". Upstream expects "Permission denied by user"; this is an explicit text difference.
+- [x] Recheck both gates against modified arguments and latest policy, merge parallel rule additions, isolate repeated call IDs, and clean cancelled waiters.
+- [ ] Complete pendingToolRecoveryPreservesModifiedArgumentsFromConfirmation, deniedConfirmResultWithCustomReasonWritesReasonToContext, deniedConfirmResultWithoutReasonKeepsDefaultText, and deniedConfirmResultOnResumeEmitsToolResultEventTriple: their two-call pause/resume protocol is not implemented by this active-invocation adapter.
+- [ ] Complete durable partial confirmations, persisted reply-ID recovery, automatic denied-batch ordering before approval notices, authenticated transport, and exhaustive permission mode/rule parity.
+
+The adapter publishes a narrow ToolAuthorizationRequest callback, not upstream approval event envelopes. Confirmed policy updates are independent of later core validation/execution; tests explicitly retain rules after a signed-input denial. External gate changes and post-decision revocation are not transactional guarantees.

@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: connect harness permission policy and interactive requests to the core authorization port, then integrate compaction, then extend eviction to supplied history/inline results and expand remaining lifecycle/hook parity against the pinned upstream revision. Local-result eviction is now installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: integrate pair-safe compaction into canonical runtime history with cancellation-safe progress tracking, then extend eviction to supplied history/inline results and expand remaining lifecycle/hook parity against the pinned upstream revision. Local-result eviction is now installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -60,7 +60,7 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Verify 40 harness tests at revision `fb80428`.
 - [ ] Complete exhaustive harness upstream scenario mapping and close its gaps.
 - [x] Integrate immediate local-result eviction through a scoped processor; independently review fifteen new tests, map five of seven eviction methods with explicit adaptations, and verify 466 core / 45 harness tests.
-- [ ] Connect harness permission policy and interactive requests to ToolAuthorizer, including modified-input gate rechecks and concurrent policy updates.
+- [x] Connect harness permission policy and interactive requests to ToolAuthorizer, including fresh dual-gate checks, atomic rule updates, and cancellation cleanup; verify sixteen added tests and 481 core / 61 harness tests.
 - [ ] Integrate compaction into canonical agent state before model invocation.
 - [ ] Extend eviction to supplied history, separate model-input views, and inline provider results; close the two remaining eviction method gaps.
 - [ ] Implement MemoryFlushManager and MemoryConsolidator with the specified writer isolation and budgets.
@@ -106,7 +106,7 @@ Package indexes enumerate actual source and spec files. Planned package document
 | INV-4: Safe compaction cutoff | Compactor tests cover pairs, repeated call IDs, orphan results and protected tails |
 | INV-5: Summary deduplication | Compactor tests cover repeated summaries and retained-user provenance |
 | INV-6: Tool eviction | Standalone and runtime suites cover 80k/2k limits, persistence fallback, raw-result retention on cancellation, parallel slot isolation, and actual disk storage |
-| INV-7: Permission priority | Gate tests cover Deny > Ask > Passthrough > Allow |
+| INV-7: Permission priority | Gate tests and installed interactive adapter cover Deny > Ask > Passthrough > Allow, fresh modified-input checks, and latest-policy denial |
 | INV-8: Subagent supervision | Planned |
 | INV-9: Plan mode hardening | Planned |
 | INV-10: Path safety | Canonical paths and parent traversal are tested; privileged symlink creation was unavailable on this host. The portable store requires host-controlled ancestors |

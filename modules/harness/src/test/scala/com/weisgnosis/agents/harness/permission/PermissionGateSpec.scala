@@ -21,6 +21,22 @@ import zio.test.*
 
 object PermissionGateSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment, Any] = suite("PermissionGateSpec")(
+    test("effectful gates are lazy and abstention makes no policy decision") {
+      for
+        calls <- Ref.make(0)
+        gate   = PermissionGate((_, _) => calls.update(_ + 1).as(Some(PermissionBehavior.Ask)))
+        effect = gate.evaluate("tool", Json.Obj())
+        before    <- calls.get
+        decision  <- ZIO.scoped(effect)
+        after     <- calls.get
+        abstained <- ZIO.scoped(PermissionGate.abstain.evaluate("tool", Json.Obj()))
+      yield assertTrue(
+        before == 0,
+        after == 1,
+        decision.contains(PermissionBehavior.Ask),
+        abstained.isEmpty
+      )
+    },
     test("all independent gate combinations follow Deny > Ask > Passthrough > Allow") {
       val order = Chunk(
         PermissionBehavior.Allow,

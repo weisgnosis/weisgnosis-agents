@@ -63,7 +63,7 @@ Denials never execute the tool. Typed PermissionDenied failures retain their rea
 
 Interruption reconciliation first consumes eligible inline observations, then matches remaining locally dispatched occurrences against Role.Tool results by ID and optional name. These pools cannot consume each other's observations. The internal Msg.mapToolUseAt helper updates by tool ordinal, preserving role/content compatibility; duplicate IDs and identical calls do not collapse into one rewrite.
 
-Appending the optional make argument preserves ordinary calls; positional Builder matches must include the new authorizer field. This is a core extension point, not an installed PermissionEngine adapter. Interactive confirmation publication/resolution, dynamic policy merging, durable suspension/resumption, and upstream permission event ordering remain separate pending work.
+Appending the optional make argument preserves ordinary calls; positional Builder matches must include the new authorizer field. This core extension point is implemented by the opt-in harness InteractivePermissionAuthorizer for policy checks, interactive confirmation, and atomic policy updates. Durable suspension/resumption and full upstream permission event ordering remain pending.
 
 - [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 45 harness tests, including fifteen added authorization tests. Interactive and durable policy adapters are excluded from this acceptance.
 
@@ -78,3 +78,5 @@ Final formatted five-file scope against `a34201f`:
 | [Msg.scala](../model/Msg.scala) | 0f16756e28e6d24a24658e69769058d91979855f |
 | [ToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | 6e9b21dd13f4c23281f0672033bcc465ee8d3664 |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | aeb56e34bb6a7c7f2fce1c956a21e79d6e4ac6d9 |
+
+The optional [interactive harness adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md) owns policy lifetime and approval callbacks; the core remains independent of harness dependencies.
