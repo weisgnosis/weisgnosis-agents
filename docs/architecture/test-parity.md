@@ -373,7 +373,8 @@ Inline event metadata intentionally preserves the complete result map; pinned up
 - [ ] Complete the method-level inventory of provider extension parser suites and transport suites; these new hardening tests are not claimed as sixteen upstream methods.
 - [x] Implement indexed text/thinking assembly with signatures, typed finish validation, strict completed object arguments, preserved raw content, and interrupted sanitization; thirteen accumulator regressions cover this scope.
 - [x] Validate full JSON documents and duplicate keys through ProtocolJson, with five paired tests and frame/tool suffix regressions.
-- [ ] Implement request codecs, provider signature/tool-metadata decoding, and scoped HTTP integration.
+- [x] Implement text/function request serialization with sixteen local regression tests, including paired histories, explicit reasoning replay, and unsupported-content rejection. These tests are not claimed as sixteen mapped upstream methods.
+- [ ] Map the full upstream formatter surface, implement remaining request extensions and provider signature/tool-metadata decoding, and add scoped HTTP integration.
 
 The pinned extension OpenAIStreamingToolCallTest and OpenAIResponseParserTest were inspected for fragment, usage, and error semantics. They are outside the earlier core-only inventory, and their full applicability mapping remains open. The current adapter intentionally supports indexed function-call deltas and fails unsupported legacy calls instead of silently dropping them.
 

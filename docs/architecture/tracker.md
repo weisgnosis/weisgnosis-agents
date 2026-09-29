@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement the live HTTP protocol adapter and transport against the pinned upstream revision, starting with request/response codecs and deterministic streaming integration tests. Capability and hook scenarios remain explicitly unchecked in the parity task list.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement the live HTTP protocol adapter and transport against the pinned upstream revision, using the validated request/response codecs and adding deterministic streaming integration tests. Capability and hook scenarios remain explicitly unchecked in the parity task list.
 
 ### Foundation and current core
 
@@ -38,7 +38,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [ ] Close remaining structured-output and lifecycle parity gaps; see the [parity task list](test-parity.md).
 - [x] Replace silent completion-delta parsing with typed errors, strict indexes/counts, required choices, duplicate-field rejection, and provider-error handling; verify 326 core / 40 harness tests.
 - [x] Require successful stream completion and complete unambiguous tool JSON; preserve raw arguments, indexed content/signatures, and usage snapshots; verify 345 core / 40 harness tests.
-- [ ] Implement request serialization, provider signature/tool metadata decoding, live HTTP transport, and protocol integration tests.
+- [x] Serialize validated text/function requests, enforce complete history pairing, and independently review sixteen regressions; verify 361 core / 40 harness tests.
+- [ ] Implement provider signature/tool metadata decoding, live HTTP transport, and protocol integration tests.
 - [ ] Validate platform-specific symlink/junction behavior.
 
 ### Phase 4: harness

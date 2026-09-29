@@ -35,6 +35,8 @@ Registration, withTool, and merging return Either[AgentError, Toolkit]. Duplicat
 
 [LlmClient.streamTurn](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/LlmClient.scala) receives history, definitions, LlmConfig, and event hub, returning ZIO[Scope, AgentError, TurnOutput]. Current clients are scripted. Transports must register resources in the supplied request scope.
 
+[ChatCompletionsRequest.encode](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequest.scala) is a pure Either-based text/function body encoder. It requires complete local call/result pairs and rejects unsupported media, server/signed calls, suspended/running results, malformed configuration, and ambiguous JSON. ReasoningReplay explicitly selects omission or unsigned latest-assistant replay. Credentials and endpoint are excluded from the body. See the [client contracts](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md) for supported fields and limits.
+
 [ReActAgent](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) construction through make/builder returns IO[AgentError, ReActAgent]. A client is mandatory; invalid iteration, timeout, and retry bounds fail.
 
 - run accepts Msg or Chunk[Msg] and produces AgentResult.
@@ -67,7 +69,7 @@ Memory services, middleware, durable checkpoint storage, subagents, plan-mode en
 
 ## Completion delta decoding
 
-ReasoningModelAdapter.parseChunk returns Either[AgentError, Chunk[LlmChunk]]. Normal frames require explicit choices and exactly choice zero, or empty choices with usage. Tool indexes and token counts use strict nonnegative JSON integers; duplicate object keys, malformed recognized fields, unsupported roles/refusals/tool kinds, and legacy function_call fail explicitly. Provider error payloads become ModelError(200, message). Unknown extension payloads are not interpreted. Request serialization and actual HTTP status/resource handling remain pending; see the client README for migration and acceptance.
+ReasoningModelAdapter.parseChunk returns Either[AgentError, Chunk[LlmChunk]]. Normal frames require explicit choices and exactly choice zero, or empty choices with usage. Tool indexes and token counts use strict nonnegative JSON integers; duplicate object keys, malformed recognized fields, unsupported roles/refusals/tool kinds, and legacy function_call fail explicitly. Provider error payloads become ModelError(200, message). Unknown extension payloads are not interpreted. Additional request extensions and actual HTTP status/resource handling remain pending; see the client README for migration and acceptance.
 
 ## Stream finalization
 

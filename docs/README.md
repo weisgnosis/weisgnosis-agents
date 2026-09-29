@@ -19,14 +19,12 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 345 core and 40 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 361 core and 40 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive model capability/hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while retaining actual typed model-stream correlation and richer source attribution as pending work.
 
 The [tracker](architecture/tracker.md) and [parity task list](architecture/test-parity.md) keep incomplete work unchecked. Checked applicability decisions are labeled as exclusions, not passed tests. Current contracts replace closed review journals; Git preserves prior findings and acceptance records.
 
-- [x] `review_docs` approved the eight-file deprecated-envelope classification against `e110321` on 2026-09-29: ten explicit exclusions, retained compatibility limitations, pending correlation/source requirements, English, links, and checkbox wording. No unresolved findings; no executable changes were made.
+Prior independent documentation acceptance through `73f66d1` remains recorded in Git. The current client README contains strict JSON/delta/assembly contracts, the validated text/function request surface, exact reviewed source identities, and remaining transport/provider limits.
 
-- [x] `review_docs` approved strict-delta documentation against `95a838f` on 2026-09-29: three source identities, typed API migration, boundary contracts, fifteen regressions, 326+40 verification, English, and links. That strict-delta acceptance is retained at `10019c2`; current cross-frame/complete-document contracts are recorded in the client README. HTTP integration, input bounds, and exhaustive extension parity remain pending.
-
-- [x] `review_docs` approved the final accumulator/JSON-boundary documentation against `10019c2` on 2026-09-29: eight identities, typed API migration, normal/interrupted contracts, signed blocks and snapshots, nineteen added regressions, 345+40 verification, English, and links. Provider decoding, transport, bounds, and exhaustive mappings remain pending.
+- [x] `review_docs` approved the request-codec documentation against `73f66d1` on 2026-09-29: exact source identities, sixteen-test scope, pairing/state/reasoning contracts, 361+40 verification, English, and local links. No findings remain in this scope.

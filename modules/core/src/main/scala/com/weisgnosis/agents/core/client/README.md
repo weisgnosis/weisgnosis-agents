@@ -2,6 +2,7 @@
 
 LlmClient.streamTurn requires Scope and returns TurnOutput. Implementations must acquire request resources in that scope. The package provides scripted clients, LlmConfig, SSE framing, strict completion-delta decoding, reasoning-history adaptation, and StreamAccumulator. A live HTTP client remains pending.
 
+- [ChatCompletionsRequest](ChatCompletionsRequest.scala)
 - [LlmChunk](LlmChunk.scala)
 - [LlmClient](LlmClient.scala)
 - [ProtocolJson](ProtocolJson.scala)
@@ -32,12 +33,23 @@ Text and thinking use separate index namespaces and retain first-appearance bloc
 
 ProtocolJson is a package-private shared boundary. zio-json's ordinary decoder permits unconsumed suffixes, so a pure tail-recursive boundary scanner checks the full document, JSON whitespace, container/string escapes, and complete primitive tokens. AST parsing validates grammar; a second tail-recursive traversal rejects duplicate fields. This prevents both response frames and tool arguments from hiding trailing garbage.
 
+## Request serialization
+
+ChatCompletionsRequest.encode returns Either[AgentError, Json.Obj] without effects. It serializes ordered text messages, function definitions, canonical tool argument ASTs, streaming usage options, and an optional native response_format object. Credentials, endpoint, runtime identity, timestamps, usage, and unrelated message metadata are not request-body fields.
+
+History must contain complete local call/result pairs. Orphan, duplicate, unknown, and unresolved results fail before serialization; another conversation message cannot split pending calls from their observations. Grouped or separately delivered parallel results may arrive in any order, and completed later turns may reuse an ID. A grouped Tool message becomes individual protocol messages. Error, Interrupted, and Denied outputs carry explicit labels; Running and suspended observations fail.
+
+ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. Signed/detailed thinking cannot be replayed by this codec. Media, provider-hosted server calls/results, signed calls, and non-text tool output fail explicitly. This is the text/function baseline, not a general provider formatter.
+
+Validation covers nonblank models, finite temperature in [0, 2], positive optional token limits, protocol names, unique definitions/call IDs, object schemas/arguments/response formats, and duplicate JSON fields. ToolUse.input is authoritative; stale raw content is not sent. Forwarding a schema object does not validate arbitrary JSON Schema semantics. Endpoint, authentication headers, HTTP status handling, and request resource lifetime belong to the pending transport.
+
 ## Current acceptance
 
 - [x] Message-boundary migration accepted at `a701612`; strict single-frame parsing accepted at `10019c2`.
 - [x] Thirteen accumulator-completion regressions, five shared-JSON tests, and an additional frame-suffix regression pass alongside migrated assembly/thinking-retry tests.
-- [x] Full formatting, fatal-warning compilation, and verification passed 345 core and 40 harness tests.
-- [ ] Implement request serialization, live scoped HTTP transport, [DONE] termination, and deterministic integration tests.
+- [x] Full formatting, fatal-warning compilation, and verification passed 361 core and 40 harness tests.
+- [x] Implement pure text/function request serialization with sixteen paired regression tests.
+- [ ] Implement live scoped HTTP transport, [DONE] termination, and deterministic integration tests.
 - [ ] Complete provider signature/tool-metadata decoding, inline server results, richer reasoning details, input-size bounds, event publication, and exhaustive upstream parser/transport mapping.
 
 See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) and [tracker](../../../../../../../../../../docs/architecture/tracker.md). Acceptance is limited to named files and reviewed contracts.
@@ -54,3 +66,10 @@ See the [parity audit](../../../../../../../../../../docs/architecture/test-pari
 | [StreamAccumulatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorSpec.scala) | 809ab37875025c99f3b6c870324b3b81c1a5a204 |
 | [StreamAccumulatorCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorCompletionSpec.scala) | 9e63fc534339d93594fe1c3f31c55e23b36b360c |
 | [ReActAgentThinkingRetrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentThinkingRetrySpec.scala) | cb149ca6c95027ace970b5a6fad5df1586b9c99e |
+
+- [x] `review_fp` and `review_harness` approved the final request encoder and sixteen tests against `73f66d1` on 2026-09-29 after correcting pairing validation and negative fixtures. No findings remain within the text/function request scope; HTTP integration and exhaustive formatter parity remain pending.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | cbe28128f70333a2f7594cf4dbf70478c5c3a6f9 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | 955e9811d921883838a5b71362c7c9a0488155d9 |

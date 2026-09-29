@@ -21,7 +21,7 @@ Cooperative interruption returns Interrupted AgentRunState. Fiber cancellation s
 
 ## 3. Streaming
 
-StreamAccumulator returns typed results, groups tools by streamIndex, preserves indexed text/thinking and signatures, and requires compatible finish markers plus complete object arguments. Only interrupted output sanitizes invalid input and raw content to {}. Usage retains the latest snapshot, including usage after finish. ReasoningModelAdapter returns typed errors for malformed protocol deltas, requires explicit stream indexes, rejects merged alternatives, and preserves provider errors; SseParser handles framing. LlmClient is a port, not a live HTTP transport.
+StreamAccumulator returns typed results, groups tools by streamIndex, preserves indexed text/thinking and signatures, and requires compatible finish markers plus complete object arguments. Only interrupted output sanitizes invalid input and raw content to {}. Usage retains the latest snapshot, including usage after finish. ReasoningModelAdapter returns typed errors for malformed protocol deltas, requires explicit stream indexes, rejects merged alternatives, and preserves provider errors; SseParser handles framing. ChatCompletionsRequest supplies a pure validated text/function request body with complete call/result pairing and explicit reasoning replay. Unsupported provider content fails rather than disappearing. LlmClient is a port, not a live HTTP transport.
 
 AgentEvent defines 39 variants; streamEvents delivers those emitted by available components and propagates model failures. Closing the stream cancels its scoped producer.
 
