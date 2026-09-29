@@ -20,7 +20,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 555 core and 451 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 555 core and 461 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -102,3 +102,9 @@ TranscriptRetentionBatch now runs explicit host-selected capabilities in order u
 MemoryConfig now carries typed budgets, default/custom prompt selection, independent trigger policies and daily/transcript retention. Component factories consume their relevant values while hosts retain explicit gate/queue/model ownership. A fixed two-position prompt template avoids runtime format parsing, and actual token enforcement remains authoritative. See the [configuration contract](src/main/scala/com/weisgnosis/agents/harness/memory/README.md#immutable-memory-configuration).
 
 - [x] `review_fp` and `review_harness` approved the final ten-file memory-configuration increment against `005bacf` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 451 harness tests, including 17 new cases, with zero compiler warnings. No findings remain within immutable policy values, strict budgets, total prompt rendering, configuration factories and the six explicit upstream method adaptations. Java builder/null/printf compatibility, model selection and automatic gate/queue installation are excluded.
+
+## Static plan-mode foundation
+
+PlanShellInspection accepts a narrow positive POSIX grammar and returns immutable program/argv values without executing commands. It rejects shell composition and unsupported programs/options. This does not authorize paths or provide runtime plan enforcement. See the [plan contract and review evidence](src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
+
+- [x] `review_fp` and `review_harness` approved the final four-file static-shell increment against `2d4094b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 461 harness tests, including ten new cases, with zero compiler warnings. No findings remain within bounded positive syntax inspection and immutable argv results. Runtime plan enforcement, process execution, path authorization and resource isolation are excluded.

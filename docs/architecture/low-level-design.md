@@ -181,3 +181,7 @@ MemoryMaintenanceCoordinator.run prepares transcript timing, runs MemoryMaintena
 MemoryTokenBudget.fromInt validates 1..4000; its codec accepts integral JSON numbers only. ConsolidationPrompt(beforeTokens, betweenBudgets, afterCharacters).render(budget) inserts budget.value and budget.approximateCharacters. MemoryConfig resolves optional prompts and composes existing typed policies. MemoryFlushManager.fromConfig, MemoryConsolidator.fromConfig and MemoryMaintenance.fromConfig preserve prior runtime ownership and validation. Legacy Int make arguments delegate to the same budget authority; optional template arguments are appended with None defaults.
 
 See the [current configuration identity table](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#current-configuration-identities). Configuration does not install schedulers or gates and does not reproduce Java wire/model-registry APIs.
+
+## Static command inspection APIs
+
+PlanShellInspection.inspect(String) returns Either[ShellRejection, PosixReadCommand]. The result exposes PosixReadProgram, arguments and argv; construction is private to the plan package and no command codec bypasses validation. See the [exact grammar and identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md). No command execution, filesystem authorization or runtime plan gate is provided by this API.

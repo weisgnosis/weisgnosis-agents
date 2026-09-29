@@ -68,7 +68,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 - [x] Core lifecycle/path fixes and harness compactor/store fixes at `fb80428` received independent final approval after corrections and cross-review.
 - [x] Structured-output preservation and interruption fixes received final independent approval; accepted revisions and current contracts are in the core agent README.
-- [x] Current verification: 1006 tests passed, zero compiler warnings.
+- [x] Current verification: 1016 tests passed, zero compiler warnings.
 - [ ] Complete the remaining work in the [progress tracker](docs/architecture/tracker.md).
 
 The [core README](modules/core/README.md) and [harness README](modules/harness/README.md) link the exact accepted scopes. Closed review reports live in Git history; current acceptance is maintained in these READMEs.
@@ -78,3 +78,5 @@ Local execution supports an optional scoped ToolAuthorizer with runtime-owned ca
 Explicit ordered transcript retention now integrates with daily maintenance under one owned background job. See the [harness contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance) for selection, partial progress and review evidence.
 
 Immutable memory configuration now carries validated budgets, literal custom prompt templates and independent retention/trigger policies. The [configuration contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#immutable-memory-configuration) records runtime wiring, review evidence and the six newly completed upstream method adaptations.
+
+Conservative static POSIX command inspection is now available as a [plan-mode foundation](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md). Runtime enforcement remains the next integration task.

@@ -20,3 +20,5 @@ ChatCompletionsClient now connects scoped HTTP completion to ReAct. Runtime-assi
 Shared JSON validation now lives in core.json, independent of client/model layering. Structured text, metadata, captured payloads, and synthetic wrappers reject trailing data or ambiguous fields before finalized publication. Real HTTP structured scenarios are verified; typed capability selection is implemented; visible text transformation is implemented; typed post-reasoning policy is implemented; local-result eviction is integrated; compaction is installed through the validated history port; general model-call middleware and broader legacy hooks remain next steps.
 
 The core authorization boundary is implemented and reviewed; the interactive harness adapter now connects policy and approval requests. Durable confirmation/resumption stays explicitly pending in the tracker.
+
+Plan-mode contracts now distinguish reviewed static command syntax from pending runtime enforcement, plan-file lifecycle and child propagation. The parity inventory keeps all fourteen upstream methods individually visible.

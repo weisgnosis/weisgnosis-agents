@@ -106,3 +106,7 @@ An opt-in MemoryMaintenanceCoordinator now joins daily maintenance and an ordere
 ## Immutable memory policy
 
 MemoryConfig now combines defaults and overrides without a mutable builder. Validated budgets and a fixed-shape consolidation template preserve total rendering and runtime size enforcement. Hosts explicitly share gates, queues, repositories and extractors; configuration does not install ownership or select a model. All ten pinned MemoryConfigTest methods are classified through documented Scala adaptations.
+
+## Plan-mode foundation
+
+Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Runtime plan enforcement, safe plan storage, confirmed exit and child propagation remain pending. Host executors still own executable binding, canonical paths, resource limits and process scope.

@@ -93,7 +93,7 @@ Enforce MAX_SPAWN_DEPTH=3. In-turn children use scoped fibers and propagate canc
 
 ## 10. Planned plan-mode hardening
 
-Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. Plan exit requires explicit Ask approval. Shell inspection, policy propagation, and plan tools are not implemented.
+Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. Plan exit requires explicit Ask approval. A conservative static POSIX grammar is implemented below. Runtime admission, policy propagation and plan tools remain pending.
 
 ## Transcript observation authority
 
@@ -162,3 +162,7 @@ The additive MemoryMaintenanceScheduler overload uses the same owner token, Main
 MemoryConfig contains immutable values only. Option distinguishes default selection from literal custom text, and MemoryTokenBudget owns 1..4000 validation. ConsolidationPrompt inserts validated token and approximate character values between three literal segments without interpreting format directives. Existing default wording is preserved. fromConfig factories feed prompts/budgets into existing extraction and commit paths; maintenance also consumes daily retention.
 
 The host supplies config.triggers to its shared gate and config.transcriptRetention to its selected batch. A config copy cannot change an existing gate's windows. Extractor/model selection and queue lifetime remain explicit dependencies. The six configuration method adaptations exclude Java null/mutable-builder/printf behavior rather than introducing unsafe compatibility paths.
+
+## Static shell eligibility
+
+PlanShellInspection rejects unsupported characters before tokenization, then matches exact pwd/ls/cat/head/tail/wc argument shapes. Inputs are bounded to 4,096 characters; head/tail counts are 1..10,000. No quotes, substitutions, pipelines, redirects or interpreter wrappers are supported. An eligible value contains immutable argv, not executable authority. Runtime gates must still default-deny unknown tools and preserve independent permission decisions.

@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: audit pinned plan-mode contracts and tests, then implement typed execution restrictions and conservative shell inspection; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: integrate typed plan-mode admission with the existing permission gate and verify actual runtime denials and modified confirmation input; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -92,7 +92,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 
 ### Subsequent platform work
 
-- [ ] Implement plan-mode restrictions, shell inspection, and propagation.
+- [x] Inventory fourteen upstream plan-mode methods and implement conservative static shell inspection; independently review ten cases and verify 555 core / 461 harness tests.
+- [ ] Implement typed plan-mode admission, prompt/plan lifecycle, confirmed exit and child propagation.
 - [ ] Implement subagent depth bounds, scoped supervision, and timeout promotion.
 - [ ] Implement MCP protocol codecs, transports, discovery, and tool bridging.
 - [ ] Validate live end-to-end behavior, cancellation, resource release, and operational controls.
@@ -131,7 +132,7 @@ Package indexes enumerate actual source and spec files. Planned package document
 | INV-6: Tool eviction | Standalone and runtime suites cover 80k/2k limits, persistence fallback, raw-result retention on cancellation, parallel slot isolation, and actual disk storage |
 | INV-7: Permission priority | Gate tests and installed interactive adapter cover Deny > Ask > Passthrough > Allow, fresh modified-input checks, and latest-policy denial |
 | INV-8: Subagent supervision | Planned |
-| INV-9: Plan mode hardening | Planned |
+| INV-9: Plan mode hardening | Static positive shell grammar reviewed; runtime plan enforcement and propagation remain pending |
 | INV-10: Path safety | Canonical paths and parent traversal are tested; privileged symlink creation was unavailable on this host. The portable store requires host-controlled ancestors |
 | INV-11: Structured output | Schema hoisting, native/synthetic selection and capture tests; broader parity gaps remain |
 | INV-12: Indexed stream assembly | Interleaved deltas and interrupted partial JSON tests |

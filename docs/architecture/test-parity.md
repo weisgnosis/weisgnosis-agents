@@ -764,3 +764,24 @@ Selected capabilities intentionally replace broad directory scanning and swallow
 - [ ] Implement model-selection configuration if the host requires more than injected extractor selection; it is outside the ten pinned MemoryConfigTest methods.
 
 All four earlier trigger adaptations remain required. This closes the named configuration suite classification, not Java API/wire equivalence or exhaustive harness parity. Current source identities and review evidence are in the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#immutable-memory-configuration).
+
+## Plan-mode inventory
+
+Pinned upstream has fourteen methods across four suites. The initial static-shell increment supplies ten additional Scala safety cases; it does not complete the runtime methods below. Upstream additionalAllowed permits shell tools without command inspection and adds only a prompt reminder; that bypass is intentionally not adopted. Spawn/send names must not be admitted before child restrictions exist.
+
+- [ ] `PlanModeMiddlewareTest.deniesMutatingToolsButAllowsReadOnlyAndPlanTools`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeMiddlewareTest.passesThroughWhenPlanModeInactive`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeMiddlewareTest.systemPromptBannerOnlyWhenActive`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeMiddlewareTest.buildModeHintSurfacesPlanFilePath`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeMiddlewareTest.buildModeNoHintWhenNoPlanFile`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeMiddlewareTest.allowsSubagentToolsInPlanMode`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeMiddlewareTest.skillLoadToolIsReadOnlyAndPermittedInPlanMode`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeManagerTest.enterAndExitTogglePersistedFlag`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeManagerTest.customPlanDirNormalised`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeManagerTest.writePlanRecordsPathAndDoesNotThrow`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeSubagentPropagationTest.declaredSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `PlanModeSubagentPropagationTest.generalPurposeSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `AgentSpawnToolPlanModeTest.persistentSpawnReuse_reappliesParentPlanModeBeforeReturningOrInvoking`: corresponding runtime/state/storage/propagation integration remains pending.
+- [ ] `AgentSpawnToolPlanModeTest.agentSend_reappliesParentPlanModeBeforeInvokingExistingChild`: corresponding runtime/state/storage/propagation integration remains pending.
+
+The manager's persisted-flag test observes state fields, not save/reload durability. Plan directory slash normalization is not canonical path safety. Confirmed exit must retain the independent Ask decision. Propagation applies to reused children and does not automatically lift a child's restriction when the parent exits. Current static grammar acceptance is recorded in the [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
