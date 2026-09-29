@@ -530,7 +530,7 @@ Pinned `agent/memory/MemoryFlushManagerTest.java` has two test methods. [MemoryF
 
 The new implementation deliberately propagates typed context-read errors instead of substituting empty context. A single Clock instant and explicit zone replace independent date samples. Scala coalesced-user provenance is validated and expanded before summary exclusion. Storage is an injected daily-only capability; these method mappings establish extraction behavior, not filesystem parity. The three integration tests establish the actual compactor/runtime boundary.
 
-Upstream `MemoryFlushManagerOffloadTest.java` exercises a deprecated delegate to SessionTranscriptWriter. Its methods remain pending under transcript ownership; transcript persistence must retain summaries even though daily extraction excludes them:
+Upstream `MemoryFlushManagerOffloadTest.java` exercises a deprecated delegate to SessionTranscriptWriter. Its observation behaviors are now covered by SessionTranscriptWriterSpec; the original filesystem assertions remain pending under transcript ownership. Transcripts retain summaries even though daily extraction excludes them:
 
 - [ ] `offloadMessages_skipsAlreadyPersistedPrefix_andKeepsChain`: deduplicate overlapping stable IDs and preserve the parent chain.
 - [ ] `offloadMessages_nullAndBlankIds_stillAppendButDoNotBreakStableIds`: adapt absent IDs to Option, preserve anonymous appends and stable-ID deduplication.
@@ -561,3 +561,18 @@ Pinned `agent/memory/MemoryConsolidatorFilesystemTest.java` contains five tests.
 The 21 new Scala tests verify atomic content/progress, conflict preservation, deterministic inputs, configured-counter budget enforcement, writer capabilities, and failure/cancellation cleanup. They are not substitutes for these five persistence mappings.
 
 - [x] `review_fp` and `review_harness` approved the final nine-file persistence increment against `e4bd6b0` on 2026-09-29. No findings remain within cooperative local ownership, strict journal validation, recovery before API operations, conditional content/progress publication, and persisted generation tracking. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 209 harness tests, including 34 new persistence tests, with zero compiler warnings. Acceptance covers constructed interrupted-publication states on the tested Windows filesystem; live crash/fault-injection, fsync durability, remote storage, and hostile mutation are excluded.
+
+## Transcript observation applicability
+
+Pinned SessionTranscriptWriterTest has four methods; MemoryFlushManagerOffloadTest has the three delegates listed above. The first Scala increment provides process-local observation evidence, not JSONL persistence or Java wire equivalence.
+
+- [x] `deriveEntries_emitsStructuredToolUseAndResult_withPairing`: exact assistant text, call IDs/names/input, result text/state/types, and structural occurrence keys. UUID entry identity replaces concatenated Java IDs explicitly.
+- [x] `deriveEntries_placeholderForImageOnlyMessage`: an empty-text image placeholder; additional empty-message evidence is included.
+- [x] Implement observation-level behavior from `appendMessages_isIdempotent_andKeepsChain`: overlapping batches deduplicate and actual parent UUIDs form one continuous chain. Original local line-count persistence assertions remain below.
+- [x] Implement observation-level behavior from `offloadMessages_skipsAlreadyPersistedPrefix_andKeepsChain`: four exact stable keys and continuous parents after overlapping batches.
+- [x] Implement observation-level behavior from `offloadMessages_nullAndBlankIds_stillAppendButDoNotBreakStableIds`: Option/blank adaptation, six exact payloads, stable-key deduplication, and valid parent chain; no Java-null API.
+- [x] Implement observation-level behavior from `offloadMessages_persistsCompactionSummariesAndDedupesStableIds`: exact summary/user keys and texts are retained once.
+- [ ] Complete real local persistence/reopen assertions for the four append/offload methods above. In-memory entries do not establish JSONL path/wire/line compatibility.
+- [ ] `appendMessages_withTranscriptStore_writesImmutableSegments`: immutable storage segments remain unimplemented; no mirror, timing, or delivery claim is inferred.
+
+Additional Scala tests cover duplicates within a batch, repeated tool-call IDs, delimiter-safe structural keys, first-observation retention, isolated stores, recording-time laziness, complete collision rollback, concurrent overlapping batches, exact preview boundaries, non-text results, and observable storage failure/cancellation. The upstream writer assigns parents before filtering and synthesizes colliding same-ID tool keys; the store-owned transition avoids those defects. Upstream file/mirror/index failures can be swallowed; the Scala boundary preserves typed failure. Compactor offload is installed explicitly and does not imply complete turn-boundary recording.

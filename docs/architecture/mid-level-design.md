@@ -94,3 +94,7 @@ Enforce MAX_SPAWN_DEPTH=3. In-turn children use scoped fibers and propagate canc
 ## 10. Planned plan-mode hardening
 
 Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. Plan exit requires explicit Ask approval. Shell inspection, policy propagation, and plan tools are not implemented.
+
+## Transcript observation authority
+
+One TranscriptStore capability represents one transcript. The writer projects Msg values into drafts without assigning parent links. The in-memory backend allocates UUID/time candidates in ZIO, then atomically filters structural stable keys, links only accepted rows, and publishes the complete batch. UUID collisions reject the whole batch. Repeated stable keys retain the first payload; anonymous observations append on every call. recordedAt is sampled before commit and does not define order. Errors and interruption propagate, unlike upstream swallowed persistence errors. Install writer.offload as a compactor callback; this does not establish recording at every turn or physical persistence.

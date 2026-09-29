@@ -62,3 +62,7 @@ See [mid-level requirements](mid-level-design.md) and the [parity audit](test-pa
 All external effects belong in ZIO. Use total immutable transformations, typed errors, scoped resources, derived codecs where appropriate, explicit public types, and ADTs. Formatting, compilation, and tests are automated; semantic purity, English, security assumptions, and scenario parity require independent review.
 
 The build pins Scala 3.9.0, ZIO/ZIO Streams 2.1.26, zio-json 0.9.1, and zio-http 3.11.3. A dependency does not imply a corresponding transport implementation.
+
+## Transcript observations
+
+SessionTranscriptWriter records summaries, text/thinking and bounded tool observations through one transcript-bound store. TranscriptStore.inMemory owns atomic batch deduplication and parent linkage; stable keys preserve the first observation. The compactor offload callback is available, while local/remote persistence and complete turn-boundary installation remain pending. See the [transcript contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md).

@@ -108,3 +108,13 @@ ToolResultProcessor returns a payload of output blocks and metadata. Runtime app
 The library-internal json.JsonBoundary replaces client.ProtocolJson. Its decode operation requires one complete unique-key JSON document; validate checks AST fields directly. Msg structured extraction, agent preparation, synthetic wrapper decoding, and client boundaries share these contracts. Harness memory checkpoints and journals also reuse its syntax validation. Invalid authoritative metadata does not fall back to text, and duplicate wrapper fields fail before subtree selection. Native/synthetic HTTP integration is verified without claiming a general JSON Schema validator.
 
 ToolResultProcessor applies to completed local observations and matched provider inline results. Local observations own appended Tool-message positions; inline observations own assistant positions and result ordinals. Scope cleanup precedes processed payload commit and completion events. A bounded failed acting phase pairs unrecorded local calls with Error observations while preserving the original cause. Explicit worker ownership retains cancellation-finalizer defects; ordinary cancellation retains recovery semantics. See the [agent contracts](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+## Transcript declarations
+
+| Contract | Current behavior | Source |
+| --- | --- | --- |
+| TranscriptEntry | UUID/parent/recordedAt, structural stable key, typed payload and preview variants | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/TranscriptEntry.scala) |
+| TranscriptStore | per-transcript atomic append; inMemory provides Ref-backed authority | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/TranscriptStore.scala) |
+| SessionTranscriptWriter | pure projection, appendMessages returns committed observations, offload adapts the compactor hook | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) |
+
+These codecs are observation DTO codecs; strict persisted-state decoding and local/remote backend APIs remain pending.
