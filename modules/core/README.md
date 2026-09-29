@@ -20,7 +20,7 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 - [x] Revision `fb80428`: agent lifecycle and path traversal fixes explicitly approved by independent reviewer `review_harness` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
 - [x] Structured-output completion fixes based on `a58b0ca` approved by `review_fp` and `review_harness`; the agent package README records accepted revisions and current contracts.
-- [x] Repository verification: 497 core and 73 harness tests passed, with no compiler warnings.
+- [x] Repository verification: 510 core and 74 harness tests passed, with no compiler warnings.
 - [x] Strict model decoding, legacy usage compatibility, Base64 wire naming, and role validation approved by review_fp and review_harness; exact scope and source identities are recorded in the model READMEs.
 - [x] Correlated engine-attempt boundaries and private stream completion approved by review_fp and review_harness; the agent READMEs record accepted revisions, current contracts, and buffering assumptions.
 - [x] Consistent concrete/base event codecs and immutable tool-result event metadata reviewed independently; the event READMEs record exact scope and migration details.
@@ -61,3 +61,5 @@ Deprecated v1 coarse-event envelopes are explicitly excluded from core after ind
 - [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 45 harness tests, including fifteen added authorization tests. Interactive and durable policy adapters are excluded from this acceptance. See the [authorization table](src/main/scala/com/weisgnosis/agents/core/tool/README.md) for exact identities.
 
 - [x] `review_fp` and `review_harness` approved the final nine-file history-preparation increment against `3c6958f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 497 core and 73 harness tests, including twenty added tests. Acceptance covers structural rewrite validation and scoped compactor integration; semantic summary fidelity and exhaustive provider-format validation are excluded.
+
+- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope; supplied-history eviction and exhaustive upstream middleware parity remain pending. Exact identities and contract limits are recorded in the affected agent/tool/eviction READMEs.

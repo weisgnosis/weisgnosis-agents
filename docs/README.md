@@ -19,12 +19,12 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 497 core and 73 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 510 core and 74 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
 The [tracker](architecture/tracker.md) and [parity task list](architecture/test-parity.md) keep incomplete work unchecked. Checked applicability decisions are labeled as exclusions, not passed tests. Current contracts replace closed review journals; Git preserves prior findings and acceptance records.
 
-Prior documentation reviews are preserved in Git through `3c6958f`. Current package READMEs retain exact accepted implementation scopes and source identities.
+Prior documentation reviews are preserved in Git through `2b99226`. Current package READMEs retain exact accepted implementation scopes and source identities.
 
-- [x] `review_docs` approved the final history-preparation documentation against `3c6958f`: nine source identities, twenty added tests, scoped preparation/commit ordering, structural rewrite validation, attempt-local recovery, opt-in compactor integration, 497 core / 73 harness verification, English, and local links. Summary fidelity and exhaustive upstream compaction parity remain explicitly outside this acceptance. No findings remain in this scope.
+- [x] `review_docs` approved the final inline-processing documentation against `2b99226`: seven current source identities, fourteen added regressions, occurrence-specific inline updates, cleanup-defect preservation across cooperative/external/timeout cancellation, 510 core / 74 harness verification, English, and local links. Supplied-history eviction and exhaustive upstream middleware parity remain pending. No findings remain in this scope.

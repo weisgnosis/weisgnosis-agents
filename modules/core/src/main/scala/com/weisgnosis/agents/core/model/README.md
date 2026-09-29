@@ -71,7 +71,6 @@ Current main-source identities are listed below; the review scopes above disting
 | [GenerateReason.scala](GenerateReason.scala) | e4e6dd03a73941b19557f413be343fa4643dcf33 |
 | [JsonFields.scala](JsonFields.scala) | 92bba6f226762fa2324c3211310fad6bf1c879e2 |
 | [MediaSource.scala](MediaSource.scala) | 8047c1845b5ec41a22ae8c1200ce2e60964a26c6 |
-| [Msg.scala](Msg.scala) | 0f16756e28e6d24a24658e69769058d91979855f |
 | [Role.scala](Role.scala) | 1fd28896fe37d9b7da11ceb30c922b10b7f6cca6 |
 | [ToolCallState.scala](ToolCallState.scala) | d6f3636a99cff6c696e3617eef95c4bfd72d33b8 |
 | [ToolResultState.scala](ToolResultState.scala) | e51c81870d3a88e90d69629ca33a0fc20608f775 |
@@ -97,3 +96,9 @@ The internal mapToolUseAt operation updates one tool ordinal without changing me
 ToolHistory is private to the agents package hierarchy and supplies the common occurrence analysis for core rewrite validation and harness cutoff selection. It reports matched spans, pending calls, and unmatched results. Inline results can consume only provider calls from their own assistant message; local results consume one matching ID/name occurrence. Same-message spans cannot cross a message cutoff. It performs no effects or provider encoding checks.
 
 - [x] `review_fp` and `review_harness` approved the final nine-file history-preparation increment against `3c6958f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 497 core and 73 harness tests, including twenty added tests. Acceptance covers structural rewrite validation and scoped compactor integration; semantic summary fidelity and exhaustive provider-format validation are excluded. Exact identities are in the [agent table](../agent/README.md).
+
+The internal mapToolResultAt operation updates one result ordinal while preserving message identity, role, and unrelated blocks. Inline processing uses it to avoid overwriting identical same-ID observations; integration evidence belongs to the [agent scope](../agent/README.md).
+
+- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope; supplied-history eviction and exhaustive upstream middleware parity remain pending. Exact current identities are in the [agent table](../agent/README.md).
+
+The prior Msg.scala identity is preserved in `2b99226`; the current occurrence-update identity belongs to the agent table above.

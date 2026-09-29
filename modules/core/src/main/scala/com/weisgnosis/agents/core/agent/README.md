@@ -134,12 +134,11 @@ Appending the optional make argument preserves ordinary callers; positional Buil
 
 ## Current history-preparation identities
 
-Final formatted scope against `3c6958f`:
+Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded below:
 
 | File | Git blob |
 | --- | --- |
 | [HistoryPreparer.scala](HistoryPreparer.scala) | 951d91a47b761bba9a8e361492e25a702519344b |
-| [ReActAgent.scala](ReActAgent.scala) | 3d28a8f189ca1edfd967f4ba398b807291853ec0 |
 | [AgentError.scala](../error/AgentError.scala) | 0b47377b0091f7a32343796bec02584d505f2fa7 |
 | [ToolHistory.scala](../model/ToolHistory.scala) | d6e19ed655b9df7a46a9bcfc0835b14ac858ebfe |
 | [HistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/HistoryPreparerSpec.scala) | 3069b24fefb799f752b800e71a689f4370d02f6c |
@@ -147,3 +146,29 @@ Final formatted scope against `3c6958f`:
 | [ToolHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | 29ff87da90673afcaef220ab0ff5ec1593da508a |
 | [ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | 25d2843a2c2407773ae1871f1e168a595f14f617 |
 | [ConversationCompactorIntegrationSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorIntegrationSpec.scala) | caaf0660a6d54398e56fab046158c82758d6ea75 |
+
+## Inline processing and failed acting phases
+
+Matched inline provider observations now pass through the optional ToolResultProcessor after the raw assistant message is persisted. Processing owns an interruptible scope; cleanup finishes before the exact assistant/result occurrence is rewritten and Start/ordered text-data deltas/End are published. Duplicate IDs and identical result values retain independent ordinals. Processor payloads preserve runtime-owned identity, execution state, and control metadata. Typed failures retain raw content; partial processing cancellation retains already committed siblings and raw unprocessed inline observations. Provider completion never becomes a local Tool message, and final inline-only replies use the canonical processed assistant.
+
+A bounded acting-phase finalizer runs after failed processors and parallel siblings close. For a non-interruption-only failure, it appends Error observations only for unrecorded local calls and preserves the original cause. It publishes neither synthetic completion events nor a user-interruption recovery. Pure cancellation continues to reconcile unfinished calls and append one recovery message. Work may have performed external effects before aborting; an Error observation does not claim otherwise.
+
+Model, hook, history-preparation, and acting races now explicitly own a scoped worker. Only worker completion waiting races the cooperative signal. Both cooperative and external cancellation interrupt and await the worker, retaining non-interruption failures from resource cleanup. Successful completion inherits worker fiber references before returning its exact exit. This closes the previously reproduced loss of processor-finalizer defects during cancellation.
+
+Installing a non-identity processor now includes matched inline observations; the identity default preserves payload behavior. Supplied-history eviction and exhaustive upstream middleware parity remain pending.
+
+- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope; supplied-history eviction and exhaustive upstream middleware parity remain pending.
+
+## Current inline-processing identities
+
+Final formatted seven-file scope against `2b99226` (ToolResultEvictor.scala changes its API comment only):
+
+| File | Git blob |
+| --- | --- |
+| [ReActAgent.scala](ReActAgent.scala) | b4b189c1282bc1298ab19d64349e060ec2b7580e |
+| [Msg.scala](../model/Msg.scala) | d8c616052015b59c18b69cd52bfa66840edfcae6 |
+| [ToolResultProcessor.scala](../tool/ToolResultProcessor.scala) | 8f9b40dca0a19f0b716eb02bc706405a3cfc941f |
+| [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | e9c65325833d69a340fb596f1cada358e3d257f1 |
+| [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 9c76a00f1c3309520ed0823ff91e8c6ac49b3be8 |
+| [ToolResultEvictor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictor.scala) | cc6aa0a47d4d6b29c44b80e6eebf740b4bce2aec |
+| [ToolResultEvictorIntegrationSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorIntegrationSpec.scala) | 3809970c4641e84a4ed336f92bbc80a85fec7265 |

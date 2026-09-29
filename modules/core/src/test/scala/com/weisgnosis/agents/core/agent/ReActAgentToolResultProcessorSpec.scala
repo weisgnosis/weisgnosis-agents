@@ -247,7 +247,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         )
       )
     },
-    test("inline provider observations bypass local post-processing") {
+    test("inline provider observations are processed without local dispatch") {
       val serverCall = call("server").withServerTool(true)
       val inline = ContentBlock.ToolResult
         .text("call", "server", "inline")
@@ -264,9 +264,105 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         result <- agent.run(Msg.user("q"))
         count  <- calls.get
       yield assertTrue(
-        count == 0,
+        count == 1,
         result.history.forall(_.role != Role.Tool),
         result.reply.toolResults == Chunk(inline)
+      )
+    },
+    test("sequential processor defects preserve raw completion and reconcile unstarted siblings") {
+      val defect = new IllegalStateException("processor defect")
+      for
+        executed <- Ref.make(Chunk.empty[String])
+        closed   <- Ref.make(false)
+        seen     <- Ref.make(Chunk.empty[AgentEvent])
+        first = Tool.make(ToolDef("first", "First", Json.Obj()))(_ =>
+          executed.update(_ :+ "first").as("raw first")
+        )
+        second = Tool.make(ToolDef("second", "Second", Json.Obj()))(_ =>
+          executed.update(_ :+ "second").as("raw second")
+        )
+        client <- LlmClient.mock(Chunk(output(call("first", "first"), call("second", "second"))))
+        agent <- ReActAgent.make(
+          config = AgentConfig(toolExecution = ToolExecution.Sequential),
+          client = client,
+          toolkit = Toolkit(Map("first" -> first, "second" -> second)),
+          toolResultProcessor =
+            ToolResultProcessor(_ => ZIO.addFinalizer(closed.set(true)) *> ZIO.die(defect))
+        )
+        exit <- agent
+          .streamEvents(Msg.user("q"))
+          .tap(event => seen.update(_ :+ event))
+          .runDrain
+          .exit
+        history  <- agent.history
+        names    <- executed.get
+        released <- closed.get
+        events   <- seen.get
+      yield assertTrue(
+        exit.causeOption.exists(_.defects.contains(defect)),
+        released,
+        names == Chunk("first"),
+        history.flatMap(_.toolResults).map(r => (r.id, r.state)) == Chunk(
+          ("first", ToolResultState.Success),
+          ("second", ToolResultState.Error)
+        ),
+        history.flatMap(_.toolResults).headOption.exists(_.text == "raw first"),
+        ToolHistory.inspect(history).isComplete,
+        history.forall(!_.generateReason.contains("interrupted")),
+        !events.exists(_.isInstanceOf[AgentEvent.ToolResultEndEvent])
+      )
+    },
+    test(
+      "parallel processor defects wait for sibling cleanup before finalizing unmatched observations"
+    ) {
+      val defect = new IllegalStateException("parallel processor defect")
+      for
+        entered <- Promise.make[Nothing, Unit]
+        closed  <- Ref.make(false)
+        sibling = Tool.make(ToolDef("second", "Second", Json.Obj()))(_ =>
+          (entered.succeed(()) *> ZIO.never).ensuring(closed.set(true))
+        )
+        client <- LlmClient.mock(Chunk(output(call("first", "first"), call("second", "second"))))
+        agent <- ReActAgent.make(
+          client = client,
+          toolkit = Toolkit(Map("first" -> tool("first"), "second" -> sibling)),
+          toolResultProcessor = ToolResultProcessor(_ => entered.await *> ZIO.die(defect))
+        )
+        exit     <- agent.run(Msg.user("q")).exit
+        history  <- agent.history
+        released <- closed.get
+      yield assertTrue(
+        exit.causeOption.exists(_.defects.contains(defect)),
+        released,
+        history.flatMap(_.toolResults).map(r => (r.id, r.state)) == Chunk(
+          ("first", ToolResultState.Success),
+          ("second", ToolResultState.Error)
+        ),
+        ToolHistory.inspect(history).isComplete,
+        history.forall(!_.generateReason.contains("interrupted"))
+      )
+    },
+    test("processor finalizer defects preserve raw output and close pending calls") {
+      val defect = new IllegalStateException("processor finalizer defect")
+      for
+        client <- LlmClient.mock(Chunk(output(call("first", "first"), call("second", "second"))))
+        agent <- ReActAgent.make(
+          config = AgentConfig(toolExecution = ToolExecution.Sequential),
+          client = client,
+          toolkit = Toolkit(Map("first" -> tool("first"), "second" -> tool("second"))),
+          toolResultProcessor = ToolResultProcessor(_ =>
+            ZIO
+              .addFinalizer(ZIO.die(defect))
+              .as(ToolResultPayload(Chunk(ContentBlock.Text("uncommitted preview"))))
+          )
+        )
+        exit    <- agent.run(Msg.user("q")).exit
+        history <- agent.history
+      yield assertTrue(
+        exit.causeOption.exists(_.defects.contains(defect)),
+        history.flatMap(_.toolResults).headOption.exists(_.text == "raw-first"),
+        ToolHistory.inspect(history).isComplete,
+        history.forall(!_.generateReason.contains("interrupted"))
       )
     },
     test("a later composition failure restores original output and releases earlier resources") {

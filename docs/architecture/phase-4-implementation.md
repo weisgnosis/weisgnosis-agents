@@ -12,7 +12,7 @@ Old tool output and unsigned arguments are pruned before summarization, leaving 
 
 ## Tool result eviction
 
-`ToolResultEvictor.processor(config)` installs opt-in processing of newly completed local observations in ReAct. Raw completion is stored before cancellable persistence; processed previews commit before continuation and result events. Typed failures preserve raw output. Supplied history and inline provider results remain outside the adapter.
+`ToolResultEvictor.processor(config)` installs opt-in processing of newly completed local and matched inline provider observations in ReAct. Raw completion is stored before cancellable persistence; processed previews commit before continuation and result events. Typed failures preserve raw output. Supplied history remains outside the adapter. Inline results stay within their original assistant message and bypass local execution/authorization. Scope cleanup precedes processed inline Start/Delta/End publication; the returned reply uses canonical processed content.
 
 `ToolResultEvictor` offloads text exceeding 80,000 characters, retaining 2,000 characters at each end and a read_file instruction. Configured file and memory tools are excluded. Content hashes distinguish reused call IDs with different output. Rewritten metadata, result states, and non-text blocks survive eviction. Failed persistence preserves the complete original observation; interruption remains cancellation.
 
@@ -42,4 +42,4 @@ Structured completion resolves one payload AST for decoding and metadata, prepar
 
 Run `sbt scalafmtAll scalafmtSbt`, then `sbt verify`. The Scala suites use local scripted clients, ZIO Test services, and temporary filesystem resources. They do not exercise a live provider endpoint. The configured formatter plugin is required for the repository verification commands.
 
-The current implementation passed 497 core and 73 harness tests, with no failures or compiler warnings. The cleanup-failure regression intentionally emits a runtime warning. Current review acceptance is maintained in the [core README](../../modules/core/README.md) and [harness README](../../modules/harness/README.md), with package-level scope details. Resolved review reports are removed from the active tree; their history remains in Git. Remaining provider/event integration, exhaustive upstream parity, and host integration remain tracked work.
+The current implementation passed 510 core and 74 harness tests, with no failures or compiler warnings. The cleanup-failure regression intentionally emits a runtime warning. Current review acceptance is maintained in the [core README](../../modules/core/README.md) and [harness README](../../modules/harness/README.md), with package-level scope details. Resolved review reports are removed from the active tree; their history remains in Git. Remaining provider/event integration, exhaustive upstream parity, and host integration remain tracked work.

@@ -39,7 +39,7 @@ object ToolResultPayload:
   def fromResult(result: ContentBlock.ToolResult): ToolResultPayload =
     ToolResultPayload(result.output, result.metadata)
 
-/** Optional scoped processing of an already persisted completed local observation. */
+/** Optional scoped processing of an already persisted completed local or matched inline provider observation. */
 trait ToolResultProcessor:
   def process(result: ContentBlock.ToolResult): ZIO[Scope, AgentError, ToolResultPayload]
 

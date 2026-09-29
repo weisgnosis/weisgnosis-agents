@@ -43,7 +43,7 @@ final class ToolResultEvictor(store: ToolResultStore, agentName: String = "assis
     then evict(result, config).catchAll(_ => ZIO.succeed(result))
     else ZIO.succeed(result)
 
-  /** Installs immediate local-result eviction at the core runtime's post-persistence boundary. */
+  /** Installs immediate local/inline-result eviction at the core runtime's post-persistence boundary. */
   def processor(config: EvictionConfig = EvictionConfig()): ToolResultProcessor =
     ToolResultProcessor(result => evictResult(result, config).map(ToolResultPayload.fromResult))
 

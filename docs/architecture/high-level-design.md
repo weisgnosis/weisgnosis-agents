@@ -32,7 +32,7 @@ Harness provides pair-safe compaction, summary replacement and user provenance, 
 
 Local persistence explicitly requires WorkspaceTrust.HostControlled, OS-protected ancestors, and hard-link support. Untrusted fails closed. Canonical checks do not make attacker-writable directories safe.
 
-ToolResultEvictor.processor is an opt-in adapter for completed local results in ReAct. ConversationCompactor.preparer installs compaction before model requests through the validated core history port. InteractivePermissionAuthorizer is an opt-in adapter for permission policy and active-invocation confirmation. Permission decisions are not durable execution checkpoints. Core ToolAuthorizer provides scoped local execution decisions and exact approved-input persistence; its default allows calls, and hosts can install the interactive harness adapter. Durable checkpoints remain pending.
+ToolResultEvictor.processor is an opt-in adapter for completed local and matched inline provider results in ReAct. ConversationCompactor.preparer installs compaction before model requests through the validated core history port. InteractivePermissionAuthorizer is an opt-in adapter for permission policy and active-invocation confirmation. Permission decisions are not durable execution checkpoints. Core ToolAuthorizer provides scoped local execution decisions and exact approved-input persistence; its default allows calls, and hosts can install the interactive harness adapter. Durable checkpoints remain pending.
 
 ## Planned platform
 

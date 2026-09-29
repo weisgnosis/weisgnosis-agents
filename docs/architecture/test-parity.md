@@ -441,7 +441,7 @@ Pinned source: agentscope-harness/src/test/java/io/agentscope/harness/agent/midd
 
 - [x] Verify three processor tests, seven core lifecycle scenarios, and five harness integrations (including actual disk persistence).
 - [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
-- [ ] Integrate preexisting history and inline provider outputs; eviction of those histories remains separate work.
+- [ ] Integrate preexisting history; automatic eviction of supplied histories remains separate work.
 
 Fifteen added tests are local evidence for these mappings and hardening boundaries, not fifteen upstream methods. Remaining harness domains still require exhaustive method-level audit.
 
@@ -479,3 +479,10 @@ These eight Scala regressions cover occurrence pairing and safe argument pruning
 
 - [x] Verify complete pairing and system-message preservation for changed histories, identity compatibility, recovery ownership after shrinkage, preparation cleanup/failure, and shared invocation usage across retries/fallback.
 - [ ] Complete method-level inventory and parity for pinned ConversationCompactorTest and CompactionMiddlewareTest. The twenty local boundary/integration tests do not establish exhaustive upstream middleware parity or semantic summary fidelity.
+
+## Inline processing and cleanup failure evidence
+
+- [x] Extend the installed result processor to matched inline provider observations, preserving local-dispatch exclusion and returning processed canonical content. ToolResultEvictorIntegrationSpec verifies actual full-payload storage and processed event/reply consistency.
+- [x] Add ten inline-processing and three local processor-defect regressions. Real cooperative and external cancellation failures were reproduced before explicit scoped worker ownership corrected the loss of finalizer defects; the timeout path has its own deterministic regression.
+- [x] Independently approve the final scope against `2b99226` and verify 510 core / 74 harness tests. Exact seven-file identities are in the agent README; the evictor source changes its comment only.
+- [ ] Complete supplied-history eviction and remaining upstream middleware method mappings; these local hardening tests do not establish additional Java method parity.

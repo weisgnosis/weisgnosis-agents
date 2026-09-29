@@ -82,6 +82,54 @@ object ToolResultEvictorIntegrationSpec extends ZIOSpecDefault:
       )
     },
     test(
+      "inline provider eviction updates canonical assistant reply and events without local dispatch"
+    ) {
+      val inline = ContentBlock.ToolResult
+        .text("call", "lookup", large)
+        .copy(metadata = Map("serverTool" -> Json.Bool(true)))
+      for
+        saved    <- Ref.make(Map.empty[String, String])
+        executed <- Ref.make(0)
+        store = new ToolResultStore:
+          def persist(key: String, content: String): IO[AgentError, String] =
+            saved.update(_.updated(key, content)).as(s"large_tool_results/$key.txt")
+        client <- LlmClient.mock(
+          Chunk(TurnOutput.ToolCalls(Msg.assistant(Chunk(call.withServerTool(true), inline))))
+        )
+        local = Tool.make(ToolDef("lookup", "Local", Json.Obj()))(_ =>
+          executed.update(_ + 1).as("unexpected")
+        )
+        agent <- ReActAgent.make(
+          client = client,
+          toolkit = Toolkit(Map("lookup" -> local)),
+          toolResultProcessor = new ToolResultEvictor(store).processor()
+        )
+        events  <- agent.streamEvents(Msg.user("q")).runCollect
+        history <- agent.history
+        files   <- saved.get
+        count   <- executed.get
+        results = history.flatMap(_.toolResults)
+      yield assertTrue(
+        files.values.toSet == Set(large),
+        count == 0,
+        history.forall(_.role != Role.Tool),
+        results.size == 1,
+        results.forall(r =>
+          r.isServerTool && r.text.length < 5000 && r.text.endsWith("Z" * 2000) && r.metadata
+            .contains("eviction_cache_key")
+        ),
+        events
+          .collect { case event: AgentEvent.AgentResultEvent => event.result }
+          .flatMap(_.toolResults) == results,
+        events.collect { case event: AgentEvent.ToolResultDeltaEvent => event.delta } == results
+          .map(_.text),
+        events.collect { case event: AgentEvent.ToolResultStartEvent => event.metadata } == results
+          .map(_.metadata),
+        events.collect { case event: AgentEvent.ToolResultEndEvent => event.metadata } == results
+          .map(_.metadata)
+      )
+    },
+    test(
       "evictsImmediateReasoningInputAndAgentStateUsingDefaultLocalPath with explicit workspace trust"
     ) {
       for

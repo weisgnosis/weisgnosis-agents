@@ -23,7 +23,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 
 This is the accepted reference behavior for the scope above. Actual symlink/junction behavior was not dynamically verified; this acceptance does not cover all neighboring tool APIs. Changes to this behavior require renewed independent review and an updated acceptance entry.
 
-## Completed local-result processing
+## Completed result processing
 
 ReActAgent.make and Builder.toolResultProcessor accept a ToolResultProcessor, defaulting to identity. Its suspended process callback returns ZIO[Scope, AgentError, ToolResultPayload]. The payload contains output blocks and metadata only. applyTo preserves the original call ID, name, state, and serverTool/agentscope_server_tool/agentscope_suspended control keys. Composition applies each payload safely before passing the observation onward; host processors cannot change execution authority through these fields.
 
@@ -31,7 +31,7 @@ After local execution finishes, the runtime atomically appends the complete raw 
 
 Cancellation during processing keeps the completed raw result and reconciles only unfinished executions. It does not rerun the tool or publish a false ToolResultEnd. A subsequent model request sees the committed processed payload; observers may see the raw result while processing is pending. Processor side effects already performed before failure/cancellation are not rolled back. Callbacks must not reenter a mutating agent operation that requires the held run lock.
 
-Tool execution still returns completed text. A processor can replace its output blocks and metadata for the existing typed result publisher; this does not implement incremental tool execution or native structured tool return values. Empty processed output emits only End after the original Start. Inline provider results bypass this processor, and preexisting history is not processed automatically. These integration gaps remain explicit.
+Tool execution still returns completed text. A processor can replace its output blocks and metadata for the existing typed result publisher; this does not implement incremental tool execution or native structured tool return values. Empty processed output emits only End after the original Start. Matched inline provider results use this processor after raw assistant persistence, retaining their exact result ordinal. Their Start, ordered text/data deltas, and End are published only after processing and scope cleanup. Inline processing bypasses local authorization/execution and creates no Role.Tool message. Preexisting history is not processed automatically.
 
 Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. Processor values are runtime dependencies, not serialized agent configuration.
 
@@ -39,15 +39,11 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 ## Current processor and eviction identities
 
-Unchanged processor/eviction identities from the scope against `8850a60`; commit `a34201f` preserves its full eight-file scope. The changed ReActAgent identity belongs to the authorization scope below:
+Unchanged processor/eviction identities from the scope against `8850a60`; commit `a34201f` preserves its full eight-file scope. Changed runtime, processor, and integration-test identities are recorded in the [agent table](../agent/README.md):
 
 | File | Git blob |
 | --- | --- |
-| [ToolResultProcessor.scala](ToolResultProcessor.scala) | 72af085f101cb253a9c24004df0c32aed6488478 |
 | [ToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolResultProcessorSpec.scala) | 76dfbb00d2aa68613b8770cf727b418d33f79b93 |
-| [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 9096fbc789d8e3b81037def4c23e8d3a843298a5 |
-| [ToolResultEvictor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictor.scala) | 525c559c64141e6c3721ad6ee0e391681432b12f |
-| [ToolResultEvictorIntegrationSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorIntegrationSpec.scala) | e57e0ef9cbbbe2ce0b0a3bea056b843346545644 |
 | [ToolResultStoreSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/ToolResultStoreSpec.scala) | 50206a7f3310ea0d8939c892dae0ee6b6e670215 |
 | [EvictionTestSupport.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/EvictionTestSupport.scala) | 7bcf8ad1d2ad45469ac91bec9e7b1079e1e64d92 |
 
@@ -74,8 +70,9 @@ Unchanged authorization identities from the five-file scope against `a34201f`; c
 | File | Git blob |
 | --- | --- |
 | [ToolAuthorizer.scala](ToolAuthorizer.scala) | d0e3d498ddabc4f57b0ea28203b048b9696bb1dd |
-| [Msg.scala](../model/Msg.scala) | 0f16756e28e6d24a24658e69769058d91979855f |
 | [ToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | 6e9b21dd13f4c23281f0672033bcc465ee8d3664 |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | aeb56e34bb6a7c7f2fce1c956a21e79d6e4ac6d9 |
 
 The optional [interactive harness adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md) owns policy lifetime and approval callbacks; the core remains independent of harness dependencies.
+
+- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope; supplied-history eviction and exhaustive upstream middleware parity remain pending. Current changed identities are in the [agent table](../agent/README.md); prior complete source identities remain in `a34201f` and `5eb4bdc`.
