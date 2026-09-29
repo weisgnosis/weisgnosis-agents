@@ -18,7 +18,7 @@ Local storage requires WorkspaceTrust.HostControlled, protected filesystem ances
 
 - [x] Revision `fb80428`: compactor provenance and result-store fixes explicitly approved by independent reviewer `review_fp` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
-- [x] Current repository verification: 529 core and 101 harness tests passed, with no compiler warnings.
+- [x] Current repository verification: 529 core and 114 harness tests passed, with no compiler warnings.
 - [ ] Complete the remaining integration and parity tasks in the [tracker](../../docs/architecture/tracker.md).
 
 Approval covers the named changes and their documented contracts; it does not mark all neighboring APIs or planned features as accepted.
@@ -40,3 +40,5 @@ Approval covers the named changes and their documented contracts; it does not ma
 - [x] `review_fp` and `review_harness` approved the final three-file storage-location scope against `3718e18` on 2026-09-29. Eight added tests and full formatting/fatal-warning verification passed: 516 core and 98 harness tests. No findings remain within explicit host ownership and canonical-location validation. Dynamic symlink/junction checks, hostile mutation protection, and filesystem object identity are not claimed. Exact identities and migration are in the [eviction contract](src/main/scala/com/weisgnosis/agents/harness/eviction/README.md).
 
 - [x] `review_fp` and `review_harness` approved the final seven-file model-input scope against `40f6f05` on 2026-09-29. Sixteen added regressions and full formatting/fatal-warning verification passed: 529 core and 101 harness tests. No findings remain within request-only projection, structural validation, canonical-state isolation, and eviction integration. Broader legacy hook/middleware parity remains pending. Exact identities and migration are in the [agent contract](../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+
+- [x] Independently review exact compaction routing and interruption/session regressions against `52da827`; account for all 17 methods in the two pinned compaction suites with explicit adaptations/divergences/exclusion, and verify 529 core / 114 harness tests. See the [memory contract and current identities](src/main/scala/com/weisgnosis/agents/harness/memory/README.md).

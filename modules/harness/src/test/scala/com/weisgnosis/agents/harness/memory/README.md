@@ -1,22 +1,17 @@
 # Conversation compaction verification
 
-- [ConversationCompactorSpec](ConversationCompactorSpec.scala): pair-safe cutoff, prior summary rebuilding, user provenance, pruning, unchanged below-trigger history, and typed/interrupted hooks.
+- [ConversationCompactorSpec](ConversationCompactorSpec.scala): 27 tests for pair-safe cutoff, summary/flush/tail routing, repeated compaction, user provenance, pruning, unchanged below-trigger history, and typed/interrupted hooks.
+- [ConversationCompactorIntegrationSpec](ConversationCompactorIntegrationSpec.scala): 12 tests for canonical history installation, shrinking-history recovery, failure policy, preparation/downstream cancellation, mixed cleanup causes, and separate-agent isolation.
 - [TokenCounterSpec](TokenCounterSpec.scala): deterministic additive estimation.
 
-Eight added compactor regressions cover identical IDs, reversed named results, unnamed FIFO consumption, same-message and later inline/local collisions, unmatched provider calls, stale argument-cache removal, and signed/opaque reasoning metadata protection. All eight failed before the hardening change. Existing completed-turn ID reuse, protected-tail, and below-threshold regressions remain in the suite.
+The [method mapping](../../../../../../../../../../docs/architecture/test-parity.md#compaction-method-applicability) accounts for seven upstream compactor and ten middleware methods. It distinguishes tested adaptations, deliberate failure-policy divergences, and the inapplicable cyclic-Throwable mechanism. The concurrent tests coordinate entry and release with Promise; each agent owns a separate history. No timing sleeps or shared-agent multi-session claims are involved.
 
-These tests cover selected upstream behavior and Scala runtime regressions, not exhaustive upstream parity. Run `sbt "harness / test"` or repository-wide `sbt verify`. The [memory contract and source identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md) record the current acceptance scope; prior acceptance remains in Git through `6ed928a`.
-
-## Runtime installation
-
-ConversationCompactor.preparer adapts compactIfNeeded to core HistoryPreparer and normalizes typed failures into HistoryPreparationError. Install it with ReActAgent.make(historyPreparer = compactor.preparer) or Builder.historyPreparer. Preparation runs in a nested scope before each model request, after prior acting work completes. Runtime validation preserves ordered system messages and complete tool pairing for actual rewrites; unchanged candidates retain the permissive supplied-history API. A changed candidate retaining unmatched calls/results is rejected without committing history. Pairing does not prove summary fidelity, and completed external hooks cannot be rolled back.
-
-[ConversationCompactorIntegrationSpec](ConversationCompactorIntegrationSpec.scala) verifies cancellation after history shrinkage, typed summary failure without Auto fallback, hook cancellation cleanup, and chained preparation preserving a single summary and paired tool observations. The shared core ToolHistory analysis replaces the prior local cutoff matcher without changing its reviewed occurrence semantics.
+Existing hardening regressions retain occurrence pairing, inline/local isolation, protected signed arguments, stale argument-cache removal, and retained-user provenance. Summary content is supplied by test effects; these tests do not prove semantic summary fidelity.
 
 ## Current review acceptance
 
-Prior standalone hardening and its eight reproduced regressions are preserved in `3c6958f`.
+- [x] `review_fp` and `review_harness` approved both changed compactor suites against `52da827` on 2026-09-29; no findings remain in this scope.
+- [x] Full formatting, fatal-warning compilation, and verification passed 529 core / 114 harness tests, including all 39 compactor cases. Thirteen cases were added and existing routing assertions strengthened.
+- [ ] Add memory-service suites when daily flushing and curated consolidation are implemented.
 
-- [x] `review_fp` and `review_harness` approved the final nine-file history-preparation increment against `3c6958f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 497 core and 73 harness tests, including twenty added tests. Acceptance covers structural rewrite validation and scoped compactor integration; semantic summary fidelity and exhaustive provider-format validation are excluded. See the [agent table](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) for unchanged history-preparation identities; commit `2b99226` preserves the full nine-file scope.
-
-ToolResultEvictor.preparer can precede ConversationCompactor.preparer via HistoryPreparer.andThen. Changed stages are validated before the next runs; runtime commits once after scope cleanup. Store-backed preview verification prevents cache chains while valid original content remains available in the configured key namespace. Custom stores must implement resolve; missing or forged references are raw candidates, while typed storage failures preserve input. See the [eviction contract and migration](../../../../../../../main/scala/com/weisgnosis/agents/harness/eviction/README.md).
+Exact current test identities and failure/ownership contracts are maintained in the [memory README](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md). Prior acceptance remains in Git through `52da827`. Run `sbt "harness / test"` or repository-wide `sbt verify`.

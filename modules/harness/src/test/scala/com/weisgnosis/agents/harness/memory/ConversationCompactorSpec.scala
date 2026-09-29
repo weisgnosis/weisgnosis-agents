@@ -253,12 +253,121 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
         unchanged <- failing.compactIfNeeded(Chunk(Msg.user("one")))
       yield assertTrue(empty.isEmpty, unchanged.map(_.text) == Chunk("one"))
     },
-    test("prior summaries reach summarization but never flush or the retained tail") {
+    test("compactIfNeeded_routesPriorSummaryToSummaryInputButNotFlushOrTail") {
+      val previous = summary("S1")
+      val prefix   = Msg.assistant("M2")
+      val tail     = Chunk(Msg.assistant("TAIL_1"), Msg.assistant("TAIL_2"))
+      for
+        inputs  <- Ref.make(Chunk.empty[Chunk[Msg]])
+        flushed <- Ref.make(Chunk.empty[Chunk[Msg]])
+        compactor = new ConversationCompactor(
+          messages => inputs.update(_ :+ messages).as("replacement"),
+          config,
+          counter,
+          messages => flushed.update(_ :+ messages)
+        )
+        result  <- compactor.compactIfNeeded(Chunk(previous, prefix) ++ tail)
+        prompts <- inputs.get
+        flushes <- flushed.get
+      yield assertTrue(
+        prompts == Chunk(Chunk(previous, prefix)),
+        flushes == Chunk(Chunk(prefix)),
+        result == Chunk(summary("replacement")) ++ tail
+      )
+    },
+    test("compactIfNeeded_mergesMultiplePriorSummariesIntoOneReplacement") {
+      val prefix = Chunk(summary("S0"), Msg.assistant("M1"), summary("S1"), Msg.assistant("M2"))
+      val tail   = Chunk(Msg.assistant("TAIL_1"), Msg.assistant("TAIL_2"))
+      for
+        inputs  <- Ref.make(Chunk.empty[Chunk[Msg]])
+        flushed <- Ref.make(Chunk.empty[Chunk[Msg]])
+        compactor = new ConversationCompactor(
+          messages => inputs.update(_ :+ messages).as("replacement"),
+          config,
+          counter,
+          messages => flushed.update(_ :+ messages)
+        )
+        result  <- compactor.compactIfNeeded(prefix ++ tail)
+        prompts <- inputs.get
+        flushes <- flushed.get
+      yield assertTrue(
+        prompts == Chunk(prefix),
+        flushes == Chunk(Chunk(Msg.assistant("M1"), Msg.assistant("M2"))),
+        result == Chunk(summary("replacement")) ++ tail
+      )
+    },
+    test("compactIfNeeded_summaryOnlyPrefixDoesNotBecomeEmptyHistory") {
+      val previous = summary("ONLY_OLD_SUMMARY")
+      val tail     = Chunk(Msg.assistant("TAIL_1"), Msg.assistant("TAIL_2"))
+      for
+        inputs  <- Ref.make(Chunk.empty[Chunk[Msg]])
+        flushed <- Ref.make(Chunk.empty[Chunk[Msg]])
+        compactor = new ConversationCompactor(
+          messages => inputs.update(_ :+ messages).as("replacement"),
+          config,
+          counter,
+          messages => flushed.update(_ :+ messages)
+        )
+        result  <- compactor.compactIfNeeded(Chunk(previous) ++ tail)
+        prompts <- inputs.get
+        flushes <- flushed.get
+      yield assertTrue(
+        prompts == Chunk(Chunk(previous)),
+        flushes == Chunk(Chunk.empty[Msg]),
+        result == Chunk(summary("replacement")) ++ tail
+      )
+    },
+    test("compactIfNeeded_chainedCompactionUsesPreviousSummaryAndNewPrefix") {
+      val system     = Msg.system("system")
+      val firstTail  = Chunk(Msg.assistant("TAIL_1"), Msg.assistant("TAIL_2"))
+      val secondTail = Chunk(Msg.assistant("TAIL_3"), Msg.assistant("TAIL_4"))
+      for
+        rounds  <- Ref.make(0)
+        inputs  <- Ref.make(Chunk.empty[Chunk[Msg]])
+        flushed <- Ref.make(Chunk.empty[Chunk[Msg]])
+        compactor = new ConversationCompactor(
+          messages =>
+            inputs.update(_ :+ messages) *> rounds.updateAndGet(_ + 1).map(n => s"summary $n"),
+          config,
+          counter,
+          messages => flushed.update(_ :+ messages)
+        )
+        first <- compactor.compactIfNeeded(
+          Chunk(system, summary("S1"), Msg.assistant("M2")) ++ firstTail
+        )
+        second  <- compactor.compactIfNeeded(first ++ Chunk(Msg.assistant("M3")) ++ secondTail)
+        prompts <- inputs.get
+        flushes <- flushed.get
+      yield assertTrue(
+        prompts == Chunk(
+          Chunk(summary("S1"), Msg.assistant("M2")),
+          Chunk(summary("summary 1")) ++ firstTail ++ Chunk(Msg.assistant("M3"))
+        ),
+        flushes == Chunk(Chunk(Msg.assistant("M2")), firstTail ++ Chunk(Msg.assistant("M3"))),
+        first == Chunk(system, summary("summary 1")) ++ firstTail,
+        second == Chunk(system, summary("summary 2")) ++ secondTail
+      )
+    },
+    test("compactIfNeeded_skipsFlushWhenDisabledAndStillUsesPriorSummary") {
+      val prefix = Chunk(summary("S1"), Msg.assistant("M2"))
+      val tail   = Chunk(Msg.assistant("TAIL_1"), Msg.assistant("TAIL_2"))
+      for
+        inputs <- Ref.make(Chunk.empty[Chunk[Msg]])
+        compactor = new ConversationCompactor(
+          messages => inputs.update(_ :+ messages).as("replacement"),
+          config,
+          counter
+        )
+        result  <- compactor.compactIfNeeded(prefix ++ tail)
+        prompts <- inputs.get
+      yield assertTrue(prompts == Chunk(prefix), result == Chunk(summary("replacement")) ++ tail)
+    },
+    test("summaries in the retained suffix are summarized again and removed from the tail") {
       for
         inputs  <- Ref.make(Chunk.empty[Msg])
         flushed <- Ref.make(Chunk.empty[Msg])
         compactor = new ConversationCompactor(
-          messages => inputs.set(messages).as("new summary"),
+          messages => inputs.set(messages).as("replacement"),
           config,
           counter,
           messages => flushed.set(messages)
@@ -269,45 +378,9 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
         prompt <- inputs.get
         flush  <- flushed.get
       yield assertTrue(
-        prompt.map(_.text).toSet == Set("S0", "S1", "old"),
-        flush.map(_.text) == Chunk("old"),
-        result.count(ConversationCompactor.isSummary) == 1,
-        result.lastOption.exists(_.text == "tail")
-      )
-    },
-    test("a summary-only prefix still produces a replacement summary") {
-      for result <- compactor.compactIfNeeded(
-          Chunk(summary("old summary"), Msg.assistant("tail1"), Msg.assistant("tail2"))
-        )
-      yield assertTrue(result.size == 3, result.headOption.exists(_.text == "summary"))
-    },
-    test("chained compaction replaces the previous summary and preserves system prompts") {
-      for
-        rounds <- Ref.make(0)
-        inputs <- Ref.make(Chunk.empty[Chunk[Msg]])
-        compactor = new ConversationCompactor(
-          messages =>
-            inputs.update(_ :+ messages) *> rounds.updateAndGet(_ + 1).map(n => s"summary $n"),
-          config,
-          counter
-        )
-        first <- compactor.compactIfNeeded(
-          Chunk(
-            Msg.system("system"),
-            Msg.assistant("old"),
-            Msg.assistant("tail1"),
-            Msg.assistant("tail2")
-          )
-        )
-        second <- compactor.compactIfNeeded(
-          first ++ Chunk(Msg.assistant("new"), Msg.assistant("last"))
-        )
-        prompts <- inputs.get
-      yield assertTrue(
-        second.headOption.exists(_.role == Role.System),
-        second.count(ConversationCompactor.isSummary) == 1,
-        prompts.lastOption.exists(_.exists(_.text == "summary 1")),
-        second.exists(_.text == "summary 2")
+        prompt == Chunk(summary("S0"), Msg.assistant("old"), summary("S1")),
+        flush == Chunk(Msg.assistant("old")),
+        result == Chunk(summary("replacement"), Msg.assistant("tail"))
       )
     },
     test("summary and consecutive user messages are coalesced without losing content") {
@@ -380,24 +453,47 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
         result.lastOption == history.lastOption
       )
     },
-    test("failed and interrupted hooks never become successful compaction") {
+    test("typed flush failure stops offloading and summarization") {
       val error = AgentError.ModelError(500, "flush failed")
-      val failing = new ConversationCompactor(
-        _ => ZIO.succeed("summary"),
-        config,
-        counter,
-        _ => ZIO.fail(error)
-      )
-      val interrupted = new ConversationCompactor(
-        _ => ZIO.succeed("summary"),
-        config,
-        counter,
-        offload = _ => ZIO.interrupt
-      )
-      val history = Chunk(Msg.assistant("one"), Msg.assistant("two"), Msg.assistant("three"))
       for
-        failure      <- failing.compactIfNeeded(history).either
-        cancellation <- interrupted.compactIfNeeded(history).exit
-      yield assertTrue(failure == Left(error), cancellation.isInterrupted)
+        operations <- Ref.make(Chunk.empty[String])
+        compactor = new ConversationCompactor(
+          _ => operations.update(_ :+ "summary").as("summary"),
+          config,
+          counter,
+          _ => operations.update(_ :+ "flush") *> ZIO.fail(error),
+          _ => operations.update(_ :+ "offload")
+        )
+        result   <- compactor.compactIfNeeded(Chunk.fill(3)(Msg.assistant("old"))).either
+        observed <- operations.get
+      yield assertTrue(result == Left(error), observed == Chunk("flush"))
+    },
+    test("compactIfNeeded_propagatesInterruptedMemoryFlush") {
+      for
+        operations <- Ref.make(Chunk.empty[String])
+        compactor = new ConversationCompactor(
+          _ => operations.update(_ :+ "summary").as("summary"),
+          config,
+          counter,
+          _ => operations.update(_ :+ "flush") *> ZIO.interrupt,
+          _ => operations.update(_ :+ "offload")
+        )
+        exit     <- compactor.compactIfNeeded(Chunk.fill(3)(Msg.assistant("old"))).exit
+        observed <- operations.get
+      yield assertTrue(exit.isInterrupted, observed == Chunk("flush"))
+    },
+    test("compactIfNeeded_propagatesInterruptedMessageOffload") {
+      for
+        operations <- Ref.make(Chunk.empty[String])
+        compactor = new ConversationCompactor(
+          _ => operations.update(_ :+ "summary").as("summary"),
+          config,
+          counter,
+          _ => operations.update(_ :+ "flush"),
+          _ => operations.update(_ :+ "offload") *> ZIO.interrupt
+        )
+        exit     <- compactor.compactIfNeeded(Chunk.fill(3)(Msg.assistant("old"))).exit
+        observed <- operations.get
+      yield assertTrue(exit.isInterrupted, observed == Chunk("flush", "offload"))
     }
   )

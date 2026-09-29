@@ -142,7 +142,6 @@ Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserve
 | [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | 9f98df0f18d26e42766f1a41cdfe8c441b33c329 |
 | [ToolHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | 29ff87da90673afcaef220ab0ff5ec1593da508a |
 | [ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | 25d2843a2c2407773ae1871f1e168a595f14f617 |
-| [ConversationCompactorIntegrationSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorIntegrationSpec.scala) | caaf0660a6d54398e56fab046158c82758d6ea75 |
 
 ## Inline processing and failed acting phases
 
@@ -204,3 +203,5 @@ Final formatted scope against `40f6f05`:
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 8a42440fcdbc2d5662cb67fbbf541483f2b865e5 |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 84d4648bf879e523cbf39f8d3bce74a2f90fac99 |
 | [ToolResultEvictorHistorySpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorHistorySpec.scala) | 3070eb8d3caf57c99243fb7675b5fbbe8d7f25e8 |
+
+The changed compactor integration test identity from the history-preparation table is preserved in `52da827`; its current acceptance is in the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).

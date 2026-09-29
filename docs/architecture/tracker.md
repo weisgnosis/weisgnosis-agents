@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: audit compaction methods against the pinned upstream suites, close concrete gaps, then implement the remaining memory services and lifecycle/hook behavior. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement the remaining memory services with daily/curated writer isolation and method-level upstream tests, then continue lifecycle/hook behavior. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -67,6 +67,7 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Install supplied-history eviction, store-backed preview recognition, and validated preparation composition; independently review twenty-two added tests and verify 516 core / 90 harness tests.
 - [x] Add existing absolute-directory selection with canonical revalidation, map the upstream trailing-separator scenario, independently review eight new tests, and verify 516 core / 98 harness tests.
 - [x] Add scoped request-only model-input projection, retain canonical eviction/recovery authority, map all seven eviction methods with explicit adaptations, independently review sixteen new tests, and verify 529 core / 101 harness tests.
+- [x] Account for all seven compactor and ten compaction-middleware methods, strengthen exact routing and cancellation/session evidence, record explicit divergences and exclusions, independently review both suites, and verify 529 core / 114 harness tests.
 - [ ] Implement MemoryFlushManager and MemoryConsolidator with the specified writer isolation and budgets.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.
