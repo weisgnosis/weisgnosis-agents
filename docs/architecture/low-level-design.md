@@ -64,3 +64,7 @@ Registration, withTool, and merging return Either[AgentError, Toolkit]. Duplicat
 ## Pending interfaces
 
 Memory services, middleware, durable checkpoint storage, subagents, plan-mode enforcement, and MCP are not implemented. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+
+## Completion delta decoding
+
+ReasoningModelAdapter.parseChunk returns Either[AgentError, Chunk[LlmChunk]]. Normal frames require explicit choices and exactly choice zero, or empty choices with usage. Tool indexes and token counts use strict nonnegative JSON integers; duplicate object keys, malformed recognized fields, unsupported roles/refusals/tool kinds, and legacy function_call fail explicitly. Provider error payloads become ModelError(200, message). Unknown extension payloads are not interpreted. Request serialization and actual HTTP status/resource handling remain pending; see the client README for migration and acceptance.

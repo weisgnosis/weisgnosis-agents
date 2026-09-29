@@ -31,6 +31,7 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
           """{
             |  "choices": [
             |    {
+            |      "index": 0,
             |      "delta": {
             |        "reasoning_content": "Deep thought about problem",
             |        "role": "assistant"
@@ -41,8 +42,8 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
 
         val chunks = ReasoningModelAdapter.parseChunk(json)
         assertTrue(
-          chunks.size == 1,
-          chunks.headOption.contains(LlmChunk.ThinkingDelta("Deep thought about problem"))
+          chunks.exists(_.size == 1),
+          chunks.exists(_.headOption.contains(LlmChunk.ThinkingDelta("Deep thought about problem")))
         )
       },
       test("Parses chunk with tool_calls") {
@@ -50,6 +51,7 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
           """{
             |  "choices": [
             |    {
+            |      "index": 0,
             |      "delta": {
             |        "tool_calls": [
             |          {
@@ -68,9 +70,11 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
 
         val chunks = ReasoningModelAdapter.parseChunk(json)
         assertTrue(
-          chunks.size == 1,
-          chunks.headOption.contains(
-            LlmChunk.ToolCallChunk(0, Some("call_abc"), Some("search"), "{\"q\":")
+          chunks.exists(_.size == 1),
+          chunks.exists(
+            _.headOption.contains(
+              LlmChunk.ToolCallChunk(0, Some("call_abc"), Some("search"), "{\"q\":")
+            )
           )
         )
       },
@@ -92,15 +96,15 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
 
         val chunks = ReasoningModelAdapter.parseChunk(json)
         assertTrue(
-          chunks.size == 1,
-          chunks.headOption match
+          chunks.exists(_.size == 1),
+          chunks.exists(_.headOption match
             case Some(LlmChunk.UsageChunk(u)) =>
               u.inputTokens == 120 &&
               u.outputTokens == 80 &&
               u.cachedTokens == 50 &&
               u.reasoningTokens == 40 &&
               u.totalTokens == 200
-            case _ => false
+            case _ => false)
         )
       }
     ),

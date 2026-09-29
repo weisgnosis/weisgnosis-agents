@@ -15,87 +15,190 @@
  */
 package com.weisgnosis.agents.core.client
 
+import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role}
 import zio.Chunk
 import zio.json.*
 import zio.json.ast.Json
 
-/**
- * Adapter for extended reasoning models (e.g. OpenAI o-series, DeepSeek-R1, QwQ)
- * with delta parsing and context hygiene (pruning obsolete reasoning from dialogue history).
- */
+/** Strict single-choice completion deltas and pure reasoning-history transformations. */
 object ReasoningModelAdapter:
 
+  final private case class StreamIndex(value: Int)
+
+  private object StreamIndex:
+    given JsonDecoder[StreamIndex] = nonnegativeInteger.map(StreamIndex(_))
+
+  final private case class TokenCount(value: Int)
+
+  private object TokenCount:
+    given JsonDecoder[TokenCount] = nonnegativeInteger.map(TokenCount(_))
+
+  private def nonnegativeInteger: JsonDecoder[Int] = JsonDecoder[Json].mapOrFail:
+    case number: Json.Num =>
+      number
+        .as[Int]
+        .flatMap(value => Either.cond(value >= 0, value, "Expected a nonnegative integer"))
+    case _ => Left("Expected a JSON integer")
+
+  final private case class FunctionDelta(
+      name: Option[String] = None,
+      arguments: Option[String] = None
+  ) derives JsonDecoder
+
+  final private case class ToolDelta(
+      index: StreamIndex,
+      id: Option[String] = None,
+      function: Option[FunctionDelta] = None,
+      @jsonField("type") kind: Option[String] = None
+  ) derives JsonDecoder
+
+  final private case class Delta(
+      content: Option[String] = None,
+      @jsonField("reasoning_content") reasoningContent: Option[String] = None,
+      thinking: Option[String] = None,
+      @jsonField("tool_calls") toolCalls: Option[Chunk[ToolDelta]] = None,
+      @jsonField("function_call") legacyFunctionCall: Option[Json] = None,
+      role: Option[String] = None,
+      refusal: Option[String] = None
+  ) derives JsonDecoder
+
+  final private case class Choice(
+      delta: Delta,
+      index: StreamIndex,
+      @jsonField("finish_reason") finishReason: Option[String] = None
+  ) derives JsonDecoder
+
+  final private case class PromptDetails(
+      @jsonField("cached_tokens") cachedTokens: Option[TokenCount] = None
+  ) derives JsonDecoder
+
+  final private case class CompletionDetails(
+      @jsonField("reasoning_tokens") reasoningTokens: Option[TokenCount] = None
+  ) derives JsonDecoder
+
+  final private case class Usage(
+      @jsonField("prompt_tokens") promptTokens: Option[TokenCount] = None,
+      @jsonField("completion_tokens") completionTokens: Option[TokenCount] = None,
+      @jsonField("prompt_tokens_details") promptDetails: Option[PromptDetails] = None,
+      @jsonField("completion_tokens_details") completionDetails: Option[CompletionDetails] = None
+  ) derives JsonDecoder
+
+  final private case class Completion(
+      choices: Chunk[Choice],
+      usage: Option[Usage] = None
+  ) derives JsonDecoder
+
+  final private case class ProviderError(message: Option[String] = None) derives JsonDecoder
+
   /**
-   * Parses an OpenAI-compatible SSE JSON chunk into typed LlmChunk deltas.
-   * Handles `reasoning_content`, `thinking`, `content`, `tool_calls`, `usage`, and `finish_reason`.
+   * Decodes an OpenAI-compatible SSE data payload without silently discarding malformed fields.
+   * SSE framing and the [DONE] marker belong to SseParser. Only choice zero is supported.
    */
-  def parseChunk(jsonStr: String): Chunk[LlmChunk] =
-    jsonStr.fromJson[Json] match
-      case Left(_) => Chunk.empty
-      case Right(json) =>
-        val obj     = json.asObject.getOrElse(Json.Obj.empty)
-        val choices = obj.get("choices").flatMap(_.asArray).getOrElse(Chunk.empty)
+  def parseChunk(jsonStr: String): Either[AgentError, Chunk[LlmChunk]] =
+    for
+      json <- jsonStr.fromJson[Json].left.map(AgentError.DeserializationError(_))
+      _    <- uniqueFields(json).left.map(AgentError.DeserializationError(_))
+      chunks <- json match
+        case obj: Json.Obj =>
+          obj.get("error") match
+            case Some(error) if error != Json.Null =>
+              error
+                .as[ProviderError]
+                .left
+                .map(AgentError.DeserializationError(_))
+                .flatMap(value =>
+                  Left(
+                    AgentError.ModelError(
+                      200,
+                      value.message
+                        .filter(_.nonEmpty)
+                        .getOrElse("Completion stream reported an error")
+                    )
+                  )
+                )
+            case _ =>
+              (for
+                _ <- Either.cond(
+                  obj.get("choices").exists(_.isInstanceOf[Json.Arr]),
+                  (),
+                  "Completion choices must be an explicit array"
+                )
+                value   <- obj.as[Completion]
+                decoded <- decodeCompletion(value)
+              yield decoded).left.map(AgentError.DeserializationError(_))
+        case _ => Left(AgentError.DeserializationError("Completion chunk must be an object"))
+    yield chunks
 
-        val choiceDeltas: Chunk[LlmChunk] = choices.flatMap { choice =>
-          val choiceObj = choice.asObject.getOrElse(Json.Obj.empty)
-          val deltaObj  = choiceObj.get("delta").flatMap(_.asObject).getOrElse(Json.Obj.empty)
+  private def uniqueFields(json: Json): Either[String, Unit] =
+    @annotation.tailrec
+    def loop(pending: List[Json]): Either[String, Unit] = pending match
+      case Nil => Right(())
+      case Json.Obj(fields) :: rest =>
+        if fields.map(_._1).distinct.size != fields.size then Left("Duplicate JSON object fields")
+        else loop(fields.map(_._2).toList ::: rest)
+      case Json.Arr(values) :: rest => loop(values.toList ::: rest)
+      case _ :: rest                => loop(rest)
+    loop(List(json))
 
-          val reasoningChunk = deltaObj
-            .get("reasoning_content")
-            .orElse(deltaObj.get("thinking"))
-            .flatMap(_.asString)
-            .map(rc => LlmChunk.ThinkingDelta(rc))
+  private def decodeCompletion(value: Completion): Either[String, Chunk[LlmChunk]] =
+    for choices <- value.choices.toList match
+        case Nil if value.usage.nonEmpty              => Right(Chunk.empty)
+        case choice :: Nil if choice.index.value == 0 => decodeChoice(choice)
+        case Nil => Left("An empty choices array requires a usage payload")
+        case _   => Left("Exactly one completion choice with index zero is supported")
+    yield choices ++ Chunk.fromIterable(value.usage.map(decodeUsage))
 
-          val textChunk = deltaObj
-            .get("content")
-            .flatMap(_.asString)
-            .filter(_.nonEmpty)
-            .map(t => LlmChunk.TextDelta(t))
+  private def decodeChoice(choice: Choice): Either[String, Chunk[LlmChunk]] =
+    val delta = choice.delta
+    val calls = delta.toolCalls.getOrElse(Chunk.empty)
+    for
+      _ <- Either.cond(delta.role.forall(_ == "assistant"), (), "Unexpected completion delta role")
+      _ <- Either.cond(delta.refusal.forall(_.isEmpty), (), "Refusal deltas are not supported")
+      _ <- Either.cond(
+        delta.legacyFunctionCall.isEmpty,
+        (),
+        "Legacy unindexed function_call deltas are not supported"
+      )
+      _ <- Either.cond(
+        calls.map(_.index).distinct.size == calls.size,
+        (),
+        "Duplicate tool indexes in one delta"
+      )
+      tools <- calls.foldLeft[Either[String, Chunk[LlmChunk]]](Right(Chunk.empty))((acc, tool) =>
+        for
+          previous <- acc
+          decoded  <- decodeTool(tool)
+        yield previous :+ decoded
+      )
+    yield Chunk.fromIterable(
+      delta.reasoningContent
+        .orElse(delta.thinking)
+        .filter(_.nonEmpty)
+        .map(LlmChunk.ThinkingDelta(_))
+    ) ++
+      Chunk.fromIterable(delta.content.filter(_.nonEmpty).map(LlmChunk.TextDelta(_))) ++
+      tools ++ Chunk.fromIterable(choice.finishReason.map(LlmChunk.FinishReason(_)))
 
-          val toolChunks =
-            deltaObj.get("tool_calls").flatMap(_.asArray).getOrElse(Chunk.empty).flatMap { tc =>
-              val tcObj     = tc.asObject.getOrElse(Json.Obj.empty)
-              val index     = tcObj.get("index").flatMap(_.as[Int].toOption).getOrElse(0)
-              val id        = tcObj.get("id").flatMap(_.asString)
-              val fnObj     = tcObj.get("function").flatMap(_.asObject).getOrElse(Json.Obj.empty)
-              val name      = fnObj.get("name").flatMap(_.asString)
-              val argsDelta = fnObj.get("arguments").flatMap(_.asString).getOrElse("")
-              Some(LlmChunk.ToolCallChunk(index, id, name, argsDelta))
-            }
+  private def decodeTool(tool: ToolDelta): Either[String, LlmChunk] =
+    for _ <- Either.cond(tool.kind.forall(_ == "function"), (), "Unsupported streamed tool type")
+    yield LlmChunk.ToolCallChunk(
+      tool.index.value,
+      tool.id,
+      tool.function.flatMap(_.name),
+      tool.function.flatMap(_.arguments).getOrElse("")
+    )
 
-          val finishReasonChunk =
-            choiceObj.get("finish_reason").flatMap(_.asString).map(LlmChunk.FinishReason.apply)
-
-          Chunk.fromIterable(reasoningChunk) ++
-            Chunk.fromIterable(textChunk) ++
-            toolChunks ++
-            Chunk.fromIterable(finishReasonChunk)
-        }
-
-        val usageDelta: Option[LlmChunk] = obj.get("usage").flatMap(_.asObject).map { u =>
-          val inputTokens  = u.get("prompt_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
-          val outputTokens = u.get("completion_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
-          val promptDetails =
-            u.get("prompt_tokens_details").flatMap(_.asObject).getOrElse(Json.Obj.empty)
-          val cachedTokens =
-            promptDetails.get("cached_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
-          val compDetails =
-            u.get("completion_tokens_details").flatMap(_.asObject).getOrElse(Json.Obj.empty)
-          val reasoningTokens =
-            compDetails.get("reasoning_tokens").flatMap(_.as[Int].toOption).getOrElse(0)
-
-          LlmChunk.UsageChunk(
-            ChatUsage(
-              inputTokens = inputTokens,
-              outputTokens = outputTokens,
-              cachedTokens = cachedTokens,
-              reasoningTokens = reasoningTokens
-            )
-          )
-        }
-
-        choiceDeltas ++ Chunk.fromIterable(usageDelta)
+  private def decodeUsage(value: Usage): LlmChunk =
+    LlmChunk.UsageChunk(
+      ChatUsage(
+        inputTokens = value.promptTokens.map(_.value).getOrElse(0),
+        outputTokens = value.completionTokens.map(_.value).getOrElse(0),
+        cachedTokens = value.promptDetails.flatMap(_.cachedTokens).map(_.value).getOrElse(0),
+        reasoningTokens =
+          value.completionDetails.flatMap(_.reasoningTokens).map(_.value).getOrElse(0)
+      )
+    )
 
   /**
    * Context Hygiene: Prunes obsolete reasoning tokens from older dialogue rounds.

@@ -1,17 +1,26 @@
-# Model client port and stream assembly: verification
+# Model client and stream verification
 
-These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity.
+These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity or live-provider behavior.
 
 - [LlmClientSpec](LlmClientSpec.scala)
 - [ReasoningAdapterSpec](ReasoningAdapterSpec.scala)
+- [ReasoningAdapterValidationSpec](ReasoningAdapterValidationSpec.scala)
 - [SseParserSpec](SseParserSpec.scala)
 - [StreamAccumulatorSpec](StreamAccumulatorSpec.scala)
 
-Run `sbt "core / test"`, or `sbt verify` for repository-wide formatting, compilation, and tests. See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for gaps and intentional differences.
+## Current evidence
 
-## Message API migration acceptance
+- [x] Existing parsing tests preserve reasoning, tool fragments, and cached/reasoning usage through the typed Either API.
+- [x] Fifteen strict-boundary regressions cover malformed envelopes/fields, required arrays, missing/invalid/duplicate indexes, fractional/overflow numbers, multi-choice rejection, valid empty/usage chunks, provider errors, unsupported deltas, duplicate extension fields, and reasoning precedence.
+- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 326 core and 40 harness tests with zero compiler warnings.
+- [ ] Complete live transport/resource integration, model-stream correlation, and provider-specific scenario mapping.
 
-- [x] `review_fp` and `review_harness` approved this package's changed Scala files against `9c47bf5` on 2026-09-29, with no unresolved findings in the message-boundary migration.
-- [x] Repository verification passed 242 core and 40 harness tests with zero compiler warnings.
+The [client contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) record source migration, exact review scope, and remaining limits. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) separates runtime hardening from mapped upstream methods. Earlier message-boundary migration is retained in commit `a701612`.
 
-The accepted migration is recorded in commit `a701612`. See the [validated message API](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md) for source compatibility changes, scope, and evidence. Core callers preserve roles and optional fields; reasoning/structured-output filtering preserves message identity and metadata. Harness transformations preserve tool pairing, retained-user provenance, eviction fallback, and cancellation. This acceptance covers the changed files only; broader package and upstream parity gaps remain tracked.
+- [x] `review_fp` and `review_harness` approved the final three-file strict-delta increment against `95a838f` on 2026-09-29 after corrections, with no unresolved findings. Scope is single-frame parsing; HTTP integration, cross-frame completion, and input-size bounds remain separate.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [ReasoningModelAdapter.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/ReasoningModelAdapter.scala) | fc605dd9c205326798ba5b363f4770b8d82041fa |
+| [ReasoningAdapterSpec.scala](ReasoningAdapterSpec.scala) | fb4a5d5f69c8b09049b2cb5d63420ccc5ab41ae7 |
+| [ReasoningAdapterValidationSpec.scala](ReasoningAdapterValidationSpec.scala) | d034821b0c165da585b87fafbc02fdafd5c41192 |

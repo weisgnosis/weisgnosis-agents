@@ -365,3 +365,12 @@ The eight payload classes below are implemented and verified independently of th
 Upstream base events also have identity/time, optional source, and metadata. This payload increment preserves immutable optional source and data-delta metadata but does not add the universal id/createdAt envelope or translate uppercase type objects. A future envelope adapter must use explicitly supplied identity/time or an effectful allocator rather than eager UUID/clock access. Class presence alone is not runtime evidence: the pinned source has no production DataBlock event construction sites. A RequestStop event is distinct from fiber cancellation; supporting its type does not implement phase suspension or resumption.
 
 Inline event metadata intentionally preserves the complete result map; pinned upstream inline events synthesize only serverTool=true. ReActAgentEmissionSpec verifies this Scala contract, duplicate-ID occurrence handling, and local cancellation matching. It does not establish provider continuation without inline results, local structured tool streams, or complete event ordering.
+
+## Completion parser hardening
+
+- [x] Preserve the three original reasoning/tool/usage parsing scenarios through a typed Either result.
+- [x] Add fifteen Scala protocol-boundary regressions in ReasoningAdapterValidationSpec, including required choices, strict integer/index handling, duplicate keys, provider errors, legacy function-call rejection, and mixed-choice rejection.
+- [ ] Complete the method-level inventory of provider extension parser suites and transport suites; these new hardening tests are not claimed as fifteen upstream methods.
+- [ ] Implement request codecs, signed/block-aware assembly, strict completed tool arguments, and scoped HTTP integration.
+
+The pinned extension OpenAIStreamingToolCallTest and OpenAIResponseParserTest were inspected for fragment, usage, and error semantics. They are outside the earlier core-only inventory, and their full applicability mapping remains open. The current adapter intentionally supports indexed function-call deltas and fails unsupported legacy calls instead of silently dropping them.
