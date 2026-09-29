@@ -82,28 +82,62 @@ final class ConversationCompactor(
         else search(middle + 1, high)
     search(0, history.size)
 
-  /** Every result in the retained tail keeps its nearest preceding assistant call. */
-  @annotation.tailrec
-  private def safeCutoff(history: Chunk[Msg], candidate: Int): Int =
-    val (_, pairs) =
-      history.zipWithIndex.foldLeft((Map.empty[String, Int], Chunk.empty[(Int, Int)])) {
-        case ((pending, spans), (message, index)) =>
-          val calls =
-            message.toolUses.foldLeft(pending)((current, call) => current.updated(call.id, index))
-          val matched = message.toolResults.flatMap(result =>
-            Chunk.fromIterable(calls.get(result.toolUseId).map(_ -> index))
-          )
-          (calls -- message.toolResults.map(_.toolUseId), spans ++ matched)
+  final private case class PendingCall(call: ContentBlock.ToolUse, position: Int)
+  final private case class ToolPairing(
+      pending: Chunk[PendingCall],
+      spans: Chunk[(Int, Int)]
+  )
+
+  /** Consume one occurrence; inline eligibility and local name matching are separate contracts. */
+  private def consumeCall(
+      pending: Chunk[PendingCall],
+      result: ContentBlock.ToolResult,
+      eligible: ContentBlock.ToolUse => Boolean
+  ): (Option[PendingCall], Chunk[PendingCall]) =
+    val (before, matchingAndAfter) =
+      pending.span(value => value.call.id != result.id || !eligible(value.call))
+    matchingAndAfter.headOption match
+      case Some(matched) => (Some(matched), before ++ matchingAndAfter.drop(1))
+      case None          => (None, pending)
+
+  private def toolPairSpans(history: Chunk[Msg]): Chunk[(Int, Int)] =
+    history.zipWithIndex
+      .foldLeft(ToolPairing(Chunk.empty, Chunk.empty)) { case (pairing, (message, position)) =>
+        message.role match
+          case Role.Assistant =>
+            val calls = message.toolUses.map(PendingCall(_, position))
+            val local = message.toolResults.foldLeft(calls) { (pending, result) =>
+              consumeCall(pending, result, _.isServerTool)._2
+            }
+            pairing.copy(pending = pairing.pending ++ local)
+          case Role.Tool =>
+            message.toolResults.foldLeft(pairing) { (current, result) =>
+              val (matched, pending) =
+                consumeCall(current.pending, result, call => result.name.forall(_ == call.name))
+              current.copy(
+                pending = pending,
+                spans = current.spans ++ Chunk.fromIterable(matched.map(_.position -> position))
+              )
+            }
+          case _ => pairing
       }
-    val crossing = pairs.collect {
-      case (start, end) if start < candidate && end >= candidate => start
-    }.minOption
-    crossing match
-      case Some(index) => safeCutoff(history, index)
-      case None =>
-        val orphanCount = history.drop(candidate).takeWhile(_.role == Role.Tool).size
-        if orphanCount > 0 then safeCutoff(history, candidate + orphanCount)
-        else candidate
+      .spans
+
+  /** Every matched retained result keeps the assistant owning that exact call occurrence. */
+  private def safeCutoff(history: Chunk[Msg], candidate: Int): Int =
+    val pairs = toolPairSpans(history)
+    @annotation.tailrec
+    def adjust(boundary: Int): Int =
+      val crossing = pairs.collect {
+        case (start, end) if start < boundary && end >= boundary => start
+      }.minOption
+      crossing match
+        case Some(index) => adjust(index)
+        case None =>
+          val orphanCount = history.drop(boundary).takeWhile(_.role == Role.Tool).size
+          if orphanCount > 0 then adjust(boundary + orphanCount)
+          else boundary
+    adjust(candidate)
 
   private def prune(history: Chunk[Msg]): Chunk[Msg] =
     val protectedStart = tokenBoundary(history, config.protectTokens.max(0).toLong)
@@ -122,9 +156,13 @@ final class ConversationCompactor(
             else result
           }
           .mapToolUses { call =>
-            if call.input.toJson.length > limit then
-              call.copy(input =
-                Json.Obj("_pruned_arguments" -> Json.Str(preview(call.input.toJson, limit)))
+            val hasReasoningMetadata = call.metadata.contains("thoughtSignature") || call.metadata
+              .contains("reasoningDetails")
+            if !hasReasoningMetadata && call.input.toJson.length > limit then
+              call.copy(
+                input =
+                  Json.Obj("_pruned_arguments" -> Json.Str(preview(call.input.toJson, limit))),
+                content = None
               )
             else call
           }

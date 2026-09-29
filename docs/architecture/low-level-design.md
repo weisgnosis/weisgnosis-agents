@@ -59,7 +59,7 @@ ToolAuthorizer.authorize accepts ToolAuthorizationRequest(requestId, context, ca
 
 | Component | Contract | Declaration |
 | --- | --- | --- |
-| ConversationCompactor | Injected summarizer/counter/hooks, safe cutoff, summary rebuilding, typed failures | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) |
+| ConversationCompactor | Injected summarizer/counter/hooks, occurrence-safe cutoff, isolated inline pairs, signed-argument protection, summary rebuilding | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) |
 | CompactorConfig | 120k trigger, 40k keep/protect, six retained messages, 2k pruning threshold | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/CompactorConfig.scala) |
 | ToolResultEvictor | Above 80k text chars, 2k head/tail, failure fallback, opt-in local-result processor | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictor.scala) |
 | ToolResultStore | Effectful persistence; local backend requires WorkspaceTrust and hard-link support | [source](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/eviction/ToolResultStore.scala) |

@@ -72,6 +72,176 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
       )
       assertTrue(compactor.calculateCutoffIndex(history, config) == 3)
     },
+    test("duplicate call occurrences retain every result across intervening messages") {
+      val use = ContentBlock.ToolUse("same", "search", Json.Obj())
+      val history = Chunk(
+        Msg.assistant(Chunk(use, use)),
+        tool("same"),
+        Msg.user("extra"),
+        tool("same"),
+        Msg.assistant("tail")
+      )
+      assertTrue(
+        compactor
+          .calculateCutoffIndex(history, config.copy(keepTokens = 3, preserveTailMessages = 3)) == 0
+      )
+    },
+    test(
+      "named results consume the matching occurrence even when identical IDs complete in reverse order"
+    ) {
+      val history = Chunk(
+        Msg.assistant(Chunk(ContentBlock.ToolUse("same", "first", Json.Obj()))),
+        Msg.assistant(Chunk(ContentBlock.ToolUse("same", "second", Json.Obj()))),
+        Msg.tool("same", "second", "result"),
+        Msg.user("extra"),
+        Msg.tool("same", "first", "result"),
+        Msg.assistant("tail")
+      )
+      assertTrue(
+        compactor.calculateCutoffIndex(
+          history,
+          config.copy(keepTokens = 3, preserveTailMessages = 3)
+        ) == 0
+      )
+    },
+    test("unnamed results consume one FIFO occurrence rather than every reused ID") {
+      val use = ContentBlock.ToolUse("same", "search", Json.Obj())
+      val unnamed =
+        Msg.tool(Chunk(ContentBlock.ToolResult("same", None, Chunk(ContentBlock.Text("result")))))
+      val history = Chunk(
+        Msg.assistant(Chunk(use, use)),
+        unnamed,
+        Msg.user("extra"),
+        unnamed,
+        Msg.assistant("tail")
+      )
+      assertTrue(
+        compactor.calculateCutoffIndex(
+          history,
+          config.copy(keepTokens = 3, preserveTailMessages = 3)
+        ) == 0
+      )
+    },
+    test("inline provider results cannot consume same-message pending local calls") {
+      val local  = ContentBlock.ToolUse("same", "search", Json.Obj())
+      val server = local.withServerTool(true)
+      val inline = ContentBlock.ToolResult.text("same", "search", "inline")
+      val history = Chunk(
+        Msg.assistant(Chunk(local, server, inline)),
+        Msg.user("one"),
+        Msg.user("two"),
+        tool("same"),
+        Msg.assistant("tail")
+      )
+      assertTrue(
+        compactor.calculateCutoffIndex(
+          history,
+          config.copy(keepTokens = 3, preserveTailMessages = 3)
+        ) == 0
+      )
+    },
+    test("later inline results cannot consume an older unresolved local occurrence") {
+      val server = ContentBlock.ToolUse("same", "search", Json.Obj()).withServerTool(true)
+      val history = Chunk(
+        call("same"),
+        Msg.assistant(Chunk(server, ContentBlock.ToolResult.text("same", "search", "inline"))),
+        Msg.user("extra"),
+        tool("same"),
+        Msg.assistant("tail")
+      )
+      assertTrue(
+        compactor.calculateCutoffIndex(
+          history,
+          config.copy(keepTokens = 3, preserveTailMessages = 3)
+        ) == 0
+      )
+    },
+    test("unmatched provider calls use local name-sensitive result matching") {
+      val server = ContentBlock.ToolUse("same", "provider", Json.Obj()).withServerTool(true)
+      val local  = ContentBlock.ToolUse("same", "local", Json.Obj())
+      val history = Chunk(
+        Msg.assistant(Chunk(server, local)),
+        Msg.tool("same", "local", "result"),
+        Msg.user("extra"),
+        Msg.tool("same", "provider", "result"),
+        Msg.assistant("tail")
+      )
+      assertTrue(
+        compactor.calculateCutoffIndex(
+          history,
+          config.copy(keepTokens = 3, preserveTailMessages = 3)
+        ) == 0
+      )
+    },
+    test(
+      "argument pruning clears cached content while preserving tool identity state and metadata"
+    ) {
+      val use = ContentBlock.ToolUse(
+        "large",
+        "search",
+        Json.Str("x" * 3000),
+        Some("stale arguments"),
+        Map("audit" -> Json.Str("kept")),
+        ToolCallState.Finished
+      )
+      val pruning = new ConversationCompactor(
+        _ => ZIO.succeed("unused"),
+        config.copy(keepTokens = 100),
+        counter
+      )
+      for result <- pruning.compactIfNeeded(
+          Chunk(
+            Msg.assistant(Chunk(use)),
+            tool("large"),
+            Msg.assistant("recent"),
+            Msg.assistant("tail")
+          )
+        )
+      yield assertTrue(
+        result
+          .flatMap(_.toolUses)
+          .exists(value =>
+            value.input != use.input && value.content.isEmpty &&
+              value.id == use.id && value.name == use.name && value.state == use.state && value.metadata == use.metadata
+          )
+      )
+    },
+    test(
+      "signed and opaque reasoning metadata protect original arguments and cached content from pruning"
+    ) {
+      val fields = Chunk(
+        Map("thoughtSignature" -> Json.Str("signature")),
+        Map("thoughtSignature" -> Json.Bool(true)),
+        Map("thoughtSignature" -> Json.Null),
+        Map("reasoningDetails" -> Json.Arr(Json.Str("opaque"))),
+        Map("reasoningDetails" -> Json.Null)
+      )
+      val pruning = new ConversationCompactor(
+        _ => ZIO.succeed("unused"),
+        config.copy(keepTokens = 100),
+        counter
+      )
+      for results <- ZIO.foreach(fields)(metadata =>
+          val use = ContentBlock.ToolUse(
+            "large",
+            "search",
+            Json.Str("x" * 3000),
+            Some("original raw arguments"),
+            metadata
+          )
+          pruning
+            .compactIfNeeded(
+              Chunk(
+                Msg.assistant(Chunk(use)),
+                tool("large"),
+                Msg.assistant("recent"),
+                Msg.assistant("tail")
+              )
+            )
+            .map(_.flatMap(_.toolUses) == Chunk(use))
+        )
+      yield assertTrue(results.forall(identity))
+    },
     test("empty and below-threshold histories do not call the summarizer") {
       val failing = new ConversationCompactor(
         _ => ZIO.fail(AgentError.ModelError(500, "must not run")),

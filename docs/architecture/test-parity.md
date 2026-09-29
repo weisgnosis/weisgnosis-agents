@@ -466,3 +466,9 @@ The opt-in harness adapter adds sixteen tests and runs within one active invocat
 - [ ] Complete durable partial confirmations, persisted reply-ID recovery, automatic denied-batch ordering before approval notices, authenticated transport, and exhaustive permission mode/rule parity.
 
 The adapter publishes a narrow ToolAuthorizationRequest callback, not upstream approval event envelopes. Confirmed policy updates are independent of later core validation/execution; tests explicitly retain rules after a signed-input denial. External gate changes and post-decision revocation are not transactional guarantees.
+
+## Standalone compactor hardening
+
+These eight Scala regressions cover occurrence pairing and safe argument pruning; they do not complete the upstream compaction inventory.
+
+- [x] `review_fp` and `review_harness` approved the final two-file compactor hardening against `6ed928a` on 2026-09-29. No findings remain in this scope. Eight new regressions failed before the correction; full formatting, fatal-warning compilation, and verification now pass 481 core and 69 harness tests. Acceptance covers standalone pairing and argument pruning; runtime integration and transformed-history validation remain pending.

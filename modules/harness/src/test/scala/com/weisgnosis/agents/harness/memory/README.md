@@ -1,24 +1,12 @@
-# Conversation compaction: verification
+# Conversation compaction verification
 
-These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity.
+- [ConversationCompactorSpec](ConversationCompactorSpec.scala): pair-safe cutoff, prior summary rebuilding, user provenance, pruning, unchanged below-trigger history, and typed/interrupted hooks.
+- [TokenCounterSpec](TokenCounterSpec.scala): deterministic additive estimation.
 
-- [ConversationCompactorSpec](ConversationCompactorSpec.scala)
-- [TokenCounterSpec](TokenCounterSpec.scala)
+Eight added compactor regressions cover identical IDs, reversed named results, unnamed FIFO consumption, same-message and later inline/local collisions, unmatched provider calls, stale argument-cache removal, and signed/opaque reasoning metadata protection. All eight failed before the hardening change. Existing completed-turn ID reuse, protected-tail, and below-threshold regressions remain in the suite.
 
-Run `sbt "harness / test"`, or `sbt verify` for repository-wide formatting, compilation, and tests. See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for gaps and intentional differences.
+These tests cover selected upstream behavior and Scala runtime regressions, not exhaustive upstream parity. Run `sbt "harness / test"` or repository-wide `sbt verify`. The [memory contract and source identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md) record the current acceptance scope; prior acceptance remains in Git through `6ed928a`.
 
 ## Current review acceptance
 
-- [x] Reviewed revision: `fb80428`; accepted files: ConversationCompactor.scala and ConversationCompactorSpec.scala.
-- [x] Independent final approval: `review_fp`, reconfirmed for unchanged code on 2026-09-29 after corrections and cross-review.
-- [x] No unresolved findings in the accepted scope: Repeated-compaction user provenance and unchanged below-threshold history.
-- [x] Verification at the reviewed revision: `sbt verify`, 108 core and 40 harness tests, no failed tests or compiler warnings.
-
-This is the accepted reference behavior for the scope above. Memory services and exhaustive upstream parity remain pending. Changes to this behavior require renewed independent review and an updated acceptance entry.
-
-## Message API migration acceptance
-
-- [x] `review_fp` and `review_harness` approved this package's changed Scala files against `9c47bf5` on 2026-09-29, with no unresolved findings in the message-boundary migration.
-- [x] Repository verification passed 242 core and 40 harness tests with zero compiler warnings.
-
-The accepted migration is recorded in commit `a701612`. See the [validated message API](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/model/README.md) for source compatibility changes, scope, and evidence. Core callers preserve roles and optional fields; reasoning/structured-output filtering preserves message identity and metadata. Harness transformations preserve tool pairing, retained-user provenance, eviction fallback, and cancellation. This acceptance covers the changed files only; broader package and upstream parity gaps remain tracked.
+- [x] `review_fp` and `review_harness` approved the final two-file compactor hardening against `6ed928a` on 2026-09-29. No findings remain in this scope. Eight new regressions failed before the correction; full formatting, fatal-warning compilation, and verification now pass 481 core and 69 harness tests. Acceptance covers standalone pairing and argument pruning; runtime integration and transformed-history validation remain pending.

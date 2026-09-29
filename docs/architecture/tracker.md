@@ -61,7 +61,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [ ] Complete exhaustive harness upstream scenario mapping and close its gaps.
 - [x] Integrate immediate local-result eviction through a scoped processor; independently review fifteen new tests, map five of seven eviction methods with explicit adaptations, and verify 466 core / 45 harness tests.
 - [x] Connect harness permission policy and interactive requests to ToolAuthorizer, including fresh dual-gate checks, atomic rule updates, and cancellation cleanup; verify sixteen added tests and 481 core / 61 harness tests.
-- [ ] Integrate compaction into canonical agent state before model invocation.
+- [x] Harden standalone compaction for repeated call occurrences, inline/local isolation, stale argument caches, and reasoning metadata; reproduce eight failures, obtain independent approval, and verify 481 core / 69 harness tests.
+- [ ] Integrate compaction into canonical agent state before model invocation with safe attempt-local recovery progress and transformed-history validation.
 - [ ] Extend eviction to supplied history, separate model-input views, and inline provider results; close the two remaining eviction method gaps.
 - [ ] Implement MemoryFlushManager and MemoryConsolidator with the specified writer isolation and budgets.
 - [ ] Verify durable host persistence and resumption without a second model request.

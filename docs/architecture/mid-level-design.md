@@ -47,7 +47,7 @@ Structured text requires a complete unique-key JSON document. Metadata and captu
 
 Below-trigger valid history remains unchanged. Summary, flush, and offload effects are injected. Prior summaries enter summarization but never raw-memory flushing. Coalesced users retain serialized provenance, validated before reconstructing original user messages for later flushing.
 
-A token-window binary search respects a minimum recent-message count. Boundaries shift backward across paired calls/results, matching repeated IDs by occurrence. Orphaned tool results move into the prefix.
+A token-window binary search respects a minimum recent-message count. Boundaries shift backward across paired calls/results, consuming each occurrence once with optional local result-name matching. Inline results consume only their own assistant provider calls. Unsigned argument pruning clears cached content; reasoning metadata keys protect arguments from rewriting. Orphaned tool results move into the prefix.
 
 Immediate local eviction is installed through ToolResultEvictor.processor and the core ToolResultProcessor port. The runtime appends raw completion atomically before scoped interruptible processing, then commits the processed observation before model continuation/publication. Typed failures retain original output; cancellation retains completed raw successes. Compaction, supplied history, and inline provider result processing remain pending.
 
