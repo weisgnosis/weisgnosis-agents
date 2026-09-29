@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement runtime-owned child lineage/depth and bounded child creation, then integrate inherited plan restrictions for new and reused children; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement configured child construction and task registry, then integrate inherited plan restrictions for new and reused children; session discovery, remote storage and host operational monitoring remain separate work. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -102,7 +102,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Implement typed workspace-relative plan directories with canonical strict containment; independently review twelve new cases and verify 556 core / 575 harness tests.
 - [x] Implement scoped task supervision and promotion; correct parallel forkIn cleanup, independently review eighteen cases and verify 556 core / 593 harness tests.
 - [ ] Implement supervised child propagation.
-- [ ] Implement runtime-owned subagent depth bounds and child factories/registry before exposing spawn/send.
+- [x] Implement runtime-owned descendant depth <=3; independently review nine cases and verify 557 core / 601 harness tests.
+- [ ] Implement child factories/registry before exposing spawn/send.
 - [ ] Implement MCP protocol codecs, transports, discovery, and tool bridging.
 - [ ] Validate live end-to-end behavior, cancellation, resource release, and operational controls.
 - [ ] Complete release/API compatibility and production cutover acceptance.
@@ -139,7 +140,7 @@ Package indexes enumerate actual source and spec files. Planned package document
 | INV-5: Summary deduplication | Compactor tests cover repeated summaries and retained-user provenance |
 | INV-6: Tool eviction | Standalone and runtime suites cover 80k/2k limits, persistence fallback, raw-result retention on cancellation, parallel slot isolation, and actual disk storage |
 | INV-7: Permission priority | Gate tests and installed interactive adapter cover Deny > Ask > Passthrough > Allow, fresh modified-input checks, and latest-policy denial |
-| INV-8: Subagent supervision | Scoped local execution/promotion reviewed; runtime-owned depth, registry and actual spawn/send integration pending |
+| INV-8: Subagent supervision | Scoped local execution/promotion reviewed; runtime-owned depth reviewed; registry and actual spawn/send integration pending |
 | INV-9: Plan mode hardening | Static grammar and opt-in runtime permission admission reviewed; in-memory review lifecycle, request projection and standalone draft storage are available; stored-session publication is available; model controls are available; location context is available; typed workspace-relative directories are available; child propagation remains pending |
 | INV-10: Path safety | Canonical paths and parent traversal are tested; privileged symlink creation was unavailable on this host. The portable store requires host-controlled ancestors |
 | INV-11: Structured output | Schema hoisting, native/synthetic selection and capture tests; broader parity gaps remain |

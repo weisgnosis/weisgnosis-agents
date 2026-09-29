@@ -20,6 +20,14 @@ import zio.test.*
 
 object AgentErrorSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment, Any] = suite("AgentErrorSpec")(
+    test("spawn depth errors retain typed diagnostics and their individual JSON codec") {
+      val error = AgentError.SpawnDepthExceeded(3)
+      assertTrue(
+        error.toJson.fromJson[AgentError.SpawnDepthExceeded] == Right(error),
+        error.maximumDepth == 3,
+        error.getMessage == "Maximum subagent spawn depth exceeded: 3"
+      )
+    },
     test("plan storage errors retain their dedicated type, message and JSON representation") {
       val error = AgentError.PlanStorageError("plan ownership unavailable")
       assertTrue(

@@ -259,4 +259,4 @@ Final formatted increment against `3e817e3`; independent acceptance is recorded 
 
 - [x] `review_docs` approved the corrected consolidation/composition documentation against `3e817e3`: seven identities, 25 new cases, scoped composition, reporting limits, FIFO ordering and conservative parity classifications. Full verification passed 555 core / 346 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
 
-Changed AgentError.scala identities are preserved in 083617b; the [current plan-storage table](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-draft-storage-identities) records their replacements and renewed acceptance.
+Earlier AgentError.scala identities are preserved in 083617b and 279b7a3; the [current lineage table](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#current-lineage-identities) records their replacements and renewed acceptance.

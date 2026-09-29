@@ -89,9 +89,11 @@ Middleware checks permission before execution. Interactive hosts route authentic
 
 ## 9. Subagent supervision and remaining factories
 
-TaskSupervisor now owns local executions and parent cancellation leases. Each awaitOrPromote invocation starts a fresh 30-second wait; after the timer wins, masked promotion relinquishes the parent lease without moving/restarting execution. Explicit cancellation and owner closure join cleanup and full Exit remains observable. The owner Scope outlives promoted work only when the host retains it. Runtime-owned depth <=3, child factories, task registry and model-facing spawn/send remain pending.
+TaskSupervisor now owns local executions and parent cancellation leases. Each awaitOrPromote invocation starts a fresh 30-second wait; after the timer wins, masked promotion relinquishes the parent lease without moving/restarting execution. Explicit cancellation and owner closure join cleanup and full Exit remains observable. The owner Scope outlives promoted work only when the host retains it. Runtime-owned depth <=3 is now enforced by SubagentSpawner capabilities; configured child factories, task registry and model-facing spawn/send remain pending.
 
 The supervisor owner uses parallel closure, but each worker scope is sequential. ZIO 2.1.26 forkIn self-cleanup depends on same-fiber identity; direct inheritance of parallel finalizers caused a reproduced self-join hang. Explicit worker-scope completion closes/unregisters it. Short admission serialization ends before user work or waiting; owner closure closes admission before shutdown.
+
+SubagentSpawner.root mints depth-zero authority in ZIO. spawn checks depth before allocating a descendant UUID and suspends the callback within the supervisor task Scope. Descendants inherit lineage and the same supervisor; nested attached tasks cancel with their caller Scope, while promoted descendants remain supervisor-owned. Retained spawners are reusable capabilities, not automatically revoked invocation tokens.
 
 ## 10. Plan-mode hardening and remaining integration
 

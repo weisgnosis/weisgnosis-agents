@@ -152,12 +152,10 @@ The standalone backend itself changes no session state; the stored-session integ
 
 ## Current draft-storage identities
 
-Five unchanged identities from the nine-file increment against 083617b. Earlier store/files identities are preserved in fd496a4; changed PlanDraftFilesSpec, LocalPlanDraftStore and PlanDraftFiles identities are preserved in f147a99 and replaced in the directory table. PlanDraftStore remains in the location table. The original storage migration's earlier AgentError, AgentErrorSpec and WorkspaceLease identities are preserved in 083617b.
+Three unchanged identities from the nine-file increment against 083617b. AgentError and AgentErrorSpec identities are preserved in 279b7a3 and replaced in the [lineage table](../subagent/README.md#current-lineage-identities). Earlier store/files identities are preserved in fd496a4; changed PlanDraftFilesSpec, LocalPlanDraftStore and PlanDraftFiles identities are preserved in f147a99 and replaced in the directory table. PlanDraftStore remains in the location table. The original storage migration's earlier AgentError, AgentErrorSpec and WorkspaceLease identities are preserved in 083617b.
 
 | Source | Git blob |
 | --- | --- |
-| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | ccc65bd076cc44a53cf85720dc035331030803e9 |
-| [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | f32ca3dd7cca41e95a1a0518ad84f9522ff5193a |
 | [WorkspaceLease.scala](../storage/WorkspaceLease.scala) | 409edda77d0fcf5b8846d1cc89e3050d190d2740 |
 | [LocalPlanDraftStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/LocalPlanDraftStoreSpec.scala) | 564df5e17f6c8c0998e060aea890adcf0bed5fc7 |
 | [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | 631725c6b84598e9cc2b3641f0b33a7ec5b691bc |

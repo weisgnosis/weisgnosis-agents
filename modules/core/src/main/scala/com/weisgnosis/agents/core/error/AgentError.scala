@@ -80,6 +80,10 @@ object AgentError:
   ) extends AgentError derives JsonCodec:
     def message: String = s"Permission denied for tool '$toolName': $reason"
 
+  /** Runtime lineage rejected a descendant before construction or execution. */
+  final case class SpawnDepthExceeded(maximumDepth: Int) extends AgentError derives JsonCodec:
+    def message: String = s"Maximum subagent spawn depth exceeded: $maximumDepth"
+
   final case class MaxIterationsExceeded(
       iterations: Int
   ) extends AgentError derives JsonCodec:

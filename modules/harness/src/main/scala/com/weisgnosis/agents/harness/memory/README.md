@@ -405,4 +405,4 @@ Final formatted ten-file increment against 005bacf; this table owns current iden
 
 - [x] `review_docs` approved corrected memory-configuration documentation against `005bacf`: ten identities, 17 new cases, preserved defaults, literal template semantics and all ten configuration-method classifications with explicit differences. Full verification passed 555 core / 451 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain in this scope.
 
-Changed AgentErrorSpec.scala identities are preserved in 083617b; the [current plan-storage table](../plan/README.md#current-draft-storage-identities) records their replacements and renewed acceptance.
+Earlier AgentErrorSpec.scala identities are preserved in 083617b and 279b7a3; the [current lineage table](../subagent/README.md#current-lineage-identities) records their replacements and renewed acceptance.

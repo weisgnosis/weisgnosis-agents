@@ -849,3 +849,5 @@ Pinned upstream f98a685fdc4589f81e626e1686ac2c63d14a2304 contains the following 
 - [ ] ManagedSubagentBoundaryTest.declarationFiltersAutoRegisteredToolsAsWellAsInheritedTools and childCannotReenableParentDeniedTool: actual child construction and capability narrowing remain pending.
 
 The six unfinished plan-mode methods above remain unfinished. A child approval must never bypass an inherited parent restriction, and parent Build must not manufacture child approval. These requirements need real factory/reuse/send integration, not only a restriction-combining function.
+
+- [x] Verify runtime-owned lineage with six capability cases, two actual nested ReAct cases and one error-codec case. Depth-four rejection occurs before UUID/callback effects; cancellation reconciles every running level. These test-fixture spawn calls do not close production AgentSpawnTool mappings.

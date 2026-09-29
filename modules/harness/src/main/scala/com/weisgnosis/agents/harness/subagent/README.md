@@ -22,13 +22,13 @@ If completion and the deadline coincide, the race winner decides; Promoted can r
 
 ## Verification and remaining integration
 
-The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) covers sixteen supervisor cases and two actual ReAct cases. Source and lifecycle review apply only to this five-file scope. The upstream inventory records related behavioral evidence without claiming whole spawn/promotion tool parity.
+The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) covers sixteen supervisor cases, two direct ReAct cases and the later lineage cases below. The original lifecycle review applies to its recorded five-file scope. The upstream inventory records related behavioral evidence without claiming whole spawn/promotion tool parity.
 
 - [x] Implement masked admission, explicit child interruption policy and scoped parent cancellation leases.
 - [x] Implement completion observation and same-execution promotion with a 30-second wait budget.
 - [x] Verify parallel shutdown with sequential worker cleanup, including reproduced forkIn closure deadlock correction.
 - [x] Verify actual ReAct history reconciliation and continuation after parent closure.
-- [ ] Add runtime-owned lineage and maximum spawn depth of three before exposing child creation.
+- [x] Add runtime-owned lineage and maximum descendant depth of three.
 - [ ] Add task identities, registry inspection and bounded admission policy for model-facing spawning.
 - [ ] Implement declared/general-purpose child factories and capability narrowing.
 - [ ] Enforce inherited plan restrictions for new and reused children without copying approval authority.
@@ -50,3 +50,33 @@ Final formatted five-file scope against 26f524c, including the parallel-owner/se
 - [x] `review_fp` and `review_harness` renewed approval of the final five-file supervision scope against `26f524c` on 2026-09-29 after reproducing and correcting the parallel forkIn self-join. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 593 harness tests, including eighteen new cases, with zero compiler warnings. No findings remain within local scoped admission, cancellation leases, same-execution promotion, full-Exit observation, parallel shutdown and actual ReAct continuation/reconciliation. Registry, depth enforcement, spawn/send tools, persistence, event forwarding and plan propagation are excluded.
 
 - [x] `review_docs` approved corrected supervision documentation against `26f524c`: five identities, eighteen new cases and 556 core / 593 harness tests. Parent/host scope ownership, per-invocation deadlines, full-Exit observation and the forkIn cleanup correction are explicit. Depth, registry, spawn/send, event forwarding and plan propagation remain pending; no whole upstream method is marked complete. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
+
+## Runtime-owned descendant lineage
+
+[SubagentSpawner.root[A]](SubagentSpawner.scala) takes a TaskSupervisor[A] and lazily mints a UUID-derived root capability at depth zero. Only trusted hosts should create or distribute roots. The private constructor and absence of a JSON codec prevent descriptive source/depth fields from reconstructing a spawner. Retaining or creating a separate root is host authority; this API is not a sandbox for arbitrary Scala code.
+
+spawn receives a callback that will run under the existing supervisor's worker Scope. The callback receives only the newly minted descendant spawner, with immutable structural lineage, the same supervisor and depth increased by one. Depths one through three are admitted. A depth-three capability fails with AgentError.SpawnDepthExceeded(3) before identity allocation or callback invocation. The effect is lazy; neither building the spawn effect nor closed supervisor admission invokes the callback. At an eligible depth, identity allocation precedes supervisor admission, so a closed admission can consume an unused UUID.
+
+source joins the runtime lineage into descriptive slash-separated UUID text. It is not a filesystem path, registry lookup credential or automatic AgentEvent source tag. There is no identity registry/collision protocol in this primitive. Sibling requests mint independent identities without changing their parent. No public API accepts a depth, source string or model JSON as authority.
+
+The callback's Scope supplies the default cancellation lease for further nested attached tasks. Cascading cancellation waits for descendant cleanup and reconciliation. A descendant promoted through its handle survives the earlier parent scope and still belongs to the supervisor owner. Spawner capabilities are not automatically revoked when the callback finishes; a trusted holder can reuse one under another caller Scope while the supervisor remains open, preserving its original depth/lineage. Hosts must control capability distribution.
+
+At a tool boundary, Toolkit normalizes SpawnDepthExceeded as an Error observation; the containing ReAct run can still finish. Actual three-level tests establish this and cancellation reconciliation at each running level. Their spawn_child tool is a test fixture, not a library-registered model tool. No factory policy, registry, declaration, parent permission, plan propagation or event forwarding is implied.
+
+Migration: the sealed AgentError hierarchy now includes SpawnDepthExceeded(maximumDepth), with an individual derived codec and diagnostic message. Exhaustive matches must handle the new leaf. Decoding this diagnostic grants no spawn authority.
+
+## Current lineage identities
+
+Final formatted five-file scope against 279b7a3. Earlier AgentError/AgentErrorSpec identities remain in that commit and are retired from the plan-storage table.
+
+| Source | Git blob |
+| --- | --- |
+| [SubagentSpawner.scala](SubagentSpawner.scala) | 75cd20da3998b0d66b8afb050a8c2e5012ce44b4 |
+| [SubagentSpawnerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSpawnerSpec.scala) | b2866e1bab047dc31f463a1f809d45fe4676b7ba |
+| [SubagentSpawnerAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSpawnerAgentSpec.scala) | 56b59a7fa9a7af22f4d63b8578533a068312cd21 |
+| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | 4b4b37d57e469975eaf208e8466fa1640fa8e11f |
+| [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | b564c375448d4a6789dc2e45f9261c02a8075650 |
+
+- [x] `review_fp` and `review_harness` approved the final five-file lineage scope against `279b7a3` on 2026-09-29, including the corrected ancestry assertion. Full `sbt scalafmtAll scalafmtSbt verify` passed 557 core / 601 harness tests, including nine new cases, with zero compiler warnings. No findings remain within runtime-owned depth <=3, suspended identity/callback effects, sibling lineage, nested cancellation and actual ReAct depth-error normalization. Registry, child factory configuration, automatic source tagging, inherited permission/plan policy and model-facing spawn/send remain excluded.
+
+- [x] `review_docs` approved corrected lineage documentation against `279b7a3`: five identities, nine new cases and 557 core / 601 harness tests. Host root authority, retained capabilities, descriptive source, depth rejection and the sealed-error migration are explicit. Factories, registry, inherited policy and model-facing spawn/send remain pending; no additional whole upstream method is closed. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.

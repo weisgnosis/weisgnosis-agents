@@ -87,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, child factories/depth/registry, plan child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, child factories/registry, plan child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -223,3 +223,7 @@ PlanDirectory.fromString returns Either[AgentError.InvalidConfiguration, PlanDir
 ## Task supervision API
 
 TaskSupervisor.open[A] returns ZIO[Scope, Nothing, TaskSupervisor[A]]. attach accepts a suspended ZIO[Scope, AgentError, A] and returns scoped TaskAdmission.Accepted(handle) or Closed. SupervisedTask.await and cancel return UIO[Exit[AgentError, A]]; awaitOrPromote returns Completed(exit) or Promoted after its own 30-second deadline. These are runtime capabilities without codecs. Parent/host cleanup joins the task; callers inspect its Exit for failures. Tasks must not await their own handle or closure of a scope currently joining them. Explicitly masked work/finalizers can delay cancellation.
+
+## Bounded lineage API
+
+SubagentSpawner.root accepts a typed supervisor and returns UIO[SubagentSpawner[A]]. spawn(callback) returns ZIO[Scope, AgentError, TaskAdmission[A]]. Public depth/source fields describe privately constructed lineage; there is no codec or source-based restoration. MaximumDepth is three. SpawnDepthExceeded is checked before UUID allocation or callback evaluation. Eligible closed admission may consume a UUID but invokes no callback. Callers must handle the new sealed AgentError leaf in exhaustive matches.

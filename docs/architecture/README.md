@@ -37,4 +37,4 @@ PlanContext now associates one snapshot with configured/observed location metada
 
 Typed PlanDirectory configuration now selects an existing strict descendant of an explicit host-controlled workspace. Native Path opening retains its semantics; no directory creation or implicit workspace discovery is provided. Plan parity now records eight of fourteen named adaptations; skills and supervised child propagation remain pending.
 
-Local scoped task supervision now has reviewed execution ownership and promotion. The subagent inventory distinguishes eighteen supporting tests from still-pending actual spawn/task-method parity. Runtime-owned depth and child construction are the next tracked scope.
+Local scoped task supervision now has reviewed execution ownership and promotion. The subagent inventory distinguishes eighteen supporting tests from still-pending actual spawn/task-method parity. Runtime-owned depth is available; configured child construction and registry are the next tracked scope.

@@ -19,7 +19,7 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 556 core and 593 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 557 core and 601 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
@@ -84,3 +84,5 @@ Prior documentation reviews are preserved in Git through `40f6f05`. Current pack
 - [x] `review_docs` approved corrected directory documentation against `f147a99`: six identities, twelve new cases, 556 core / 575 harness tests and eight of fourteen named plan adaptations. Strict normalization, existing-directory requirements and unchanged native Path semantics are explicit. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
 
 - [x] `review_docs` approved corrected supervision documentation against `26f524c`: five identities, eighteen new cases and 556 core / 593 harness tests. Parent/host scope ownership, per-invocation deadlines, full-Exit observation and the forkIn cleanup correction are explicit. Depth, registry, spawn/send, event forwarding and plan propagation remain pending; no whole upstream method is marked complete. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
+
+- [x] `review_docs` approved corrected lineage documentation against `279b7a3`: five identities, nine new cases and 557 core / 601 harness tests. Host root authority, retained capabilities, descriptive source, depth rejection and the sealed-error migration are explicit. Factories, registry, inherited policy and model-facing spawn/send remain pending; no additional whole upstream method is closed. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
