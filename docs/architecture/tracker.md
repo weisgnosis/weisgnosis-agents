@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: close remaining eviction configuration/input-view gaps and expand lifecycle/hook parity against the pinned upstream revision. Local and inline provider result eviction are installed through an opt-in processor.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement a separate model-input history view and close its eviction mapping, then expand lifecycle/hook parity against the pinned upstream revision. Local and inline provider result eviction are installed through an opt-in processor.
 
 ### Foundation and current core
 
@@ -65,7 +65,8 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Integrate scoped compaction into canonical history before model requests, share occurrence validation, replace stale offsets with attempt-local recovery progress, independently review twenty added tests, and verify 497 core / 73 harness tests.
 - [x] Process matched inline provider results by exact occurrence; preserve cleanup defects through cooperative/fiber/timeout cancellation; independently review fourteen added regressions and verify 510 core / 74 harness tests.
 - [x] Install supplied-history eviction, store-backed preview recognition, and validated preparation composition; independently review twenty-two added tests and verify 516 core / 90 harness tests.
-- [ ] Add separate model-input views and configurable absolute storage paths; close the two remaining eviction method gaps.
+- [x] Add existing absolute-directory selection with canonical revalidation, map the upstream trailing-separator scenario, independently review eight new tests, and verify 516 core / 98 harness tests.
+- [ ] Add a separate model-input view and close the remaining eviction method gap.
 - [ ] Implement MemoryFlushManager and MemoryConsolidator with the specified writer isolation and budgets.
 - [ ] Verify durable host persistence and resumption without a second model request.
 - [ ] Provide a secure storage backend if untrusted workspace support is required; the current portable backend requires host-controlled ancestors.

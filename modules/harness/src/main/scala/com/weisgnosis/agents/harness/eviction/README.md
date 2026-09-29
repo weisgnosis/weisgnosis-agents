@@ -14,14 +14,14 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 
 ToolResultEvictor.evictResult processes one immutable observation with the same thresholds, exclusions, and persistence fallback as evictOversizedToolResults. processor(config) adapts it to the core ToolResultProcessor port; pass that value to ReActAgent.make or its builder. Raw completed output is persisted in runtime history before the cancellable storage operation. Successful previews and cache metadata replace that observation before model continuation and result deltas/end. Cancellation preserves raw success without duplicate interruption observations.
 
-The adapter covers new local tool completions and matched inline provider observations. Inline results remain within the assistant message, and returned replies/events use the committed preview. ToolResultEvictor.preparer installs eviction of supplied and accumulated history before each model request. Storage paths and cache metadata follow the Scala store contract: a content-addressed filename under large_tool_results, with eviction_cache_key/eviction_path. This differs from the upstream per-agent subdirectory and middleware metadata. The host must provide read_file access if the model is expected to retrieve stored output.
+The adapter covers new local tool completions and matched inline provider observations. Inline results remain within the assistant message, and returned replies/events use the committed preview. ToolResultEvictor.preparer installs eviction of supplied and accumulated history before each model request. Storage paths and cache metadata follow the Scala store contract: a content-addressed filename under workspace/large_tool_results by default or directly inside the selected absolute directory, with eviction_cache_key/eviction_path. This differs from the upstream per-agent subdirectory and middleware metadata. The host must provide read_file access if the model is expected to retrieve stored output.
 
 ## Current acceptance
 
 - [x] Unchanged local store safety/publication contracts retain earlier acceptance through `8850a60`; Git preserves prior source identities and reviews.
 - [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
-- [ ] Integrate separate model-input views and configurable absolute storage paths.
-- [ ] Complete remaining upstream mappings, including hook-modified reasoning input and configurable absolute eviction directories.
+- [ ] Integrate separate model-input views.
+- [ ] Complete the remaining eviction mapping for hook-modified reasoning input.
 
 HostControlled ownership and hard-link support remain required. Hostile concurrent filesystem mutation and crash durability remain outside acceptance.
 
@@ -45,20 +45,41 @@ The local resolver validates the key before filesystem access, creates no direct
 
 Custom ToolResultStore implementations must now implement resolve as well as persist and return their authoritative path with the complete original content. There is no default missing lookup that would silently weaken idempotency. Existing ToolResultEvictor constructors remain pure and source-compatible. StoredToolResult has a derived JSON codec; serialized values alone do not establish trust. HistoryPreparer.andThen is additive and validates intermediate as well as final stage output.
 
-- [x] `review_fp` and `review_harness` approved the final nine-file history-eviction scope against `cc8fa7b` on 2026-09-29. Twenty-two added regressions and full formatting/fatal-warning verification passed: 516 core and 90 harness tests. Two new regressions exposed and closed strict-number and Windows storage-layout gaps. No findings remain within store-backed integrity, explicit workspace trust, and validated composition; separate input views and configurable absolute paths remain pending.
+- [x] `review_fp` and `review_harness` approved the final nine-file history-eviction scope against `cc8fa7b` on 2026-09-29. Twenty-two added regressions and full formatting/fatal-warning verification passed: 516 core and 90 harness tests. Two new regressions exposed and closed strict-number and Windows storage-layout gaps. No findings remain within store-backed integrity, explicit workspace trust, and validated composition; absolute storage is covered by a later scope; separate input views remain pending.
 
 ## Current history-eviction identities
 
-Final formatted scope against `cc8fa7b`:
+Unchanged identities from the scope against `cc8fa7b`; commit `3718e18` preserves all nine original identities. The changed ToolResultStore identity belongs to the location scope below:
 
 | File | Git blob |
 | --- | --- |
 | [HistoryPreparer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/HistoryPreparer.scala) | c639fb9337584d3543a86ed5d767b442fa28300e |
 | [HistoryPreparerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/HistoryPreparerSpec.scala) | 087459eab0ad56b15ee3c53fe81667505bff6a71 |
 | [ToolResultEvictor.scala](ToolResultEvictor.scala) | 9821483cf3f617f55ffa3487df357c4967365f20 |
-| [ToolResultStore.scala](ToolResultStore.scala) | aa42df82b7e063d40db141bb006001030208dbb6 |
 | [ToolResultEvictorHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorHistorySpec.scala) | 3c8f08870bd655c581c15c6f863b34e9a8020e24 |
 | [ToolResultEvictorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorIntegrationSpec.scala) | de74b515f7915dab886ef995dd18e5d9fb4e4a3b |
 | [ToolResultEvictorRecognitionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorRecognitionSpec.scala) | 4c81fae29456c429589d6d8f646ac8f6d2ce96c0 |
 | [ToolResultEvictorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorSpec.scala) | c59677db41b87de222575f446a5d6212be87668a |
 | [ToolResultStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultStoreSpec.scala) | 5b8bf8b5d152f9741dcc4339430a9eacf74983d2 |
+
+## Storage location selection
+
+`ToolResultStore.local(workspace, trust, location)` now accepts a ResultStorageLocation, defaulting to WorkspaceDefault. The existing two-argument call retains lazy creation of workspace/large_tool_results. AbsoluteDirectory(path) selects an already-existing dedicated directory on the current host platform and does not access an unused workspace. Path parsing is suspended in ZIO; trailing separators follow platform Path parsing without trimming meaningful spaces. No directory is created for the absolute mode.
+
+Absolute locations reject relative/drive-relative/root-relative paths, parent traversal before normalization, sensitive lexical/canonical names, filesystem roots, regular files, and a symbolic link in the selected final component. A missing directory is a typed storage failure. Invalid syntax/nonabsolute configuration uses InvalidConfiguration; path-policy violations use PermissionDenied. Untrusted fails before path parsing or filesystem access.
+
+The backend retains and revalidates the canonical directory before each read/write. This checks its canonical location and directory type, not filesystem object identity. Parent links and concurrent mutation still depend on HostControlled protection of the selected directory and every ancestor, including locations outside the workspace. Absolute writes use the same scoped temporary files, atomic hard-link publication, key validation, collision checks, and original-content lookup. Returned paths and previews use the store's canonical path. The host must authorize read_file access to the chosen external location.
+
+Configuration ownership deliberately belongs to the storage backend rather than EvictionConfig. ResultStorageLocation uses a derived JSON codec; decoded configuration is validated when constructing the store. This additive parameter preserves existing callers. The absolute-directory behavior adapts the upstream trailing-separator scenario, with Scala's flat agent/call/hash filenames and no Java RuntimeContext identity assertion.
+
+- [x] `review_fp` and `review_harness` approved the final three-file storage-location scope against `3718e18` on 2026-09-29. Eight added tests and full formatting/fatal-warning verification passed: 516 core and 98 harness tests. No findings remain within explicit host ownership and canonical-location validation. Dynamic symlink/junction checks, hostile mutation protection, and filesystem object identity are not claimed.
+
+## Current storage-location identities
+
+Final formatted scope against `3718e18`:
+
+| File | Git blob |
+| --- | --- |
+| [ResultStorageLocation.scala](ResultStorageLocation.scala) | efbdf1b6a7065acf9a9d4e7fa5bf7814e744de07 |
+| [ToolResultStore.scala](ToolResultStore.scala) | 03ca61724459ce839c3bb5ae62011bd99bb8f950 |
+| [ResultStorageLocationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ResultStorageLocationSpec.scala) | 5eeec2f1e5d2af688336047e4683582a96aec5ca |

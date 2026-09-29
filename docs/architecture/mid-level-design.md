@@ -63,6 +63,8 @@ PendingApproval and ConfirmResult serialize durable host state. Resume updates p
 
 ToolResultStore.local requires WorkspaceTrust. Untrusted fails before filesystem access. HostControlled requires OS protection against hostile mutation of workspace/storage ancestors. Scoped temporary files are completely written before atomic hard-link publication; unsupported filesystems return typed errors. Eviction preserves observations on persistence failure. This is cooperative atomic publication, not hostile-workspace sandboxing or crash durability.
 
+ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or AbsoluteDirectory(path). Absolute selection requires an existing host-owned directory and leaves the unused workspace untouched. Canonical/type checks run before each operation; protection of external ancestors remains a host requirement. The default path and publication semantics are unchanged.
+
 ## 7. Planned memory services
 
 MemoryFlushManager writes only daily memory/YYYY-MM-DD.md scratch files, excluding summary text and ignoring no-content flush responses. MemoryConsolidator alone updates curated MEMORY.md within a 4,000-token budget. Watermarks, scheduling, and durable persistence remain pending.

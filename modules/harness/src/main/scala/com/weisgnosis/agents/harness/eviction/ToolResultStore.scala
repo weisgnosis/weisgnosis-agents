@@ -47,7 +47,11 @@ object ToolResultStore:
    * Portable storage for host-controlled directories. Canonical checks are defense in depth;
    * they are not a sandbox against concurrent hostile filesystem mutation.
    */
-  def local(workspace: Path, trust: WorkspaceTrust): IO[AgentError, ToolResultStore] =
+  def local(
+      workspace: Path,
+      trust: WorkspaceTrust,
+      location: ResultStorageLocation = ResultStorageLocation.WorkspaceDefault
+  ): IO[AgentError, ToolResultStore] =
     trust match
       case WorkspaceTrust.Untrusted =>
         ZIO.fail(
@@ -57,11 +61,37 @@ object ToolResultStore:
           )
         )
       case WorkspaceTrust.HostControlled =>
-        for
-          root <- io(workspace.toRealPath())
-          _ <- ZIO
-            .fail(AgentError.PermissionDenied("tool_result_store", "Sensitive workspace path"))
-            .when(sensitive(root))
+        for plan <- location match
+            case ResultStorageLocation.WorkspaceDefault =>
+              for
+                root <- io(workspace.toRealPath())
+                _ <- ZIO
+                  .fail(
+                    AgentError.PermissionDenied("tool_result_store", "Sensitive workspace path")
+                  )
+                  .when(sensitive(root))
+              yield DirectoryPlan.Workspace(root)
+            case ResultStorageLocation.AbsoluteDirectory(value) =>
+              for
+                path <- ZIO
+                  .attempt(Path.of(value))
+                  .mapError(error =>
+                    AgentError.InvalidConfiguration(s"Invalid storage directory: ${error.toString}")
+                  )
+                _ <- ZIO
+                  .fail(AgentError.InvalidConfiguration("Storage directory must be absolute"))
+                  .unless(path.isAbsolute)
+                _ <- ZIO
+                  .fail(
+                    AgentError
+                      .PermissionDenied("tool_result_store", "Parent traversal is not permitted")
+                  )
+                  .when(
+                    (0 until path.getNameCount)
+                      .exists(index => path.getName(index).toString == "..")
+                  )
+                directory <- checkedAbsoluteDirectory(path)
+              yield DirectoryPlan.Absolute(directory)
         yield new ToolResultStore:
           def persist(key: String, content: String): IO[AgentError, String] =
             if !validKey(key) then
@@ -69,7 +99,7 @@ object ToolResultStore:
             else
               ZIO.scoped:
                 for
-                  directory <- safeDirectory(root)
+                  directory <- directoryForWrite(plan)
                   target = directory.resolve(key + ".txt")
                   temporary <- ZIO.acquireRelease(
                     io(Files.createTempFile(directory, ".pending-", ".tmp"))
@@ -110,7 +140,7 @@ object ToolResultStore:
             if !validKey(key) then
               ZIO.fail(AgentError.PermissionDenied("tool_result_store", "Invalid storage key"))
             else
-              existingDirectory(root).flatMap:
+              directoryForRead(plan).flatMap:
                 case None => ZIO.none
                 case Some(directory) =>
                   val target = directory.resolve(key + ".txt")
@@ -150,6 +180,49 @@ object ToolResultStore:
                           content <- io(Files.readString(canonical, StandardCharsets.UTF_8))
                         yield Some(StoredToolResult(content, canonical.toString))
                   yield result
+
+  private enum DirectoryPlan:
+    case Workspace(root: Path)
+    case Absolute(directory: Path)
+
+  private def directoryForWrite(plan: DirectoryPlan): IO[AgentError, Path] = plan match
+    case DirectoryPlan.Workspace(root)     => safeDirectory(root)
+    case DirectoryPlan.Absolute(directory) => retainedAbsoluteDirectory(directory)
+
+  private def directoryForRead(plan: DirectoryPlan): IO[AgentError, Option[Path]] = plan match
+    case DirectoryPlan.Workspace(root)     => existingDirectory(root)
+    case DirectoryPlan.Absolute(directory) => retainedAbsoluteDirectory(directory).map(Some(_))
+
+  private def checkedAbsoluteDirectory(path: Path): IO[AgentError, Path] =
+    for
+      _ <- ZIO
+        .fail(AgentError.PermissionDenied("tool_result_store", "Sensitive storage directory"))
+        .when(sensitive(path))
+      attributes <- io(
+        Files.readAttributes(path, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS)
+      )
+      _ <- ZIO
+        .fail(
+          AgentError.PermissionDenied(
+            "tool_result_store",
+            "Storage requires an existing non-symlink directory"
+          )
+        )
+        .unless(attributes.isDirectory)
+      canonical <- io(path.toRealPath())
+      _ <- ZIO
+        .fail(AgentError.PermissionDenied("tool_result_store", "Unsafe storage directory"))
+        .when(sensitive(canonical) || Option(canonical.getParent).isEmpty)
+    yield canonical
+
+  private def retainedAbsoluteDirectory(directory: Path): IO[AgentError, Path] =
+    checkedAbsoluteDirectory(directory).flatMap: actual =>
+      ZIO
+        .fail(
+          AgentError.PermissionDenied("tool_result_store", "Storage directory identity changed")
+        )
+        .unless(actual == directory)
+        .as(actual)
 
   private def validKey(key: String): Boolean =
     key.nonEmpty && key.forall(c => c.isLetterOrDigit || c == '-' || c == '_')
