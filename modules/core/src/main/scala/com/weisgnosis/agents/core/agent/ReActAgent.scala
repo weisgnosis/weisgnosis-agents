@@ -15,7 +15,13 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
+import com.weisgnosis.agents.core.client.{
+  LlmClient,
+  LlmConfig,
+  NativeToolSupport,
+  StructuredOutputCapability,
+  TurnOutput
+}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
@@ -128,21 +134,35 @@ final class ReActAgent private (
       def nativeAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
         runWithHub(messages, hub, toolkit, nativeConfig, Some(capturedRef))(prepare)
 
+      val syntheticConfig = llmConfig.copy(responseFormat = None)
+
       def syntheticAttempt(input: Chunk[Msg]): ZIO[Scope, AgentError, (AgentResult, A)] =
         ZIO
           .fromEither(toolkit.register(syntheticTool))
-          .flatMap(active => runWithHub(input, hub, active, llmConfig, Some(capturedRef))(prepare))
+          .flatMap(active =>
+            runWithHub(input, hub, active, syntheticConfig, Some(capturedRef))(prepare)
+          )
+
+      def nativeWithFallback: ZIO[Scope, AgentError, (AgentResult, A)] =
+        nativeAttempt.catchAll {
+          case AgentError.ModelError(status, _, _) if Set(400, 422, 501).contains(status) =>
+            syntheticAttempt(Chunk.empty)
+          case error => ZIO.fail(error)
+        }
+
+      def automaticAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
+        llmConfig.structuredOutputCapability match
+          case StructuredOutputCapability.Unsupported => syntheticAttempt(messages)
+          case StructuredOutputCapability.Native(NativeToolSupport.Supported) => nativeWithFallback
+          case StructuredOutputCapability.Unknown | StructuredOutputCapability.Native(
+                NativeToolSupport.Unsupported
+              ) =>
+            if toolkit.isEmpty then nativeWithFallback else syntheticAttempt(messages)
 
       mode match
         case StructuredMode.Native        => nativeAttempt
         case StructuredMode.SyntheticTool => syntheticAttempt(messages)
-        case StructuredMode.Auto if toolkit.isEmpty =>
-          nativeAttempt.catchAll {
-            case AgentError.ModelError(status, _, _) if Set(400, 422, 501).contains(status) =>
-              syntheticAttempt(Chunk.empty)
-            case error => ZIO.fail(error)
-          }
-        case StructuredMode.Auto => syntheticAttempt(messages)
+        case StructuredMode.Auto          => automaticAttempt
     }
 
   /** Prepare one validated payload and final history without publishing or mutating runtime state. */

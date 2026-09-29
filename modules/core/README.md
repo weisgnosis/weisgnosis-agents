@@ -20,7 +20,7 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 - [x] Revision `fb80428`: agent lifecycle and path traversal fixes explicitly approved by independent reviewer `review_harness` after corrections and cross-review; unchanged-code approval reconfirmed on 2026-09-29.
 - [x] No unresolved findings in those reviewed changes. Exact file/scope acceptance is recorded in the affected package READMEs above.
 - [x] Structured-output completion fixes based on `a58b0ca` approved by `review_fp` and `review_harness`; the agent package README records accepted revisions and current contracts.
-- [x] Repository verification: 404 core and 40 harness tests passed, with no compiler warnings.
+- [x] Repository verification: 420 core and 40 harness tests passed, with no compiler warnings.
 - [x] Strict model decoding, legacy usage compatibility, Base64 wire naming, and role validation approved by review_fp and review_harness; exact scope and source identities are recorded in the model READMEs.
 - [x] Correlated engine-attempt boundaries and private stream completion approved by review_fp and review_harness; the agent READMEs record accepted revisions, current contracts, and buffering assumptions.
 - [x] Consistent concrete/base event codecs and immutable tool-result event metadata reviewed independently; the event READMEs record exact scope and migration details.
@@ -46,6 +46,8 @@ The accepted implementation and tests are recorded in commit `8b96ce3`. Canonica
 
 - [x] Runtime inline-result emission, correlated iteration limits, and occurrence-sensitive reconciliation were independently approved against `9768064`; current agent READMEs record exact scope and source identities.
 
-- [x] Finalized result publication and streamStructuredEvents were approved by `review_fp` and `review_harness` against `5451e03`; the agent READMEs record all four reviewed file identities and the 309+40 verification.
+- [x] Finalized result publication and streamStructuredEvents were approved by `review_fp` and `review_harness` against `5451e03`; commit `3963104` preserves the four reviewed identities and 309+40 verification; the agent READMEs describe current contracts.
 
 Deprecated v1 coarse-event envelopes are explicitly excluded from core after independent applicability review. Typed events remain authoritative; shared message tests do not establish legacy wire compatibility. Actual model streams carry reply/request correlation. Remaining model/tool ordering and richer subagent attribution remain in the tracker.
+
+- [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests. Current capability contracts and exact identities are in the [client README](src/main/scala/com/weisgnosis/agents/core/client/README.md).

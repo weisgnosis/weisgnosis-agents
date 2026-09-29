@@ -4,7 +4,7 @@ Last synchronized: 2026-09-29. Implemented components are distinguished from hos
 
 ## Progress checklist
 
-Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement explicit model-capability selection for structured output, then close remaining hook and harness integration scenarios against the pinned upstream revision. Capability and hook scenarios remain explicitly unchecked in the parity task list.
+Checked items have verification evidence. An unchecked item is unfinished; completed components do not imply completion of their entire phase. Next task: implement the remaining model-call and post-reasoning hook scenarios, then harness integration against the pinned upstream revision. Remaining hook scenarios stay unchecked in the parity task list.
 
 ### Foundation and current core
 
@@ -44,6 +44,7 @@ Checked items have verification evidence. An unchecked item is unfinished; compl
 - [x] Integrate live LlmClient and correlated incremental events; verify eleven new scenarios and 386 core / 40 harness tests.
 - [x] Correlate completed local/inline tool results, persist local observations before deltas/end, and independently review six regressions; verify 392 core / 40 harness tests.
 - [x] Verify native/synthetic structured HTTP paths and reject incomplete/ambiguous structured JSON through shared pure validation; independently review twelve added tests and verify 404 core / 40 harness tests.
+- [x] Implement typed structured-output capabilities, complete two pending upstream routing/default mappings, and correct preset-format leakage; independently review sixteen tests and verify 420 core / 40 harness tests.
 - [ ] Implement incremental/structured local tool-result output, provider signature/tool metadata decoding, and remaining protocol scenarios.
 - [ ] Validate platform-specific symlink/junction behavior.
 

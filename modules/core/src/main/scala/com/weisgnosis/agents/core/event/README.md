@@ -70,4 +70,4 @@ ModelStreamContextSpec verifies all sixteen contextual root encodings, source pr
 
 Earlier live client/event identities and approval are recorded in `84e4eb3`; the [current client contracts](../client/README.md) link subsequent accepted changes.
 
-- [x] The completed local/inline result increment against `84e4eb3` was approved by `review_fp` and `review_harness`; its [five final source identities and six new regressions](../agent/README.md) supersede earlier entries for changed files. All sixteen contextual variants and full 392 core / 40 harness verification pass. Partial tool-output streaming and richer local structured output remain pending.
+- [x] The completed local/inline result increment against `84e4eb3` was approved by `review_fp` and `review_harness`; commit `9c165a7` preserves its five final source identities and six new regressions; the [agent README](../agent/README.md) describes current runtime contracts. All sixteen contextual variants and full 392 core / 40 harness verification pass. Partial tool-output streaming and richer local structured output remain pending.

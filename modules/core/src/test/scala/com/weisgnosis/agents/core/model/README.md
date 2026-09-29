@@ -42,4 +42,4 @@ This tightens previously permissive parsing; trailing input and ambiguous fields
 
 - [x] Six boundary regressions cover full text, duplicate text/metadata/captures/wrappers, metadata authority, and valid wrapped/direct values. Five real loopback HTTP tests cover native schema/thinking/usage, synthetic definition hoisting and compression, HTTP-400 fallback without duplicate input, no retry on HTTP 503, and rejection of trailing native JSON.
 - [x] `review_fp` and `review_harness` approved the final shared JSON/structured HTTP scope against `9c165a7` on 2026-09-29 after the wrapper-boundary correction. Full verification passed 404 core and 40 harness tests. No findings remain; the [JSON package table](../json/README.md) records exact current identities.
-- [ ] Complete capability/hook parity and broader provider compatibility; general JSON Schema validation is outside this acceptance.
+- [ ] Complete hook parity and broader provider compatibility; general JSON Schema validation is outside this acceptance.

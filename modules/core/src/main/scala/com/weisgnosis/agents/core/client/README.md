@@ -8,11 +8,27 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [ChatCompletionsRequest](ChatCompletionsRequest.scala)
 - [LlmChunk](LlmChunk.scala)
 - [LlmClient](LlmClient.scala)
+- [StructuredOutputCapability](StructuredOutputCapability.scala)
 - [JsonBoundary](../json/JsonBoundary.scala)
 - [ReasoningModelAdapter](ReasoningModelAdapter.scala)
 - [SseParser](SseParser.scala)
 - [StreamAccumulator](StreamAccumulator.scala)
 - [TurnOutput](TurnOutput.scala)
+
+## Structured output capabilities
+
+LlmConfig.structuredOutputCapability is a host declaration for the configured model/endpoint, not automatic discovery. Unknown is the default for source and JSON compatibility. Native() permits application tools by default; Native(NativeToolSupport.Unsupported) restricts native formatting to requests without application tools. Unsupported cannot declare tool support independently.
+
+| Declaration | Auto without application tools | Auto with application tools |
+| --- | --- | --- |
+| Unknown | Native with rejection fallback | Synthetic |
+| Unsupported | Synthetic | Synthetic |
+| Native() | Native with rejection fallback | Native with rejection fallback |
+| Native(NativeToolSupport.Unsupported) | Native with rejection fallback | Synthetic |
+
+Explicit Native and SyntheticTool modes override this selection. Native installs the supplied structured schema. Every synthetic attempt clears responseFormat while retaining other configuration, including when falling back from a rejected native attempt. Ordinary runs preserve the host's responseFormat. Auto native attempts still fall back on ModelError status 400, 422, or 501; other errors and cancellation propagate. This status policy is broader than provider-specific capability error classification.
+
+The declaration is serialized with LlmConfig but excluded from the HTTP request body. Existing constructor calls retain their defaults; positional pattern matches against LlmConfig must account for the new final field. Unknown preserves prior routing, while declared Unsupported avoids a native probe entirely.
 
 ## Completion data boundary
 
@@ -73,8 +89,22 @@ Live deltas precede ModelResponseEnd. Open text/thinking blocks remain open unti
 ## Current acceptance
 
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
-- [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the current ten-file scope and supersedes changed earlier identities. No findings remain within this scope.
-- [x] Full formatting, fatal-warning compilation, and verification passed 404 core and 40 harness tests.
+- [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the unchanged JSON-boundary identities from that scope; current capability identities are listed below. No findings remain within this scope.
+- [x] Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.
 - [ ] Complete provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, incremental/structured local tool output, and exhaustive upstream mapping.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
+
+## Capability increment identities
+
+Final formatted source identities against `06bd2e1`:
+
+| File | Git blob |
+| --- | --- |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | 575f97e01c69b8a2133159b9e365f6a47be63c37 |
+| [LlmClient.scala](LlmClient.scala) | b758296bfa7a82740bfe55e683dc97543a7be215 |
+| [StructuredOutputCapability.scala](StructuredOutputCapability.scala) | 5b68a9b3d6c89651b05b46d42b61382987eb90ee |
+| [StructuredOutputCapabilityRoutingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputCapabilityRoutingSpec.scala) | 355a72c1cda4ba6f5b8b5994230d018f13383458 |
+| [StructuredOutputCapabilitySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StructuredOutputCapabilitySpec.scala) | bebc0adc73b60d08e784f4dcfbdcfa46bea91ddc |
+
+- [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.

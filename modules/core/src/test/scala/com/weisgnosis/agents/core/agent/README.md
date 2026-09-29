@@ -15,60 +15,22 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [StructuredOutputDynamicSpec](StructuredOutputDynamicSpec.scala)
 - [StructuredJsonBoundarySpec](StructuredJsonBoundarySpec.scala)
 - [StructuredOutputHttpSpec](StructuredOutputHttpSpec.scala)
+- [StructuredOutputCapabilityRoutingSpec](StructuredOutputCapabilityRoutingSpec.scala)
 - [StructuredOutputSpec](StructuredOutputSpec.scala)
 
 ## Current evidence
 
-- [x] Lifecycle suites verify request/run resource ownership, timeout, cancellation, original failure propagation, private stream completion, ordered draining, and fresh correlated boundaries.
-- [x] StructuredOutputSpec verifies schema hoisting, thinking/usage/history preservation, mixed tools, capture isolation, and interruption after capture.
-- [x] ReActAgentEmissionSpec verifies nine limit/inline-result/duplicate-call regressions without sleeps; four initial publication tests reproduced missing behavior before correction.
-- [x] `review_fp` and `review_harness` approved the final four-file structured completion increment against `5451e03` on 2026-09-29 with no unresolved findings in that scope.
-- [x] StructuredCompletionSpec verifies nine final-result/structured-stream scenarios, including exact metadata AST preservation, fallback boundaries, pre-commit failure, cooperative recovery, and consumer cleanup.
-- [x] `sbt scalafmtAll scalafmtSbt verify` passed 311 core and 40 harness tests with zero compiler warnings.
-- [ ] Complete remaining upstream ordering, capability/hook scenarios, provider continuation, local structured tool streams, and permission/phase-stop integration.
+- [x] Lifecycle suites verify request/run ownership, timeout, cancellation, original failure propagation, private stream completion, ordered draining, and correlated boundaries.
+- [x] StructuredOutputSpec verifies schema hoisting, thinking/usage preservation, mixed tools, capture isolation, and interruption after capture.
+- [x] StructuredCompletionSpec verifies finalized-result ordering, exact metadata preservation, fallback boundaries, failures, and consumer cleanup.
+- [x] StructuredOutputDynamicSpec verifies both runtime-schema scenarios through direct and streaming APIs.
+- [x] ReActAgentEmissionSpec and ReActAgentToolEventSpec verify limits, inline metadata, occurrence matching, persistence before publication, normalized/empty observations, parallel completion, cancellation, and repeated IDs.
+- [x] Six StructuredJsonBoundarySpec and five real-loopback StructuredOutputHttpSpec scenarios cover strict extraction, schema delivery, compression, usage/thinking, fallback, nonretryable errors, and invalid native JSON.
+- [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.
+- [ ] Complete remaining hook, provider continuation, event ordering, and permission/phase-stop scenarios.
 
-The [current agent contracts and reviewed blobs](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) record exact scope, earlier accepted revisions, intentional upstream differences, and integration limits. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) retains incomplete tasks as unchecked items.
+Twelve StructuredOutputCapabilityRoutingSpec tests cover all declared/unknown capability routes, explicit overrides, application tool execution, native rejection fallback, and preset response formats. The preset-format regression failed before correction. Four separate client capability tests verify codecs, defaults, invalid declarations, and HTTP-body exclusion. These are local tests, not sixteen newly mapped upstream methods.
 
-StructuredOutputDynamicSpec covers the two runtime-schema weather scenarios through Json values and verifies schema delivery, metadata/history preservation, and one-request completion. The upstream names mention nested structures, but these two fixtures are flat; nested definition resolution remains covered separately.
+The [agent contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) and [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) describe acceptance and intentional adaptations. Earlier acceptance and exact source identities through `06bd2e1` remain in Git.
 
-- [x] `review_fp` and `review_harness` approved the two-scenario [dynamic JSON spec](StructuredOutputDynamicSpec.scala) against `3963104` on 2026-09-29, with no findings. Exact reviewed Git blob: `9f4a3360e8064a9e5ae72d5bb88588b1997ef2e9`. Verification passed 311 core and 40 harness tests; general JSON Schema validation and legacy event envelopes are outside this scope.
-
-- [x] `review_fp` and `review_harness` approved the ReActAgentThinkingRetrySpec migration to typed accumulator results and explicit finish markers against `10019c2` on 2026-09-29. Both original reminder/acting assertions remain verified. Verification at that revision passed 345 core and 40 harness tests; the migrated file is preserved in commit `73f66d1`.
-
-## Model request correlation
-
-ReAct allocates a fresh requestId under the current attempt replyId and passes ModelStreamContext explicitly to LlmClient.streamTurn. ModelRequestStart precedes invocation; ModelResponseEnd follows a non-interrupted result and request-scope cleanup. HTTP block deltas may be observed before completion, but incomplete/malformed responses never reach local dispatch. The [client contracts](../client/README.md) describe live ordering, source migration, and remaining parity limits.
-
-- [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
-
-Earlier live client/event identities and approval are recorded in `84e4eb3`; the [current client contracts](../client/README.md) link subsequent accepted changes.
-
-## Completed tool observations
-
-All four result-event variants now retain the originating ModelStreamContext. Local execution publishes Start, executes interruptibly, then records the completed observation before publishing its text Delta and End under the existing interruption mask. Empty text remains an explicit empty delta. Normalized failures remain Error observations and continue the loop. Each parallel call keeps its own ordered events; completion order may differ from call order. Later turns reusing a call ID remain distinguishable through requestId.
-
-Inline provider results share the completed-output publisher, preserve text/data ordering and metadata, and remain inside the assistant message without separate Tool messages. Local tools currently produce completed text observations, not partial streaming output or structured result metadata. Cancellation preserves completed results/events and reconciles unfinished history; it does not publish a false ToolResultEnd for interrupted work. AgentEnd still terminates the attempt.
-
-- [x] Six ReActAgentToolEventSpec regressions cover persistence before delivery, normalized failures, empty text, controlled parallel completion, cancellation, and repeated-ID provenance. Inline result fixtures and the sixteen-variant context matrix pass.
-- [x] `review_fp` and `review_harness` approved the final five-file tool-result increment against `84e4eb3` on 2026-09-29, including the corrected server/local delta expectation. No findings remain in this scope. Full verification passed 392 core and 40 harness tests.
-- [ ] Implement incremental tool output and richer local structured-result metadata.
-
-The identities below supersede earlier acceptance records for these files:
-
-| File | Reviewed Git blob |
-| --- | --- |
-| [ReActAgent.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | 706361eadca57ef7a730bda6572bf8fc98a815f5 |
-| [AgentEvent.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/event/AgentEvent.scala) | 6f8726e99cf4a5dd32b0a8d498b176b5f91a8b51 |
-| [ReActAgentEmissionSpec.scala](ReActAgentEmissionSpec.scala) | f921e3ec814d758f58c4e92aacb0c85b0e3446f5 |
-| [ReActAgentToolEventSpec.scala](ReActAgentToolEventSpec.scala) | 84a2327121f2b5a85985fe8e74fb2085dfb50852 |
-| [ModelStreamContextSpec.scala](../event/ModelStreamContextSpec.scala) | 6bf28be306402cdc081dfd4035a2563333a06600 |
-
-## Strict structured JSON
-
-Msg.getStructuredData and structured agent preparation share core.json.JsonBoundary. Text must contain one complete JSON value with unique object keys at every depth. Authoritative structured metadata is checked directly; invalid metadata fails without falling back to visible text. Captured synthetic payloads are checked before finalization. The synthetic tool also validates its entire input before extracting response, so duplicate wrapper keys or duplicates in ignored siblings cannot disappear during extraction. Valid wrapped and direct payload adaptation remains supported.
-
-This tightens previously permissive parsing; trailing input and ambiguous fields now fail through existing typed/string error channels. It does not add JSON Schema validation. Failed structured preparation publishes no AgentResult or structured metadata; raw observations can remain in history. The shared validator performs no effects and does not depend on models, agents, or transports.
-
-- [x] Six boundary regressions cover full text, duplicate text/metadata/captures/wrappers, metadata authority, and valid wrapped/direct values. Five real loopback HTTP tests cover native schema/thinking/usage, synthetic definition hoisting and compression, HTTP-400 fallback without duplicate input, no retry on HTTP 503, and rejection of trailing native JSON.
-- [x] `review_fp` and `review_harness` approved the final shared JSON/structured HTTP scope against `9c165a7` on 2026-09-29 after the wrapper-boundary correction. Full verification passed 404 core and 40 harness tests. No findings remain; the [JSON package table](../json/README.md) records exact current identities.
-- [ ] Complete capability/hook parity and broader provider compatibility; general JSON Schema validation is outside this acceptance.
+The [client capability table](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) records all five exact reviewed identities.

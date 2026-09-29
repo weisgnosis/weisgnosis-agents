@@ -25,7 +25,7 @@ The reference is the clean local `agentscope-java` checkout at commit `f98a685fd
 - [ ] Complete ReAct and interruption scenario mappings, including lifecycle hooks not yet implemented.
 - [ ] Complete the thinking-only empty-response scenario mapping.
 - [x] Cover empty-input structured runs, signed thinking preservation, full reply usage, and immediate repeated calls.
-- [ ] Complete the remaining structured-output capability and hook scenarios below.
+- [ ] Complete the remaining structured-output hook scenarios below.
 - [ ] Complete compaction/eviction mappings and document storage-backend applicability.
 - [ ] Complete permission mappings and durable host integration tests.
 - [ ] Close every applicable gap before declaring exhaustive 1:1 parity.
@@ -67,7 +67,7 @@ The pinned tree contains 207 Java files under `agentscope-core/src/test/java/io/
 | tracing | 1 | 12 |
 | root integration/version | 2 | 22 |
 
-This is an inventory, not a classification of every method as covered or inapplicable. Broader domains such as persistent state, skills, built-in tools, middleware, and tracing remain unmapped rather than silently excluded. The message mapping below classifies all 119 methods. Event mapping and remaining structured-output capabilities retain explicit pending tasks.
+This is an inventory, not a classification of every method as covered or inapplicable. Broader domains such as persistent state, skills, built-in tools, middleware, and tracing remain unmapped rather than silently excluded. The message mapping below classifies all 119 methods. Event mapping and remaining structured-output hooks retain explicit pending tasks.
 
 ## Structured-output method mapping
 
@@ -78,7 +78,7 @@ A checked method has a verified local contract or explicitly identified runtime 
 ### ReActAgentStructuredOutputTest: eight methods
 
 - [x] `testStructuredOutputToolBased` -> `StructuredOutputSpec.testStructuredOutputToolBased`: typed data and metadata, with synthetic history removal.
-- [x] `testStructuredOutputAutoFallbackToToolBased` -> lifecycle test `auto mode falls back on unsupported native formatting without duplicating input`. Adaptation: typed provider-format rejection triggers fallback; preflight model-capability flags are not implemented.
+- [x] `testStructuredOutputAutoFallbackToToolBased` -> lifecycle test `auto mode falls back on unsupported native formatting without duplicating input`. Typed provider rejection retains fallback coverage; StructuredOutputCapabilityRoutingSpec additionally verifies preflight Unsupported selection without probing.
 - [x] `testStructuredOutputWithoutNewMessages` -> same-named structured spec: existing history is used without adding user input, including empty messages.
 - [x] `testStructuredOutputPreservesChatUsage` -> same-named structured spec: every generating-request usage field is retained. An additional multistep regression distinguishes per-request reply usage from aggregate AgentResult usage.
 - [x] `testStructuredOutputPreservesThinkingBlock` -> same-named structured spec: signed thinking appears on the final reply exactly once in history.
@@ -90,11 +90,11 @@ A checked method has a verified local contract or explicitly identified runtime 
 
 - [x] `noTools_nativeSoSupported_usesNativePath` -> same-named structured spec: Auto supplies native response format without synthetic tools and preserves complete usage.
 - [ ] `modelCallTextDeltaReplacement_updatesNativeStructuredOutput`: requires model-call middleware and streamed text replacement.
-- [x] `noTools_nativeSoNotSupported_usesFallbackPath` -> lifecycle fallback test. Adaptation: rejection-based fallback, not preflight capability discovery.
-- [ ] `hasTools_withToolsSupported_usesNativePath`: explicit Native mode exists, but Auto capability-based native selection with application tools remains absent.
-- [x] `hasTools_withToolsNotSupported_usesFallbackPath` -> same-named structured spec: application and synthetic definitions coexist; no response format is installed. Current Auto always takes this route when application tools exist.
+- [x] `noTools_nativeSoNotSupported_usesFallbackPath` -> same-named StructuredOutputCapabilityRoutingSpec: declared Unsupported selects synthetic without probing; lifecycle/HTTP tests separately cover rejection fallback.
+- [x] `hasTools_withToolsSupported_usesNativePath` -> same-named capability routing spec: Auto Native() forwards application tools and response format without generate_response. A separate regression executes an application call before native completion.
+- [x] `hasTools_withToolsNotSupported_usesFallbackPath` -> same-named structured spec: application and synthetic definitions coexist; no response format is installed. Capability routing additionally verifies this route for declared Native(NativeToolSupport.Unsupported).
 - [x] `hasTools_fallbackPath_structuredDataIsCorrect` -> the same fallback spec additionally asserts decoded value and reply metadata.
-- [ ] `defaultWithToolsFollowsNativeFlag`: model-capability API and its defaulting contract remain pending.
+- [x] `defaultWithToolsFollowsNativeFlag` -> StructuredOutputCapabilitySpec default test plus the Unsupported routing cases. Adaptation: Native() defaults to typed tool support; Unsupported structurally excludes native-with-tools instead of exposing two Boolean getters.
 
 ### StructuredOutputDynamicDefineTest: three methods
 
@@ -399,6 +399,14 @@ ReActAgentToolEventSpec adds six local runtime regressions for persistence, erro
 - [x] Verify five real loopback HTTP scenarios for native schema/thinking/usage, synthetic root definitions and compressed streaming completion, HTTP-400 fallback without duplicated input, HTTP-503 failure without retry, and strict native payload failure.
 - [x] Verify six structured-boundary scenarios, including duplicate metadata, captured payloads, wrapper keys, and ignored nested fields; preserve valid direct/wrapped adaptation.
 - [x] Move shared validation to core.json.JsonBoundary and add a sixth direct-AST regression without serialization overhead.
-- [ ] Complete explicit model-capability selection, model-call middleware, and post-reasoning hook replacement/removal behavior.
+- [ ] Complete model-call middleware and post-reasoning hook replacement/removal behavior.
 
 These twelve added tests are local integration/hardening evidence, not twelve newly mapped upstream methods. Four initial regressions and one additional wrapper regression failed before their respective corrections. JSON Schema validation and complete provider compatibility are not claimed. Auto fallback currently recognizes status 400/422/501, not a complete provider capability protocol.
+
+## Explicit structured-output capability selection
+
+- [x] Cover all declared/unknown capability routes, explicit modes, application-tool execution, rejection fallback, and preset-format handling in twelve agent tests.
+- [x] Cover derived capability/config codecs, native tool defaults, invalid declarations, and provider-body exclusion in four client tests.
+- [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.
+
+The two newly completed mapped methods are native-with-tools Auto selection and default tool support. Existing native usage evidence in StructuredOutputSpec checks every ChatUsage field, including elapsed time. Host declarations are not provider discovery. Unknown preserves previous behavior; model-call delta replacement and post-reasoning replacement/removal remain unchecked. General JSON Schema validation is not part of this scope.

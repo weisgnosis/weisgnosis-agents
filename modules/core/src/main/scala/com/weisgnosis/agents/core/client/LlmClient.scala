@@ -29,7 +29,8 @@ final case class LlmConfig(
     apiKey: Option[String] = None,
     temperature: Double = 0.7,
     maxTokens: Option[Int] = None,
-    responseFormat: Option[Json] = None
+    responseFormat: Option[Json] = None,
+    structuredOutputCapability: StructuredOutputCapability = StructuredOutputCapability.Unknown
 ) derives JsonCodec
 
 /**
