@@ -21,4 +21,12 @@ TextTransformationError is the sole typed error accepted by ModelTextTransform. 
 
 The [error spec](../../../../../../../test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) covers the leaf codec/diagnostic contract. Client tests additionally verify compile-time separation and no fallback after a mapped provider-like host error. Broader hierarchy parity remains pending.
 
-The [client transformation table](../client/README.md) records all seven exact reviewed identities.
+The [client transformation table](../client/README.md) records unchanged text-transformation identities; commit `2a400e0` preserves all seven identities from that increment.
+
+## Reasoning policy failure boundary
+
+ReasoningHookError is the sole typed callback failure for PostReasoningHook and also reports invalid replacement roles. It cannot be confused with a ModelError native-format rejection. PostReasoningHookSpec verifies its derived codec and the compile-time channel boundary; runtime tests verify no fallback after policy failure. Exhaustive error matches must handle this additional sealed-hierarchy leaf.
+
+- [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 456 core and 40 harness tests.
+
+The [agent table](../agent/README.md) records all six exact current identities.

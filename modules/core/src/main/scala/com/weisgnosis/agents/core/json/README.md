@@ -17,7 +17,6 @@ The following identities supersede earlier acceptance records for changed files.
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [StructuredOutput.scala](../agent/StructuredOutput.scala) | 4873da008f1b944f2f584edb2ff5ddff910e2c20 |
 | [ChatCompletionsRequest.scala](../client/ChatCompletionsRequest.scala) | ed7f2f592fe5ce0205f35521955dabed171a614a |
 | [ReasoningModelAdapter.scala](../client/ReasoningModelAdapter.scala) | 72ae618a2309d972887169d140863711fffe3123 |
 | [StreamAccumulator.scala](../client/StreamAccumulator.scala) | 223c6aeb22a15ee9d6fa45945b5b914d48c10a57 |
@@ -28,3 +27,5 @@ The following identities supersede earlier acceptance records for changed files.
 | [JsonBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/json/JsonBoundarySpec.scala) | c08295405b54cd3684e23f21344fe0fa2fbe35a3 |
 
 The ReActAgent identity from this increment is preserved in `06bd2e1`; its subsequent capability routing is covered by the current client/agent acceptance.
+
+StructuredOutput from the JSON increment is preserved in `06bd2e1`; its subsequent single-transfer usage correction is covered by current agent acceptance.

@@ -19,7 +19,7 @@ Current implementation and future platform requirements are separate. The projec
 
 - [x] Independent documentation reviews accepted the inventory and message/event/structured-output mappings through `e110321`; exact implementation acceptance belongs in the affected module/package READMEs.
 - [x] Upstream `f98a685fdc4589f81e626e1686ac2c63d14a2304` was clean at inventory time. Mappings distinguish verified contracts, runtime adaptations, explicit exclusions, and pending behavior.
-- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 434 core and 40 harness tests passed with zero compiler warnings.
+- [x] Executable baseline: `sbt scalafmtAll scalafmtSbt verify`, 456 core and 40 harness tests passed with zero compiler warnings.
 
 The agent READMEs describe finalized result preparation, commit/result/end ordering, native metadata preservation, Auto fallback boundaries, and runtime-schema calls/streams. General JSON Schema validation and exhaustive hook parity are not claimed. The event READMEs explicitly exclude the deprecated coarse envelope while describing implemented typed model-stream correlation and retaining richer source attribution as pending work.
 
@@ -40,3 +40,5 @@ Prior independent documentation acceptance through `73f66d1` remains recorded in
 - [x] `review_docs` approved the final capability documentation against `06bd2e1` on 2026-09-29: five exact identities, sixteen-test scope, two upstream mappings, routing/defaults, preset-format correction, 420+40 verification, English, and links. No findings remain in this scope.
 
 - [x] `review_docs` approved the final scoped text-transformation documentation against `02b4654` on 2026-09-29: seven exact identities, fourteen-test scope, one upstream adaptation, distinct host failure channel, raw diagnostic semantics, 434+40 verification, English, and links. No findings remain in this scope.
+
+- [x] `review_docs` approved the final post-reasoning documentation against `2a400e0` on 2026-09-29: six exact identities, twenty-two-test scope, eighteen structured-output mappings with explicit adaptations, invocation usage and attempt-timeout contracts, 456+40 verification, English, and links. No findings remain in this scope.

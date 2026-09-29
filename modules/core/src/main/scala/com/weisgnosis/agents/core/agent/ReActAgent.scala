@@ -49,7 +49,8 @@ final class ReActAgent private (
     private val stateRef: Ref[Chunk[Msg]],
     private val interruptedPromiseRef: Ref[Promise[Nothing, Unit]],
     val agentId: String,
-    private val runLock: Semaphore
+    private val runLock: Semaphore,
+    val postReasoningHook: PostReasoningHook
 ):
 
   def name: String        = config.name
@@ -94,7 +95,7 @@ final class ReActAgent private (
   def run(messages: Chunk[Msg]): ZIO[Scope, AgentError, AgentResult] =
     runLock.withPermit(ZIO.scoped(for
       hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-      result <- runWithHub(messages, hub, toolkit)(result => ZIO.succeed((result, ()))).map(_._1)
+      result <- runOrdinaryWithHub(messages, hub)
     yield result))
 
   def run(message: Msg): ZIO[Scope, AgentError, AgentResult] =
@@ -117,52 +118,55 @@ final class ReActAgent private (
       mode: StructuredMode,
       hub: Hub[AgentEvent]
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
-    Ref.make[Option[Json]](None).flatMap { capturedRef =>
-      val syntheticTool = StructuredOutput.createTool(schema, json => capturedRef.set(Some(json)))
-      val nativeConfig = llmConfig.copy(responseFormat =
-        Some(
-          Json.Obj(
-            "type"        -> Json.Str("json_schema"),
-            "json_schema" -> Json.Obj("name" -> Json.Str("response"), "schema" -> schema)
+    Ref.make[Option[Json]](None).zip(Ref.make[Option[ChatUsage]](None)).flatMap {
+      case (capturedRef, usageRef) =>
+        val syntheticTool = StructuredOutput.createTool(schema, json => capturedRef.set(Some(json)))
+        val nativeConfig = llmConfig.copy(responseFormat =
+          Some(
+            Json.Obj(
+              "type"        -> Json.Str("json_schema"),
+              "json_schema" -> Json.Obj("name" -> Json.Str("response"), "schema" -> schema)
+            )
           )
         )
-      )
 
-      def prepare(result: AgentResult): IO[AgentError, (AgentResult, A)] =
-        capturedRef.get.flatMap(captured => ZIO.fromEither(prepareStructured[A](result, captured)))
+        def prepare(result: AgentResult): IO[AgentError, (AgentResult, A)] =
+          capturedRef.get
+            .flatMap(captured => ZIO.fromEither(prepareStructured[A](result, captured)))
 
-      def nativeAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
-        runWithHub(messages, hub, toolkit, nativeConfig, Some(capturedRef))(prepare)
+        def nativeAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
+          runWithHub(messages, hub, toolkit, usageRef, nativeConfig, Some(capturedRef))(prepare)
 
-      val syntheticConfig = llmConfig.copy(responseFormat = None)
+        val syntheticConfig = llmConfig.copy(responseFormat = None)
 
-      def syntheticAttempt(input: Chunk[Msg]): ZIO[Scope, AgentError, (AgentResult, A)] =
-        ZIO
-          .fromEither(toolkit.register(syntheticTool))
-          .flatMap(active =>
-            runWithHub(input, hub, active, syntheticConfig, Some(capturedRef))(prepare)
-          )
+        def syntheticAttempt(input: Chunk[Msg]): ZIO[Scope, AgentError, (AgentResult, A)] =
+          ZIO
+            .fromEither(toolkit.register(syntheticTool))
+            .flatMap(active =>
+              runWithHub(input, hub, active, usageRef, syntheticConfig, Some(capturedRef))(prepare)
+            )
 
-      def nativeWithFallback: ZIO[Scope, AgentError, (AgentResult, A)] =
-        nativeAttempt.catchAll {
-          case AgentError.ModelError(status, _, _) if Set(400, 422, 501).contains(status) =>
-            syntheticAttempt(Chunk.empty)
-          case error => ZIO.fail(error)
-        }
+        def nativeWithFallback: ZIO[Scope, AgentError, (AgentResult, A)] =
+          nativeAttempt.catchAll {
+            case AgentError.ModelError(status, _, _) if Set(400, 422, 501).contains(status) =>
+              syntheticAttempt(Chunk.empty)
+            case error => ZIO.fail(error)
+          }
 
-      def automaticAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
-        llmConfig.structuredOutputCapability match
-          case StructuredOutputCapability.Unsupported => syntheticAttempt(messages)
-          case StructuredOutputCapability.Native(NativeToolSupport.Supported) => nativeWithFallback
-          case StructuredOutputCapability.Unknown | StructuredOutputCapability.Native(
-                NativeToolSupport.Unsupported
-              ) =>
-            if toolkit.isEmpty then nativeWithFallback else syntheticAttempt(messages)
+        def automaticAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
+          llmConfig.structuredOutputCapability match
+            case StructuredOutputCapability.Unsupported => syntheticAttempt(messages)
+            case StructuredOutputCapability.Native(NativeToolSupport.Supported) =>
+              nativeWithFallback
+            case StructuredOutputCapability.Unknown | StructuredOutputCapability.Native(
+                  NativeToolSupport.Unsupported
+                ) =>
+              if toolkit.isEmpty then nativeWithFallback else syntheticAttempt(messages)
 
-      mode match
-        case StructuredMode.Native        => nativeAttempt
-        case StructuredMode.SyntheticTool => syntheticAttempt(messages)
-        case StructuredMode.Auto          => automaticAttempt
+        mode match
+          case StructuredMode.Native        => nativeAttempt
+          case StructuredMode.SyntheticTool => syntheticAttempt(messages)
+          case StructuredMode.Auto          => automaticAttempt
     }
 
   /** Prepare one validated payload and final history without publishing or mutating runtime state. */
@@ -215,7 +219,7 @@ final class ReActAgent private (
 
   /** Streams typed lifecycle and delta events while running the turn in the background. */
   def streamEvents(messages: Chunk[Msg]): ZStream[Scope, AgentError, AgentEvent] =
-    streamRun(hub => runWithHub(messages, hub, toolkit)(result => ZIO.succeed((result, ()))))
+    streamRun(hub => runOrdinaryWithHub(messages, hub))
 
   /** Streams an attempt through validated structured completion before its result/end events. */
   def streamStructuredEvents[A: JsonCodec](
@@ -263,20 +267,30 @@ final class ReActAgent private (
   def streamEvents(message: Msg): ZStream[Scope, AgentError, AgentEvent] =
     streamEvents(Chunk(message))
 
+  private def runOrdinaryWithHub(
+      messages: Chunk[Msg],
+      hub: Hub[AgentEvent]
+  ): ZIO[Scope, AgentError, AgentResult] =
+    Ref
+      .make[Option[ChatUsage]](None)
+      .flatMap(usage =>
+        runWithHub(messages, hub, toolkit, usage)(result => ZIO.succeed((result, ()))).map(_._1)
+      )
+
   private def runWithHub[A](
       newMessages: Chunk[Msg],
       eventHub: Hub[AgentEvent],
       activeToolkit: Toolkit,
+      usageRef: Ref[Option[ChatUsage]],
       requestConfig: LlmConfig = llmConfig,
       structuredResponse: Option[Ref[Option[Json]]] = None
   )(
       prepareResult: AgentResult => IO[AgentError, (AgentResult, A)]
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
     for
-      startingHistory <- stateRef.get
-      p               <- Promise.make[Nothing, Unit]
-      _               <- interruptedPromiseRef.set(p)
-      replyId         <- Random.nextUUID.map(_.toString)
+      p       <- Promise.make[Nothing, Unit]
+      _       <- interruptedPromiseRef.set(p)
+      replyId <- Random.nextUUID.map(_.toString)
       systemMsgOpt =
         if config.systemPrompt.nonEmpty then Some(Msg.system(config.systemPrompt)) else None
       _ <- stateRef.update { current =>
@@ -301,16 +315,10 @@ final class ReActAgent private (
             replyId,
             requestConfig,
             structuredResponse,
-            runHistoryStart
-          ).map(result =>
-            result.copy(usage =
-              result.history
-                .drop(startingHistory.size)
-                .filter(_.role == Role.Assistant)
-                .flatMap(_.usage)
-                .reduceOption(_.combine(_))
-            )
-          ).flatMap(prepareResult)
+            runHistoryStart,
+            usageRef
+          ).flatMap(result => usageRef.get.map(usage => result.copy(usage = usage)))
+            .flatMap(prepareResult)
             .onInterrupt(reconcileDanglingToolCalls(stateRef, runHistoryStart).unit)
           for
             completed <- restore(
@@ -333,7 +341,8 @@ final class ReActAgent private (
       replyId: String,
       requestConfig: LlmConfig,
       structuredResponse: Option[Ref[Option[Json]]],
-      runHistoryStart: Int
+      runHistoryStart: Int,
+      usageRef: Ref[Option[ChatUsage]]
   ): ZIO[Scope, AgentError, AgentResult] =
     if iteration > config.maxIterations then
       for
@@ -366,6 +375,157 @@ final class ReActAgent private (
                 case Right(_)   => ZIO.succeed(Left(()))
             yield value
 
+          def acceptTurn(
+              turnOutput: TurnOutput,
+              context: ModelStreamContext
+          ): ZIO[Scope, AgentError, AgentResult] =
+            turnOutput match
+              case TurnOutput.FinalText(assistantMsg) =>
+                for
+                  _         <- stateRef.update(_ :+ assistantMsg)
+                  finalHist <- stateRef.get
+                yield AgentResult(
+                  reply = assistantMsg,
+                  history = finalHist,
+                  iterationCount = iteration,
+                  usage = assistantMsg.usage
+                )
+
+              case TurnOutput.ThinkingOnly(thinkingMsg) =>
+                if emptyThinkingRetries < config.emptyThinkingRetryLimit then
+                  val reminder = Msg.user(
+                    name = Some("system"),
+                    content = Chunk(
+                      ContentBlock.Text(
+                        "<system-reminder>Your previous reply had empty content - the full answer was written to the reasoning channel only. Reply again and write the final answer into the content channel.</system-reminder>"
+                      )
+                    ),
+                    metadata = Map(
+                      Msg.MetadataSynthetic    -> Json.Bool(true),
+                      Msg.MetadataReminderKind -> Json.Str("empty_response")
+                    )
+                  )
+                  for
+                    _ <- stateRef.update(_ :+ thinkingMsg :+ reminder)
+                    nextTurn <- restore(
+                      loop(
+                        iteration + 1,
+                        emptyThinkingRetries + 1,
+                        activeToolkit,
+                        eventHub,
+                        replyId,
+                        requestConfig,
+                        structuredResponse,
+                        runHistoryStart,
+                        usageRef
+                      )
+                    )
+                  yield nextTurn
+                else
+                  val limitMsg = Msg.assistant(
+                    name = Some(config.name),
+                    content = Chunk(
+                      ContentBlock.Text("Empty visible content retry limit reached.")
+                    ),
+                    metadata = Map(
+                      Msg.MetadataGenerateReason -> Json.Str("empty_response")
+                    )
+                  )
+                  for
+                    _         <- stateRef.update(_ :+ thinkingMsg :+ limitMsg)
+                    finalHist <- stateRef.get
+                  yield AgentResult(
+                    reply = limitMsg,
+                    history = finalHist,
+                    iterationCount = iteration
+                  )
+
+              case TurnOutput.ToolCalls(assistantMsg) =>
+                for
+                  _ <- stateRef.update(_ :+ assistantMsg)
+                  allCalls = assistantMsg.toolUses
+                  inline = partitionToolResults(
+                    allCalls,
+                    assistantMsg.toolResults,
+                    _.isServerTool
+                  )
+                  pendingCalls = inline.pending
+                  _ <- ZIO.foreachDiscard(inline.completed) { case (call, result) =>
+                    publishInlineResult(call, result, context, eventHub)
+                  }
+
+                  turnRes <-
+                    if pendingCalls.isEmpty then
+                      for finalHist <- stateRef.get
+                      yield AgentResult(
+                        reply = assistantMsg,
+                        history = finalHist,
+                        iterationCount = iteration,
+                        usage = assistantMsg.usage
+                      )
+                    else
+                      val allSafe = config.streamParallelTools && pendingCalls
+                        .forall(c => activeToolkit.resolve(c.name).forall(_.isConcurrencySafe))
+                      val execEffect =
+                        if allSafe then
+                          ZIO.foreachPar(pendingCalls)(call =>
+                            executeAndRecord(
+                              call,
+                              activeToolkit,
+                              stateRef,
+                              eventHub,
+                              context
+                            )
+                          )
+                        else
+                          ZIO.foreach(pendingCalls)(call =>
+                            executeAndRecord(
+                              call,
+                              activeToolkit,
+                              stateRef,
+                              eventHub,
+                              context
+                            )
+                          )
+
+                      for
+                        execRes <- raceWithInterrupt(execEffect)
+                        res <- execRes match
+                          case Left(_) =>
+                            handleInterrupt(stateRef, iteration, runHistoryStart)
+                          case Right(_) =>
+                            val captured =
+                              structuredResponse.fold[UIO[Option[Json]]](ZIO.none)(_.get)
+                            captured.flatMap {
+                              case Some(_) =>
+                                stateRef.get
+                                  .map(history => AgentResult(assistantMsg, history, iteration))
+                              case None =>
+                                restore(
+                                  loop(
+                                    iteration + 1,
+                                    0,
+                                    activeToolkit,
+                                    eventHub,
+                                    replyId,
+                                    requestConfig,
+                                    structuredResponse,
+                                    runHistoryStart,
+                                    usageRef
+                                  )
+                                )
+                            }
+                      yield res
+                yield turnRes
+
+              case TurnOutput.Interrupted(partial) =>
+                stateRef
+                  .update(_ :+ partial) *> handleInterrupt(
+                  stateRef,
+                  iteration,
+                  runHistoryStart
+                )
+
           for
             history   <- stateRef.get
             requestId <- Random.nextUUID.map(_.toString)
@@ -384,6 +544,14 @@ final class ReActAgent private (
                     context
                   )
                 )
+                .tap(output =>
+                  usageRef
+                    .update(current =>
+                      output.message.chatUsage
+                        .fold(current)(usage => Some(current.fold(usage)(_.combine(usage))))
+                    )
+                    .uninterruptible
+                )
                 .tap:
                   case _: TurnOutput.Interrupted => ZIO.unit
                   case output =>
@@ -391,8 +559,8 @@ final class ReActAgent private (
                       .publish(
                         AgentEvent.ModelResponseEndEvent(
                           requestConfig.model,
-                          output.message.usage.fold(0)(_.outputTokens),
-                          output.message.usage.fold(0)(_.totalTokens),
+                          output.message.chatUsage.fold(0)(_.outputTokens),
+                          output.message.chatUsage.fold(0)(_.totalTokens),
                           context = Some(context)
                         )
                       )
@@ -403,139 +571,64 @@ final class ReActAgent private (
               case Left(_) =>
                 handleInterrupt(stateRef, iteration, runHistoryStart)
 
-              case Right(turnOutput) =>
-                turnOutput match
-                  case TurnOutput.FinalText(assistantMsg) =>
-                    for
-                      _         <- stateRef.update(_ :+ assistantMsg)
-                      finalHist <- stateRef.get
-                    yield AgentResult(
-                      reply = assistantMsg,
-                      history = finalHist,
-                      iterationCount = iteration,
-                      usage = assistantMsg.usage
+              case Right(TurnOutput.Interrupted(partial)) =>
+                stateRef
+                  .update(_ :+ partial) *> handleInterrupt(stateRef, iteration, runHistoryStart)
+
+              case Right(rawOutput) =>
+                raceWithInterrupt(ZIO.scoped(applyReasoningHook(rawOutput, context))).flatMap:
+                  case Left(_) => handleInterrupt(stateRef, iteration, runHistoryStart)
+                  case Right(None) =>
+                    restore(
+                      loop(
+                        iteration + 1,
+                        emptyThinkingRetries,
+                        activeToolkit,
+                        eventHub,
+                        replyId,
+                        requestConfig,
+                        structuredResponse,
+                        runHistoryStart,
+                        usageRef
+                      )
                     )
-
-                  case TurnOutput.ThinkingOnly(thinkingMsg) =>
-                    if emptyThinkingRetries < config.emptyThinkingRetryLimit then
-                      val reminder = Msg.user(
-                        name = Some("system"),
-                        content = Chunk(
-                          ContentBlock.Text(
-                            "<system-reminder>Your previous reply had empty content - the full answer was written to the reasoning channel only. Reply again and write the final answer into the content channel.</system-reminder>"
-                          )
-                        ),
-                        metadata = Map(
-                          Msg.MetadataSynthetic    -> Json.Bool(true),
-                          Msg.MetadataReminderKind -> Json.Str("empty_response")
-                        )
-                      )
-                      for
-                        _ <- stateRef.update(_ :+ thinkingMsg :+ reminder)
-                        nextTurn <- restore(
-                          loop(
-                            iteration + 1,
-                            emptyThinkingRetries + 1,
-                            activeToolkit,
-                            eventHub,
-                            replyId,
-                            requestConfig,
-                            structuredResponse,
-                            runHistoryStart
-                          )
-                        )
-                      yield nextTurn
-                    else
-                      val limitMsg = Msg.assistant(
-                        name = Some(config.name),
-                        content =
-                          Chunk(ContentBlock.Text("Empty visible content retry limit reached.")),
-                        metadata = Map(
-                          Msg.MetadataGenerateReason -> Json.Str("empty_response")
-                        )
-                      )
-                      for
-                        _         <- stateRef.update(_ :+ thinkingMsg :+ limitMsg)
-                        finalHist <- stateRef.get
-                      yield AgentResult(
-                        reply = limitMsg,
-                        history = finalHist,
-                        iterationCount = iteration
-                      )
-
-                  case TurnOutput.ToolCalls(assistantMsg) =>
-                    for
-                      _ <- stateRef.update(_ :+ assistantMsg)
-                      allCalls = assistantMsg.toolUses
-                      inline = partitionToolResults(
-                        allCalls,
-                        assistantMsg.toolResults,
-                        _.isServerTool
-                      )
-                      pendingCalls = inline.pending
-                      _ <- ZIO.foreachDiscard(inline.completed) { case (call, result) =>
-                        publishInlineResult(call, result, context, eventHub)
-                      }
-
-                      turnRes <-
-                        if pendingCalls.isEmpty then
-                          for finalHist <- stateRef.get
-                          yield AgentResult(
-                            reply = assistantMsg,
-                            history = finalHist,
-                            iterationCount = iteration,
-                            usage = assistantMsg.usage
-                          )
-                        else
-                          val allSafe = config.streamParallelTools && pendingCalls
-                            .forall(c => activeToolkit.resolve(c.name).forall(_.isConcurrencySafe))
-                          val execEffect =
-                            if allSafe then
-                              ZIO.foreachPar(pendingCalls)(call =>
-                                executeAndRecord(call, activeToolkit, stateRef, eventHub, context)
-                              )
-                            else
-                              ZIO.foreach(pendingCalls)(call =>
-                                executeAndRecord(call, activeToolkit, stateRef, eventHub, context)
-                              )
-
-                          for
-                            execRes <- raceWithInterrupt(execEffect)
-                            res <- execRes match
-                              case Left(_) =>
-                                handleInterrupt(stateRef, iteration, runHistoryStart)
-                              case Right(_) =>
-                                val captured =
-                                  structuredResponse.fold[UIO[Option[Json]]](ZIO.none)(_.get)
-                                captured.flatMap {
-                                  case Some(_) =>
-                                    stateRef.get
-                                      .map(history => AgentResult(assistantMsg, history, iteration))
-                                  case None =>
-                                    restore(
-                                      loop(
-                                        iteration + 1,
-                                        0,
-                                        activeToolkit,
-                                        eventHub,
-                                        replyId,
-                                        requestConfig,
-                                        structuredResponse,
-                                        runHistoryStart
-                                      )
-                                    )
-                                }
-                          yield res
-                    yield turnRes
-
-                  case TurnOutput.Interrupted(partial) =>
-                    stateRef
-                      .update(_ :+ partial) *> handleInterrupt(stateRef, iteration, runHistoryStart)
+                  case Right(Some(turnOutput)) => acceptTurn(turnOutput, context)
           yield outcome
         }
         .onInterrupt {
           reconcileDanglingToolCalls(stateRef, runHistoryStart).ignore
         }
+
+  private def applyReasoningHook(
+      output: TurnOutput,
+      context: ModelStreamContext
+  ): ZIO[Scope, AgentError, Option[TurnOutput]] =
+    output match
+      case _: TurnOutput.Interrupted => ZIO.some(output)
+      case _ =>
+        postReasoningHook(context, output.message).flatMap:
+          case ReasoningDecision.Keep    => ZIO.some(output)
+          case ReasoningDecision.Discard => ZIO.none
+          case ReasoningDecision.Replace(replacement) =>
+            if replacement.role != Role.Assistant then
+              ZIO.fail(
+                AgentError.ReasoningHookError(
+                  "A replacement reasoning message must have the assistant role"
+                )
+              )
+            else
+              val usageMetadata = output.message.metadata
+                .get(Msg.MetadataChatUsage)
+                .map(value => Msg.MetadataChatUsage -> value)
+              val accepted = replacement
+                .withUsage(output.message.usage)
+                .withMetadata((replacement.metadata - Msg.MetadataChatUsage) ++ usageMetadata)
+              val classified =
+                if accepted.toolUses.nonEmpty then TurnOutput.ToolCalls(accepted)
+                else if accepted.text.trim.isEmpty && accepted.thinking.nonEmpty then
+                  TurnOutput.ThinkingOnly(accepted)
+                else TurnOutput.FinalText(accepted)
+              ZIO.some(classified)
 
   final private case class ToolResultPartition(
       completed: Chunk[(ContentBlock.ToolUse, ContentBlock.ToolResult)],
@@ -725,7 +818,8 @@ object ReActAgent:
       toolkit: Toolkit = Toolkit.empty,
       client: LlmClient,
       llmConfig: LlmConfig = LlmConfig("default-model"),
-      initialHistory: Chunk[Msg] = Chunk.empty
+      initialHistory: Chunk[Msg] = Chunk.empty,
+      postReasoningHook: PostReasoningHook = PostReasoningHook.keep
   ): IO[AgentError, ReActAgent] =
     for
       _                     <- ZIO.fromEither(config.validated)
@@ -742,7 +836,8 @@ object ReActAgent:
       stateRef,
       interruptedPromiseRef,
       agentId,
-      runLock
+      runLock,
+      postReasoningHook
     )
 
   def builder(): Builder = Builder()
@@ -752,7 +847,8 @@ object ReActAgent:
       private val _toolkit: Toolkit = Toolkit.empty,
       private val _client: Option[LlmClient] = None,
       private val _llmConfig: LlmConfig = LlmConfig("default-model"),
-      private val _initialHistory: Chunk[Msg] = Chunk.empty
+      private val _initialHistory: Chunk[Msg] = Chunk.empty,
+      private val _postReasoningHook: PostReasoningHook = PostReasoningHook.keep
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -768,8 +864,12 @@ object ReActAgent:
     def llmConfig(c: LlmConfig): Builder          = copy(_llmConfig = c)
     def initialHistory(h: Chunk[Msg]): Builder    = copy(_initialHistory = h)
 
+    def postReasoningHook(hook: PostReasoningHook): Builder = copy(_postReasoningHook = hook)
+
     def build: IO[AgentError, ReActAgent] =
       ZIO
         .fromOption(_client)
         .orElseFail(AgentError.InvalidConfiguration("A model client is required"))
-        .flatMap(model => ReActAgent.make(_config, _toolkit, model, _llmConfig, _initialHistory))
+        .flatMap(model =>
+          ReActAgent.make(_config, _toolkit, model, _llmConfig, _initialHistory, _postReasoningHook)
+        )

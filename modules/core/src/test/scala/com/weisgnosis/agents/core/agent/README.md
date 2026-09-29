@@ -2,6 +2,8 @@
 
 These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. Exhaustive upstream parity and complete runtime event ordering remain pending.
 
+- [PostReasoningHookSpec](PostReasoningHookSpec.scala)
+- [ReActAgentReasoningHookSpec](ReActAgentReasoningHookSpec.scala)
 - [AgentConfigSpec](AgentConfigSpec.scala)
 - [AgentResultSpec](AgentResultSpec.scala)
 - [ReActAgentToolEventSpec](ReActAgentToolEventSpec.scala)
@@ -33,4 +35,14 @@ Twelve StructuredOutputCapabilityRoutingSpec tests cover all declared/unknown ca
 
 The [agent contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) and [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) describe acceptance and intentional adaptations. Earlier acceptance and exact source identities through `06bd2e1` remain in Git.
 
-The [client capability table](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) records all five exact reviewed identities.
+The [client capability table](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) records unchanged capability identities; commit `02b4654` preserves all five identities from that increment.
+
+## Post-reasoning verification
+
+Three PostReasoningHookSpec tests verify decision/error codecs, suspended callbacks/default Keep, and compile-time exclusion of provider errors. Nineteen ReActAgentReasoningHookSpec tests verify canonical/legacy usage ownership, typed discard continuation, replacement classification and persistence, iteration/thinking bounds, interrupted-output bypass, invalid roles/errors, scoped cleanup, cancellation/timeout, cross-attempt accounting, input-usage exclusion, invocation reset, correlated final publication, and single-transfer synthetic history. The mixed legacy/canonical usage regression failed before the residual-history correction.
+
+- [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 456 core and 40 harness tests.
+
+The upstream null-message scenario is adapted to typed Discard followed by a valid capture. It establishes safe continuation without dispatching discarded calls, not nullable-hook API equivalence. General middleware and other legacy hook operations remain outside this scope.
+
+The [agent table](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) records all six exact current identities.

@@ -39,6 +39,9 @@ object AgentError:
   /** Host text-transformation failure; never a provider rejection eligible for native fallback. */
   final case class TextTransformationError(message: String) extends AgentError derives JsonCodec
 
+  /** Host reasoning policy failure; distinct from provider request rejection. */
+  final case class ReasoningHookError(message: String) extends AgentError derives JsonCodec
+
   final case class ToolExecutionError(
       toolName: String,
       message: String,

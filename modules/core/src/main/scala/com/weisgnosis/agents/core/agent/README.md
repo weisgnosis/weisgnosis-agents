@@ -4,6 +4,7 @@ ReActAgent retains history and serializes runs. Model requests receive their own
 
 - [AgentConfig](AgentConfig.scala)
 - [AgentResult](AgentResult.scala)
+- [PostReasoningHook](PostReasoningHook.scala)
 - [ReActAgent](ReActAgent.scala)
 - [StructuredOutput](StructuredOutput.scala)
 
@@ -58,16 +59,43 @@ The declaration is serialized with LlmConfig but excluded from the HTTP request 
 
 - [x] The accepted runtime baseline through `06bd2e1` includes lifecycle cleanup, finalized result ordering, occurrence-based reconciliation, correlated model/tool events, strict structured JSON, and loopback HTTP completion. Git preserves the earlier reviewer approvals and exact identities.
 - [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.
-- [ ] Complete model-call middleware and post-reasoning replacement/removal parity.
+- [ ] Complete general model-call middleware and remaining legacy hook behavior.
 - [ ] Complete provider continuation, incremental/structured local tool results, full event ordering, and event adapters.
 - [ ] Integrate permissions, phase stopping, durable pending work, and harness middleware.
 
 The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes verified contracts from remaining scenarios. General JSON Schema validation and exhaustive provider compatibility are not claimed.
 
-The [client capability table](../client/README.md) records all five exact reviewed identities.
+The [client capability table](../client/README.md) records unchanged capability identities; commit `02b4654` preserves all five identities from that increment.
 
 ## Transformed live-model text
 
 The optional [ModelTextTransform](../client/ModelTextTransform.scala) on ChatCompletionsClient replaces visible fragments before accumulation and event publication. Native structured extraction receives that same transformed text and still enforces complete unambiguous JSON. The real HTTP fence-removal scenario closes the mapped text-replacement behavior with an explicit typed adaptation; it does not establish general model-call or post-reasoning middleware parity.
 
 - [x] `review_fp` and `review_harness` approved the final seven-file text-transformation increment against `02b4654` on 2026-09-29 after the fallback-provenance correction. No findings remain within this scope. Full formatting, fatal-warning compilation, and verification passed 434 core and 40 harness tests. Exact identities are in the [client README](../client/README.md); ReAct source was unchanged by this increment.
+
+## Post-reasoning policy and invocation usage
+
+ReActAgent.make and Builder.postReasoningHook accept a PostReasoningHook, defaulting to Keep. The suspended callback receives ModelStreamContext and the completed model message, and returns ZIO[Scope, AgentError.ReasoningHookError, ReasoningDecision]. The closed decision algebra is Keep, Replace(message), or Discard. The dedicated error channel prevents host-policy failures from triggering Auto's provider-rejection fallback; external errors require explicit mapping.
+
+The model request scope closes and its successful ModelResponseEnd is published before policy evaluation. The hook owns a separate nested scope inside the engine-attempt timeout and cooperative cancellation race. Its scope closes before any accepted assistant message is persisted or tools dispatch. Interrupted model output bypasses the hook and retains normal reconciliation. Existing model block events and model-end metrics describe the original observation; replacement/discard does not rewrite already published events. Committed history, final AgentResult, and dispatched tools follow the accepted decision.
+
+Keep retains the original TurnOutput. Replace requires an assistant message, restores the original canonical usage and legacy _chat_usage metadata, then classifies its content as tool calls, thinking-only, or final text. A host cannot mint billing metrics through either usage representation. Replaced tool calls are persisted before execution. Replacing calls with final text prevents dispatch. Invalid roles fail before persistence. Discard persists no model message or pending call and performs another iteration, consuming the iteration budget without replenishing the thinking retry budget. Repeated discards reach the normal iteration limit; they do not create dangling tool history.
+
+Usage is now accumulated from returned model observations in one invocation-local Ref, using canonical-first chatUsage. It includes discarded and returned interrupted outputs, spans Auto native/synthetic attempts, excludes supplied history/new input, and resets for each public invocation. Accounting updates are briefly masked after model-scope completion. ModelResponseEnd uses the same canonical-first usage view. Synthetic completion transfers canonical and legacy usage exactly once, clearing both representations from any retained residual generating assistant. Reply usage remains the generating request's usage; AgentResult usage is the invocation aggregate.
+
+Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must include its new final field. The hook and builder are in-memory runtime values, not durable policy serialization. ReasoningDecision has a derived codec, but decoded replacements still pass runtime validation. This API covers replacement/removal through typed decisions; legacy mutable hooks, stop/goto-reasoning commands, and general model-call interception remain separate work.
+
+- [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 456 core and 40 harness tests.
+
+## Current post-reasoning identities
+
+Final formatted scope against `2a400e0`; these identities supersede earlier entries for changed files.
+
+| File | Git blob |
+| --- | --- |
+| [ReActAgent.scala](ReActAgent.scala) | 3bd394a550ce0dea1cfe351c4446c0ddd625801d |
+| [PostReasoningHook.scala](PostReasoningHook.scala) | 9817ce08dfefcbf69792204c8169914406e31fb9 |
+| [StructuredOutput.scala](StructuredOutput.scala) | 5d6d81c944530f8ff7094733abfc21885729e456 |
+| [AgentError.scala](../error/AgentError.scala) | 53ed178ec1e2534c9e8783faf85e550248efb0cb |
+| [PostReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PostReasoningHookSpec.scala) | 0a024cbdaf20b5a7d3be015b30a60c07118310ab |
+| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | 3eefd816ae8cc44a7346f8eec63d1b2fcc01191f |

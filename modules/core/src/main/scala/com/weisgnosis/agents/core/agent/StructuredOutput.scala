@@ -101,6 +101,7 @@ object StructuredOutput:
         val residualReply = generatingReply
           .filterContent(block => !block.isInstanceOf[ContentBlock.Thinking])
           .withUsage(None)
+          .withMetadata(generatingReply.metadata - Msg.MetadataChatUsage)
         assistantAndPrefix.drop(1).reverse ++ Chunk(residualReply) ++ trailingResults.reverse
       case None => history
     compressHistory(retainedHistory) :+ finalReply
