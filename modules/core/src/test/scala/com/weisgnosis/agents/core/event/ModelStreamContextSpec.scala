@@ -32,13 +32,29 @@ object ModelStreamContextSpec extends ZIOSpecDefault:
     AgentEvent.ToolCallDeltaEvent("call", "{}", 0, context = Some(context)),
     AgentEvent
       .ToolCallEndEvent("call", "tool", zio.json.ast.Json.Obj(), 0, context = Some(context)),
+    AgentEvent.ToolResultStartEvent("call", "tool", context = Some(context)),
+    AgentEvent.ToolResultDeltaEvent("call", "output", context = Some(context)),
+    AgentEvent.ToolResultEndEvent(
+      "call",
+      "tool",
+      "output",
+      com.weisgnosis.agents.core.model.ToolResultState.Success,
+      context = Some(context)
+    ),
+    AgentEvent.ToolResultDataDeltaEvent(
+      "reply",
+      "call",
+      "tool",
+      com.weisgnosis.agents.core.model.ContentBlock.Text("data"),
+      context = Some(context)
+    ),
     AgentEvent.ModelRequestStartEvent("model", 0, context = Some(context)),
     AgentEvent.ModelResponseChunkEvent("chunk", context = Some(context)),
     AgentEvent.ModelResponseEndEvent("model", 1, 2, context = Some(context))
   )
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ModelStreamContext")(
-    test("round-trips supplied context across all twelve event variants and source updates"):
+    test("round-trips supplied context across all sixteen event variants and source updates"):
       assertTrue(
         events.forall(event =>
           event.toJson.fromJson[AgentEvent] == Right(event) &&

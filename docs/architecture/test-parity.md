@@ -386,7 +386,10 @@ The pinned core ToolCallsAccumulatorTest and ReasoningContextTest were inspected
 ## Live model stream adaptation
 
 - [x] Six ChatCompletionsClientSpec scenarios verify incremental publication, real HTTP tool cycles, request/reply correlation, late tool identity, incomplete/malformed input, and cancellation.
-- [x] Three ModelStreamPublisherSpec scenarios verify indexed text/thinking, interleaved tool deltas, and validated complete ending batches; two ModelStreamContextSpec scenarios cover all twelve affected event variants and legacy payloads.
-- [ ] Complete local tool-result ordering, richer provider content, and method-level formatter/transport mapping.
+- [x] Three ModelStreamPublisherSpec scenarios verify indexed text/thinking, interleaved tool deltas, and validated complete ending batches; two ModelStreamContextSpec scenarios cover all sixteen affected event variants and legacy payloads.
+- [x] Verify completed local tool results with request provenance, persistence before publication, and per-call start/delta/end ordering.
+- [ ] Complete incremental/structured tool output, richer provider content, and method-level formatter/transport mapping.
 
 The disabled upstream ordering sketches remain unchecked: they put MODEL_CALL_END before buffered content and close thinking before text starts. The implemented live contract publishes provisional deltas during the request and closes blocks only after validated completion. ModelResponseEnd follows scope cleanup. This is an explicit runtime adaptation, not exact ordering parity.
+
+ReActAgentToolEventSpec adds six local runtime regressions for persistence, errors, empty output, parallel completion, cancellation, and reused-ID provenance. Inline result tests now assert context on every result variant. These are Scala runtime contracts, not six newly mapped upstream methods. Cancellation still reconciles unfinished history without claiming completed tool events.

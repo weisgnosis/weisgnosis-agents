@@ -68,13 +68,13 @@ Each valid SSE JSON frame produces one ModelResponseChunk, then ordered text/thi
 
 Text and thinking retain separate index namespaces and one start per index. Tool events use streamIndex as blockIndex; identity may arrive late, so arguments are buffered until both call ID and name exist, then emitted as one buffered delta. Subsequent fragments preserve their received order. Only a validated finish plus [DONE] closes blocks, in start order, and exposes the assembled turn. Failure/cancellation may leave observed starts without ends; consumers must use runtime termination/error rather than invent completion. Thinking signatures remain in the assembled Msg; these text-oriented events do not carry signature fragments.
 
-Live deltas precede ModelResponseEnd. Open text/thinking blocks remain open until validated completion, allowing interleaving without premature endings. This deliberately differs from disabled upstream ordering sketches that place model-end before buffered content and close thinking before text starts. Full ordering parity, local tool-result correlation, and richer provider content remain pending.
+Live deltas precede ModelResponseEnd. Open text/thinking blocks remain open until validated completion, allowing interleaving without premature endings. This deliberately differs from disabled upstream ordering sketches that place model-end before buffered content and close thinking before text starts. Local completed tool observations now carry the same request context and are persisted before delta/end publication. Full ordering parity and richer provider content remain pending.
 
 ## Current acceptance
 
 - [x] Message-boundary migration accepted at `a701612`; strict single-frame parsing accepted at `10019c2`.
 - [x] Thirteen accumulator-completion regressions, five shared-JSON tests, and an additional frame-suffix regression pass alongside migrated assembly/thinking-retry tests.
-- [x] Full formatting, fatal-warning compilation, and verification passed 386 core and 40 harness tests.
+- [x] Full formatting, fatal-warning compilation, and verification passed 392 core and 40 harness tests.
 - [x] Implement pure text/function request serialization with sixteen paired regression tests.
 - [x] Implement scoped HTTP completion, [DONE] termination, bounded bodies, and fourteen tests including real loopback HTTP.
 - [x] Integrate ChatCompletionsClient, runtime request correlation, and end-to-end ReAct streaming with eleven new client/publisher/context tests.
@@ -131,3 +131,5 @@ Exact final integration scope (supersedes earlier identities for changed files):
 | [LlmClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/LlmClientSpec.scala) | 0f2cdb77254e8dbfa325265018a6a96bd85798d8 |
 | [ModelStreamPublisherSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelStreamPublisherSpec.scala) | dbb35a012d48eda8be91a795b20588c49e1a3eff |
 | [ModelStreamContextSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/ModelStreamContextSpec.scala) | bc75ea0694f96aed40e3d4d55c9617842edd644d |
+
+- [x] The completed local/inline result increment against `84e4eb3` was approved by `review_fp` and `review_harness`; its [five final source identities and six new regressions](../agent/README.md) supersede earlier entries for changed files. All sixteen contextual variants and full 392 core / 40 harness verification pass. Partial tool-output streaming and richer local structured output remain pending.

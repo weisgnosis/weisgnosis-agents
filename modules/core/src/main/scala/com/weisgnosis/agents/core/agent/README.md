@@ -54,3 +54,23 @@ ReAct allocates a fresh requestId under the current attempt replyId and passes M
 - [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
 
 The [client acceptance table](../client/README.md) records the exact final Scala file identities, including this package.
+
+## Completed tool observations
+
+All four result-event variants now retain the originating ModelStreamContext. Local execution publishes Start, executes interruptibly, then records the completed observation before publishing its text Delta and End under the existing interruption mask. Empty text remains an explicit empty delta. Normalized failures remain Error observations and continue the loop. Each parallel call keeps its own ordered events; completion order may differ from call order. Later turns reusing a call ID remain distinguishable through requestId.
+
+Inline provider results share the completed-output publisher, preserve text/data ordering and metadata, and remain inside the assistant message without separate Tool messages. Local tools currently produce completed text observations, not partial streaming output or structured result metadata. Cancellation preserves completed results/events and reconciles unfinished history; it does not publish a false ToolResultEnd for interrupted work. AgentEnd still terminates the attempt.
+
+- [x] Six ReActAgentToolEventSpec regressions cover persistence before delivery, normalized failures, empty text, controlled parallel completion, cancellation, and repeated-ID provenance. Inline result fixtures and the sixteen-variant context matrix pass.
+- [x] `review_fp` and `review_harness` approved the final five-file tool-result increment against `84e4eb3` on 2026-09-29, including the corrected server/local delta expectation. No findings remain in this scope. Full verification passed 392 core and 40 harness tests.
+- [ ] Implement incremental tool output and richer local structured-result metadata.
+
+The identities below supersede earlier acceptance records for these files:
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [ReActAgent.scala](ReActAgent.scala) | 706361eadca57ef7a730bda6572bf8fc98a815f5 |
+| [AgentEvent.scala](../event/AgentEvent.scala) | 6f8726e99cf4a5dd32b0a8d498b176b5f91a8b51 |
+| [ReActAgentEmissionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEmissionSpec.scala) | f921e3ec814d758f58c4e92aacb0c85b0e3446f5 |
+| [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) | 84a2327121f2b5a85985fe8e74fb2085dfb50852 |
+| [ModelStreamContextSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/ModelStreamContextSpec.scala) | 6bf28be306402cdc081dfd4035a2563333a06600 |

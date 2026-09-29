@@ -23,10 +23,10 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [x] Thirteen StreamAccumulatorCompletionSpec regressions cover required finish markers, malformed/non-object/trailing tool arguments, interrupted sanitization, raw content, deferred/stable identity, duplicate IDs, interleaved indexes, signed blocks, usage snapshots, and post-finish rejection.
 - [x] ProtocolJsonSpec verifies five complete-document/duplicate/escape/numeric scenarios without effects.
 - [x] Existing accumulator scenarios and two ReAct thinking-retry integration tests now handle Either and explicit successful finish markers.
-- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 386 core and 40 harness tests with zero compiler warnings.
+- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 392 core and 40 harness tests with zero compiler warnings.
 - [x] Fourteen transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
 - [x] Six live-client tests verify early deltas, real HTTP tool cycles, request identity, late call identity, malformed/incomplete streams, and cancellation.
-- [x] Three publisher tests verify indexed content, interleaved calls, and atomic ending-batch validation; two event-context tests cover all twelve correlated variants and legacy payloads.
+- [x] Three publisher tests verify indexed content, interleaved calls, and atomic ending-batch validation; two event-context tests cover all sixteen correlated variants and legacy payloads.
 - [ ] Complete remaining event integration, provider signature/metadata decoding, and exhaustive upstream scenario mapping.
 
 The [client contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) record source migration, exact review scope, and remaining limits. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) separates runtime hardening from mapped upstream methods. Earlier message migration and strict-delta acceptance remain in `a701612` and `10019c2`.
@@ -80,3 +80,5 @@ Exact final integration scope (supersedes earlier identities for changed files):
 | [LlmClientSpec.scala](LlmClientSpec.scala) | 0f2cdb77254e8dbfa325265018a6a96bd85798d8 |
 | [ModelStreamPublisherSpec.scala](ModelStreamPublisherSpec.scala) | dbb35a012d48eda8be91a795b20588c49e1a3eff |
 | [ModelStreamContextSpec.scala](../event/ModelStreamContextSpec.scala) | bc75ea0694f96aed40e3d4d55c9617842edd644d |
+
+- [x] The completed local/inline result increment against `84e4eb3` was approved by `review_fp` and `review_harness`; its [five final source identities and six new regressions](../agent/README.md) supersede earlier entries for changed files. All sixteen contextual variants and full 392 core / 40 harness verification pass. Partial tool-output streaming and richer local structured output remain pending.

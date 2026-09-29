@@ -454,7 +454,7 @@ final class ReActAgent private (
                       )
                       pendingCalls = inline.pending
                       _ <- ZIO.foreachDiscard(inline.completed) { case (call, result) =>
-                        publishInlineResult(call, result, replyId, eventHub)
+                        publishInlineResult(call, result, context, eventHub)
                       }
 
                       turnRes <-
@@ -472,11 +472,11 @@ final class ReActAgent private (
                           val execEffect =
                             if allSafe then
                               ZIO.foreachPar(pendingCalls)(call =>
-                                executeAndRecord(call, activeToolkit, stateRef, eventHub)
+                                executeAndRecord(call, activeToolkit, stateRef, eventHub, context)
                               )
                             else
                               ZIO.foreach(pendingCalls)(call =>
-                                executeAndRecord(call, activeToolkit, stateRef, eventHub)
+                                executeAndRecord(call, activeToolkit, stateRef, eventHub, context)
                               )
 
                           for
@@ -547,30 +547,54 @@ final class ReActAgent private (
   private def publishInlineResult(
       call: ContentBlock.ToolUse,
       result: ContentBlock.ToolResult,
-      replyId: String,
+      context: ModelStreamContext,
+      eventHub: Hub[AgentEvent]
+  ): UIO[Unit] =
+    eventHub.publish(
+      AgentEvent.ToolResultStartEvent(
+        call.id,
+        call.name,
+        metadata = result.metadata,
+        context = Some(context)
+      )
+    ) *> publishCompletedResult(call, result, context, eventHub)
+
+  private def publishCompletedResult(
+      call: ContentBlock.ToolUse,
+      result: ContentBlock.ToolResult,
+      context: ModelStreamContext,
       eventHub: Hub[AgentEvent]
   ): UIO[Unit] =
     for
-      _ <- eventHub.publish(
-        AgentEvent.ToolResultStartEvent(call.id, call.name, metadata = result.metadata)
-      )
-      _ <- ZIO.foreachDiscard(result.output) {
+      _ <- ZIO.foreachDiscard(result.output):
         case ContentBlock.Text(text) =>
           eventHub.publish(
-            AgentEvent.ToolResultDeltaEvent(call.id, text, metadata = result.metadata)
+            AgentEvent.ToolResultDeltaEvent(
+              call.id,
+              text,
+              metadata = result.metadata,
+              context = Some(context)
+            )
           )
         case data =>
           eventHub.publish(
-            AgentEvent.ToolResultDataDeltaEvent(replyId, call.id, call.name, data, result.metadata)
+            AgentEvent.ToolResultDataDeltaEvent(
+              context.replyId,
+              call.id,
+              call.name,
+              data,
+              result.metadata,
+              context = Some(context)
+            )
           )
-      }
       _ <- eventHub.publish(
         AgentEvent.ToolResultEndEvent(
           call.id,
           call.name,
           result.text,
           result.state,
-          metadata = result.metadata
+          metadata = result.metadata,
+          context = Some(context)
         )
       )
     yield ()
@@ -579,20 +603,20 @@ final class ReActAgent private (
       call: ContentBlock.ToolUse,
       toolkit: Toolkit,
       stateRef: Ref[Chunk[Msg]],
-      eventHub: Hub[AgentEvent]
+      eventHub: Hub[AgentEvent],
+      context: ModelStreamContext
   ): ZIO[Any, Nothing, Unit] =
-    ZIO.uninterruptibleMask { restore =>
+    ZIO.uninterruptibleMask: restore =>
       for
-        _   <- eventHub.publish(AgentEvent.ToolResultStartEvent(call.id, call.name))
+        _ <- eventHub.publish(
+          AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))
+        )
         res <- restore(toolkit.executeSafe(call.name, call.input))
         resultBlock = ContentBlock.ToolResult.text(call.id, call.name, res.output, res.state)
-        _ <- eventHub.publish(
-          AgentEvent.ToolResultEndEvent(call.id, call.name, res.output, res.state)
-        )
-        toolMsg = Msg.tool(name = Some(call.name), content = Chunk(resultBlock))
+        toolMsg     = Msg.tool(name = Some(call.name), content = Chunk(resultBlock))
         _ <- stateRef.update(_ :+ toolMsg)
+        _ <- publishCompletedResult(call, resultBlock, context, eventHub)
       yield ()
-    }
 
   private def handleInterrupt(
       stateRef: Ref[Chunk[Msg]],

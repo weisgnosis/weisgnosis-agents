@@ -197,7 +197,8 @@ object AgentEvent:
       callId: String,
       name: String,
       source: Option[String] = None,
-      metadata: Map[String, Json] = Map.empty
+      metadata: Map[String, Json] = Map.empty,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -210,7 +211,8 @@ object AgentEvent:
       callId: String,
       delta: String,
       source: Option[String] = None,
-      metadata: Map[String, Json] = Map.empty
+      metadata: Map[String, Json] = Map.empty,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -225,7 +227,8 @@ object AgentEvent:
       output: String,
       state: ToolResultState,
       source: Option[String] = None,
-      metadata: Map[String, Json] = Map.empty
+      metadata: Map[String, Json] = Map.empty,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 
@@ -493,7 +496,8 @@ object AgentEvent:
       toolCallName: String,
       data: ContentBlock,
       metadata: Map[String, Json] = Map.empty,
-      source: Option[String] = None
+      source: Option[String] = None,
+      context: Option[ModelStreamContext] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 

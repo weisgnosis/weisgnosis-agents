@@ -24,10 +24,12 @@ The [current event contracts and reviewed source identities](../../../../../../.
 
 ## Model stream context
 
-Twelve text/thinking/function/model event variants now carry optional ModelStreamContext(replyId, requestId). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
+Sixteen text/thinking/function/model/result event variants now carry optional ModelStreamContext(replyId, requestId). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
 
-ModelStreamContextSpec verifies all twelve contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); complete uppercase envelope and local tool-result integration remain pending.
+ModelStreamContextSpec verifies all sixteen contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); complete uppercase envelope and incremental/structured local tool-result integration remain pending.
 
 - [x] `review_fp` and `review_harness` approved the final live client/event increment against `60b3799` on 2026-09-29. No findings remain in runtime correlation, validated incremental publication, scoped cleanup, or the migrated/new tests. Full verification passed 386 core and 40 harness tests. Full upstream ordering parity and local tool-result event integration are excluded.
 
 The [client acceptance table](../client/README.md) records the exact final Scala file identities, including this package.
+
+- [x] The completed local/inline result increment against `84e4eb3` was approved by `review_fp` and `review_harness`; its [five final source identities and six new regressions](../agent/README.md) supersede earlier entries for changed files. All sixteen contextual variants and full 392 core / 40 harness verification pass. Partial tool-output streaming and richer local structured output remain pending.

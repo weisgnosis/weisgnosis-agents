@@ -74,3 +74,7 @@ ReasoningModelAdapter.parseChunk returns Either[AgentError, Chunk[LlmChunk]]. No
 ## Stream finalization
 
 StreamAccumulator.empty is the construction boundary; feed and toTurnOutput now return Either[AgentError, ...]. Successful finalization requires stop/no-tools or tool_calls/tools and complete, unique-key JSON object arguments with stable tool identity. toInterrupted preserves partial observations, sanitizing invalid parsed/raw arguments to {}. Indexed thinking signatures and text retain block order; usage is the latest snapshot and may follow finish. ProtocolJson validates complete documents rather than trusting prefix-only AST decoding. These source-breaking contracts are documented in the client README. ChatCompletionsTransport owns HTTP request resources, enforces bounded response bodies, and requires [DONE] after a valid finish marker. ChatCompletionsClient connects it to the agent and incremental correlated events.
+
+## Completed tool-result publication
+
+ToolResultStart/Delta/End and ToolResultDataDelta carry optional ModelStreamContext. Local execution commits its Tool observation before publishing completed text and End; normalization preserves failures as Error observations. Inline results keep ordered text/data and metadata in their assistant message. Parallel calls retain per-call ordering and request provenance. Interruption reconciles only unfinished history without inventing completed result events. Incremental local output and structured result metadata remain pending.

@@ -210,24 +210,40 @@ object ReActAgentEmissionSpec extends ZIOSpecDefault:
         agent   <- ReActAgent.make(client = model)
         events  <- agent.streamEvents(Msg.user("search")).runCollect
         history <- agent.history
+        context = events
+          .collect { case event: AgentEvent.ModelRequestStartEvent => event.context }
+          .flatten
+          .headOption
         starts     = events.collect { case event: AgentEvent.AgentStartEvent => event.replyId }
         dataEvents = events.collect { case event: AgentEvent.ToolResultDataDeltaEvent => event }
         expected = starts.flatMap(replyId =>
           Chunk[AgentEvent](
-            AgentEvent.ToolResultStartEvent("server", "web_search", metadata = metadata),
-            AgentEvent.ToolResultDeltaEvent("server", "head", metadata = metadata),
-            AgentEvent.ToolResultDataDeltaEvent(replyId, "server", "web_search", data, metadata),
-            AgentEvent.ToolResultDeltaEvent("server", "tail", metadata = metadata),
+            AgentEvent
+              .ToolResultStartEvent("server", "web_search", metadata = metadata, context = context),
+            AgentEvent
+              .ToolResultDeltaEvent("server", "head", metadata = metadata, context = context),
+            AgentEvent.ToolResultDataDeltaEvent(
+              replyId,
+              "server",
+              "web_search",
+              data,
+              metadata,
+              context = context
+            ),
+            AgentEvent
+              .ToolResultDeltaEvent("server", "tail", metadata = metadata, context = context),
             AgentEvent.ToolResultEndEvent(
               "server",
               "web_search",
               "head\ntail",
               ToolResultState.Success,
-              metadata = metadata
+              metadata = metadata,
+              context = context
             )
           )
         )
       yield assertTrue(
+        context.nonEmpty,
         starts.size == 1,
         resultEvents(events) == expected,
         dataEvents.map(_.replyId) == starts,
@@ -251,15 +267,22 @@ object ReActAgentEmissionSpec extends ZIOSpecDefault:
         agent   <- ReActAgent.make(client = model)
         events  <- agent.streamEvents(Msg.user("search")).runCollect
         history <- agent.history
+        context = events
+          .collect { case event: AgentEvent.ModelRequestStartEvent => event.context }
+          .flatten
+          .headOption
       yield assertTrue(
+        context.nonEmpty,
         resultEvents(events) == Chunk(
-          AgentEvent.ToolResultStartEvent("server", "web_search", metadata = metadata),
+          AgentEvent
+            .ToolResultStartEvent("server", "web_search", metadata = metadata, context = context),
           AgentEvent.ToolResultEndEvent(
             "server",
             "web_search",
             "",
             ToolResultState.Error,
-            metadata = metadata
+            metadata = metadata,
+            context = context
           )
         ),
         !history.exists(_.role == Role.Tool)
@@ -284,7 +307,8 @@ object ReActAgentEmissionSpec extends ZIOSpecDefault:
         localResults.map(_.id) == Chunk("local"),
         localResults.forall(_.state == ToolResultState.Error),
         events.collect { case event: AgentEvent.ToolResultDeltaEvent => event.callId } == Chunk(
-          "server"
+          "server",
+          "local"
         ),
         history.lastOption.exists(_.text == "done")
       )
