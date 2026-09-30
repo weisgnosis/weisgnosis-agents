@@ -1,12 +1,12 @@
 # com.weisgnosis.agents.mcp.client
 
-Status: planned. No MCP client, discovery mechanism, or Toolkit bridge is implemented. The [protocol package](../protocol/README.md) currently provides checked envelopes only.
+Status: planned. No MCP client, discovery mechanism, or Toolkit bridge is implemented. The [protocol package](../protocol/README.md) provides accepted checked envelopes and pure 2025-06-18 initialization payload helpers accepted within the documented payload scope; neither implements a runtime handshake.
 
 The future client must follow explicitly selected version-specific method/lifecycle contracts, discover capabilities and tools, and distinguish remote JSON-RPC errors from tool-call result failures. Tool adapters must preserve cancellation and turn ordinary tool failures into model observations. Connection authentication and trust configuration belong to explicit host integration.
 
 ## Remaining work
 
-- [ ] Next: define the client lifecycle after method payload schemas and supported revisions are explicit.
+- [ ] Next: define the scoped 2025-06-18 client lifecycle after tool-list/call payload contracts are implemented.
 - [ ] Implement the selected revision's capability and discovery behavior. MCP 2026-07-28 does not use `initialize`; older initialization and negotiation require explicit legacy support.
 - [ ] Implement tool invocation and scoped connection shutdown.
 - [ ] Bridge discovered tools into Toolkit with explicit metadata and naming policy.

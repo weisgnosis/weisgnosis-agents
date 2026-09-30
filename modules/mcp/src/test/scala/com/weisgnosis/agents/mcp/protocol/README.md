@@ -12,12 +12,24 @@
 
 These are specification-derived tests, not claimed one-to-one mappings to AgentScope Java wrapper methods. The pinned reference uses MCP Java SDK 0.17.2 for wire types and serialization. Its wrapper tests mock SDK objects; in particular, `CallToolResult.isError` is a method result flag, not a JSON-RPC error envelope.
 
+## Initialization payload tests
+
+[McpInitializationSpec](McpInitializationSpec.scala) adds four grouped tests for the explicitly selected 2025-06-18 revision. This payload-only scope is accepted with the review and verification evidence linked below.
+
+| Test | Coverage |
+| --- | --- |
+| Request and notification | Exact revision, empty client capabilities, optional implementation title, supplied ID validation, and identity-free initialized notification |
+| Capability projection | Absent versus present tools, absent/false/true listChanged, retained extension fields, instructions, and object `_meta` |
+| Checked result boundary | Required fields, malformed/null known optionals, and recursive duplicate rejection |
+| Exact revision | Reject other revisions and malformed version fields without fallback |
+
 ## Acceptance and next tests
 
 - [x] Five grouped envelope tests pass with positive and negative cases.
 - [x] Independent reviews and full repository verification are complete. The [protocol acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance) records exact scope, reviewers, reviewed identities, and verification evidence.
-- [ ] Next: version-specific method/capability and tool-list/call payload codec tests. MCP 2026-07-28 has no `initialize` method; older initialization/negotiation tests belong only to explicitly supported legacy revisions.
+- [x] Four initialization payload groups pass, for nine MCP groups in total; `path_review` and `current_docs` approved the exact source/test identities recorded in the linked protocol acceptance.
+- [ ] Next: tool-list/call payload tests for 2025-06-18, then scoped client/transport integration. MCP 2026-07-28 initialization is outside this explicitly selected older contract.
 
-No transport, correlation state machine, server handshake, method schema, or whole-SDK compatibility is exercised here.
+No transport, correlation state machine, server handshake, runtime ordering, or whole-SDK compatibility is exercised here.
 
 Fail-before-fix evidence: `mcp-integer-bound-red.log` records five failing rejection assertions for `1e100` IDs/error codes and oversized constructed IDs/error codes before the guard was added. The corrected boundary regression now passes in the accepted verification run.

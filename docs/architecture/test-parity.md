@@ -886,7 +886,8 @@ AgentScope Java delegates JSON-RPC encoding to MCP SDK 0.17.2 at the pinned upst
 - [x] Preserve string versus integer correlation, notification omission, object results and absent versus explicit-null error data.
 - [x] Reject ambiguous message variants, invalid optional fields, unknown envelope/error fields, duplicate keys and trailing documents; validate constructed outbound ASTs.
 - [x] Reproduce unbounded integer conversion and incompatible serialization with compact `1e100` fixtures before fixing them. `mcp-integer-bound-red.log` records five failed rejection assertions against the unchanged implementation. Boundary tests cover the shared parser's signed 256-bit range without allocating pathological integers.
-- [ ] Implement version-specific methods and adapt upstream client initialization, discovery, invocation and transport lifecycle behaviors.
+- [x] Four grouped initialization tests cover literal 2025-06-18 request/notification payloads, absent/empty tools capability and extension preservation, malformed known fields/duplicates and unsupported versions. Other capability schemas remain uninterpreted data. These pure helpers do not close upstream initialize methods, which also manage connections and lifecycle.
+- [ ] Implement tool method schemas and adapt upstream client initialization, discovery, invocation and transport lifecycle behaviors.
 
 The [2026-07-28 specification](https://modelcontextprotocol.io/specification/2026-07-28/basic) defines the common envelope. Strict unknown-field rejection and bounded integers are explicit local constraints. Method-level result tags, capabilities, request correlation state and version compatibility remain outside this codec's acceptance.
 

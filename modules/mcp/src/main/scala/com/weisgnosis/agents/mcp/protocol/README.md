@@ -1,6 +1,6 @@
 # com.weisgnosis.agents.mcp.protocol
 
-[McpMessage](McpMessage.scala) implements the common JSON-RPC envelope shape used by MCP. The API is pure and has no transport, generated identifiers, method dispatch, or negotiated-version state. The bounded envelope scope is accepted; method contracts and runtime integration remain pending.
+[McpMessage](McpMessage.scala) implements the common JSON-RPC envelope shape used by MCP. The API is pure and has no transport, generated identifiers, method dispatch, or negotiated-version state. The bounded envelope scope is accepted. [McpInitialization](McpInitialization.scala) adds pure 2025-06-18 initialization helpers accepted within the documented payload scope; runtime integration remains pending.
 
 ## Types and wire contract
 
@@ -30,23 +30,39 @@ All four conversions reject duplicate object keys recursively, including inside 
 
 The envelope does not validate method names, payload schemas, `_meta`, or revision-specific result requirements such as `resultType`. The [2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/basic) and [2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic) specifications provide the envelope references; no handshake or complete compatibility with either revision is claimed.
 
+## 2025-06-18 initialization helpers
+
+[McpInitialization](McpInitialization.scala) implements payload construction and checked result projection for exactly `2025-06-18`, following that revision's [lifecycle specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle). This payload-only scope is independently reviewed and accepted as recorded below.
+
+- `protocolVersion` is the fixed revision string. `request(id, clientInfo)` returns `Either[AgentError.InvalidMessage, McpMessage.Request]`, validates the supplied ID through the envelope boundary, and advertises empty client capabilities.
+- `initialized` is the constant `notifications/initialized` notification with no identity or params.
+- `readResult(Json.Obj)` returns `Either[AgentError.DeserializationError, McpInitializationResult]`. It accepts only the exact selected version, required implementation name/version strings, and a required capabilities object. Known optional fields reject explicit JSON null and malformed types; recursive duplicate keys are rejected before projection.
+- `McpImplementation` has name/version and optional title, with a derived wire-data codec. The checked result reader validates optional title itself. The result has optional instructions and object `_meta`; these remain remote data, with no prompt or authority installation.
+- Server `tools` and its `listChanged` flag preserve absence separately from a present object and explicit false. Unknown server/tool capability fields remain in `extensions`, excluding the separately typed `tools`/`listChanged` fields. Unknown outer result and serverInfo fields are ignored by this projection. No implicit result codec claims lossless round-trip behavior.
+
+These helpers allocate no identities and implement no runtime, correlation, ordering enforcement, handshake, or negotiated-version state. MCP 2026-07-28 has no `initialize` method and is not accepted by this revision-specific result reader. Unsupported revisions fail without fallback.
+
 ## Verification and acceptance
 
-Accepted scope: the four message cases, checked wire/AST conversion, strict envelope/error fields, recursive duplicate rejection, complete-document decoding, optional null error data, and guarded signed 256-bit IDs/error codes. This acceptance excludes method/version contracts, transport, correlation, lifecycle, and tool adapters.
+Accepted scope: the four message cases, checked wire/AST conversion, strict envelope/error fields, recursive duplicate rejection, complete-document decoding, optional null error data, and guarded signed 256-bit IDs/error codes. The accepted initialization scope is limited to the fixed 2025-06-18 request, initialized notification, implementation identity, and checked result/capability projection described above. Other method/version contracts, transport, correlation, runtime lifecycle/ordering, and tool adapters remain excluded.
 
 - [x] Five grouped [McpProtocolSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) tests pass for integer bounds, identities, notifications, responses, and strict boundaries.
 - [x] `path_review` independently approved FP/ZIO correctness and `current_docs` independently approved protocol invariants for the final source/test identities below, with no unresolved findings.
-- [x] `scalafmtAll`, `scalafmtSbt`, and `verify` passed with zero compiler warnings or failed tests: core 561, harness 651, MCP 5; total 1,217. Evidence: `mcp-envelope-verify.log`.
+- [x] `scalafmtAll`, `scalafmtSbt`, and `verify` passed with zero compiler warnings or failed tests: core 561, harness 651, MCP 9; total 1,221. Evidence: `mcp-initialization-verify.log`.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
 | [McpMessage.scala](McpMessage.scala) | `43387554aa5e8d88708180cde4b45e5fbf3b6858` |
 | [McpProtocolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) | `22b9640fee4539891d6bfc6077b693a1623cd47c` |
+| [McpInitialization.scala](McpInitialization.scala) | `ccfe85505e6fce523e255bb0b9cc4619e4af477e` |
+| [McpInitializationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) | `a2937c98c7ddd00c94afca7f50925237f3d9fe6a` |
+
+- [x] Four grouped [McpInitializationSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) tests pass for request/notification shape, capability projection, malformed fields, and exact revision handling.
 
 ## Remaining work
 
-- [ ] Next: version-specific method and capability contracts. MCP 2026-07-28 does not use `initialize`; initialization and negotiation for older revisions require explicitly selected legacy support.
-- [ ] Tool-listing and tool-call schemas, content, and result semantics.
+- [ ] Next: 2025-06-18 tool-listing and tool-call payload schemas, content, and result semantics.
+- [ ] Scoped client/transport integration after those method contracts; initialization helpers alone do not implement a handshake.
 - [ ] Method/version validation and integration with the lifecycle of each explicitly supported revision.
 
 This is new specification-derived codec coverage. AgentScope Java uses SDK `McpSchema` objects and delegates serialization to MCP Java SDK 0.17.2; wrapper discovery, calls, cleanup, and explicitly supported legacy initialization remain separate future mappings.
