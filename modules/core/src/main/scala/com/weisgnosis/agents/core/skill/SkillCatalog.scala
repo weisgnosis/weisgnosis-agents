@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.core.skill
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.tool.{ToolGroups, ToolGroupScope}
 import zio.Chunk
 import zio.json.*
@@ -27,7 +28,8 @@ final case class SkillDefinition(
     description: String,
     content: String,
     resources: Map[String, String] = Map.empty,
-    activateGroups: Set[String] = Set.empty
+    activateGroups: Set[String] = Set.empty,
+    metadata: Json.Obj = Json.Obj()
 ) derives JsonCodec
 
 /** Pure catalogue of logical resources; it owns neither filesystem access nor activation state. */
@@ -135,6 +137,15 @@ object SkillCatalog:
               AgentError.InvalidConfiguration(
                 "Skill resource identifiers must be relative logical paths and cannot replace SKILL.md"
               )
+            )
+            _ <- JsonBoundary
+              .validate(definition.metadata)
+              .left
+              .map(message => AgentError.InvalidConfiguration(s"Invalid skill metadata: $message"))
+            _ <- Either.cond(
+              !definition.metadata.fields.exists((key, _) => key == "name" || key == "description"),
+              (),
+              AgentError.InvalidConfiguration("Skill metadata cannot replace name or description")
             )
           yield entries.updated(definition.id, definition)
         )

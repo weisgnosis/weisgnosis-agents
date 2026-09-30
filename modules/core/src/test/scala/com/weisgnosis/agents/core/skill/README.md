@@ -6,4 +6,4 @@ One selection group verifies exact retained definitions, unchanged parent conten
 
 The [source contract](../../../../../../../main/scala/com/weisgnosis/agents/core/skill/README.md) owns scope, limitations and final acceptance. One additional table group verifies empty/shared-target reminders, deterministic ordering, JSON quoting and reconstruction without changing raw declarations or duplicating text. This is a bounded reminder adaptation; filesystem loading, Java subclass copying and SkillHook system-prompt injection remain separate.
 
-- [x] `registry_contract` and `current_docs` approved the current source/spec revision, and full verification passed in child-skills-verify.log; exact identities and current evidence are in the linked source contract.
+- [x] `registry_contract` and `current_docs` approved metadata validation, recursive duplicate/reserved-key rejection, codec defaults and selection preservation. The linked contract records exact current identities and full `skill-metadata-verify.log` verification.

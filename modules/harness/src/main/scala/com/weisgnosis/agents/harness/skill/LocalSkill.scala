@@ -67,7 +67,7 @@ object LocalSkill:
     if limits.maxResources <= 0 || limits.maxDocumentBytes <= 0 ||
       limits.maxResourceBytes <= 0 || limits.maxDocumentBytes == Int.MaxValue ||
       limits.maxResourceBytes == Int.MaxValue || limits.parser.maxDocumentCharacters <= 0 ||
-      limits.parser.maxHeaderCharacters <= 0
+      limits.parser.maxHeaderCharacters <= 0 || limits.parser.maxMetadataDepth <= 0
     then Left(invalid("limits must be positive and byte limits must be below Int.MaxValue"))
     else if resources.size > limits.maxResources then Left(invalid("resource count limit exceeded"))
     else if resources.exists(name => name == "SKILL.md" || !validResource(name)) then

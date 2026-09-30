@@ -18,6 +18,8 @@ package com.weisgnosis.agents.harness.skill
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
 import zio.*
+import zio.json.*
+import zio.json.ast.Json
 import zio.test.*
 
 object SkillMarkdownParserSpec extends ZIOSpecDefault:
@@ -88,8 +90,6 @@ object SkillMarkdownParserSpec extends ZIOSpecDefault:
         "name: guide\ndescription: {nested: text}",
         "name: &id guide\ndescription: *id",
         "name: !!str guide\ndescription: Guide",
-        "name: guide\ndescription: Guide\nversion: 1",
-        "name: guide\ndescription: Guide\nactivateGroups: [admin]",
         "[guide, description]",
         "name: guide\ndescription: [",
         "%YAML 1.2\nname: guide\ndescription: Guide",
@@ -124,6 +124,8 @@ object SkillMarkdownParserSpec extends ZIOSpecDefault:
         SkillMarkdownLimits(10, 0),
         SkillMarkdownLimits(-1, 10),
         SkillMarkdownLimits(10, -1),
+        limits.copy(maxMetadataDepth = 0),
+        limits.copy(maxMetadataDepth = -1),
         limits.copy(maxDocumentCharacters = valid.length - 1),
         limits.copy(maxHeaderCharacters = header.length)
       )
@@ -138,5 +140,112 @@ object SkillMarkdownParserSpec extends ZIOSpecDefault:
         documents.forall(isInvalid),
         bounded.forall(isInvalid)
       )
+    },
+    test("ordered nested metadata preserves JSON values without installing capabilities") {
+      val extra = """version: 1.5
+                    |enabled: TRUE
+                    |missing: null
+                    |empty:
+                    |quoted: 'true'
+                    |date: 2026-10-01
+                    |summary: >-
+                    |  Read these
+                    |  notes.
+                    |metadata:
+                    |  tags: [web, '123', false, null, -2, 1e2]
+                    |  "1": {emptyObject: {}, emptyArray: []}
+                    |resources: {script: inert}
+                    |activateGroups: [admin]
+                    |allowed-tools: [write]
+                    |""".stripMargin
+      val expected = Json.Obj(
+        "version" -> Json.Num(BigDecimal("1.5")),
+        "enabled" -> Json.Bool(true),
+        "missing" -> Json.Null,
+        "empty"   -> Json.Null,
+        "quoted"  -> Json.Str("true"),
+        "date"    -> Json.Str("2026-10-01"),
+        "summary" -> Json.Str("Read these notes."),
+        "metadata" -> Json.Obj(
+          "tags" -> Json.Arr(
+            Json.Str("web"),
+            Json.Str("123"),
+            Json.Bool(false),
+            Json.Null,
+            Json.Num(-2),
+            Json.Num(BigDecimal("1e2"))
+          ),
+          "1" -> Json.Obj("emptyObject" -> Json.Obj(), "emptyArray" -> Json.Arr())
+        ),
+        "resources"      -> Json.Obj("script" -> Json.Str("inert")),
+        "activateGroups" -> Json.Arr(Json.Str("admin")),
+        "allowed-tools"  -> Json.Arr(Json.Str("write"))
+      )
+      for
+        parsed <- SkillMarkdownParser.parse(document(header + "\n" + extra))
+        quoted <- SkillMarkdownParser.parse(document(header + "\nvalue: '${SKILL_METADATA_TEST}'"))
+      yield assertTrue(
+        parsed.metadata == expected,
+        parsed.metadata.fields.map(_._1) == expected.fields.map(_._1),
+        parsed.content == "# Guide\nKeep this text.\n",
+        parsed.resources.isEmpty,
+        parsed.activateGroups.isEmpty,
+        parsed.toJson.fromJson[SkillDefinition] == Right(parsed),
+        SkillCatalog.make(Chunk(parsed)).isRight,
+        quoted.metadata == Json.Obj("value" -> Json.Str("${SKILL_METADATA_TEST}"))
+      )
+    },
+    test("metadata rejects ambiguity and unsupported values and bounds collection descent") {
+      val invalidExtras = Chunk(
+        "value: 1\nvalue: 2",
+        "value: {nested: {key: one, key: two}}",
+        "value: [{key: one, key: two}]",
+        "1: value",
+        "value: {true: value}",
+        "value: {[key]: value}",
+        "value: !!str text",
+        "value: !custom [text]",
+        "value: &shared [text]\nother: *shared",
+        "value: ${SKILL_METADATA_TEST}",
+        "value: .inf",
+        "value: -.Inf",
+        "value: .nan",
+        "value: 0x10",
+        "value: 0o10",
+        "value: +1",
+        "value: 01",
+        "value: .5",
+        "value: 1.",
+        "value: 1e2147483648"
+      )
+      val bounded = Chunk(
+        ("value: scalar", 1, true),
+        ("value: {}", 1, true),
+        ("value: []", 1, true),
+        ("value: {nested: []}", 1, false),
+        ("value: [[]]", 1, false),
+        ("value: {nested: []}", 2, true),
+        ("value: [{nested: []}]", 2, false),
+        ("value: [{nested: []}]", 3, true)
+      )
+      for
+        rejected <- ZIO.foreach(invalidExtras)(extra =>
+          SkillMarkdownParser
+            .parse(document(header + "\n" + extra))
+            .either
+            .map(result => assertTrue(isInvalid(result)))
+        )
+        depth <- ZIO.foreach(bounded) { case (extra, maximum, accepted) =>
+          SkillMarkdownParser
+            .parse(
+              document(header + "\n" + extra),
+              SkillMarkdownLimits(maxMetadataDepth = maximum)
+            )
+            .either
+            .map(result =>
+              assertTrue(result.isRight == accepted, result.isRight || isInvalid(result))
+            )
+        }
+      yield (rejected ++ depth).foldLeft(assertTrue(true))(_ && _)
     }
   )

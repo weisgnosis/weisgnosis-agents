@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.harness.skill
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.skill.SkillDefinition
 import org.snakeyaml.engine.v2.api.LoadSettings
 import org.snakeyaml.engine.v2.api.lowlevel.Parse
@@ -24,28 +25,32 @@ import org.snakeyaml.engine.v2.nodes.Tag
 import org.snakeyaml.engine.v2.resolver.CoreScalarResolver
 import zio.*
 import zio.json.JsonCodec
+import zio.json.ast.Json
 
 /** UTF-16 bounds; the header excludes delimiter lines, while the document includes the body. */
 final case class SkillMarkdownLimits(
     maxDocumentCharacters: Int = 128000,
-    maxHeaderCharacters: Int = 16000
+    maxHeaderCharacters: Int = 16000,
+    maxMetadataDepth: Int = 10
 ) derives JsonCodec
 
 /**
- * Strict inline SKILL.md profile: only name and description string fields, with exact body text.
+ * Strict inline SKILL.md profile: required name/description strings and inert JSON metadata.
  * Column-zero delimiters accept trailing spaces/tabs and LF or CRLF, without a leading BOM.
- * No filesystem access, metadata conversion, resource loading or group inference is performed.
+ * Extra-value collection depth excludes the frontmatter root; scalars have depth zero.
+ * No filesystem access, resource loading or group inference is performed.
  */
 object SkillMarkdownParser:
-  private type Header = Map[String, String]
+  private enum Frame:
+    case Mapping(fields: Chunk[(String, Json)], pending: Option[String])
+    case Sequence(values: Chunk[Json])
 
   private enum State:
     case StreamStart, DocumentStart, Root
-    case Key(values: Header)
-    case Field(name: String, values: Header)
-    case DocumentEnd(values: Header)
-    case StreamEnd(values: Header)
-    case Done(values: Header)
+    case Nodes(frames: List[Frame])
+    case DocumentEnd(values: Json.Obj)
+    case StreamEnd(values: Json.Obj)
+    case Done(values: Json.Obj)
 
   def parse(
       markdown: String,
@@ -58,13 +63,22 @@ object SkillMarkdownParser:
         val settings = LoadSettings.builder().setCodePointLimit(limits.maxHeaderCharacters).build()
         (new Parse(settings).parseString(header).iterator(), new CoreScalarResolver(false))
       }
-      values <- consume(reader._1, reader._2, State.StreamStart)
-      name   <- ZIO.fromOption(values.get("name")).orElseFail(invalid("name is required"))
-      description <- ZIO
-        .fromOption(values.get("description"))
-        .orElseFail(invalid("description is required"))
-      _ <- ZIO.fail(invalid("body must be nonblank")).when(body.isBlank)
-    yield SkillDefinition(name, description, body)
+      values      <- consume(reader._1, reader._2, State.StreamStart, limits.maxMetadataDepth)
+      name        <- ZIO.fromEither(requiredString(values, "name"))
+      description <- ZIO.fromEither(requiredString(values, "description"))
+      _           <- ZIO.fail(invalid("body must be nonblank")).when(body.isBlank)
+    yield SkillDefinition(
+      name,
+      description,
+      body,
+      metadata =
+        Json.Obj(values.fields.filterNot((key, _) => key == "name" || key == "description"))
+    )
+
+  private def requiredString(values: Json.Obj, name: String): Either[AgentError, String] =
+    values.fields.find(_._1 == name).map(_._2) match
+      case Some(Json.Str(value)) if !value.isBlank => Right(value)
+      case _ => Left(invalid(s"$name must be a nonblank string"))
 
   private def invalid(message: String): AgentError.InvalidConfiguration =
     AgentError.InvalidConfiguration("Invalid skill markdown: " + message)
@@ -78,8 +92,8 @@ object SkillMarkdownParser:
       markdown: String,
       limits: SkillMarkdownLimits
   ): Either[AgentError, (String, String)] =
-    if limits.maxDocumentCharacters <= 0 || limits.maxHeaderCharacters <= 0 then
-      Left(invalid("character limits must be positive"))
+    if limits.maxDocumentCharacters <= 0 || limits.maxHeaderCharacters <= 0 || limits.maxMetadataDepth <= 0
+    then Left(invalid("character and depth limits must be positive"))
     else if markdown.length > limits.maxDocumentCharacters then
       Left(invalid("document character limit exceeded"))
     else
@@ -100,23 +114,25 @@ object SkillMarkdownParser:
   private def consume(
       iterator: java.util.Iterator[Event],
       resolver: CoreScalarResolver,
-      state: State
-  ): IO[AgentError, Header] =
+      state: State,
+      maxDepth: Int
+  ): IO[AgentError, Json.Obj] =
     parserEffect(if iterator.hasNext then Some(iterator.next()) else None).flatMap:
       case None =>
         state match
           case State.Done(values) => ZIO.succeed(values)
           case _                  => ZIO.fail(invalid("incomplete YAML document"))
       case Some(event) =>
-        parserEffect(advance(state, event, resolver))
+        parserEffect(advance(state, event, resolver, maxDepth))
           .flatMap(ZIO.fromEither(_))
-          .flatMap(next => consume(iterator, resolver, next))
+          .flatMap(next => consume(iterator, resolver, next, maxDepth))
 
   /** Called only inside parserEffect, including every resolver and foreign event accessor. */
   private def advance(
       state: State,
       event: Event,
-      resolver: CoreScalarResolver
+      resolver: CoreScalarResolver,
+      maxDepth: Int
   ): Either[AgentError, State] =
     val unsupported = event match
       case node: NodeEvent if node.getAnchor.isPresent                     => true
@@ -134,18 +150,63 @@ object SkillMarkdownParser:
       (state, event) match
         case (State.StreamStart, _: StreamStartEvent)     => Right(State.DocumentStart)
         case (State.DocumentStart, _: DocumentStartEvent) => Right(State.Root)
-        case (State.Root, _: MappingStartEvent)           => Right(State.Key(Map.empty))
-        case (State.Key(values), _: MappingEndEvent)      => Right(State.DocumentEnd(values))
-        case (State.Key(values), scalar: ScalarEvent) =>
+        case (State.Root, _: MappingStartEvent) =>
+          Right(State.Nodes(List(Frame.Mapping(Chunk.empty, None))))
+        case (State.Nodes(Frame.Mapping(fields, None) :: rest), scalar: ScalarEvent) =>
           val key = scalar.getValue
-          if key != "name" && key != "description" then Left(invalid("unsupported header field"))
-          else if values.contains(key) then Left(invalid(s"duplicate field '$key'"))
-          else Right(State.Field(key, values))
-        case (State.Field(name, values), scalar: ScalarEvent) =>
-          val value = scalar.getValue
-          if resolver.resolve(value, scalar.isPlain) != Tag.STR || value.isBlank then
-            Left(invalid(s"$name must be a nonblank string"))
-          else Right(State.Key(values.updated(name, value)))
+          if resolver.resolve(key, scalar.isPlain) != Tag.STR then
+            Left(invalid("mapping keys must be strings"))
+          else if fields.exists(_._1 == key) then
+            Left(invalid(s"duplicate field '${key.take(80)}'"))
+          else Right(State.Nodes(Frame.Mapping(fields, Some(key)) :: rest))
+        case (State.Nodes(frames), scalar: ScalarEvent) =>
+          scalarValue(scalar, resolver).flatMap(value => complete(value, frames))
+        case (State.Nodes(frames), _: MappingStartEvent) =>
+          descend(Frame.Mapping(Chunk.empty, None), frames, maxDepth)
+        case (State.Nodes(frames), _: SequenceStartEvent) =>
+          descend(Frame.Sequence(Chunk.empty), frames, maxDepth)
+        case (State.Nodes(Frame.Mapping(fields, None) :: rest), _: MappingEndEvent) =>
+          complete(Json.Obj(fields), rest)
+        case (State.Nodes(Frame.Sequence(values) :: rest), _: SequenceEndEvent) =>
+          complete(Json.Arr(values), rest)
         case (State.DocumentEnd(values), _: DocumentEndEvent) => Right(State.StreamEnd(values))
         case (State.StreamEnd(values), _: StreamEndEvent)     => Right(State.Done(values))
         case _ => Left(invalid("expected one mapping with name and description strings"))
+
+  private def descend(frame: Frame, frames: List[Frame], maxDepth: Int): Either[AgentError, State] =
+    frames match
+      case Frame.Mapping(_, None) :: _   => Left(invalid("mapping keys must be strings"))
+      case _ if frames.length > maxDepth => Left(invalid("metadata collection depth exceeded"))
+      case _                             => Right(State.Nodes(frame :: frames))
+
+  private def complete(value: Json, frames: List[Frame]): Either[AgentError, State] =
+    frames match
+      case Frame.Mapping(fields, Some(key)) :: rest =>
+        Right(State.Nodes(Frame.Mapping(fields :+ (key -> value), None) :: rest))
+      case Frame.Sequence(values) :: rest =>
+        Right(State.Nodes(Frame.Sequence(values :+ value) :: rest))
+      case Nil =>
+        value match
+          case objectValue: Json.Obj => Right(State.DocumentEnd(objectValue))
+          case _                     => Left(invalid("frontmatter must be a mapping"))
+      case _ => Left(invalid("expected a mapping value"))
+
+  /** The resolver and checked numeric conversion execute only inside parserEffect. */
+  private def scalarValue(
+      scalar: ScalarEvent,
+      resolver: CoreScalarResolver
+  ): Either[AgentError, Json] =
+    val value = scalar.getValue
+    resolver.resolve(value, scalar.isPlain) match
+      case Tag.STR  => Right(Json.Str(value))
+      case Tag.NULL => Right(Json.Null)
+      case Tag.BOOL => Right(Json.Bool(value.equalsIgnoreCase("true")))
+      case Tag.INT | Tag.FLOAT =>
+        JsonBoundary
+          .decode(value)
+          .left
+          .map(_ => invalid("metadata numbers must be finite JSON numbers"))
+          .flatMap:
+            case number: Json.Num => Right(number)
+            case _                => Left(invalid("metadata numbers must be finite JSON numbers"))
+      case _ => Left(invalid("unsupported metadata scalar tag"))

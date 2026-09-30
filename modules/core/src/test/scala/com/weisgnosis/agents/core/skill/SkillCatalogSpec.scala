@@ -18,6 +18,7 @@ package com.weisgnosis.agents.core.skill
 import com.weisgnosis.agents.core.tool.{ToolGroup, ToolGroups, ToolGroupScope}
 import zio.{Chunk, ZIO}
 import zio.json.*
+import zio.json.ast.Json
 import zio.test.*
 
 object SkillCatalogSpec extends ZIOSpecDefault:
@@ -30,7 +31,12 @@ object SkillCatalogSpec extends ZIOSpecDefault:
       "empty.txt"               -> "",
       "skill.md"                -> "Case-sensitive resource"
     ),
-    Set("research")
+    Set("research"),
+    Json.Obj(
+      "allowed-tools"  -> Json.Arr(Json.Str("uninstalled")),
+      "activateGroups" -> Json.Arr(Json.Str("unbound")),
+      "details"        -> Json.Obj("enabled" -> Json.Bool(true), "value" -> Json.Null)
+    )
   )
 
   private val invalidPaths: Chunk[String] = Chunk(
@@ -105,7 +111,17 @@ object SkillCatalogSpec extends ZIOSpecDefault:
         definition.copy(description = "\t"),
         definition.copy(content = "\n"),
         definition.copy(activateGroups = Set("research", " ")),
-        definition.copy(resources = Map("SKILL.md" -> "replacement"))
+        definition.copy(resources = Map("SKILL.md" -> "replacement")),
+        definition.copy(metadata = Json.Obj("name" -> Json.Str("other"))),
+        definition.copy(metadata = Json.Obj("description" -> Json.Str("other"))),
+        definition.copy(metadata = Json.Obj("a" -> Json.Null, "a" -> Json.Null)),
+        definition.copy(metadata =
+          Json.Obj(
+            "nested" -> Json.Arr(
+              Json.Obj("a" -> Json.Null, "a" -> Json.Bool(true))
+            )
+          )
+        )
       ) ++ invalidPaths.map(path => definition.copy(resources = Map(path -> "data")))
       val first  = definition.copy(id = "a")
       val second = definition.copy(id = "z")
@@ -178,7 +194,8 @@ object SkillCatalogSpec extends ZIOSpecDefault:
         "{\"id\":\"plain\",\"description\":\"Plain\",\"content\":\"Text\"}"
           .fromJson[SkillDefinition]
           .exists(decoded =>
-            decoded.resources.isEmpty && decoded.activateGroups.isEmpty && SkillCatalog
+            decoded.resources.isEmpty && decoded.activateGroups.isEmpty && decoded.metadata == Json
+              .Obj() && SkillCatalog
               .make(Chunk(decoded))
               .isRight
           )

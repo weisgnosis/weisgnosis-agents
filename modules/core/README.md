@@ -22,6 +22,8 @@ Tool.encodeResult preserves String/Success behavior by default and permits typed
 
 - [x] `registry_contract` and `current_docs` approved checked [catalogue selection](src/main/scala/com/weisgnosis/agents/core/skill/README.md), with exact definitions, explicit empty selection and rejection of removed or unknown IDs. The linked contract owns source/spec identities and full verification.
 
+- [x] Both reviewers approved [inert skill metadata](src/main/scala/com/weisgnosis/agents/core/skill/README.md), including checked recursive duplicates/reserved fields, declaration migration and preservation; full verification passed.
+
 - [x] Both reviewers approved pure skill-group reminders and snapshot-consistent reset description/result integration; the [catalogue](src/main/scala/com/weisgnosis/agents/core/skill/README.md) and [runtime](src/main/scala/com/weisgnosis/agents/core/agent/README.md#preloaded-skills) record exact current identities, verification and advisory limits.
 - [x] Both independent reviewers approved [transient admitted tool access](src/main/scala/com/weisgnosis/agents/core/tool/README.md#admitted-tool-access) and its ReAct propagation for opt-in [harness Plan admission](../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission); full plan-admission-verify.log verification passed. Exact identities and migration are in the linked contracts.
 

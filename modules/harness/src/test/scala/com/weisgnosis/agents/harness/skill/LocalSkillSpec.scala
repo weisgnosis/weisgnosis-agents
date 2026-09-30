@@ -23,11 +23,12 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import zio.*
 import zio.test.*
+import zio.json.ast.Json
 
 object LocalSkillSpec extends ZIOSpecDefault:
   private val body: String = "\r\n# Exact body\r\nText café\r\n"
   private val markdown: String =
-    "---\r\nname: declared-id\r\ndescription: Read carefully\r\n---\r\n" + body
+    "---\r\nname: declared-id\r\ndescription: Read carefully\r\nactivateGroups: [unbound]\r\n---\r\n" + body
 
   private def write(path: Path, text: String): Task[Unit] =
     ZIO.attemptBlocking(Files.writeString(path, text, StandardCharsets.UTF_8)).unit
@@ -65,7 +66,8 @@ object LocalSkillSpec extends ZIOSpecDefault:
           "declared-id",
           "Read carefully",
           body,
-          Map("references/a..b file.md" -> "  Resource café\r\n", "empty.txt" -> "")
+          Map("references/a..b file.md" -> "  Resource café\r\n", "empty.txt" -> ""),
+          metadata = Json.Obj("activateGroups" -> Json.Arr(Json.Str("unbound")))
         ),
         plain == loaded.copy(resources = Map.empty),
         SkillCatalog.make(Chunk(loaded)).isRight,
@@ -142,12 +144,20 @@ object LocalSkillSpec extends ZIOSpecDefault:
         exact.copy(maxDocumentBytes = Int.MaxValue),
         exact.copy(maxResourceBytes = Int.MaxValue),
         exact.copy(parser = SkillMarkdownLimits(maxHeaderCharacters = 0)),
+        exact.copy(parser = SkillMarkdownLimits(maxMetadataDepth = 0)),
         exact.copy(maxDocumentBytes = exact.maxDocumentBytes - 1),
         exact.copy(maxResourceBytes = exact.maxResourceBytes - 1),
         exact.copy(parser = SkillMarkdownLimits(maxDocumentCharacters = markdown.length - 1))
       )
       for
-        root     <- temporaryDirectory
+        root <- temporaryDirectory
+        beforeIo <- LocalSkill
+          .load(
+            root.resolve("missing"),
+            WorkspaceTrust.HostControlled,
+            limits = exact.copy(parser = SkillMarkdownLimits(maxMetadataDepth = 0))
+          )
+          .either
         _        <- write(root.resolve("SKILL.md"), markdown)
         _        <- write(root.resolve("resource.txt"), resource)
         _        <- write(root.resolve("other.txt"), "x")
@@ -173,11 +183,16 @@ object LocalSkillSpec extends ZIOSpecDefault:
         invalidDocument <- LocalSkill.load(root, WorkspaceTrust.HostControlled).either
         _ <- write(
           root.resolve("SKILL.md"),
-          "---\nname: guide\ndescription: Guide\nextra: unsupported\n---\nBody"
+          "---\nname: guide\ndescription: 123\n---\nBody"
         )
         invalidProfile <- LocalSkill.load(root, WorkspaceTrust.HostControlled).either
       yield assertTrue(
         accepted.resources == Map("resource.txt" -> resource),
+        beforeIo == Left(
+          AgentError.InvalidConfiguration(
+            "Local skill: limits must be positive and byte limits must be below Int.MaxValue"
+          )
+        ),
         invalid.forall(_.isLeft),
         tooMany.isLeft,
         invalidResource.isLeft,
