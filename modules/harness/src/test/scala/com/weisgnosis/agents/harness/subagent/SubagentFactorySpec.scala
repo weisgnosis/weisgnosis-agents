@@ -19,12 +19,16 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
+import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
 import com.weisgnosis.agents.core.tool.{
   AdmittedToolAccess,
   Tool,
   ToolAuthorization,
   ToolAuthorizer,
   ToolDef,
+  ToolGroup,
+  ToolGroups,
+  ToolGroupScope,
   Toolkit
 }
 import com.weisgnosis.agents.harness.permission.{
@@ -66,10 +70,23 @@ object SubagentFactorySpec extends ZIOSpecDefault:
         ZIO.succeed(Toolkit.empty),
       client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient] = _ =>
         LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant("done")))),
-      authorizer: ToolAuthorizer = ToolAuthorizer.allow
+      authorizer: ToolAuthorizer = ToolAuthorizer.allow,
+      skills: SkillCatalog = SkillCatalog.empty,
+      toolGroups: Option[ToolGroups] = None
   ): IO[AgentError, SubagentFactory] =
     ZIO.fromEither(
-      SubagentFactory.make(config, model, inherited, parent, child, register, client, authorizer)
+      SubagentFactory.make(
+        config,
+        model,
+        inherited,
+        parent,
+        child,
+        register,
+        client,
+        authorizer,
+        skills,
+        toolGroups
+      )
     )
 
   private def accepted(
@@ -103,6 +120,93 @@ object SubagentFactorySpec extends ZIOSpecDefault:
     )
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentFactorySpec")(
+    test("skill snapshots reject inconsistent runtime controls before acquiring a client") {
+      for
+        supervisor <- TaskSupervisor.open[AgentResult]
+        root       <- SubagentSpawner.root(supervisor)
+        prepared   <- Ref.make(0)
+        acquired   <- Ref.make(0)
+        observed   <- Ref.make(Chunk.empty[Chunk[String]])
+        plain <- ZIO.fromEither(SkillCatalog.make(Chunk(SkillDefinition("plain", "Plain", "Text"))))
+        bound <- ZIO.fromEither(
+          SkillCatalog.make(
+            Chunk(
+              SkillDefinition("bound", "Bound", "Text", activateGroups = Set("group"))
+            )
+          )
+        )
+        meta <- ZIO.fromEither(ToolGroups.empty.register(ToolGroup("group", "Group")))
+        external <- ZIO.fromEither(
+          ToolGroups.empty.register(
+            ToolGroup("group", "Host group", scope = ToolGroupScope.External)
+          )
+        )
+        register = (_: SubagentSpawner[AgentResult]) => prepared.update(_ + 1).as(Toolkit.empty)
+        client = (_: SubagentSpawner[AgentResult]) =>
+          acquired
+            .update(_ + 1)
+            .as(
+              LlmClient.mockEffectful((_, definitions, _) =>
+                observed
+                  .update(_ :+ definitions.map(_.name))
+                  .as(TurnOutput.FinalText(Msg.assistant("done")))
+              )
+            )
+        invalid <- ZIO.foreach(
+          Chunk(
+            (bound, None, SubagentToolBoundary()),
+            (bound, Some(external), SubagentToolBoundary()),
+            (plain, None, SubagentToolBoundary(SubagentToolSelection.Only(Set.empty))),
+            (
+              SkillCatalog.empty,
+              Some(meta),
+              SubagentToolBoundary(denied = Set("reset_equipped_tools"))
+            )
+          )
+        ) { case (catalog, groups, boundary) =>
+          factory(
+            child = boundary,
+            register = register,
+            client = client,
+            skills = catalog,
+            toolGroups = groups
+          ).either
+        }
+        valid <- factory(register = register, client = client, skills = plain)
+        narrowed <- valid
+          .narrowed(SubagentToolBoundary(denied = Set(SkillCatalog.LoadToolName)))
+          .build(root)
+          .exit
+        before <- prepared.get.zip(acquired.get)
+        collision <- factory(
+          inherited = toolkit(SkillCatalog.LoadToolName),
+          register = register,
+          client = client,
+          skills = plain
+        )
+        collided       <- collision.build(root).exit
+        afterCollision <- prepared.get.zip(acquired.get)
+        runtime        <- valid.inheritingParentDenials(ZIO.succeed(PermissionEngine())).build(root)
+        _              <- runtime.run(Msg.user("content only"))
+        names          <- observed.get
+      yield assertTrue(
+        invalid.forall(_.isLeft),
+        narrowed.isFailure,
+        before == (0, 0),
+        collided.causeOption
+          .flatMap(_.failureOption)
+          .contains(
+            AgentError.ToolExecutionError(
+              SkillCatalog.LoadToolName,
+              s"Tool collision: '${SkillCatalog.LoadToolName}' is already registered"
+            )
+          ),
+        afterCollision == (1, 0),
+        runtime.skills.definitions == plain.definitions,
+        runtime.toolGroups.isEmpty,
+        names == Chunk(Chunk(SkillCatalog.LoadToolName))
+      )
+    },
     test(
       "live parent denial preserves child policy, argument boundaries and narrowed factory authority"
     ) {

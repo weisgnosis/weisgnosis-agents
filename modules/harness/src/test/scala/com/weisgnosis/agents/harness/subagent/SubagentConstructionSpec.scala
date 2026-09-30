@@ -19,7 +19,16 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ToolExecution
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
+import com.weisgnosis.agents.core.tool.{
+  Tool,
+  ToolDef,
+  ToolFixedArguments,
+  ToolGroup,
+  ToolGroupActivation,
+  ToolGroups,
+  Toolkit
+}
 import com.weisgnosis.agents.harness.permission.*
 import com.weisgnosis.agents.harness.plan.*
 import zio.*
@@ -52,7 +61,8 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
       initialize: ZIO[Scope, AgentError, SubagentPermissions],
       register: (SubagentConstruction, SubagentPermissions) => ZIO[Scope, AgentError, Toolkit],
       client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
-      boundary: SubagentToolBoundary = SubagentToolBoundary()
+      boundary: SubagentToolBoundary = SubagentToolBoundary(),
+      skillSelection: SubagentSkillSelection = SubagentSkillSelection.AllAvailable
   ): IO[AgentError, SubagentFactory] =
     ZIO.fromEither(
       construction.factory(
@@ -62,7 +72,8 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
         boundary,
         initialize,
         register,
-        client
+        client,
+        skillSelection
       )
     )
 
@@ -81,6 +92,16 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
     LlmClient.mock(
       Chunk(TurnOutput.ToolCalls(Msg.assistant(calls)), TurnOutput.FinalText(Msg.assistant("done")))
     )
+
+  private def advertisedSkills(tools: Chunk[ToolDef]): Option[Json] =
+    tools
+      .find(_.name == SkillCatalog.LoadToolName)
+      .flatMap(_.parametersSchema.asObject)
+      .flatMap(_.get("properties"))
+      .flatMap(_.asObject)
+      .flatMap(_.get("skillId"))
+      .flatMap(_.asObject)
+      .flatMap(_.get("enum"))
 
   private def run(
       factory: SubagentFactory,
@@ -128,6 +149,235 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
         case other => ZIO.fail(AgentError.InvalidConfiguration(s"Unexpected submission: $other"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentConstructionSpec")(
+    test(
+      "nested skill catalogues narrow content while activation preserves filtered fixed-policy tools"
+    ) {
+      val loader = SkillCatalog.LoadToolName
+      def load(id: String, skill: String): ContentBlock.ToolUse =
+        ContentBlock.ToolUse(
+          id,
+          loader,
+          Json.Obj("skillId" -> Json.Str(skill), "path" -> Json.Str("SKILL.md"))
+        )
+      for
+        supervisor <- TaskSupervisor.open[AgentResult]
+        root       <- SubagentSpawner.root(supervisor)
+        catalog <- ZIO.fromEither(
+          SkillCatalog.make(
+            Chunk(
+              SkillDefinition("first", "First", "First text", activateGroups = Set("research")),
+              SkillDefinition("second", "Second", "Second text"),
+              SkillDefinition("omitted", "Omitted", "Hidden text")
+            )
+          )
+        )
+        groups <- ZIO.fromEither(
+          ToolGroups.empty.register(
+            ToolGroup(
+              "research",
+              "Research",
+              ToolGroupActivation.Inactive,
+              tools = Set("probe", "filtered")
+            )
+          )
+        )
+        seen      <- Ref.make(Chunk.empty[(String, Chunk[ToolDef])])
+        executed  <- Ref.make(Chunk.empty[Json])
+        results   <- Ref.make(Chunk.empty[AgentResult])
+        widening  <- Ref.make(Chunk.empty[Boolean])
+        callbacks <- Ref.make(0)
+        fixed     <- ZIO.fromEither(ToolFixedArguments.make(Json.Obj("tenant" -> Json.Str("host"))))
+        probe <- ZIO.fromEither(
+          Tool.withFixedArguments(
+            Tool.make(ToolDef("probe", "Fixed probe", Json.Obj(), isReadOnly = true))(input =>
+              executed.update(_ :+ input).as("probed")
+            ),
+            fixed
+          )
+        )
+        base = Toolkit(
+          Map(
+            "probe" -> probe,
+            "filtered" -> Tool.make(
+              ToolDef("filtered", "Must remain excluded", Json.Obj())
+            )(_ => executed.update(_ :+ Json.Str("unexpected")).as("wrong"))
+          )
+        )
+        construction = SubagentConstruction.root(
+          root,
+          SubagentToolBoundary(denied = Set("filtered")),
+          ZIO.succeed(PermissionEngine()),
+          ZIO.succeed(PlanMode.Plan),
+          catalog,
+          Some(groups)
+        )
+        initialize = permissions(allow, Map.empty).map(
+          _.copy(planAccess = SubagentPlanAccess.AdmittedTools)
+        )
+        unknown <- factory(
+          construction,
+          callbacks.update(_ + 1) *> initialize,
+          (_, _) => callbacks.update(_ + 1).as(Toolkit.empty),
+          _ => callbacks.update(_ + 1) *> scripted(Chunk.empty),
+          skillSelection = SubagentSkillSelection.Only(Set("missing"))
+        ).either
+        before <- callbacks.get
+        empty <- factory(
+          construction,
+          initialize,
+          (_, _) => ZIO.succeed(Toolkit.empty),
+          _ =>
+            ZIO.succeed(
+              LlmClient.mockEffectful((_, definitions, _) =>
+                seen
+                  .update(_ :+ ("empty" -> definitions))
+                  .as(TurnOutput.FinalText(Msg.assistant("done")))
+              )
+            ),
+          skillSelection = SubagentSkillSelection.Only(Set.empty)
+        )
+        emptyRuntime <- empty.build(root)
+        _            <- emptyRuntime.run(Msg.user("no skills"))
+        outer <- factory(
+          construction,
+          initialize,
+          (child, _) =>
+            factory(
+              child,
+              initialize,
+              (descendants, _) =>
+                factory(
+                  descendants,
+                  initialize,
+                  (_, _) => ZIO.succeed(Toolkit.empty),
+                  _ => scripted(Chunk.empty),
+                  skillSelection = SubagentSkillSelection.Only(Set("second"))
+                ).either.flatMap(value => widening.update(_ :+ value.isLeft)).as(base),
+              _ =>
+                Ref
+                  .make(0)
+                  .map(step =>
+                    LlmClient.mockEffectful((_, definitions, _) =>
+                      seen.update(_ :+ ("grandchild" -> definitions)) *> step
+                        .updateAndGet(_ + 1)
+                        .map {
+                          case 1 =>
+                            TurnOutput.ToolCalls(
+                              Msg.assistant(
+                                Chunk(
+                                  load("excluded", "second"),
+                                  load("loaded", "first"),
+                                  ContentBlock.ToolUse("too-soon", "probe", Json.Obj())
+                                )
+                              )
+                            )
+                          case 2 =>
+                            TurnOutput.ToolCalls(
+                              Msg.assistant(
+                                Chunk(
+                                  ContentBlock.ToolUse(
+                                    "probe",
+                                    "probe",
+                                    Json.Obj("tenant" -> Json.Str("model"))
+                                  ),
+                                  ContentBlock.ToolUse("filtered", "filtered", Json.Obj())
+                                )
+                              )
+                            )
+                          case _ => TurnOutput.FinalText(Msg.assistant("done"))
+                        }
+                    )
+                  ),
+              skillSelection = SubagentSkillSelection.Only(Set("first"))
+            ).map(grandchild =>
+              Toolkit(
+                Map(
+                  "delegate" -> Tool.make(
+                    ToolDef("delegate", "Run selected descendants", Json.Obj(), isReadOnly = true)
+                  )(_ =>
+                    ZIO
+                      .scoped(
+                        ZIO.foreachDiscard(1 to 2)(_ =>
+                          run(grandchild, child.spawner)
+                            .flatMap(result => results.update(_ :+ result))
+                        )
+                      )
+                      .as("delegated")
+                  )
+                )
+              )
+            ),
+          _ =>
+            Ref
+              .make(0)
+              .map(step =>
+                LlmClient.mockEffectful((_, definitions, _) =>
+                  seen.update(_ :+ ("child" -> definitions)) *> step.updateAndGet(_ + 1).map {
+                    case 1 =>
+                      TurnOutput.ToolCalls(
+                        Msg.assistant(
+                          Chunk(
+                            load("child-load", "second"),
+                            ContentBlock.ToolUse("delegate", "delegate", Json.Obj())
+                          )
+                        )
+                      )
+                    case _ => TurnOutput.FinalText(Msg.assistant("done"))
+                  }
+                )
+              ),
+          skillSelection = SubagentSkillSelection.Only(Set("first", "second"))
+        )
+        outerResult <- run(
+          outer
+            .narrowed(SubagentToolBoundary())
+            .inheritingParentDenials(
+              ZIO.succeed(PermissionEngine())
+            ),
+          root
+        )
+        observed      <- seen.get
+        actual        <- executed.get
+        grandchildren <- results.get
+        rejected      <- widening.get
+        grandDefinitions = observed.collect { case ("grandchild", definitions) => definitions }
+      yield assertTrue(
+        unknown.isLeft,
+        before == 0,
+        emptyRuntime.skills.isEmpty,
+        observed.collect { case ("empty", definitions) => definitions.map(_.name) } == Chunk(
+          Chunk("reset_equipped_tools")
+        ),
+        observed.collect { case ("child", definitions) => advertisedSkills(definitions) } ==
+          Chunk.fill(2)(Some(Json.Arr(Json.Str("first"), Json.Str("second")))),
+        grandDefinitions.map(advertisedSkills) == Chunk.fill(6)(Some(Json.Arr(Json.Str("first")))),
+        grandDefinitions.map(_.map(_.name).toSet) == Chunk(
+          Set(loader, "reset_equipped_tools"),
+          Set(loader, "reset_equipped_tools", "probe"),
+          Set(loader, "reset_equipped_tools", "probe"),
+          Set(loader, "reset_equipped_tools"),
+          Set(loader, "reset_equipped_tools", "probe"),
+          Set(loader, "reset_equipped_tools", "probe")
+        ),
+        outerResult.history.flatMap(_.toolResults).map(_.state) == Chunk.fill(2)(
+          ToolResultState.Success
+        ),
+        grandchildren.size == 2,
+        grandchildren.forall(
+          _.history.flatMap(_.toolResults).map(_.state) == Chunk(
+            ToolResultState.Error,
+            ToolResultState.Success,
+            ToolResultState.Denied,
+            ToolResultState.Success,
+            ToolResultState.Denied
+          )
+        ),
+        actual == Chunk.fill(2)(Json.Obj("tenant" -> Json.Str("host"))),
+        rejected == Chunk(true, true),
+        groups.activeNames.isEmpty,
+        catalog.definitions.map(_.id) == Chunk("first", "omitted", "second")
+      )
+    },
     test(
       "constructed children opt into admitted Plan access without overriding host or parent denials"
     ) {

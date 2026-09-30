@@ -54,6 +54,24 @@ object SkillCatalogSpec extends ZIOSpecDefault:
   )
 
   def spec: Spec[TestEnvironment, Any] = suite("SkillCatalogSpec")(
+    test("selection preserves exact definitions and cannot recover removed skills") {
+      val other = definition.copy(id = "other", content = "Separate content")
+      for
+        catalog  <- ZIO.fromEither(SkillCatalog.make(Chunk(other, definition)))
+        selected <- ZIO.fromEither(catalog.select(Set(definition.id)))
+        empty    <- ZIO.fromEither(catalog.select(Set.empty))
+        retained <- ZIO.fromEither(selected.select(Set(definition.id)))
+      yield assertTrue(
+        selected.definitions == Chunk(definition),
+        retained.definitions == selected.definitions,
+        empty.isEmpty,
+        catalog.definitions == Chunk(definition, other),
+        catalog.select(Set(" ")).isLeft,
+        catalog.select(Set(definition.id, "missing")).isLeft,
+        selected.select(Set(other.id)).isLeft,
+        empty.select(Set(definition.id)).isLeft
+      )
+    },
     test("group reminders are sorted advisory projections without changing raw definitions") {
       val first  = definition.copy(id = "alpha", activateGroups = Set("z", "shared"))
       val second = definition.copy(id = "omega", activateGroups = Set("shared"))

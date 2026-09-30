@@ -72,7 +72,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Opt-in strict plan controls with exact-ticket host review.
 - [x] Descriptive configured/observed plan locations and request projection.
 - [x] Typed workspace-relative directory selection with explicit stricter normalization.
-- [ ] Skills and child propagation.
+- [x] Checked preloaded skills, selected local loading and explicitly narrowed child catalogue/group snapshots.
+- [ ] Complete generic skill metadata, declaration skill allowlists and full child Plan tool/prompt installation.
 - [x] Checked common MCP request, notification, success and error envelopes.
 - [x] Pure 2025-06-18 initialization payloads with exact-version checks and capability projection.
 - [x] Checked 2025-06-18 discovery pages and tool-call requests, preserving schema/extension data without assigning local authority to remote hints.

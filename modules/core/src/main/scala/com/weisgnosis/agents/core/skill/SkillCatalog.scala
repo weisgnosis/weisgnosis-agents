@@ -36,6 +36,16 @@ final class SkillCatalog private (entries: Map[String, SkillDefinition]):
     Chunk.fromIterable(entries.toList.sortBy(_._1).map(_._2))
   def isEmpty: Boolean = entries.isEmpty
 
+  /** Select existing capabilities only; an empty selection removes every skill. */
+  def select(ids: Set[String]): Either[AgentError.InvalidConfiguration, SkillCatalog] =
+    if ids.exists(_.isBlank) then
+      Left(AgentError.InvalidConfiguration("Selected skill IDs must be nonblank"))
+    else
+      ids.diff(entries.keySet).toList.sorted.headOption match
+        case Some(missing) =>
+          Left(AgentError.InvalidConfiguration(s"Unknown selected skill '${missing.take(80)}'"))
+        case None => Right(new SkillCatalog(entries.filter((id, _) => ids.contains(id))))
+
   /** Advisory guidance derived from explicit bindings, without tracking which skills are in use. */
   def groupNotes: String =
     val bindings = definitions.toList

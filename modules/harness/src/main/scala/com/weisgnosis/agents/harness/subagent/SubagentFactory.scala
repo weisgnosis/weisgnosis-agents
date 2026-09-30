@@ -19,12 +19,15 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
+import com.weisgnosis.agents.core.skill.SkillCatalog
 import com.weisgnosis.agents.core.tool.{
   AdmittedToolAccess,
   ToolAuthorization,
   ToolAuthorizationRequest,
   ToolAuthorizer,
   ToolEventPort,
+  ToolGroups,
+  ToolGroupScope,
   Toolkit
 }
 import com.weisgnosis.agents.harness.permission.{PermissionBehavior, PermissionEngine}
@@ -43,7 +46,9 @@ final class SubagentFactory private (
         Chunk[UIO[PermissionEngine]]
     ) => ZIO[Scope, AgentError, (Toolkit, ToolAuthorizer)],
     client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
-    parentDenials: Chunk[UIO[PermissionEngine]]
+    parentDenials: Chunk[UIO[PermissionEngine]],
+    skills: SkillCatalog,
+    toolGroups: Option[ToolGroups]
 ):
   def narrowed(child: SubagentToolBoundary): SubagentFactory =
     new SubagentFactory(
@@ -53,7 +58,9 @@ final class SubagentFactory private (
       boundary.narrow(child),
       prepare,
       client,
-      parentDenials
+      parentDenials,
+      skills,
+      toolGroups
     )
 
   /**
@@ -70,22 +77,28 @@ final class SubagentFactory private (
       boundary,
       prepare,
       client,
-      parentDenials :+ readParentPolicy
+      parentDenials :+ readParentPolicy,
+      skills,
+      toolGroups
     )
 
   /** The caller must retain this Scope for the returned runtime's resource lifetime. */
   def build(child: SubagentSpawner[AgentResult]): ZIO[Scope, AgentError, ReActAgent] =
     for
+      _ <- ZIO.fromEither(SubagentFactory.validateRuntimeControls(boundary, skills, toolGroups))
       prepared <- ZIO.suspendSucceed(prepare(child, boundary, parentDenials))
       (additions, authorizer) = prepared
       toolkit <- ZIO.fromEither(boundary.assemble(inherited, additions))
+      _       <- ZIO.fromEither(SubagentFactory.checkControlCollisions(toolkit, skills, toolGroups))
       llm     <- ZIO.suspendSucceed(client(child))
       runtime <- ReActAgent.make(
         config = config,
         toolkit = toolkit,
         client = llm,
         llmConfig = model,
-        toolAuthorizer = parentDenials.foldLeft(authorizer)(SubagentFactory.inheritDenials)
+        toolAuthorizer = parentDenials.foldLeft(authorizer)(SubagentFactory.inheritDenials),
+        skills = skills,
+        toolGroups = toolGroups
       )
     yield runtime
 
@@ -123,7 +136,9 @@ object SubagentFactory:
       childBoundary: SubagentToolBoundary,
       register: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, Toolkit],
       client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
-      authorizer: ToolAuthorizer
+      authorizer: ToolAuthorizer,
+      skills: SkillCatalog = SkillCatalog.empty,
+      toolGroups: Option[ToolGroups] = None
   ): Either[AgentError, SubagentFactory] =
     configured(
       config,
@@ -132,7 +147,9 @@ object SubagentFactory:
       parentBoundary.narrow(childBoundary),
       (child, _, _) => ZIO.suspendSucceed(register(child)).map(toolkit => (toolkit, authorizer)),
       client,
-      Chunk.empty
+      Chunk.empty,
+      skills,
+      toolGroups
     )
 
   private[subagent] def configured(
@@ -146,10 +163,68 @@ object SubagentFactory:
           Chunk[UIO[PermissionEngine]]
       ) => ZIO[Scope, AgentError, (Toolkit, ToolAuthorizer)],
       client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
-      parentDenials: Chunk[UIO[PermissionEngine]]
+      parentDenials: Chunk[UIO[PermissionEngine]],
+      skills: SkillCatalog = SkillCatalog.empty,
+      toolGroups: Option[ToolGroups] = None
   ): Either[AgentError, SubagentFactory] =
-    config.validated.map(valid =>
-      new SubagentFactory(valid, model, inherited, boundary, prepare, client, parentDenials)
+    for
+      valid <- config.validated
+      _     <- validateRuntimeControls(boundary, skills, toolGroups)
+    yield new SubagentFactory(
+      valid,
+      model,
+      inherited,
+      boundary,
+      prepare,
+      client,
+      parentDenials,
+      skills,
+      toolGroups
+    )
+
+  private def runtimeControlNames(skills: SkillCatalog, groups: Option[ToolGroups]): Chunk[String] =
+    val loader = if skills.isEmpty then Chunk.empty else Chunk(SkillCatalog.LoadToolName)
+    val reset =
+      if groups.exists(_.groups.exists(_.scope == ToolGroupScope.Meta)) then
+        Chunk("reset_equipped_tools")
+      else Chunk.empty
+    loader ++ reset
+
+  private def validateRuntimeControls(
+      boundary: SubagentToolBoundary,
+      skills: SkillCatalog,
+      groups: Option[ToolGroups]
+  ): Either[AgentError, Unit] =
+    for
+      _ <- skills.validateGroups(groups.getOrElse(ToolGroups.empty))
+      _ <- runtimeControlNames(skills, groups).foldLeft[Either[AgentError, Unit]](Right(()))(
+        (checked, name) =>
+          checked.flatMap(_ =>
+            Either.cond(
+              boundary.selection.contains(name) && !boundary.denied.contains(name),
+              (),
+              AgentError.InvalidConfiguration(
+                s"Required child runtime control '$name' is excluded by the tool boundary"
+              )
+            )
+          )
+      )
+    yield ()
+
+  private def checkControlCollisions(
+      toolkit: Toolkit,
+      skills: SkillCatalog,
+      groups: Option[ToolGroups]
+  ): Either[AgentError, Unit] =
+    runtimeControlNames(skills, groups).foldLeft[Either[AgentError, Unit]](Right(()))(
+      (checked, name) =>
+        checked.flatMap(_ =>
+          Either.cond(
+            !toolkit.contains(name),
+            (),
+            AgentError.ToolExecutionError(name, s"Tool collision: '$name' is already registered")
+          )
+        )
     )
 
   private def inheritDenials(
