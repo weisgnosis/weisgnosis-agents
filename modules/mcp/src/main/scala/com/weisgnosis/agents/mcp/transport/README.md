@@ -1,45 +1,15 @@
 # com.weisgnosis.agents.mcp.transport
 
-> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+Status: planned. No process, HTTP, SSE, or other MCP transport is implemented. The [protocol package](../protocol/README.md) currently provides checked envelopes only.
 
-Bidirectional communication transport layer for Model Context Protocol servers (Stdio and SSE).
+Transport design must make ownership, request correlation, inbound server messages, cancellation, message size limits, and shutdown explicit. Local processes and network streams must remain scoped; cancellation must join owned cleanup. Authentication and server trust are host responsibilities.
 
----
+## Remaining work
 
-## 🎯 Purpose and Types
+- [ ] Next: select transport/revision scope after method schemas and client lifecycle are defined.
+- [ ] Implement scoped stdio process transport and bounded framing.
+- [ ] Define and implement the selected HTTP transport; any legacy SSE compatibility needs separate scope and tests.
+- [ ] Implement request correlation, server requests/notifications, cancellation, and terminal failure handling.
+- [ ] Add local integration tests for framing, errors, and cleanup before independent review and verification.
 
-1. **`McpTransport`**:
-   - `def send(request: JsonRpcRequest): ZIO[Any, Throwable, JsonRpcResponse]`
-   - `def notify(notification: JsonRpcNotification): ZIO[Any, Throwable, Unit]`
-   - `def incoming: ZStream[Any, Throwable, JsonRpcNotification]`
-2. **`StdioTransport`**:
-   - Process launcher using `zio.process.Command(command, args*)`.
-   - Line-delimited JSON-RPC message exchange across stdin and stdout.
-   - Guaranteed process teardown upon leaving the resource `Scope`.
-3. **`SseTransport`**:
-   - Remote MCP server connectivity over HTTP SSE using `zio-http`.
-   - Reading server event streams from `/sse` and issuing commands via HTTP POST.
-
----
-
-## 🧪 Test Parity Map
-
-| Test Specification | Target ZIO Spec | Verification Focus |
-| :--- | :--- | :--- |
-| Stdio Echo Test | `StdioTransportSpec.scala` | Process spawning, request/response exchange, clean stdin closure |
-| Sse Transport Test | `SseTransportSpec.scala` | HTTP mock server connection, SSE frame parsing and message routing |
-
----
-
-## ⚠️ Critical Invariants
-* Stdio transport must handle stream buffering safely without hanging on partial line fragments.
-* If a sub-process terminates unexpectedly, the transport surfaces a typed failure containing the exit code and stderr tail.
-
----
-
-## 📋 Implementation Checklist
-- [ ] Trait `McpTransport`
-- [ ] Implementation `StdioTransport` via `zio.process`
-- [ ] Implementation `SseTransport` via `zio-http`
-- [ ] Integration tests: `StdioTransportSpec.scala`
-- [ ] Integration tests: `SseTransportSpec.scala`
+Transport and protocol-version support must be established by implementation and tests. No wire connectivity or complete MCP revision support follows from the envelope codecs.

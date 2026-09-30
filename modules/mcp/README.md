@@ -1,25 +1,28 @@
 # weisgnosis-agents-mcp
 
-> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+The implemented scope is a pure MCP JSON-RPC envelope boundary in [McpMessage](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpMessage.scala). It models requests, notifications, successful responses, and remote protocol errors. The bounded envelope scope is independently reviewed and accepted; runtime integration remains pending.
 
-Native ZIO client implementation for the **Model Context Protocol (MCP)**. Enables seamless connection to external MCP servers (filesystems, databases, GitHub, web browsers) and automatic bridging of their declared tools into the agent's type-safe `Toolkit`.
+The checked codecs validate one complete JSON document, preserve integer identity within the signed 256-bit parser-compatible range without floating-point conversion, and reject duplicate keys and unknown envelope/error fields. Method-specific payload extensions are retained. This foundation does not implement an MCP connection, handshake, negotiated protocol version, or tool client.
 
----
+| Package | Current scope |
+| --- | --- |
+| [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Implemented envelope types and explicit checked codecs; method schemas pending |
+| [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Planned transport and connection ownership |
+| [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Planned version-specific lifecycle, discovery, calls, and Toolkit bridge |
 
-## 📦 Package Structure
+## Verification and acceptance
 
-| Package | Purpose | SLOC Forecast (Main / Test) |
-| :--- | :--- | :---: |
-| [`protocol`](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | JSON-RPC 2.0 schemas for MCP messages, tool schemas, and resource definitions | ~150 / ~150 |
-| [`transport`](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Transports: Stdio (`zio.process`) and SSE (`zio-http`) | ~200 / ~200 |
-| [`client`](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | High-level `McpClient`, tool discovery, and bridge to `Toolkit` | ~150 / ~150 |
+- [x] Five grouped [McpProtocolSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) tests pass, including the reproduced integer-boundary regression.
+- [x] Independent FP/ZIO and protocol-invariant reviews approved the bounded envelope scope with no unresolved findings.
+- [x] Formatting and full repository verification passed with zero compiler warnings or failed tests. Exact scope, reviewers, reviewed source identities, and verification evidence are recorded in the [protocol acceptance](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance).
 
----
+These tests are specification-derived envelope coverage. The pinned AgentScope Java reference delegates wire schemas and transport serialization to MCP Java SDK 0.17.2; its wrapper tests do not establish envelope codec parity.
 
-## 🎯 Key Architectural Invariants
-1. **Strict Specification Compliance:** Complete support for MCP 2024-11-05+ specifications over JSON-RPC 2.0.
-2. **Resource Safety:** Local server child processes (Stdio) are isolated and guaranteed to terminate cleanly when leaving the ZIO `Scope`.
-3. **Seamless Toolkit Integration:** Tools exposed by any MCP server integrate directly into an agent's `Toolkit` in one line of code:
-   ```scala
-   val agentToolkit = toolkit ++ mcpClient.asToolkit
-   ```
+## Remaining work
+
+- [ ] Next: version-specific method and capability contracts, followed by tool-listing and tool-call payload schemas.
+- [ ] Scoped transports, request correlation, cancellation, and connection shutdown.
+- [ ] Revision-specific client lifecycle. MCP 2026-07-28 does not use `initialize`; older initialization/negotiation behavior requires explicitly selected legacy support.
+- [ ] Tool discovery, execution results, and Toolkit integration.
+
+No complete support claim is made for MCP 2024-11-05 or any later revision. The newer [2026-07-28 specification](https://modelcontextprotocol.io/specification/2026-07-28/basic) contains method/version requirements outside this envelope slice.

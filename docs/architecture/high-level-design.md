@@ -19,7 +19,7 @@ harness: compactor, eviction/store port, permission components
 core: models, codecs, events, tools, client port,
       SSE parsing/assembly, scoped HTTP completion, ReAct lifecycle, structured output
 
-mcp: design scaffolding; implementation pending
+mcp: checked JSON-RPC envelopes; client and transports pending
 ```
 
 The host owns durable transactions, replay, tenant authentication, and execution idempotency. ReActAgent owns in-memory conversation state and serializes runs. Per-run and per-request scopes bound resources independently of the caller's outer scope.
@@ -62,7 +62,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Descriptive configured/observed plan locations and request projection.
 - [x] Typed workspace-relative directory selection with explicit stricter normalization.
 - [ ] Skills and child propagation.
-- [ ] MCP protocol, transports, discovery, and toolkit bridging.
+- [x] Checked common MCP request, notification, success and error envelopes.
+- [ ] Version-specific MCP methods, client, transports, discovery and toolkit bridging.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
 

@@ -877,6 +877,17 @@ The [current acceptance record](../../modules/harness/src/main/scala/com/weisgno
 
 - [x] Verify opt-in policy-aware construction in three [SubagentConstructionSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) scenarios: nested static/argument restrictions with factory derivatives and a permitted near-miss; live reused denials and independent ancestor/child Plan checks with modified confirmation; isolated supplied per-build permissions and joined initialization/filtering cleanup. This does not install declared/general-purpose tools, prompts or directories and does not reproduce Java sticky mode mutation or historical denial accumulation; whole-method mappings remain open.
 
-The six unfinished plan-mode methods remain unfinished. Parent Build must not manufacture child approval. Explicitly installed gates remain effective across host-held session turns and session-bound sends. Next: MCP protocol codecs; declaration-driven composition, event routing and durable host recovery remain separate.
+The six unfinished plan-mode methods remain unfinished. Parent Build must not manufacture child approval. Explicitly installed gates remain effective across host-held session turns and session-bound sends. Declaration-driven composition, event routing and durable host recovery remain separate.
+
+## MCP envelope boundary
+
+AgentScope Java delegates JSON-RPC encoding to MCP SDK 0.17.2 at the pinned upstream revision. Its async/sync wrapper and builder tests cover SDK delegation, not the raw wire boundary. The [protocol suite](../../modules/mcp/src/test/scala/com/weisgnosis/agents/mcp/protocol/README.md) adds specification-derived coverage; it does not close those upstream wrapper methods.
+
+- [x] Preserve string versus integer correlation, notification omission, object results and absent versus explicit-null error data.
+- [x] Reject ambiguous message variants, invalid optional fields, unknown envelope/error fields, duplicate keys and trailing documents; validate constructed outbound ASTs.
+- [x] Reproduce unbounded integer conversion and incompatible serialization with compact `1e100` fixtures before fixing them. `mcp-integer-bound-red.log` records five failed rejection assertions against the unchanged implementation. Boundary tests cover the shared parser's signed 256-bit range without allocating pathological integers.
+- [ ] Implement version-specific methods and adapt upstream client initialization, discovery, invocation and transport lifecycle behaviors.
+
+The [2026-07-28 specification](https://modelcontextprotocol.io/specification/2026-07-28/basic) defines the common envelope. Strict unknown-field rejection and bounded integers are explicit local constraints. Method-level result tags, capabilities, request correlation state and version compatibility remain outside this codec's acceptance.
 
 - [x] Verify runtime-owned lineage with six capability cases, two actual nested ReAct cases and one error-codec case. Depth-four rejection occurs before UUID/callback effects; cancellation reconciles every running level. These test-fixture spawn calls do not close production AgentSpawnTool mappings.

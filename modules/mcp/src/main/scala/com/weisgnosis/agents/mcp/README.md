@@ -1,7 +1,7 @@
 # mcp: source package index
 
-- [client](client/README.md)
-- [protocol](protocol/README.md)
-- [transport](transport/README.md)
+- [protocol](protocol/README.md): implemented checked envelope types; accepted within the linked protocol scope.
+- [transport](transport/README.md): planned connection and transport ownership.
+- [client](client/README.md): planned version-specific lifecycle, discovery, tool calls, and Toolkit integration.
 
-Package READMEs own current behavior, verification scope, and acceptance status. Planned packages are explicitly marked and are not accepted implementations.
+Package READMEs record contracts and acceptance. Implemented envelopes do not imply an operational MCP client or support for a negotiated protocol revision.

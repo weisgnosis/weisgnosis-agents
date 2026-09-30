@@ -6,7 +6,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 - [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved resource ownership, host-held sessions, bounded host session membership, fixed-session tools, directory-routed tools and policy-aware child construction, with no findings. Exact reviewed scope and identities are in the [tool](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
 - [x] `path_review` and `current_docs` approved explicit gate composition and authorizer views; exact identities and scope are in the [permission contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance). SubagentConstruction supplies the reviewed opt-in installation path.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 651 harness tests (1,212 total), zero compiler warnings or failures. Local evidence: `subagent-construction-verify.log`.
+- [x] `path_review` and `current_docs` approved the checked MCP envelope, including reproduced numeric-boundary fixes, with no findings. Exact identities and scope are in the [protocol contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance).
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 651 harness / 5 MCP tests (1,217 total), zero compiler warnings or failures. Local evidence: `mcp-envelope-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -50,7 +51,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Implement MCP JSON-RPC envelope codecs first, then version-specific negotiation, scoped transports and toolkit bridging.
+- [ ] Define version-specific MCP method/client contracts next, then implement scoped transports and toolkit bridging. The common envelope does not establish version support.
 - [ ] Complete declared/general-purpose composition, including explicit tool/prompt/configuration installation; retain the accepted construction boundary.
 - [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 
@@ -63,7 +64,8 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [ ] Implement durable host persistence and authenticated, idempotent resumption from `ConfirmResult` without another model request.
 - [ ] Complete model-selection configuration, remote memory/transcript adapters, timestamp-watermark migration, session discovery and scheduling.
 - [ ] Validate platform-specific symlink/junction behavior and provide a secure storage backend if untrusted workspace support is required. Canonical checks are not an atomic filesystem sandbox; crash/fsync durability and hostile mutation isolation are not claimed.
-- [ ] Implement MCP codecs, transports, discovery and tool bridging; the module currently contains scaffolding only.
+- [x] Implement checked common MCP JSON-RPC envelopes with exclusive message variants, strict fields, recursive duplicate rejection and bounded lossless numeric identities.
+- [ ] Implement version-specific MCP methods, transports, discovery and tool bridging.
 - [ ] Validate live end-to-end cancellation, resource release and operational controls, confirm remote CI, and complete release/API compatibility and production acceptance.
 
 ## Verification and contracts
@@ -78,7 +80,7 @@ TaskSupervisor lifecycle changes must preserve its parallel outer owner scope, s
 - [Harness module and tests](../../modules/harness/README.md)
 - [Subagent contracts](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md)
 - [Plan contracts](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md)
-- [MCP target module](../../modules/mcp/README.md)
+- [MCP module and remaining integration](../../modules/mcp/README.md)
 - [Phase 4 contracts](phase-4-implementation.md)
 - [Test parity audit](test-parity.md)
 - [High-level design](high-level-design.md), [mid-level design](mid-level-design.md), [low-level design](low-level-design.md)

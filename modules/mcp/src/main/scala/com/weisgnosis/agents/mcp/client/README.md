@@ -1,35 +1,15 @@
 # com.weisgnosis.agents.mcp.client
 
-> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+Status: planned. No MCP client, discovery mechanism, or Toolkit bridge is implemented. The [protocol package](../protocol/README.md) currently provides checked envelopes only.
 
-High-level Model Context Protocol client, dynamic tool discovery, and runtime agent integration.
+The future client must follow explicitly selected version-specific method/lifecycle contracts, discover capabilities and tools, and distinguish remote JSON-RPC errors from tool-call result failures. Tool adapters must preserve cancellation and turn ordinary tool failures into model observations. Connection authentication and trust configuration belong to explicit host integration.
 
----
+## Remaining work
 
-## 🎯 Purpose and Types
+- [ ] Next: define the client lifecycle after method payload schemas and supported revisions are explicit.
+- [ ] Implement the selected revision's capability and discovery behavior. MCP 2026-07-28 does not use `initialize`; older initialization and negotiation require explicit legacy support.
+- [ ] Implement tool invocation and scoped connection shutdown.
+- [ ] Bridge discovered tools into Toolkit with explicit metadata and naming policy.
+- [ ] Add lifecycle and ReAct integration tests, then obtain independent review and verification.
 
-1. **`McpClient`**:
-   - `def initialize: ZIO[Any, Throwable, InitializeResult]`
-   - `def listTools: ZIO[Any, Throwable, Chunk[McpTool]]`
-   - `def callTool(name: String, args: zio.json.ast.Json): ZIO[Any, Throwable, CallToolResult]`
-   - `def asToolkit: ZIO[Any, Throwable, Toolkit]` (automatic bridge to agent `Toolkit`)
-2. **`McpToolBridge`**:
-   - Converts each discovered `McpTool` into a native `Tool[Any, Json, String]`.
-   - Proxies invocations directly into `mcpClient.callTool`.
-
----
-
-## 🧪 Test Parity Map
-
-| Test Specification | Target ZIO Spec | Verification Focus |
-| :--- | :--- | :--- |
-| MCP Client Lifecycle | `McpClientSpec.scala` | Initialization handshake, listing available server tools |
-| Toolkit Bridge Test | `McpToolkitBridgeSpec.scala` | Registering MCP tools in agent toolkit and dispatching model executions |
-
----
-
-## 📋 Implementation Checklist
-- [ ] Class `McpClient` with lifecycle methods
-- [ ] Toolkit bridge adapter `asToolkit`
-- [ ] Unit & Mock tests: `McpClientSpec.scala`
-- [ ] Unit & Mock tests: `McpToolkitBridgeSpec.scala`
+AgentScope Java wrapper `listTools`, `callTool`, and `close` methods are future behavioral mappings; `initialize` maps only to an explicitly supported older lifecycle. Existing SDK-backed wrapper tests do not establish support in this module. No supported MCP protocol revision is currently claimed.

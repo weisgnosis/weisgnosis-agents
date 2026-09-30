@@ -1,19 +1,11 @@
-# com.weisgnosis.agents.mcp.client (Tests)
+# com.weisgnosis.agents.mcp.client: planned tests
 
-> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+No client tests or implementation exist yet. The [client contract](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md) remains a roadmap.
 
-ZIO Test parity suite for `com.weisgnosis.agents.mcp.client`.
+- [ ] Version-specific method/lifecycle contracts; MCP 2026-07-28 does not use `initialize`. Initialization ordering, repetition, and negotiation tests require explicit legacy support.
+- [ ] Capability/tool discovery and invocation under the selected revision's lifecycle.
+- [ ] Distinct protocol errors, tool-result errors, transport failures, and cancellation.
+- [ ] Toolkit/ReAct integration, tool naming, and metadata trust boundaries.
+- [ ] Connection cleanup and independent review of final implementation.
 
----
-
-## 🧪 Planned Test Specs
-
-1. **`McpClientSpec.scala`**:
-   - Initializing connection and negotiating protocol versions.
-   - Querying server capabilities and available tools.
-   - Calling tools and handling successful and error results.
-
-2. **`McpToolkitBridgeSpec.scala`**:
-   - Converting `Chunk[McpTool]` into `Toolkit`.
-   - Dispatching calls from agent ReAct loop into MCP tools.
-   - Propagating tool failure payloads back to the agent without crashing the loop.
+AgentScope Java wrapper tests provide future lifecycle mappings. Current envelope tests do not cover these contracts.

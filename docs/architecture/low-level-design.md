@@ -2,6 +2,10 @@
 
 Current source declarations are authoritative. This document records API contracts rather than maintaining a second implementation.
 
+## MCP envelope boundary
+
+[McpMessage](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/McpMessage.scala) separates requests, notifications, successes and remote errors. Explicit checked `decode`/`fromJson` and `encode`/`toJson` conversions enforce the constant protocol marker, object payloads, unique keys and the signed 256-bit numeric identity/error-code range. Wire conversion is pure; it does not allocate request identities or correlate replies. The [package contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) defines strict-field policy and inbound/outbound error types. Version-specific methods, negotiation, transports and toolkit integration remain planned; the previous draft API names are not compatibility obligations.
+
 ## Domain models
 
 | Type | Contract | Declaration |
@@ -87,7 +91,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, durable child reuse, declaration-driven configuration and MCP remain unfinished. Supervisor-owned retained resources, host-held reusable child sessions, configured child factories, parent-denial inheritance, bounded scoped task registries, model-facing spawn and session-bound send tools and host-installed inherited plan admission are available. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, durable child reuse, declaration-driven configuration and MCP client/transport integration remain unfinished. Supervisor-owned retained resources, host-held reusable child sessions, configured child factories, parent-denial inheritance, bounded scoped task registries, model-facing spawn and session-bound send tools and host-installed inherited plan admission are available. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 

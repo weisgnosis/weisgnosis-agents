@@ -1,19 +1,11 @@
-# com.weisgnosis.agents.mcp.transport (Tests)
+# com.weisgnosis.agents.mcp.transport: planned tests
 
-> Status: planned design and test targets. The APIs and suites described here are not implemented yet.
+No transport tests or implementation exist yet. The [transport contract](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md) remains a roadmap.
 
-ZIO Test parity suite for `com.weisgnosis.agents.mcp.transport`.
+- [ ] Local stdio fixtures for framing, partial input, message limits, and process termination.
+- [ ] Local HTTP fixtures for the explicitly selected transport and protocol revision.
+- [ ] Correlation, inbound server requests/notifications, cancellation, and terminal failures.
+- [ ] Concurrent shutdown and cancellation that join resource cleanup.
+- [ ] Independent review and final verification of each implemented transport.
 
----
-
-## 🧪 Planned Test Specs
-
-1. **`StdioTransportSpec.scala`**:
-   - Spawning echo/mock CLI process.
-   - Sending JSON-RPC request and receiving matching response.
-   - Resource cleanup: ensuring child process is terminated when Scope closes.
-
-2. **`SseTransportSpec.scala`**:
-   - Connecting to a local mock HTTP server.
-   - Receiving SSE event notifications.
-   - Dispatching POST requests and matching RPC responses.
+The current pure envelope tests make no network, server-handshake, or process-lifecycle claim.
