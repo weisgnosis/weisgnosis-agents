@@ -110,6 +110,132 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpStreamableHttpTransportSpec")(
     test(
+      "explicit termination follows joined client closure, sends one authenticated DELETE and seals owner release"
+    ) {
+      ZIO
+        .scoped {
+          for
+            status  <- Ref.make[Status](Status.NoContent)
+            deletes <- Ref.make(Chunk.empty[Headers])
+            port <- Server.install(
+              Routes(
+                Method.POST / "mcp" -> handler { (request: Request) =>
+                  decode(request)
+                    .flatMap:
+                      case McpMessage.Request(id, "initialize", _) =>
+                        json(McpMessage.Success(id, initialization))
+                          .map(_.addHeader("Mcp-Session-Id", "terminate"))
+                      case _ => ZIO.succeed(Response.status(Status.Accepted))
+                    .orElseSucceed(Response.status(Status.InternalServerError))
+                },
+                Method.DELETE / "mcp" -> handler { (request: Request) =>
+                  deletes.update(_ :+ request.headers) *> status.get.map(Response.status(_))
+                }
+              )
+            )
+            http <- ZIO.service[Client]
+            endpoint = s"http://127.0.0.1:$port/mcp"
+            outcomes <- ZIO.foreach(
+              Chunk(
+                Status.NoContent           -> Some(McpHttpTermination.Deleted),
+                Status.MethodNotAllowed    -> Some(McpHttpTermination.Unsupported),
+                Status.NotFound            -> Some(McpHttpTermination.AlreadyExpired),
+                Status.InternalServerError -> None
+              )
+            ): (responseStatus, expected) =>
+              for
+                _ <- status.set(responseStatus)
+                saved <- ZIO.scoped:
+                  for
+                    transport <- McpStreamableHttpTransport
+                      .open(http, endpoint, Headers("Authorization", "Bearer deletion"))
+                    initialized <- McpClient.open(transport, McpImplementation("client", "1"))
+                    _           <- initialized.close
+                    results     <- ZIO.collectAllPar(Chunk.fill(2)(transport.terminateSession.exit))
+                    rejected    <- transport.send(McpMessage.Notification("late")).exit
+                  yield (transport, results, rejected)
+                replay <- saved._1.terminateSession.exit
+              yield saved._2.forall(exit =>
+                expected match
+                  case Some(value) => exit == Exit.succeed(value)
+                  case None        => exit.isFailure
+              ) && saved._2.headOption.contains(replay) && saved._3.isFailure
+            empty <- ZIO.scoped(
+              McpStreamableHttpTransport.open(http, endpoint).flatMap(_.terminateSession)
+            )
+            closed   <- ZIO.scoped(McpStreamableHttpTransport.open(http, endpoint))
+            rejected <- closed.terminateSession.exit
+            seen     <- deletes.get
+          yield assertTrue(
+            outcomes.forall(identity),
+            empty == McpHttpTermination.NoSession,
+            rejected.isFailure,
+            seen.size == 4,
+            seen.forall(h =>
+              h.get("Mcp-Session-Id").contains("terminate") &&
+                h.get("Authorization").contains("Bearer deletion") &&
+                h.get("MCP-Protocol-Version").contains(McpInitialization.protocolVersion)
+            )
+          )
+        }
+        .provide(Client.default, Server.defaultWithPort(0))
+    } @@ TestAspect.withLiveClock,
+    test(
+      "termination cancellation joins cleanup and replays its full outcome while follower cancellation stays local"
+    ) {
+      ZIO.scoped:
+        for
+          entered <- Promise.make[Nothing, Unit]
+          cleanup <- Promise.make[Nothing, Unit]
+          release <- Promise.make[Nothing, Unit]
+          count   <- Ref.make(0)
+          defect = new IllegalStateException("DELETE cleanup")
+          http = scripted(request =>
+            if request.method == Method.DELETE then
+              count.update(_ + 1) *> ZIO.addFinalizer(
+                cleanup.succeed(()).unit *> release.await *> ZIO.die(defect)
+              ) *>
+                entered.succeed(()) *> ZIO.never
+            else
+              decode(request).flatMap:
+                case McpMessage.Request(id, "initialize", _) =>
+                  json(McpMessage.Success(id, initialization))
+                    .map(_.addHeader("Mcp-Session-Id", "held"))
+                case _ => ZIO.succeed(Response.status(Status.Accepted))
+          )
+          transport <- McpStreamableHttpTransport.open(http, endpoint)
+          _         <- transport.send(McpMessage.Request(McpRequestId.Number(1), "initialize"))
+          leader    <- transport.terminateSession.forkScoped
+          observed <- (for
+            _            <- entered.await
+            follower     <- transport.terminateSession.forkScoped
+            _            <- (ZIO.yieldNow *> follower.status).repeatUntil(_.isSuspended)
+            followerExit <- follower.interrupt
+            stillRunning <- leader.poll
+            rival        <- transport.terminateSession.forkScoped
+            _            <- (ZIO.yieldNow *> rival.status).repeatUntil(_.isSuspended)
+            cancelling   <- leader.interrupt.forkScoped
+            _            <- cleanup.await
+            unfinished   <- cancelling.poll
+            _            <- release.succeed(())
+            leaderExit   <- cancelling.join
+            rivalExit    <- rival.await
+            replay       <- transport.terminateSession.exit
+          yield (followerExit, stillRunning, unfinished, leaderExit, rivalExit, replay))
+            .ensuring(release.succeed(()).unit)
+          sent <- count.get
+        yield assertTrue(
+          observed._1.isInterrupted,
+          observed._2.isEmpty,
+          observed._3.isEmpty,
+          observed._4.isInterrupted,
+          observed._4.causeOption.exists(_.defects == List(defect)),
+          observed._5 == observed._4,
+          observed._6 == observed._4,
+          sent == 1
+        )
+    },
+    test(
       "same-send continuation carries UTF-8 cursor bytes and captured initialization session without replay"
     ) {
       ZIO

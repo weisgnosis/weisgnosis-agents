@@ -37,13 +37,23 @@ final case class McpHttpLimits(
 enum McpHttpListenResult:
   case Ended, Unsupported
 
+enum McpHttpTermination:
+  case Deleted, Unsupported, AlreadyExpired, NoSession
+
 enum McpHttpContinuation derives JsonCodec:
   case Disabled
   case OnPrematureEof(maxAttempts: Int)
 
-/** Explicit host-run listening; the caller owns and joins the effect within the transport lifetime. */
+/** Explicit host-run listening and termination; callers own and join both within the transport lifetime. */
 trait McpStreamableHttpTransport extends McpTransport:
   def listen: IO[AgentError, McpHttpListenResult]
+
+  /**
+   * Stops local admission for every outcome and attempts DELETE at most once. Callers share the full
+   * outcome after joined response cleanup; cancelling an additional caller waiting for the shared
+   * outcome does not cancel that attempt.
+   */
+  def terminateSession: IO[AgentError, McpHttpTermination]
 
 /**
  * 2025-06-18 HTTP transport over a borrowed HTTP client. Each send owns and joins a fresh
@@ -56,8 +66,10 @@ trait McpStreamableHttpTransport extends McpTransport:
  * active explicit listener is allowed; EOF or 405 releases it for another fresh listen. Caller cancellation
  * joins GET cleanup without closing the transport unless cleanup also fails. Optional bounded
  * continuation resumes only the same send after clean premature SSE EOF and joined response cleanup.
- * It never replays POST or retries failures. No DELETE or reinitialization is performed; owner closure
- * signals active listeners to finish local cleanup.
+ * It never replays POST or retries failures. Session termination is explicit and joins its response
+ * cleanup; concurrent callers share the first attempt's full outcome. The host must join termination,
+ * sends and listening before releasing the transport owner. Owner closure never sends DELETE and
+ * rejects a first termination attempt afterward. No automatic reinitialization is performed.
  */
 object McpStreamableHttpTransport:
   private enum Initialization:
@@ -81,7 +93,17 @@ object McpStreamableHttpTransport:
 
   private enum State:
     case Open(session: Session)
-    case Stopped(cause: Cause[AgentError])
+    case Stopped(cause: Cause[AgentError], session: Session)
+
+  private type TerminationResult = Promise[Nothing, Exit[AgentError, McpHttpTermination]]
+
+  private enum Termination:
+    case Unclaimed, Sealed
+    case Claimed(result: TerminationResult)
+
+  private enum TerminationClaim:
+    case Lead(session: Option[String], result: TerminationResult)
+    case Observe(result: TerminationResult)
 
   private enum Consumer:
     case Available, Claimed
@@ -112,14 +134,15 @@ object McpStreamableHttpTransport:
       url <- address(endpoint)
       live <- ZIO.uninterruptible:
         for
-          gate     <- Semaphore.make(1)
-          requests <- Semaphore.make(limits.maxConcurrentRequests.toLong)
-          controls <- Semaphore.make(1)
-          queue    <- Queue.dropping[McpMessage](limits.incomingCapacity)
-          state    <- Ref.make[State](State.Open(Session(Initialization.Fresh, None)))
-          consumer <- Ref.make[Consumer](Consumer.Available)
-          listener <- Ref.make[Listener](Listener.Idle)
-          terminal <- Promise.make[Nothing, Cause[AgentError]]
+          gate        <- Semaphore.make(1)
+          requests    <- Semaphore.make(limits.maxConcurrentRequests.toLong)
+          controls    <- Semaphore.make(1)
+          queue       <- Queue.dropping[McpMessage](limits.incomingCapacity)
+          state       <- Ref.make[State](State.Open(Session(Initialization.Fresh, None)))
+          consumer    <- Ref.make[Consumer](Consumer.Available)
+          listener    <- Ref.make[Listener](Listener.Idle)
+          termination <- Ref.make[Termination](Termination.Unclaimed)
+          terminal    <- Promise.make[Nothing, Cause[AgentError]]
           transport = new Live(
             http,
             url,
@@ -133,10 +156,11 @@ object McpStreamableHttpTransport:
             state,
             consumer,
             listener,
+            termination,
             terminal
           )
           _ <- ZIO.addFinalizer(
-            transport.stop(Cause.fail(AgentError.McpError("MCP HTTP transport closed")))
+            transport.closeOwner
           )
         yield transport
     yield live
@@ -213,8 +237,68 @@ object McpStreamableHttpTransport:
       state: Ref[State],
       consumer: Ref[Consumer],
       listener: Ref[Listener],
+      termination: Ref[Termination],
       terminal: Promise[Nothing, Cause[AgentError]]
   ) extends McpStreamableHttpTransport:
+    def terminateSession: IO[AgentError, McpHttpTermination] =
+      ZIO.uninterruptibleMask: restore =>
+        gate
+          .withPermit(claimTermination)
+          .flatMap:
+            case TerminationClaim.Observe(result) => restore(result.await).flatMap(exit => exit)
+            case TerminationClaim.Lead(session, result) =>
+              restore(deleteSession(session)).exit.flatMap(exit => result.succeed(exit) *> exit)
+
+    private def claimTermination: IO[AgentError, TerminationClaim] =
+      termination.get.flatMap:
+        case Termination.Sealed => ZIO.fail(AgentError.McpError("MCP HTTP transport owner closed"))
+        case Termination.Claimed(result) => ZIO.succeed(TerminationClaim.Observe(result))
+        case Termination.Unclaimed =>
+          for
+            current <- state.get
+            session = current match
+              case State.Open(value)       => value.id
+              case State.Stopped(_, value) => value.id
+            result <- Promise.make[Nothing, Exit[AgentError, McpHttpTermination]]
+            _      <- termination.set(Termination.Claimed(result))
+            _ <- stopWithinGate(
+              Cause.fail(AgentError.McpError("MCP HTTP session termination requested"))
+            )
+          yield TerminationClaim.Lead(session, result)
+
+    private def deleteSession(session: Option[String]): IO[AgentError, McpHttpTermination] =
+      session match
+        case None => ZIO.succeed(McpHttpTermination.NoSession)
+        case Some(id) =>
+          ZIO.scoped:
+            for
+              response <- ZIO.uninterruptibleMask: restore =>
+                val requestHeaders = headers ++ Headers(
+                  "Mcp-Session-Id"       -> id,
+                  "MCP-Protocol-Version" -> McpInitialization.protocolVersion
+                )
+                restore(
+                  Client
+                    .streaming(Request.delete(url).addHeaders(requestHeaders))
+                    .provideSomeEnvironment[Scope](_.add(http))
+                ).mapError(boundary("MCP HTTP DELETE"))
+              result <- response.status.code match
+                case 405 => ZIO.succeed(McpHttpTermination.Unsupported)
+                case 404 => ZIO.succeed(McpHttpTermination.AlreadyExpired)
+                case _ if response.status.isSuccess => ZIO.succeed(McpHttpTermination.Deleted)
+                case code =>
+                  ZIO.fail(AgentError.McpError(s"MCP HTTP DELETE rejected with status $code"))
+            yield result
+
+    def closeOwner: UIO[Unit] = ZIO.uninterruptible:
+      gate.withPermit:
+        for
+          _ <- termination.update:
+            case Termination.Unclaimed => Termination.Sealed
+            case other                 => other
+          _ <- stopWithinGate(Cause.fail(AgentError.McpError("MCP HTTP transport closed")))
+        yield ()
+
     def listen: IO[AgentError, McpHttpListenResult] = ZIO.scoped:
       ZIO
         .acquireRelease(claimListener)(_ => gate.withPermit(listener.set(Listener.Idle)))
@@ -226,7 +310,7 @@ object McpStreamableHttpTransport:
 
     private def claimListener: IO[AgentError, Option[String]] = gate.withPermit:
       state.get.flatMap:
-        case State.Stopped(cause) => ZIO.refailCause(cause)
+        case State.Stopped(cause, _) => ZIO.refailCause(cause)
         case State.Open(Session(_: Initialization.Ready, session)) =>
           listener.get.flatMap:
             case Listener.Active =>
@@ -325,7 +409,7 @@ object McpStreamableHttpTransport:
     ): IO[AgentError, Unit] =
       gate
         .withPermit(state.get.map:
-          case State.Stopped(_) => ListeningGate.Stopped
+          case State.Stopped(_, _) => ListeningGate.Stopped
           case State.Open(session) =>
             sessionHeaders(response) match
               case Left(error) => ListeningGate.Rejected(error)
@@ -342,7 +426,7 @@ object McpStreamableHttpTransport:
     private def offerListening(message: McpMessage): IO[AgentError, Unit] =
       gate
         .withPermit(state.get.flatMap:
-          case State.Stopped(_) => ZIO.succeed(ListeningGate.Stopped)
+          case State.Stopped(_, _) => ZIO.succeed(ListeningGate.Stopped)
           case State.Open(_) =>
             queue
               .offer(message)
@@ -515,12 +599,12 @@ object McpStreamableHttpTransport:
       case _                                      => false
 
     private def ensureOpen: IO[AgentError, Unit] = state.get.flatMap:
-      case State.Open(_)        => ZIO.unit
-      case State.Stopped(cause) => ZIO.refailCause(cause)
+      case State.Open(_)           => ZIO.unit
+      case State.Stopped(cause, _) => ZIO.refailCause(cause)
 
     private def begin(message: McpMessage): IO[AgentError, Option[String]] = gate.withPermit:
       state.get.flatMap:
-        case State.Stopped(cause) => ZIO.refailCause(cause)
+        case State.Stopped(cause, _) => ZIO.refailCause(cause)
         case State.Open(session) =>
           message match
             case McpMessage.Request(id, "initialize", _) =>
@@ -567,7 +651,7 @@ object McpStreamableHttpTransport:
       case Left(error) => fatal(error)
       case Right(values) =>
         gate.withPermit(state.get.flatMap:
-          case State.Stopped(cause) => ZIO.refailCause(cause)
+          case State.Stopped(cause, _) => ZIO.refailCause(cause)
           case State.Open(session) =>
             initializingId match
               case Some(id) if session.initialization == Initialization.Started(id) =>
@@ -666,7 +750,7 @@ object McpStreamableHttpTransport:
 
     private def offer(message: McpMessage): IO[AgentError, Unit] = gate.withPermit:
       state.get.flatMap:
-        case State.Stopped(cause) => ZIO.refailCause(cause)
+        case State.Stopped(cause, _) => ZIO.refailCause(cause)
         case State.Open(_) =>
           queue
             .offer(message)
@@ -681,9 +765,9 @@ object McpStreamableHttpTransport:
 
     private def stopWithinGate(cause: Cause[AgentError]): UIO[Unit] = ZIO.uninterruptible:
       state.get.flatMap:
-        case State.Stopped(_) => ZIO.unit
-        case State.Open(_) =>
-          state.set(State.Stopped(cause)) *> terminal.succeed(cause) *> queue.takeAll.unit
+        case State.Stopped(_, _) => ZIO.unit
+        case State.Open(session) =>
+          state.set(State.Stopped(cause, session)) *> terminal.succeed(cause) *> queue.takeAll.unit
 
     def stop(cause: Cause[AgentError]): UIO[Unit] =
       ZIO.uninterruptible(gate.withPermit(stopWithinGate(cause)))
