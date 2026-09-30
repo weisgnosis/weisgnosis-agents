@@ -289,7 +289,7 @@ Eight unchanged identities from the ten-file increment against fd496a4, includin
 
 Both entry points share the same canonical directory lease, fixed PLAN.md publication and descriptive location. Competing opens are denied in either direction; use after scope closure fails. Hosts must create the selected directory and protect the workspace, candidate and their ancestors under HostControlled ownership. Canonical checks are not race-free isolation against hostile mutation; privileged dynamic symlink/junction fixtures remain separate platform validation. These changes restore no approval and grant no child capability.
 
-The explicit customPlanDirNormalised adaptation now brings the named inventory to eight of fourteen. Directory normalization is stricter than the upstream string helper and requires existing directories. Skill integration and declared/general-purpose configuration remain pending. Opt-in SubagentConstruction now wires admission without copying or mutating child review state.
+The explicit customPlanDirNormalised adaptation now brings the named inventory to eight of fourteen. Directory normalization is stricter than the upstream string helper and requires existing directories. Skill integration and full declared/general-purpose Plan tool/prompt installation remain pending. Inline child configuration is available through SubagentDeclaration. Opt-in SubagentConstruction now wires admission without copying or mutating child review state.
 
 ## Current directory identities
 

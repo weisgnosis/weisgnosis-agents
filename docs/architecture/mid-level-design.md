@@ -1,6 +1,6 @@
 # Mid-level behavior and planned integrations
 
-Sections 1-6 describe current components. Section 7 describes daily extraction, scoped daily storage and process-local or recoverable local consolidation. Section 8 describes planned behavior; section 9 distinguishes implemented child execution from pending declared/general-purpose integration; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
+Sections 1-6 describe current components. Section 7 describes daily extraction, scoped daily storage and process-local or recoverable local consolidation. Section 8 describes planned behavior; section 9 distinguishes implemented child execution from inline declarations and remaining configuration integration; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
 
 ## MCP client behavior
 
@@ -109,13 +109,13 @@ SubagentSpawner.root mints depth-zero authority in ZIO. spawn checks depth befor
 
 Configured factories filter inherited and registered tools before building fresh runtimes. A bounded execution registry supplies runtime IDs, inspection, promotion, cancellation and explicit completed-record retirement. Host-held sessions retain one configured runtime, history and lineage across serialized turns with distinct execution IDs. Their resource owner also bounds further descendants. Queued cancellation does not modify history; session closure joins promoted work before releasing clients.
 
-Model-facing controls bind fresh-child invocation or send to one host-selected session, or route send/task/cancel through a host-selected session directory. Strict inputs and bounded observations preserve this authority; lookup snapshots do not provide atomic revocation. Installed parent-denial and plan effects remain live without copying child approval authority. Declaration-driven construction, automatic policy installation, event forwarding and durable recovery remain separate integration work. See the [current subagent contract and acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md).
+Model-facing controls bind fresh-child invocation or send to one host-selected session, or route send/task/cancel through a host-selected session directory. Strict inputs and bounded observations preserve this authority; lookup snapshots do not provide atomic revocation. Installed parent-denial and plan effects remain live without copying child approval authority. Declaration loading/routing, broader host installation, event forwarding and durable recovery remain separate integration work. See the [current subagent contract and acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md).
 
 SubagentConstruction adds a policy-aware factory path: scoped per-build permissions precede registration, the callback receives a derived construction capability, and final filtering precedes client acquisition. Descendants inherit actual narrowed boundaries, live denial readers and ancestor/child Plan composition, including later factory derivatives. It does not mutate child planning state or copy approval authority. Reused sessions retain the installed live readers; raw host factories remain explicit.
 
 ## 10. Plan-mode hardening and remaining integration
 
-Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. PlanTools exit requires authenticated exact-ticket host review. Generic RequestExecution classification and ordinary policy may independently require Ask; they do not replace that review. A conservative static POSIX grammar is implemented below. Runtime admission is implemented below; declared/general-purpose policy composition remains pending; opt-in plan tools are implemented below.
+Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. PlanTools exit requires authenticated exact-ticket host review. Generic RequestExecution classification and ordinary policy may independently require Ask; they do not replace that review. A conservative static POSIX grammar is implemented below. Runtime admission is implemented below; inline declaration policy composition is available; full Plan tool/prompt installation remains explicit; opt-in plan tools are implemented below.
 
 ## Transcript observation authority
 

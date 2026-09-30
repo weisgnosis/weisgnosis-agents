@@ -12,7 +12,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 56 MCP tests (1,271 total), zero compiler warnings or failures. Evidence: `mcp-http-transport-verify.log`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 654 harness / 56 MCP tests (1,274 total), zero compiler warnings or failures. Evidence: `subagent-declaration-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -57,7 +57,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Next: implement inline declared/general-purpose subagent composition through SubagentConstruction, preserving host-selected scoped dependencies and inherited policy.
+- [x] Implement and independently review inline declared/general-purpose composition through SubagentConstruction, preserving scoped host dependencies and inherited policy.
+- [ ] Next: expose a bounded host-declared factory catalog through model-facing spawn/task/cancel tools, retaining existing registry ownership.
 - [x] Implement and independently review scoped POST-only HTTP requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [ ] Complete separately specified GET listening, resumption, session DELETE/reinitialization, cancellation notifications and external-server interoperability.
 - [ ] Complete broader declaration loading and routing after the inline composition increment; retain the accepted construction boundary.
@@ -68,7 +69,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 ## Remaining integration and parity
 
 - [ ] Complete applicable core/harness method mappings and remaining structured-output, lifecycle and event-ordering gaps, including incremental local tool results and provider multimodal projection, provider signature/tool metadata, event adapters, phase-stop integration and richer subagent attribution.
-- [ ] Complete remaining plan adaptations, including skills and declared/general-purpose configuration and legacy reused-child behavior; the opt-in construction path does not close those whole methods. Current plan inventory is eight adapted / six pending methods.
+- [ ] Complete remaining plan adaptations, including skills and full declared/general-purpose Plan installation and legacy reused-child behavior; the opt-in construction path does not close those whole methods. Current plan inventory is eight adapted / six pending methods.
 - [ ] Implement durable host persistence and authenticated, idempotent resumption from `ConfirmResult` without another model request.
 - [ ] Complete model-selection configuration, remote memory/transcript adapters, timestamp-watermark migration, session discovery and scheduling.
 - [ ] Validate platform-specific symlink/junction behavior and provide a secure storage backend if untrusted workspace support is required. Canonical checks are not an atomic filesystem sandbox; crash/fsync durability and hostile mutation isolation are not claimed.

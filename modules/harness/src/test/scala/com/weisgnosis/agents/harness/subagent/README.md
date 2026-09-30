@@ -1,11 +1,12 @@
 # Scoped child execution verification
 
-The [current contracts and acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md) define accepted supervision, shared resource ownership, reusable host-held sessions, bounded host session membership, lineage, configured construction, bounded registry, live parent denial and model-facing spawn/send/task controls. Directory-bound model routing and opt-in policy-aware child construction are available; declaration/general-purpose composition remains pending.
+The [current contracts and acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md) define accepted supervision, shared resource ownership, reusable host-held sessions, bounded host session membership, lineage, configured construction, bounded registry, live parent denial and model-facing spawn/send/task controls. Directory-bound model routing and opt-in policy-aware child construction are available; inline declarations and the general-purpose preset are available.
 
 ## Current suites
 
 | Suite | Contract evidence |
 | --- | --- |
+| [SubagentDeclarationSpec](SubagentDeclarationSpec.scala) | Three groups cover checked lazy composition; actual prompt/model/execution inheritance and explicit overrides with final tool filtering; retained-session resource lifetime, history, live Deny/Plan and independent child review. Existing construction tests retain nested/cancellation coverage. |
 | [TaskSupervisorSpec](TaskSupervisorSpec.scala) | Sixteen cases cover masked admission, parent/host cancellation and cleanup joining, explicit cancellation, full typed/defect/interruption causes, completed and repeated observation, 30-second same-execution promotion, per-wait budgets, closed admission, parallel shutdown and cancellation/admission races. Race cases repeat twenty times; this is not exhaustive schedule coverage. |
 | [TaskSupervisorAgentSpec](TaskSupervisorAgentSpec.scala) | Two actual ReAct cases verify assistant-before-tool persistence, one interrupted Error result and recovery, and promoted continuation after parent closure without repeated execution. |
 | [TaskResourceSpec](TaskResourceSpec.scala) | Five grouped scenarios cover resources surviving initialization and completed tasks, typed/defect/interrupted initialization cleanup, caller/root cancellation, joined queued/promoted work, and seven competing explicit/caller/root closure pairs with first-Exit preservation and cleanup-defect replay. |
@@ -36,7 +37,7 @@ The source comparison uses `agentscope-java` revision `f98a685fdc4589f81e626e168
 | `harnessChildReceivesParentDenyInActualExecutionSlot` | Actual configured-child runs install the inherited-denial wrapper and attempt an argument-matched denied call, yielding Denied without execution. Permitted near-misses still execute. Java harness/session wiring and permission-mode parity are excluded. |
 | `directReactChildKeepsItsOwnPermissionContextAndAddsOnlyParentDeny` | Actual child runs preserve their own Allow, Ask and Deny behavior and confirmation policy while parent non-Deny decisions abstain. Live policy and confirmed-input rechecks extend the bounded adaptation; parent modes and working-directory inheritance are not implemented. |
 
-These bounded adaptations are reviewed and verified at the recorded source identities. `declarationCanDisableParentDenyInheritance` remains pending declaration integration; a host's choice not to install the wrapper does not complete that method. `persistentReuseAndAgentSendAddCurrentParentDenyWithoutDuplicates` remains pending: sessions retain current installed policy and support model-facing send, but automatic Java-style context wiring and historical denial accumulation are not implemented. No complete upstream permissions-suite or model-facing spawn/send parity is claimed.
+These bounded adaptations are reviewed and verified at the recorded source identities. `declarationCanDisableParentDenyInheritance` is intentionally excluded from the safe declaration path: declaration data cannot disable ancestor Deny inheritance. Raw host factories remain separately trusted capabilities. `persistentReuseAndAgentSendAddCurrentParentDenyWithoutDuplicates` remains pending: sessions retain current installed policy and support model-facing send, but automatic Java-style context wiring and historical denial accumulation are not implemented. No complete upstream permissions-suite or model-facing spawn/send parity is claimed.
 
 `AgentSpawnToolPromotionTest.innerTimeoutPromotesToAdoptedTaskRunSpec` has supporting tool-level evidence for a retained task ID, one continuing execution and later inspection/cancellation. The Scala adapter uses a fixed 30-second budget and the existing supervisor/registry; it does not implement Java external repository adoption or configurable timeout/force-sync modes. `AgentSpawnToolOrphanCancelTest.orphanAgentInterruptedOnParentCancel` has a scoped ownership adaptation: cancelling the actual spawn invocation joins child cleanup without detaching a continuing worker. Correlated child event forwarding remains outside these tests. The plan gate and construction evidence support bounded descendant/reuse behavior but do not close the whole declared/general-purpose or persistent spawn/send plan methods. Live ancestor/child Plan OR deliberately replaces Java mode mutation, and live denial replacement does not implement historical accumulation.
 
@@ -58,8 +59,9 @@ Both resource defects were reproduced before correction. The initialization regr
 - [x] Verify bounded host session lookup, aliases, original-owner lifetime, rejection ownership and joined removal/closure.
 - [x] Verify strict model-facing directory routing, selected-session result identity, isolation and joined promoted task control.
 - [x] Verify derived construction propagates static/live-denial/live-Plan restrictions while preserving own child authority across nested execution and reuse.
-- [ ] Verify declared/general-purpose composition and remaining upstream propagation assertions.
+- [x] Verify inline declarations and the general-purpose preset; `path_review` and `current_docs` approved the exact source/spec identities in the package acceptance, with full verification passing.
+- [ ] Complete broader declaration loading/routing and remaining upstream propagation assertions.
 - [ ] Verify correlated child event forwarding and automatic source attribution.
 - [ ] Complete remaining applicable upstream method mappings after those APIs exist.
 
-Next task: verify declared/general-purpose composition, correlated event routing and durable host integration.
+Next task: verify host-declared factory selection for spawn/task/cancel tools; correlated events and durable host integration remain separate.

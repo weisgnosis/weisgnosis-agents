@@ -53,7 +53,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Runtime-owned lineage and descendant depth limits before callback/model construction.
 - [x] Configured child factories, bounded execution registries, host-held reusable sessions, bounded host session membership and fixed-capability spawn/send controls and directory-bound send/task/cancel; accepted scope is recorded in the [subagent contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md).
 - [x] Opt-in child construction with per-runtime permissions and automatically propagated static boundaries, live ancestor denials and Plan restrictions.
-- [ ] Declaration-driven child construction and general-purpose integration.
+- [x] Inline declaration-driven child configuration and the general-purpose preset through policy-aware construction.
+- [ ] Declaration loading/routing and broader host integration.
 - [x] Static plan inspection, opt-in tool restrictions and in-memory reviewed sessions.
 - [x] Truthful request-only plan projection with preserved canonical history.
 - [x] Standalone scoped local plan-draft storage with atomic publication.
