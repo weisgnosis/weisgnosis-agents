@@ -4,6 +4,7 @@
 - [memory](memory/README.md)
 - [permission](permission/README.md)
 - [plan](plan/README.md)
+- [skill](skill/README.md)
 - [subagent](subagent/README.md)
 
 Package READMEs own current behavior, verification scope, and acceptance status. Planned packages are explicitly marked and are not accepted implementations.

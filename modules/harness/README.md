@@ -4,6 +4,7 @@ Standalone context and permission components built on core.
 
 | Package | Current status |
 | --- | --- |
+| [skill](src/main/scala/com/weisgnosis/agents/harness/skill/README.md) | Bounded inline SKILL.md parsing with strict required strings and exact body preservation; generic metadata/filesystem loading pending |
 | [memory](src/main/scala/com/weisgnosis/agents/harness/memory/README.md) | Pair-safe compaction, summary/user provenance, token estimation and daily extraction/local storage and atomic in-memory and recoverable local consolidation |
 | [transcript](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md) | Typed observation projection, atomic in-memory linkage, and strict scoped local persistence; remote segments pending |
 | [storage](src/main/scala/com/weisgnosis/agents/harness/storage/README.md) | Internal cooperative scoped ownership shared by memory and transcripts |
@@ -18,6 +19,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 ## Current review acceptance
 
+- [x] Both independent reviewers approved the bounded [inline skill parser](src/main/scala/com/weisgnosis/agents/harness/skill/README.md#verification-and-acceptance); three table groups and full verification passed. The package contract records exact identities and intentional profile restrictions.
 - [x] `path_review` and `current_docs` approved [opt-in admitted-tool Plan admission](src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities), including real skill loading, explicit host/policy denial and confirmation rechecks. The linked contract owns exact identities, verification and child-propagation limits.
 - [x] `path_review` approved configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved retained resource ownership, host-held sessions, bounded host session membership, fixed-session tools, directory-routed tools and policy-aware child construction, with no findings. The [subagent](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts record exact scope and reviewed identities; other packages retain their own scoped acceptance.
 - [x] `path_review` and `current_docs` approved [scoped permission composition and shared authorizer views](src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance), including confirmed-input rechecks. The opt-in SubagentConstruction path installs inherited policy; raw factories remain host-controlled.

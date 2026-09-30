@@ -23,7 +23,7 @@ Reset input is exactly an object containing `to_activate`, an array of group-nam
 Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a toolGroups setter and a defaulted field. Ordinary call sites retain prior behavior. Positional Builder patterns/Product arity change and downstream binaries must be rebuilt. This explicit dependency is not Toolkit metadata; filtering the supplied base toolkit cannot recover removed tools. Control-name collisions retain Toolkit's existing ToolExecutionError type/message. The reset result now adds a notes string; consumers that reject unknown result fields must accept it. Descriptions now reflect each request snapshot rather than static construction-time text.
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, including group/skill reminders, preloaded skills and admitted-access propagation, with no findings. Formatting and full `verify` passed in `skill-reminders-final-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
-- [ ] Next: bounded inline SKILL.md parsing. Exact Java prose, child propagation and durable activation remain separate.
+- [ ] Next: bounded host-owned local skill loading. Exact Java prose, child propagation and durable activation remain separate.
 
 | Current source/test | Git blob |
 | --- | --- |
@@ -42,7 +42,7 @@ Reset descriptions and result notes include the catalogue's pure group-binding r
 
 - [x] Both reviewers approved three new runtime groups within the eight-case ReActAgentToolGroupsSpec; [current runtime identities](#run-owned-tool-group-activation) and full verification cover union, exact content, error/denial isolation, hidden collisions, construction validation, fresh runs, fallback and content-only Auto routing.
 - [x] Actual skill-loader admission is verified through the opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission), including policy/confirmation and denial of mutating tools. The read-only flag alone grants no permission.
-- [ ] Implement filesystem/parser/repository loading, child skill allowlists, system-prompt skill injection and durable activation separately. This adapter grants no new external capabilities.
+- [ ] Implement filesystem/repository loading, generic metadata and child skill allowlists, system-prompt skill injection and durable activation separately. This adapter grants no new external capabilities.
 
 ## Fixed-argument authorization
 
