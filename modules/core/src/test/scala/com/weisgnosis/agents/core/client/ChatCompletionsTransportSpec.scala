@@ -224,7 +224,7 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
         count == 0
       )
     ,
-    test("sends a real loopback HTTP request and consumes chunked SSE"):
+    test("sends a real loopback HTTP request and consumes chunked SSE")(
       ZIO
         .scoped:
           for
@@ -253,6 +253,7 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
             sent._2.contains("Bearer loopback-key")
           )
         .provide(Client.default, Server.defaultWithPort(0))
+    ) @@ TestAspect.withLiveClock
   ) @@ TestAspect.timeout(20.seconds)
 
   private def frame(json: String): String = s"data: $json\n\n"

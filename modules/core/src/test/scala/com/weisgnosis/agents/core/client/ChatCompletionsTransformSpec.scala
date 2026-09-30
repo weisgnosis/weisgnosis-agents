@@ -121,7 +121,7 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
           )
         }
         .provide(Client.default, Server.defaultWithPort(0))
-    },
+    } @@ TestAspect.withLiveClock,
     test(
       "text replacement leaves thinking tool arguments and usage unchanged and closes before model end"
     ) {

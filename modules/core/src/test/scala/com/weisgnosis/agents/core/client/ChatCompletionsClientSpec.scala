@@ -94,7 +94,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
           events.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent])
         )
     ,
-    test("uses distinct request identities across a real HTTP tool cycle"):
+    test("uses distinct request identities across a real HTTP tool cycle")(
       ZIO
         .scoped:
           for
@@ -142,7 +142,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
             } == Chunk("answer")
           )
         .provide(Client.default, Server.defaultWithPort(0))
-    ,
+    ) @@ TestAspect.withLiveClock,
     test("buffers argument fragments until call identity exists"):
       val pending = frame(
         """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":2,"function":{"arguments":"{"}}]}}]}"""

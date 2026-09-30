@@ -16,13 +16,13 @@ An operand must not begin with a hyphen. Implicit stdin, unknown options, wrappe
 
 ## Current acceptance and identities
 
-The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs were design sketches, not implementations. Typed mode and PermissionGate admission are implemented below. In-memory plan management and host-confirmed mode transitions are implemented below; stored-session publication is implemented below; model controls are implemented below; location context is implemented below; typed workspace-relative directories are available; child propagation remains pending; standalone draft storage is described below; request-only prompt projection is implemented below. The original syntax-only increment classified no complete upstream method; the later admission increment adapts two middleware methods. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) lists all fourteen named methods, with six still pending after the directory adaptation below. The single unchanged identity from the earlier four-file grammar scope remains below; the three changed identities are preserved in 0ad16e5 and replaced in the current admission table.
+Current APIs provide typed plan admission, scoped draft/review authority, stored publication, model controls, request-only context, validated workspace-relative directories and a host-installed parent/child admission gate. Automatic nested/reused-child propagation, persistent child ownership and authenticated host routing remain separate integration work. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) retains eight bounded method adaptations and six unfinished methods; the inherited gate does not complete automatic factory or persistent spawn/send mappings. Unchanged accepted source identities are retained below, with the current gate identity in the admission table.
 
 | Source | Git blob |
 | --- | --- |
 | [PosixReadCommandSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PosixReadCommandSpec.scala) | 5010e0c6d9f880f2c6a6a4db4f34297a0dcb6fc3 |
 
-- [x] `review_fp` and `review_harness` approved the final four-file static-shell increment against `2d4094b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 461 harness tests, including ten new cases, with zero compiler warnings. No findings remain within bounded positive syntax inspection and immutable argv results. Runtime plan enforcement, process execution, path authorization and resource isolation are excluded.
+- [x] `review_fp` and `review_harness` approved the final four-file static-shell increment against `2d4094b` on 2026-09-29. No findings remain within bounded positive syntax inspection and immutable argv results. Runtime plan enforcement, process execution, path authorization and resource isolation are excluded.
 
 ## Remaining integration
 
@@ -40,9 +40,12 @@ The earlier placeholder PlanModeState/PlanModeInterceptor/PlanModeTools APIs wer
 - [x] Implement validated workspace-relative directory selection and its explicit upstream adaptation.
 - [ ] Complete remaining skill/child method parity.
 - [ ] Integrate authenticated host UI routing in the consuming application.
-- [ ] Propagate restrictions to new and reused children before admitting spawn/send tools.
+- [x] Verify a host-installed live parent/child gate through configured child execution without transferring approval authority.
+- [ ] Install restrictions automatically for nested/reused children before granting plan-mode access to their spawn/send tools.
 
-- [x] `review_docs` approved corrected static-shell documentation against `2d4094b`: four identities, ten tests, exact grammar and fourteen pending upstream methods. Full verification passed 555 core / 461 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Runtime enforcement and executor/path/sandbox authority remain explicitly outside this scope.
+Next task: complete persistent child resource ownership and session/send integration with explicit live plan gates. The persistent ownership primitive in progress is unaccepted.
+
+- [x] Retain `review_docs` acceptance of the unchanged static-shell contracts against `2d4094b`; current source identities and limitations are recorded in the associated sections.
 
 ## Dynamic plan admission
 
@@ -64,14 +67,23 @@ PlanShellInspection.inspectInput accepts exactly one JSON object field named com
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/README.md) records actual runtime evidence. The admission increment adapts two upstream middleware methods, and projection adds a third and location context adds four more; directory configuration adds an eighth; six still require skill/subagent capabilities and propagation work.
 
+### Host-installed inherited admission
+
+`PlanPermissionGate.inherited(parentMode, childMode, access)` samples the two supplied mode effects lazily on each evaluation, parent first and child second, then delegates to the same capability inspection as `make`. Either Plan sample restricts the child; only two Build samples abstain. Reads change neither PlanSession and transfer no review ticket, approval or mode-management authority. Parent Build therefore cannot release a child that is still planning. Child PlanControl tools remain bound to the child's own control and exact host reviewer.
+
+Install the returned gate explicitly in the configured child's InteractivePermissionAuthorizer. Positive confirmation rechecks both live modes and the authoritative modified input before dispatch. Mutation/unknown names remain Deny, RequestExecution remains Ask, and read/shell eligibility preserves underlying permission policy. The samples are not an atomic cross-session snapshot, and later mode changes do not revoke an already admitted execution.
+
+This is a host adapter rather than automatic factory wiring. It does not register tools, copy parent plan-directory/prompt configuration, install nested gates, grant default exemptions to `agent_spawn`, `agent_task`, `agent_cancel` or `agent_send`, or implement persistent reuse. Hosts must retain the correct live mode sources and configure every admitted child path.
+
 ## Current admission identities
 
-Final formatted eight-file increment against 0ad16e5; prior changed grammar identities are preserved in that revision.
+The table retains unchanged accepted admission identities and replaces the gate with its current reviewed revision. `current_docs` approved the gate and new configured-child integration suite on 2026-09-30 with no FP/ZIO or invariant findings. Acceptance covers lazy live mode composition, unchanged inspection semantics, independent child session/review authority and confirmation rechecks. Full `sbt scalafmtAll scalafmtSbt verify` passed 561 core and 626 harness tests (1,187 total), with zero compiler warnings or failed tests (`subagent-tools-plan-final-verify.log`). Automatic factory/reuse propagation, inherited configuration and post-admission revocation are excluded.
 
 | Source | Git blob |
 | --- | --- |
 | [PlanMode.scala](PlanMode.scala) | 8ee5910af797c790f08ac61cfa0cf7f4cf03ab38 |
-| [PlanPermissionGate.scala](PlanPermissionGate.scala) | 5d2345418158a239eca24822fbb88eb1db980017 |
+| [PlanPermissionGate.scala](PlanPermissionGate.scala) | f02b125879cc4ff6cffd005fc6dd7d5333516487 |
+| [PlanInheritedPermissionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInheritedPermissionSpec.scala) | f3ea0134c152a784c2fec24835390f9e50af3e3c |
 | [PlanShellInspection.scala](PlanShellInspection.scala) | 9bcbef0da418bba1707d018ee653ff5700045b61 |
 | [PosixReadCommand.scala](PosixReadCommand.scala) | b1279b9d804743bc8e9df9fc46f0f4fd44a4bee9 |
 | [PlanModeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanModeSpec.scala) | 269fe9cba0e22e4bfbda8735ed9d4dc7b43c1e52 |
@@ -79,9 +91,8 @@ Final formatted eight-file increment against 0ad16e5; prior changed grammar iden
 | [PlanPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionIntegrationSpec.scala) | 649c4aa0e3e07ad348e66f73ee81cad859429f3e |
 | [PlanShellInspectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanShellInspectionSpec.scala) | 06263d26f34e47b65a869298ac9d3db515d0fe7c |
 
-- [x] `review_fp` and `review_harness` approved the final eight-file plan-admission increment against `0ad16e5` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 475 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within typed mode/classification, exact command input, dynamic permission admission and actual ReAct denial/confirmation behavior. Process isolation, plan lifecycle/storage/prompts and child propagation are excluded.
-
-- [x] `review_docs` approved corrected plan-admission documentation against `0ad16e5`, including the InvalidInput migration note and stale status wording in AGENTS.md. Eight identities, fourteen new tests, two upstream adaptations and twelve pending methods are verified. Full verification passed 555 core / 475 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain in this scope.
+- [x] Retain `review_fp`, `review_harness` and `review_docs` acceptance against `0ad16e5` for unchanged typed classifications, exact command input and ordinary admission integration.
+- [x] `current_docs` approved the current gate and configured-child integration identities above, including live inherited admission without copied approval authority.
 
 ## In-memory plan-session lifecycle
 
@@ -107,9 +118,9 @@ Three unchanged identities from the five-file increment against 87b2d8b. Their e
 | [PlanSessionStateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanSessionStateSpec.scala) | 26a3059f88ed81cb695054449a03b1e85b76156e |
 | [PlanSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanSessionSpec.scala) | e9ffabb278cc8bd420cf7a7721bb69f45f6a3261 |
 
-- [x] `review_fp` and `review_harness` approved the final five-file in-memory plan-session increment against `87b2d8b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 493 harness tests, including eighteen new cases, with zero compiler warnings. No findings remain within typed snapshots, exact-ticket host review, atomic settlement, scoped cancellation and live gate integration. Paths/files, durable restoration, prompt projection and control-tool/authenticated-UI integration are excluded.
+- [x] `review_fp` and `review_harness` approved the final five-file in-memory plan-session increment against `87b2d8b` on 2026-09-29. No findings remain within typed snapshots, exact-ticket host review, atomic settlement, scoped cancellation and live gate integration. Paths/files, durable restoration, prompt projection and control-tool/authenticated-UI integration are excluded.
 
-- [x] `review_docs` approved corrected plan-session documentation against `87b2d8b`, including current baseline architecture/module summaries. Five identities, eighteen new cases and bounded 2/14 parity status are verified. Full verification passed 555 core / 493 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Projection, persistence, control tools and child propagation remain explicitly pending.
+- [x] Retain `review_docs` acceptance of the unchanged plan-session contracts against `87b2d8b`; current source identities and limitations are recorded in the associated sections.
 
 ## Request-only plan context
 
@@ -132,9 +143,9 @@ Two unchanged identities from the five-file increment against 132a81a; PlanInput
 | [PlanInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputTransformSpec.scala) | a63dee4e6d8d1258c2f020fce788f07547a2c230 |
 | [PlanInputIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputIntegrationSpec.scala) | aef817a3b44b424ce94894e4fb412d54b6753d03 |
 
-- [x] `review_fp` and `review_harness` approved the final five-file plan-input increment against `132a81a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 506 harness tests, including thirteen new cases, with zero compiler warnings. No findings remain within truthful snapshot rendering, request-only projection, final-user coalescing, preserved canonical/system/tool history and live gate authority. Files/restoration and automatic tool/UI/child integration are excluded.
+- [x] `review_fp` and `review_harness` approved the final five-file plan-input increment against `132a81a` on 2026-09-29. No findings remain within truthful snapshot rendering, request-only projection, final-user coalescing, preserved canonical/system/tool history and live gate authority. Files/restoration and automatic tool/UI/child integration are excluded.
 
-- [x] `review_docs` approved corrected projection documentation against `132a81a`: five identities, thirteen new cases, truthful scope and 3/14 parity classification. Full verification passed 555 core / 506 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Recorded-path assertions, core equality validation behavior and live permission authority remain explicit. No findings remain in this scope.
+- [x] Retain `review_docs` acceptance of the unchanged projection contracts against `132a81a`; current source identities and limitations are recorded in the associated sections.
 
 ## Standalone draft storage
 
@@ -160,9 +171,9 @@ Three unchanged identities from the nine-file increment against 083617b. AgentEr
 | [LocalPlanDraftStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/LocalPlanDraftStoreSpec.scala) | 564df5e17f6c8c0998e060aea890adcf0bed5fc7 |
 | [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | 631725c6b84598e9cc2b3641f0b33a7ec5b691bc |
 
-- [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 520 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
+- [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
 
-- [x] `review_docs` approved corrected standalone plan-storage documentation against `083617b`: nine identities, fifteen new cases, 556 core / 520 harness tests and unchanged 3/14 plan parity. All 63 Markdown files passed local-link/script checks and git diff --check passed. Session/publication integration and persisted approval remain pending; no findings remain within this scope.
+- [x] Retain `review_docs` acceptance of the unchanged standalone plan-storage contracts against `083617b`; current source identities and limitations are recorded in the associated sections.
 
 ## Stored-session publication and review
 
@@ -191,9 +202,9 @@ Four unchanged identities from the six-file increment against 2a73621; changed P
 | [PlanStoredPublicationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanStoredPublicationSpec.scala) | 3e7c47eb387816b6ece46d1224ab89fdd9a4b6ff |
 | [PlanStoredSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanStoredSessionSpec.scala) | 0fd9a44108f060d8383d65631c57cf7faff8e5e7 |
 
-- [x] `review_fp` and `review_harness` approved the final six-file stored-session increment against `2a73621` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 534 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within unapproved initialization, pre-write review invalidation, serialized mutations, cause-preserving settlement, early/late cancellation and local reopen. Saved-path evidence, durable approval, external store mutation and automatic tool/UI integration are excluded.
+- [x] `review_fp` and `review_harness` approved the final six-file stored-session increment against `2a73621` on 2026-09-29. No findings remain within unapproved initialization, pre-write review invalidation, serialized mutations, cause-preserving settlement, early/late cancellation and local reopen. Saved-path evidence, durable approval, external store mutation and automatic tool/UI integration are excluded.
 
-- [x] `review_docs` approved corrected stored-session documentation against `2a73621`: six identities, fourteen new cases, 556 core / 534 harness tests and unchanged 3/14 plan parity. Ownership, failure/cancellation limits and the widened error channel are explicit. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain in this scope.
+- [x] Retain `review_docs` acceptance of the unchanged stored-session contracts against `2a73621`; current source identities and limitations are recorded in the associated sections.
 
 ## Model-facing controls and host review delivery
 
@@ -233,9 +244,9 @@ Final formatted seven-file increment against bfca341.
 | [PlanToolsIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolsIntegrationSpec.scala) | 6977f7ece6a49a632721a56b9b7268e23ac2a3c1 |
 | [PlanToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolsSpec.scala) | f0a2f26074b60baf5dbc30b07c1ac7330fd663cd |
 
-- [x] `review_fp` and `review_harness` approved the final seven-file model-control increment against `bfca341` on 2026-09-29 after strengthening the concurrency fixture. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 549 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within strict inputs, suspended/scoped delivery, mandatory exact-ticket review, failure/cancellation handling and actual ReAct ordering under Allow/Parallel configuration. Authenticated UI transport, saved-path evidence, durable handoff and child propagation are excluded.
+- [x] `review_fp` and `review_harness` approved the final seven-file model-control increment against `bfca341` on 2026-09-29 after strengthening the concurrency fixture. No findings remain within strict inputs, suspended/scoped delivery, mandatory exact-ticket review, failure/cancellation handling and actual ReAct ordering under Allow/Parallel configuration. Authenticated UI transport, saved-path evidence, durable handoff and child propagation are excluded.
 
-- [x] `review_docs` approved corrected model-control documentation against `bfca341`: seven identities, fifteen new cases, 556 core / 549 harness tests and unchanged 3/14 plan parity. Exact-ticket review is distinguished from independent generic Ask policy; delivery and cancellation limits are explicit. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
+- [x] Retain `review_docs` acceptance of the unchanged model-control contracts against `bfca341`; current source identities and limitations are recorded in the associated sections.
 
 ## Descriptive locations and context provenance
 
@@ -266,9 +277,9 @@ Eight unchanged identities from the ten-file increment against fd496a4, includin
 | [PlanContextSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanContextSpec.scala) | 619b5e074a59bd73a70178e6e44010edaff1ed82 |
 | [PlanLocationIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanLocationIntegrationSpec.scala) | f38b42608f683db7c0b18c5c8a383e58e990a387 |
 
-- [x] `review_fp` and `review_harness` approved the final ten-file location-context increment against `fd496a4` on 2026-09-29 after reproducing and fixing supplementary Unicode FORMAT validation. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 563 harness tests, including fourteen new cases, with zero compiler warnings. No findings remain within validated descriptive locations, canonical local metadata, single-snapshot context, provenance wording and four explicit manager/prompt adaptations. Continuous file revalidation, approval restoration, arbitrary third-party store truthfulness and legacy workspace-relative slash rebasing are excluded.
+- [x] `review_fp` and `review_harness` approved the final ten-file location-context increment against `fd496a4` on 2026-09-29 after reproducing and fixing supplementary Unicode FORMAT validation. No findings remain within validated descriptive locations, canonical local metadata, single-snapshot context, provenance wording and four explicit manager/prompt adaptations. Continuous file revalidation, approval restoration, arbitrary third-party store truthfulness and legacy workspace-relative slash rebasing are excluded.
 
-- [x] `review_docs` approved corrected location-context documentation against `fd496a4`: ten identities, fourteen new cases, 556 core / 563 harness tests and seven of fourteen plan methods adapted. Metadata/provenance limits, Unicode validation and retired identity references are explicit; custom-directory rebasing, skills and child propagation remain pending. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
+- [x] Retain `review_docs` acceptance of the unchanged location-context contracts against `fd496a4`; current source identities and limitations are recorded in the associated sections.
 
 ## Workspace-relative plan directories
 
@@ -278,7 +289,7 @@ Eight unchanged identities from the ten-file increment against fd496a4, includin
 
 Both entry points share the same canonical directory lease, fixed PLAN.md publication and descriptive location. Competing opens are denied in either direction; use after scope closure fails. Hosts must create the selected directory and protect the workspace, candidate and their ancestors under HostControlled ownership. Canonical checks are not race-free isolation against hostile mutation; privileged dynamic symlink/junction fixtures remain separate platform validation. These changes restore no approval and grant no child capability.
 
-The explicit customPlanDirNormalised adaptation now brings the named inventory to eight of fourteen. Directory normalization is stricter than the upstream string helper and requires existing directories. Skill and child runtime integration remain pending.
+The explicit customPlanDirNormalised adaptation now brings the named inventory to eight of fourteen. Directory normalization is stricter than the upstream string helper and requires existing directories. Skill integration and automatic child/reuse wiring remain pending.
 
 ## Current directory identities
 
@@ -293,6 +304,6 @@ Final formatted six-file increment against f147a99, including the reproduced bou
 | [PlanWorkspaceStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanWorkspaceStoreSpec.scala) | fd907878d89368b10bcd75c9483941b8d964a27c |
 | [PlanDraftFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDraftFilesSpec.scala) | 2123dde5a64c716a5e76df7a1d0cfaba208361a2 |
 
-- [x] `review_fp` and `review_harness` approved the final six-file directory increment against `f147a99` on 2026-09-29 after reproducing and correcting boundary control normalization. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 575 harness tests, including twelve new cases, with zero compiler warnings. No findings remain within validated logical directory selection, canonical strict containment, shared ownership and the explicit manager-method adaptation. Directory creation, hostile mutation isolation, dynamic privileged link fixtures and child propagation are excluded.
+- [x] `review_fp` and `review_harness` approved the final six-file directory increment against `f147a99` on 2026-09-29 after reproducing and correcting boundary control normalization. No findings remain within validated logical directory selection, canonical strict containment, shared ownership and the explicit manager-method adaptation. Directory creation, hostile mutation isolation, dynamic privileged link fixtures and child propagation are excluded.
 
-- [x] `review_docs` approved corrected directory documentation against `f147a99`: six identities, twelve new cases, 556 core / 575 harness tests and eight of fourteen named plan adaptations. Strict normalization, existing-directory requirements and unchanged native Path semantics are explicit. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
+- [x] Retain `review_docs` acceptance of the unchanged directory contracts against `f147a99`; current source identities and limitations are recorded in the associated sections.

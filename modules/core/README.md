@@ -18,7 +18,8 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 ## Current review acceptance
 
 - [x] `path_review` approved the advisory command-screening correction and regressions for FP/ZIO correctness and relevant invariants. The [tool README](src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) records exact source/test blobs and the lexical helper's limits.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 609 harness tests, zero compiler warnings or failures (`resumed-implementation-verify.log`).
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 626 harness tests, zero compiler warnings or failures (`subagent-tools-plan-final-verify.log`).
+- [x] `path_review` approved live clocks for the three real HTTP fixtures, preserving scoped cleanup and 20-second timeouts. Exact identities and repeated verification are in the [client test contract](src/test/scala/com/weisgnosis/agents/core/client/README.md#real-http-fixture-clocks).
 - [x] Existing model, event, client, agent and tool contracts retain their scoped independent acceptance and source identities in the package READMEs above.
 - [ ] Complete remaining provider, event, lifecycle and upstream parity work in the [tracker](../../docs/architecture/tracker.md).
 

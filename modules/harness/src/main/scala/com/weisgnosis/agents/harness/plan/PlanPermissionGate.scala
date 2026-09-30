@@ -21,6 +21,23 @@ import zio.json.ast.Json
 
 /** Admission restriction only; mode changes do not revoke already admitted execution. */
 object PlanPermissionGate:
+  /**
+   * Host-installed child admission adapter: either live Plan mode restricts the child.
+   * Reads do not change either session or transfer review authority. Hosts must install this gate
+   * explicitly; it does not configure nested factories or persistent reuse. The two samples are
+   * not an atomic snapshot, and later mode changes do not revoke already admitted execution.
+   */
+  def inherited(
+      parentMode: UIO[PlanMode],
+      childMode: UIO[PlanMode],
+      access: Map[String, PlanToolAccess]
+  ): PermissionGate =
+    val mode =
+      parentMode.zipWith(childMode):
+        case (PlanMode.Plan, _) | (_, PlanMode.Plan) => PlanMode.Plan
+        case (PlanMode.Build, PlanMode.Build)        => PlanMode.Build
+    make(mode, access)
+
   def make(mode: UIO[PlanMode], access: Map[String, PlanToolAccess]): PermissionGate =
     PermissionGate: (name, input) =>
       mode.map:

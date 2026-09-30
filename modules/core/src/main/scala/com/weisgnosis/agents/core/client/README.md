@@ -123,7 +123,7 @@ Final formatted source identities against `06bd2e1`:
 
 ## Text transformation increment identities
 
-Final formatted scope against `02b4654`:
+Unchanged production contracts retain acceptance against `02b4654`. The current real HTTP fixture clock revision is independently approved by `path_review`; its scope and verification are in the [test contract](../../../../../../../test/scala/com/weisgnosis/agents/core/client/README.md#real-http-fixture-clocks).
 
 | File | Git blob |
 | --- | --- |
@@ -131,7 +131,7 @@ Final formatted scope against `02b4654`:
 | [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | dacaa56e30fc478e607a1e0b87dc944ac34d63e9 |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | 4823ebe434672fb6f4c41896f858ee7b262a0420 |
 | [ModelTextTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelTextTransformSpec.scala) | dcdd1fef54fb9dd166171ce5b21682a9019a4fe3 |
-| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | 09974c740c421438bd5b9ef21e3ec4e999464823 |
+| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | 396f6d75c01bcaac54750a0d5df97c219a4b8c31 |
 
 The ReActAgent capability identity is preserved in `02b4654`, and the AgentError text-transformation identity in `2a400e0`. Their subsequent post-reasoning changes have current identities in the [agent acceptance](../agent/README.md).
 

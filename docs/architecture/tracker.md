@@ -4,8 +4,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 ## Current acceptance
 
-- [x] Current reviewed scope includes PathSafety screening, configured factory/static filtering and bounded registry/polling (`path_review`), plus live parent-denial inheritance (`current_docs`). The reviewers approved FP/ZIO correctness and relevant invariants at the exact source/test identities in the [tool contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) and [subagent contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 618 harness tests (1,179 total), zero compiler warnings or failures. Local evidence: `registry-policy-verify.log`.
+- [x] Current reviewed scope includes PathSafety screening, configured factory/static filtering and bounded registry/polling and model-facing task tools (`path_review`), plus live parent-denial inheritance and inherited plan admission (`current_docs`). The reviewers approved FP/ZIO correctness and relevant invariants at the exact source/test identities in the [tool contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 626 harness tests (1,187 total), zero compiler warnings or failures. Local evidence: `subagent-tools-plan-final-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; maintain method mappings and explicit exclusions in the [parity audit](test-parity.md).
 - [x] Close the reproduced PathSafety recursive-command and argument-substring defects with lexical warning semantics and bounded regressions; this helper is not shell parsing or execution authorization.
 - [x] Verify configured child construction, monotone final tool filtering, preserved authorizers and scoped resource cleanup; map the two ManagedSubagentBoundary methods as bounded static adaptations.
@@ -36,20 +36,23 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] Bounded task registry with lookup, waiting/promotion, cancellation and completed-record removal; registry closure cancels and joins promoted work. Capacity bounds records, not retained result bytes.
 - [x] Optional live parent-denial inheritance preserves child policy and rereads parent rules against approved input; external parent gates and atomic post-decision revocation are excluded.
 
+- [x] Opt-in model-facing `agent_spawn`, `agent_task` and `agent_cancel`, bound to one configured registry, with strict inputs, bounded result projection and joined cancellation.
+- [x] Host-installed inherited plan gate: either parent or child Plan mode restricts execution, including confirmation rechecks, without copying approval state.
+
 The host installs these capabilities explicitly. It owns background supervisor scopes, trusted filesystem ancestors, authenticated approval delivery, provider settings and operational monitoring. Durable approval values are not a durable resume implementation. Root distribution and retained raw spawner capabilities remain trusted-host responsibilities.
 
 ## Immediate next work
 
-- [ ] Implement model-facing spawn, inspect and cancel tools using the retained narrowed factory/registry capability. Strict inputs, task-result projection and cancellation must preserve runtime authority.
-- [ ] Implement live plan restrictions for new and reused children without copying approval authority; current parent-denial inheritance covers the supplied PermissionEngine rules only.
-- [ ] Implement persistent child reuse, send/session ownership and correlated event routing with explicit host lifetime and retention contracts.
+- [ ] Complete supervisor-owned persistent resource leases with final independent review and verification. This prerequisite is in progress and outside current acceptance.
+- [ ] Build child sessions, persistent reuse and send on that ownership contract, preserving narrowed factories and current parent denial/plan restrictions for every invocation.
+- [ ] Install inherited policy automatically for nested/reused children, then add correlated event routing with explicit lifetime and retention contracts.
 
-The accepted factory and registry use host-supplied callbacks and process-local authority. They do not add declaration parsing, durable restart recovery or automatic inheritance through raw spawner callbacks. Hosts control capability distribution and completed-record retention.
+The accepted factory, registry, task tools and plan adapter use host-selected process-local capabilities. They do not add declaration parsing, durable restart recovery or automatic inheritance through raw spawner callbacks. Hosts control capability distribution and completed-record retention.
 
 ## Remaining integration and parity
 
 - [ ] Complete applicable core/harness method mappings and remaining structured-output, lifecycle and event-ordering gaps, including native structured/incremental local tool results, provider signature/tool metadata, event adapters, phase-stop integration and richer subagent attribution.
-- [ ] Complete remaining plan adaptations, including skills and supervised child propagation; current plan inventory is eight adapted / six pending methods.
+- [ ] Complete remaining plan adaptations, including skills and automatic declared/general-purpose/reused-child propagation; the host-installed inherited gate does not close those whole methods. Current plan inventory is eight adapted / six pending methods.
 - [ ] Implement durable host persistence and authenticated, idempotent resumption from `ConfirmResult` without another model request.
 - [ ] Complete model-selection configuration, remote memory/transcript adapters, timestamp-watermark migration, session discovery and scheduling.
 - [ ] Validate platform-specific symlink/junction behavior and provide a secure storage backend if untrusted workspace support is required. Canonical checks are not an atomic filesystem sandbox; crash/fsync durability and hostile mutation isolation are not claimed.

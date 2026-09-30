@@ -1,6 +1,6 @@
 # Scoped child execution verification
 
-The [current contracts and acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md) define the accepted supervisor, lineage, configured-factory, bounded-registry and live parent-denial scopes. Persistent child reuse, inherited plan restrictions and model-facing spawn/send remain pending.
+The [current contracts and acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md) define accepted supervision, lineage, configured construction, bounded registry, live parent denial and model-facing task controls. The separate inherited-plan adapter is verified through actual configured children; automatic nested/reused-child installation, persistent ownership and send remain pending.
 
 ## Current suites
 
@@ -13,6 +13,8 @@ The [current contracts and acceptance](../../../../../../../main/scala/com/weisg
 | [SubagentToolBoundarySpec](SubagentToolBoundarySpec.scala) | Selection/denial intersections across three generations and JSON round trips, plus deterministic malformed-key and excluded-collision rejection. |
 | [SubagentFactorySpec](SubagentFactorySpec.scala) | Model-visible final inherited/automatic filtering with attempted forbidden dispatch, derived factory narrowing, fresh configured history with effective injected authorization, lazy/invalid/closed construction, actual descendant spawn/depth rejection, success/failure resource cleanup, and cleanup-joining cancellation during registration, client acquisition and execution. Three inherited-denial scenarios exercise child-policy independence and argument near-misses, live policy/modified-confirmation rechecks, and fail-closed defects versus interruption with cleanup on either parent-policy read. |
 | [SubagentTaskRegistrySpec](SubagentTaskRegistrySpec.scala) | Six scenarios cover concurrent bounded admission and fresh filtered children, retained terminal capacity and explicit forgetting, collision/instance isolation, complete failure/defect/interruption snapshots, caller cancellation and promoted retention, parallel shutdown with closed-caller admission, and rejected depth/capacity/closed-supervisor construction. |
+| [SubagentToolsSpec](SubagentToolsSpec.scala) | Five scenarios cover a parent ReAct calling the fixed filtered child, same-execution promotion and cleanup-joining cancellation without new model requests, strict inputs/missing IDs, bounded result and failure projections, and caller cancellation with scoped child cleanup. |
+| [PlanInheritedPermissionSpec](../plan/PlanInheritedPermissionSpec.scala) | Three configured-child scenarios verify parent Plan restrictions with child-owned controls, child Plan retention until its own exact review, and live parent/modified-input rechecks during confirmation. |
 
 AgentErrorSpec verifies the depth diagnostic and codec. Factory and boundary scenarios use table-driven cases for distinct selection and resource phases. No tests execute external commands or use a real model.
 
@@ -31,17 +33,21 @@ The source comparison uses `agentscope-java` revision `f98a685fdc4589f81e626e168
 
 These bounded adaptations are reviewed and verified at the recorded source identities. `declarationCanDisableParentDenyInheritance` remains pending declaration integration; a host's choice not to install the wrapper does not complete that method. `persistentReuseAndAgentSendAddCurrentParentDenyWithoutDuplicates` remains pending: registry submission creates fresh children, and live policy replacement does not accumulate historical denials. No complete upstream permissions-suite or model-facing spawn/send parity is claimed.
 
+`AgentSpawnToolPromotionTest.innerTimeoutPromotesToAdoptedTaskRunSpec` has supporting tool-level evidence for a retained task ID, one continuing execution and later inspection/cancellation. The Scala adapter uses a fixed 30-second budget and the existing supervisor/registry; it does not implement Java external repository adoption or configurable timeout/force-sync modes. `AgentSpawnToolOrphanCancelTest.orphanAgentInterruptedOnParentCancel` has a scoped ownership adaptation: cancelling the actual spawn invocation joins child cleanup without detaching a continuing worker. Correlated child event forwarding remains outside these tests. The plan package's bounded parent/child gate evidence does not close the automatic declared/general-purpose or persistent spawn/send plan methods.
+
 ## Acceptance and remaining checks
 
-On 2026-09-30, `path_review` approved the final registry/polling scope and `current_docs` approved the final inherited-denial factory scope with no findings. The [main acceptance record](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) records their exact source/test identities and the retained static-boundary identities. Full `sbt scalafmtAll scalafmtSbt verify` passed 561 core and 618 harness tests (1,179 total), with zero compiler warnings or failed tests (`registry-policy-verify.log`). This evidence covers current execution, ownership, static capability and live-denial contracts, not the remaining declaration, persistent-reuse or model-tool integrations.
+On 2026-09-30, `path_review` approved the final task-control source/test scope and `current_docs` approved the inherited-plan adapter and integration tests with no findings. The [main acceptance record](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan admission identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities) record exact current and retained identities. Full `sbt scalafmtAll scalafmtSbt verify` passed 561 core and 626 harness tests (1,187 total), with zero compiler warnings or failed tests (`subagent-tools-plan-final-verify.log`). The in-progress persistent resource-ownership primitive is outside this accepted scope.
 
 - [x] Verify supervisor/runtime integration and lineage/error contracts.
 - [x] Verify and independently approve configured-factory/static-boundary scenarios and the two bounded upstream adaptations at the recorded identities.
 - [x] Verify and independently approve bounded registry admission, retention, inspection, caller leases and scoped shutdown.
 - [x] Verify and independently approve live parent-denial checks before authorization and after confirmation without copying approval authority.
-- [ ] Verify persistent reuse and actual model-facing spawn/send entry points when implemented.
+- [x] Verify actual model-facing spawn/inspect/cancel entry points, bounded observations and scoped caller cancellation.
+- [x] Verify opt-in inherited Plan admission with child-owned controls and review authority.
+- [ ] Verify persistent runtime ownership, reuse and send entry points when implemented.
 - [ ] Verify declared/general-purpose/reused-child plan propagation.
 - [ ] Verify correlated child event forwarding and automatic source attribution.
 - [ ] Complete remaining applicable upstream method mappings after those APIs exist.
 
-Next task: verify model-facing spawn, inspection and cancellation through the registry. Preserve current static and live permission boundaries; inherited plan restrictions and persistent reuse require their own integration evidence.
+Next task: verify persistent child resource ownership, then session reuse and send while preserving current static and live permission boundaries. The ownership primitive in progress remains unaccepted.

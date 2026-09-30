@@ -26,7 +26,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [x] Thirteen StreamAccumulatorCompletionSpec regressions cover required finish markers, malformed/non-object/trailing tool arguments, interrupted sanitization, raw content, deferred/stable identity, duplicate IDs, interleaved indexes, signed blocks, usage snapshots, and post-finish rejection.
 - [x] JsonBoundarySpec verifies six complete-document/duplicate/escape/numeric/direct-AST scenarios without effects.
 - [x] Existing accumulator scenarios and two ReAct thinking-retry integration tests now handle Either and explicit successful finish markers.
-- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 557 core and 601 harness tests with zero compiler warnings.
+- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 561 core and 626 harness tests with zero compiler warnings or failures on 2026-09-30.
 - [x] Fourteen transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
 - [x] Six live-client tests verify early deltas, real HTTP tool cycles, request identity, late call identity, malformed/incomplete streams, and cancellation.
 - [x] Three publisher tests verify indexed content, interleaved calls, and atomic ending-batch validation; two event-context tests cover all sixteen correlated variants and legacy payloads.
@@ -36,12 +36,12 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
 - [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the unchanged JSON-boundary identities from that scope; current capability identities are listed below. No findings remain within this scope.
-- [x] Full formatting, fatal-warning compilation, and verification passed 557 core and 601 harness tests.
+- [x] `path_review` approved the three real HTTP fixtures at the identities below. Only those fixtures use `TestAspect.withLiveClock`; deterministic fixtures retain TestClock and suite timeouts remain 20 seconds.
 - [ ] Complete provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, incremental/structured local tool output, and exhaustive upstream mapping.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
 
-- [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.
+- [x] Unchanged capability contracts retain `review_fp` and `review_harness` acceptance against `06bd2e1`; current source identities are linked below.
 
 The [client capability table](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) records unchanged capability identities; commit `02b4654` preserves all five identities from that increment.
 
@@ -49,8 +49,20 @@ The [client capability table](../../../../../../../main/scala/com/weisgnosis/age
 
 Four ModelTextTransformSpec tests cover identity, suspended ordered composition with stable context/index, typed fail-fast behavior, and compile-time exclusion of provider ModelError. Nine ChatCompletionsTransformSpec tests cover the real HTTP fenced-JSON scenario, unchanged thinking/tools/usage, scoped cleanup, malformed-frame and post-finish rejection before callbacks, transform failure, cooperative cancellation, strict transformed JSON, missing completion, and no Auto retry after an explicitly mapped host transformation error. The latter regression failed before narrowing the callback error channel. The HTTP scenario checks transformed deltas/end, finalized text/metadata/history, usage, and runtime context together.
 
-- [x] `review_fp` and `review_harness` approved the final seven-file text-transformation increment against `02b4654` on 2026-09-29 after the fallback-provenance correction. No findings remain within this scope. Full formatting, fatal-warning compilation, and verification passed 434 core and 40 harness tests.
+- [x] Unchanged text-transformation contracts retain `review_fp` and `review_harness` acceptance against `02b4654`; the real HTTP fixture's clock change is accepted below.
 
 The [client contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) distinguish original diagnostic frames from transformed visible text and retain general middleware as pending work.
 
-AgentErrorSpec verifies the new error codec and diagnostic message; the complete increment adds fourteen tests across these three suites.
+AgentErrorSpec verifies the text-transformation error codec and diagnostic message.
+
+## Real HTTP fixture clocks
+
+Real loopback client/server acquisition, use and release run with a live clock. zio-http 3.11.3 server shutdown polls active requests on a timed schedule; using an unadvanced TestClock can strand that cleanup. This path matches the reproduced transport timeout and TestClock warning in `subagent-tools-plan-verify.log`; that run did not capture a fiber stack. Scoped cleanup and existing assertions are unchanged.
+
+`path_review` approved this three-file fixture scope for FP/ZIO lifecycle correctness with no findings. Five selected HTTP scenarios, including all three real loopback fixtures, passed twice before the complete verification in `subagent-tools-plan-final-verify.log`. These runs do not establish exhaustive scheduling coverage.
+
+| Reviewed fixture suite | Git blob |
+| --- | --- |
+| [ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala) | `1aee5a644a169f297b38d9a93e65ed1ab9f9485e` |
+| [ChatCompletionsClientSpec](ChatCompletionsClientSpec.scala) | `f3c52d5d5ff2ef59361a03cc46f6e6268e7c45a0` |
+| [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | `396f6d75c01bcaac54750a0d5df97c219a4b8c31` |
