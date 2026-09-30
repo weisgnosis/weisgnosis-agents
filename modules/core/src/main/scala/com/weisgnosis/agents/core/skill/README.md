@@ -15,7 +15,8 @@ validateGroups checks the supplied current ToolGroups value: every target must e
 
 The [runtime adapter](../agent/README.md#preloaded-skills) performs ordinary authorization and invocation-owned group activation; its current source/spec acceptance is separate.
 
-- [ ] Next: actual harness Plan admission for the runtime skill loader. The read-only flag alone does not establish that integration.
+- [x] The opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission) verifies actual runtime loader admission with ordinary permission and confirmation policy.
+- [ ] Next: skill-to-group reminder projection. Automatic child propagation remains separate.
 - [ ] Keep filesystem discovery, skill reminders and durable activation outside this bounded preloaded contract.
 
 The whitespace-path regression failed against unchanged source `189b8e8a907b9addd034f2d104dfebc0a1385b68` with spec `483032c253f236de22f2abe74c4abc930d5d9b3f`: make accepted the resource key `" "` instead of returning InvalidConfiguration. `skill-catalog-whitespace-red.log` records the direct assertion failure. The log records two passing groups and one failing group in 193 ms. The correction rejects whole-path blanks and preserves the nonblank spaced-name control; both reviewers approved the corrected scope and full verification passed.

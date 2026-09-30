@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.tool
 
+import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.model.ContentBlock
 import zio.*
@@ -40,20 +41,41 @@ object ToolAuthorizerSpec extends ZIOSpecDefault:
         denied.toJson.fromJson[ToolAuthorization] == Right(denied)
       )
     },
-    test("default authorization preserves input and callback invocation is lazy") {
+    test("legacy and lambda decisions remain lazy and delegate unchanged with admitted access") {
       for
         calls <- Ref.make(0)
         authorizer = ToolAuthorizer(value =>
           calls.update(_ + 1).as(ToolAuthorization.Approved(value.call.input))
         )
         effect = authorizer.authorize(request)
-        before   <- calls.get
-        approved <- ZIO.scoped(effect)
-        after    <- calls.get
-        default  <- ZIO.scoped(ToolAuthorizer.allow.authorize(request))
+        before      <- calls.get
+        approved    <- ZIO.scoped(effect)
+        after       <- calls.get
+        default     <- ZIO.scoped(ToolAuthorizer.allow.authorize(request))
+        legacyCalls <- Ref.make(Chunk.empty[ToolAuthorizationRequest])
+        legacy = new ToolAuthorizer:
+          def authorize(
+              value: ToolAuthorizationRequest
+          ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization] =
+            legacyCalls.update(_ :+ value).as(ToolAuthorization.Approved(value.call.input))
+        accesses = Chunk[Option[AdmittedToolAccess]](
+          None,
+          Some(AdmittedToolAccess.ReadOnly),
+          Some(AdmittedToolAccess.Mutating)
+        )
+        delegated <- ZIO.scoped(
+          ZIO.foreach(accesses)(access =>
+            authorizer.authorize(request, access).zip(legacy.authorize(request, access))
+          )
+        )
+        legacyObserved <- legacyCalls.get
+        finalCalls     <- calls.get
       yield assertTrue(
         before == 0,
         after == 1,
+        finalCalls == 4,
+        legacyObserved == Chunk.fill(3)(request),
+        delegated == Chunk.fill(3)(default -> default),
         approved == default,
         default == ToolAuthorization.Approved(request.call.input)
       )

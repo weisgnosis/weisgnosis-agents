@@ -16,7 +16,7 @@ An operand must not begin with a hyphen. Implicit stdin, unknown options, wrappe
 
 ## Current acceptance and identities
 
-Current APIs provide typed plan admission, scoped draft/review authority, stored publication, model controls, request-only context, validated workspace-relative directories and a host-installed parent/child admission gate. The [subagent package](../subagent/README.md#reusable-child-sessions) retains installed live gates across host-held session turns. Automatic nested/reused-child installation and authenticated host routing remain separate integration work. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) retains eight bounded method adaptations and six unfinished methods; the inherited gate does not complete automatic factory or persistent spawn/send mappings. Unchanged accepted source identities are retained below, with the current gate identity in the admission table.
+Current APIs provide typed plan admission, scoped draft/review authority, stored publication, model controls, request-only context, validated workspace-relative directories and a host-installed parent/child admission gate. The [subagent package](../subagent/README.md#reusable-child-sessions) retains installed live gates across host-held session turns. Automatic nested/reused-child installation and authenticated host routing remain separate integration work. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) retains nine bounded method adaptations and five unfinished methods; the inherited gate does not complete automatic factory or persistent spawn/send mappings. Unchanged accepted source identities are retained below, with the current gate identity in the admission table.
 
 | Source | Git blob |
 | --- | --- |
@@ -38,7 +38,7 @@ Current APIs provide typed plan admission, scoped draft/review authority, stored
 - [x] Implement strict model-facing controls and exact-ticket confirmed exit through an explicit publisher.
 - [x] Add descriptive configured/observed locations and request-context projection.
 - [x] Implement validated workspace-relative directory selection and its explicit upstream adaptation.
-- [ ] Complete remaining skill/child method parity.
+- [ ] Complete remaining child installation/propagation method parity.
 - [ ] Integrate authenticated host UI routing in the consuming application.
 - [x] Verify a host-installed live parent/child gate through configured child execution without transferring approval authority.
 - [ ] Install restrictions automatically for nested/reused children before granting plan-mode access to their spawn/send tools.
@@ -50,6 +50,10 @@ Next task: integrate session routing and automatic child installation with expli
 ## Dynamic plan admission
 
 [PlanMode](PlanMode.scala) distinguishes Build and Plan. The host supplies a suspended UIO[PlanMode] and an immutable exact-name Map[String, PlanToolAccess] to [PlanPermissionGate.make](PlanPermissionGate.scala). Construction samples no state; each evaluation samples current mode once. PlanSession below provides in-memory mode authority; this package does not durably persist mode or automatically register control tools. Model metadata and arguments cannot grant a registry classification.
+
+`PlanPermissionGate.withAdmittedTools(mode, access = Map.empty)` opts into the actual runtime tool snapshot. Explicit host classifications always win, including constrained shell/Plan controls. Otherwise ReadOnly abstains and Mutating or absent evidence denies in Plan. Build still abstains. ReAct derives AdmittedToolAccess from the resolved Tool.isReadOnly accessor inside the suspended authorization boundary, rather than from ToolDef flags or model JSON. This is trusted local evidence, not a serialized approval capability. The installed skill loader can therefore run under ordinary policy while newly activated mutating tools remain denied.
+
+The same evidence survives gate composition and positive-confirmation rechecks; input and live mode/policy are read again. Existing make/inherited gates retain their explicit closed maps. Legacy wrappers ignore the new argument unless they opt into forwarding; current SubagentFactory wrapping does not carry it. Automatic child metadata propagation and full declared/reused-child Plan installation remain pending. See the [permission migration contract](../permission/README.md#gate-and-confirmation-semantics).
 
 | Mode / classification | Gate decision |
 | --- | --- |
@@ -65,7 +69,7 @@ Install this gate as InteractivePermissionAuthorizer's interceptorGate, or as on
 
 PlanShellInspection.inspectInput accepts exactly one JSON object field named command with a string value. Missing, duplicate, nonstring and extra fields all produce InvalidInput. The same boundary must be used by a host command executor, consuming the resulting program/argv without shell re-parsing. Raw cached tool content is not inspected instead of authoritative input. Migration: existing inspect(String) behavior is unchanged. ShellRejection now includes InvalidInput for the new envelope boundary; consumers with exhaustive matches or serialized-case handling must support that additional variant. Build mode leaves normal tool-schema/input validation to the host/runtime. Static eligibility still supplies no filesystem/process authority; all executor responsibilities above remain applicable.
 
-The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/README.md) records actual runtime evidence. The admission increment adapts two upstream middleware methods, and projection adds a third and location context adds four more; directory configuration adds an eighth; six still require skill/subagent capabilities and propagation work.
+The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/README.md) records actual runtime evidence. The admission increment adapts two upstream middleware methods, and projection adds a third and location context adds four more; directory configuration and skill-loader admission bring the inventory to nine adaptations; five still require child installation/propagation work.
 
 ### Host-installed inherited admission
 
@@ -77,22 +81,22 @@ This is a host adapter rather than automatic factory wiring. It does not registe
 
 ## Current admission identities
 
-The table retains unchanged accepted admission identities and replaces the gate with its current reviewed revision. `current_docs` approved the gate and new configured-child integration suite on 2026-09-30 with no FP/ZIO or invariant findings. Acceptance covers lazy live mode composition, unchanged inspection semantics, independent child session/review authority and confirmation rechecks. Full `sbt scalafmtAll scalafmtSbt verify` passed 561 core and 626 harness tests (1,187 total), with zero compiler warnings or failed tests (`subagent-tools-plan-final-verify.log`). Automatic factory/reuse propagation, inherited configuration and post-admission revocation are excluded.
+`path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current gate and two changed admission suites, with no findings. The scope covers opt-in admitted-tool fallback, explicit host precedence, actual skill loading followed by mutation denial, model spoof rejection and confirmation rechecks retaining evidence while sampling live mode. Unchanged inherited admission retains its acceptance. Full `scalafmtAll scalafmtSbt verify` passed with zero compiler warnings or failed tests (`plan-admission-verify.log`); current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Automatic child metadata forwarding, full factory/reuse installation and post-admission revocation are excluded.
 
 | Source | Git blob |
 | --- | --- |
 | [PlanMode.scala](PlanMode.scala) | 8ee5910af797c790f08ac61cfa0cf7f4cf03ab38 |
-| [PlanPermissionGate.scala](PlanPermissionGate.scala) | f02b125879cc4ff6cffd005fc6dd7d5333516487 |
+| [PlanPermissionGate.scala](PlanPermissionGate.scala) | b56772173cf6027f441a5adbc8b5cb352856f2d4 |
 | [PlanInheritedPermissionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInheritedPermissionSpec.scala) | f3ea0134c152a784c2fec24835390f9e50af3e3c |
 | [PlanShellInspection.scala](PlanShellInspection.scala) | 9bcbef0da418bba1707d018ee653ff5700045b61 |
 | [PosixReadCommand.scala](PosixReadCommand.scala) | b1279b9d804743bc8e9df9fc46f0f4fd44a4bee9 |
 | [PlanModeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanModeSpec.scala) | 269fe9cba0e22e4bfbda8735ed9d4dc7b43c1e52 |
-| [PlanPermissionGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionGateSpec.scala) | 89d9dbadbe1a0b47e9a4c927dfd87ee437d53222 |
-| [PlanPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionIntegrationSpec.scala) | 649c4aa0e3e07ad348e66f73ee81cad859429f3e |
+| [PlanPermissionGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionGateSpec.scala) | ae9f03e2d791c575d0703986401a3d1addc83cbe |
+| [PlanPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionIntegrationSpec.scala) | aa81b48245b831a8bcf3a798547cb364933124e7 |
 | [PlanShellInspectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanShellInspectionSpec.scala) | 06263d26f34e47b65a869298ac9d3db515d0fe7c |
 
 - [x] Retain `review_fp`, `review_harness` and `review_docs` acceptance against `0ad16e5` for unchanged typed classifications, exact command input and ordinary admission integration.
-- [x] `current_docs` approved the current gate and configured-child integration identities above, including live inherited admission without copied approval authority.
+- [x] Both reviewers approved the current opt-in gate and admission suites; unchanged configured-child integration retains its reviewed identity above.
 
 ## In-memory plan-session lifecycle
 
@@ -159,7 +163,7 @@ Lease acquisition refuses live and stale owners without deleting their token. Af
 
 AgentError.PlanStorageError distinguishes plan I/O, invalid stored content and ownership/closed-handle failures. Path policy continues to use PermissionDenied. Existing memory/transcript owner errors remain MemoryStorageError. Migration: exhaustive matches on the sealed AgentError hierarchy must include PlanStorageError; its individual JSON codec is derived. This does not make finalizer defects ordinary typed failures.
 
-The standalone backend itself changes no session state; the stored-session integration below connects publication to PlanSession. Opt-in model-facing controls are implemented below; location-aware prompts are implemented below; restoration of session mode/approval remains pending. No additional complete upstream method is claimed: the current inventory has eight adaptations and six pending methods after the location evidence below.
+The standalone backend itself changes no session state; the stored-session integration below connects publication to PlanSession. Opt-in model-facing controls are implemented below; location-aware prompts are implemented below; restoration of session mode/approval remains pending. No additional complete upstream method is claimed: the current inventory has nine adaptations and five pending methods; see the parity inventory.
 
 ## Current draft-storage identities
 
@@ -228,7 +232,7 @@ Publisher failure closes the scope and cancels only a still-current request. Int
 
 The same controls work with make and stored sessions. In-memory DraftReplaced does not claim disk persistence. Stored failures become Error observations and leave no reviewable draft according to the stored-session contract. Integration tests use a real local store, normal permission admission and Parallel agent configuration, with only the plan controls requiring sequential batch execution. They verify assistant persistence before actions, a denied mutation before review, exact host approve/decline, subsequent live gate behavior and ordered result history/events.
 
-This is an explicit adaptation of the pinned PlanModeTools implementation: strict total input replaces coercion, separate exact-ticket review replaces an unversioned generic permission exit, and typed observations replace path claims. The control increment alone closes no additional named method; location context below adds four adaptations. The current inventory has eight adaptations and six pending methods for skills and child propagation.
+This is an explicit adaptation of the pinned PlanModeTools implementation: strict total input replaces coercion, separate exact-ticket review replaces an unversioned generic permission exit, and typed observations replace path claims. The control increment alone closes no additional named method; location context below adds four adaptations. The current inventory has nine adaptations and five pending methods for child installation and propagation.
 
 ## Current model-control identities
 

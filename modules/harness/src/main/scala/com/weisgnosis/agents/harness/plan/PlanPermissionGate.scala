@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.harness.plan
 
 import com.weisgnosis.agents.harness.permission.{PermissionBehavior, PermissionGate}
+import com.weisgnosis.agents.core.tool.AdmittedToolAccess
 import zio.*
 import zio.json.ast.Json
 
@@ -43,6 +44,30 @@ object PlanPermissionGate:
       mode.map:
         case PlanMode.Build => None
         case PlanMode.Plan  => inspect(access.get(name), input)
+
+  /** Explicit host classifications win; otherwise inspect the runtime's admitted tool snapshot. */
+  def withAdmittedTools(
+      mode: UIO[PlanMode],
+      access: Map[String, PlanToolAccess] = Map.empty
+  ): PermissionGate = new PermissionGate:
+    def evaluate(toolName: String, input: Json): UIO[Option[PermissionBehavior]] =
+      evaluate(toolName, input, None)
+
+    override def evaluate(
+        toolName: String,
+        input: Json,
+        admittedAccess: Option[AdmittedToolAccess]
+    ): UIO[Option[PermissionBehavior]] =
+      mode.map:
+        case PlanMode.Build => None
+        case PlanMode.Plan =>
+          val classified = access
+            .get(toolName)
+            .orElse(admittedAccess.map {
+              case AdmittedToolAccess.ReadOnly => PlanToolAccess.ReadOnly
+              case AdmittedToolAccess.Mutating => PlanToolAccess.Mutation
+            })
+          inspect(classified, input)
 
   private def inspect(access: Option[PlanToolAccess], input: Json): Option[PermissionBehavior] =
     access match

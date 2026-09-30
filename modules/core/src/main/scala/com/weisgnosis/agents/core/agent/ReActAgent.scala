@@ -1122,11 +1122,17 @@ final class ReActAgent private (
         for
           requestId <- Random.nextUUID.map(_.toString)
           result <- ZIO.scoped(
-            ZIO.suspendSucceed(
+            ZIO.suspendSucceed:
+              val admittedAccess = toolkit
+                .resolve(call.name)
+                .map(tool =>
+                  if tool.isReadOnly then AdmittedToolAccess.ReadOnly
+                  else AdmittedToolAccess.Mutating
+                )
               toolAuthorizer.authorize(
-                ToolAuthorizationRequest(requestId, context, withToolInput(call, preparedInput))
+                ToolAuthorizationRequest(requestId, context, withToolInput(call, preparedInput)),
+                admittedAccess
               )
-            )
           )
         yield result match
           case ToolAuthorization.Approved(input) =>

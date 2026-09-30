@@ -16,7 +16,8 @@ Removing groups or membership reports `newlyUngrouped` names alongside the next 
 - [x] Formatting and full `verify` passed in `tool-group-notes-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals.
 The runtime installs an optional [run-owned activation adapter](../agent/README.md#run-owned-tool-group-activation) over this foundation.
 
-- [ ] Next: actual harness Plan admission for the runtime skill loader. Durable activation remains separate work.
+- [x] Opt-in [harness Plan admission](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission) consumes the runtime admitted-access view.
+- [ ] Next: skill-to-group reminder projection. Durable activation and automatic child propagation remain separate work.
 
 Group data/enums use derived codecs; decoding does not bypass checked registration. Immutable values replace Java builders and defensive copying, and null contracts are not reproduced. Unknown activation/membership groups fail atomically rather than following upstream permissive or partially applied paths. The pure activeNotes/metaNotes accessors are additive; no existing Tool or Toolkit signature changes. Runtime note output has the [adapter migration](../agent/README.md#run-owned-tool-group-activation).
 
@@ -103,7 +104,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 - [x] Independent FP/ZIO and invariant reviewer `path_review` approved the advisory command-screening fix and regressions: source blob `3d7a102d03c47719271ad2e4ba791af81247170e`, test blob `981212ee32c51cf92d12d844f4fe5a7403f70b78`. All eight focused tests pass.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed execution payloads, state admission, runtime control protection and compound-cause preservation. Both approved this scope with no findings; unchanged component identities are below, and current Tool/Toolkit identities are in [fixed raw arguments](#fixed-raw-arguments), and current ReActAgent identity is in [run-owned activation](../agent/README.md#run-owned-tool-group-activation).
 - [x] Full formatting, fatal-warning compilation and verification passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
-- [x] Existing processor contracts below retain their scoped acceptance and unchanged implementations. Current authorization acceptance belongs to [fixed raw arguments](#fixed-raw-arguments).
+- [x] Existing processor contracts below retain their scoped acceptance and unchanged implementations. Authorization acceptance is scoped by [fixed raw arguments](#fixed-raw-arguments) and [admitted tool access](#admitted-tool-access).
 
 | Typed-result source/test | Reviewed Git blob |
 | --- | --- |
@@ -128,6 +129,21 @@ Tool execution can return completed typed payloads. A processor can replace thei
 Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. Processor values are runtime dependencies, not serialized agent configuration.
 
 
+## Admitted tool access
+
+`AdmittedToolAccess.ReadOnly | Mutating` is transient host/runtime metadata with no codec. The additive concrete `authorize(request, admittedAccess: Option[AdmittedToolAccess])` overload delegates to the original abstract single-argument method by default. ToolAuthorizationRequest and its JSON shape, lambda construction and existing request/decision codecs are unchanged.
+
+ReAct resolves the tool from the same admitted Toolkit used for the request batch and samples its actual Tool.isReadOnly accessor, including host overrides; it does not trust the definition flag or model metadata. Missing tools provide None. Sampling and overload invocation stay inside the suspended authorization decision boundary, preserving existing defect/interruption handling and ownership. Fixed preparation, approval validation and dispatch ordering are unchanged.
+
+Custom authorizers compile without implementing the overload. To consume or forward the metadata they must override it explicitly; legacy wrappers, including SubagentFactory's authorizer composition, otherwise delegate through the old method. Automatic child propagation is unfinished. Rebuild dependent binaries; source compatibility is not a binary compatibility claim. The opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission) combines this view with existing permission policy and confirmation rather than treating read-only as an Allow decision.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the two identities below and the linked [runtime integration](../agent/README.md#run-owned-tool-group-activation), with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `plan-admission-verify.log`, with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ToolAuthorizer.scala](ToolAuthorizer.scala) | `b23c9d8b5da9c80708187d760395dda26519ae91` |
+| [ToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | `1144e20023c7ebe8cfc021ec577afeae92696e94` |
+
 ## Scoped local authorization
 
 ReActAgent.make and Builder.toolAuthorizer accept a ToolAuthorizer, defaulting explicitly to allow for compatibility. Installing a host authorizer is necessary to enforce permission policy. ToolAuthorizationRequest contains a fresh approval UUID, the originating ModelStreamContext, and the call with framework-fixed arguments prepared before authorization. ToolAuthorization exposes Approved(input) or Denied(reason); identity, name, metadata, and execution authority are not replaceable decision fields. Requests and decisions have derived codecs, but serialization alone grants no execution authority.
@@ -145,4 +161,4 @@ Appending the optional make argument preserves ordinary calls; positional Builde
 
 The optional [interactive harness adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md) owns policy lifetime and approval callbacks; the core remains independent of harness dependencies.
 
-Current authorization source/spec identities are in [fixed raw arguments](#fixed-raw-arguments); separate runtime/processor contracts remain in the [agent README](../agent/README.md).
+Current authorizer-port identities are in [admitted tool access](#admitted-tool-access); unchanged fixed-argument evidence is in [fixed raw arguments](#fixed-raw-arguments); separate runtime/processor contracts remain in the [agent README](../agent/README.md).

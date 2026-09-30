@@ -12,7 +12,7 @@ The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/
 - [x] Enqueue optional outbound cancellation only for interrupted issued requests whose abandonment wins, excluding initialize; bounded connection-owned delivery has no acknowledgement.
 - [x] Explicit host-controlled metadata propagation through registered tools has final FP/ZIO and invariant approval; both omission gates, restricted identity and effectful resolver cleanup are verified.
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
-- [ ] Next: actual harness Plan admission for the runtime skill loader; fixed arguments and model-overridable defaults remain distinct. General I/O recovery, session reinitialization and durable integration remain unfinished.
+- [ ] Next: pure skill-to-group reminder projection from explicit catalogue bindings; opt-in Plan admission is accepted. General I/O recovery, session reinitialization and durable integration remain unfinished.
 - [x] MCP grouped registration provides coherent Ready-only toolkit/membership snapshots; the host explicitly installs both fields into ReAct.
 - [x] Preloaded skill resources activate explicit Meta groups through ordinary authorized runtime loading, with no filesystem or repository capability.
 - [ ] Skill Plan admission, child propagation, ambient metadata propagation, caching, schema evaluation and reconnect remain separate integrations.

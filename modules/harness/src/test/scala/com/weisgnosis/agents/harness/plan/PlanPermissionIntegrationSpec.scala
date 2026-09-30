@@ -20,6 +20,7 @@ import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.AgentEvent
 import com.weisgnosis.agents.core.model.*
+import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
 import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.harness.permission.*
 import zio.*
@@ -27,10 +28,40 @@ import zio.json.ast.Json
 import zio.test.*
 
 object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
+  private enum SkillAdmission:
+    case RuntimeAccess, HostMutation, PolicyDenied
+
   private val allow: PermissionEngine = PermissionEngine(
     Chunk(PermissionRule("*", PermissionBehavior.Allow))
   )
   private val input: Json = Json.Obj("command" -> Json.Str("pwd"))
+
+  private def observeAccess(
+      observed: Ref[Chunk[(Json, Option[AdmittedToolAccess])]]
+  ): PermissionGate =
+    new PermissionGate:
+      def evaluate(name: String, input: Json): UIO[Option[PermissionBehavior]] =
+        evaluate(name, input, None)
+      override def evaluate(
+          name: String,
+          input: Json,
+          admitted: Option[AdmittedToolAccess]
+      ): UIO[Option[PermissionBehavior]] =
+        observed.update(_ :+ (input -> admitted)).as(None)
+
+  /** Deliberately disagree with definition flags to check the actual admitted Tool accessor. */
+  private def overriddenTool(
+      name: String,
+      access: AdmittedToolAccess,
+      executed: Ref[Chunk[String]]
+  ): Tool[Any, Json, String] =
+    new Tool[Any, Json, String]:
+      def definition: ToolDef =
+        ToolDef(name, "Host tool", Json.Obj(), isReadOnly = access == AdmittedToolAccess.Mutating)
+      override def isReadOnly: Boolean                 = access == AdmittedToolAccess.ReadOnly
+      def decodeInput(raw: Json): Either[String, Json] = Right(raw)
+      def execute(input: Json): UIO[String]            = executed.update(_ :+ name).as("ok")
+      def encodeOutput(out: String): String            = out
 
   private def toolkit(names: Chunk[String], run: (String, Json) => UIO[String]): Toolkit =
     Toolkit(
@@ -62,6 +93,108 @@ object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
     yield agent
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("PlanPermissionIntegrationSpec")(
+    test(
+      "Plan admits the installed skill reader while retaining host denials and actual tool access"
+    ) {
+      for outcomes <- ZIO.foreach(Chunk.fromIterable(SkillAdmission.values)): scenario =>
+          for
+            requests <- PermissionRequests.make
+            mode     <- Ref.make(PlanMode.Plan)
+            executed <- Ref.make(Chunk.empty[String])
+            observed <- Ref.make(Chunk.empty[Chunk[String]])
+            groups <- ZIO.fromEither(
+              ToolGroups.empty.register(
+                ToolGroup(
+                  "skill",
+                  "Skill tools",
+                  ToolGroupActivation.Inactive,
+                  tools = Set("read", "write")
+                )
+              )
+            )
+            skills <- ZIO.fromEither(
+              SkillCatalog.make(
+                Chunk(
+                  SkillDefinition("guide", "Guide", "Instructions", activateGroups = Set("skill"))
+                )
+              )
+            )
+            base <- ZIO.fromEither(
+              Toolkit(
+                overriddenTool("read", AdmittedToolAccess.ReadOnly, executed),
+                overriddenTool("write", AdmittedToolAccess.Mutating, executed)
+              )
+            )
+            hostAccess = scenario match
+              case SkillAdmission.HostMutation =>
+                Map(SkillCatalog.LoadToolName -> PlanToolAccess.Mutation)
+              case _ => Map.empty[String, PlanToolAccess]
+            policy = scenario match
+              case SkillAdmission.PolicyDenied =>
+                PermissionEngine(Chunk(PermissionRule("*", PermissionBehavior.Deny)))
+              case _ => allow
+            authorizer <- InteractivePermissionAuthorizer.make(requests, _ => ZIO.unit, policy)
+            guarded = authorizer.withAdditionalGate(
+              PlanPermissionGate.withAdmittedTools(mode.get, hostAccess).and(PermissionGate.abstain)
+            )
+            model = LlmClient.mockEffectful((_, definitions, _) =>
+              observed.modify(current => current.size -> (current :+ definitions.map(_.name))).map {
+                case 0 =>
+                  TurnOutput.ToolCalls(
+                    Msg.assistant(
+                      Chunk(
+                        ContentBlock.ToolUse(
+                          "load",
+                          SkillCatalog.LoadToolName,
+                          Json.Obj("skillId" -> Json.Str("guide"), "path" -> Json.Str("SKILL.md"))
+                        )
+                      )
+                    )
+                  )
+                case 1 if scenario == SkillAdmission.RuntimeAccess =>
+                  TurnOutput.ToolCalls(
+                    Msg.assistant(
+                      Chunk(
+                        ContentBlock.ToolUse("read", "read", Json.Obj()),
+                        ContentBlock.ToolUse(
+                          "write",
+                          "write",
+                          Json.Obj("isReadOnly" -> Json.Bool(true)),
+                          metadata = Map("isReadOnly" -> Json.Bool(true))
+                        )
+                      )
+                    )
+                  )
+                case _ => TurnOutput.FinalText(Msg.assistant("done"))
+              }
+            )
+            runtime <- ReActAgent.make(
+              client = model,
+              toolkit = base,
+              toolGroups = Some(groups),
+              skills = skills,
+              toolAuthorizer = guarded
+            )
+            result      <- runtime.run(Msg.user("investigate the skill"))
+            actual      <- executed.get
+            definitions <- observed.get
+            expected = scenario match
+              case SkillAdmission.RuntimeAccess =>
+                Chunk(ToolResultState.Success, ToolResultState.Success, ToolResultState.Denied)
+              case _ => Chunk(ToolResultState.Denied)
+          yield result.history.flatMap(_.toolResults).map(_.state) == expected &&
+            actual == (if scenario == SkillAdmission.RuntimeAccess then Chunk("read")
+                       else Chunk.empty) &&
+            definitions.headOption.contains(
+              Chunk(SkillCatalog.LoadToolName, "reset_equipped_tools")
+            ) &&
+            definitions
+              .drop(1)
+              .forall(names =>
+                names.contains("write") == (scenario == SkillAdmission.RuntimeAccess)
+              )
+      yield assertTrue(outcomes.forall(identity))
+    },
     test(
       "active plan restrictions persist and stream denied observations while forwarding read and limited plan capabilities"
     ) {
@@ -157,11 +290,13 @@ object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
           for
             requests <- PermissionRequests.make
             executed <- Ref.make(Chunk.empty[Json])
+            admitted <- Ref.make(Chunk.empty[(Json, Option[AdmittedToolAccess])])
             authorizer <- InteractivePermissionAuthorizer.make(
               requests,
               request =>
                 requests.resolve(request.requestId, ConfirmResult(true, Some(replacement))).unit,
-              interceptorGate = PlanPermissionGate.make(
+              toolGate = observeAccess(admitted),
+              interceptorGate = PlanPermissionGate.withAdmittedTools(
                 ZIO.succeed(PlanMode.Plan),
                 Map("inspect" -> PlanToolAccess.PosixReadCommand)
               )
@@ -173,10 +308,15 @@ object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
               toolkit(Chunk("inspect"), (_, value) => executed.update(_ :+ value).as("ok")),
               authorizer
             )
-            _       <- runtime.run(Msg.user("inspect"))
-            history <- runtime.history
-            actual  <- executed.get
+            _        <- runtime.run(Msg.user("inspect"))
+            history  <- runtime.history
+            actual   <- executed.get
+            evidence <- admitted.get
           yield history.flatMap(_.toolResults).map(_.state) == Chunk(expected) &&
+            evidence == Chunk(
+              input       -> Some(AdmittedToolAccess.Mutating),
+              replacement -> Some(AdmittedToolAccess.Mutating)
+            ) &&
             actual == (if expected == ToolResultState.Success then Chunk(replacement)
                        else Chunk.empty)
       yield assertTrue(outcomes.forall(identity))
@@ -190,8 +330,7 @@ object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
         authorizer <- InteractivePermissionAuthorizer.make(
           requests,
           request => published.offer(request).unit,
-          interceptorGate =
-            PlanPermissionGate.make(mode.get, Map("write" -> PlanToolAccess.Mutation))
+          interceptorGate = PlanPermissionGate.withAdmittedTools(mode.get)
         )
         runtime <- agent(
           Chunk(ContentBlock.ToolUse("write", "write", Json.Obj())),

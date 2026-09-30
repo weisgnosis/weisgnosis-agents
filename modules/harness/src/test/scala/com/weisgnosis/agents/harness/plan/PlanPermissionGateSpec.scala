@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.harness.plan
 
 import com.weisgnosis.agents.harness.permission.*
+import com.weisgnosis.agents.core.tool.AdmittedToolAccess
 import zio.*
 import zio.json.ast.Json
 import zio.test.*
@@ -31,6 +32,38 @@ object PlanPermissionGateSpec extends ZIOSpecDefault:
   private val input: Json = Json.Obj("command" -> Json.Str("pwd"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("PlanPermissionGateSpec")(
+    test(
+      "admitted-tool fallback is explicit and never overrides host classifications or missing evidence"
+    ) {
+      val gate   = PlanPermissionGate.withAdmittedTools(ZIO.succeed(PlanMode.Plan), access)
+      val legacy = PlanPermissionGate.make(ZIO.succeed(PlanMode.Plan), access)
+      val cases = Chunk(
+        ("unknown", None, Some(PermissionBehavior.Deny)),
+        ("unknown", Some(AdmittedToolAccess.ReadOnly), None),
+        ("unknown", Some(AdmittedToolAccess.Mutating), Some(PermissionBehavior.Deny)),
+        ("write", Some(AdmittedToolAccess.ReadOnly), Some(PermissionBehavior.Deny)),
+        ("read", Some(AdmittedToolAccess.Mutating), None),
+        ("plan_write", Some(AdmittedToolAccess.Mutating), None),
+        ("plan_exit", Some(AdmittedToolAccess.ReadOnly), Some(PermissionBehavior.Ask))
+      )
+      for
+        decisions <- ZIO.foreach(cases)((name, admitted, expected) =>
+          gate.evaluate(name, input, admitted).map(_ == expected)
+        )
+        old    <- legacy.evaluate("unknown", input, Some(AdmittedToolAccess.ReadOnly))
+        direct <- gate.evaluate("unknown", Json.Obj("isReadOnly" -> Json.Bool(true)))
+        syntax <- gate.evaluate(
+          "inspect",
+          Json.Obj("command" -> Json.Str("cat file > out")),
+          Some(AdmittedToolAccess.ReadOnly)
+        )
+      yield assertTrue(
+        decisions.forall(identity),
+        old.contains(PermissionBehavior.Deny),
+        direct.contains(PermissionBehavior.Deny),
+        syntax.contains(PermissionBehavior.Deny)
+      )
+    },
     test(
       "Plan abstains for eligible capabilities asks for execution requests and denies mutation or unknown names"
     ) {

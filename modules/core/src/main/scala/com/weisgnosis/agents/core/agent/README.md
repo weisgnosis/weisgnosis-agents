@@ -22,12 +22,12 @@ Reset input is exactly an object containing `to_activate`, an array of group-nam
 
 Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a toolGroups setter and a defaulted field. Ordinary call sites retain prior behavior. Positional Builder patterns/Product arity change and downstream binaries must be rebuilt. This explicit dependency is not Toolkit metadata; filtering the supplied base toolkit cannot recover removed tools. Control-name collisions retain Toolkit's existing ToolExecutionError type/message. The reset result now adds a notes string; consumers that reject unknown result fields must accept it. Descriptions now reflect each request snapshot rather than static construction-time text.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, including group notes and the preloaded-skill integration, with no findings. Formatting and full `verify` passed in `skill-runtime-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
-- [ ] Next: actual harness Plan admission for the runtime skill loader. Exact Java prose and durable activation remain separate.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, including group notes, preloaded skills and admitted-access propagation, with no findings. Formatting and full `verify` passed in `plan-admission-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
+- [ ] Next: skill-to-group reminder projection. Exact Java prose, child propagation and durable activation remain separate.
 
 | Current source/test | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | `a7ac3288b6adf318e8b1f20972fdd78ef40e421e` |
+| [ReActAgent.scala](ReActAgent.scala) | `7250cf7c7e4c8a5c2caec91fad8b817ab23c71a0` |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `679f6d58aa6adfe4df52cb698c5ef746e0945302` |
 
 ## Preloaded skills
@@ -39,7 +39,7 @@ A nonempty catalogue installs the protected `load_skill_through_path` control af
 The loader is read-only and concurrency-unsafe, uses ordinary authorization and forces sequential batch dispatch. Successful lookup atomically unions the skill's explicit Meta targets with currently active Meta groups while preserving External state, then returns the exact resource content. Existing request/batch snapshots keep new tools unavailable until the next model request. Load and reset controls stay available after filtering; activation shares native-to-synthetic fallback state and resets on the next public run. A content-only catalogue still contributes a control to structured Auto capability routing.
 
 - [x] Both reviewers approved three new runtime groups within the eight-case ReActAgentToolGroupsSpec; [current runtime identities](#run-owned-tool-group-activation) and full verification cover union, exact content, error/denial isolation, hidden collisions, construction validation, fresh runs, fallback and content-only Auto routing.
-- [ ] Verify actual harness Plan admission next. isReadOnly alone does not close the upstream Plan middleware contract.
+- [x] Actual skill-loader admission is verified through the opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission), including policy/confirmation and denial of mutating tools. The read-only flag alone grants no permission.
 - [ ] Implement filesystem/parser/repository loading, child skill allowlists, skill-specific notes/reminders and durable activation separately. This adapter grants no new external capabilities.
 
 ## Fixed-argument authorization
@@ -186,7 +186,7 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 ## Authorization before local execution
 
-The optional ToolAuthorizer runs after assistant persistence and fixed-argument preparation, before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs carrying either provider reasoning metadata key are denied. Non-interrupted failures and defects fail closed to Denied observations. Interrupted compound causes preserve interruption and cleanup defects; cancellation preserves completed work and reconciles unresolved calls. Matched inline results bypass the gate. See the [tool contracts](../tool/README.md) for argument provenance, scope ownership, failure semantics, migration, and exact current identities. The default allows calls; the harness InteractivePermissionAuthorizer provides opt-in policy/interactive confirmation. Durable approval resumption remains pending.
+The optional ToolAuthorizer receives [transient admitted access](../tool/README.md#admitted-tool-access), sampled from the resolved Tool.isReadOnly accessor in the same admitted Toolkit inside the suspended decision boundary. Missing tools provide None; model input cannot supply this metadata. Legacy wrappers must override the additive overload to forward it, so automatic child propagation remains pending. It runs after assistant persistence and fixed-argument preparation, before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs carrying either provider reasoning metadata key are denied. Non-interrupted failures and defects fail closed to Denied observations. Interrupted compound causes preserve interruption and cleanup defects; cancellation preserves completed work and reconciles unresolved calls. Matched inline results bypass the gate. See the [tool contracts](../tool/README.md) for argument provenance, scope ownership, failure semantics, migration, and exact current identities. The default allows calls; the harness InteractivePermissionAuthorizer provides opt-in policy/interactive confirmation. Durable approval resumption remains pending.
 
 - [x] `path_review` and `current_docs` approved fixed-argument authorization and compound-cause preservation with no findings; full verification passed. The [scoped fixed-argument acceptance](../tool/README.md#fixed-raw-arguments) records exact identities and evidence. Durable policy adapters remain separate.
 

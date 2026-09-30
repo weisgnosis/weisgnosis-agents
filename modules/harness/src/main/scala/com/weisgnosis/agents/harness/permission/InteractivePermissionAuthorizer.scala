@@ -17,7 +17,12 @@ package com.weisgnosis.agents.harness.permission
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.ContentBlock
-import com.weisgnosis.agents.core.tool.{ToolAuthorization, ToolAuthorizationRequest, ToolAuthorizer}
+import com.weisgnosis.agents.core.tool.{
+  AdmittedToolAccess,
+  ToolAuthorization,
+  ToolAuthorizationRequest,
+  ToolAuthorizer
+}
 import zio.*
 
 /** Interactive approval within one invocation; authenticated delivery and durable state belong to the host. */
@@ -45,9 +50,14 @@ final class InteractivePermissionAuthorizer private (
 
   def authorize(
       request: ToolAuthorizationRequest
+  ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization] = authorize(request, None)
+
+  override def authorize(
+      request: ToolAuthorizationRequest,
+      admittedAccess: Option[AdmittedToolAccess]
   ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization] =
     for
-      gates   <- evaluateGates(request.call)
+      gates   <- evaluateGates(request.call, admittedAccess)
       current <- policyRef.get
       decision <- current.authorize(
         request.requestId,
@@ -58,12 +68,13 @@ final class InteractivePermissionAuthorizer private (
         case PermissionOutcome.Approved(call) => ZIO.succeed(ToolAuthorization.Approved(call.input))
         case PermissionOutcome.Denied(_, reason) => ZIO.succeed(ToolAuthorization.Denied(reason))
         case PermissionOutcome.AwaitingApproval(pending) =>
-          confirm(request, pending)
+          confirm(request, pending, admittedAccess)
     yield decision
 
   private def confirm(
       request: ToolAuthorizationRequest,
-      pending: PendingApproval
+      pending: PendingApproval,
+      admittedAccess: Option[AdmittedToolAccess]
   ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization] =
     for
       confirmation <- requests
@@ -81,7 +92,7 @@ final class InteractivePermissionAuthorizer private (
           val approvedCall =
             pending.call.copy(input = confirmation.modifiedInput.getOrElse(pending.call.input))
           for
-            gates <- evaluateGates(approvedCall)
+            gates <- evaluateGates(approvedCall, admittedAccess)
             decision <- policyRef.modify { current =>
               val (updated, resumed) = current.resume(pending, confirmation)
               val outcome = resumed match
@@ -103,11 +114,16 @@ final class InteractivePermissionAuthorizer private (
     yield decision
 
   private def evaluateGates(
-      call: ContentBlock.ToolUse
+      call: ContentBlock.ToolUse,
+      admittedAccess: Option[AdmittedToolAccess]
   ): IO[AgentError.PermissionDenied, GateDecisions] =
     for
-      tool        <- ZIO.scoped(ZIO.suspendSucceed(toolGate.evaluate(call.name, call.input)))
-      interceptor <- ZIO.scoped(ZIO.suspendSucceed(interceptorGate.evaluate(call.name, call.input)))
+      tool <- ZIO.scoped(
+        ZIO.suspendSucceed(toolGate.evaluate(call.name, call.input, admittedAccess))
+      )
+      interceptor <- ZIO.scoped(
+        ZIO.suspendSucceed(interceptorGate.evaluate(call.name, call.input, admittedAccess))
+      )
     yield GateDecisions(tool, interceptor)
 
   final private case class GateDecisions(

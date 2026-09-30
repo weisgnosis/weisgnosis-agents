@@ -16,6 +16,8 @@
 package com.weisgnosis.agents.harness.permission
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.tool.AdmittedToolAccess
+import scala.annotation.unused
 import zio.*
 import zio.json.ast.Json
 
@@ -26,20 +28,41 @@ trait PermissionGate:
       input: Json
   ): ZIO[Scope, AgentError.PermissionDenied, Option[PermissionBehavior]]
 
+  /** Transient runtime evidence; legacy gates retain their explicit host configuration. */
+  def evaluate(
+      toolName: String,
+      input: Json,
+      @unused admittedAccess: Option[AdmittedToolAccess]
+  ): ZIO[Scope, AgentError.PermissionDenied, Option[PermissionBehavior]] = evaluate(toolName, input)
+
   /**
    * Evaluate both votes in separate scopes, including after a Deny vote; None abstains.
    * Failed evaluation or cleanup stops composition and preserves its cause.
    */
   def and(that: PermissionGate): PermissionGate =
-    PermissionGate: (name, input) =>
-      for
-        first  <- ZIO.scoped(ZIO.suspendSucceed(evaluate(name, input)))
-        second <- ZIO.scoped(ZIO.suspendSucceed(that.evaluate(name, input)))
-      yield (first, second) match
-        case (Some(left), Some(right)) => Some(PermissionBehavior.combine(left, right))
-        case (Some(left), None)        => Some(left)
-        case (None, Some(right))       => Some(right)
-        case (None, None)              => None
+    val firstGate = this
+    new PermissionGate:
+      def evaluate(
+          toolName: String,
+          input: Json
+      ): ZIO[Scope, AgentError.PermissionDenied, Option[PermissionBehavior]] =
+        evaluate(toolName, input, None)
+
+      override def evaluate(
+          toolName: String,
+          input: Json,
+          admittedAccess: Option[AdmittedToolAccess]
+      ): ZIO[Scope, AgentError.PermissionDenied, Option[PermissionBehavior]] =
+        for
+          first <- ZIO.scoped(
+            ZIO.suspendSucceed(firstGate.evaluate(toolName, input, admittedAccess))
+          )
+          second <- ZIO.scoped(ZIO.suspendSucceed(that.evaluate(toolName, input, admittedAccess)))
+        yield (first, second) match
+          case (Some(left), Some(right)) => Some(PermissionBehavior.combine(left, right))
+          case (Some(left), None)        => Some(left)
+          case (None, Some(right))       => Some(right)
+          case (None, None)              => None
 
 object PermissionGate:
   val abstain: PermissionGate = PermissionGate((_, _) => ZIO.none)

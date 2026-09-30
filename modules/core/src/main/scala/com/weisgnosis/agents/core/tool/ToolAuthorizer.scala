@@ -18,6 +18,7 @@ package com.weisgnosis.agents.core.tool
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.model.ContentBlock
+import scala.annotation.unused
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -33,11 +34,21 @@ enum ToolAuthorization derives JsonCodec:
   case Approved(input: Json)
   case Denied(reason: String)
 
+/** Transient access metadata from the admitted host tool, never from request JSON. */
+enum AdmittedToolAccess:
+  case ReadOnly, Mutating
+
 /** A scoped decision before local execution; call identity and execution remain runtime-owned. */
 trait ToolAuthorizer:
   def authorize(
       request: ToolAuthorizationRequest
   ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization]
+
+  /** Existing implementations keep their single-argument decision unless they opt into this view. */
+  def authorize(
+      request: ToolAuthorizationRequest,
+      @unused admittedAccess: Option[AdmittedToolAccess]
+  ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization] = authorize(request)
 
 object ToolAuthorizer:
   val allow: ToolAuthorizer =

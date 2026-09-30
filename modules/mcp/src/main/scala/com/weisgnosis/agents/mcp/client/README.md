@@ -39,7 +39,7 @@ Custom managers inherit an ungrouped installation from their existing toolkit an
 | [McpClientManager.scala](McpClientManager.scala) | `7e940e964c3c99755d510aaddf27a9d3f8adef1c` |
 | [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `c3e0580c997e5e078850710f2f14083bab4b63c6` |
 
-- [ ] Next: actual harness Plan admission for the runtime skill loader. Ambient metadata, discovery caching and durable activation remain separate.
+- [ ] Complete ambient metadata, discovery caching and durable activation separately.
 
 ## Initialized client contract
 
@@ -131,8 +131,7 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
 - [x] Install host-selected groups coherently with Ready tool snapshots; current manager source/spec acceptance is in [grouped installation](#grouped-installation).
-- [ ] Next: actual harness Plan admission for the runtime skill loader; fixed arguments and model-overridable defaults remain distinct.
-- [ ] Define skill Plan admission, child propagation, ambient metadata propagation, broader schema transformation and discovery caching separately.
+- [ ] Define child propagation, ambient metadata propagation, broader schema transformation and discovery caching separately.
 Manager/ReAct grouped installation is covered here; manual binding and metadata integration also have tool-package tests; the stdio contract records real-process initialization/list/call coverage.
 
 These tests establish local concurrency and ownership contracts using controlled message ports. AgentScope Java delegates wire/request machinery to MCP Java SDK 0.17.2; wrapper listTools, callTool and close behaviors remain separate integration mappings. No complete MCP revision or whole-wrapper parity is claimed. MCP 2026-07-28 has a different lifecycle without initialize; it is not implemented by the selected older payload helpers.

@@ -14,13 +14,13 @@ These ZIO Test suites cover selected upstream scenarios and Scala regressions. T
 | [ToolDefSpec](ToolDefSpec.scala) | Legacy absent/null optional schema decoding, None omission and object/boolean AST round-trips |
 | [ToolkitSpec](ToolkitSpec.scala) | Immutable registration and dispatch |
 | [ToolResultProcessorSpec](ToolResultProcessorSpec.scala) | Payload codecs, protected control keys and suspended composition |
-| [ToolAuthorizerSpec](ToolAuthorizerSpec.scala) | Decision codecs, lazy policies and error-channel separation |
+| [ToolAuthorizerSpec](ToolAuthorizerSpec.scala) | Decision codecs, lazy legacy/lambda delegation with absent/read-only/mutating admitted access, and error-channel separation |
 
 The descriptive output-schema contract and exact reviewed identities are in the [source acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas). Some(Json.Null) is intentionally not a presence-preserving codec value.
 
 The [host-selected group contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#host-selected-tool-groups) owns current group identities and verification. Actual model calls see only selected definitions; a model-invented inactive call cannot dispatch, while active and ungrouped tools execute. Removal tests explicitly show reactivation after last-membership loss, not revocation.
 
-Runtime integration lives in the [agent suites](../agent/README.md). See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for remaining mappings.
+The [admitted-access contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#admitted-tool-access) owns current authorizer identities and approval. Its existing compatibility group verifies default overload delegation without changing request JSON; harness tests establish actual Plan integration. Runtime integration lives in the [agent suites](../agent/README.md). See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for remaining mappings.
 
 ## Invocation capability evidence
 

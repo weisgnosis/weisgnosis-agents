@@ -8,8 +8,8 @@
 
 The three composition additions reuse the existing priority and authorization coverage: optional votes with ordered release, typed/defect/interrupted cleanup that skips later evaluation, and an added-gate view using the same confirmation authority with modified-input denial. Run `sbt "harness / test"` or repository-wide `sbt verify`.
 
-- [x] `path_review` and `current_docs` approved the four changed source/test identities in the [permission contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance), with no unresolved findings.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed 561 core and 648 harness tests (1,209 total), zero compiler warnings or failures (`permission-composition-verify.log`).
+- [x] `path_review` and `current_docs` approved current gate/authorizer metadata forwarding and the retained composition suites in the [permission contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance), with no unresolved findings.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed with zero compiler warnings or failures (`plan-admission-verify.log`). Actual metadata forwarding through both composition positions and confirmed-input rechecks is covered by [PlanPermissionIntegrationSpec](../plan/PlanPermissionIntegrationSpec.scala).
 - [x] [SubagentConstructionSpec](../subagent/SubagentConstructionSpec.scala) verifies opt-in inherited-policy installation in actual nested and reused child runtimes.
 - [ ] Complete remaining upstream two-call confirmation, authenticated transport and durable resumption behavior in the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md).
 
