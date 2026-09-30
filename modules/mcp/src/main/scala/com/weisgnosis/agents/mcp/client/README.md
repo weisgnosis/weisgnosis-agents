@@ -8,6 +8,8 @@
 
 Registration publishes the complete client/tool set atomically after capacity and collision checks. `maxClients` counts Pending, Ready and Removing entries; published tool names and count remain reserved through removal. Discovery counts every returned definition against `maxTools`; remote duplicates are not deduplicated, and selected local names must be unique. `toolkit: UIO[Toolkit]` returns the current immutable snapshot and `names: UIO[Chunk[String]]` exposes Ready registrations only. `remove(name): UIO[McpClientRemoval]` returns Removed or Missing after joined cleanup; `close: UIO[Unit]` joins manager cleanup. Previously returned snapshots retain their original bindings, whose calls fail after removal rather than routing to a later registration with the same name.
 
+`registerBindings(name, acquire, maxPages, select)` selects `Option[McpToolBinding]`, pairing ToolDef with an explicit metadata policy. It uses the same ownership and atomic-publication kernel as register. Selecting metadata runs no resolver: the effect runs only at tool invocation if the fixed binding and live client restriction allow it. A later selector failure releases acquired resources and publishes no partial binding set. See the [metadata contract](../tool/README.md#explicit-request-metadata).
+
 The acquisition must place owned transport resources in its supplied scope. The manager closes the returned client before releasing those resources. Registering an externally initialized client does not extend its original lifetime, and registration still authorizes the manager to close it. Copying a Toolkit snapshot never transfers ownership. Acquisitions, selectors and owned finalizers must not remove their own registration or close their manager, because closure joins that work.
 
 This accepted scope does not include presets, groups, ambient metadata propagation, schema rewriting/evaluation, discovery caches or notification invalidation. It does not make discovery an atomic server snapshot or broaden the client's selected 2025-06-18 protocol support. The verification section records exact accepted identities; the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded upstream adaptations and intentional differences.
@@ -20,6 +22,7 @@ This accepted scope does not include presets, groups, ambient metadata propagati
 
 - `open(transport, clientInfo, deadline = 30.seconds)` creates an owned connection in the caller's scope. The host acquires the transport first. The deadline must be positive and finite; invalid values start no reader. Initialization advertises empty optional client capabilities, requires the exact selected revision, and publishes the client only after `notifications/initialized` finishes sending. Failed or interrupted initialization closes and joins the connection immediately.
 - `initialization` exposes checked server information and capabilities. `listToolsPage(cursor, meta)` returns one ordered page, including its next cursor. `callTool(name, arguments, meta)` preserves checked content and metadata. Both require the actual advertised tools capability; uninterpreted extensions confer no authority.
+- `setToolMetadataPropagation(Allow | Omit)` changes the live restriction for bound tools only; its initial value is Allow, while bindings default to Omit. Each invocation reads one snapshot before its effectful resolver. Changing mode cannot revoke a resolver already started, even before send. Explicit list/call metadata bypasses this restriction. Resolver lifetime/deadline belongs to the invocation host, not the subsequent client request deadline.
 - Each initialization/list/call uses the configured deadline. Expiration triggers cancellation and returns `TimeoutError` after owned cleanup finishes; cleanup can exceed the deadline. Caller interruption also joins cleanup and retains independent failures and defects. Eligible interrupted requests may enqueue the best-effort outbound notification described below; no delivery acknowledgement or retry is implied.
 - Remote JSON-RPC failures become `McpRemoteError(code, message, data)`. `McpErrorData.Absent` and `Present(Json.Null)` remain distinct through the domain codec. A tool's `isError` result is valid `McpCallResult` data, not a protocol failure. `close` joins the connection while the transport remains host-owned.
 
@@ -28,6 +31,8 @@ This accepted scope does not include presets, groups, ambient metadata propagati
 The flattened catalogue omits page envelope metadata; use `listToolsPage` when that metadata is needed. Discovery is not an atomic server snapshot. There is no discovery cache, notification invalidation, schema evaluation, reconnect or Toolkit installation. The client does not implement the different 2026-07-28 lifecycle.
 
 ## API migration
+
+Existing `register` and `McpTool.bind` call sites retain metadata omission. `registerBindings` is additive and concrete on the manager trait: custom managers compile unchanged and receive a typed unsupported failure without running acquisition or selection until they override it. No source-breaking method or core context bag is added. Fixed binding policy replaces a mutable per-tool switch.
 
 Custom `McpConnection` implementations must implement the new checked `request(builder)` overload: allocate and register an ID before invoking the builder, reject a substituted ID before sending, and clean up rejected requests. The built-in connection suspends the builder. Exhaustive `AgentError` matches must handle the additive `McpRemoteError` leaf; its tagged data codec is a domain representation, not the JSON-RPC wire format.
 
@@ -67,7 +72,9 @@ Migration: `McpRequests` adds abstract `register(onAbandon: Cause[AgentError] =>
 
 ## Verification and acceptance
 
-Accepted scope covers the request registry, borrowed-port connection, checked builders, initialized client, typed remote errors and bounded scoped manager described above. Concrete HTTP behavior has separate transport acceptance and complete revision support remains excluded; manual Toolkit binding has a separate [tool contract](../tool/README.md).
+Accepted scope covers the request registry, borrowed-port connection, checked builders, initialized client, typed remote errors and bounded scoped manager described above, including explicit bound-tool metadata restriction and atomic metadata-aware selection. Concrete HTTP behavior has separate transport acceptance and complete revision support remains excluded; binding/projection has a separate [tool contract](../tool/README.md).
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current metadata domain, binding, client restriction, manager extension and paired tests, with no findings. Exact tool identities are in the [tool acceptance](../tool/README.md#verification-and-acceptance); changed client/manager identities are below. Formatting and full `verify` passed in `mcp-tool-metadata-verify.log`, with zero compiler warnings or failures; the tracker owns current totals.
 
 - [x] Five grouped [McpRequestsSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) tests establish registry contracts; `path_review` and `current_docs` approved their recorded identities with no findings.
 - [x] Eight grouped [McpConnectionSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) tests pass for immediate/out-of-order replies, cancellation, complete causes, closed-parent startup, control dispatch, concurrent closure and terminal errors.
@@ -76,7 +83,7 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 - [x] `path_review` approved final FP/ZIO correctness and `current_docs` approved final invariants for the client, builder overload, remote error codec and associated tests at the identities below, with no findings. Six client groups and actual stdio initialization/list/call integration pass. Both reviewers also approved bounded discovery at the recorded final identities, with no findings.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the final manager/spec identities below. Four grouped tests establish atomic collision publication, host authority, retained capacity during acquisition/removal, cancellation and shared cleanup, immutable snapshot routing and closure of externally initialized clients.
 - [x] The compound-cause regression failed against unchanged manager blob `9b4a5780f0904dced3a41267bf2d3647799123cb`: initializer defects `[a,b]` plus resource cleanup defect `c` incorrectly produced `[a,b,a,b,c]`. `mcp-manager-cause-red.log` records three passing groups and that one assertion failure. The corrected test checks the exact composed Cause and `[a,b,c]`; initialization and resource-cleanup provenance remain separate.
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current cancellation extension, transport publication boundaries and paired evidence at the identities below and in the [transport acceptance](../transport/README.md#verification-and-acceptance), with no findings. The McpClient change only updates its contract comment. Full `scalafmtAll scalafmtSbt verify` passed in `mcp-cancellation-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current cancellation extension, transport publication boundaries and paired evidence at the identities below and in the [transport acceptance](../transport/README.md#verification-and-acceptance), with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `mcp-cancellation-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
@@ -87,16 +94,17 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 | [McpConnection.scala](McpConnection.scala) | `1539cd9ad9e9d09d0cd996facad89b361280dbd9` |
 | [McpTransport.scala](../transport/McpTransport.scala) | `477e8e6e7f2c2e4caded85f6a447230731729184` |
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `b39c5f1b6f8d0559b7a7adecda0f9374e2a66a9c` |
-| [McpClient.scala](McpClient.scala) | `3156338a1561135b16a1784a51af5c67cca58330` |
+| [McpClient.scala](McpClient.scala) | `d1f9ca0a9d3a18f9cf0ab25b80ab5afa3dfea3ce` |
 | [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `24acfbfe2a8b16b2b66fb9ed40d11be286e24ef9` |
-| [McpClientManager.scala](McpClientManager.scala) | `bec51ef6b82e88cdb585d467f8166fdc585da0bb` |
-| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `ca14cba8389a148adbb7e7b9c747318a66c4dd8a` |
+| [McpClientManager.scala](McpClientManager.scala) | `d80554ff70a940f061bcbe39b12ab44d7bfe0942` |
+| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `84c581cb5c7f1f8dc02d1153f1e2a8f2b1153ab6` |
 
 ## Remaining work
 
 - [x] HTTP POST and explicit GET have separate transport acceptance.
 - [x] Bounded optional outbound cancellation is accepted under the [cancellation contract](#outbound-cancellation-contract).
-- [ ] Next: define and implement explicit metadata propagation through registered MCP tools; general I/O recovery, session reinitialization and durable integration remain unfinished.
+- [x] Explicit metadata projection and live bound-tool omission have final independent approval and verification.
+- [ ] Next: implement host-owned preset arguments with matching exclusion from the advertised input schema.
 - [ ] Define presets, groups, ambient metadata propagation, schema transformation and discovery caching separately.
 Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
 

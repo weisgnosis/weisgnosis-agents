@@ -17,8 +17,9 @@ package com.weisgnosis.agents.mcp.client
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.ToolResultState
-import com.weisgnosis.agents.core.tool.ToolDef
+import com.weisgnosis.agents.core.tool.{ToolDef, Toolkit}
 import com.weisgnosis.agents.mcp.protocol.*
+import com.weisgnosis.agents.mcp.tool.McpToolBinding
 import com.weisgnosis.agents.mcp.transport.McpTransport
 import zio.*
 import zio.json.ast.Json
@@ -30,6 +31,19 @@ object McpClientManagerSpec extends ZIOSpecDefault:
     case CancelAcquisition, RemoveDiscovery
 
   private val schema: Json.Obj = Json.Obj("type" -> Json.Str("object"))
+
+  /** An existing custom implementation supports only the original registration contract. */
+  private def legacy(manager: McpClientManager): McpClientManager = new McpClientManager:
+    def register(
+        name: String,
+        acquire: ZIO[Scope, AgentError, McpClient],
+        maxPages: Int,
+        select: McpToolDefinition => Either[AgentError, Option[ToolDef]]
+    ): IO[AgentError, Unit] = manager.register(name, acquire, maxPages, select)
+    def toolkit: UIO[Toolkit]                       = manager.toolkit
+    def names: UIO[Chunk[String]]                   = manager.names
+    def remove(name: String): UIO[McpClientRemoval] = manager.remove(name)
+    def close: UIO[Unit]                            = manager.close
 
   private def select(
       prefix: String
@@ -107,7 +121,15 @@ object McpClientManagerSpec extends ZIOSpecDefault:
             Chunk("echo", "hidden"),
             releases.update(_ + 1)
           )
-          _            <- manager.register("first", acquire, 1, select("local_"))
+          _ <- manager.register("first", acquire, 1, select("local_"))
+          unsupported <- legacy(manager)
+            .registerBindings(
+              "unsupported",
+              acquire,
+              1,
+              remote => select("unsupported_")(remote).map(_.map(McpToolBinding(_)))
+            )
+            .exit
           duplicate    <- manager.register("first", acquire, 1, select("other_")).exit
           invalid      <- manager.register("", acquire, 1, select("other_")).exit
           invalidPages <- manager.register("invalid", acquire, 0, select("other_")).exit
@@ -125,11 +147,13 @@ object McpClientManagerSpec extends ZIOSpecDefault:
             )
           )(candidate => manager.register("candidate", candidate, 1, select("local_")).exit)
           failedSelection <- manager
-            .register(
+            .registerBindings(
               "candidate",
-              peer(Chunk("a"), releases.update(_ + 1)),
+              peer(Chunk("a", "b"), releases.update(_ + 1)),
               1,
-              _ => Left(AgentError.McpError("Rejected by host"))
+              remote =>
+                if remote.name == "b" then Left(AgentError.McpError("Rejected by host"))
+                else select("candidate_")(remote).map(_.map(McpToolBinding(_)))
             )
             .exit
           failure       = AgentError.McpError("Acquisition failed")
@@ -180,6 +204,10 @@ object McpClientManagerSpec extends ZIOSpecDefault:
           rejectedCount   <- rejectedResources.get
         yield assertTrue(
           invalidLimits.forall(_.isFailure),
+          unsupported.causeOption.flatMap(_.failureOption).exists {
+            case _: AgentError.InvalidConfiguration => true
+            case _                                  => false
+          },
           duplicate.isFailure,
           invalid.isFailure,
           invalidPages.isFailure,

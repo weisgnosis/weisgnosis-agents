@@ -18,7 +18,13 @@ package com.weisgnosis.agents.mcp.tool
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.{ContentBlock, ToolResultState}
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolExecutionResult, ToolResultPayload}
+import com.weisgnosis.agents.core.tool.{
+  Tool,
+  ToolDef,
+  ToolExecutionResult,
+  ToolInvocation,
+  ToolResultPayload
+}
 import com.weisgnosis.agents.mcp.client.McpClient
 import com.weisgnosis.agents.mcp.protocol.*
 import zio.*
@@ -34,7 +40,8 @@ object McpTool:
   def bind(
       client: McpClient,
       remoteName: String,
-      definition: ToolDef
+      definition: ToolDef,
+      metadata: McpToolMetadata = McpToolMetadata.Omit
   ): Tool[Any, Json.Obj, McpCallResult] =
     val hostDefinition = definition
     new Tool[Any, Json.Obj, McpCallResult]:
@@ -48,11 +55,47 @@ object McpTool:
             case _               => Left("MCP tool arguments must be a JSON object")
 
       def execute(input: Json.Obj): IO[AgentError, McpCallResult] =
-        ZIO.suspendSucceed(client.callTool(remoteName, Some(input)))
+        executeWithContext(input, ToolInvocation.Detached)
+
+      override def executeWithContext(
+          input: Json.Obj,
+          invocation: ToolInvocation
+      ): IO[AgentError, McpCallResult] =
+        requestMetadata(client, metadata, invocation)
+          .flatMap(meta => client.callTool(remoteName, Some(input), meta))
 
       override def encodeResult(out: McpCallResult): ToolExecutionResult = project(out)
 
       def encodeOutput(out: McpCallResult): String = encodeResult(out).output
+
+  private def requestMetadata(
+      client: McpClient,
+      policy: McpToolMetadata,
+      invocation: ToolInvocation
+  ): IO[AgentError, Option[Json.Obj]] = policy match
+    case McpToolMetadata.Omit => ZIO.none
+    case McpToolMetadata.Propagate(resolve) =>
+      client.toolMetadataPropagation.flatMap:
+        case McpToolMetadataPropagation.Omit => ZIO.none
+        case McpToolMetadataPropagation.Allow =>
+          val identity = invocation match
+            case ToolInvocation.Detached => McpToolIdentity.Detached
+            case ToolInvocation.Active(context, call, ordinal, _) =>
+              McpToolIdentity.Active(context.replyId, context.requestId, call.id, ordinal)
+          ZIO
+            .suspendSucceed(resolve(identity))
+            .flatMap: value =>
+              ZIO
+                .fromEither(
+                  JsonBoundary.validate(value).left.map(AgentError.InvalidMessage(_))
+                )
+                .as(Some(identity match
+                  case McpToolIdentity.Detached => value
+                  case McpToolIdentity.Active(_, _, callId, _) =>
+                    Json.Obj(
+                      value.fields.filterNot(_._1 == "io.agentscope/toolCallId") :+
+                        ("io.agentscope/toolCallId" -> Json.Str(callId))
+                    )))
 
   /** Domain observation grouping, not an MCP wire encoder or round-trip representation. */
   private def project(result: McpCallResult): ToolExecutionResult =

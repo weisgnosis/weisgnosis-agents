@@ -18,7 +18,8 @@ package com.weisgnosis.agents.mcp.client
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import com.weisgnosis.agents.mcp.protocol.McpToolDefinition
-import com.weisgnosis.agents.mcp.tool.McpTool
+import com.weisgnosis.agents.mcp.tool.{McpTool, McpToolBinding}
+import scala.annotation.unused
 import zio.*
 
 enum McpClientRemoval:
@@ -38,6 +39,15 @@ trait McpClientManager:
       maxPages: Int,
       select: McpToolDefinition => Either[AgentError, Option[ToolDef]]
   ): IO[AgentError, Unit]
+
+  /** Additive selection API; custom managers must explicitly support metadata-aware bindings. */
+  def registerBindings(
+      @unused name: String,
+      @unused acquire: ZIO[Scope, AgentError, McpClient],
+      @unused maxPages: Int,
+      @unused select: McpToolDefinition => Either[AgentError, Option[McpToolBinding]]
+  ): IO[AgentError, Unit] =
+    ZIO.fail(AgentError.InvalidConfiguration("This MCP manager does not support metadata bindings"))
 
   /** Immutable snapshot containing only completely published registrations. */
   def toolkit: UIO[Toolkit]
@@ -179,6 +189,19 @@ object McpClientManager:
         maxPages: Int,
         select: McpToolDefinition => Either[AgentError, Option[ToolDef]]
     ): IO[AgentError, Unit] =
+      registerBindings(
+        name,
+        acquire,
+        maxPages,
+        remote => select(remote).map(_.map(McpToolBinding(_)))
+      )
+
+    override def registerBindings(
+        name: String,
+        acquire: ZIO[Scope, AgentError, McpClient],
+        maxPages: Int,
+        select: McpToolDefinition => Either[AgentError, Option[McpToolBinding]]
+    ): IO[AgentError, Unit] =
       if name.trim.isEmpty || maxPages <= 0 then
         ZIO.fail(
           AgentError.InvalidConfiguration("MCP client name and positive page limit are required")
@@ -212,7 +235,7 @@ object McpClientManager:
         name: String,
         acquire: ZIO[Scope, AgentError, McpClient],
         maxPages: Int,
-        select: McpToolDefinition => Either[AgentError, Option[ToolDef]]
+        select: McpToolDefinition => Either[AgentError, Option[McpToolBinding]]
     ): IO[AgentError, Entry] = gate.withPermit:
       state.get.flatMap:
         case State.Closed(_) => ZIO.fail(AgentError.McpError("MCP manager closed"))
@@ -243,9 +266,12 @@ object McpClientManager:
                           .suspendSucceed(ZIO.fromEither(select(remote)))
                           .flatMap:
                             case None => ZIO.succeed(tools)
-                            case Some(definition) =>
+                            case Some(binding) =>
                               ZIO.fromEither(
-                                tools.register(McpTool.bind(client, remote.name, definition))
+                                tools.register(
+                                  McpTool
+                                    .bind(client, remote.name, binding.definition, binding.metadata)
+                                )
                               )
                       )
                     )

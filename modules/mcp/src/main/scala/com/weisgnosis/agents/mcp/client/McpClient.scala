@@ -17,6 +17,7 @@ package com.weisgnosis.agents.mcp.client
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.mcp.protocol.*
+import com.weisgnosis.agents.mcp.tool.McpToolMetadataPropagation
 import com.weisgnosis.agents.mcp.transport.McpTransport
 import zio.*
 import zio.json.ast.Json
@@ -32,8 +33,18 @@ import zio.json.ast.Json
 final class McpClient private (
     val initialization: McpInitializationResult,
     connection: McpConnection,
-    deadline: Duration
+    deadline: Duration,
+    boundToolMetadata: Ref[McpToolMetadataPropagation]
 ):
+  /**
+   * Each bound invocation snapshots this restriction before its resolver. Changing it does not revoke
+   * a resolver already running, even before send. Explicit list/call metadata is unaffected.
+   */
+  def setToolMetadataPropagation(mode: McpToolMetadataPropagation): UIO[Unit] =
+    boundToolMetadata.set(mode)
+
+  private[mcp] def toolMetadataPropagation: UIO[McpToolMetadataPropagation] = boundToolMetadata.get
+
   def listToolsPage(
       cursor: Option[String] = None,
       meta: Option[Json.Obj] = None
@@ -123,7 +134,10 @@ object McpClient:
             withDeadline(initialize(connection, clientInfo), deadline, "initialization")
           ).exit
           client <- initialized match
-            case Exit.Success(result) => ZIO.succeed(new McpClient(result, connection, deadline))
+            case Exit.Success(result) =>
+              Ref
+                .make(McpToolMetadataPropagation.Allow)
+                .map(mode => new McpClient(result, connection, deadline, mode))
             case Exit.Failure(cause) =>
               connection.close.exit.flatMap:
                 case Exit.Success(_) => ZIO.refailCause(cause)

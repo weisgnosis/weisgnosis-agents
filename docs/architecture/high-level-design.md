@@ -24,6 +24,8 @@ core: models, codecs, events, tools, client port,
 mcp: initialized 2025-06-18 client, scoped RPC ownership and direct-process stdio; manual Toolkit binding and bounded scoped manager; bounded HTTP POST and explicit GET available
 ```
 
+Bound MCP tools propagate request metadata only through explicit host policy and an effectful restricted-identity resolver. Live omission is sampled per invocation; correlation IDs grant no authentication authority. The [metadata contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#explicit-request-metadata) records the reviewed boundary.
+
 The host owns durable transactions, replay, tenant authentication, and execution idempotency. ReActAgent owns in-memory conversation state and serializes runs. Per-run and per-request scopes bound resources independently of the caller's outer scope.
 
 ## Available components
