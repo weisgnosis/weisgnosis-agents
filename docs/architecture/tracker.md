@@ -12,7 +12,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 570 core / 657 harness / 56 MCP tests (1,283 total), zero compiler warnings or failures. Evidence: `tool-invocation-verify.log`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 573 core / 657 harness / 56 MCP tests (1,286 total), zero compiler warnings or failures. Evidence: `agent-forwarding-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -61,7 +61,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Expose and independently review a bounded host-declared factory catalog through model-facing spawn/task/cancel tools, retaining existing registry ownership.
 - [x] Add and independently review ordinary/structured result-bearing event streams with complete result state, full terminal causes and joined cleanup.
 - [x] Add an explicit invocation-scoped tool event capability with approved occurrence context, publication revocation and preserved cancellation cleanup. Both reviewers approved the [exact source/spec identities](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#invocation-event-capability); full verification passed.
-- [ ] Next: correlate child event forwarding through owned execution, preserving complete results and cleanup causes and closing delivery when the parent tool invocation ends.
+- [x] Implement and independently review direct result-preserving event forwarding in core, including ordered draining, nested source prefixes, full causes and closed-port execution.
+- [ ] Next: wire forwarding into owned harness spawn/send execution, with runtime task attribution, fresh session-send leases and no publication after the parent tool invocation ends.
 - [x] Implement and independently review scoped POST-only HTTP requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [ ] Complete separately specified GET listening, resumption, session DELETE/reinitialization, cancellation notifications and external-server interoperability.
 - [ ] Complete declaration loading and automatic named reusable-session creation; retain the accepted construction boundary.

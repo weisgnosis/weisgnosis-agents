@@ -63,7 +63,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 | [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | a85af9fa35a0848944627973bda1413e4ca4e881 |
 | [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 703c7abec55bb3b4ea5d429ecefa76c9f1557b16 |
 
-The table records the typed-result review baseline. Current Tool, Toolkit and ReActAgent identities are recorded under [invocation event capability](#invocation-event-capability); typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
+The table records the typed-result review baseline. Current Tool and Toolkit identities are recorded under [invocation event capability](#invocation-event-capability); the later ReActAgent extension is accepted under [direct event forwarding](../agent/README.md#direct-event-forwarding). Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
 
 Platform-specific symlink/junction behavior and hostile filesystem races remain outside the verified guarantees. Current command-screening evidence is recorded in the [test README](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions).
 

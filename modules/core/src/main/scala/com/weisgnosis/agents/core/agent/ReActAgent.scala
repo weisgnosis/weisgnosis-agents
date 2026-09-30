@@ -111,6 +111,52 @@ final class ReActAgent private (
   def run(message: Msg): ZIO[Scope, AgentError, AgentResult] =
     run(Chunk(message))
 
+  /**
+   * Direct execution with scoped event forwarding. A closed destination drops events without
+   * cancelling the run; result and failure authority remain on the calling fiber.
+   */
+  private[agents] def runForwarding(
+      messages: Chunk[Msg],
+      destination: ToolEventPort,
+      source: String
+  ): ZIO[Scope, AgentError, AgentResult] =
+    def forward(event: AgentEvent): UIO[Unit] =
+      destination
+        .publish(event.withSource(event.source.fold(source)(nested => s"$source/$nested")))
+        .unit
+
+    runLock.withPermit(
+      observeInvocation(complete =>
+        ZIO.scoped:
+          for
+            hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+            subscription <- hub.subscribe
+            forwarder <- ZStream
+              .fromQueue(subscription)
+              .runForeachChunk(events => ZIO.foreachDiscard(events)(forward).uninterruptible)
+              .forkScoped
+            result <- ZIO
+              .scoped(runOrdinaryWithHub(messages, hub, complete))
+              .ensuring(
+                for
+                  // No execution producers remain: join the claimed prefix before forwarding the suffix.
+                  tail <- subscription.takeAll
+                  _    <- subscription.shutdown
+                  _    <- forwarder.join
+                  _    <- ZIO.foreachDiscard(tail)(forward)
+                yield ()
+              )
+          yield result
+      )
+    )
+
+  private[agents] def runForwarding(
+      message: Msg,
+      destination: ToolEventPort,
+      source: String
+  ): ZIO[Scope, AgentError, AgentResult] =
+    runForwarding(Chunk(message), destination, source)
+
   /** Full structured run returning AgentResult and decoded structured object. */
   def runStructured[A: JsonCodec](
       messages: Chunk[Msg],

@@ -32,7 +32,16 @@ Early consumers cancel and join owned execution but abandon later output, includ
 | [ReActAgent.scala](ReActAgent.scala) | `2b377323bd2bb4e6bc707338c15126b448488624` |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | `20b296b5e3c6430eab21f3124b8fd49bd1acc6a0` |
 
-The stream table records its reviewed baseline. The current ReActAgent identity and verification belong to the [invocation capability acceptance](../tool/README.md#invocation-event-capability), which closes each approved tool's publication lease before result processing and preserves cancellation cleanup.
+The stream table records its reviewed baseline. Current ReActAgent identity and verification are recorded under [direct event forwarding](#direct-event-forwarding). The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
+
+## Direct event forwarding
+
+The package-visible `runForwarding(messages, destination, source)` runs once under the existing run lock and completion observer. The calling effect retains the complete AgentResult and full failure Cause. A private scoped hub and forwarding fiber publish through the supplied ToolEventPort; execution cleanup finishes before the claimed event prefix is joined and the remaining suffix is drained. Result authority does not depend on consuming an event stream. Public stream early-consumer behavior is unchanged.
+
+The host-selected source prefixes any existing nested source with `/`; reply/request identities remain unchanged. Source labels are diagnostic data, not authentication. A closed destination drops publication without cancelling execution. Delivery remains unbounded, with no replay or backpressure. This internal ordinary-run primitive does not install forwarding in harness tools or add structured child execution.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at ReActAgent blob `c0c777162f43fa1753e3d22d12f8fd40c60d8276` and [ReActAgentForwardingSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) blob `9c602ab087cb78362035043bf07181b0aa108f89`, with no unresolved findings. Three grouped tests cover ordered nested events and complete results, exact mixed causes and held cancellation cleanup, and closed-destination execution. Required verification passed in `agent-forwarding-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [ ] Wire this primitive into owned harness spawn/send operations with runtime task attribution and per-invocation publication leases.
 
 ## Runtime events and result pairing
 
@@ -249,7 +258,7 @@ Migration: the optional constructor/builder dependency is additive, but position
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-The current ReActAgent identity is recorded under [invocation capability acceptance](../tool/README.md#invocation-event-capability); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
+The current ReActAgent identity is recorded under [direct event forwarding](#direct-event-forwarding); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
 
 ## Current completion-observer identities
 
