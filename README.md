@@ -4,13 +4,13 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is bounded MCP discovery pagination and Toolkit integration; HTTP transport remains separate. Declared/general-purpose composition, event routing and durable host recovery remain separate.
+Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is MCP Toolkit integration; HTTP transport remains separate. Declared/general-purpose composition, event routing and durable host recovery remain separate.
 
 ## Implemented components
 
 - **core:** immutable messages, 39 typed event variants, JSON codecs, typed tools, path screening, SSE parsing and chunk assembly, and ReAct execution with interruption recovery, bounded thinking retries, and structured output.
 - **harness:** daily-memory extraction, scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, typed transcript observations with in-memory and scoped local stores and opt-in completion recording, typed memory triggers with shared monotonic admission, a scoped task queue with pending conversation coalescing and completion-triggered memory flush, conversation compaction, opt-in runtime result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
-- **mcp:** checked 2025-06-18 payloads, bounded request correlation, scoped RPC ownership and a direct-process stdio adapter with bounded framing. The initialized 2025-06-18 client adds capability-checked tool listing/calls and joined operation deadlines; both reviewers approved the client scope and full verification passed.
+- **mcp:** checked 2025-06-18 payloads, bounded request correlation, scoped RPC ownership and a direct-process stdio adapter with bounded framing. The initialized 2025-06-18 client adds capability-checked tool listing/calls, bounded discovery and joined operation deadlines; both reviewers approved the client scope and full verification passed.
 
 LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable approval resumption, broader middleware integration, remote memory/transcript storage, declaration-driven session creation remain separate work. Host-held sessions support process-local child reuse.
 

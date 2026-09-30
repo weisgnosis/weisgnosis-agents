@@ -19,7 +19,7 @@ harness: compactor, eviction/store port, permission components
 core: models, codecs, events, tools, client port,
       SSE parsing/assembly, scoped HTTP completion, ReAct lifecycle, structured output
 
-mcp: initialized 2025-06-18 client, scoped RPC ownership and direct-process stdio; pagination, Toolkit integration and HTTP pending
+mcp: initialized 2025-06-18 client, scoped RPC ownership and direct-process stdio; Toolkit integration and HTTP pending
 ```
 
 The host owns durable transactions, replay, tenant authentication, and execution idempotency. ReActAgent owns in-memory conversation state and serializes runs. Per-run and per-request scopes bound resources independently of the caller's outer scope.
@@ -69,8 +69,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Bounded MCP request correlation with runtime-owned identities, transactional reply settlement and scoped abandonment; no transport or sender fibers are owned by this component.
 - [x] Scoped RPC ownership over a borrowed duplex port, with bounded operations/control replies, terminal cleanup and shared joined close; both reviewers approved the bounded scope recorded in the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
 - [x] Independently reviewed direct-process stdio with bounded UTF-8/LF framing, single-use incoming, serialized writes and scoped child reaping; focused tests and full verification pass.
-- [x] Initialized 2025-06-18 client with capability-checked one-page listing/calls, typed remote errors and configured joined deadlines; both reviewers approved the bounded scope and full verification passed.
-- [ ] Next: bounded discovery pagination and Toolkit integration. HTTP remains separate.
+- [x] Initialized 2025-06-18 client with capability-checked listing/calls, bounded discovery, typed remote errors and configured joined deadlines; both reviewers approved the bounded scope and full verification passed.
+- [ ] Next: Toolkit integration. HTTP remains separate.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
 

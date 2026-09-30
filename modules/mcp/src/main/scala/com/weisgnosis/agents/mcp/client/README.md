@@ -9,7 +9,9 @@
 - Each initialization/list/call uses the configured deadline. Expiration triggers cancellation and returns `TimeoutError` after owned cleanup finishes; cleanup can exceed the deadline. Caller interruption also joins cleanup and retains independent failures and defects. No outgoing cancellation notification or retry is implied.
 - Remote JSON-RPC failures become `McpRemoteError(code, message, data)`. `McpErrorData.Absent` and `Present(Json.Null)` remain distinct through the domain codec. A tool's `isError` result is valid `McpCallResult` data, not a protocol failure. `close` joins the connection while the transport remains host-owned.
 
-There is no discovery cache, automatic pagination, notification invalidation, schema evaluation, reconnect or Toolkit installation. The client does not implement the different 2026-07-28 lifecycle.
+`discoverTools(maxPages, maxTools, meta)` performs an explicitly bounded sequential traversal from the first page. Both limits must be positive before any discovery request. It preserves ordered duplicate definitions and counts every definition against the tool limit; an exact tool limit can still be followed by empty pages. The [selected pagination contract](https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/pagination) treats cursors as opaque. Cursors, including empty strings, are forwarded unchanged. Repeated cursors, excess tools, or a continuation on the final permitted page fail before another request. Only terminal success publishes the complete catalogue; later errors and cancellation yield no partial value. Each page uses the configured joined deadline. Limits count pages and definitions, not bytes, and cleanup can exceed the deadlines.
+
+The flattened catalogue omits page envelope metadata; use `listToolsPage` when that metadata is needed. Discovery is not an atomic server snapshot. There is no discovery cache, notification invalidation, schema evaluation, reconnect or Toolkit installation. The client does not implement the different 2026-07-28 lifecycle.
 
 ## API migration
 
@@ -44,8 +46,8 @@ Accepted scope covers the registry, borrowed-port connection, checked builders, 
 - [x] Seven grouped [McpConnectionSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) tests pass for immediate/out-of-order replies, cancellation, complete causes, closed-parent startup, control dispatch, concurrent closure and terminal errors.
 - [x] Regressions failed against unchanged connection blob `1217d4467307297381bed0e01804ca898a85c8d5`: terminal cause duplication and a ping sent after terminal failure. `mcp-terminal-dispatch-red.log` records the assertion failures. Closed-parent startup ordering was corrected by inspection and covered by a contract test; no reproduced startup failure is claimed.
 - [x] `path_review` independently approved FP/ZIO correctness and `current_docs` independently approved invariants for the final connection/port/spec identities below, with no unresolved findings.
-- [x] `path_review` approved final FP/ZIO correctness and `current_docs` approved final invariants for the client, builder overload, remote error codec and associated tests at the identities below, with no findings. Four client groups and actual stdio initialization/list/call integration pass.
-- [x] `scalafmtAll scalafmtSbt verify` passed: 562 core / 651 harness / 39 MCP tests (1,252 total), zero compiler warnings or failures. Evidence: `mcp-client-verify.log`.
+- [x] `path_review` approved final FP/ZIO correctness and `current_docs` approved final invariants for the client, builder overload, remote error codec and associated tests at the identities below, with no findings. Six client groups and actual stdio initialization/list/call integration pass. Both reviewers also approved bounded discovery at the recorded final identities, with no findings.
+- [x] `scalafmtAll scalafmtSbt verify` passed: 562 core / 651 harness / 41 MCP tests (1,254 total), zero compiler warnings or failures. Evidence: `mcp-discovery-verify.log`.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
@@ -56,12 +58,12 @@ Accepted scope covers the registry, borrowed-port connection, checked builders, 
 | [McpConnection.scala](McpConnection.scala) | `5c20eb7985ff2bb647a5438b4b4a820aced63522` |
 | [McpTransport.scala](../transport/McpTransport.scala) | `acf9f4e3fc8d67fc7b66537b223fdacfffca0099` |
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `0062446d5c91dc2ec4af0cb5b6c6d0cc044e6387` |
-| [McpClient.scala](McpClient.scala) | `351bfeef5f50697e744e47d9506e1b7c473ce59a` |
-| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `6ed1ad698da5448e08ba59e893c846c3446b3850` |
+| [McpClient.scala](McpClient.scala) | `4657a3ad1d38dbf6b420f3cde80de2bd3c2d9061` |
+| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `24acfbfe2a8b16b2b66fb9ed40d11be286e24ef9` |
 
 ## Remaining work
 
-- [ ] Next: bounded discovery pagination and Toolkit integration with explicit naming, content conversion and authority policy.
+- [ ] Next: Toolkit integration with explicit naming, content conversion and authority policy.
 - [ ] Implement HTTP transport separately.
 - [ ] Define cancellation notification and transport-specific recovery policy.
 - [ ] Add Toolkit/ReAct integration tests; the separate stdio contract records real-process initialization/list/call coverage.

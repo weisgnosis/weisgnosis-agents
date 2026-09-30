@@ -24,8 +24,8 @@ import zio.json.ast.Json
 /**
  * Initialized 2025-06-18 client over a borrowed transport. The host retains transport ownership.
  * One configured deadline cancels initialization and each list/call operation; returning waits for
- * owned cleanup and can exceed that deadline. Discovery is
- * one page at a time; no cache, reconnect, notification invalidation, cancellation notification,
+ * owned cleanup and can exceed that deadline. Discovery is one page or an explicitly bounded
+ * sequential traversal; no cache, reconnect, notification invalidation, cancellation notification,
  * schema evaluation, or Toolkit authority is installed.
  */
 final class McpClient private (
@@ -45,6 +45,40 @@ final class McpClient private (
       deadline,
       "tools/list"
     )
+
+  /**
+   * Retain ordered duplicates within explicit page/tool bounds, with the configured deadline per
+   * page. Page metadata is omitted; the result is not an atomic server snapshot or a tool registry.
+   */
+  def discoverTools(
+      maxPages: Int,
+      maxTools: Int,
+      meta: Option[Json.Obj] = None
+  ): IO[AgentError, Chunk[McpToolDefinition]] =
+    def loop(
+        cursor: Option[String],
+        seen: Set[String],
+        pages: Int,
+        accumulated: Chunk[McpToolDefinition]
+    ): IO[AgentError, Chunk[McpToolDefinition]] =
+      listToolsPage(cursor, meta).flatMap: page =>
+        if page.tools.size > maxTools - accumulated.size then
+          ZIO.fail(AgentError.McpError("MCP discovery tool limit exceeded"))
+        else
+          val tools = accumulated ++ page.tools
+          page.nextCursor match
+            case None => ZIO.succeed(tools)
+            case Some(next) if seen.contains(next) =>
+              ZIO.fail(AgentError.McpError("MCP discovery repeated a cursor"))
+            case Some(_) if pages >= maxPages =>
+              ZIO.fail(AgentError.McpError("MCP discovery page limit exceeded"))
+            case Some(next) => loop(Some(next), seen + next, pages + 1, tools)
+
+    if maxPages <= 0 || maxTools <= 0 then
+      ZIO.fail(
+        AgentError.InvalidConfiguration("MCP discovery page and tool limits must be positive")
+      )
+    else loop(None, Set.empty, 1, Chunk.empty)
 
   def callTool(
       name: String,

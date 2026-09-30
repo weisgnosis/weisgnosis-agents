@@ -66,7 +66,36 @@ object McpClientSpec extends ZIOSpecDefault:
     yield Wire(received, sent, started, closed)
 
   private enum DeadlineCase:
-    case InitializeTimeout, InitializeCancelled, CallTimeout, CallCancelled
+    case InitializeTimeout, InitializeCancelled, CallTimeout, CallCancelled,
+      DiscoveryTimeout, DiscoveryCancelled
+
+  private def page(names: Chunk[String], next: Option[String] = None): Json.Obj =
+    Json.Obj(
+      Chunk(
+        "tools" -> Json.Arr(
+          names.map(name =>
+            Json.Obj(
+              "name"        -> Json.Str(name),
+              "inputSchema" -> Json.Obj("type" -> Json.Str("object"))
+            )
+          )
+        )
+      ) ++ Chunk.fromIterable(next.map(value => "nextCursor" -> Json.Str(value)))
+    )
+
+  private def listingClient(peer: Wire)(
+      respond: McpMessage.Request => UIO[Unit]
+  ): ZIO[Scope, AgentError, McpClient] =
+    McpClient.open(
+      peer.transport {
+        case request @ McpMessage.Request(_, "initialize", _) =>
+          peer.reply(request, initialization())
+        case request @ McpMessage.Request(_, "tools/list", _) => respond(request)
+        case _: McpMessage.Notification                       => ZIO.unit
+        case _ => ZIO.fail(AgentError.McpError("Unexpected discovery request"))
+      },
+      identity
+    )
 
   private def deadlineCase(
       mode: DeadlineCase
@@ -86,16 +115,21 @@ object McpClientSpec extends ZIOSpecDefault:
           mode match
             case DeadlineCase.InitializeTimeout | DeadlineCase.InitializeCancelled => blocked
             case _ => peer.reply(request, initialization())
-        case McpMessage.Request(_, "tools/call", _) => blocked
-        case _                                      => ZIO.unit
+        case McpMessage.Request(_, "tools/call", _)              => blocked
+        case request @ McpMessage.Request(_, "tools/list", None) => peer.reply(request, tools)
+        case McpMessage.Request(_, "tools/list", _)              => blocked
+        case _                                                   => ZIO.unit
       operation <- (mode match
         case DeadlineCase.InitializeTimeout | DeadlineCase.InitializeCancelled =>
           McpClient.open(transport, identity, 1.second).unit
+        case DeadlineCase.DiscoveryTimeout | DeadlineCase.DiscoveryCancelled =>
+          McpClient.open(transport, identity, 1.second).flatMap(_.discoverTools(2, 2)).unit
         case _ => McpClient.open(transport, identity, 1.second).flatMap(_.callTool("blocked")).unit
       ).forkScoped
       _ <- entered.await
       completion <- (mode match
-        case DeadlineCase.InitializeTimeout | DeadlineCase.CallTimeout =>
+        case DeadlineCase.InitializeTimeout | DeadlineCase.CallTimeout |
+            DeadlineCase.DiscoveryTimeout =>
           TestClock.adjust(1.second) *> operation.await
         case _ => operation.interrupt
       ).forkScoped
@@ -108,7 +142,9 @@ object McpClientSpec extends ZIOSpecDefault:
         case _: AgentError.TimeoutError => true
         case _                          => false)
       expectedOutcome = mode match
-        case DeadlineCase.InitializeTimeout | DeadlineCase.CallTimeout => timedOut
+        case DeadlineCase.InitializeTimeout | DeadlineCase.CallTimeout |
+            DeadlineCase.DiscoveryTimeout =>
+          timedOut
         case _ => exit.isInterrupted && !timedOut
       expectedClosure = mode match
         case DeadlineCase.InitializeTimeout | DeadlineCase.InitializeCancelled => readerClosed
@@ -252,14 +288,87 @@ object McpClientSpec extends ZIOSpecDefault:
             },
             identity
           )
-          before  <- peer.sent.get
-          listing <- client.listToolsPage().exit
-          calling <- client.callTool("echo").exit
-          after   <- peer.sent.get
-        yield assertTrue(listing.isFailure, calling.isFailure, after == before)
+          before    <- peer.sent.get
+          listing   <- client.listToolsPage().exit
+          calling   <- client.callTool("echo").exit
+          discovery <- client.discoverTools(1, 1).exit
+          after     <- peer.sent.get
+        yield assertTrue(listing.isFailure, calling.isFailure, discovery.isFailure, after == before)
     },
     test(
-      "initialization and call deadlines or caller cancellation join cleanup and retain its defect"
+      "discovery preserves ordered duplicates, opaque cursors and metadata through empty pages at exact limits"
+    ) {
+      ZIO.scoped:
+        for
+          peer <- wire
+          metadata = Json.Obj("trace" -> Json.Str("discovery"))
+          client <- listingClient(peer): request =>
+            val cursor = request.params.flatMap(_.get("cursor"))
+            val result = cursor match
+              case None                         => page(Chunk("first"), Some(""))
+              case Some(Json.Str(""))           => page(Chunk.empty, Some("opaque+/%="))
+              case Some(Json.Str("opaque+/%=")) => page(Chunk("first", "last"), Some("end"))
+              case _                            => page(Chunk.empty)
+            peer.reply(request, result)
+          discovered <- client.discoverTools(4, 3, Some(metadata))
+          sent       <- peer.sent.get
+          requests = sent.collect { case request @ McpMessage.Request(_, "tools/list", _) =>
+            request
+          }
+        yield assertTrue(
+          discovered.map(_.name) == Chunk("first", "first", "last"),
+          requests.map(_.params.flatMap(_.get("cursor"))) ==
+            Chunk(None, Some(Json.Str("")), Some(Json.Str("opaque+/%=")), Some(Json.Str("end"))),
+          requests.forall(_.params.flatMap(_.get("_meta")).contains(metadata))
+        )
+    },
+    test(
+      "discovery rejects invalid budgets, excess results, cursor cycles and later remote errors without partial publication"
+    ) {
+      val one    = page(Chunk("one"), Some("a"))
+      val remote = McpRpcError(-32602, "expired cursor")
+      val cases = Chunk(
+        (0, 1, Chunk.empty[Json.Obj], 0),
+        (-1, 1, Chunk.empty[Json.Obj], 0),
+        (1, 0, Chunk.empty[Json.Obj], 0),
+        (1, -1, Chunk.empty[Json.Obj], 0),
+        (1, 2, Chunk(one), 1),
+        (2, 1, Chunk(page(Chunk("one", "two"))), 1),
+        (2, 2, Chunk(one, page(Chunk("two", "three"))), 2),
+        (4, 4, Chunk(one, page(Chunk.empty, Some("a"))), 2),
+        (4, 4, Chunk(one, page(Chunk.empty, Some("b")), page(Chunk.empty, Some("a"))), 3),
+        (2, 2, Chunk(one), 2)
+      )
+      ZIO.scoped:
+        ZIO
+          .foreach(cases): (maxPages, maxTools, responses, expectedRequests) =>
+            for
+              peer      <- wire
+              remaining <- Ref.make(responses)
+              client <- listingClient(peer): request =>
+                remaining
+                  .modify(pages => (pages.headOption, pages.drop(1)))
+                  .flatMap:
+                    case Some(result) => peer.reply(request, result)
+                    case None         => peer.receive(McpMessage.Failure(Some(request.id), remote))
+              result <- client.discoverTools(maxPages, maxTools).exit
+              sent   <- peer.sent.get
+              count = sent.count {
+                case McpMessage.Request(_, "tools/list", _) => true; case _ => false
+              }
+              expectedRemote = expectedRequests > responses.size
+              remotePreserved = result.causeOption.exists(
+                _.failures.contains(AgentError.McpRemoteError(remote.code, remote.message))
+              )
+            yield assertTrue(
+              result.isFailure,
+              count == expectedRequests,
+              remotePreserved == expectedRemote
+            )
+          .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
+    test(
+      "initialization, call and later discovery deadlines or cancellation join cleanup and retain its defect"
     ) {
       ZIO
         .scoped(ZIO.foreach(Chunk.fromArray(DeadlineCase.values))(deadlineCase))

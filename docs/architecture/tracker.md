@@ -10,7 +10,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` and `current_docs` approved borrowed-port RPC ownership and its final connection tests with no findings; exact scope and identities are in the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
 - [x] `path_review` and `child_factory` approved bounded stdio framing; `path_review` and `registry_contract` approved direct-process stdio and real-process tests. Exact identities and scope are in the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md).
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed for the client slice: 562 core / 651 harness / 39 MCP tests (1,252 total), zero compiler warnings or failures. Evidence: `mcp-client-verify.log`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed for the client slice: 562 core / 651 harness / 41 MCP tests (1,254 total), zero compiler warnings or failures. Evidence: `mcp-discovery-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -54,7 +54,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Implement bounded MCP discovery pagination and Toolkit integration next. The initialized client explicitly selects 2025-06-18 without claiming complete revision support; HTTP remains a separate transport task.
+- [ ] Implement MCP Toolkit integration next. The initialized client explicitly selects 2025-06-18 without claiming complete revision support; HTTP remains a separate transport task.
 - [ ] Complete declared/general-purpose composition, including explicit tool/prompt/configuration installation; retain the accepted construction boundary.
 - [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 
@@ -75,7 +75,8 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [x] Implement borrowed-port scoped RPC ownership with checked sends, bounded operation/control admission, direction-safe server dispatch, owner-operated terminal cleanup and shared joined closure. Seven connection tests and full verification pass; both reviewers approved the final scope.
 - [x] Implement reviewed bounded UTF-8/LF framing and scoped direct-process stdio with single-use incoming, serialized writes, terminal write poisoning and shared process cleanup. Four framing and three real-process groups pass.
 - [x] Implement exact 2025-06-18 initialization, capability-checked one-page listing/invocation, joined configured deadlines and typed remote errors, including real-process stdio integration. Both reviewers approved the final scope and full verification passed.
-- [ ] Implement bounded discovery pagination and Toolkit integration, then separately scoped HTTP support.
+- [x] Implement bounded sequential discovery with explicit page/tool limits, exact opaque cursor handling, cycle rejection and no partial catalogue on failure. Both reviewers approved the final client/spec identities.
+- [ ] Implement Toolkit integration, then separately scoped HTTP support.
 - [ ] Validate live end-to-end cancellation, resource release and operational controls, confirm remote CI, and complete release/API compatibility and production acceptance.
 
 ## Verification and contracts

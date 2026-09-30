@@ -33,7 +33,7 @@ Split UTF-8 and multiple frames per chunk are supported. Completed messages are 
 - [x] `path_review` approved framing FP/ZIO correctness and `child_factory` approved framing invariants, with no findings at the recorded source/spec identities.
 - [x] `path_review` and `registry_contract` approved the unchanged adapter and forked test configuration. `path_review` and `current_docs` approved the final process fixtures/spec, including initialized-client list/call and reaping, with no findings at the recorded identities.
 - [x] Four framing groups and three real-process groups pass. They verify chunking, exact limits, strict Unicode, full upstream causes, early stop, direct validation, concurrent frames, one-reader admission, malformed/EOF handling and read/queued-write/active-write cancellation with direct-child reaping.
-- [x] `scalafmtAll`, `scalafmtSbt` and `verify` passed with zero compiler warnings or failed tests: core 562, harness 651, MCP 39; total 1,252. Evidence: `mcp-client-verify.log`.
+- [x] `scalafmtAll`, `scalafmtSbt` and `verify` passed with zero compiler warnings or failed tests: core 562, harness 651, MCP 41; total 1,254. Evidence: `mcp-discovery-verify.log`.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
@@ -49,7 +49,7 @@ The port/connection acceptance is recorded separately in the [client contract](.
 ## Remaining work
 
 - [x] Selected 2025-06-18 client initialization, capability checks, list/call and joined deadlines are implemented and reviewed in the [client contract](../client/README.md).
-- [ ] Next: bounded discovery pagination and Toolkit integration.
+- [ ] Next: Toolkit integration.
 - [ ] Add an explicit cancellation-notification policy.
 - [ ] Implement the selected HTTP transport with its own limits, cleanup and integration review.
 - [ ] Validate additional platform/process configurations before extending the documented ownership claims.

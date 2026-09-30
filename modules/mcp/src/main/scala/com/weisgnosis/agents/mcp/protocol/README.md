@@ -92,7 +92,7 @@ Accepted scope: the four message cases, checked wire/AST conversion, strict enve
 ## Remaining work
 
 - [x] Selected-revision client initialization, capability checks, list/call and joined deadlines are accepted in the [client contract](../client/README.md).
-- [ ] Next: bounded discovery pagination and Toolkit integration.
+- [ ] Next: Toolkit integration.
 - [ ] Toolkit integration and core content conversion with explicit authority boundaries; output-schema evaluation remains pending.
 - [ ] Method/version validation and integration with the lifecycle of each explicitly supported revision.
 
