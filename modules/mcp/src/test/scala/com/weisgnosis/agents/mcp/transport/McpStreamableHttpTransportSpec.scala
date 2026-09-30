@@ -106,6 +106,284 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
       .flatMap(McpClient.open(_, McpImplementation("client", "1")))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpStreamableHttpTransportSpec")(
+    test("explicit GET routes server traffic while the only request permit is occupied") {
+      ZIO
+        .scoped {
+          for
+            gets      <- Ref.make(Chunk.empty[Headers])
+            requested <- Promise.make[Nothing, Unit]
+            answered  <- Promise.make[Nothing, Unit]
+            port <- Server.install(
+              Routes(
+                Method.GET / "mcp" -> handler { (request: Request) =>
+                  gets
+                    .update(_ :+ request.headers)
+                    .as(
+                      stream(
+                        (event(
+                          McpMessage.Notification("notifications/message", Some(Json.Obj()))
+                        ) ++
+                          event(McpMessage.Request(pingId, "ping")) ++
+                          ZStream.fromZIO(answered.await).drain).rechunk(1)
+                      )
+                    )
+                },
+                Method.POST / "mcp" -> handler { (request: Request) =>
+                  decode(request)
+                    .flatMap:
+                      case McpMessage.Request(id, "initialize", _) =>
+                        json(McpMessage.Success(id, initialization))
+                          .map(_.addHeader("Mcp-Session-Id", "listening"))
+                      case McpMessage.Request(id, "tools/list", _) =>
+                        requested.succeed(()) *> answered.await *> json(
+                          McpMessage.Success(id, emptyTools)
+                        )
+                      case McpMessage.Success(id, _) if id == pingId =>
+                        answered.succeed(()).as(Response.status(Status.Accepted))
+                      case _ => ZIO.succeed(Response.status(Status.Accepted))
+                    .orElseSucceed(Response.status(Status.InternalServerError))
+                }
+              )
+            )
+            http <- ZIO.service[Client]
+            transport <- McpStreamableHttpTransport.open(
+              http,
+              s"http://127.0.0.1:$port/mcp",
+              Headers("Authorization", "Bearer test-token"),
+              McpHttpLimits(maxConcurrentRequests = 1)
+            )
+            initialized <- McpClient.open(transport, McpImplementation("client", "1"))
+            before      <- gets.get
+            call        <- initialized.listToolsPage().forkScoped
+            _           <- requested.await
+            listening   <- transport.listen.forkScoped
+            result      <- listening.join
+            page        <- call.join
+            seen        <- gets.get
+          yield assertTrue(
+            before.isEmpty,
+            result == McpHttpListenResult.Ended,
+            page.tools.isEmpty,
+            seen.size == 1,
+            seen.forall(headers =>
+              headers.get("Accept").contains("text/event-stream") &&
+                headers.get("Mcp-Session-Id").contains("listening") &&
+                headers.get("MCP-Protocol-Version").contains(McpInitialization.protocolVersion) &&
+                headers.get("Authorization").contains("Bearer test-token") &&
+                headers.get("Last-Event-ID").isEmpty
+            )
+          )
+        }
+        .provide(Client.default, Server.defaultWithPort(0))
+    } @@ TestAspect.withLiveClock,
+    test(
+      "listening requires completed initialization cleanup and EOF or 405 permits a fresh explicit GET"
+    ) {
+      ZIO.scoped:
+        for
+          gets    <- Ref.make(0)
+          cleanup <- Promise.make[Nothing, Unit]
+          release <- Promise.make[Nothing, Unit]
+          transport <- McpStreamableHttpTransport.open(
+            scripted(request =>
+              if request.method == Method.GET then
+                gets
+                  .updateAndGet(_ + 1)
+                  .map:
+                    case 1 => Response.status(Status.MethodNotAllowed)
+                    case _ => stream(ZStream.empty)
+              else
+                decode(request).flatMap:
+                  case McpMessage.Request(id, "initialize", _) =>
+                    json(McpMessage.Success(id, initialization))
+                  case McpMessage.Notification("notifications/initialized", _) =>
+                    ZIO
+                      .addFinalizer(cleanup.succeed(()).unit *> release.await)
+                      .as(Response.status(Status.Accepted))
+                  case McpMessage.Request(id, _, _) => json(McpMessage.Success(id, emptyTools))
+                  case _                            => ZIO.succeed(Response.status(Status.Accepted))
+            ),
+            endpoint
+          )
+          early <- transport.listen.exit
+          result <- ZIO.scoped {
+            (for
+              opening     <- McpClient.open(transport, McpImplementation("client", "1")).forkScoped
+              _           <- cleanup.await
+              beforeAck   <- transport.listen.exit
+              untouched   <- gets.get
+              _           <- release.succeed(())
+              initialized <- opening.join
+              unsupported <- transport.listen
+              afterUnsupported <- initialized.listToolsPage()
+              ended            <- transport.listen
+              afterEnd         <- initialized.listToolsPage()
+              repeated         <- transport.listen
+              count            <- gets.get
+              invalidHeaders <- McpStreamableHttpTransport
+                .open(
+                  server(request => json(McpMessage.Success(request.id, emptyTools))),
+                  endpoint,
+                  Headers("Last-Event-ID", "cursor")
+                )
+                .exit
+            yield assertTrue(
+              early.isFailure,
+              beforeAck.isFailure,
+              untouched == 0,
+              unsupported == McpHttpListenResult.Unsupported,
+              ended == McpHttpListenResult.Ended,
+              repeated == McpHttpListenResult.Ended,
+              afterUnsupported.tools.isEmpty,
+              afterEnd.tools.isEmpty,
+              count == 3,
+              invalidHeaders.isFailure
+            )).ensuring(release.succeed(()).unit)
+          }
+        yield result
+    },
+    test(
+      "listener admission and terminal signals preserve joined cleanup and full failure causes"
+    ) {
+      val defect = new IllegalStateException("GET cleanup failed")
+      val domain = AgentError.McpError("GET body failed")
+      val cause  = Cause.fail(domain) ++ Cause.die(defect)
+      val cancellation = ZIO.scoped:
+        for
+          entered  <- Promise.make[Nothing, Unit]
+          cleaning <- Promise.make[Nothing, Unit]
+          release  <- Promise.make[Nothing, Unit]
+          attempts <- Ref.make(0)
+          transport <- McpStreamableHttpTransport.open(
+            scripted(request =>
+              if request.method == Method.GET then
+                attempts
+                  .updateAndGet(_ + 1)
+                  .flatMap:
+                    case 1 =>
+                      ZIO
+                        .addFinalizer(cleaning.succeed(()).unit *> release.await)
+                        .as(stream(ZStream.fromZIO(entered.succeed(()) *> ZIO.never)))
+                    case _ => ZIO.succeed(stream(ZStream.empty))
+              else
+                decode(request).flatMap:
+                  case McpMessage.Request(id, "initialize", _) =>
+                    json(McpMessage.Success(id, initialization))
+                  case McpMessage.Request(id, _, _) => json(McpMessage.Success(id, emptyTools))
+                  case _                            => ZIO.succeed(Response.status(Status.Accepted))
+            ),
+            endpoint
+          )
+          initialized <- McpClient.open(transport, McpImplementation("client", "1"))
+          result <- ZIO.scoped {
+            (for
+              listening     <- transport.listen.forkScoped
+              _             <- entered.await
+              duplicate     <- transport.listen.exit
+              stopping      <- listening.interrupt.forkScoped
+              _             <- cleaning.await
+              pending       <- stopping.poll
+              duringCleanup <- transport.listen.exit
+              _             <- release.succeed(())
+              stopped       <- stopping.join
+              later         <- transport.listen
+              page          <- initialized.listToolsPage()
+              count         <- attempts.get
+            yield assertTrue(
+              duplicate.isFailure,
+              duringCleanup.isFailure,
+              pending.isEmpty,
+              stopped.isInterrupted,
+              later == McpHttpListenResult.Ended,
+              page.tools.isEmpty,
+              count == 2
+            )).ensuring(release.succeed(()).unit)
+          }
+        yield result
+      val failures = ZIO
+        .foreach(
+          Chunk[(Response, Option[Cause[AgentError]])](
+            stream(event(McpMessage.Success(McpRequestId.Number(42), Json.Obj()))) -> None,
+            stream(
+              ZStream.fromIterable(
+                "data: invalid\n\n".getBytes(java.nio.charset.StandardCharsets.UTF_8)
+              )
+            )                                                                   -> None,
+            stream(ZStream.fromChannel(zio.stream.ZChannel.refailCause(cause))) -> Some(cause),
+            Response.status(Status.NotFound)                                    -> None
+          )
+        ) { case (response, expected) =>
+          ZIO.scoped:
+            for
+              transport <- McpStreamableHttpTransport.open(
+                scripted(request =>
+                  if request.method == Method.GET then ZIO.succeed(response)
+                  else
+                    decode(request).flatMap:
+                      case McpMessage.Request(id, "initialize", _) =>
+                        json(McpMessage.Success(id, initialization))
+                          .map(_.addHeader("Mcp-Session-Id", "session"))
+                      case _ => ZIO.succeed(Response.status(Status.Accepted))
+                ),
+                endpoint
+              )
+              _      <- transport.send(McpMessage.Request(McpRequestId.Number(1), "initialize"))
+              _      <- transport.send(McpInitialization.initialized)
+              result <- transport.listen.exit
+              later <- transport.send(McpMessage.Request(McpRequestId.Number(2), "tools/list")).exit
+            yield assertTrue(
+              result.isFailure,
+              later.isFailure,
+              expected.forall(value => result.causeOption.contains(value))
+            )
+        }
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+      val independentFailures = ZIO.scoped:
+        val failure =
+          AgentError.McpError("MCP HTTP session expired (404); open a fresh initialized client")
+        for
+          entered           <- Promise.make[Nothing, Unit]
+          interruptObserved <- Promise.make[Nothing, Unit]
+          release           <- Promise.make[Nothing, Unit]
+          transport <- McpStreamableHttpTransport.open(
+            scripted(request =>
+              if request.method == Method.GET then
+                ZIO.uninterruptible(
+                  entered.succeed(()) *>
+                    (ZIO.yieldNow *> ZIO.descriptorWith(descriptor =>
+                      ZIO.succeed(descriptor.interrupters.nonEmpty)
+                    )).repeatUntil(identity) *>
+                    interruptObserved.succeed(()) *> release.await *> ZIO.fail(failure)
+                )
+              else
+                decode(request).flatMap:
+                  case McpMessage.Request(id, "initialize", _) =>
+                    json(McpMessage.Success(id, initialization))
+                      .map(_.addHeader("Mcp-Session-Id", "expired"))
+                  case _: McpMessage.Request => ZIO.succeed(Response.status(Status.NotFound))
+                  case _                     => ZIO.succeed(Response.status(Status.Accepted))
+            ),
+            endpoint
+          )
+          initialized <- McpClient.open(transport, McpImplementation("client", "1"))
+          result <- ZIO.scoped {
+            (for
+              listening <- transport.listen.forkScoped
+              _         <- entered.await
+              terminal  <- initialized.listToolsPage().exit
+              _         <- interruptObserved.await
+              pending   <- listening.poll
+              _         <- release.succeed(())
+              exit      <- listening.await
+            yield assertTrue(
+              terminal.isFailure,
+              pending.isEmpty,
+              exit.causeOption.exists(_.failures == List(failure, failure))
+            )).ensuring(release.succeed(()).unit)
+          }
+        yield result
+      cancellation.zipWith(failures)(_ && _).zipWith(independentFailures)(_ && _)
+    },
     test(
       "loopback initialization preserves session headers and answers server ping while request admission is full"
     ) {

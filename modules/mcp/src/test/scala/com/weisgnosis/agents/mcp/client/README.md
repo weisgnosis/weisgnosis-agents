@@ -17,7 +17,7 @@ The terminal cause and post-terminal dispatch regressions failed against the unc
 
 - [x] All twenty-three client-package groups pass in full `mcp-cancellation-verify.log` verification, with zero compiler warnings or failures. Current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Both reviewers approved the current [cancellation identities and scope](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#outbound-cancellation-contract).
 - [x] Both reviewers approved the final connection and initialized-client scope and full verification passed; exact identities and evidence are in the [client acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
-- [x] The transport suite covers the selected POST-only HTTP contract.
+- [x] The transport suite covers the selected HTTP POST and explicit GET contract.
 - [ ] Complete remaining transport features and interoperability coverage. Bounded optional outbound cancellation is covered; notification delivery is not guaranteed. The tool package covers manual Toolkit/ReAct binding, and the transport suite covers actual stdio initialization, list/call and cleanup.
 - [ ] Complete applicable upstream method mappings and metadata trust boundaries.
 

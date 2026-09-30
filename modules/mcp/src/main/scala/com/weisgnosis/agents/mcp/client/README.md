@@ -1,6 +1,6 @@
 # com.weisgnosis.agents.mcp.client
 
-[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. POST-only HTTP connectivity has a separate [transport contract](../transport/README.md#post-only-http-contract).
+[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. HTTP POST and explicit GET connectivity has a separate [transport contract](../transport/README.md#http-contract).
 
 ## Scoped manager contract
 
@@ -63,7 +63,7 @@ The abandonment observer runs outside STM after removal and full-cause settlemen
 Migration: `McpRequests` adds abstract `register(onAbandon: Cause[AgentError] => UIO[Unit])`; existing custom implementations must implement or delegate this winner-only callback contract. This is source-incompatible for implementers, while no-argument callers retain the delegating API. Observers must avoid waiting on their own owner; observer defects are retained in caller cleanup rather than swallowed. `McpTransport.send(message, onIssued)` is additive with a successful-send fallback. Custom overrides must publish only a real issuance boundary within the send and keep the callback bounded and local; response-owning adapters need an override for in-flight eligibility.
 
 - [x] One new request-registry group verifies callback-once settlement, capacity release before a held observer, reply/terminal suppression and exact observer-defect composition. One new connection group covers eligible/ineligible/initialize/completed cases and bounded dropping with independent writer cleanup. The existing HTTP group adds request-ID/session-header checks, exact cleanup-defect preservation and pre-header suppression.
-- [ ] Implement scoped opt-in HTTP GET listening next; resumption, session recovery and external-server interoperability remain separate. No complete upstream cancellation-method parity is claimed.
+- [x] Explicit host-run HTTP GET listening has separate [transport acceptance](../transport/README.md#explicit-get-listening). Resumption, session recovery and external-server interoperability remain separate; no complete upstream cancellation-method parity is claimed.
 
 ## Verification and acceptance
 
@@ -94,9 +94,9 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 
 ## Remaining work
 
-- [x] POST-only HTTP has separate transport acceptance.
+- [x] HTTP POST and explicit GET have separate transport acceptance.
 - [x] Bounded optional outbound cancellation is accepted under the [cancellation contract](#outbound-cancellation-contract).
-- [ ] Next: scoped opt-in HTTP GET listening; resumption, session recovery and remaining manager policies remain separate.
+- [ ] Next: investigate bounded POST acquisition cancellation before resumption; a defect is not yet confirmed. Session recovery and remaining manager policies remain separate.
 - [ ] Define presets, groups, ambient metadata propagation, schema transformation and discovery caching separately.
 Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
 

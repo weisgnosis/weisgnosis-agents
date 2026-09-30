@@ -295,4 +295,4 @@ Inheritance through arbitrary raw host callbacks, model-selected session constru
 - [x] Implement and independently approve scoped correlated child forwarding through all existing spawn/send routes.
 - [ ] Complete optional remote/durable task routing and independently observed cancellation-tail delivery.
 
-Next repository task: scoped opt-in MCP HTTP GET listening; resumption and session recovery remain separate. No exhaustive upstream parity is claimed.
+Next repository task: a bounded POST acquisition cancellation regression and possible correction; resumption and session recovery remain separate. No exhaustive upstream parity is claimed.
