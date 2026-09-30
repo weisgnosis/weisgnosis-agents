@@ -4,9 +4,9 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 ## Current acceptance
 
-- [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved resource ownership, host-held sessions, bounded host session membership, fixed-session tools and directory-routed tools, with no findings. Exact reviewed scope and identities are in the [tool](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
-- [x] `path_review` and `current_docs` approved explicit gate composition and authorizer views; exact identities and scope are in the [permission contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance). Automatic child installation remains unfinished.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 648 harness tests (1,209 total), zero compiler warnings or failures. Local evidence: `permission-composition-verify.log`.
+- [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved resource ownership, host-held sessions, bounded host session membership, fixed-session tools, directory-routed tools and policy-aware child construction, with no findings. Exact reviewed scope and identities are in the [tool](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
+- [x] `path_review` and `current_docs` approved explicit gate composition and authorizer views; exact identities and scope are in the [permission contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance). SubagentConstruction supplies the reviewed opt-in installation path.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 651 harness tests (1,212 total), zero compiler warnings or failures. Local evidence: `subagent-construction-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -43,13 +43,15 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 - [x] Opt-in model-facing controls: make supplies `agent_spawn`/`agent_task`/`agent_cancel` for a fresh-child registry; forSession supplies `agent_send`/`agent_task`/`agent_cancel` for one host-held session. Strict prompt-only invocation, isolated task lookup, bounded result projection and scoped wait/promotion/cancellation preserve the fixed capability.
 - [x] Directory-bound send/task/cancel accepts strict session/task identifiers, preserves isolated histories and selected IDs in success/error observations, and joins cancellation during removal. Models cannot construct, register or remove sessions; membership lookup is not atomic revocation.
+- [x] Opt-in SubagentConstruction initializes scoped child permissions and automatically carries effective static boundaries, live ancestor denials and ancestor/child Plan into descendant factories. Factory derivatives propagate; retained sessions keep live policy without copied approvals. Raw host callbacks remain explicit.
 - [x] Host-installed inherited plan gate: either parent or child Plan mode restricts execution, including confirmation rechecks, without copying approval state.
 
 The host installs these capabilities explicitly. It owns background supervisor scopes, trusted filesystem ancestors, authenticated approval delivery, provider settings and operational monitoring. Durable approval values are not a durable resume implementation. Root distribution and retained raw spawner capabilities remain trusted-host responsibilities.
 
 ## Immediate next work
 
-- [ ] Integrate inherited policy automatically for nested/reused children, preserving live denial/plan checks and child approval authority.
+- [ ] Implement MCP JSON-RPC envelope codecs first, then version-specific negotiation, scoped transports and toolkit bridging.
+- [ ] Complete declared/general-purpose composition, including explicit tool/prompt/configuration installation; retain the accepted construction boundary.
 - [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 
 The accepted resource primitive, child session, factory, registry, task tools and plan adapter use host-selected process-local capabilities. They do not add declaration parsing, durable restart recovery or automatic inheritance through raw spawner callbacks. Hosts control capability distribution and completed-record retention.
@@ -57,7 +59,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 ## Remaining integration and parity
 
 - [ ] Complete applicable core/harness method mappings and remaining structured-output, lifecycle and event-ordering gaps, including native structured/incremental local tool results, provider signature/tool metadata, event adapters, phase-stop integration and richer subagent attribution.
-- [ ] Complete remaining plan adaptations, including skills and automatic declared/general-purpose/reused-child propagation; the host-installed inherited gate does not close those whole methods. Current plan inventory is eight adapted / six pending methods.
+- [ ] Complete remaining plan adaptations, including skills and declared/general-purpose configuration and legacy reused-child behavior; the opt-in construction path does not close those whole methods. Current plan inventory is eight adapted / six pending methods.
 - [ ] Implement durable host persistence and authenticated, idempotent resumption from `ConfirmResult` without another model request.
 - [ ] Complete model-selection configuration, remote memory/transcript adapters, timestamp-watermark migration, session discovery and scheduling.
 - [ ] Validate platform-specific symlink/junction behavior and provide a secure storage backend if untrusted workspace support is required. Canonical checks are not an atomic filesystem sandbox; crash/fsync durability and hostile mutation isolation are not claimed.

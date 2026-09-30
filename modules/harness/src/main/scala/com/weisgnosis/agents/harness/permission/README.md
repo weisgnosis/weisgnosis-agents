@@ -42,7 +42,7 @@ See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harne
 
 - [x] `path_review` and `current_docs` independently approved scoped gate composition and authority-preserving authorizer views at the four identities below on 2026-09-30, with no unresolved findings. Three grouped additions verify lazy ordered cleanup, optional votes, failure/cancellation and shared confirmation policy with modified-input rechecks.
 - [x] Full `scalafmtAll scalafmtSbt verify` passed 561 core and 648 harness tests (1,209 total), with zero compiler warnings or failures (`permission-composition-verify.log`).
-- [ ] Integrate inherited policy automatically during child construction. Composition itself does not install policy or revoke existing views.
+- [x] The reviewed [SubagentConstruction](../subagent/README.md) path uses composition for inherited child policy. Raw authorizer views remain host-controlled and are not revoked.
 - [ ] Implement durable resumption, authenticated delivery and remaining upstream permission mode/batch-event integration.
 
 The unchanged runtime integration suite retains `review_fp` and `review_harness` approval against `5eb4bdc`. Current acceptance is limited to in-memory active-invocation authorization and the named composition contracts, not exhaustive upstream parity or post-decision revocation.

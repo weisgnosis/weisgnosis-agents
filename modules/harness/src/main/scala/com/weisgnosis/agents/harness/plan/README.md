@@ -73,7 +73,7 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/p
 
 Install the returned gate explicitly in the configured child's InteractivePermissionAuthorizer. Positive confirmation rechecks both live modes and the authoritative modified input before dispatch. Mutation/unknown names remain Deny, RequestExecution remains Ask, and read/shell eligibility preserves underlying permission policy. The samples are not an atomic cross-session snapshot, and later mode changes do not revoke an already admitted execution.
 
-This is a host adapter rather than automatic factory wiring. It does not register tools, copy parent plan-directory/prompt configuration, install nested gates, grant default exemptions to `agent_spawn`, `agent_task`, `agent_cancel` or `agent_send`, or implement persistent reuse. Hosts must retain the correct live mode sources and configure every admitted child path.
+This is a host adapter rather than automatic factory wiring. It does not register tools, copy parent plan-directory/prompt configuration, install nested gates, grant default exemptions to `agent_spawn`, `agent_task`, `agent_cancel` or `agent_send`, or implement persistent reuse. Hosts must retain the correct live mode sources. The reviewed [SubagentConstruction](../subagent/README.md) path installs live ancestor/child admission in derived factories and retained sessions; raw child paths still require explicit configuration.
 
 ## Current admission identities
 
@@ -289,7 +289,7 @@ Eight unchanged identities from the ten-file increment against fd496a4, includin
 
 Both entry points share the same canonical directory lease, fixed PLAN.md publication and descriptive location. Competing opens are denied in either direction; use after scope closure fails. Hosts must create the selected directory and protect the workspace, candidate and their ancestors under HostControlled ownership. Canonical checks are not race-free isolation against hostile mutation; privileged dynamic symlink/junction fixtures remain separate platform validation. These changes restore no approval and grant no child capability.
 
-The explicit customPlanDirNormalised adaptation now brings the named inventory to eight of fourteen. Directory normalization is stricter than the upstream string helper and requires existing directories. Skill integration and automatic child/reuse wiring remain pending.
+The explicit customPlanDirNormalised adaptation now brings the named inventory to eight of fourteen. Directory normalization is stricter than the upstream string helper and requires existing directories. Skill integration and declared/general-purpose configuration remain pending. Opt-in SubagentConstruction now wires admission without copying or mutating child review state.
 
 ## Current directory identities
 

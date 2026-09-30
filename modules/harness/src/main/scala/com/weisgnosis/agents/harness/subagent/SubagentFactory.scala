@@ -30,9 +30,13 @@ final class SubagentFactory private (
     model: LlmConfig,
     inherited: Toolkit,
     val boundary: SubagentToolBoundary,
-    register: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, Toolkit],
+    prepare: (
+        SubagentSpawner[AgentResult],
+        SubagentToolBoundary,
+        Chunk[UIO[PermissionEngine]]
+    ) => ZIO[Scope, AgentError, (Toolkit, ToolAuthorizer)],
     client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
-    authorizer: ToolAuthorizer
+    parentDenials: Chunk[UIO[PermissionEngine]]
 ):
   def narrowed(child: SubagentToolBoundary): SubagentFactory =
     new SubagentFactory(
@@ -40,9 +44,9 @@ final class SubagentFactory private (
       model,
       inherited,
       boundary.narrow(child),
-      register,
+      prepare,
       client,
-      authorizer
+      parentDenials
     )
 
   /**
@@ -52,40 +56,29 @@ final class SubagentFactory private (
    * Confirmed child rules remain installed even if this final parent check denies execution.
    */
   def inheritingParentDenials(readParentPolicy: UIO[PermissionEngine]): SubagentFactory =
-    val inheritedAuthorizer = ToolAuthorizer: request =>
-      def parentDenies(input: Json): UIO[Boolean] =
-        ZIO
-          .suspendSucceed(readParentPolicy)
-          .map(
-            _.evaluate(request.call.name, input) == PermissionBehavior.Deny
-          )
-
-      parentDenies(request.call.input).flatMap:
-        case true => ZIO.succeed(ToolAuthorization.Denied("Tool execution denied by parent policy"))
-        case false =>
-          ZIO
-            .suspendSucceed(authorizer.authorize(request))
-            .flatMap:
-              case approved @ ToolAuthorization.Approved(input) =>
-                parentDenies(input).map:
-                  case true => ToolAuthorization.Denied("Approved input is denied by parent policy")
-                  case false => approved
-              case denied: ToolAuthorization.Denied => ZIO.succeed(denied)
-
-    new SubagentFactory(config, model, inherited, boundary, register, client, inheritedAuthorizer)
+    new SubagentFactory(
+      config,
+      model,
+      inherited,
+      boundary,
+      prepare,
+      client,
+      parentDenials :+ readParentPolicy
+    )
 
   /** The caller must retain this Scope for the returned runtime's resource lifetime. */
   def build(child: SubagentSpawner[AgentResult]): ZIO[Scope, AgentError, ReActAgent] =
     for
-      additions <- ZIO.suspendSucceed(register(child))
-      toolkit   <- ZIO.fromEither(boundary.assemble(inherited, additions))
-      llm       <- ZIO.suspendSucceed(client(child))
+      prepared <- ZIO.suspendSucceed(prepare(child, boundary, parentDenials))
+      (additions, authorizer) = prepared
+      toolkit <- ZIO.fromEither(boundary.assemble(inherited, additions))
+      llm     <- ZIO.suspendSucceed(client(child))
       runtime <- ReActAgent.make(
         config = config,
         toolkit = toolkit,
         client = llm,
         llmConfig = model,
-        toolAuthorizer = authorizer
+        toolAuthorizer = parentDenials.foldLeft(authorizer)(SubagentFactory.inheritDenials)
       )
     yield runtime
 
@@ -106,14 +99,51 @@ object SubagentFactory:
       client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
       authorizer: ToolAuthorizer
   ): Either[AgentError, SubagentFactory] =
-    config.validated.map(valid =>
-      new SubagentFactory(
-        valid,
-        model,
-        inherited,
-        parentBoundary.narrow(childBoundary),
-        register,
-        client,
-        authorizer
-      )
+    configured(
+      config,
+      model,
+      inherited,
+      parentBoundary.narrow(childBoundary),
+      (child, _, _) => ZIO.suspendSucceed(register(child)).map(toolkit => (toolkit, authorizer)),
+      client,
+      Chunk.empty
     )
+
+  private[subagent] def configured(
+      config: AgentConfig,
+      model: LlmConfig,
+      inherited: Toolkit,
+      boundary: SubagentToolBoundary,
+      prepare: (
+          SubagentSpawner[AgentResult],
+          SubagentToolBoundary,
+          Chunk[UIO[PermissionEngine]]
+      ) => ZIO[Scope, AgentError, (Toolkit, ToolAuthorizer)],
+      client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
+      parentDenials: Chunk[UIO[PermissionEngine]]
+  ): Either[AgentError, SubagentFactory] =
+    config.validated.map(valid =>
+      new SubagentFactory(valid, model, inherited, boundary, prepare, client, parentDenials)
+    )
+
+  private def inheritDenials(
+      authorizer: ToolAuthorizer,
+      readParentPolicy: UIO[PermissionEngine]
+  ): ToolAuthorizer =
+    ToolAuthorizer: request =>
+      def parentDenies(input: Json): UIO[Boolean] =
+        ZIO
+          .suspendSucceed(readParentPolicy)
+          .map(_.evaluate(request.call.name, input) == PermissionBehavior.Deny)
+
+      parentDenies(request.call.input).flatMap:
+        case true => ZIO.succeed(ToolAuthorization.Denied("Tool execution denied by parent policy"))
+        case false =>
+          ZIO
+            .suspendSucceed(authorizer.authorize(request))
+            .flatMap:
+              case approved @ ToolAuthorization.Approved(input) =>
+                parentDenies(input).map:
+                  case true => ToolAuthorization.Denied("Approved input is denied by parent policy")
+                  case false => approved
+              case denied: ToolAuthorization.Denied => ZIO.succeed(denied)

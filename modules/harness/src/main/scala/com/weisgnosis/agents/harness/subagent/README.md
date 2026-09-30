@@ -54,7 +54,17 @@ Each build creates fresh runtime/history state with the supplied AgentConfig, Ll
 
 The caller must retain `build`'s Scope for the runtime lifetime; acquired registration/client resources are released when that Scope closes, including after construction failure. `spawn` delegates to `SubagentSpawner` so construction and execution share a supervised worker Scope, including cancellation and cleanup. Depth rejection and closed admission precede factory callbacks. Ordinary `spawn` does not itself wait or promote; the returned handle supplies those operations.
 
-A raw spawner does not automatically carry the factory's static boundary or inherited-denial wrapper. Trusted host callbacks can construct another factory or task. Model-facing controls retain their registry or session capability; hosts must separately configure any nested child controls. Declaration parsing and automatic plan propagation remain pending; explicit directory-bound routing is available below. No production automatic registrations are introduced: the callback supplies host-selected registrations.
+A raw spawner does not automatically carry the factory's static boundary or inherited-denial wrapper. Trusted host callbacks can construct another factory or task. Model-facing controls retain their registry or session capability; hosts must separately configure any nested child controls. The opt-in construction path below propagates restrictions to descendants; declaration/general-purpose composition remains pending. Explicit directory-bound routing is available below. No production automatic registrations are introduced: the callback supplies host-selected registrations.
+
+## Policy-aware child construction
+
+[SubagentConstruction.root](SubagentConstruction.scala)(spawner, boundary, parentPolicy, parentMode) creates a trusted host construction capability without reading the supplied live effects. Its `factory` accepts ordinary config/model/inherited tools and child boundary, a scoped `initialize` effect returning `SubagentPermissions`, a registration callback receiving the derived child construction capability and permissions, and a deferred client callback. `SubagentPermissions` contains the child's InteractivePermissionAuthorizer, PlanSessionControl and trusted PlanToolAccess map; these live capabilities have no codecs or parent reviewer authority.
+
+Each build runs permission initialization before registration in the same owned Scope. The host supplies fresh child authorizer/Plan capabilities per build when isolation is required. Registration can install tools from the child's own controls and construct descendants through `child.factory`; it is responsible for any PlanTools, request prompt or review-delivery installation. The common build stage validates and filters inherited/registered tools before client acquisition, preserving the raw factory order and cancellation/resource cleanup.
+
+The derived capability carries the effective static boundary, ancestor live denial readers plus the child's current policy, and the effective live Plan mode. Further `narrowed` and `inheritingParentDenials` factory derivatives propagate through this path. Child authorization preserves its own interactive policy/confirmation authority; added Plan admission uses `withAdditionalGate`, while parent Deny wrappers recheck original and approved arguments. Reused sessions retain these live readers rather than copying policy or approval state.
+
+Effective Plan is the live OR of ancestor and child modes. An ancestor returning to Build removes only its restriction; the child's own Plan remains until its own review. Neither Plan control is mutated, no historical parent denials accumulate, and reads are decision snapshots rather than atomic revocation. Only construction through the derived `child.factory` path inherits these restrictions automatically. Public raw spawners, `SubagentFactory.make` and factories used under another parent remain explicit trusted-host capabilities; model input cannot select a new root. Declaration parsing and general-purpose factory composition remain separate integration work.
 
 ## Reusable child sessions
 
@@ -66,7 +76,7 @@ Turns are serialized, without a FIFO guarantee. Cancelling a queued turn reaches
 
 The host retains the returned TaskResource and its acquiring Scope. Closing it joins running, queued and promoted turns and further descendants before releasing registration/client resources. Promoted turns survive their individual caller Scope, not session closure. After closure, sends return Closed. Complete execution records remain inspectable through the retained registry; hosts manage retirement and retained result memory.
 
-This API supports ordinary runs only. A defensive continuation guard rejects later sends if a result is Suspended, but current ReAct execution does not produce that state, so this branch has no integration evidence. No resume API, durable restoration or automatic nested policy installation is provided. Host session-ID lookup is supplied by the explicit directory below. The model-facing adapter below binds `agent_send` to a host-selected session.
+This API supports ordinary runs only. A defensive continuation guard rejects later sends if a result is Suspended, but current ReAct execution does not produce that state, so this branch has no integration evidence. The session itself supplies no resume API, durable restoration or policy installation; factories produced by SubagentConstruction retain their inherited restrictions across turns. Host session-ID lookup is supplied by the explicit directory below. The model-facing adapter below binds `agent_send` to a host-selected session.
 
 ## Bounded host session directory
 
@@ -84,7 +94,7 @@ The host selects which resources to register and which returned capabilities to 
 
 Hosts can supply the existing interactive authorizer's effectful policy read. This inherits rules from that engine, not external parent tool/interceptor gates, permission modes or working directories. `narrowed` preserves the wrapper; multiple inherited wrappers retain their separate denial checks. Provider defects fail closed through the existing ReAct authorization boundary, while interruption remains cancellation and joins scoped cleanup.
 
-Positive child confirmation is checked against both modified arguments and a fresh parent policy read. The final read is the decision point; later updates do not atomically revoke already returned approval. Live replacement does not accumulate historical parent rules, and confirmed child rules may remain installed even when the final parent check denies execution. Durable policy history, execution transactions and automatic inheritance through spawn/send tools are host integration work.
+Positive child confirmation is checked against both modified arguments and a fresh parent policy read. The final read is the decision point; later updates do not atomically revoke already returned approval. Live replacement does not accumulate historical parent rules, and confirmed child rules may remain installed even when the final parent check denies execution. Durable policy history and execution transactions remain host integration work. Spawn/send tools retain the configured factory/session; automatic descendant inheritance requires the SubagentConstruction path above.
 
 ## Bounded task registry
 
@@ -110,7 +120,7 @@ Spawn/send rejection, missing IDs, child failure and a child's interrupted resul
 
 Reply and failure text previews are bounded to 4,000 UTF-16 code units, including a head/tail separator; truncation avoids splitting surrogate pairs. `omittedCharacters` counts omitted original UTF-16 units, excluding the separator. JSON framing is outside this text bound. The registry retains the complete original Exit and AgentResult, so bounded tool output does not bound retained memory.
 
-The host can install [PlanPermissionGate.inherited](../plan/PlanPermissionGate.scala) in the child's authorizer to restrict admission whenever the live parent or child mode is Plan. This adapter changes neither session nor review authority, and it adds no default exemption for spawn/send/task/cancel names. Nested factories and automatic tool/policy installation still require explicit integration.
+The host can install [PlanPermissionGate.inherited](../plan/PlanPermissionGate.scala) in the child's authorizer to restrict admission whenever the live parent or child mode is Plan. This adapter changes neither session nor review authority, and it adds no default exemption for spawn/send/task/cancel names. SubagentConstruction installs equivalent live admission and propagates restrictions through its derived factory path; automatic tool/prompt installation and declared/general-purpose composition remain explicit integration work.
 
 ## Directory-bound model routing
 
@@ -124,7 +134,7 @@ Lookup is a membership snapshot, not atomic revocation. Removal or closure hides
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The unchanged lineage and static boundary retain their recorded approvals; the supervisor's current resource extension is reviewed below.
 
-On 2026-09-30, `path_review` and `current_docs` independently approved the routed tool implementation and three paired integration contracts at the updated tool/spec identities below, with no unresolved FP/ZIO or invariant findings. Acceptance covers strict directory-bound routing, selected-session result/error identity, unchanged fixed-tool shapes, membership/task isolation and scoped promotion/cancellation/removal behavior. Existing directory, resource, session, factory, registry and boundary approvals remain scoped to the listed unchanged identities; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Full `scalafmtAll scalafmtSbt verify` passed 561 core and 645 harness tests (1,206 total), with zero compiler warnings or failed tests (`subagent-routing-verify.log`).
+On 2026-09-30, `path_review` and `current_docs` independently approved policy-aware construction, the shared factory build stage and three grouped integration contracts at the updated construction/factory/spec identities below, with no unresolved FP/ZIO or invariant findings. Acceptance covers derived static/live-denial/live-Plan propagation, preserved child authority, later factory derivatives, reused sessions, scoped per-build initialization and filtering before client acquisition. Existing directory, resource, session, tools, registry and boundary approvals remain scoped to the listed unchanged identities; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Full `scalafmtAll scalafmtSbt verify` passed 561 core and 651 harness tests (1,212 total), with zero compiler warnings or failed tests (`subagent-construction-verify.log`).
 
 | Reviewed source | Git blob |
 | --- | --- |
@@ -141,12 +151,14 @@ On 2026-09-30, `path_review` and `current_docs` independently approved the route
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `70202e9940875a3813f22ed2eaa81c6ca9a343b3` |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
 | [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `adcb1e66ff2105137a35339d6bf7ab5e5b9b5475` |
-| [SubagentFactory.scala](SubagentFactory.scala) | `2d0800879664810ca2bb46ebad2673fc504f7466` |
+| [SubagentConstruction.scala](SubagentConstruction.scala) | `60d9897bb76518eedf0c6ab5a056b249d3211d52` |
+| [SubagentConstructionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) | `8d43eeeefc179a5551699166148ad01356af3bd3` |
+| [SubagentFactory.scala](SubagentFactory.scala) | `b3773de15e3adc8c4df9932b00075f1f83a72da4` |
 | [SubagentFactorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentFactorySpec.scala) | `532a6c2c77cb991ed98024c88877fcd047fbafea` |
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
 
-Declaration parsing, automatic nested plan propagation, arbitrary session discovery/construction, correlated child-event forwarding, external parent permission gates and durable historical policy accumulation remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
+Declaration/general-purpose composition, inheritance through arbitrary raw host callbacks, model-selected session construction, correlated child-event forwarding, external parent permission gates and durable historical policy accumulation remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
 
 - [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
 - [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
@@ -160,7 +172,8 @@ Declaration parsing, automatic nested plan propagation, arbitrary session discov
 - [x] Verify and independently approve model-facing send, inspection and cancellation bound to one trusted session.
 - [x] Verify and independently approve bounded host session membership, aliases, rejection ownership and joined removal/shutdown.
 - [x] Verify and independently approve strict model-facing routing among host-registered sessions with scoped task controls.
-- [ ] Implement policy-aware child construction and declared/general-purpose integration with automatic nested/reused-child plan propagation while retaining narrowed factory authority.
+- [x] Verify and independently approve policy-aware child construction with automatic descendant restrictions through derived factories and live reused-session admission.
+- [ ] Implement declared/general-purpose composition while retaining construction capability and child approval authority.
 - [ ] Implement correlated event forwarding and optional remote/durable task routing.
 
-Next task: automatic policy-aware child construction. No exhaustive upstream parity is claimed.
+Next task: declared/general-purpose composition, correlated event routing and durable host integration. No exhaustive upstream parity is claimed.
