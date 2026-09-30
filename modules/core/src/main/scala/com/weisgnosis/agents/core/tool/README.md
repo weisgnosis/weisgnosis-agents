@@ -14,7 +14,7 @@ Removing groups or membership reports `newlyUngrouped` names alongside the next 
 - [x] Formatting and full `verify` passed in `tool-groups-verify.log`: 583 core / 673 harness / 78 MCP tests (1,334 total), zero compiler warnings or failures; test task 12 seconds.
 The runtime installs an optional [run-owned activation adapter](../agent/README.md#run-owned-tool-group-activation) over this foundation.
 
-- [ ] Next: automatic MCP group installation. Skill-triggered groups, human-readable notes and automatic MCP group installation remain separate work.
+- [ ] Next: human-readable group notes. Skill-triggered groups and durable activation remain separate work.
 
 Group data/enums use derived codecs; decoding does not bypass checked registration. Immutable values replace Java builders and defensive copying, and null contracts are not reproduced. Unknown activation/membership groups fail atomically rather than following upstream permissive or partially applied paths. No existing Tool or Toolkit signature changes.
 
@@ -28,7 +28,7 @@ ReAct prepares before authorization. Invalid preparation becomes Error without c
 
 Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and Toolkit checks are additive. Existing raw scalar tools retain their decoding contract. MCP model-overridable defaults remain separate; manager installation of framework-fixed arguments has a separate [MCP contract](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Unchanged component identities are below; current ReActAgent identity is in [run-owned activation](../agent/README.md#run-owned-tool-group-activation). Scoped verification passed in `tool-fixed-arguments-verify.log`; current full-repository evidence and totals are recorded under [run-owned activation](../agent/README.md#run-owned-tool-group-activation).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Unchanged component identities are below; current ReActAgent identity is in [run-owned activation](../agent/README.md#run-owned-tool-group-activation). Scoped verification passed in `tool-fixed-arguments-verify.log`; current full-repository evidence and totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 | Source/test | Reviewed Git blob |
 | --- | --- |

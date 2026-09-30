@@ -21,7 +21,7 @@ Tool.encodeResult preserves String/Success behavior by default and permits typed
 
 - [x] `path_review` and `current_docs` approved [run-owned model-facing group activation](src/main/scala/com/weisgnosis/agents/core/agent/README.md#run-owned-tool-group-activation), with fresh invocation state, request/batch snapshots and shared structured fallback. Exact source/spec identities and full verification are recorded in the linked contract.
 
-- [x] `path_review` and `current_docs` approved [immutable host-selected tool groups](src/main/scala/com/weisgnosis/agents/core/tool/README.md#host-selected-tool-groups), including actual ReAct snapshot visibility and dispatch, with no findings. Exact two-file identities and full verification are recorded in the linked contract; run-owned activation has separate acceptance, and automatic MCP installation remains pending.
+- [x] `path_review` and `current_docs` approved [immutable host-selected tool groups](src/main/scala/com/weisgnosis/agents/core/tool/README.md#host-selected-tool-groups), including actual ReAct snapshot visibility and dispatch, with no findings. Exact two-file identities and full verification are recorded in the linked contract; run-owned activation and MCP grouped installation have separate scoped acceptance.
 
 - [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Scoped identities and full verification are recorded in the linked contract; MCP installation has its own [binding contract](../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 

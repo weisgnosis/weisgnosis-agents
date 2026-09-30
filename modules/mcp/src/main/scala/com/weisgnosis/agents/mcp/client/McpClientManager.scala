@@ -16,11 +16,14 @@
 package com.weisgnosis.agents.mcp.client
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolGroups, Toolkit}
 import com.weisgnosis.agents.mcp.protocol.McpToolDefinition
 import com.weisgnosis.agents.mcp.tool.{McpTool, McpToolBinding}
 import scala.annotation.unused
 import zio.*
+
+/** Coherent Ready-only snapshot; the host supplies both fields explicitly to ReAct. */
+final case class McpClientInstallation(toolkit: Toolkit, groups: ToolGroups)
 
 enum McpClientRemoval:
   case Removed, Missing
@@ -48,6 +51,19 @@ trait McpClientManager:
       @unused select: McpToolDefinition => Either[AgentError, Option[McpToolBinding]]
   ): IO[AgentError, Unit] =
     ZIO.fail(AgentError.InvalidConfiguration("This MCP manager does not support metadata bindings"))
+
+  /** Custom managers retain ungrouped snapshots unless they explicitly implement group support. */
+  def installation: IO[AgentError.InvalidConfiguration, McpClientInstallation] =
+    toolkit.map(tools => McpClientInstallation(tools, ToolGroups.empty))
+
+  def registerBindingsInGroup(
+      @unused name: String,
+      @unused acquire: ZIO[Scope, AgentError, McpClient],
+      @unused maxPages: Int,
+      @unused group: String,
+      @unused select: McpToolDefinition => Either[AgentError, Option[McpToolBinding]]
+  ): IO[AgentError, Unit] =
+    ZIO.fail(AgentError.InvalidConfiguration("This MCP manager does not support grouped bindings"))
 
   /** Immutable snapshot containing only completely published registrations. */
   def toolkit: UIO[Toolkit]
@@ -122,7 +138,8 @@ object McpClientManager:
       client: Ref[Option[McpClient]],
       workers: Scope.Closeable,
       resources: Scope.Closeable,
-      completion: Closure[Finalization]
+      completion: Closure[Finalization],
+      val group: Option[String]
   ):
     def close(exit: Exit[Any, Any]): UIO[Unit] = finish(exit).flatMap(_.replay)
 
@@ -146,35 +163,71 @@ object McpClientManager:
 
   def make(
       maxClients: Int = 16,
-      maxTools: Int = 256
+      maxTools: Int = 256,
+      groups: ToolGroups = ToolGroups.empty
   ): ZIO[Scope, AgentError.InvalidConfiguration, McpClientManager] =
     if maxClients <= 0 || maxTools <= 0 then
       ZIO.fail(AgentError.InvalidConfiguration("MCP manager capacities must be positive"))
+    else if groups.groups.exists(_.tools.nonEmpty) then
+      ZIO.fail(
+        AgentError.InvalidConfiguration("MCP group declarations must not contain tool memberships")
+      )
     else
       ZIO.uninterruptible:
         for
           gate       <- Semaphore.make(1)
           state      <- Ref.make[State](State.Open(Map.empty))
           completion <- closure[Unit]
-          live = new Live(maxClients, maxTools, gate, state, completion)
+          live = new Live(maxClients, maxTools, groups, gate, state, completion)
           _ <- ZIO.addFinalizerExit(live.closeWith(_))
         yield live
 
   final private class Live(
       maxClients: Int,
       maxTools: Int,
+      groups: ToolGroups,
       gate: Semaphore,
       state: Ref[State],
       completion: Closure[Unit]
   ) extends McpClientManager:
-    def toolkit: UIO[Toolkit] = state.get.map:
-      case State.Closed(_) => Toolkit.empty
+    private def ready(current: State): Chunk[(Entry, Toolkit)] = current match
+      case State.Closed(_) => Chunk.empty
       case State.Open(entries) =>
-        Toolkit(
-          entries.values
-            .collect { case Registration.Ready(_, tools) => tools.tools }
-            .foldLeft(Map.empty[String, Tool[Any, ?, ?]])(_ ++ _)
+        Chunk.fromIterable(entries.toList.sortBy(_._1).collect {
+          case (_, Registration.Ready(entry, tools)) => entry -> tools
+        })
+
+    private def toolsFor(values: Chunk[(Entry, Toolkit)]): Toolkit =
+      Toolkit(
+        values.foldLeft(Map.empty[String, Tool[Any, ?, ?]])((tools, value) =>
+          tools ++ value._2.tools
         )
+      )
+
+    private def addMemberships(
+        current: ToolGroups,
+        group: Option[String],
+        tools: Toolkit
+    ): Either[AgentError.InvalidConfiguration, ToolGroups] =
+      group.fold[Either[AgentError.InvalidConfiguration, ToolGroups]](Right(current))(name =>
+        tools.tools.keys.toList.sorted
+          .foldLeft[Either[AgentError.InvalidConfiguration, ToolGroups]](Right(current))(
+            (result, alias) => result.flatMap(_.addTool(name, alias))
+          )
+      )
+
+    def toolkit: UIO[Toolkit] = state.get.map(current => toolsFor(ready(current)))
+
+    override def installation: IO[AgentError.InvalidConfiguration, McpClientInstallation] =
+      state.get.flatMap: current =>
+        val values = ready(current)
+        ZIO
+          .fromEither(
+            values.foldLeft[Either[AgentError.InvalidConfiguration, ToolGroups]](Right(groups))(
+              (result, value) => result.flatMap(addMemberships(_, value._1.group, value._2))
+            )
+          )
+          .map(installed => McpClientInstallation(toolsFor(values), installed))
 
     def names: UIO[Chunk[String]] = state.get.map:
       case State.Closed(_) => Chunk.empty
@@ -202,6 +255,26 @@ object McpClientManager:
         maxPages: Int,
         select: McpToolDefinition => Either[AgentError, Option[McpToolBinding]]
     ): IO[AgentError, Unit] =
+      registerSelected(name, acquire, maxPages, None, select)
+
+    override def registerBindingsInGroup(
+        name: String,
+        acquire: ZIO[Scope, AgentError, McpClient],
+        maxPages: Int,
+        group: String,
+        select: McpToolDefinition => Either[AgentError, Option[McpToolBinding]]
+    ): IO[AgentError, Unit] =
+      if groups.group(group).isEmpty then
+        ZIO.fail(AgentError.InvalidConfiguration(s"Unknown MCP tool group '$group'"))
+      else registerSelected(name, acquire, maxPages, Some(group), select)
+
+    private def registerSelected(
+        name: String,
+        acquire: ZIO[Scope, AgentError, McpClient],
+        maxPages: Int,
+        group: Option[String],
+        select: McpToolDefinition => Either[AgentError, Option[McpToolBinding]]
+    ): IO[AgentError, Unit] =
       if name.trim.isEmpty || maxPages <= 0 then
         ZIO.fail(
           AgentError.InvalidConfiguration("MCP client name and positive page limit are required")
@@ -209,7 +282,7 @@ object McpClientManager:
       else
         ZIO.uninterruptibleMask: restore =>
           for
-            entry    <- reserve(name, acquire, maxPages, select)
+            entry    <- reserve(name, acquire, maxPages, group, select)
             _        <- entry.start.succeed(())
             observed <- restore(entry.initializer.await).exit
             result <- observed match
@@ -235,6 +308,7 @@ object McpClientManager:
         name: String,
         acquire: ZIO[Scope, AgentError, McpClient],
         maxPages: Int,
+        group: Option[String],
         select: McpToolDefinition => Either[AgentError, Option[McpToolBinding]]
     ): IO[AgentError, Entry] = gate.withPermit:
       state.get.flatMap:
@@ -277,7 +351,7 @@ object McpClientManager:
                     )
                 )
             )).interruptible.forkIn(workers)
-            entry = new Entry(start, initializer, acquired, workers, resources, completion)
+            entry = new Entry(start, initializer, acquired, workers, resources, completion, group)
             _ <- state.set(State.Open(entries.updated(name, Registration.Pending(entry))))
           yield entry
 
@@ -291,7 +365,9 @@ object McpClientManager:
             if collision then ZIO.fail(AgentError.McpError("MCP local tool name collision"))
             else if tools.size > maxTools - used then
               ZIO.fail(AgentError.McpError("MCP manager tool capacity reached"))
-            else state.set(State.Open(entries.updated(name, Registration.Ready(entry, tools))))
+            else
+              ZIO.fromEither(addMemberships(groups, entry.group, tools)) *>
+                state.set(State.Open(entries.updated(name, Registration.Ready(entry, tools))))
           case _ => ZIO.fail(AgentError.McpError("MCP registration was closed before publication"))
 
     private def markRemoving(name: String, entry: Entry): UIO[Unit] =

@@ -15,9 +15,11 @@
  */
 package com.weisgnosis.agents.mcp.client
 
+import com.weisgnosis.agents.core.agent.ReActAgent
+import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.model.ToolResultState
-import com.weisgnosis.agents.core.tool.{ToolDef, Toolkit}
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
+import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.mcp.protocol.*
 import com.weisgnosis.agents.mcp.tool.McpToolBinding
 import com.weisgnosis.agents.mcp.transport.McpTransport
@@ -53,6 +55,21 @@ object McpClientManagerSpec extends ZIOSpecDefault:
         ToolDef(prefix + remote.name, "Host authority", schema, isReadOnly = false)
       )
     )
+
+  private def declarations: IO[AgentError.InvalidConfiguration, ToolGroups] = ZIO.fromEither(
+    ToolGroups.empty
+      .register(ToolGroup("shared", "Selected remote tools", ToolGroupActivation.Inactive))
+      .flatMap(
+        _.register(
+          ToolGroup("external", "Host only", ToolGroupActivation.Inactive, ToolGroupScope.External)
+        )
+      )
+  )
+
+  private def bindings(prefix: String)(
+      remote: McpToolDefinition
+  ): Either[AgentError, Option[McpToolBinding]] =
+    select(prefix)(remote).map(_.map(McpToolBinding(_)))
 
   private def peer(
       tools: Chunk[String],
@@ -109,10 +126,118 @@ object McpClientManagerSpec extends ZIOSpecDefault:
     yield client
 
   def spec: Spec[TestEnvironment, Any] = suite("McpClientManagerSpec")(
+    test(
+      "one installation drives Meta activation while preserving External isolation and fixed policies"
+    ) {
+      ZIO.scoped:
+        for
+          groups   <- declarations
+          manager  <- McpClientManager.make(groups = groups)
+          executed <- Ref.make(Chunk.empty[McpMessage.Request])
+          observed <- Ref.make(Chunk.empty[Chunk[String]])
+          fixed <- ZIO.fromEither(
+            McpToolBinding.withFixedArguments(
+              ToolDef("selected", "Fixed remote tool", schema),
+              Json.Obj("tenant" -> Json.Str("host"))
+            )
+          )
+          acquire = peer(
+            Chunk("remote"),
+            call = request => executed.update(_ :+ request).as("remote result")
+          )
+          _ <- manager.registerBindingsInGroup(
+            "selected",
+            acquire,
+            1,
+            "shared",
+            _ => Right(Some(fixed))
+          )
+          _ <- manager.registerBindingsInGroup(
+            "external",
+            acquire,
+            1,
+            "external",
+            bindings("external_")
+          )
+          _         <- manager.register("plain", acquire, 1, select("plain_"))
+          installed <- manager.installation
+          model = LlmClient.mockEffectful((_, definitions, _) =>
+            observed.modify(current => current.size -> (current :+ definitions.map(_.name))).map {
+              case 0 =>
+                TurnOutput.ToolCalls(
+                  Msg.assistant(
+                    Chunk(
+                      ContentBlock.ToolUse(
+                        "activate",
+                        "reset_equipped_tools",
+                        Json.Obj("to_activate" -> Json.Arr(Json.Str("shared")))
+                      )
+                    )
+                  )
+                )
+              case 1 =>
+                TurnOutput.ToolCalls(
+                  Msg.assistant(
+                    Chunk(
+                      ContentBlock
+                        .ToolUse("fixed", "selected", Json.Obj("tenant" -> Json.Str("model"))),
+                      ContentBlock.ToolUse("hidden", "external_remote", Json.Obj()),
+                      ContentBlock.ToolUse("plain", "plain_remote", Json.Obj()),
+                      ContentBlock.ToolUse(
+                        "forbidden",
+                        "reset_equipped_tools",
+                        Json.Obj("to_activate" -> Json.Arr(Json.Str("external")))
+                      )
+                    )
+                  )
+                )
+              case _ => TurnOutput.FinalText(Msg.assistant("done"))
+            }
+          )
+          agent <- ReActAgent.make(
+            client = model,
+            toolkit = installed.toolkit,
+            toolGroups = Some(installed.groups)
+          )
+          result      <- agent.run(Msg.user("select remote tools"))
+          definitions <- observed.get
+          calls       <- executed.get
+          current     <- manager.installation
+        yield assertTrue(
+          installed.toolkit.definitions
+            .map(_.name) == Chunk("external_remote", "plain_remote", "selected"),
+          installed.groups.memberships("selected") == Set("shared"),
+          installed.groups.memberships("external_remote") == Set("external"),
+          installed.groups.memberships("plain_remote").isEmpty,
+          installed.toolkit.resolve("selected").exists(_.fixedArguments == fixed.fixedArguments),
+          definitions == Chunk(
+            Chunk("plain_remote", "reset_equipped_tools"),
+            Chunk("plain_remote", "reset_equipped_tools", "selected"),
+            Chunk("plain_remote", "reset_equipped_tools", "selected")
+          ),
+          calls.size == 2,
+          calls.map(_.params.flatMap(_.get("arguments"))) == Chunk(
+            Some(Json.Obj("tenant" -> Json.Str("host"))),
+            Some(Json.Obj())
+          ),
+          result.history.flatMap(_.toolResults).map(_.state) == Chunk(
+            ToolResultState.Success,
+            ToolResultState.Success,
+            ToolResultState.Error,
+            ToolResultState.Success,
+            ToolResultState.Error
+          ),
+          current.groups.activeNames.isEmpty,
+          current.groups.groups == installed.groups.groups
+        )
+    },
     test("registration publishes atomically with bounded membership and explicit host authority") {
       ZIO.scoped:
         for
-          manager <- McpClientManager.make(maxClients = 2, maxTools = 3)
+          groups        <- declarations
+          manager       <- McpClientManager.make(maxClients = 2, maxTools = 3, groups = groups)
+          populated     <- ZIO.fromEither(groups.addTool("shared", "foreign"))
+          invalidGroups <- McpClientManager.make(groups = populated).exit
           invalidLimits <- ZIO.foreach(Chunk((0, 1), (1, 0)))((clients, tools) =>
             McpClientManager.make(clients, tools).exit
           )
@@ -131,6 +256,13 @@ object McpClientManagerSpec extends ZIOSpecDefault:
               remote => select("unsupported_")(remote).map(_.map(McpToolBinding(_)))
             )
             .exit
+          unsupportedGroup <- legacy(manager)
+            .registerBindingsInGroup("unsupported", acquire, 1, "shared", bindings(""))
+            .exit
+          unknownGroup <- manager
+            .registerBindingsInGroup("unknown", acquire, 1, "missing", bindings(""))
+            .exit
+          fallback     <- legacy(manager).installation
           duplicate    <- manager.register("first", acquire, 1, select("other_")).exit
           invalid      <- manager.register("", acquire, 1, select("other_")).exit
           invalidPages <- manager.register("invalid", acquire, 0, select("other_")).exit
@@ -147,11 +279,21 @@ object McpClientManagerSpec extends ZIOSpecDefault:
               )
             )
           )(candidate => manager.register("candidate", candidate, 1, select("local_")).exit)
+          invalidAlias <- manager
+            .registerBindingsInGroup(
+              "invalid-alias",
+              peer(Chunk("echo"), releases.update(_ + 1)),
+              1,
+              "shared",
+              _ => Right(Some(McpToolBinding(ToolDef(" ", "invalid alias", schema))))
+            )
+            .exit
           failedSelection <- manager
-            .registerBindings(
+            .registerBindingsInGroup(
               "candidate",
               peer(Chunk("a", "b"), releases.update(_ + 1)),
               1,
+              "shared",
               remote =>
                 if remote.name == "b" then
                   McpToolBinding
@@ -178,10 +320,11 @@ object McpClientManagerSpec extends ZIOSpecDefault:
               select("")
             )
             .exit
-          snapshot <- manager.toolkit
-          names    <- manager.names
-          closed   <- releases.get
-          result   <- snapshot.executeSafe("local_echo", Json.Obj())
+          afterFailures <- manager.installation
+          snapshot = afterFailures.toolkit
+          names  <- manager.names
+          closed <- releases.get
+          result <- snapshot.executeSafe("local_echo", Json.Obj())
           _ <- manager.register(
             "second",
             acquire,
@@ -220,6 +363,12 @@ object McpClientManagerSpec extends ZIOSpecDefault:
           rejectedCount   <- rejectedResources.get
         yield assertTrue(
           invalidLimits.forall(_.isFailure),
+          invalidGroups.isFailure,
+          unsupportedGroup.isFailure,
+          unknownGroup.isFailure,
+          invalidAlias.isFailure,
+          fallback.groups.groups.isEmpty,
+          fallback.toolkit.definitions.map(_.name) == Chunk("local_echo"),
           unsupported.causeOption.flatMap(_.failureOption).exists {
             case _: AgentError.InvalidConfiguration => true
             case _                                  => false
@@ -238,7 +387,8 @@ object McpClientManagerSpec extends ZIOSpecDefault:
           failedCause.causeOption.exists(
             _.defects == List(firstDefect, secondDefect, cleanupDefect)
           ),
-          closed == 5,
+          closed == 6,
+          afterFailures.groups.groups == groups.groups,
           snapshot.definitions.map(_.name) == Chunk("local_echo"),
           snapshot.definitions.forall(!_.isReadOnly),
           chosenSchemas == Map("local_echo" -> None, "second_echo" -> Some(Json.Bool(true))),
@@ -261,7 +411,8 @@ object McpClientManagerSpec extends ZIOSpecDefault:
         .foreach(Chunk.fromIterable(StopCase.values)): scenario =>
           ZIO.scoped:
             for
-              manager  <- McpClientManager.make(maxClients = 1)
+              groups   <- declarations
+              manager  <- McpClientManager.make(maxClients = 1, groups = groups)
               entered  <- Promise.make[Nothing, Unit]
               cleanup  <- Promise.make[Nothing, Unit]
               release  <- Promise.make[Nothing, Unit]
@@ -273,15 +424,18 @@ object McpClientManagerSpec extends ZIOSpecDefault:
                   ZIO.acquireRelease(ZIO.unit)(_ => finalizer) *> entered.succeed(()) *> ZIO.never
                 case StopCase.RemoveDiscovery =>
                   peer(Chunk("echo"), finalizer, entered.succeed(()) *> ZIO.never)
-              registration <- manager.register("pending", acquire, 1, select("")).forkScoped
+              registration <- manager
+                .registerBindingsInGroup("pending", acquire, 1, "shared", bindings(""))
+                .forkScoped
               _            <- entered.await
+              initializing <- manager.installation
               stopping <- (scenario match
                 case StopCase.CancelAcquisition => registration.interrupt.unit
                 case StopCase.RemoveDiscovery   => manager.remove("pending").unit
               ).forkScoped
               _        <- cleanup.await
               capacity <- manager.register("other", peer(Chunk("echo")), 1, select("")).exit
-              snapshot <- manager.toolkit
+              snapshot <- manager.installation
               pending  <- stopping.poll
               _        <- release.succeed(())
               _        <- stopping.join
@@ -291,7 +445,10 @@ object McpClientManagerSpec extends ZIOSpecDefault:
               _        <- manager.register("other", peer(Chunk("echo")), 1, select("")).unit
             yield assertTrue(
               capacity.isFailure,
-              snapshot.isEmpty,
+              initializing.toolkit.isEmpty,
+              initializing.groups.groups == groups.groups,
+              snapshot.toolkit.isEmpty,
+              snapshot.groups.groups == groups.groups,
               pending.isEmpty,
               exit.isFailure,
               count == 1,
@@ -302,7 +459,8 @@ object McpClientManagerSpec extends ZIOSpecDefault:
     test("removal joins active calls before releasing transport and old snapshots never retarget") {
       ZIO.scoped:
         for
-          manager  <- McpClientManager.make(maxClients = 3, maxTools = 2)
+          groups   <- declarations
+          manager  <- McpClientManager.make(maxClients = 3, maxTools = 2, groups = groups)
           entered  <- Promise.make[Nothing, Unit]
           cleanup  <- Promise.make[Nothing, Unit]
           release  <- Promise.make[Nothing, Unit]
@@ -314,14 +472,22 @@ object McpClientManagerSpec extends ZIOSpecDefault:
               ZIO.acquireRelease(ZIO.unit)(_ => cleanup.succeed(()).unit *> release.await) *>
                 entered.succeed(()) *> ZIO.never
           )
-          _            <- manager.register("first", acquire, 1, select("first_"))
-          _            <- manager.register("second", peer(Chunk("echo")), 1, select("second_"))
-          old          <- manager.toolkit
+          _ <- manager.registerBindingsInGroup("first", acquire, 1, "shared", bindings("first_"))
+          _ <- manager.registerBindingsInGroup(
+            "second",
+            peer(Chunk("echo")),
+            1,
+            "shared",
+            bindings("second_")
+          )
+          original <- manager.installation
+          old = original.toolkit
           call         <- old.executeSafe("first_echo", Json.Obj()).forkScoped
           _            <- entered.await
           removing     <- manager.remove("first").forkScoped
           _            <- cleanup.await
-          snapshot     <- manager.toolkit
+          installation <- manager.installation
+          snapshot = installation.toolkit
           unrelated    <- snapshot.executeSafe("second_echo", Json.Obj())
           collision    <- manager.register("third", peer(Chunk("echo")), 1, select("first_")).exit
           overBudget   <- manager.register("third", peer(Chunk("echo")), 1, select("third_")).exit
@@ -343,8 +509,17 @@ object McpClientManagerSpec extends ZIOSpecDefault:
           external <- peer(Chunk("echo"))
           _        <- manager.register("external", ZIO.succeed(external), 1, select("external_"))
           _        <- manager.remove("external")
-          externalCall <- external.callTool("echo", Some(Json.Obj())).exit
+          externalCall       <- external.callTool("echo", Some(Json.Obj())).exit
+          _                  <- manager.close
+          closedInstallation <- manager.installation
         yield assertTrue(
+          original.groups.memberships("first_echo") == Set("shared"),
+          original.groups.memberships("second_echo") == Set("shared"),
+          installation.groups.memberships("first_echo").isEmpty,
+          installation.groups.memberships("second_echo") == Set("shared"),
+          installation.groups.group("shared").exists(_.tools == Set("second_echo")),
+          closedInstallation.toolkit.isEmpty,
+          closedInstallation.groups.groups == groups.groups,
           !snapshot.contains("first_echo"),
           collision.isFailure,
           overBudget.isFailure,

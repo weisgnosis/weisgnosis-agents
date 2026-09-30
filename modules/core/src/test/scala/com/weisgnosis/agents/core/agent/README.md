@@ -29,7 +29,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 
 [ReActAgentToolGroupsSpec](ReActAgentToolGroupsSpec.scala) uses five integration groups: next-request activation with one admitted batch snapshot and fixed policies; exact invalid/denied reset outcomes with Meta-only discovery and External isolation; fresh ordinary/streamed invocations and joined cancellation; native fallback after a successful reset with synthetic controls retained after deactivation; empty-host Auto routing and complete-base collision rejection. Reset flags exercise sequential dispatch even under Parallel configuration.
 
-Both independent reviewers approved the final source/spec, and full verification passed. Current identities and acceptance are in the [run-owned activation contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#run-owned-tool-group-activation). Skills, durable state and automatic MCP installation are not covered.
+Both independent reviewers approved the final source/spec, and full verification passed. Current identities and acceptance are in the [run-owned activation contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#run-owned-tool-group-activation). Skills and durable state are not covered. MCP grouped installation has separate client-package acceptance.
 
 ## Result-bearing stream evidence
 

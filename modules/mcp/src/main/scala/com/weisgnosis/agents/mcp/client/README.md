@@ -4,7 +4,7 @@
 
 ## Scoped manager contract
 
-[McpClientManager](McpClientManager.scala) exposes `make(maxClients = 16, maxTools = 256): ZIO[Scope, AgentError.InvalidConfiguration, McpClientManager]` to acquire a bounded owner. `register(name, acquire, maxPages, select): IO[AgentError, Unit]` accepts a `ZIO[Scope, AgentError, McpClient]` acquisition and a `McpToolDefinition => Either[AgentError, Option[ToolDef]]` selector. It performs bounded discovery and publishes immutable Toolkit snapshots. The host chooses local names, schemas and read-only/concurrency declarations; server annotation hints do not grant authority. Prefixes and filtering can be expressed by the selector without changing the remote invocation name.
+[McpClientManager](McpClientManager.scala) exposes `make(maxClients = 16, maxTools = 256, groups = ToolGroups.empty): ZIO[Scope, AgentError.InvalidConfiguration, McpClientManager]` to acquire a bounded owner. `register(name, acquire, maxPages, select): IO[AgentError, Unit]` accepts a `ZIO[Scope, AgentError, McpClient]` acquisition and a `McpToolDefinition => Either[AgentError, Option[ToolDef]]` selector. It performs bounded discovery and publishes immutable Toolkit snapshots. The host chooses local names, schemas and read-only/concurrency declarations; server annotation hints do not grant authority. Prefixes and filtering can be expressed by the selector without changing the remote invocation name.
 
 Registration publishes the complete client/tool set atomically after capacity and collision checks. `maxClients` counts Pending, Ready and Removing entries; published tool names and count remain reserved through removal. Discovery counts every returned definition against `maxTools`; remote duplicates are not deduplicated, and selected local names must be unique. `toolkit: UIO[Toolkit]` returns the current immutable snapshot and `names: UIO[Chunk[String]]` exposes Ready registrations only. `remove(name): UIO[McpClientRemoval]` returns Removed or Missing after joined cleanup; `close: UIO[Unit]` joins manager cleanup. Previously returned snapshots retain their original bindings, whose calls fail after removal rather than routing to a later registration with the same name.
 
@@ -16,11 +16,30 @@ Host selection explicitly retains, omits or overrides remote outputSchema in Too
 
 Selected bindings can also attach core fixed arguments, prepared before runtime authorization rather than merged as defaults afterward; the [fixed binding contract](../tool/README.md#fixed-arguments) defines the distinction and current acceptance.
 
-This scope includes checked shallow defaults and root properties/required exclusion through selected bindings. Groups, ambient metadata propagation, broader schema rewriting/evaluation, discovery caches and notification invalidation remain separate. It does not make discovery an atomic server snapshot or broaden the selected 2025-06-18 protocol support. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded adaptations and intentional differences.
+This scope includes checked shallow defaults and root properties/required exclusion through selected bindings. Human-readable group notes, skill-triggered activation, ambient metadata propagation, broader schema rewriting/evaluation, discovery caches and notification invalidation remain separate. It does not make discovery an atomic server snapshot or broaden the selected 2025-06-18 protocol support. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded adaptations and intentional differences.
 
-- [x] Implement bounded registration, immutable Toolkit publication and joined removal/closure with four grouped contract tests.
+- [x] Implement bounded registration, immutable Toolkit publication and joined removal/closure with five grouped contract tests, including grouped installation.
 - [x] Obtain independent FP/ZIO approval from `path_review` and invariant approval from `current_docs` for the final source/test identities below, with no unresolved findings.
 - [x] Pass formatting and full fatal-warning verification recorded below.
+
+## Grouped installation
+
+`make` accepts an immutable `groups: ToolGroups = ToolGroups.empty` catalogue. Declarations must have empty membership sets: the manager derives its memberships from published registrations. `registerBindingsInGroup(name, acquire, maxPages, group, select)` requires a host-declared group before acquisition. Every selected local alias belongs to that group; remote tool names remain invocation targets and confer no group authority. Invalid aliases or failed selection publish no partial registration.
+
+`installation: IO[AgentError.InvalidConfiguration, McpClientInstallation]` reads manager state once and derives both the unfiltered Toolkit and its ToolGroups from the same Ready registrations. Checked membership construction remains fallible rather than hiding an invariant behind an unchecked extraction. Pending, Removing and Closed registrations contribute neither tools nor memberships. Group declarations and their configured activation survive removal, including groups with no remaining tools.
+
+The host passes both installation fields to ReActAgent. The existing `toolkit` view remains unfiltered for compatibility. Neither view refreshes an already constructed agent, restores durable activation, transfers ownership or retargets an old binding after re-registration. Multiple clients can share a group; removal affects only the removed client's aliases. The existing retained-name/capacity reservations and joined cleanup remain authoritative.
+
+Custom managers inherit an ungrouped installation from their existing toolkit and a typed unsupported grouped-registration result that does not acquire a client. Existing registration calls remain ungrouped. The appended defaulted make parameter preserves ordinary source calls; dependent binaries require rebuilding.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the two identities below, with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `mcp-groups-verify.log`: 588 core / 673 harness / 79 MCP tests (1,340 total), zero compiler warnings or failures; compile task 6 seconds and test task 20 seconds, including test compilation.
+
+| Reviewed file | Git blob identity |
+| --- | --- |
+| [McpClientManager.scala](McpClientManager.scala) | `7e940e964c3c99755d510aaddf27a9d3f8adef1c` |
+| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `c3e0580c997e5e078850710f2f14083bab4b63c6` |
+
+- [ ] Next: human-readable group notes. Skill-triggered groups, ambient metadata, discovery caching and durable activation remain separate.
 
 ## Initialized client contract
 
@@ -35,6 +54,8 @@ This scope includes checked shallow defaults and root properties/required exclus
 The flattened catalogue omits page envelope metadata; use `listToolsPage` when that metadata is needed. Discovery is not an atomic server snapshot. There is no discovery cache, notification invalidation, schema evaluation, reconnect or Toolkit installation. The client does not implement the different 2026-07-28 lifecycle.
 
 ## API migration
+
+`installation` and `registerBindingsInGroup` are concrete additions for custom managers: the default installation has empty groups, and grouped registration fails before acquisition unless overridden. Live `make` appends default-empty group declarations and rejects prepopulated memberships. Existing `register`, `registerBindings` and `toolkit` retain ungrouped/unfiltered behavior; the host explicitly supplies both installation fields to ReAct. Source calls using defaults remain valid; rebuild dependent binaries.
 
 Existing `register` and `McpTool.bind` call sites retain metadata omission and empty presets. `registerBindings` is additive and concrete on the manager trait: custom managers compile unchanged and receive a typed unsupported failure without running acquisition or selection until they override it. McpToolBinding has four fields: definition, metadata, presets and fixedArguments. Existing construction/named copy calls can omit the empty argument policies; positional patterns/Product must handle four fields and dependent binaries require rebuilding. No core context bag is added. Fixed binding policy replaces a mutable per-tool switch.
 
@@ -78,14 +99,14 @@ Migration: `McpRequests` adds abstract `register(onAbandon: Cause[AgentError] =>
 
 Accepted scope covers the request registry, borrowed-port connection, checked builders, initialized client, typed remote errors and bounded scoped manager described above, including explicit bound-tool metadata restriction and atomic metadata-aware selection. Concrete HTTP behavior has separate transport acceptance and complete revision support remains excluded; binding/projection has a separate [tool contract](../tool/README.md).
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current checked presets, binding and manager selection extension with paired tests, with no findings. Exact tool identities are in the [tool acceptance](../tool/README.md#verification-and-acceptance); unchanged manager identities are below; the current manager spec identity is in the linked tool acceptance. Formatting and full `verify` passed in `mcp-fixed-arguments-verify.log`, with zero compiler warnings or failures; the tracker owns current totals. Existing client metadata restriction is unchanged. Both reviewers approved the current manager test identity, including host output-schema discard/override and malformed fixed-argument rollback, in the [binding acceptance](../tool/README.md#verification-and-acceptance).
+- [x] Explicit metadata, checked defaults and fixed arguments retain their [binding acceptance](../tool/README.md#verification-and-acceptance). Current manager source/spec identities, including output-schema selection and malformed fixed-argument rollback, are consolidated in [grouped installation](#grouped-installation).
 
 - [x] Five grouped [McpRequestsSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) tests establish registry contracts; `path_review` and `current_docs` approved their recorded identities with no findings.
 - [x] Eight grouped [McpConnectionSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) tests pass for immediate/out-of-order replies, cancellation, complete causes, closed-parent startup, control dispatch, concurrent closure and terminal errors.
 - [x] Regressions failed against unchanged connection blob `1217d4467307297381bed0e01804ca898a85c8d5`: terminal cause duplication and a ping sent after terminal failure. `mcp-terminal-dispatch-red.log` records the assertion failures. Closed-parent startup ordering was corrected by inspection and covered by a contract test; no reproduced startup failure is claimed.
 - [x] `path_review` independently approved FP/ZIO correctness and `current_docs` independently approved invariants for the final connection/port/spec identities below, with no unresolved findings.
 - [x] `path_review` approved final FP/ZIO correctness and `current_docs` approved final invariants for the client, builder overload, remote error codec and associated tests at the identities below, with no findings. Six client groups and actual stdio initialization/list/call integration pass. Both reviewers also approved bounded discovery at the recorded final identities, with no findings.
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the final manager/spec identities below. Four grouped tests establish atomic collision publication, host authority, retained capacity during acquisition/removal, cancellation and shared cleanup, immutable snapshot routing and closure of externally initialized clients.
+- [x] Current manager/spec identities and both independent approvals are consolidated in [grouped installation](#grouped-installation). Five grouped tests cover atomic publication, host authority, retained capacity, joined cleanup, coherent memberships, stale snapshots and actual ReAct activation.
 - [x] The compound-cause regression failed against unchanged manager blob `9b4a5780f0904dced3a41267bf2d3647799123cb`: initializer defects `[a,b]` plus resource cleanup defect `c` incorrectly produced `[a,b,a,b,c]`. `mcp-manager-cause-red.log` records three passing groups and that one assertion failure. The corrected test checks the exact composed Cause and `[a,b,c]`; initialization and resource-cleanup provenance remain separate.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current cancellation extension, transport publication boundaries and paired evidence at the identities below and in the [transport acceptance](../transport/README.md#verification-and-acceptance), with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `mcp-cancellation-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
 
@@ -100,7 +121,6 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `b39c5f1b6f8d0559b7a7adecda0f9374e2a66a9c` |
 | [McpClient.scala](McpClient.scala) | `d1f9ca0a9d3a18f9cf0ab25b80ab5afa3dfea3ce` |
 | [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `24acfbfe2a8b16b2b66fb9ed40d11be286e24ef9` |
-| [McpClientManager.scala](McpClientManager.scala) | `955a6d44122f5cff58d797ad484d47491c292304` |
 
 ## Remaining work
 
@@ -110,8 +130,9 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
-- [ ] Next: integrate automatic MCP group installation; fixed arguments and model-overridable defaults remain distinct.
-- [ ] Define groups, ambient metadata propagation, broader schema transformation and discovery caching separately.
-Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
+- [x] Install host-selected groups coherently with Ready tool snapshots; current manager source/spec acceptance is in [grouped installation](#grouped-installation).
+- [ ] Next: human-readable group notes; fixed arguments and model-overridable defaults remain distinct.
+- [ ] Define skill-triggered activation, ambient metadata propagation, broader schema transformation and discovery caching separately.
+Manager/ReAct grouped installation is covered here; manual binding and metadata integration also have tool-package tests; the stdio contract records real-process initialization/list/call coverage.
 
 These tests establish local concurrency and ownership contracts using controlled message ports. AgentScope Java delegates wire/request machinery to MCP Java SDK 0.17.2; wrapper listTools, callTool and close behaviors remain separate integration mappings. No complete MCP revision or whole-wrapper parity is claimed. MCP 2026-07-28 has a different lifecycle without initialize; it is not implemented by the selected older payload helpers.

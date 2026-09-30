@@ -67,6 +67,8 @@ A successful protocol reply with isError=true projects to ToolResultState.Error 
 
 ## Verification and acceptance
 
+The current manager test identity, including argument-policy rollback, is recorded in [grouped installation acceptance](../client/README.md#grouped-installation).
+
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current fixed-argument/binding source and test identities below, with no findings. Pure factory projection, actual registered authorization/default/metadata integration and checked manager rollback pass alongside the unchanged defaults-only scenario. The [core acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records the output-schema scope.
 - [x] Formatting and full `verify` passed in `mcp-fixed-arguments-verify.log`: 579 core / 673 harness / 78 MCP tests (1,330 total), zero compiler warnings or failures.
 
@@ -78,7 +80,6 @@ A successful protocol reply with isError=true projects to ToolResultState.Error 
 | [McpToolMetadata.scala](McpToolMetadata.scala) | b67b218effea04ce18b2ba018bd37e121f03bcce |
 | [McpToolMetadataSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) | c5c8e8de8440c167c1a295d22209550998cda082 |
 | [McpToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolSpec.scala) | 2be53b2fdc30deea625a87e94057100b6d91858c |
-| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | c9b020b3f59e9b05e8ac627a640b483e97d2fe95 |
 
 ## Upstream scope and remaining work
 
@@ -89,7 +90,7 @@ The bounded adaptation of pinned `McpTool.callAsync` is fixed remote invocation 
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
-- [ ] Next: integrate automatic MCP group installation; fixed arguments and model-overridable defaults remain distinct. Groups and ambient context bags remain separate.
+- [ ] Next: human-readable group notes; fixed arguments and model-overridable defaults remain distinct. Skills and ambient context bags remain separate.
 - [ ] Implement provider multimodal projection separately; typed history/events alone do not supply it.
 The borrowed client supplies [bounded optional outbound cancellation](../client/README.md#outbound-cancellation-contract); binding adds no delivery guarantee.
 

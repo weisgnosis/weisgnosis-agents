@@ -22,8 +22,8 @@ Reset input is exactly an object containing `to_activate`, an array of group-nam
 
 Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a toolGroups setter and a defaulted field. Ordinary call sites retain prior behavior. Positional Builder patterns/Product arity change and downstream binaries must be rebuilt. This explicit dependency is not Toolkit metadata; filtering the supplied base toolkit cannot recover removed tools. Control-name collisions retain Toolkit's existing ToolExecutionError type/message.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, with no findings. Formatting and full `verify` passed in `react-tool-groups-verify.log`: 588 core / 673 harness / 78 MCP tests (1,339 total), zero compiler warnings or failures; compile task 6 seconds and test task 22 seconds.
-- [ ] Next: automatic MCP group installation. Skill-triggered groups, exact Java notes/prose and durable activation remain separate.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, with no findings. Formatting and full `verify` passed in `react-tool-groups-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
+- [ ] Next: human-readable group notes. Skill-triggered groups, exact Java prose and durable activation remain separate.
 
 | Current source/test | Git blob |
 | --- | --- |
