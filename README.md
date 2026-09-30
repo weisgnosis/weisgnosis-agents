@@ -4,13 +4,13 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is MCP Toolkit integration; HTTP transport remains separate. Declared/general-purpose composition, event routing and durable host recovery remain separate.
+Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is explicit MCP manager registration/lifetime policy; manual Toolkit binding is implemented and HTTP transport remains separate. Declared/general-purpose composition, event routing and durable host recovery remain separate.
 
 ## Implemented components
 
 - **core:** immutable messages, 39 typed event variants, JSON codecs, typed tools with completed observation payloads, path screening, SSE parsing and chunk assembly, and ReAct execution with interruption recovery, bounded thinking retries, and structured output.
 - **harness:** daily-memory extraction, scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, typed transcript observations with in-memory and scoped local stores and opt-in completion recording, typed memory triggers with shared monotonic admission, a scoped task queue with pending conversation coalescing and completion-triggered memory flush, conversation compaction, opt-in runtime result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
-- **mcp:** checked 2025-06-18 payloads, bounded request correlation, scoped RPC ownership and a direct-process stdio adapter with bounded framing. The initialized 2025-06-18 client adds capability-checked tool listing/calls, bounded discovery and joined operation deadlines; both reviewers approved the client scope and full verification passed.
+- **mcp:** checked 2025-06-18 payloads, bounded request correlation, scoped RPC ownership and a direct-process stdio adapter with bounded framing. The initialized 2025-06-18 client adds capability-checked tool listing/calls, bounded discovery and joined operation deadlines. Manual McpTool binding adds host-selected authority and typed observations; its acceptance is recorded in the tool package.
 
 LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable approval resumption, broader middleware integration, remote memory/transcript storage, declaration-driven session creation remain separate work. Host-held sessions support process-local child reuse.
 
@@ -70,7 +70,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 - [x] `path_review` and `current_docs` approved [bounded MCP request correlation](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance), including cancellation, scoped registration and full-cause settlement. The connection borrows its host-owned transport.
 
-- [x] `path_review` and `current_docs` approved the [checked MCP envelope](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance), and 2025-06-18 initialization/discovery helpers and call requests, including bounded numeric conversion and malformed-wire rejection. Call-result projection is also reviewed; broader revision support and Toolkit integration remain pending.
+- [x] `path_review` and `current_docs` approved the [checked MCP envelope](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance), and 2025-06-18 initialization/discovery helpers and call requests, including bounded numeric conversion and malformed-wire rejection. Call-result projection is also reviewed; broader revision support remains pending; manual Toolkit binding has its own scoped acceptance.
 
 - [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved retained resource ownership, host-held sessions, bounded host session membership, fixed-session tools, directory-routed tools and policy-aware child construction, with no findings. Exact scope and reviewed identities are in the [tool](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
 - [x] `path_review` and `current_docs` approved [scoped permission composition and shared authorizer views](modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance), including confirmed-input rechecks. The opt-in SubagentConstruction path installs inherited policy; raw factories remain host-controlled.
@@ -81,6 +81,8 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 - [ ] Complete declaration-driven composition; durable host recovery remains separate.
 
 Approval applies to the recorded scope and revisions, not exhaustive upstream parity. Other accepted components retain their package-level evidence.
+
+- [x] Both independent reviewers approved and full verification passed for [manual MCP tool binding](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance).
 
 ## Integration boundaries
 

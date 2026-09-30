@@ -1,11 +1,12 @@
 # weisgnosis-agents-mcp
 
-This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter with bounded framing is independently reviewed and verified. An initialized 2025-06-18 client is independently reviewed and verified. Bounded discovery is independently reviewed; Toolkit integration and HTTP remain unfinished.
+This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter with bounded framing is independently reviewed and verified. An initialized 2025-06-18 client is independently reviewed and verified. Bounded discovery is independently reviewed. Manual Toolkit binding preserves host authority and typed observations; automatic client/tool management and HTTP remain unfinished.
 
 | Package | Current scope |
 | --- | --- |
 | [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted checked envelopes, initialization helpers, tool requests, discovery pages and call results |
 | [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Request correlation, connection ownership and an initialized 2025-06-18 client over a borrowed transport |
+| [tool](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md) | Explicit borrowed-client binding, host definitions and typed content/error projection |
 | [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Borrowed message port, strict UTF-8/LF framing and scoped direct-process stdio; independently reviewed and verified |
 
 The protocol boundary rejects ambiguous variants, duplicate keys and malformed known fields. Numeric envelope identities use a signed 256-bit parser-compatible range. Payload extensions remain data; tool annotations confer no execution authority. Schemas, URI/base64 strings and timestamps are retained without evaluation or resource fetching.
@@ -18,23 +19,27 @@ Stdio starts host-selected argv without an implicit shell and redirects stderr t
 
 Explicit `discoverTools(maxPages, maxTools, meta)` traverses pages sequentially within positive limits, preserves ordered duplicates, detects cursor cycles and returns no partial catalogue on failure. Each page retains its joined deadline; page metadata is omitted, and the result is not an atomic server snapshot.
 
+[McpTool.bind](src/main/scala/com/weisgnosis/agents/mcp/tool/McpTool.scala) borrows one initialized client and fixes its remote name. The host supplies ToolDef naming/schema/read-only/concurrency declarations. All five content variants and nested metadata are preserved; tool isError retains its payload, while Toolkit normalizes RPC failures to textual Error observations without code/data. This neither fetches resources nor grants authority from annotations.
+
 ## Verification and acceptance
+
+- [x] `path_review` and `current_docs` approved manual binding with no findings, and full verification passed; the [tool acceptance](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance) owns exact identities and current totals.
 
 - [x] The [protocol acceptance](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance) records independent FP/ZIO and invariant approvals for the exact envelope and payload scope.
 - [x] The [client acceptance](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records independent approvals for scoped request correlation.
 - [x] Both reviewers approved the connection/port/test identities with no findings; the linked client acceptance records the exact scope and successful full verification.
 - [x] Four framing and three real-process transport groups pass, covering byte boundaries, malformed input, scoped reaping, reader ownership and cancellation.
 - [x] Independent framing/stdio reviews approved the bounded transport scope; the [transport acceptance](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) records exact identities and evidence.
-- [x] `path_review` and `current_docs` approved the final client scope with no findings. Full `scalafmtAll scalafmtSbt verify` passed: 562 core / 651 harness / 41 MCP tests (1,254 total), zero compiler warnings or failures, in `mcp-discovery-verify.log`. Six client groups cover ordered initialization, capability checks, remote failures, bounded discovery and joined deadlines/cancellation; the real-process fixture also initializes, lists and invokes a tool.
+- [x] `path_review` and `current_docs` approved the final client scope with no findings. Six client groups cover ordered initialization, capability checks, remote failures, bounded discovery and joined deadlines/cancellation; the real-process fixture also initializes, lists and invokes a tool.
 
 These are specification-derived protocol and ZIO ownership tests. AgentScope Java delegates its wire machinery to MCP Java SDK 0.17.2. Passing these tests does not close whole upstream client-wrapper methods or establish network interoperability.
 
 ## Remaining work
 
-- [ ] Next: Toolkit integration with explicit naming and authority policy.
+- [ ] Next: automatic manager registration/removal with explicit host authority and ownership; manual binding is implemented separately.
 - [ ] Add cancellation notifications and transport-specific recovery only under separately reviewed contracts.
 - [ ] Implement HTTP transport separately with an explicit revision contract.
-- [ ] Implement core content conversion; caching, notification invalidation and reconnect remain separate.
+- [ ] Implement provider multimodal projection; core typed conversion is available, while caching, notification invalidation and reconnect remain separate.
 - [ ] Evaluate output schemas where required by the selected client contract.
 
 The initialized client and its payload helpers explicitly select 2025-06-18. They do not support the different [2026-07-28 lifecycle](https://modelcontextprotocol.io/specification/2026-07-28/basic), which has no initialize exchange. No complete MCP revision support is claimed.

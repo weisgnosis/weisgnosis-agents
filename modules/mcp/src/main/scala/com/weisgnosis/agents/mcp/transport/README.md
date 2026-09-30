@@ -49,7 +49,7 @@ The port/connection acceptance is recorded separately in the [client contract](.
 ## Remaining work
 
 - [x] Selected 2025-06-18 client initialization, capability checks, list/call and joined deadlines are implemented and reviewed in the [client contract](../client/README.md).
-- [ ] Next: Toolkit integration.
+- [ ] Next: automatic manager registration/removal; manual Toolkit binding has a separate tool-package contract.
 - [ ] Add an explicit cancellation-notification policy.
 - [ ] Implement the selected HTTP transport with its own limits, cleanup and integration review.
 - [ ] Validate additional platform/process configurations before extending the documented ownership claims.

@@ -11,7 +11,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` and `child_factory` approved bounded stdio framing; `path_review` and `registry_contract` approved direct-process stdio and real-process tests. Exact identities and scope are in the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md).
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 41 MCP tests (1,256 total), zero compiler warnings or failures. Evidence: `typed-tool-verify.log`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 44 MCP tests (1,259 total), zero compiler warnings or failures. Evidence: `mcp-tool-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -56,7 +56,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Implement MCP Toolkit integration next. The initialized client explicitly selects 2025-06-18 without claiming complete revision support; HTTP remains a separate transport task.
+- [ ] Next: define automatic MCP manager registration/removal with explicit authority and lifetime policy; manual Toolkit binding is implemented. The initialized client explicitly selects 2025-06-18 without claiming complete revision support; HTTP remains a separate transport task.
 - [ ] Complete declared/general-purpose composition, including explicit tool/prompt/configuration installation; retain the accepted construction boundary.
 - [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 
@@ -71,14 +71,14 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [ ] Validate platform-specific symlink/junction behavior and provide a secure storage backend if untrusted workspace support is required. Canonical checks are not an atomic filesystem sandbox; crash/fsync durability and hostile mutation isolation are not claimed.
 - [x] Implement checked common MCP JSON-RPC envelopes with exclusive message variants, strict fields, recursive duplicate rejection and bounded lossless numeric identities.
 - [x] Implement bounded scoped MCP request correlation with monotonic IDs, transactional settlement, cancellation cleanup and typed McpError lifecycle failures. Both reviewers approved the [client scope and identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
-- [x] Implement checked 2025-06-18 call-result projection for all content variants, embedded text/blob overlap, typed outcomes and nested metadata. Both reviewers approved the recorded protocol identities; transport and local observation conversion remain excluded.
+- [x] Implement checked 2025-06-18 call-result projection for all content variants, embedded text/blob overlap, typed outcomes and nested metadata. Both reviewers approved the recorded protocol identities; this protocol-only acceptance excludes transport and local observation conversion, which have separate contracts.
 - [x] Implement checked 2025-06-18 discovery requests/pages and tool-call requests, preserving schema/extension data and untrusted annotations. Both independent reviewers approved the exact [protocol scope and identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance).
 - [x] Implement pure 2025-06-18 initialization request/result helpers, truthful empty client capabilities, exact-version validation and typed tools capability projection. `path_review` and `current_docs` approved the exact [protocol identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance) with no findings.
 - [x] Implement borrowed-port scoped RPC ownership with checked sends, bounded operation/control admission, direction-safe server dispatch, owner-operated terminal cleanup and shared joined closure. Seven connection tests and full verification pass; both reviewers approved the final scope.
 - [x] Implement reviewed bounded UTF-8/LF framing and scoped direct-process stdio with single-use incoming, serialized writes, terminal write poisoning and shared process cleanup. Four framing and three real-process groups pass.
 - [x] Implement exact 2025-06-18 initialization, capability-checked one-page listing/invocation, joined configured deadlines and typed remote errors, including real-process stdio integration. Both reviewers approved the final scope and full verification passed.
 - [x] Implement bounded sequential discovery with explicit page/tool limits, exact opaque cursor handling, cycle rejection and no partial catalogue on failure. Both reviewers approved the final client/spec identities.
-- [ ] Implement Toolkit integration, then separately scoped HTTP support.
+- [x] `path_review` and `current_docs` approved manual MCP Toolkit binding at the exact [tool identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance), and full verification passed; automatic management and separately scoped HTTP remain unfinished.
 - [ ] Validate live end-to-end cancellation, resource release and operational controls, confirm remote CI, and complete release/API compatibility and production acceptance.
 
 ## Verification and contracts

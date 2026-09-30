@@ -18,7 +18,7 @@ The complete-cause fixture uses a direct ZChannel and verifies the unframed base
 - [x] Seven focused groups pass against strict bytes and actual local JVM processes.
 - [x] Full repository verification passed; exact identities and evidence are in the [transport acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance).
 - [x] The real peer enforces initialize/initialized/ready ordering before discovery and invocation. Controlled-port client tests cover joined deadlines.
-- [ ] Cancellation notifications and Toolkit integration remain separate.
+- [ ] Cancellation notifications and automatic manager integration remain separate; manual Toolkit binding has its own tests.
 - [ ] HTTP framing/lifecycle and external-server/platform interoperability require separate implementation and evidence.
 
 These tests do not establish whole AgentScope wrapper parity or complete protocol revision support.

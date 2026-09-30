@@ -1,6 +1,6 @@
 # com.weisgnosis.agents.mcp.client
 
-[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Toolkit integration and HTTP remain unfinished.
+[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract; automatic management and HTTP remain unfinished.
 
 ## Initialized client contract
 
@@ -40,7 +40,7 @@ These bounds count operations and queued messages, not bytes. This is a raw RPC 
 
 ## Verification and acceptance
 
-Accepted scope covers the registry, borrowed-port connection, checked builders, initialized client and typed remote errors described above. HTTP, Toolkit integration and complete revision support remain excluded.
+Accepted scope covers the registry, borrowed-port connection, checked builders, initialized client and typed remote errors described above. HTTP and complete revision support remain excluded; manual Toolkit binding has a separate [tool contract](../tool/README.md).
 
 - [x] Four grouped [McpRequestsSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) tests establish registry contracts; `path_review` and `current_docs` approved their recorded identities with no findings.
 - [x] Seven grouped [McpConnectionSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) tests pass for immediate/out-of-order replies, cancellation, complete causes, closed-parent startup, control dispatch, concurrent closure and terminal errors.
@@ -63,9 +63,9 @@ Accepted scope covers the registry, borrowed-port connection, checked builders, 
 
 ## Remaining work
 
-- [ ] Next: Toolkit integration with explicit naming, content conversion and authority policy.
+- [ ] Next: automatic manager registration/removal with explicit authority and lifetime policy; manual binding has a separate tool-package contract.
 - [ ] Implement HTTP transport separately.
 - [ ] Define cancellation notification and transport-specific recovery policy.
-- [ ] Add Toolkit/ReAct integration tests; the separate stdio contract records real-process initialization/list/call coverage.
+Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
 
 These tests establish local concurrency and ownership contracts using controlled message ports. AgentScope Java delegates wire/request machinery to MCP Java SDK 0.17.2; wrapper listTools, callTool and close behaviors remain separate integration mappings. No complete MCP revision or whole-wrapper parity is claimed. MCP 2026-07-28 has a different lifecycle without initialize; it is not implemented by the selected older payload helpers.

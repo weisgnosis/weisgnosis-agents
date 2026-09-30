@@ -6,7 +6,8 @@ Sections 1-6 describe current components. Section 7 describes daily extraction, 
 
 The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/McpClient.scala) borrows a host-owned transport, completes the exact 2025-06-18 initialize/result/initialized sequence, and exposes single-page or bounded tool discovery and invocation only when the server advertises tools. Each operation uses the configured positive finite deadline, defaulting to 30 seconds. Deadline expiry triggers cancellation and joins cleanup, so completion can take longer than that duration. Initialization failure closes the connection immediately; ordinary remote protocol rejections preserve typed error payloads, and tool isError remains a valid result. Real-process stdio integration exercises initialization, discovery, invocation and child reaping. Both reviewers approved the bounded scope and full verification passed; the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and evidence.
 
-- [ ] Next: Toolkit integration with explicit tool naming and authority.
+- [x] Both independent reviewers approved manual McpTool.bind with explicit host naming/schema/read-only/concurrency authority and retained typed observations; full verification passed. Exact identities are in the [tool acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance).
+- [ ] Next: automatic MCP manager registration/removal under explicit lifetime and authority policy.
 - [ ] HTTP, caching, schema evaluation, cancellation notifications and reconnect remain separate integrations.
 
 ## 1. ReAct lifecycle

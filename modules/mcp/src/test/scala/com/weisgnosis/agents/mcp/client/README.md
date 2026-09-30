@@ -14,7 +14,7 @@ The terminal cause and post-terminal dispatch regressions failed against the unc
 
 - [x] All seventeen client groups pass in focused verification; registry identities were independently accepted.
 - [x] Both reviewers approved the final connection and initialized-client scope and full verification passed; exact identities and evidence are in the [client acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
-- [ ] Next: Toolkit/ReAct integration; outgoing cancellation notifications remain separate. The transport suite covers actual stdio initialization, list/call and cleanup.
+- [ ] Next: automatic manager integration; outgoing cancellation notifications remain separate. The tool package covers manual Toolkit/ReAct binding, and the transport suite covers actual stdio initialization, list/call and cleanup.
 - [ ] Complete applicable upstream method mappings and metadata trust boundaries.
 
 These controlled-port scenarios do not establish external-server interoperability, cancellation notifications or complete AgentScope wrapper parity.

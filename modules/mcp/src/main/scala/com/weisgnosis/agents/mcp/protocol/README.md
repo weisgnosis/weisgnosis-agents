@@ -92,8 +92,8 @@ Accepted scope: the four message cases, checked wire/AST conversion, strict enve
 ## Remaining work
 
 - [x] Selected-revision client initialization, capability checks, list/call and joined deadlines are accepted in the [client contract](../client/README.md).
-- [ ] Next: Toolkit integration.
-- [ ] Toolkit integration and core content conversion with explicit authority boundaries; output-schema evaluation remains pending.
+- [ ] Next: automatic manager registration/removal; manual Toolkit binding has a separate tool-package contract.
+- [ ] Output-schema evaluation and provider multimodal projection remain separate from manual binding and core content conversion.
 - [ ] Method/version validation and integration with the lifecycle of each explicitly supported revision.
 
 This is new specification-derived codec coverage. AgentScope Java uses SDK `McpSchema` objects and delegates serialization to MCP Java SDK 0.17.2; wrapper discovery, calls, cleanup, and explicitly supported legacy initialization retain separate bounded mappings and exclusions in the parity audit.
