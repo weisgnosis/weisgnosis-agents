@@ -68,11 +68,19 @@ final case class Toolkit(tools: Map[String, Tool[Any, ?, ?]] = Map.empty):
             )
           )
           .flatMap(tool.execute)
-          .map(output => ToolExecutionResult(tool.encodeOutput(output), ToolResultState.Success))
+          .map: output =>
+            val result = tool.encodeResult(output)
+            result.state match
+              case ToolResultState.Success | ToolResultState.Error => result
+              case other =>
+                ToolExecutionResult(
+                  s"Tool '${tool.definition.name}' returned unsupported execution state '$other'; only Success and Error are allowed.",
+                  ToolResultState.Error
+                )
       }
       .foldCauseZIO(
         cause =>
-          if cause.isInterrupted then ZIO.interrupt
+          if cause.isInterrupted then ZIO.refailCause(cause).orDie
           else
             ZIO.succeed(
               ToolExecutionResult(

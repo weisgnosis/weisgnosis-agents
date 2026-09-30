@@ -922,8 +922,10 @@ final class ReActAgent private (
                 message.mapToolUseAt(indexed.ordinal)(_ => approved)
               else message
             }) *> restore(toolkit.executeSafe(call.name, input))
-        resultBlock = ContentBlock.ToolResult.text(call.id, call.name, res.output, res.state)
-        toolMsg     = Msg.tool(name = Some(call.name), content = Chunk(resultBlock))
+        resultBlock = res.payload.applyTo(
+          ContentBlock.ToolResult(call.id, Some(call.name), state = res.state)
+        )
+        toolMsg = Msg.tool(name = Some(call.name), content = Chunk(resultBlock))
         position  <- stateRef.modify(history => (history.size, history :+ toolMsg))
         completed <- restore(processedResult(resultBlock))
         _ <- stateRef.update(_.zipWithIndex.map { case (message, index) =>

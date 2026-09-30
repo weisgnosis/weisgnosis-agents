@@ -4,7 +4,7 @@ Package READMEs describe available source or explicitly label planned designs. C
 
 | Module | Current status |
 | --- | --- |
-| [core](core/README.md) | Immutable models, typed events/tools, canonical path checks, advisory command screening, scoped model clients, streaming and ReAct execution |
+| [core](core/README.md) | Immutable models, typed events/tools and completed observation payloads, canonical path checks, advisory command screening, scoped model clients, streaming and ReAct execution |
 | [harness](harness/README.md) | Memory/transcript storage and maintenance, compaction/eviction, interactive permissions, reviewed plan sessions and controls, scoped task/resource ownership, configured child factories, bounded execution registries, host-held reusable sessions, bounded host session membership and opt-in spawn/send/task/cancel tools |
 | [mcp](mcp/README.md) | Checked payloads, bounded correlation, scoped RPC ownership and direct-process stdio with bounded framing; initialized 2025-06-18 capability-checked list/call and joined deadlines are reviewed; Toolkit integration and HTTP remain pending |
 

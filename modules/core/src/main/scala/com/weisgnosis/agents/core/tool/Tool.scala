@@ -32,6 +32,9 @@ trait Tool[-R, In, Out]:
   def decodeInput(raw: Json): Either[String, In]
   def encodeOutput(out: Out): String
 
+  /** Completed observations may supply typed content and Success or Error state. */
+  def encodeResult(out: Out): ToolExecutionResult = ToolExecutionResult(encodeOutput(out))
+
 object Tool:
 
   def fromFunction[In: JsonDecoder, Out: JsonEncoder](

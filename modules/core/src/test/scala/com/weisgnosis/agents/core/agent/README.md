@@ -21,6 +21,12 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [StructuredOutputCapabilityRoutingSpec](StructuredOutputCapabilityRoutingSpec.scala)
 - [StructuredOutputSpec](StructuredOutputSpec.scala)
 
+## Typed local-result evidence
+
+[ReActAgentToolResultProcessorSpec](ReActAgentToolResultProcessorSpec.scala) verifies ordered text/media observations in history and correlated events, preserved Error state, and rejection of tool-supplied runtime control metadata. Legacy text tools retain their existing path. Media preservation here does not imply support in the text-only ChatCompletions request codec. Core tool tests separately cover unsupported states, result codecs and compound cancellation causes.
+
+- [x] Both independent reviewers approved the final scope and full repository verification passed; current exact scope and identities belong to the [tool acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance).
+
 ## Current evidence
 
 - [x] Lifecycle suites verify request/run ownership, timeout, cancellation, original failure propagation, private stream completion, ordered draining, and correlated boundaries.

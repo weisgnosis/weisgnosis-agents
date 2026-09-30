@@ -5,12 +5,18 @@ These ZIO Test suites cover selected upstream scenarios and Scala regressions. T
 | Suite | Contract |
 | --- | --- |
 | [PathSafetySpec](PathSafetySpec.scala) | Sensitive paths, traversal, and advisory command fragments |
-| [ToolExecutionSpec](ToolExecutionSpec.scala) | Typed decoding and tool observations |
+| [ToolExecutionSpec](ToolExecutionSpec.scala) | Typed decoding, payload projection/codecs, completed-state admission and cancellation cleanup |
 | [ToolkitSpec](ToolkitSpec.scala) | Immutable registration and dispatch |
 | [ToolResultProcessorSpec](ToolResultProcessorSpec.scala) | Payload codecs, protected control keys and suspended composition |
 | [ToolAuthorizerSpec](ToolAuthorizerSpec.scala) | Decision codecs, lazy policies and error-channel separation |
 
 Runtime integration lives in the [agent suites](../agent/README.md). See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for remaining mappings.
+
+## Typed observation evidence
+
+ToolExecutionSpec verifies legacy text construction, typed payload and derived-codec preservation, Success/Error admission and rejection of tool-supplied runtime states. Its deterministic cancellation case covers both an externally interrupted invocation with blocked cleanup and a tool joining its actually interrupted owned child. The external baseline passed in `tool-cleanup-baseline.log`. Against unchanged Toolkit blob `79be10c316f676da5d96977419e5be4caf02886f`, `tool-inner-cancellation-red.log` reproduced one failed assertion: the inner child's cleanup defect disappeared while interruption remained. The correction retains the compound cause and maps typed Throwable leaves to defects for the UIO boundary; a mixed typed-failure/interruption assertion also guards against stripping failure leaves.
+
+- [x] Both independent reviewers approved the typed observation scope and full repository verification passed; the [source acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact identities and verification evidence.
 
 ## Command-screening regressions
 
@@ -20,6 +26,6 @@ This is an advisory fragment detector. Quoted dangerous text can be flagged; a f
 
 - [x] Demonstrate the defects before changing production: five existing/control cases passed and three regressions failed; `path-safety-regression-red.log` retains local evidence.
 - [x] Verify the corrected classifier: eight tests passed in 136 ms with zero compiler warnings. Independent FP/ZIO and invariant reviewer `path_review` approved the source and test blobs recorded in the tool README.
-- [x] Pass full `scalafmtAll scalafmtSbt verify` on 2026-09-30: 561 core and 609 harness tests, zero compiler warnings or failures.
+- [x] Independent review and required repository checks accepted the unchanged command-screening scope; exact source/test identities remain in the source contract.
 
 Run `sbt "core / testOnly com.weisgnosis.agents.core.tool.PathSafetySpec"` for focused verification, or `sbt verify` for the repository. Current source contracts, reviewed file identities and scoped acceptance are in the [tool README](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md). Existing processor/authorization acceptance is unaffected.

@@ -9,6 +9,12 @@ ReActAgent retains history and serializes runs. Model requests receive their own
 - [StructuredOutput](StructuredOutput.scala)
 - [TurnCompletionObserver](TurnCompletionObserver.scala)
 
+## Current typed-result acceptance
+
+The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. Current reviewed ReActAgent identities for this scope belong to the [tool acceptance](../tool/README.md#current-review-acceptance).
+
+- [x] `path_review` and `current_docs` approved typed local result publication at the six identities in the linked tool acceptance; full repository verification passed with no warnings or failures.
+
 ## Runtime events and result pairing
 
 One correlated AgentStart/AgentEnd pair surrounds each engine attempt. End follows loop termination/reconciliation, including failure or interruption. Successful preparation commits history, completes required observation and its scope cleanup, then publishes one runtime AgentResultEvent before End. Observation failure suppresses the result event while retaining committed history. Ordinary cooperative interruption publishes its recovery reply; failed structured preparation publishes no finalized result. Streaming uses a private Take queue carrying the original exit, joins the claimed event prefix, then drains the buffered suffix before termination. A provider-published AgentEnd cannot terminate delivery. Early consumer completion closes owned producer/model scopes. Publishers must remain within those scopes; the unbounded hub/queue do not provide backpressure.
@@ -33,7 +39,7 @@ ReAct allocates a fresh requestId under the current attempt replyId and passes M
 
 All four result-event variants now retain the originating ModelStreamContext. Local execution publishes Start, executes interruptibly, then records the completed observation before publishing its text Delta and End under the existing interruption mask. Empty text remains an explicit empty delta. Normalized failures remain Error observations and continue the loop. Each parallel call keeps its own ordered events; completion order may differ from call order. Later turns reusing a call ID remain distinguishable through requestId.
 
-Inline provider results share the completed-output publisher, preserve text/data ordering and metadata, and remain inside the assistant message without separate Tool messages. Local tools produce completed text observations. An optional ToolResultProcessor rewrites payload blocks and metadata before completed publication; partial tool execution and native structured tool return values remain pending. Cancellation preserves completed results/events and reconciles unfinished history; it does not publish a false ToolResultEnd for interrupted work. AgentEnd still terminates the attempt.
+Inline provider results share the completed-output publisher, preserve text/data ordering and metadata, and remain inside the assistant message without separate Tool messages. Local tools may produce completed typed payloads through Tool.encodeResult. Toolkit admits only Success/Error projections; ReAct owns call identity, authorization denial and protected control metadata. An optional ToolResultProcessor rewrites payload blocks and metadata before completed publication. Partial tool execution remains pending; the current ChatCompletions request codec rejects non-text output. Cancellation preserves completed results/events and reconciles unfinished history; it does not publish a false ToolResultEnd for interrupted work. AgentEnd still terminates the attempt.
 
 ## Strict structured JSON
 
@@ -61,7 +67,7 @@ The declaration is serialized with LlmConfig but excluded from the HTTP request 
 - [x] The accepted runtime baseline through `06bd2e1` includes lifecycle cleanup, finalized result ordering, occurrence-based reconciliation, correlated model/tool events, strict structured JSON, and loopback HTTP completion. Git preserves the earlier reviewer approvals and exact identities.
 - [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.
 - [ ] Complete general model-call middleware and remaining legacy hook behavior.
-- [ ] Complete provider continuation, incremental/structured local tool results, full event ordering, and event adapters.
+- [ ] Complete provider continuation, incremental execution and provider multimodal serialization, full event ordering, and event adapters.
 - [ ] Integrate phase stopping, durable pending work, and harness middleware.
 
 The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes verified contracts from remaining scenarios. General JSON Schema validation and exhaustive provider compatibility are not claimed.
@@ -107,7 +113,7 @@ After local execution finishes, the runtime atomically appends the complete raw 
 
 Cancellation during processing keeps the completed raw result and reconciles only unfinished executions. It does not rerun the tool or publish a false ToolResultEnd. A subsequent model request sees the committed processed payload; observers may see the raw result while processing is pending. Processor side effects already performed before failure/cancellation are not rolled back. Callbacks must not reenter a mutating agent operation that requires the held run lock.
 
-Tool execution still returns completed text. A processor can replace its output blocks and metadata for the existing typed result publisher; this does not implement incremental tool execution or native structured tool return values. Empty processed output emits only End after the original Start. Matched inline provider results also use this processor. Supplied history uses the separate opt-in ToolResultEvictor.preparer adapter.
+Tool execution can return completed typed payloads. A processor can replace their output blocks and metadata for the existing typed result publisher; incremental tool execution remains pending. Empty processed output emits only End after the original Start. Matched inline provider results also use this processor. Supplied history uses the separate opt-in ToolResultEvictor.preparer adapter.
 
 Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. Processor values are runtime dependencies, not serialized agent configuration.
 
@@ -224,15 +230,14 @@ Migration: the optional constructor/builder dependency is additive, but position
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 264 harness tests, including 28 new cases, with zero compiler warnings. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-The previous ReActAgent.scala identity is preserved in `0349b1a`; its current identity and acceptance are in the completion-observer table in the [core agent contract](README.md).
+The current ReActAgent.scala identity and typed-result acceptance are recorded in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
 
 ## Current completion-observer identities
 
-Five unchanged identities from the eight-file scope against `0349b1a`; changed observer identities are recorded below, with their previous versions preserved in `3e817e3`:
+Four unchanged identities from the eight-file scope against `0349b1a`; changed observer identities are recorded below, with their previous versions preserved in `3e817e3`:
 
 | File | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | 3aa3e96aa3b6de6c8413b3f0fd6aa2cf794f05ac |
 | [ReActAgentCompletionInterruptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionInterruptSpec.scala) | c26004f7c289c66638e725857bc2225acb7e1a03 |
 | [ReActAgentCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionSpec.scala) | 2b6f5f8edad11ad0023c15c5905d9d69136e908f |
 | [SessionTranscriptWriter.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) | da27d3446e30ee7f77f4eaaac2d424200ac17383 |

@@ -4,6 +4,15 @@ The engineering target is one paired Scala test for every applicable upstream be
 
 The reference is the clean local `agentscope-java` checkout at commit `f98a685fdc4589f81e626e1686ac2c63d14a2304`, verified on 2026-09-29. Upstream Java implementation details are translated into Scala domain behavior, not copied as imperative APIs. Updating this pin requires a new inventory and review of changed scenarios.
 
+## Typed completed tool observations
+
+The current core prerequisite exposes Tool.encodeResult, payload/state ToolExecutionResult and runtime-protected result publication. Existing String tools retain Success by default; only Success/Error may be projected by tools. ToolExecutionSpec covers payload/codecs, unsupported states and cancellation cleanup; the agent integration checks ordered typed history/events and protected metadata. These are local extension contracts, not completion of the upstream MCP adapter or tool matrix. ChatCompletions still rejects non-text tool output.
+
+The unchanged Toolkit blob `79be10c316f676da5d96977419e5be4caf02886f` lost a cleanup defect when a tool joined its actually interrupted owned child: `tool-inner-cancellation-red.log` records the failed defect-preservation assertion. The external-cancellation baseline passed. Re-failing the compound cause preserves interruption and defects while mapping typed Throwable leaves to defects for the UIO boundary.
+
+- [x] Both independent reviewers approved the final scope and full repository verification passed; exact identities belong to the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance).
+- [ ] Implement the MCP Toolkit binding with explicit host authority and preserved protocol content; provider multimodal projection remains separate.
+
 ## Progress checklist
 
 - [x] Close the reproduced PathSafety command-classification gaps with independently approved [advisory lexical screening regressions](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions). This is additional local contract coverage, not a new upstream mapping or shell-authorization guarantee.
@@ -362,7 +371,7 @@ The eight payload classes below are implemented and verified independently of th
 | AgentResult | result: Msg | Runtime publishes after preparation and history commit, before AgentEnd; pre-commit failures publish no finalized result |
 | DataBlockStart / End | replyId, blockId | Stable block correlation and provider assembly |
 | DataBlockDelta | replyId, blockId, delta: String | Delta is text; it is not a ContentBlock |
-| ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Inline provider and processed completed local output blocks are published with full metadata; native structured tool returns and incremental execution remain pending |
+| ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Inline provider and completed typed local output blocks are published with full metadata; incremental execution and provider multimodal serialization remain pending |
 | ExceedMaxIters | replyId, maxIters, currentIter | Runtime guard verified with correlated replyId and completed iteration count |
 | RequestStop | reason, available typed GenerateReason; default MiddlewareStopRequested | Cooperative phase stop and durable pending-work resumption |
 | AllToolsDenied | Chunk[ToolUse], empty by default | Permission/HITL integration and middleware stop decision |

@@ -15,13 +15,24 @@
  */
 package com.weisgnosis.agents.core.tool
 
-import com.weisgnosis.agents.core.model.ToolResultState
+import com.weisgnosis.agents.core.model.{ContentBlock, ToolResultState}
+import zio.Chunk
 import zio.json.*
 
 /**
- * Output and state outcome of executing a tool.
+ * Typed observation and state outcome of executing a tool. String construction remains supported;
+ * generated copy/unapply and the derived JSON representation now use payload rather than output.
  */
 final case class ToolExecutionResult(
-    output: String,
-    state: ToolResultState = ToolResultState.Success
-) derives JsonCodec
+    payload: ToolResultPayload,
+    state: ToolResultState
+) derives JsonCodec:
+  /** Text-only projection; typed non-text blocks remain available in payload. */
+  def output: String =
+    payload.output.collect { case ContentBlock.Text(text) => text }.mkString("\n")
+
+object ToolExecutionResult:
+  def apply(output: String): ToolExecutionResult = apply(output, ToolResultState.Success)
+
+  def apply(output: String, state: ToolResultState): ToolExecutionResult =
+    ToolExecutionResult(ToolResultPayload(Chunk(ContentBlock.Text(output))), state)

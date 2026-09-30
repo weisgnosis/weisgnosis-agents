@@ -10,7 +10,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` and `current_docs` approved borrowed-port RPC ownership and its final connection tests with no findings; exact scope and identities are in the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
 - [x] `path_review` and `child_factory` approved bounded stdio framing; `path_review` and `registry_contract` approved direct-process stdio and real-process tests. Exact identities and scope are in the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md).
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed for the client slice: 562 core / 651 harness / 41 MCP tests (1,254 total), zero compiler warnings or failures. Evidence: `mcp-discovery-verify.log`.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 41 MCP tests (1,256 total), zero compiler warnings or failures. Evidence: `typed-tool-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -18,6 +19,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 ### Core
 
 - [x] Immutable messages, typed errors, compile-time JSON codecs, 39 event variants, typed tools and immutable registration.
+- [x] Accept typed Success/Error result payloads, runtime-owned identity/control metadata and cancellation-cause preservation after final independent review and verification. Provider multimodal serialization remains separate.
 - [x] ReAct execution with persisted local calls, occurrence-aware results, interruption recovery, bounded thinking-only retries, native/synthetic structured output and scoped authorization.
 - [x] Scripted clients and scoped text/function HTTP completion, strict SSE parsing, indexed argument assembly and correlated incremental events; dispatch requires validated stream completion.
 - [x] Scoped result processing, history preparation, request-only projection, completion observers and typed generation reasons.
@@ -62,7 +64,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 
 ## Remaining integration and parity
 
-- [ ] Complete applicable core/harness method mappings and remaining structured-output, lifecycle and event-ordering gaps, including native structured/incremental local tool results, provider signature/tool metadata, event adapters, phase-stop integration and richer subagent attribution.
+- [ ] Complete applicable core/harness method mappings and remaining structured-output, lifecycle and event-ordering gaps, including incremental local tool results and provider multimodal projection, provider signature/tool metadata, event adapters, phase-stop integration and richer subagent attribution.
 - [ ] Complete remaining plan adaptations, including skills and declared/general-purpose configuration and legacy reused-child behavior; the opt-in construction path does not close those whole methods. Current plan inventory is eight adapted / six pending methods.
 - [ ] Implement durable host persistence and authenticated, idempotent resumption from `ConfirmResult` without another model request.
 - [ ] Complete model-selection configuration, remote memory/transcript adapters, timestamp-watermark migration, session discovery and scheduling.

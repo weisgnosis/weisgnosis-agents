@@ -34,6 +34,58 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ReActAgentToolResultProcessorSpec")(
     test(
+      "typed tool execution persists error content and emits data while runtime owns identity and control metadata"
+    ) {
+      val image = ContentBlock.Image(MediaSource.Base64("image/png", "aW1hZ2U="))
+      val metadata =
+        Map("mcp" -> Json.Obj("structuredContent" -> Json.Obj("reason" -> Json.Str("unavailable"))))
+      val payload = ToolResultPayload(
+        Chunk(ContentBlock.Text("partial result"), image),
+        metadata ++ Map(
+          "serverTool"             -> Json.Bool(true),
+          "agentscope_server_tool" -> Json.Bool(true),
+          "agentscope_suspended"   -> Json.Bool(true)
+        )
+      )
+      val typed = new Tool[Any, Json, ToolExecutionResult]:
+        def definition: ToolDef = ToolDef("lookup", "Typed output", Json.Obj())
+        def decodeInput(raw: Json): Either[String, Json] = Right(raw)
+        def execute(input: Json): UIO[ToolExecutionResult] =
+          ZIO.succeed(ToolExecutionResult(payload, ToolResultState.Error))
+        def encodeOutput(out: ToolExecutionResult): String                       = out.output
+        override def encodeResult(out: ToolExecutionResult): ToolExecutionResult = out
+      for
+        observed <- Ref.make(Chunk.empty[ContentBlock.ToolResult])
+        model = LlmClient.mockEffectful((history, _, _) =>
+          if history.flatMap(_.toolResults).isEmpty then ZIO.succeed(output(call("lookup")))
+          else
+            observed
+              .set(history.flatMap(_.toolResults))
+              .as(TurnOutput.FinalText(Msg.assistant("done")))
+        )
+        agent    <- ReActAgent.make(client = model, toolkit = Toolkit(Map("lookup" -> typed)))
+        events   <- agent.streamEvents(Msg.user("q")).runCollect
+        history  <- agent.history
+        received <- observed.get
+        expected = ContentBlock.ToolResult(
+          "call",
+          Some("lookup"),
+          payload.output,
+          ToolResultState.Error,
+          metadata
+        )
+      yield assertTrue(
+        received == Chunk(expected),
+        history.flatMap(_.toolResults) == received,
+        events.collect { case event: AgentEvent.ToolResultDataDeltaEvent => event.data } == Chunk(
+          image
+        ),
+        events.collect { case event: AgentEvent.ToolResultEndEvent => event.state } == Chunk(
+          ToolResultState.Error
+        )
+      )
+    },
+    test(
       "processing observes committed raw output then commits safe payload before model continuation and events"
     ) {
       for
