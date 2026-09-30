@@ -51,7 +51,7 @@ These helpers allocate no identities and implement no runtime, correlation, orde
 - Each `McpToolDefinition` retains name, complete inputSchema, optional title/description/outputSchema/annotations/object `_meta`, and unknown extension fields. Input and output schemas require root `type: "object"`; optional properties must be an object and required must be an array of strings. These limited structural checks do not evaluate JSON Schema, resolve references, or validate tool arguments. Definitions, references, and other schema keywords remain in the original AST.
 - `McpToolAnnotations` retains optional title and readOnlyHint/destructiveHint/idempotentHint/openWorldHint booleans plus unknown extensions. Absence is distinct from false. These are untrusted remote hints, never local ToolDef flags, permissions, or execution guarantees.
 
-Known optional fields reject explicit null or malformed types. Duplicate keys are rejected throughout incoming schemas/extensions and outgoing arguments/metadata. Extension objects exclude the corresponding typed fields. No implicit codec bypasses checked parsing. Call-result projection is described below; executing calls remains pending.
+Known optional fields reject explicit null or malformed types. Duplicate keys are rejected throughout incoming schemas/extensions and outgoing arguments/metadata. Extension objects exclude the corresponding typed fields. No implicit codec bypasses checked parsing. Call-result projection is described below; the [initialized client](../client/README.md) executes capability-checked calls, and [manual tool binding](../tool/README.md) preserves host authority and typed observations.
 
 ## 2025-06-18 call results
 

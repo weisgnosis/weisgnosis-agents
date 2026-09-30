@@ -1,7 +1,8 @@
-val scala3Version  = "3.9.0"
-val zioVersion     = "2.1.26"
-val zioJsonVersion = "0.9.1"
-val zioHttpVersion = "3.11.3"
+val scala3Version                  = "3.9.0"
+val zioVersion                     = "2.1.26"
+val zioJsonVersion                 = "0.9.1"
+val zioHttpVersion                 = "3.11.3"
+val snakeYamlEngineVersion: String = "3.1.1"
 
 ThisBuild / scalaVersion := scala3Version
 ThisBuild / version      := "0.1.0-SNAPSHOT"
@@ -44,11 +45,12 @@ lazy val harness = (project in file("modules/harness"))
     name := "weisgnosis-agents-harness",
     commonSettings,
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"          % zioVersion,
-      "dev.zio" %% "zio-streams"  % zioVersion,
-      "dev.zio" %% "zio-json"     % zioJsonVersion,
-      "dev.zio" %% "zio-test"     % zioVersion % Test,
-      "dev.zio" %% "zio-test-sbt" % zioVersion % Test
+      "org.snakeyaml" % "snakeyaml-engine" % snakeYamlEngineVersion,
+      "dev.zio"      %% "zio"              % zioVersion,
+      "dev.zio"      %% "zio-streams"      % zioVersion,
+      "dev.zio"      %% "zio-json"         % zioJsonVersion,
+      "dev.zio"      %% "zio-test"         % zioVersion % Test,
+      "dev.zio"      %% "zio-test-sbt"     % zioVersion % Test
     )
   )
 

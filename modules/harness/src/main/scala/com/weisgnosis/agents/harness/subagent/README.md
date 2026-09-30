@@ -64,7 +64,27 @@ A raw spawner does not automatically carry the factory's static boundary or inhe
 
 Final tool selection includes inherited and registered tools under the ancestor boundary. `AllAvailable` inherits available tools; `Only(Set.empty)` permits none. Declarations cannot disable live ancestor Deny/Plan checks or inherit approval authority. Callbacks remain trusted scoped host capabilities; supply fresh authorizer/Plan state per build for isolation. Plan tools, review delivery and nested controls require explicit installation.
 
-The resulting factory works with existing fresh-child registries and retained sessions. Declaration names are descriptive configuration, not session credentials or reuse keys. This additive API does not change existing factory signatures. Markdown/YAML loading, automatic named-session creation, skills, workspace policies, topP/variant options, structured-output execution and remote/durable declarations remain separate work.
+The resulting factory works with existing fresh-child registries and retained sessions. Declaration names are descriptive configuration, not session credentials or reuse keys. This additive API does not change existing factory signatures. Filesystem discovery/loading, automatic named-session creation, skills, workspace policies, topP/variant options, structured-output execution and remote/durable declarations remain separate work.
+
+## Inline declaration parsing
+
+`SubagentDeclarationParser.parse(name, markdown, limits)` returns `IO[AgentError, SubagentDeclaration]` and validates the existing model before returning it. The host supplies the name; the parser reads no files and installs no factory, catalog or session. Existing constructors and factory APIs are unchanged.
+
+The supported Markdown/YAML profile has exactly six header fields: required nonblank `description`, optional `model`, `temperature`, `tools`, `steps` and deprecated `maxIters`. Scalars are textual. Missing optional fields and plain YAML null spellings inherit; quoted `null` is literal text. Temperature must be a finite decimal number; iteration overrides must be positive decimal Int values. Both aliases are validated even when `steps` wins. Omitted iterations inherit the parent, rather than introducing a parser default.
+
+Tools accept a scalar comma-separated list or a scalar sequence. Omitted/plain-null tools inherit; an empty sequence or empty quoted scalar selects no tools. Names are trimmed and deduplicated, with blank entries rejected. Duplicate/unknown fields, nested structures, anchors/aliases, explicit tags and YAML version/tag directives are rejected. Unsupported workspace, permissions, skills, topP and variant fields cannot silently grant or discard configuration.
+
+Opening and closing delimiters are column-zero `---` lines with optional trailing spaces/tabs and LF or CRLF; a delimiter may end at EOF. A BOM is rejected. The prompt body after the closing line ending is preserved exactly, including blank lines and trailing whitespace. Positive limits default to 128,000 UTF-16 code units for the whole document and 16,000 for the header excluding delimiter lines. Limits are checked before YAML decoding. SnakeYAML Engine 3.1.1 event iteration is suspended in ZIO and translated through immutable state, without object loading. Syntax failures become bounded InvalidConfiguration diagnostics. This is a supported profile, not full YAML compatibility; the engine may ignore reserved directives that its public event API does not expose.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the parser, paired spec and harness-only dependency at the exact identities below, with no unresolved findings. Full `scalafmtAll scalafmtSbt verify` passed in `subagent-declaration-parser-verify.log`: 573 core / 663 harness / 56 MCP tests (1,292 total), zero compiler warnings or failures.
+- [x] `subagent-declaration-parser-red.log` reproduced two failed groups against parser blob `8ffa283fef78d674023cfe230debbd15088bd027`: bare-CR/NEL/LS/PS boundaries were accepted as closing markers, and valid CRLF body equality failed. One group passed; the same expectations pass after the explicit LF/CRLF correction.
+- [ ] Add bounded local declaration discovery/loading; automatic reusable-session installation remains separate.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [SubagentDeclarationParser.scala](SubagentDeclarationParser.scala) | `2011caef46b7078b125bb7dfc4d6e091ede72fcd` |
+| [SubagentDeclarationParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | `d9b5962abc88a8ace5b2f9740cc06aeb5e2c5b6f` |
+| [build.sbt](../../../../../../../../../../build.sbt) | `87773171635d77e6fe408aab5531d6554f8e1c7e` |
 
 ## Policy-aware child construction
 
@@ -74,7 +94,7 @@ Each build runs permission initialization before registration in the same owned 
 
 The derived capability carries the effective static boundary, ancestor live denial readers plus the child's current policy, and the effective live Plan mode. Further `narrowed` and `inheritingParentDenials` factory derivatives propagate through this path. Child authorization preserves its own interactive policy/confirmation authority; added Plan admission uses `withAdditionalGate`, while parent Deny wrappers recheck original and approved arguments. Reused sessions retain these live readers rather than copying policy or approval state.
 
-Effective Plan is the live OR of ancestor and child modes. An ancestor returning to Build removes only its restriction; the child's own Plan remains until its own review. Neither Plan control is mutated, no historical parent denials accumulate, and reads are decision snapshots rather than atomic revocation. Only construction through the derived `child.factory` path inherits these restrictions automatically. Public raw spawners, `SubagentFactory.make` and factories used under another parent remain explicit trusted-host capabilities; model input cannot select a new root. Declaration parsing and general-purpose factory composition remain separate integration work.
+Effective Plan is the live OR of ancestor and child modes. An ancestor returning to Build removes only its restriction; the child's own Plan remains until its own review. Neither Plan control is mutated, no historical parent denials accumulate, and reads are decision snapshots rather than atomic revocation. Only construction through the derived `child.factory` path inherits these restrictions automatically. Public raw spawners, `SubagentFactory.make` and factories used under another parent remain explicit trusted-host capabilities; model input cannot select a new root. Inline parsing and general-purpose factory composition are available; local discovery and automatic installation remain separate integration work.
 
 ## Reusable child sessions
 
@@ -164,7 +184,7 @@ Migration: existing `submit(input)`, `send(input)` and factory spawn calls retai
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The unchanged lineage and static boundary retain their recorded approvals; the supervisor's current resource extension is reviewed below.
 
-`path_review` and `current_docs` independently approved policy-aware construction and its scoped dependencies. The current forwarding extension renews their approval of the factory, registry, session and tools at the exact identities below, with no unresolved FP/ZIO or invariant findings. Unchanged directory, resource, construction and boundary identities retain their existing scoped acceptance; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full verification is recorded in `subagent-forwarding-verify.log` and the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+`path_review` and `current_docs` independently approved policy-aware construction and its scoped dependencies. The current forwarding extension renews their approval of the factory, registry, session and tools at the exact identities below, with no unresolved FP/ZIO or invariant findings. Unchanged directory, resource, construction and boundary identities retain their existing scoped acceptance; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full verification is recorded in `subagent-declaration-parser-verify.log` and the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 - [x] Both reviewers approved scoped forwarding, runtime task attribution, per-send leases and unchanged ownership, including three grouped integration scenarios for nested events/results, promotion and session cancellation/removal. Full formatting, fatal-warning compilation and repository tests passed.
 
@@ -200,7 +220,7 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
 
-Declaration loading and automatic named reusable-session creation, inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and delivery after promotion remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
+Local declaration discovery/loading and automatic named reusable-session creation, inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and delivery after promotion remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
 
 - [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
 - [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
@@ -217,8 +237,9 @@ Declaration loading and automatic named reusable-session creation, inheritance t
 - [x] Verify and independently approve policy-aware child construction with automatic descendant restrictions through derived factories and live reused-session admission.
 - [x] Implement inline declarations and the general-purpose preset while retaining construction capability and child approval authority.
 - [x] Implement and independently approve named host factory routing with bounded per-entry registries and parallel joined closure.
-- [ ] Complete declaration loading, automatic named reusable-session creation and broader host installation.
+- [x] Parse bounded inline Markdown/YAML declarations into the validated model; see [parser acceptance](#inline-declaration-parsing).
+- [ ] Complete local declaration discovery/loading, automatic named reusable-session creation and broader host installation.
 - [x] Implement and independently approve scoped correlated child forwarding through all existing spawn/send routes.
 - [ ] Complete optional remote/durable task routing and independently observed cancellation-tail delivery.
 
-Next task: parse inline declaration documents into the existing validated declaration model, keeping filesystem discovery and automatic reusable-session installation separate. No exhaustive upstream parity is claimed.
+Next task: bounded local declaration discovery/loading through an explicit host filesystem boundary; automatic reusable-session installation remains separate. No exhaustive upstream parity is claimed.

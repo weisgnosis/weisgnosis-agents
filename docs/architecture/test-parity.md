@@ -886,7 +886,7 @@ The [current acceptance record](../../modules/harness/src/main/scala/com/weisgno
 
 - [x] Verify opt-in policy-aware construction in three [SubagentConstructionSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) scenarios: nested static/argument restrictions with factory derivatives and a permitted near-miss; live reused denials and independent ancestor/child Plan checks with modified confirmation; isolated supplied per-build permissions and joined initialization/filtering cleanup. This does not install declared/general-purpose tools, prompts or directories and does not reproduce Java sticky mode mutation or historical denial accumulation; whole-method mappings remain open.
 
-The six unfinished plan-mode methods remain unfinished. Parent Build must not manufacture child approval. Explicitly installed gates remain effective across host-held session turns and session-bound sends. Declaration loading, automatic reusable-session installation, post-promotion/remote event delivery and durable host recovery remain separate.
+The six unfinished plan-mode methods remain unfinished. Parent Build must not manufacture child approval. Explicitly installed gates remain effective across host-held session turns and session-bound sends. Local declaration discovery/loading, automatic reusable-session installation, post-promotion/remote event delivery and durable host recovery remain separate.
 
 ### Inline subagent declarations
 
@@ -894,7 +894,15 @@ The six unfinished plan-mode methods remain unfinished. Parent Build must not ma
 - [x] Adapt model/temperature inheritance and explicit iteration overrides from `SubagentDeclarationPhaseATest.builderDefaults_areInheritSemantics` and `builder_setsHyperparams`. The Scala default inherits parent iterations instead of Java's fixed ten; topP, variant and deprecated aliases are excluded from this bounded API, so the whole methods remain unclosed.
 - [x] Support the available Scala execution configuration from `HarnessAgentTest.declaredSubagent_inheritsExecutionConfigsFromParent`: timeout, tool concurrency and thinking retry settings remain inherited, and an actual run demonstrates iteration selection. Java's separate model/tool retry configurations and isolated workspace construction are not represented; this is not a whole-method mapping.
 - [x] Extend `ManagedSubagentBoundaryTest.declarationFiltersAutoRegisteredToolsAsWellAsInheritedTools` support through actual declarations and the general-purpose preset. Existing construction tests retain nested ancestor restrictions and cancellation coverage rather than duplicating that matrix.
-- [ ] Complete broader declaration loading/routing, skills and Plan tool/prompt installation. `PlanModeSubagentPropagationTest` whole-method entries remain open; current tests establish live policy composition and independent review only.
+- [ ] Complete local declaration discovery/loading, automatic session installation, skills and Plan tool/prompt installation. `PlanModeSubagentPropagationTest` whole-method entries remain open; current tests establish live policy composition and independent review only.
+
+### Inline declaration document parsing
+
+- [x] Three [SubagentDeclarationParserSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) groups verify the bounded six-field Markdown/YAML profile, exact body preservation, null/empty selection distinctions, typed rejection and UTF-16 limits. Both reviewers approved the [exact parser/build/spec identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#inline-declaration-parsing); the false-delimiter and CRLF assertions failed before correction, and full verification passes.
+- [x] Adapt `SubagentDeclarationPhaseATest.loader_prefersStepsOverDeprecatedMaxIters` and `loader_fallsBackToMaxItersWhenStepsAbsent`: valid steps takes precedence, absent/plain-null steps uses maxIters, and both provided aliases must validate.
+- [x] Support name, temperature and iteration assertions from `loader_parsesAllHyperparams` and `loader_omittedHyperparams_areNullForInheritance`. Omitted iterations inherit the Scala parent rather than Java's fixed ten; top_p/topP and variant are unsupported, so these whole methods remain open.
+- [x] Intentionally differ from `loader_malformedNumeric_isTreatedAsUnset`: malformed present numbers fail instead of silently inheriting. Explicit empty tools selects none instead of Java's empty-to-inherit conversion.
+- [ ] Complete applicable `HarnessAgentTest.agentSpecLoader_markdownDeclaration_isolatedWithWorkspacePath`, `agentSpecLoader_markdownDeclaration_sharedMode_noPath_inlineBody`, and skills-allowlist methods only after their workspace/skills contracts exist. Current parsing does not close these multi-field methods, the topP alias method, filesystem namespace loading or full YAML compatibility.
 
 ### Named factory catalog
 
@@ -902,7 +910,7 @@ The six unfinished plan-mode methods remain unfinished. Parent Build must not ma
 - [x] Adapt named selection and unknown-agent rejection from `AgentSpawnToolKeyTest.runtimeContextManagerIsUsedForSpawnAndSend`. The catalog captures a fixed host parent and factories; it does not implement per-call manager overrides, primary mode, deterministic reuse keys or restoration, so the whole method remains open.
 - [x] Adapt `SubagentModeHiddenTest.renderSubagentSection_programmaticEntriesAlwaysShown` through catalog names/descriptions in tool definitions. All supplied entries are visible; no system-prompt renderer or hidden/primary mode is implemented.
 - [ ] Complete the applicability mapping for `DefaultAgentManagerRuntimeContextTest.createAgentIfPresent_forwardsParentRuntimeContext` and `createAgent_forwardsParentRuntimeContext`: Scala carries a captured lineage/policy capability rather than forwarding the Java RuntimeContext object. Null-context fallback is inapplicable to the non-null typed API.
-- [ ] Complete declaration loading and automatic named reusable-session creation; correlated child events and durable recovery remain separate.
+- [ ] Complete local declaration discovery/loading and automatic named reusable-session creation; post-promotion/remote event delivery and durable recovery remain separate.
 
 ### Result-bearing event streams
 
