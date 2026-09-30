@@ -75,4 +75,4 @@ Both resource defects were reproduced before correction. The initialization regr
 - [ ] Verify independently observed cancellation-tail delivery; a cancelled public stream consumer is not promised its abandoned tail.
 - [ ] Complete remaining applicable upstream method mappings after those APIs exist.
 
-Next repository task: a bounded POST acquisition cancellation regression and possible correction; resumption and session recovery remain separate. Durable host integration and post-promotion delivery remain separate.
+See the [repository tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) for immediate next work. Durable host integration and post-promotion delivery remain separate.

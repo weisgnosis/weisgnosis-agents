@@ -392,8 +392,7 @@ object McpStreamableHttpTransport:
             Client
               .streaming(request)
               .provideSomeEnvironment[Scope](_.add(http))
-              .mapError(boundary("MCP HTTP POST"))
-          )
+          ).mapError(boundary("MCP HTTP POST"))
           _ <- checkStatus(message, session, response)
           _ <- captureSession(
             message match

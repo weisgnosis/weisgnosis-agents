@@ -686,15 +686,47 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
           preHeader <- preHeaderPort
             .send(McpMessage.Request(McpRequestId.Number(1), "tools/list"), issued.update(_ + 1))
             .forkScoped
-          _         <- beforeHeaders.await
-          earlyExit <- preHeader.interrupt
-          count     <- issued.get
+          _                  <- beforeHeaders.await
+          earlyExit          <- preHeader.interrupt
+          count              <- issued.get
+          acquisitionEntered <- Promise.make[Nothing, Unit]
+          interruptObserved  <- Promise.make[Nothing, Unit]
+          releaseAcquisition <- Promise.make[Nothing, Unit]
+          acquisitionFailure = AgentError.McpError("POST acquisition race")
+          acquiring <- client(
+            server(_ =>
+              ZIO.uninterruptible(
+                acquisitionEntered.succeed(()) *>
+                  (ZIO.yieldNow *> ZIO.descriptorWith(descriptor =>
+                    ZIO.succeed(descriptor.interrupters.nonEmpty)
+                  )).repeatUntil(identity) *>
+                  interruptObserved.succeed(()) *> releaseAcquisition.await *>
+                  ZIO.fail(acquisitionFailure)
+              )
+            )
+          )
+          acquisition <- ZIO.scoped {
+            (for
+              running  <- acquiring.callTool("blocked").forkScoped
+              _        <- acquisitionEntered.await
+              stopping <- running.interrupt.forkScoped
+              _        <- interruptObserved.await
+              pending  <- stopping.poll
+              _        <- releaseAcquisition.succeed(())
+              exit     <- stopping.join
+            yield assertTrue(
+              pending.isEmpty,
+              exit.isInterrupted,
+              exit.causeOption.exists(_.failures == List(acquisitionFailure)),
+              exit.causeOption.exists(_.defects.isEmpty)
+            )).ensuring(releaseAcquisition.succeed(()).unit)
+          }
         yield assertTrue(
           page.tools.isEmpty,
           closed,
           earlyExit.isInterrupted,
           count == 0
-        ) && cancelled
+        ) && cancelled && acquisition
     },
     test(
       "bounded ingress terminates on overflow and a second reader cannot steal the first reader's lifecycle"

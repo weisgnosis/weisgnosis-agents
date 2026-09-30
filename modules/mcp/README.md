@@ -25,7 +25,7 @@ The HTTP adapter borrows a host client, owns each response scope, handles JSON/S
 
 ## Verification and acceptance
 
-- [x] Current `scalafmtAll scalafmtSbt verify` passed in `mcp-get-listener-verify.log`, with zero compiler warnings or failures; the [tracker](../../docs/architecture/tracker.md#current-acceptance) owns current totals. `path_review` and `current_docs` approved the exact [cancellation/client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#outbound-cancellation-contract) and [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#cancellation-publication-boundary) scope and identities.
+- [x] Current `scalafmtAll scalafmtSbt verify` passed in `mcp-post-acquisition-verify.log`, with zero compiler warnings or failures; the [tracker](../../docs/architecture/tracker.md#current-acceptance) owns current totals. `path_review` and `current_docs` approved the exact [cancellation/client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#outbound-cancellation-contract) and [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#cancellation-publication-boundary) scope and identities.
 - [x] Both independent reviewers approved bounded HTTP body framing and the scoped HTTP POST and explicit GET adapter, and full verification passed. The [transport acceptance](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance) records exact identities, regression evidence and remaining transport features.
 - [x] `path_review` and `current_docs` approved scoped manager acquisition, atomic registration, immutable Toolkit snapshots and joined removal/closure. The [client contract](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract) owns exact identities and regression evidence.
 
@@ -45,7 +45,7 @@ These are specification-derived protocol and ZIO ownership tests. AgentScope Jav
 - [x] Implement scoped HTTP POST and explicit GET for the selected 2025-06-18 contract.
 - [ ] Complete separately specified resumption, session DELETE/reinitialization and external-server interoperability.
 - [x] Enqueue bounded optional outbound cancellation for interrupted issued requests, excluding initialize and reply/terminal winners.
-- [ ] Next: a bounded POST acquisition cancellation regression and possible correction; resumption and session recovery remain separate.
+- [ ] Next: bounded per-stream SSE event-ID preservation in framing, followed by opt-in continuation within the same send; resumption and session recovery remain unfinished.
 - [ ] Define presets, tool groups, ambient metadata propagation and schema transformation separately; manager selection retains explicit host authority.
 - [ ] Implement provider multimodal projection; core typed conversion is available, while caching, notification invalidation and reconnect remain separate.
 - [ ] Evaluate output schemas where required by the selected client contract.
