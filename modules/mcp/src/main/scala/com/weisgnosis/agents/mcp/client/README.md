@@ -108,7 +108,7 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 - [x] Explicit metadata projection and live bound-tool omission have final independent approval and verification.
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
-- [ ] Next: define the distinct framework-enforced registered-preset contract; current presets remain model-overridable defaults.
+- [ ] Next: install the core fixed-argument policy through MCP manager registration; current MCP presets remain model-overridable defaults.
 - [ ] Define groups, ambient metadata propagation, broader schema transformation and discovery caching separately.
 Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
 

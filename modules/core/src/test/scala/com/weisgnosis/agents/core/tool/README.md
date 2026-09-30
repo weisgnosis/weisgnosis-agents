@@ -1,5 +1,7 @@
 # Typed tools and path validation: verification
 
+- [x] Both independent reviewers approved fixed-argument preparation and runtime integration; full verification passed. The [current acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments) records exact scope and identities.
+
 These ZIO Test suites cover selected upstream scenarios and Scala regressions. They do not certify exhaustive upstream parity.
 
 | Suite | Contract |
@@ -7,6 +9,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala regressions. T
 | [PathSafetySpec](PathSafetySpec.scala) | Sensitive paths, traversal, and advisory command fragments |
 | [ToolExecutionSpec](ToolExecutionSpec.scala) | Typed decoding, payload projection/codecs, completed-state admission and cancellation cleanup |
 | [ToolInvocationSpec](ToolInvocationSpec.scala) | Approved occurrence context, legacy/denied dispatch, concurrent lease closure and actual ReAct cancellation |
+| [ToolFixedArgumentsSpec](ToolFixedArgumentsSpec.scala) | Checked full originals, stable order/idempotence, fixed consistency, empty scalar compatibility, typed wrapper forwarding and filtered/merged/custom Toolkit dispatch |
 | [ToolDefSpec](ToolDefSpec.scala) | Legacy absent/null optional schema decoding, None omission and object/boolean AST round-trips |
 | [ToolkitSpec](ToolkitSpec.scala) | Immutable registration and dispatch |
 | [ToolResultProcessorSpec](ToolResultProcessorSpec.scala) | Payload codecs, protected control keys and suspended composition |

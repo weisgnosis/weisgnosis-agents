@@ -50,7 +50,7 @@ These are specification-derived protocol and ZIO ownership tests. AgentScope Jav
 - [x] Explicit host-controlled metadata propagation through registered tools has final FP/ZIO and invariant approval; both omission gates, restricted identity and effectful resolver cleanup are verified.
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
-- [ ] Next: define the distinct framework-enforced registered-preset contract; current presets remain model-overridable defaults. General I/O recovery, session reinitialization and durable integration remain unfinished.
+- [ ] Next: install the core fixed-argument policy through MCP manager registration; current MCP presets remain model-overridable defaults. General I/O recovery, session reinitialization and durable integration remain unfinished.
 - [ ] Define tool groups, ambient metadata propagation and broader schema transformation separately; manager selection retains explicit host authority.
 - [ ] Implement provider multimodal projection; core typed conversion is available, while caching, notification invalidation and reconnect remain separate.
 - [ ] Evaluate output schemas where required by the selected client contract.

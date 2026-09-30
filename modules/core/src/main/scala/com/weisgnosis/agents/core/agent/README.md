@@ -10,6 +10,12 @@ ReActAgent retains history and serializes runs. Model requests receive their own
 - [StructuredOutput](StructuredOutput.scala)
 - [TurnCompletionObserver](TurnCompletionObserver.scala)
 
+## Fixed-argument authorization
+
+Attached [fixed raw arguments](../tool/README.md#fixed-raw-arguments) are prepared before local authorization, without changing the persisted original call while approval is pending. Malformed preparation yields Error without callback execution; signed-input changes and approved fixed-field alterations yield Denied. Nonfixed rewrites remain allowed. Approved history, invocation context and execution share the final prepared input, retaining original model-input provenance. Inline provider results still bypass local dispatch. Cancellation joins authorizer cleanup and retains the complete interruption/cleanup cause.
+
+Current Tool/Toolkit/ReAct source identities and verification for this integration belong to the linked tool acceptance; the result/event contracts below remain separate bounded scopes.
+
 ## Current typed-result acceptance
 
 The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. Current reviewed ReActAgent identities for this scope belong to the [tool acceptance](../tool/README.md#current-review-acceptance).
@@ -149,9 +155,9 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 ## Authorization before local execution
 
-The optional ToolAuthorizer runs after assistant persistence and before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs carrying either provider reasoning metadata key are denied. Failures and defects fail closed to Denied observations, while cancellation preserves completed work and reconciles unresolved calls. Matched inline results bypass the gate. See the [tool contracts](../tool/README.md) for argument provenance, scope ownership, failure semantics, migration, and exact current identities. The default allows calls; the harness InteractivePermissionAuthorizer provides opt-in policy/interactive confirmation. Durable approval resumption remains pending.
+The optional ToolAuthorizer runs after assistant persistence and fixed-argument preparation, before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs carrying either provider reasoning metadata key are denied. Non-interrupted failures and defects fail closed to Denied observations. Interrupted compound causes preserve interruption and cleanup defects; cancellation preserves completed work and reconciles unresolved calls. Matched inline results bypass the gate. See the [tool contracts](../tool/README.md) for argument provenance, scope ownership, failure semantics, migration, and exact current identities. The default allows calls; the harness InteractivePermissionAuthorizer provides opt-in policy/interactive confirmation. Durable approval resumption remains pending.
 
-- [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope. Interactive and durable policy adapters are excluded from this acceptance. See the [authorization table](../tool/README.md) for exact identities.
+- [x] `path_review` and `current_docs` approved fixed-argument authorization and compound-cause preservation with no findings; full verification passed. The [current six-file acceptance](../tool/README.md#fixed-raw-arguments) records exact identities and evidence. Durable policy adapters remain separate.
 
 ## History preparation before model requests
 

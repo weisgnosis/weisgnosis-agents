@@ -42,6 +42,19 @@ final case class Toolkit(tools: Map[String, Tool[Any, ?, ?]] = Map.empty):
   def size: Int        = tools.size
   def isEmpty: Boolean = tools.isEmpty
 
+  /** Unknown names retain legacy dispatch behavior; attached policies travel with tool values. */
+  def prepareInput(name: String, input: Json): Either[AgentError.InvalidMessage, Json] =
+    tools
+      .get(name)
+      .fold[Either[AgentError.InvalidMessage, Json]](Right(input))(_.fixedArguments.prepare(input))
+
+  def validateApprovedInput(name: String, input: Json): Either[AgentError.InvalidMessage, Unit] =
+    tools
+      .get(name)
+      .fold[Either[AgentError.InvalidMessage, Unit]](Right(()))(
+        _.fixedArguments.validateApproved(input)
+      )
+
   /** Tool failures and defects are observations; interruption remains cancellation. */
   def executeSafe(name: String, rawArgs: Json): UIO[ToolExecutionResult] =
     executeSafe(name, rawArgs, ToolInvocation.Detached)
@@ -68,7 +81,9 @@ final case class Toolkit(tools: Map[String, Tool[Any, ?, ?]] = Map.empty):
     ZIO
       .suspendSucceed {
         ZIO
-          .fromEither(tool.decodeInput(input))
+          .fromEither(
+            tool.fixedArguments.prepare(input).left.map(_.message).flatMap(tool.decodeInput)
+          )
           .mapError(error =>
             AgentError.ToolExecutionError(
               tool.definition.name,

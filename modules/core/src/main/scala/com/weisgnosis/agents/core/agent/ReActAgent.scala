@@ -936,30 +936,44 @@ final class ReActAgent private (
 
   private def authorizeTool(
       call: ContentBlock.ToolUse,
-      context: ModelStreamContext
+      preparedInput: Json,
+      context: ModelStreamContext,
+      toolkit: Toolkit
   ): UIO[ToolAuthorization] =
-    val decision = for
-      requestId <- Random.nextUUID.map(_.toString)
-      result <- ZIO.scoped(
-        ZIO.suspendSucceed(
-          toolAuthorizer.authorize(ToolAuthorizationRequest(requestId, context, call))
+    val decision =
+      if changesReasoningInput(call, preparedInput) then
+        ZIO.succeed(
+          ToolAuthorization.Denied("Cannot modify arguments carrying provider reasoning metadata")
         )
-      )
-    yield result match
-      case ToolAuthorization.Approved(input) =>
-        JsonBoundary.validate(input) match
-          case Left(error) => ToolAuthorization.Denied(s"Invalid approved input: $error")
-          case Right(_)
-              if input != call.input && (call.metadata.contains("thoughtSignature") || call.metadata
-                .contains("reasoningDetails")) =>
-            ToolAuthorization.Denied(
-              "Cannot modify arguments carrying provider reasoning metadata"
+      else
+        for
+          requestId <- Random.nextUUID.map(_.toString)
+          result <- ZIO.scoped(
+            ZIO.suspendSucceed(
+              toolAuthorizer.authorize(
+                ToolAuthorizationRequest(requestId, context, withToolInput(call, preparedInput))
+              )
             )
-          case Right(_) => result
-      case _ => result
+          )
+        yield result match
+          case ToolAuthorization.Approved(input) =>
+            JsonBoundary.validate(input) match
+              case Left(error) => ToolAuthorization.Denied(s"Invalid approved input: $error")
+              case Right(_) if changesReasoningInput(call, input) =>
+                ToolAuthorization.Denied(
+                  "Cannot modify arguments carrying provider reasoning metadata"
+                )
+              case Right(_) =>
+                toolkit
+                  .validateApprovedInput(call.name, input)
+                  .fold(
+                    error => ToolAuthorization.Denied(s"Invalid approved input: ${error.message}"),
+                    _ => result
+                  )
+          case _ => result
     decision.foldCauseZIO(
       cause =>
-        if cause.isInterrupted then ZIO.interrupt
+        if cause.isInterrupted then ZIO.refailCause(cause).orDie
         else
           ZIO.succeed(
             ToolAuthorization.Denied(
@@ -969,6 +983,19 @@ final class ReActAgent private (
       ,
       ZIO.succeed(_)
     )
+
+  private def changesReasoningInput(call: ContentBlock.ToolUse, input: Json): Boolean =
+    input != call.input &&
+      (call.metadata.contains("thoughtSignature") || call.metadata.contains("reasoningDetails"))
+
+  private def withToolInput(call: ContentBlock.ToolUse, input: Json): ContentBlock.ToolUse =
+    if input == call.input then call
+    else
+      call.copy(
+        input = input,
+        content = None,
+        metadata = call.metadata.updated("agentscope_original_tool_input", call.input)
+      )
 
   private def executeAndRecord(
       indexed: IndexedToolCall,
@@ -981,22 +1008,20 @@ final class ReActAgent private (
     ZIO.uninterruptibleMask: restore =>
       val call = indexed.call
       for
-        authorization <- restore(authorizeTool(call, context))
+        authorization <- ZIO
+          .fromEither(toolkit.prepareInput(call.name, call.input))
+          .flatMap(input => restore(authorizeTool(call, input, context, toolkit)))
+          .either
         _ <- eventHub.publish(
           AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))
         )
         res <- authorization match
-          case ToolAuthorization.Denied(reason) =>
+          case Left(error) =>
+            ZIO.succeed(ToolExecutionResult(error.message, ToolResultState.Error))
+          case Right(ToolAuthorization.Denied(reason)) =>
             ZIO.succeed(ToolExecutionResult(reason, ToolResultState.Denied))
-          case ToolAuthorization.Approved(input) =>
-            val approved =
-              if input == call.input then call
-              else
-                call.copy(
-                  input = input,
-                  content = None,
-                  metadata = call.metadata.updated("agentscope_original_tool_input", call.input)
-                )
+          case Right(ToolAuthorization.Approved(input)) =>
+            val approved = withToolInput(call, input)
             stateRef.update(_.zipWithIndex.map { case (message, position) =>
               if position == assistantPosition then
                 message.mapToolUseAt(indexed.ordinal)(_ => approved)

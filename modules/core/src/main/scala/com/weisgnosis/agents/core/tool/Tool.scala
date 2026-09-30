@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.tool
 
+import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -26,6 +27,7 @@ import scala.annotation.unused
  * Corresponds to `io.agentscope.core.tool.Tool` in AgentScope Java.
  */
 trait Tool[-R, In, Out]:
+  def fixedArguments: ToolFixedArguments = ToolFixedArguments.empty
   def definition: ToolDef
   def isConcurrencySafe: Boolean = definition.isConcurrencySafe
   def isReadOnly: Boolean        = definition.isReadOnly
@@ -42,6 +44,31 @@ trait Tool[-R, In, Out]:
   def encodeResult(out: Out): ToolExecutionResult = ToolExecutionResult(encodeOutput(out))
 
 object Tool:
+
+  /** Bind once; preparation applies only at raw decoding/dispatch, never to trusted typed execution. */
+  def withFixedArguments[R, In, Out](
+      tool: Tool[R, In, Out],
+      fixed: ToolFixedArguments
+  ): Either[AgentError.InvalidConfiguration, Tool[R, In, Out]] =
+    if fixed.isEmpty then Right(tool)
+    else if !tool.fixedArguments.isEmpty then
+      Left(AgentError.InvalidConfiguration("Tool already has nonempty fixed arguments"))
+    else
+      Right(new Tool[R, In, Out]:
+        override def fixedArguments: ToolFixedArguments = fixed
+        def definition: ToolDef                         = tool.definition
+        override def isReadOnly: Boolean                = tool.isReadOnly
+        override def isConcurrencySafe: Boolean         = tool.isConcurrencySafe
+        def execute(input: In): ZIO[R, Throwable, Out]  = tool.execute(input)
+        override def executeWithContext(
+            input: In,
+            invocation: ToolInvocation
+        ): ZIO[R, Throwable, Out] =
+          tool.executeWithContext(input, invocation)
+        def decodeInput(raw: Json): Either[String, In] =
+          fixed.prepare(raw).left.map(_.message).flatMap(tool.decodeInput)
+        def encodeOutput(out: Out): String                       = tool.encodeOutput(out)
+        override def encodeResult(out: Out): ToolExecutionResult = tool.encodeResult(out))
 
   def fromFunction[In: JsonDecoder, Out: JsonEncoder](
       name: String,

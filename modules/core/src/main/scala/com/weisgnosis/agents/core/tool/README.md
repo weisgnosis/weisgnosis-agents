@@ -2,6 +2,27 @@
 
 Tool keeps its input/output codecs and effectful handler together. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation.
 
+## Fixed raw arguments
+
+[ToolFixedArguments](ToolFixedArguments.scala) is a checked immutable host policy. Nonempty policies require object input, validate the complete original AST before replacement, and apply shallow fixed-wins values. Existing root field positions are retained; missing fixed fields append in policy order, so preparation is AST-idempotent. Empty policy is identity even for scalar/array input and leaves legacy decoder validation unchanged. `validateApproved` rejects changed or missing fixed values while allowing other approved edits. No schema hiding or evaluation is added.
+
+`Tool.withFixedArguments(tool, fixed)` preserves In/Out types, definition, explicit read-only/concurrency overrides, contextual execution and typed result projection. Empty attachment returns the original tool; a second nonempty attachment fails, even if identical. The policy belongs to the Tool value and survives Toolkit selection/merging. Toolkit.prepareInput and validateApprovedInput expose pure checks, and executeSafe prepares before decoding even for custom tools that expose a policy. Unknown names retain ordinary missing-tool dispatch. Trusted typed execute(In) calls bypass this raw-input policy.
+
+ReAct prepares before authorization. Invalid preparation becomes Error without calling the authorizer or handler. A change to arguments carrying provider reasoning metadata is Denied before authorization. The authorizer sees prepared arguments; changing or removing a fixed field is Denied, while edits to other fields are allowed. After approval, the exact final input is committed to history, supplied through Active.call and executed. Original model input remains provenance; while approval is pending or cancelled, history retains the original call. Authorization cancellation joins cleanup and preserves its full cause, mapping typed Throwable leaves to defects for the UIO boundary.
+
+Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and Toolkit checks are additive. Existing raw scalar tools retain their decoding contract. MCP model-overridable defaults remain separate; manager installation of framework-fixed arguments is not implemented.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these six identities, with no findings. Formatting and full `verify` passed in `tool-fixed-arguments-verify.log`: 579 core / 673 harness / 77 MCP tests (1,329 total), zero compiler warnings or failures; test task 12 seconds.
+
+| Source/test | Reviewed Git blob |
+| --- | --- |
+| [ToolFixedArguments.scala](ToolFixedArguments.scala) | `5b0a707baa22e1407fe4d87dd7a13fcc48fed3dc` |
+| [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | `367654171296e5aabdc3e0d448822c2eb583a336` |
+| [Tool.scala](Tool.scala) | `2f425468675fa3d8a7f5b34232e7c545b3c49958` |
+| [Toolkit.scala](Toolkit.scala) | `6b0cc64124fc8d5411388918b6284a4b0dcac3af` |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | `d3a071bdbf3dc8e35ad4b5a8ee34f5841cdee4a0` |
+| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | `449a33d7484c16940b00ef2c936bc2c50486f917` |
+
 ## Descriptive output schemas
 
 `ToolDef.outputSchema: Option[Json]` carries an optional host-selected output schema. Toolkit snapshots and model-call tool definitions retain this AST; it does not validate returned values or grant execution authority. A host selecting an MCP tool may explicitly retain, replace or omit the remote schema. Preset input-schema projection leaves this field unchanged.
@@ -10,7 +31,7 @@ The current Chat Completions encoder emits only function name, description and i
 
 The derived domain codec reads an absent or explicit-null outputSchema as None and omits None when encoding. Non-null schema ASTs retain their structure; Some(Json.Null) does not round-trip as present. Existing constructors and named copies can omit the defaulted field; positional pattern matches and Product arity now have six fields, and downstream binaries must be rebuilt. No schema evaluation or custom compatibility codec is introduced.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the five identities below, with no findings. Formatting and full `verify` passed in `tool-output-schema-verify.log`: 574 core / 673 harness / 77 MCP tests (1,324 total), zero compiler warnings or failures.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the five identities below, with no findings. Formatting and full `verify` passed; current totals and evidence are recorded under [fixed raw arguments](#fixed-raw-arguments).
 
 | Reviewed source/test | Git blob |
 | --- | --- |
@@ -38,15 +59,12 @@ ReAct creates `Active(context, call, callOrdinal, events)` only for approved loc
 
 `ToolEventPort` exposes publication only. Its scoped lease closes after execution cleanup and before result processing. Publication and closure are serialized: Published means enqueued on the runtime's unbounded hub, not consumed; retained ports return Closed after revocation. Cancellation joins cleanup and preserves interruption and cleanup defects. The lease does not own a child task, provide replay/backpressure, or forward child events automatically. Trusted contextual tools remain responsible for the events they publish; the port does not authenticate arbitrary event payloads.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the five identities below, with no unresolved findings. Three grouped tests cover approved occurrences, legacy/detached/denied execution, concurrent revocation and actual ReAct cancellation. Formatting, fatal-warning compilation and full verification passed in `tool-invocation-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this capability, with no unresolved findings. Unchanged capability identities are below; current Tool/Toolkit/ReActAgent identities are in [fixed raw arguments](#fixed-raw-arguments). Three grouped tests cover approved occurrences, legacy/detached/denied execution, concurrent revocation and actual ReAct cancellation. Formatting, fatal-warning compilation and full verification passed in `tool-invocation-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] The separately reviewed [harness integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#scoped-child-event-forwarding) uses this capability for owned child execution and promotion. Its acceptance and bounded parity mappings remain distinct from this core contract.
 
 | Reviewed file | Git blob |
 | --- | --- |
 | [ToolInvocation.scala](ToolInvocation.scala) | `afaab56599f0bbb22efa95852bafb3938812aff9` |
-| [Tool.scala](Tool.scala) | `f03e5bf6e3e51de14a6a209c19dee0de913e8fed` |
-| [Toolkit.scala](Toolkit.scala) | `a4290b36029732a0d6d2e4e9714b95fc0661d9b2` |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | `73ef850c6317e79d7e2ffaff60efd0c6c5e0c607` |
 | [ToolInvocationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolInvocationSpec.scala) | `d43067266a986355091c9057ac55f9771b2947e8` |
 
 ## Implementation
@@ -68,20 +86,17 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 ## Current review acceptance
 
 - [x] Independent FP/ZIO and invariant reviewer `path_review` approved the advisory command-screening fix and regressions: source blob `3d7a102d03c47719271ad2e4ba791af81247170e`, test blob `981212ee32c51cf92d12d844f4fe5a7403f70b78`. All eight focused tests pass.
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed execution payloads, state admission, runtime control protection and compound-cause preservation. Both approved the six exact identities below with no findings.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 41 MCP tests (1,256 total), zero compiler warnings or failures. Evidence: `typed-tool-verify.log`.
-- [x] Existing processor and authorization contracts below were accepted by review_fp and review_harness in their recorded source revisions; this change does not modify those implementations.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed execution payloads, state admission, runtime control protection and compound-cause preservation. Both approved this scope with no findings; unchanged component identities are below, and current Tool/Toolkit/ReActAgent identities are in [fixed raw arguments](#fixed-raw-arguments).
+- [x] Full formatting, fatal-warning compilation and verification passed; current totals and evidence are recorded under [fixed raw arguments](#fixed-raw-arguments).
+- [x] Existing processor contracts below retain their scoped acceptance and unchanged implementations. Current authorization acceptance belongs to [fixed raw arguments](#fixed-raw-arguments).
 
 | Typed-result source/test | Reviewed Git blob |
 | --- | --- |
-| [Tool.scala](Tool.scala) | 39d8303a93bfba9710e0f3fc479310fe11722046 |
 | [ToolExecutionResult.scala](ToolExecutionResult.scala) | 1c3e999a1363e6a042a0c83186006fda2060992f |
-| [Toolkit.scala](Toolkit.scala) | a6f093492d33b713887cdd4d93ac5ef075ab8cfe |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | ee9c1afb5ef6082605ef3318c8744797e2154f10 |
 | [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | a85af9fa35a0848944627973bda1413e4ca4e881 |
 | [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 703c7abec55bb3b4ea5d429ecefa76c9f1557b16 |
 
-The table records the typed-result review baseline. Current Tool and Toolkit identities are recorded under [invocation event capability](#invocation-event-capability); the later ReActAgent extension is accepted under [direct event forwarding](../agent/README.md#direct-event-forwarding). Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
+The table records unchanged typed-result components. Current Tool, Toolkit and ReActAgent identities are recorded under [fixed raw arguments](#fixed-raw-arguments); separate invocation and [direct event forwarding](../agent/README.md#direct-event-forwarding) contracts retain their scoped evidence. Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
 
 Platform-specific symlink/junction behavior and hostile filesystem races remain outside the verified guarantees. Current command-screening evidence is recorded in the [test README](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions).
 
@@ -100,13 +115,13 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 ## Scoped local authorization
 
-ReActAgent.make and Builder.toolAuthorizer accept a ToolAuthorizer, defaulting explicitly to allow for compatibility. Installing a host authorizer is necessary to enforce permission policy. ToolAuthorizationRequest contains a fresh approval UUID, the originating ModelStreamContext, and the original call. ToolAuthorization exposes Approved(input) or Denied(reason); identity, name, metadata, and execution authority are not replaceable decision fields. Requests and decisions have derived codecs, but serialization alone grants no execution authority.
+ReActAgent.make and Builder.toolAuthorizer accept a ToolAuthorizer, defaulting explicitly to allow for compatibility. Installing a host authorizer is necessary to enforce permission policy. ToolAuthorizationRequest contains a fresh approval UUID, the originating ModelStreamContext, and the call with framework-fixed arguments prepared before authorization. ToolAuthorization exposes Approved(input) or Denied(reason); identity, name, metadata, and execution authority are not replaceable decision fields. Requests and decisions have derived codecs, but serialization alone grants no execution authority.
 
-The runtime persists the assistant message before authorization and captures its exact history position. Every pending call that reaches local dispatch is authorized, including provider-marked calls without matched inline observations. Matched provider inline results bypass local authorization. Each callback owns an interruptible scope; cleanup finishes before result Start and local execution. The request scope does not extend across the tool operation. Hosts must not reenter mutating agent operations while the run lock is held.
+The runtime persists the assistant message before authorization and captures its exact history position. Every pending local call passes preparation and authorization checks, including provider-marked calls without matched inline observations; rejected preparation or signed changes do not invoke the authorizer. Matched provider inline results bypass local authorization. Each callback owns an interruptible scope; cleanup finishes before result Start and local execution. The request scope does not extend across the tool operation. Hosts must not reenter mutating agent operations while the run lock is held.
 
-Approved JSON must have unique keys at every depth. A changed input is denied if either thoughtSignature or reasoningDetails metadata is present, including malformed or opaque values. Otherwise the runtime rewrites only that call's original occurrence, clears cached content, and stores its original input under agentscope_original_tool_input. Identity, other metadata, and protocol state remain unchanged. The next model request and concurrent history readers see the approved arguments before the tool executes. This provenance key records the runtime rewrite; arbitrary preexisting metadata is not authenticated evidence. No JSON Schema validation is added.
+Approved JSON must have unique keys at every depth and retain all attached fixed values. A changed input is denied if either thoughtSignature or reasoningDetails metadata is present, including malformed or opaque values. Otherwise the runtime rewrites only that call's original occurrence, clears cached content, and stores its original input under agentscope_original_tool_input. Identity, other metadata, and protocol state remain unchanged. The next model request and concurrent history readers see the approved arguments before the tool executes. This provenance key records the runtime rewrite; arbitrary preexisting metadata is not authenticated evidence. No JSON Schema validation is added.
 
-Denials never execute the tool. Typed PermissionDenied failures retain their reason while the runtime retains call identity. Authorizer defects and finalizer defects become Denied observations with a generic authorization-failure reason. This explicit fail-closed normalization prevents dangling calls without classifying host failures as provider errors. Cancellation propagates and reconciles unresolved calls as Error; completed siblings survive. Denials use the existing result processor and correlated Start/Delta/End path, so approved host processors can transform their observation content without changing Denied state.
+Denials never execute the tool. Typed PermissionDenied failures retain their reason while the runtime retains call identity. Non-interrupted authorizer failures and finalizer defects become Denied observations with a generic authorization-failure reason. Interrupted compound causes propagate intact with typed Throwable leaves mapped to defects; cleanup defects are not normalized into denial or discarded. This explicit fail-closed normalization prevents dangling calls without classifying host failures as provider errors. Cancellation propagates and reconciles unresolved calls as Error; completed siblings survive. Denials use the existing result processor and correlated Start/Delta/End path, so approved host processors can transform their observation content without changing Denied state.
 
 Interruption reconciliation first consumes eligible inline observations, then matches remaining locally dispatched occurrences against Role.Tool results by ID and optional name. These pools cannot consume each other's observations. The internal Msg.mapToolUseAt helper updates by tool ordinal, preserving role/content compatibility; duplicate IDs and identical calls do not collapse into one rewrite.
 
@@ -115,4 +130,4 @@ Appending the optional make argument preserves ordinary calls; positional Builde
 
 The optional [interactive harness adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md) owns policy lifetime and approval callbacks; the core remains independent of harness dependencies.
 
-Current runtime/processor scope and identities remain in the [agent README](../agent/README.md). Authorization source acceptance is retained in `5eb4bdc`; earlier review chronology is available in Git.
+Current authorization source/spec identities are in [fixed raw arguments](#fixed-raw-arguments); separate runtime/processor contracts remain in the [agent README](../agent/README.md).

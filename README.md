@@ -4,7 +4,7 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. Current MCP scope includes owned clients and registration, HTTP POST/GET, explicit metadata propagation and one independent SDK interoperability check. Scoped subagent composition, reusable sessions and child event forwarding are also available. The [tracker](docs/architecture/tracker.md#current-acceptance) and linked package contracts record exact acceptance and limitations. Checked host presets, input-schema exclusion and host-selected descriptive output schemas are available. Next is the distinct framework-enforced registered-preset contract; broader interoperability and durable host recovery remain unfinished.
+Implementation is active. Current MCP scope includes owned clients and registration, HTTP POST/GET, explicit metadata propagation and one independent SDK interoperability check. Scoped subagent composition, reusable sessions and child event forwarding are also available. The [tracker](docs/architecture/tracker.md#current-acceptance) and linked package contracts record exact acceptance and limitations. Checked host presets, input-schema exclusion and host-selected descriptive output schemas are available. The core fixed-argument foundation prepares input before authorization. Next is MCP manager installation of that policy, distinct from model-overridable defaults; broader interoperability and durable host recovery remain unfinished.
 
 ## Implemented components
 
@@ -67,6 +67,8 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 [Apache-2.0](LICENSE).
 
 ## Current acceptance
+
+- [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Exact six-file identities and full verification are recorded in the linked contract; MCP manager installation remains separate.
 
 - [x] `path_review` and `current_docs` approved [bounded MCP request correlation](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance), including cancellation, scoped registration and full-cause settlement. The connection borrows its host-owned transport.
 

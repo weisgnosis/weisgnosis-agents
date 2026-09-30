@@ -38,60 +38,151 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ReActAgentToolAuthorizerSpec")(
     test(
-      "authorization sees persisted original call and rewritten input is committed before execution"
+      "fixed arguments are visible to authorization and accepted input is persisted before contextual execution"
     ) {
+      val candidate = Json.Obj("value" -> Json.Str("original"), "tenant" -> Json.Str("host"))
+      val approved  = Json.Obj("tenant" -> Json.Str("host"), "value" -> Json.Str("approved"))
       for
         agentRef          <- Ref.make(Option.empty[ReActAgent])
         observedBefore    <- Ref.make(Chunk.empty[ContentBlock.ToolUse])
         observedExecution <- Ref.make(Chunk.empty[ContentBlock.ToolUse])
+        requested         <- Ref.make(Option.empty[ContentBlock.ToolUse])
+        invoked           <- Ref.make(Option.empty[ContentBlock.ToolUse])
         closed            <- Ref.make(false)
         wasClosed         <- Ref.make(false)
         received          <- Ref.make(Option.empty[Json])
-        authorizer = ToolAuthorizer(_ =>
-          agentRef.get
+        fixed <- ZIO.fromEither(ToolFixedArguments.make(Json.Obj("tenant" -> Json.Str("host"))))
+        authorizer = ToolAuthorizer(request =>
+          requested.set(Some(request.call)) *> agentRef.get
             .flatMap(ZIO.foreach(_)(_.history))
             .flatMap(history =>
               observedBefore.set(Chunk.fromIterable(history).flatten.flatMap(_.toolUses))
             ) *>
-            ZIO.addFinalizer(closed.set(true)).as(ToolAuthorization.Approved(approvedInput))
+            ZIO.addFinalizer(closed.set(true)).as(ToolAuthorization.Approved(approved))
         )
+        contextual = new Tool[Any, Json, String]:
+          def definition: ToolDef                          = ToolDef("lookup", "Read", Json.Obj())
+          def decodeInput(raw: Json): Either[String, Json] = Right(raw)
+          def encodeOutput(out: String): String            = out
+          def execute(input: Json): UIO[String] =
+            received.set(Some(input)) *> closed.get.flatMap(wasClosed.set) *>
+              agentRef.get
+                .flatMap(ZIO.foreach(_)(_.history))
+                .flatMap(history =>
+                  observedExecution.set(Chunk.fromIterable(history).flatten.flatMap(_.toolUses))
+                )
+                .as("ok")
+          override def executeWithContext(input: Json, invocation: ToolInvocation): UIO[String] =
+            val active = invocation match
+              case ToolInvocation.Active(_, value, _, _) => Some(value)
+              case ToolInvocation.Detached               => None
+            invoked.set(active) *> execute(input)
+        bound <- ZIO.fromEither(Tool.withFixedArguments(contextual, fixed))
         model <- client(Chunk(call))
         agent <- ReActAgent
           .builder()
           .model(model)
           .toolAuthorizer(authorizer)
-          .toolkit(
-            toolkit(input =>
-              received.set(Some(input)) *> closed.get.flatMap(wasClosed.set) *>
-                agentRef.get
-                  .flatMap(ZIO.foreach(_)(_.history))
-                  .flatMap(history =>
-                    observedExecution.set(Chunk.fromIterable(history).flatten.flatMap(_.toolUses))
-                  )
-                  .as("ok")
-            )
-          )
+          .toolkit(Toolkit(Map("lookup" -> bound)))
           .build
-        _        <- agentRef.set(Some(agent))
-        result   <- agent.run(Msg.user("q"))
-        before   <- observedBefore.get
-        during   <- observedExecution.get
-        input    <- received.get
-        released <- wasClosed.get
+        _          <- agentRef.set(Some(agent))
+        result     <- agent.run(Msg.user("q"))
+        before     <- observedBefore.get
+        during     <- observedExecution.get
+        input      <- received.get
+        released   <- wasClosed.get
+        request    <- requested.get
+        invocation <- invoked.get
       yield assertTrue(
         before == Chunk(call),
-        input.contains(approvedInput),
-        released,
-        during == Chunk(
+        request.contains(
           call.copy(
-            input = approvedInput,
+            input = candidate,
             content = None,
             metadata = Map("agentscope_original_tool_input" -> originalInput)
           )
         ),
+        input.contains(approved),
+        released,
+        during == Chunk(
+          call.copy(
+            input = approved,
+            content = None,
+            metadata = Map("agentscope_original_tool_input" -> originalInput)
+          )
+        ),
+        invocation == during.headOption,
         result.history.flatMap(_.toolUses) == during,
         result.history.flatMap(_.toolResults).map(_.state) == Chunk(ToolResultState.Success)
       )
+    },
+    test("fixed arguments reject conflicting approval and signed rewrites before execution") {
+      val candidate = Json.Obj("value" -> Json.Str("original"), "tenant" -> Json.Str("host"))
+      val conflict  = Json.Obj("value" -> Json.Str("original"), "tenant" -> Json.Str("other"))
+      val signed    = call.copy(input = candidate).withThoughtSignature("signature")
+      val malformed = call.copy(input =
+        Json.Obj(
+          "tenant" -> Json.Obj("same" -> Json.Num(1), "same" -> Json.Num(2))
+        )
+      )
+      val scenarios = Chunk(
+        (call, ToolAuthorization.Approved(originalInput), ToolResultState.Denied, 1),
+        (call, ToolAuthorization.Approved(conflict), ToolResultState.Denied, 1),
+        (call, ToolAuthorization.Denied("declined"), ToolResultState.Denied, 1),
+        (
+          call.withThoughtSignature("signature"),
+          ToolAuthorization.Approved(candidate),
+          ToolResultState.Denied,
+          0
+        ),
+        (
+          call.copy(metadata = Map("reasoningDetails" -> Json.Arr(Json.Str("opaque")))),
+          ToolAuthorization.Approved(candidate),
+          ToolResultState.Denied,
+          0
+        ),
+        (malformed, ToolAuthorization.Approved(candidate), ToolResultState.Error, 0),
+        (signed, ToolAuthorization.Approved(candidate), ToolResultState.Success, 1),
+        (
+          signed,
+          ToolAuthorization.Approved(
+            Json.Obj("value" -> Json.Str("edited"), "tenant" -> Json.Str("host"))
+          ),
+          ToolResultState.Denied,
+          1
+        )
+      )
+      for
+        fixed <- ZIO.fromEither(ToolFixedArguments.make(Json.Obj("tenant" -> Json.Str("host"))))
+        results <- ZIO.foreach(scenarios) { case (original, decision, expected, expectedRequests) =>
+          for
+            executions <- Ref.make(0)
+            requests   <- Ref.make(0)
+            bound <- ZIO.fromEither(
+              Tool.withFixedArguments(
+                Tool.make(ToolDef("lookup", "Read", Json.Obj()))(_ =>
+                  executions.update(_ + 1).as("ok")
+                ),
+                fixed
+              )
+            )
+            model <- client(Chunk(original))
+            agent <- ReActAgent.make(
+              client = model,
+              toolkit = Toolkit(Map("lookup" -> bound)),
+              toolAuthorizer = ToolAuthorizer(_ => requests.update(_ + 1).as(decision))
+            )
+            result <- agent.run(Msg.user("q"))
+            count  <- executions.get
+            asked  <- requests.get
+          yield assertTrue(
+            result.history.flatMap(_.toolUses) == Chunk(original),
+            result.history.flatMap(_.toolResults).map(_.state) == Chunk(expected),
+            count == (if expected == ToolResultState.Success then 1 else 0),
+            asked == expectedRequests
+          )
+        }
+      yield results.reduceOption(_ && _).getOrElse(assertTrue(false))
     },
     test("denial is a correlated completed observation without toolkit execution") {
       for
@@ -220,10 +311,19 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
         entered    <- Promise.make[Nothing, Unit]
         closed     <- Ref.make(false)
         executions <- Ref.make(0)
-        model      <- client(Chunk(call))
+        fixed <- ZIO.fromEither(ToolFixedArguments.make(Json.Obj("tenant" -> Json.Str("host"))))
+        bound <- ZIO.fromEither(
+          Tool.withFixedArguments(
+            Tool.make(ToolDef("lookup", "Read", Json.Obj()))(_ =>
+              executions.update(_ + 1).as("wrong")
+            ),
+            fixed
+          )
+        )
+        model <- client(Chunk(call))
         agent <- ReActAgent.make(
           client = model,
-          toolkit = toolkit(_ => executions.update(_ + 1).as("wrong")),
+          toolkit = Toolkit(Map("lookup" -> bound)),
           toolAuthorizer = ToolAuthorizer(_ =>
             ZIO.addFinalizer(closed.set(true)) *> entered.succeed(()) *> ZIO.never
           )
@@ -242,6 +342,50 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
         result.history.flatMap(_.toolResults).map(_.state) == Chunk(ToolResultState.Error)
       )
     },
+    test("internally interrupted authorization preserves its joined cleanup defect") {
+      val defect = new IllegalStateException("Authorization child cleanup defect")
+      for
+        entered    <- Promise.make[Nothing, Unit]
+        cleaning   <- Promise.make[Nothing, Unit]
+        release    <- Promise.make[Nothing, Unit]
+        executions <- Ref.make(0)
+        model      <- client(Chunk(call))
+        authorizer = ToolAuthorizer(_ =>
+          for
+            child <- (entered.succeed(()) *> ZIO.never.as[ToolAuthorization](
+              ToolAuthorization.Approved(originalInput)
+            )).ensuring(cleaning.succeed(()) *> release.await *> ZIO.die(defect)).forkScoped
+            _ <- entered.await
+            result <- child.interrupt.flatMap {
+              case Exit.Success(value) => ZIO.succeed(value)
+              case Exit.Failure(cause) => ZIO.refailCause(cause)
+            }
+          yield result
+        )
+        agent <- ReActAgent.make(
+          client = model,
+          toolkit = toolkit(_ => executions.update(_ + 1).as("wrong")),
+          toolAuthorizer = authorizer
+        )
+        observed <- ZIO.scoped {
+          (for
+            running <- agent.run(Msg.user("q")).forkScoped
+            _       <- cleaning.await
+            pending <- running.poll
+            _       <- release.succeed(())
+            exit    <- running.await
+          yield (pending, exit)).ensuring(release.succeed(()).unit)
+        }
+        history <- agent.history
+        count   <- executions.get
+      yield assertTrue(
+        observed._1.isEmpty,
+        observed._2.isInterrupted,
+        observed._2.causeOption.exists(_.defects == List(defect)),
+        count == 0,
+        history.flatMap(_.toolResults).map(_.state) == Chunk(ToolResultState.Error)
+      )
+    } @@ TestAspect.timeout(10.seconds),
     test("fiber cancellation preserves completed sibling and reconciles only the approval waiter") {
       val waiting = call.copy(id = "second")
       for

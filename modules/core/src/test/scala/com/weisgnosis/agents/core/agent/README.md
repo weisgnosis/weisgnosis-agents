@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+- [x] Both independent reviewers approved fixed-argument preparation and runtime integration; full verification passed. The [current acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments) records exact scope and identities.
+
 These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. Exhaustive upstream parity and complete runtime event ordering remain pending.
 
 - [AgentRunUpdateSpec](AgentRunUpdateSpec.scala)
@@ -71,9 +73,12 @@ Ten ReActAgentToolResultProcessorSpec scenarios verify raw persistence before pr
 
 ## Scoped authorization verification
 
-[ReActAgentToolAuthorizerSpec](ReActAgentToolAuthorizerSpec.scala) adds twelve scenarios for persistence before approval, precise argument rewriting, denial events, typed/defect/finalizer failure normalization, ambiguous JSON, signed and opaque reasoning metadata, unchanged signed calls, cooperative/fiber cancellation, duplicate calls, inline pairing, and unmatched provider-marked local dispatch. Two unsafe reasoning-metadata rewrites were reproduced by a failing regression before the presence-based guard was corrected. This covers the core port, not interactive or durable policy adapters.
+Fixed-argument integration verifies prepared authorizer input, allowed nonfixed rewrites, exact approved history/context/execution, original provenance, and original-call retention during pending/cancelled approval. A rejection table covers malformed preparation without callbacks, signed-input changes before approval, and approved fixed-field removal/replacement. Held authorizer cleanup verifies joined cancellation and preserved compound causes. Against unchanged ReActAgent blob `e8bdb5ecd30bdf1eeefc177e898bb7ef8f6d5b69`, `tool-authorization-cause-red.log` recorded one failed assertion: an authorizer joining its interrupted child lost the held cleanup defect and returned only interruption. The unchanged regression now verifies that exact defect remains; the handler refails the full cause with orDie. This is an actual inner-child interruption, not an externally cancelled parent. Exact identities and current acceptance are in the [fixed-argument contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments).
 
-- [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope. Interactive and durable policy adapters are excluded from this acceptance. See the [authorization table](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md) for exact identities.
+
+[ReActAgentToolAuthorizerSpec](ReActAgentToolAuthorizerSpec.scala) covers scenarios for persistence before approval, precise argument rewriting, denial events, typed/defect/finalizer failure normalization, ambiguous JSON, signed and opaque reasoning metadata, unchanged signed calls, cooperative/fiber cancellation, duplicate calls, inline pairing, and unmatched provider-marked local dispatch. Two unsafe reasoning-metadata rewrites were reproduced by a failing regression before the presence-based guard was corrected. This covers the core port, not interactive or durable policy adapters.
+
+- [x] `path_review` and `current_docs` approved fixed-argument authorization and compound-cause preservation with no findings; full verification passed. The [current six-file acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments) records exact identities and evidence. Durable policy adapters remain separate.
 
 ## History preparation verification
 
