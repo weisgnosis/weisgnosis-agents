@@ -91,7 +91,7 @@ Accepted scope: the four message cases, checked wire/AST conversion, strict enve
 
 ## Remaining work
 
-- [ ] Next: concrete transport and revision-specific client lifecycle; accepted borrowed-port correlation/cleanup and payload helpers do not implement a handshake.
+- [ ] Next: selected-revision client lifecycle over the accepted stdio transport; payload helpers and RPC cleanup do not implement a handshake.
 - [ ] Toolkit integration and core content conversion with explicit authority boundaries; output-schema evaluation remains pending.
 - [ ] Method/version validation and integration with the lifecycle of each explicitly supported revision.
 

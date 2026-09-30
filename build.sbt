@@ -57,6 +57,7 @@ lazy val mcp = (project in file("modules/mcp"))
   .settings(
     name := "weisgnosis-agents-mcp",
     commonSettings,
+    Test / fork := true,
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio"          % zioVersion,
       "dev.zio" %% "zio-streams"  % zioVersion,

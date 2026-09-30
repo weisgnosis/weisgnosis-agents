@@ -8,7 +8,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` and `current_docs` approved explicit gate composition and authorizer views; exact identities and scope are in the [permission contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance). SubagentConstruction supplies the reviewed opt-in installation path.
 - [x] `path_review` and `current_docs` approved the checked MCP envelope, including reproduced numeric-boundary fixes, with no findings. Exact identities and scope are in the [protocol contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance).
 - [x] `path_review` and `current_docs` approved borrowed-port RPC ownership and its final connection tests with no findings; exact scope and identities are in the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
-- [x] Full `scalafmtAll scalafmtSbt verify` passed for the connection slice on 2026-09-30: 561 core / 651 harness / 28 MCP tests (1,240 total), zero compiler warnings or failures. Local evidence: `mcp-connection-verify.log`.
+- [x] `path_review` and `child_factory` approved bounded stdio framing; `path_review` and `registry_contract` approved direct-process stdio and real-process tests. Exact identities and scope are in the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md).
+- [x] Full `scalafmtAll scalafmtSbt verify` passed for the stdio slice on 2026-09-30: 561 core / 651 harness / 35 MCP tests (1,247 total), zero compiler warnings or failures. Local evidence: `mcp-stdio-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -52,7 +53,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Implement a concrete scoped MCP transport and the explicit 2025-06-18 client lifecycle next, then toolkit bridging. Borrowed-port RPC ownership and pure payload helpers do not establish wire connectivity or complete revision support.
+- [ ] Implement explicitly selected MCP 2025-06-18 initialization, capability handling and discovery next, then Toolkit integration. Stdio wire connectivity does not establish initialized client behavior or complete revision support; HTTP remains a separate transport task.
 - [ ] Complete declared/general-purpose composition, including explicit tool/prompt/configuration installation; retain the accepted construction boundary.
 - [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 
@@ -71,7 +72,8 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [x] Implement checked 2025-06-18 discovery requests/pages and tool-call requests, preserving schema/extension data and untrusted annotations. Both independent reviewers approved the exact [protocol scope and identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance).
 - [x] Implement pure 2025-06-18 initialization request/result helpers, truthful empty client capabilities, exact-version validation and typed tools capability projection. `path_review` and `current_docs` approved the exact [protocol identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance) with no findings.
 - [x] Implement borrowed-port scoped RPC ownership with checked sends, bounded operation/control admission, direction-safe server dispatch, owner-operated terminal cleanup and shared joined closure. Seven connection tests and full verification pass; both reviewers approved the final scope.
-- [ ] Implement concrete transports, version-specific MCP client lifecycle, discovery and tool bridging.
+- [x] Implement reviewed bounded UTF-8/LF framing and scoped direct-process stdio with single-use incoming, serialized writes, terminal write poisoning and shared process cleanup. Four framing and three real-process groups pass.
+- [ ] Implement selected 2025-06-18 client lifecycle, discovery and Toolkit integration, then separately scoped HTTP support.
 - [ ] Validate live end-to-end cancellation, resource release and operational controls, confirm remote CI, and complete release/API compatibility and production acceptance.
 
 ## Verification and contracts

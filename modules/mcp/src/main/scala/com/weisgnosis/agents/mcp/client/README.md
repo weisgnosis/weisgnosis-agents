@@ -1,6 +1,6 @@
 # com.weisgnosis.agents.mcp.client
 
-[McpRequests](McpRequests.scala) implements scoped, bounded request correlation. It owns no transport, send callback, or fibers. [McpConnection](McpConnection.scala) composes it with scoped RPC operations over an injected [McpTransport](../transport/README.md). The [protocol package](../protocol/README.md) supplies checked envelopes and selected 2025-06-18 payload helpers; concrete transports, initialization, discovery and Toolkit integration remain pending.
+[McpRequests](McpRequests.scala) implements scoped, bounded request correlation. It owns no transport, send callback, or fibers. [McpConnection](McpConnection.scala) composes it with scoped RPC operations over an injected [McpTransport](../transport/README.md). The [protocol package](../protocol/README.md) supplies checked envelopes and selected 2025-06-18 payload helpers. A [stdio adapter](../transport/McpStdioTransport.scala) is independently reviewed and verified; initialization, discovery and Toolkit integration remain unfinished.
 
 ## Request ownership contract
 
@@ -21,7 +21,7 @@ The host must keep each request lease short-lived. This primitive neither sends 
 - Server `ping` receives the same ID with an empty object result; other server requests receive `-32601`. A separate bounded nonblocking queue and one writer keep control sending out of reply correlation. Incoming notifications are ignored, including cancellation: server-originated request IDs cannot cancel client-originated requests merely by matching their values.
 - `close` and owner-scope cleanup join operations, reader and writer before the borrowed transport can be released. Concurrent/repeated closers share one completed outcome. Close reports defects in retained operation/service exits, including operational reader defects already observed by a request; typed operational failures remain request failures. Sends, incoming stream code and their finalizers must not close their own connection, because closure joins them.
 
-These bounds count operations and queued messages, not bytes. This is a raw RPC foundation: no initialization ordering, capability enforcement, deadlines, progress reporting, cancellation notifications, reconnects, subscriptions or concrete wire connectivity is provided.
+These bounds count operations and queued messages, not bytes. This is a raw RPC foundation: no initialization ordering, capability enforcement, deadlines, progress reporting, cancellation notifications, reconnects or subscriptions are provided. The separate stdio adapter supplies bounded wire framing and direct-process ownership.
 
 ## Verification and acceptance
 
@@ -44,9 +44,10 @@ Accepted registry scope: bounded correlation, monotonic IDs, atomic settlement/a
 
 ## Remaining work
 
-- [ ] Next: concrete scoped transport and explicitly selected 2025-06-18 initialization/capability lifecycle, with bounded framing and deadlines.
+- [ ] Next: explicitly selected 2025-06-18 initialization, capability handling and discovery over the connection.
+- [ ] Define request deadlines; implement HTTP transport separately.
 - [ ] Define cancellation notification and transport-specific recovery policy.
 - [ ] Implement discovery pagination and tool invocation, then bridge into Toolkit with explicit metadata, naming and authority policy.
-- [ ] Add actual transport and ReAct integration tests and review their final implementations.
+- [ ] Add revision-specific client/ReAct integration tests; the separate stdio contract records accepted real-process coverage.
 
 These tests establish local concurrency and ownership contracts using controlled message ports. AgentScope Java delegates wire/request machinery to MCP Java SDK 0.17.2; wrapper listTools, callTool and close behaviors remain separate integration mappings. No complete MCP revision or whole-wrapper parity is claimed. MCP 2026-07-28 has a different lifecycle without initialize; it is not implemented by the selected older payload helpers.

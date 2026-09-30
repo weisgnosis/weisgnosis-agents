@@ -4,13 +4,13 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is a concrete scoped MCP transport and the explicit 2025-06-18 client lifecycle, followed by toolkit integration. Declared/general-purpose composition, event routing and durable host recovery remain separate.
+Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is explicitly selected MCP 2025-06-18 initialization, capabilities and discovery, followed by Toolkit integration. Declared/general-purpose composition, event routing and durable host recovery remain separate.
 
 ## Implemented components
 
 - **core:** immutable messages, 39 typed event variants, JSON codecs, typed tools, path screening, SSE parsing and chunk assembly, and ReAct execution with interruption recovery, bounded thinking retries, and structured output.
 - **harness:** daily-memory extraction, scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, typed transcript observations with in-memory and scoped local stores and opt-in completion recording, typed memory triggers with shared monotonic admission, a scoped task queue with pending conversation coalescing and completion-triggered memory flush, conversation compaction, opt-in runtime result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
-- **mcp:** checked 2025-06-18 payloads, bounded request correlation, and scoped RPC ownership over a borrowed transport port; concrete transport and revision-specific client lifecycle remain pending.
+- **mcp:** checked 2025-06-18 payloads, bounded request correlation, scoped RPC ownership and a direct-process stdio adapter with bounded framing. Stdio is independently reviewed and verified; revision-specific client lifecycle remains unfinished.
 
 LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable approval resumption, broader middleware integration, remote memory/transcript storage, declaration-driven session creation remain separate work. Host-held sessions support process-local child reuse.
 
@@ -70,12 +70,13 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 - [x] `path_review` and `current_docs` approved [bounded MCP request correlation](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance), including cancellation, scoped registration and full-cause settlement. The connection borrows its host-owned transport.
 
-- [x] `path_review` and `current_docs` approved the [checked MCP envelope](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance), and 2025-06-18 initialization/discovery helpers and call requests, including bounded numeric conversion and malformed-wire rejection. Call-result projection is also reviewed; concrete transport and revision-specific client integration remain pending.
+- [x] `path_review` and `current_docs` approved the [checked MCP envelope](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance), and 2025-06-18 initialization/discovery helpers and call requests, including bounded numeric conversion and malformed-wire rejection. Call-result projection is also reviewed; revision-specific client integration remains pending.
 
 - [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved retained resource ownership, host-held sessions, bounded host session membership, fixed-session tools, directory-routed tools and policy-aware child construction, with no findings. Exact scope and reviewed identities are in the [tool](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
 - [x] `path_review` and `current_docs` approved [scoped permission composition and shared authorizer views](modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance), including confirmed-input rechecks. The opt-in SubagentConstruction path installs inherited policy; raw factories remain host-controlled.
 - [x] `path_review` and `current_docs` approved [borrowed-port RPC ownership](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) with no findings; seven focused connection groups pass.
-- [x] Full repository verification of the connection slice passed with zero compiler warnings or failures; the [tracker](docs/architecture/tracker.md#current-acceptance) records current evidence.
+- [x] Full repository verification of the stdio slice passed with zero compiler warnings or failures; the [tracker](docs/architecture/tracker.md#current-acceptance) records current evidence.
+- [x] Independent reviewers approved bounded framing and direct-process stdio. Seven focused framing/process groups and full verification pass; the [transport contract](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) records exact identities and scope.
 - [ ] Complete declaration-driven composition; durable host recovery remains separate.
 
 Approval applies to the recorded scope and revisions, not exhaustive upstream parity. Other accepted components retain their package-level evidence.
