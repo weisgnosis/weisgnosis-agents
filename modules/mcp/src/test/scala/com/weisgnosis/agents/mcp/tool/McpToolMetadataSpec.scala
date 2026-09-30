@@ -19,7 +19,7 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, ReActAgent, ToolExecution}
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
-import com.weisgnosis.agents.core.tool.{ToolDef, Toolkit}
+import com.weisgnosis.agents.core.tool.{ToolAuthorization, ToolAuthorizer, ToolDef, Toolkit}
 import com.weisgnosis.agents.mcp.client.{McpClient, McpClientManager}
 import com.weisgnosis.agents.mcp.protocol.*
 import com.weisgnosis.agents.mcp.transport.McpTransport
@@ -86,7 +86,7 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("McpToolMetadataSpec")(
     test(
-      "registered tools resolve host metadata with actual occurrence identity outside model arguments"
+      "registered tools merge approved input with defaults while preserving metadata and occurrence identity"
     ) {
       ZIO.scoped:
         for
@@ -94,26 +94,40 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
           manager    <- McpClientManager.make()
           identities <- Ref.make(Chunk.empty[McpToolIdentity])
           trace      <- Ref.make(userMeta)
+          authorized <- Ref.make(Chunk.empty[Json])
+          host = definition.copy(parametersSchema =
+            Json.Obj(
+              "type"       -> Json.Str("object"),
+              "properties" -> Json.Obj("value" -> Json.Obj(), "defaulted" -> Json.Obj()),
+              "required"   -> Json.Arr(Json.Str("value"), Json.Str("defaulted"))
+            )
+          )
           _ <- manager.registerBindings(
             "peer",
             ZIO.succeed(server.client),
             1,
             _ =>
-              Right(
-                Some(
-                  McpToolBinding(
-                    definition,
-                    McpToolMetadata.Propagate(identity =>
-                      identities.update(_ :+ identity) *> trace.get
-                    )
-                  )
+              McpToolBinding
+                .withPresets(
+                  host,
+                  Json.Obj("value" -> Json.Str("preset"), "defaulted" -> Json.Str("injected")),
+                  McpToolMetadata
+                    .Propagate(identity => identities.update(_ :+ identity) *> trace.get)
                 )
-              )
+                .map(Some(_))
           )
           tools  <- manager.toolkit
           before <- identities.get
-          input = Json.Obj("_meta" -> Json.Obj("trace" -> Json.Str("model-value")))
-          call  = ContentBlock.ToolUse("repeated", "local", input)
+          input = Json.Obj(
+            "value" -> Json.Str("model"),
+            "_meta" -> Json.Obj("trace" -> Json.Str("model-value"))
+          )
+          approved = Json.Obj(
+            "value" -> Json.Str("approved"),
+            "_meta" -> Json.Obj("trace" -> Json.Str("model-value"))
+          )
+          remoteInput = Json.Obj(Chunk("defaulted" -> Json.Str("injected")) ++ approved.fields)
+          call        = ContentBlock.ToolUse("repeated", "local", input)
           model <- LlmClient.mock(
             Chunk(
               TurnOutput.ToolCalls(Msg.assistant(Chunk(call, call))),
@@ -123,12 +137,17 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
           agent <- ReActAgent.make(
             config = AgentConfig(toolExecution = ToolExecution.Sequential),
             client = model,
-            toolkit = tools
+            toolkit = tools,
+            toolAuthorizer = ToolAuthorizer(request =>
+              authorized.update(_ :+ request.call.input).as(ToolAuthorization.Approved(approved))
+            )
           )
-          _        <- agent.run(Msg.user("invoke"))
-          actual   <- identities.get
-          requests <- server.requests.get.map(_.filter(_.method == "tools/call"))
-          original <- trace.get
+          _                   <- agent.run(Msg.user("invoke"))
+          actual              <- identities.get
+          requests            <- server.requests.get.map(_.filter(_.method == "tools/call"))
+          original            <- trace.get
+          approvedHistory     <- agent.history.map(_.flatMap(_.toolUses).map(_.input))
+          authorizationInputs <- authorized.get
           active = actual.collect { case value: McpToolIdentity.Active => value }
           expected = Json.Obj(
             userMeta.fields.filterNot(_._1 == "io.agentscope/toolCallId") :+
@@ -142,9 +161,19 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
           active.forall(value => value.replyId.nonEmpty && value.requestId.nonEmpty),
           active.map(value => (value.replyId, value.requestId)).distinct.size == 1,
           requests.map(metadata) == Chunk.fill(2)(Some(expected)),
-          requests.forall(_.params.flatMap(_.get("arguments")).contains(input)),
+          requests.forall(_.params.flatMap(_.get("arguments")).contains(remoteInput)),
           requests.forall(_.params.flatMap(_.get("name")).contains(Json.Str("remote"))),
-          tools.definitions == Chunk(definition),
+          tools.definitions == Chunk(
+            definition.copy(parametersSchema =
+              Json.Obj(
+                "type"       -> Json.Str("object"),
+                "properties" -> Json.Obj(),
+                "required"   -> Json.Arr()
+              )
+            )
+          ),
+          authorizationInputs == Chunk.fill(2)(input),
+          approvedHistory == Chunk.fill(2)(approved),
           original == userMeta
         )
     },

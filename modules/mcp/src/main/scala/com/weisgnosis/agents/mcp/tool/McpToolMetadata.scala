@@ -39,5 +39,18 @@ enum McpToolMetadata:
 
 final case class McpToolBinding(
     definition: ToolDef,
-    metadata: McpToolMetadata = McpToolMetadata.Omit
+    metadata: McpToolMetadata = McpToolMetadata.Omit,
+    presets: McpToolPresets = McpToolPresets.empty
 )
+
+object McpToolBinding:
+  /** Checked convenience; direct construction intentionally retains the host's unprojected schema. */
+  def withPresets(
+      definition: ToolDef,
+      rawPresets: Json.Obj,
+      metadata: McpToolMetadata = McpToolMetadata.Omit
+  ): Either[AgentError.InvalidConfiguration, McpToolBinding] =
+    for
+      presets   <- McpToolPresets.make(rawPresets)
+      projected <- presets.project(definition)
+    yield McpToolBinding(projected, metadata, presets)

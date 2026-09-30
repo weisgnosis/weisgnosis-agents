@@ -43,9 +43,16 @@ object McpTool:
       definition: ToolDef,
       metadata: McpToolMetadata = McpToolMetadata.Omit
   ): Tool[Any, Json.Obj, McpCallResult] =
-    val hostDefinition = definition
+    bind(client, remoteName, McpToolBinding(definition, metadata))
+
+  /** Borrow a complete host binding; presets merge after authorization and do not grant authority. */
+  def bind(
+      client: McpClient,
+      remoteName: String,
+      binding: McpToolBinding
+  ): Tool[Any, Json.Obj, McpCallResult] =
     new Tool[Any, Json.Obj, McpCallResult]:
-      def definition: ToolDef = hostDefinition
+      def definition: ToolDef = binding.definition
 
       def decodeInput(raw: Json): Either[String, Json.Obj] =
         JsonBoundary
@@ -61,8 +68,12 @@ object McpTool:
           input: Json.Obj,
           invocation: ToolInvocation
       ): IO[AgentError, McpCallResult] =
-        requestMetadata(client, metadata, invocation)
-          .flatMap(meta => client.callTool(remoteName, Some(input), meta))
+        ZIO
+          .fromEither(binding.presets.merge(input))
+          .flatMap(arguments =>
+            requestMetadata(client, binding.metadata, invocation)
+              .flatMap(meta => client.callTool(remoteName, Some(arguments), meta))
+          )
 
       override def encodeResult(out: McpCallResult): ToolExecutionResult = project(out)
 

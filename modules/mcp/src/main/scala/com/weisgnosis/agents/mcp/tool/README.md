@@ -2,7 +2,21 @@
 
 [McpTool.bind](McpTool.scala) returns `Tool[Any, Json.Obj, McpCallResult]` for one initialized borrowed McpClient, a fixed remoteName and a host-supplied ToolDef. Binding is pure and performs no acquisition, discovery or close. The host retains the client lifetime and explicitly registers the result with Toolkit, whose existing registration rejects local-name collisions.
 
-ToolDef supplies the local alias, description, schema, read-only declaration and concurrency declaration. Remote annotations never grant those permissions. Model arguments cannot choose another remote tool or client. Inputs must be JSON objects with recursively unique keys; direct execution also passes through the client's checked request builder. No JSON Schema evaluation occurs. Invocation sends Some(input), including an explicit empty object. Preset arguments and ambient metadata extraction are not implemented.
+ToolDef supplies the local alias, description, schema, read-only declaration and concurrency declaration. Remote annotations never grant those permissions. Model arguments cannot choose another remote tool or client. Inputs must be JSON objects with recursively unique keys; direct execution also passes through the client's checked request builder. No JSON Schema evaluation occurs. Invocation sends an explicit arguments object, including when empty. Ambient metadata extraction is not implemented.
+
+## Preset arguments and schema projection
+
+[McpToolPresets](McpToolPresets.scala) is an immutable checked value. `make` validates the complete defaults before storing them; `merge` validates the complete supplied input before a shallow input-wins merge. Supplied JSON null and nested objects replace their defaults; nested objects are not merged. Invalid duplicate keys cannot disappear through overwriting. `empty` preserves arguments without adding defaults.
+
+`project` checks the original host schema for recursive duplicate keys, an object root with `type: object`, optional object properties and an optional string-array required field. It removes defaulted names only from root properties/required, preserving other fields, ordering, absent fields, definitions and extensions. It neither evaluates schemas nor rewrites references, combinators or dependencies. Hosts remain responsible for the consistency of these retained constraints.
+
+`McpToolBinding.withPresets(definition, rawPresets, metadata)` returns a checked binding with the projected definition. `McpTool.bind(client, remoteName, binding)` and manager registration consume that binding unchanged. Direct binding construction deliberately preserves the supplied host schema, even when validated presets are present. Local aliases, descriptions and read-only/concurrency declarations remain host authority.
+
+Defaults are applied after authorization. The authorizer sees the supplied input and may replace it; the assistant history records the approved input. The remote arguments additionally contain missing defaults. Supplied input can override hidden preset names, so presets are neither permission constraints nor a way to enforce secret arguments. Host permission and concurrency declarations must remain valid for the defaults and permitted overrides. Request metadata remains separate.
+
+Migration: existing bind/register calls and two-argument McpToolBinding construction retain empty defaults. McpToolBinding now has three fields; positional pattern matches must include presets. No new manager ownership or core authorization hook is introduced.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the preset/binding scope with no findings; exact identities and verification are below.
 
 ## Explicit request metadata
 
@@ -12,7 +26,7 @@ The resolver receives only Detached or Active(replyId, requestId, callId, callOr
 
 Resolver failure becomes the existing typed direct-execution failure or Toolkit Error observation. Cancellation joins resolver cleanup and retains defects. The binding adds no resolver deadline or owner: the invoking host owns execution; the client's configured operation deadline begins with the subsequent client call. Explicit client `callTool(..., meta)` and `listToolsPage(..., meta)` bypass this bound-tool restriction intentionally.
 
-`McpToolBinding(definition, metadata = Omit)` pairs host authority and propagation policy for [manager registerBindings](../client/README.md#scoped-manager-contract). Existing bind calls retain omission; no implicit opt-in or core invocation API migration is required.
+`McpToolBinding(definition, metadata = Omit, presets = empty)` pairs host authority, propagation policy and checked defaults for [manager registerBindings](../client/README.md#scoped-manager-contract). Existing bind calls retain omission; no implicit opt-in or core invocation API migration is required.
 
 ## Observation projection
 
@@ -41,14 +55,16 @@ A successful protocol reply with isError=true projects to ToolResultState.Error 
 
 ## Verification and acceptance
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current explicit metadata scope, with no findings at the identities below and in the [client acceptance](../client/README.md#verification-and-acceptance). Three [McpToolMetadataSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) groups and the existing binding scenarios pass.
-- [x] Formatting and full `verify` passed in `mcp-tool-metadata-verify.log`: 573 core / 673 harness / 75 MCP tests (1,321 total), zero compiler warnings or failures.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for all seven current preset/binding source and test identities below and in the [client acceptance](../client/README.md#verification-and-acceptance), with no findings. Two pure preset groups, the extended actual authorization/metadata integration and checked manager rollback pass alongside existing binding scenarios.
+- [x] Formatting and full `verify` passed in `mcp-tool-presets-verify.log`: 573 core / 673 harness / 77 MCP tests (1,323 total), zero compiler warnings or failures.
 
 | Source/test | Reviewed Git blob |
 | --- | --- |
-| [McpTool.scala](McpTool.scala) | 0af39b7e0ae5ee81076a15b5ded7e82a92781f53 |
-| [McpToolMetadata.scala](McpToolMetadata.scala) | b08198366e5ec303ef3cbb30b7db458a195311db |
-| [McpToolMetadataSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) | b1379da19a74c176f14dfdf2d00b6eb76e603adb |
+| [McpToolPresets.scala](McpToolPresets.scala) | 325bfc0091fe387b10c8a7a34d778defb9e1c242 |
+| [McpToolPresetsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolPresetsSpec.scala) | 53dec7e9f096a82ec8b663bd619b9b029e36a15b |
+| [McpTool.scala](McpTool.scala) | f7afaec0525d876666ddba031dc9495b5aa2fa44 |
+| [McpToolMetadata.scala](McpToolMetadata.scala) | 25bd3f5d6843fc9e0b01ea04bc8e01641b205cfa |
+| [McpToolMetadataSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) | 85087c16793f66d6b987920a61c2a8003641fd96 |
 | [McpToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolSpec.scala) | 2be53b2fdc30deea625a87e94057100b6d91858c |
 
 ## Upstream scope and remaining work
@@ -57,7 +73,8 @@ The bounded adaptation of pinned `McpTool.callAsync` is fixed remote invocation 
 
 - [x] Bounded scoped registration/removal and host-selected filtering/names have separate [manager acceptance](../client/README.md#scoped-manager-contract).
 - [x] Explicit effectful metadata projection and live bound-tool omission have final independent approval; [method mappings](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) record default and context adaptations.
-- [ ] Next: implement host-owned preset arguments with matching exclusion from the advertised input schema. Groups and ambient context bags remain separate.
+- [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
+- [ ] Next: expose host-selected tool output schemas without evaluating them. Groups and ambient context bags remain separate.
 - [ ] Implement provider multimodal projection separately; typed history/events alone do not supply it.
 The borrowed client supplies [bounded optional outbound cancellation](../client/README.md#outbound-cancellation-contract); binding adds no delivery guarantee.
 

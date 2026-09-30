@@ -15,11 +15,12 @@ The terminal cause and post-terminal dispatch regressions failed against the unc
 
 - [x] `path_review` and `current_docs` approved the manager source/spec identities recorded in the linked client acceptance, with no findings. The compound-cause regression failed against unchanged source before correction; its final assertion checks the complete Cause and preserves independent resource defects exactly once.
 
-- [x] All twenty-three client-package groups pass in full `mcp-tool-metadata-verify.log` verification, with zero compiler warnings or failures. Both reviewers approved the current manager/client metadata changes and exact identities in the [client acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance). The three [metadata groups](../tool/McpToolMetadataSpec.scala) exercise actual registered invocation and live restriction behavior; current totals belong to the tracker.
+- [x] All twenty-three client-package groups pass in full `mcp-tool-presets-verify.log` verification, with zero compiler warnings or failures. Both reviewers approved the current manager/client metadata changes and exact identities in the [client acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance). The three [metadata groups](../tool/McpToolMetadataSpec.scala) exercise actual registered invocation and live restriction behavior; current totals belong to the tracker.
 - [x] Both reviewers approved the final connection and initialized-client scope and full verification passed; exact identities and evidence are in the [client acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
 - [x] The transport suite covers the selected HTTP POST and explicit GET contract.
 - [ ] Complete remaining transport features and interoperability coverage. Bounded optional outbound cancellation is covered; notification delivery is not guaranteed. The tool package covers manual Toolkit/ReAct binding, and the transport suite covers actual stdio initialization, list/call and cleanup.
 - [x] Verify explicit metadata projection, restricted invocation identity and omission boundaries in the tool package.
-- [ ] Complete remaining upstream method mappings, presets/schema exclusion and ambient context integration.
+- [x] Checked preset selection failure rolls back the entire registration through the existing owner; actual invocation/schema exclusion is covered in the tool package.
+- [ ] Next: expose host-selected output schemas without evaluation; complete remaining method mappings and ambient context integration separately.
 
 These controlled-port scenarios do not establish external-server interoperability, acknowledged remote cancellation or complete AgentScope wrapper parity.

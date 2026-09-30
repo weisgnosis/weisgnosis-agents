@@ -152,7 +152,13 @@ object McpClientManagerSpec extends ZIOSpecDefault:
               peer(Chunk("a", "b"), releases.update(_ + 1)),
               1,
               remote =>
-                if remote.name == "b" then Left(AgentError.McpError("Rejected by host"))
+                if remote.name == "b" then
+                  McpToolBinding
+                    .withPresets(
+                      ToolDef("candidate_b", "host", schema),
+                      Json.Obj("same" -> Json.Num(1), "same" -> Json.Num(2))
+                    )
+                    .map(Some(_))
                 else select("candidate_")(remote).map(_.map(McpToolBinding(_)))
             )
             .exit
@@ -213,7 +219,10 @@ object McpClientManagerSpec extends ZIOSpecDefault:
           invalidPages.isFailure,
           before == 1,
           rejected.forall(_.isFailure),
-          failedSelection.isFailure,
+          failedSelection.causeOption.flatMap(_.failureOption).exists {
+            case _: AgentError.InvalidConfiguration => true
+            case _                                  => false
+          },
           failedCause.causeOption.exists(_.failures == List(failure)),
           failedCause.causeOption.contains(original ++ Cause.die(cleanupDefect)),
           failedCause.causeOption.exists(

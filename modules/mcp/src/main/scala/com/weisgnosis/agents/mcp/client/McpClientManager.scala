@@ -270,7 +270,7 @@ object McpClientManager:
                               ZIO.fromEither(
                                 tools.register(
                                   McpTool
-                                    .bind(client, remote.name, binding.definition, binding.metadata)
+                                    .bind(client, remote.name, binding)
                                 )
                               )
                       )

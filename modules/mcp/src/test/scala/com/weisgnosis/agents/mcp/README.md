@@ -4,6 +4,6 @@
 - [transport](transport/README.md): nine stdio/HTTP framing, three real-process, sixteen HTTP transport and one independent Java SDK HTTP interoperability group pass with independent final approvals and full repository verification.
 - [client](client/README.md): twenty-three groups covering request registry, connection, initialized client and scoped manager ownership have independent approval and full verification; manager coverage includes the reproduced compound-cause regression; cancellation coverage checks atomic abandonment, eligibility and independent bounded delivery.
 
-- [tool](tool/README.md): three binding and three metadata groups cover authority/routing/content, explicit host projection and occurrence identity, omission snapshots, invalid arguments/metadata, failure distinctions and joined cancellation; independently reviewed and verified.
+- [tool](tool/README.md): three binding, three metadata and two pure preset groups cover authority/routing/content, approved-input/default precedence, schema exclusion, metadata identity/omission, invalid input and joined cancellation; package acceptance records final identities and evidence.
 
 The tests validate specification-derived wire boundaries, local request ownership and direct-process stdio cleanup. Connection unit tests use an in-memory borrowed port; separate stdio tests exercise real child processes. A real peer verifies the selected initialize/initialized/list/call lifecycle. Complete AgentScope wrapper parity is not claimed.

@@ -8,11 +8,11 @@
 
 Registration publishes the complete client/tool set atomically after capacity and collision checks. `maxClients` counts Pending, Ready and Removing entries; published tool names and count remain reserved through removal. Discovery counts every returned definition against `maxTools`; remote duplicates are not deduplicated, and selected local names must be unique. `toolkit: UIO[Toolkit]` returns the current immutable snapshot and `names: UIO[Chunk[String]]` exposes Ready registrations only. `remove(name): UIO[McpClientRemoval]` returns Removed or Missing after joined cleanup; `close: UIO[Unit]` joins manager cleanup. Previously returned snapshots retain their original bindings, whose calls fail after removal rather than routing to a later registration with the same name.
 
-`registerBindings(name, acquire, maxPages, select)` selects `Option[McpToolBinding]`, pairing ToolDef with an explicit metadata policy. It uses the same ownership and atomic-publication kernel as register. Selecting metadata runs no resolver: the effect runs only at tool invocation if the fixed binding and live client restriction allow it. A later selector failure releases acquired resources and publishes no partial binding set. See the [metadata contract](../tool/README.md#explicit-request-metadata).
+`registerBindings(name, acquire, maxPages, select)` selects `Option[McpToolBinding]`, pairing ToolDef with an explicit metadata policy and checked argument defaults. It consumes the selected binding without changing its schema. `McpToolBinding.withPresets` supplies checked root schema exclusion; a configuration failure returned by the selector publishes no partial binding set and releases acquired resources through the existing ownership kernel. Selecting metadata runs no resolver: the effect runs only at tool invocation if the fixed binding and live client restriction allow it. See the [preset](../tool/README.md#preset-arguments-and-schema-projection) and [metadata contracts](../tool/README.md#explicit-request-metadata).
 
 The acquisition must place owned transport resources in its supplied scope. The manager closes the returned client before releasing those resources. Registering an externally initialized client does not extend its original lifetime, and registration still authorizes the manager to close it. Copying a Toolkit snapshot never transfers ownership. Acquisitions, selectors and owned finalizers must not remove their own registration or close their manager, because closure joins that work.
 
-This accepted scope does not include presets, groups, ambient metadata propagation, schema rewriting/evaluation, discovery caches or notification invalidation. It does not make discovery an atomic server snapshot or broaden the client's selected 2025-06-18 protocol support. The verification section records exact accepted identities; the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded upstream adaptations and intentional differences.
+This scope includes checked shallow defaults and root properties/required exclusion through selected bindings. Groups, ambient metadata propagation, broader schema rewriting/evaluation, discovery caches and notification invalidation remain separate. It does not make discovery an atomic server snapshot or broaden the selected 2025-06-18 protocol support. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded adaptations and intentional differences.
 
 - [x] Implement bounded registration, immutable Toolkit publication and joined removal/closure with four grouped contract tests.
 - [x] Obtain independent FP/ZIO approval from `path_review` and invariant approval from `current_docs` for the final source/test identities below, with no unresolved findings.
@@ -32,7 +32,7 @@ The flattened catalogue omits page envelope metadata; use `listToolsPage` when t
 
 ## API migration
 
-Existing `register` and `McpTool.bind` call sites retain metadata omission. `registerBindings` is additive and concrete on the manager trait: custom managers compile unchanged and receive a typed unsupported failure without running acquisition or selection until they override it. No source-breaking method or core context bag is added. Fixed binding policy replaces a mutable per-tool switch.
+Existing `register` and `McpTool.bind` call sites retain metadata omission and empty presets. `registerBindings` is additive and concrete on the manager trait: custom managers compile unchanged and receive a typed unsupported failure without running acquisition or selection until they override it. McpToolBinding has a third defaulted presets field: construction/copy calls can omit it, but positional pattern matches must now handle three fields. No core context bag is added. Fixed binding policy replaces a mutable per-tool switch.
 
 Custom `McpConnection` implementations must implement the new checked `request(builder)` overload: allocate and register an ID before invoking the builder, reject a substituted ID before sending, and clean up rejected requests. The built-in connection suspends the builder. Exhaustive `AgentError` matches must handle the additive `McpRemoteError` leaf; its tagged data codec is a domain representation, not the JSON-RPC wire format.
 
@@ -74,7 +74,7 @@ Migration: `McpRequests` adds abstract `register(onAbandon: Cause[AgentError] =>
 
 Accepted scope covers the request registry, borrowed-port connection, checked builders, initialized client, typed remote errors and bounded scoped manager described above, including explicit bound-tool metadata restriction and atomic metadata-aware selection. Concrete HTTP behavior has separate transport acceptance and complete revision support remains excluded; binding/projection has a separate [tool contract](../tool/README.md).
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current metadata domain, binding, client restriction, manager extension and paired tests, with no findings. Exact tool identities are in the [tool acceptance](../tool/README.md#verification-and-acceptance); changed client/manager identities are below. Formatting and full `verify` passed in `mcp-tool-metadata-verify.log`, with zero compiler warnings or failures; the tracker owns current totals.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current checked presets, binding and manager selection extension with paired tests, with no findings. Exact tool identities are in the [tool acceptance](../tool/README.md#verification-and-acceptance); current manager identities are below. Formatting and full `verify` passed in `mcp-tool-presets-verify.log`, with zero compiler warnings or failures; the tracker owns current totals. Existing client metadata restriction is unchanged.
 
 - [x] Five grouped [McpRequestsSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) tests establish registry contracts; `path_review` and `current_docs` approved their recorded identities with no findings.
 - [x] Eight grouped [McpConnectionSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) tests pass for immediate/out-of-order replies, cancellation, complete causes, closed-parent startup, control dispatch, concurrent closure and terminal errors.
@@ -96,16 +96,17 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `b39c5f1b6f8d0559b7a7adecda0f9374e2a66a9c` |
 | [McpClient.scala](McpClient.scala) | `d1f9ca0a9d3a18f9cf0ab25b80ab5afa3dfea3ce` |
 | [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `24acfbfe2a8b16b2b66fb9ed40d11be286e24ef9` |
-| [McpClientManager.scala](McpClientManager.scala) | `d80554ff70a940f061bcbe39b12ab44d7bfe0942` |
-| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `84c581cb5c7f1f8dc02d1153f1e2a8f2b1153ab6` |
+| [McpClientManager.scala](McpClientManager.scala) | `955a6d44122f5cff58d797ad484d47491c292304` |
+| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `766bb77bcd59c3fe215a4490cdc69638206e3dd5` |
 
 ## Remaining work
 
 - [x] HTTP POST and explicit GET have separate transport acceptance.
 - [x] Bounded optional outbound cancellation is accepted under the [cancellation contract](#outbound-cancellation-contract).
 - [x] Explicit metadata projection and live bound-tool omission have final independent approval and verification.
-- [ ] Next: implement host-owned preset arguments with matching exclusion from the advertised input schema.
-- [ ] Define presets, groups, ambient metadata propagation, schema transformation and discovery caching separately.
+- [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
+- [ ] Next: expose host-selected tool output schemas without evaluating them.
+- [ ] Define groups, ambient metadata propagation, broader schema transformation and discovery caching separately.
 Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
 
 These tests establish local concurrency and ownership contracts using controlled message ports. AgentScope Java delegates wire/request machinery to MCP Java SDK 0.17.2; wrapper listTools, callTool and close behaviors remain separate integration mappings. No complete MCP revision or whole-wrapper parity is claimed. MCP 2026-07-28 has a different lifecycle without initialize; it is not implemented by the selected older payload helpers.
