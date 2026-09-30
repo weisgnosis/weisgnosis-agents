@@ -4,13 +4,13 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is scoped MCP request coordination, followed by client, transport and toolkit integration. Declared/general-purpose composition, event routing and durable host recovery remain separate.
+Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is scoped MCP client/transport lifecycle, followed by toolkit integration. Declared/general-purpose composition, event routing and durable host recovery remain separate.
 
 ## Implemented components
 
 - **core:** immutable messages, 39 typed event variants, JSON codecs, typed tools, path screening, SSE parsing and chunk assembly, and ReAct execution with interruption recovery, bounded thinking retries, and structured output.
 - **harness:** daily-memory extraction, scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, typed transcript observations with in-memory and scoped local stores and opt-in completion recording, typed memory triggers with shared monotonic admission, a scoped task queue with pending conversation coalescing and completion-triggered memory flush, conversation compaction, opt-in runtime result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
-- **mcp:** checked envelopes and 2025-06-18 initialization, discovery and tool-call payloads; client and transports remain pending.
+- **mcp:** checked 2025-06-18 payloads and bounded scoped request correlation; connection lifecycle and transports remain pending.
 
 LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable approval resumption, broader middleware integration, remote memory/transcript storage, declaration-driven session creation remain separate work. Host-held sessions support process-local child reuse.
 
@@ -67,6 +67,8 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 [Apache-2.0](LICENSE).
 
 ## Current acceptance
+
+- [x] `path_review` and `current_docs` approved [bounded MCP request correlation](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance), including cancellation, scoped registration and full-cause settlement. Transport ownership remains separate.
 
 - [x] `path_review` and `current_docs` approved the [checked MCP envelope](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance), and 2025-06-18 initialization/discovery helpers and call requests, including bounded numeric conversion and malformed-wire rejection. Call-result projection is also reviewed; client and transport integration remain pending.
 

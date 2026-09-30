@@ -7,7 +7,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved resource ownership, host-held sessions, bounded host session membership, fixed-session tools, directory-routed tools and policy-aware child construction, with no findings. Exact reviewed scope and identities are in the [tool](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
 - [x] `path_review` and `current_docs` approved explicit gate composition and authorizer views; exact identities and scope are in the [permission contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance). SubagentConstruction supplies the reviewed opt-in installation path.
 - [x] `path_review` and `current_docs` approved the checked MCP envelope, including reproduced numeric-boundary fixes, with no findings. Exact identities and scope are in the [protocol contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance).
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 651 harness / 17 MCP tests (1,229 total), zero compiler warnings or failures. Local evidence: `mcp-call-result-verify.log`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 651 harness / 21 MCP tests (1,233 total), zero compiler warnings or failures. Local evidence: `mcp-requests-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -51,7 +51,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Implement bounded scoped MCP request coordination next, then client/transport lifecycle and toolkit bridging. Pure initialization helpers do not establish a working connection or complete revision support.
+- [ ] Implement scoped MCP client/transport lifecycle next, then toolkit bridging. Pure initialization helpers do not establish a working connection or complete revision support.
 - [ ] Complete declared/general-purpose composition, including explicit tool/prompt/configuration installation; retain the accepted construction boundary.
 - [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 
@@ -65,6 +65,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [ ] Complete model-selection configuration, remote memory/transcript adapters, timestamp-watermark migration, session discovery and scheduling.
 - [ ] Validate platform-specific symlink/junction behavior and provide a secure storage backend if untrusted workspace support is required. Canonical checks are not an atomic filesystem sandbox; crash/fsync durability and hostile mutation isolation are not claimed.
 - [x] Implement checked common MCP JSON-RPC envelopes with exclusive message variants, strict fields, recursive duplicate rejection and bounded lossless numeric identities.
+- [x] Implement bounded scoped MCP request correlation with monotonic IDs, transactional settlement, cancellation cleanup and typed McpError lifecycle failures. Both reviewers approved the [client scope and identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
 - [x] Implement checked 2025-06-18 call-result projection for all content variants, embedded text/blob overlap, typed outcomes and nested metadata. Both reviewers approved the recorded protocol identities; transport and local observation conversion remain excluded.
 - [x] Implement checked 2025-06-18 discovery requests/pages and tool-call requests, preserving schema/extension data and untrusted annotations. Both independent reviewers approved the exact [protocol scope and identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance).
 - [x] Implement pure 2025-06-18 initialization request/result helpers, truthful empty client capabilities, exact-version validation and typed tools capability projection. `path_review` and `current_docs` approved the exact [protocol identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance) with no findings.

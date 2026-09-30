@@ -30,6 +30,9 @@ object AgentError:
 
   final case class InvalidMessage(message: String) extends AgentError derives JsonCodec
 
+  /** Local MCP connection or request-ownership failure; remote protocol errors remain reply data. */
+  final case class McpError(message: String) extends AgentError derives JsonCodec
+
   final case class ModelError(
       statusCode: Int,
       message: String,

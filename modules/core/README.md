@@ -4,7 +4,7 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 
 | Package | Available |
 | --- | --- |
-| [json](src/main/scala/com/weisgnosis/agents/core/json/README.md) | Core-internal complete-document and immutable AST validation |
+| [json](src/main/scala/com/weisgnosis/agents/core/json/README.md) | Shared internal complete-document and immutable AST validation |
 | [model](src/main/scala/com/weisgnosis/agents/core/model/README.md) | Msg, content, roles, usage, codecs |
 | [event](src/main/scala/com/weisgnosis/agents/core/event/README.md) | 39 typed variants and source tagging; not all emitters are implemented |
 | [tool](src/main/scala/com/weisgnosis/agents/core/tool/README.md) | Typed tools, immutable registry, normalized observations, path screening |
@@ -17,8 +17,10 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 
 ## Current review acceptance
 
+- [x] `path_review` and `current_docs` approved the additive [McpError boundary](src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) and its request-ownership integration, with no findings.
+
 - [x] `path_review` approved the advisory command-screening correction and regressions for FP/ZIO correctness and relevant invariants. The [tool README](src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) records exact source/test blobs and the lexical helper's limits.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 626 harness tests, zero compiler warnings or failures (`subagent-tools-plan-final-verify.log`).
+- [x] Full formatting, fatal-warning compilation and tests pass; the [tracker](../../docs/architecture/tracker.md#current-acceptance) records current verification evidence.
 - [x] `path_review` approved live clocks for the three real HTTP fixtures, preserving scoped cleanup and 20-second timeouts. Exact identities and repeated verification are in the [client test contract](src/test/scala/com/weisgnosis/agents/core/client/README.md#real-http-fixture-clocks).
 - [x] Existing model, event, client, agent and tool contracts retain their scoped independent acceptance and source identities in the package READMEs above.
 - [ ] Complete remaining provider, event, lifecycle and upstream parity work in the [tracker](../../docs/architecture/tracker.md).

@@ -8,9 +8,11 @@ The checked codecs validate one complete JSON document, preserve integer identit
 | --- | --- |
 | [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted envelope/initialization helpers and tool request/list/call-result projections |
 | [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Planned transport and connection ownership |
-| [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Planned version-specific lifecycle, discovery, calls, and Toolkit bridge |
+| [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Scoped request correlation; version-specific lifecycle, transport integration, discovery, and Toolkit bridge remain pending |
 
 [McpTools](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpTools.scala) now implements 2025-06-18 list/call request builders and one-page tool-list parsing; the bounded request/list-result scope is independently reviewed and accepted. Declarations preserve order and duplicate names, schemas remain unevaluated ASTs, and remote annotation hints confer no local authority. [McpCallResult](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpCallResult.scala) adds the accepted five content variants, typed success/error outcome, structuredContent, annotations, and metadata. Embedded text and blob are both retained when present; every provided body field must be a string. URI/base64/timestamp strings remain opaque data. Runtime invocation remains pending.
+
+[McpRequests](src/main/scala/com/weisgnosis/agents/mcp/client/McpRequests.scala) adds bounded scoped correlation with runtime-generated numeric IDs, atomic reply completion, lease cancellation, and terminal failure propagation. Hosts must register in a fresh request scope before checked request construction, sending, and awaiting. It owns no transport or send callback.
 
 ## Verification and acceptance
 
@@ -26,11 +28,13 @@ These tests are specification-derived envelope coverage. The pinned AgentScope J
 - [x] Four [McpToolsSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpToolsSpec.scala) groups pass.
 - [x] Both independent reviewers approved the exact tool payload scope with no unresolved findings; the linked protocol acceptance records reviewed identities and full verification.
 
-- [x] Four [McpCallResultSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpCallResultSpec.scala) groups pass, bringing the MCP suite to seventeen groups. Both independent reviewers approved the bounded result projection; the linked protocol acceptance records the final identities and full verification.
+- [x] Four [McpCallResultSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpCallResultSpec.scala) groups pass. Both independent reviewers approved the bounded result projection; the linked protocol acceptance records the final identities and full verification.
+
+- [x] Four [McpRequestsSpec](src/test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) groups pass, bringing the MCP suite to twenty-one groups. The [client acceptance](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records the current scope, review status, and full verification.
 
 ## Remaining work
 
-- [ ] Next: scoped client/transport lifecycle, request correlation, cancellation, and connection shutdown for the explicitly selected revision.
+- [ ] Next: actual scoped client/transport lifecycle, request sending, cancellation, and connection shutdown for the explicitly selected revision.
 - [ ] Revision-specific client lifecycle. MCP 2026-07-28 does not use `initialize`; older initialization/negotiation behavior requires explicitly selected legacy support.
 - [ ] Tool discovery, runtime invocation, core content conversion, output-schema evaluation, and Toolkit integration.
 
