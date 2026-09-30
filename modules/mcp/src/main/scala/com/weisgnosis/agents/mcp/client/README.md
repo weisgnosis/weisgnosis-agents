@@ -110,7 +110,7 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
-- [ ] Next: implement run-owned model-facing tool-group activation; fixed arguments and model-overridable defaults remain distinct.
+- [ ] Next: integrate automatic MCP group installation; fixed arguments and model-overridable defaults remain distinct.
 - [ ] Define groups, ambient metadata propagation, broader schema transformation and discovery caching separately.
 Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
 

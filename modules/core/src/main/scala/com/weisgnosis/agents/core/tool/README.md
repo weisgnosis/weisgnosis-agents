@@ -12,7 +12,9 @@ Removing groups or membership reports `newlyUngrouped` names alongside the next 
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for [ToolGroups.scala](ToolGroups.scala), blob `ee51930197f5091a398e57c53c3f93fed2eb7922`, and [ToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolGroupsSpec.scala), blob `3729dbeef275e731a215743117ef55e4e2de8c62`, with no findings. Four grouped contracts cover atomic transitions, scope separation, membership/removal and policy preservation, and actual ReAct snapshot visibility/dispatch.
 - [x] Formatting and full `verify` passed in `tool-groups-verify.log`: 583 core / 673 harness / 78 MCP tests (1,334 total), zero compiler warnings or failures; test task 12 seconds.
-- [ ] Next: implement run-owned model-facing activation. Skill-triggered groups, human-readable notes and automatic MCP group installation remain separate work.
+The runtime installs an optional [run-owned activation adapter](../agent/README.md#run-owned-tool-group-activation) over this foundation.
+
+- [ ] Next: automatic MCP group installation. Skill-triggered groups, human-readable notes and automatic MCP group installation remain separate work.
 
 Group data/enums use derived codecs; decoding does not bypass checked registration. Immutable values replace Java builders and defensive copying, and null contracts are not reproduced. Unknown activation/membership groups fail atomically rather than following upstream permissive or partially applied paths. No existing Tool or Toolkit signature changes.
 
@@ -26,7 +28,7 @@ ReAct prepares before authorization. Invalid preparation becomes Error without c
 
 Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and Toolkit checks are additive. Existing raw scalar tools retain their decoding contract. MCP model-overridable defaults remain separate; manager installation of framework-fixed arguments has a separate [MCP contract](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these six identities, with no findings. Scoped verification passed in `tool-fixed-arguments-verify.log`; current full-repository evidence and totals are recorded under [host-selected tool groups](#host-selected-tool-groups).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Unchanged component identities are below; current ReActAgent identity is in [run-owned activation](../agent/README.md#run-owned-tool-group-activation). Scoped verification passed in `tool-fixed-arguments-verify.log`; current full-repository evidence and totals are recorded under [run-owned activation](../agent/README.md#run-owned-tool-group-activation).
 
 | Source/test | Reviewed Git blob |
 | --- | --- |
@@ -34,7 +36,6 @@ Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and
 | [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | `367654171296e5aabdc3e0d448822c2eb583a336` |
 | [Tool.scala](Tool.scala) | `2f425468675fa3d8a7f5b34232e7c545b3c49958` |
 | [Toolkit.scala](Toolkit.scala) | `6b0cc64124fc8d5411388918b6284a4b0dcac3af` |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | `d3a071bdbf3dc8e35ad4b5a8ee34f5841cdee4a0` |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | `449a33d7484c16940b00ef2c936bc2c50486f917` |
 
 ## Descriptive output schemas
@@ -71,7 +72,7 @@ ReAct creates `Active(context, call, callOrdinal, events)` only for approved loc
 
 `ToolEventPort` exposes publication only. Its scoped lease closes after execution cleanup and before result processing. Publication and closure are serialized: Published means enqueued on the runtime's unbounded hub, not consumed; retained ports return Closed after revocation. Cancellation joins cleanup and preserves interruption and cleanup defects. The lease does not own a child task, provide replay/backpressure, or forward child events automatically. Trusted contextual tools remain responsible for the events they publish; the port does not authenticate arbitrary event payloads.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this capability, with no unresolved findings. Unchanged capability identities are below; current Tool/Toolkit/ReActAgent identities are in [fixed raw arguments](#fixed-raw-arguments). Three grouped tests cover approved occurrences, legacy/detached/denied execution, concurrent revocation and actual ReAct cancellation. Formatting, fatal-warning compilation and full verification passed in `tool-invocation-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this capability, with no unresolved findings. Unchanged capability identities are below; current Tool/Toolkit identities are in [fixed raw arguments](#fixed-raw-arguments), and current ReActAgent identity is in [run-owned activation](../agent/README.md#run-owned-tool-group-activation). Three grouped tests cover approved occurrences, legacy/detached/denied execution, concurrent revocation and actual ReAct cancellation. Formatting, fatal-warning compilation and full verification passed in `tool-invocation-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] The separately reviewed [harness integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#scoped-child-event-forwarding) uses this capability for owned child execution and promotion. Its acceptance and bounded parity mappings remain distinct from this core contract.
 
 | Reviewed file | Git blob |
@@ -98,7 +99,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 ## Current review acceptance
 
 - [x] Independent FP/ZIO and invariant reviewer `path_review` approved the advisory command-screening fix and regressions: source blob `3d7a102d03c47719271ad2e4ba791af81247170e`, test blob `981212ee32c51cf92d12d844f4fe5a7403f70b78`. All eight focused tests pass.
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed execution payloads, state admission, runtime control protection and compound-cause preservation. Both approved this scope with no findings; unchanged component identities are below, and current Tool/Toolkit/ReActAgent identities are in [fixed raw arguments](#fixed-raw-arguments).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed execution payloads, state admission, runtime control protection and compound-cause preservation. Both approved this scope with no findings; unchanged component identities are below, and current Tool/Toolkit identities are in [fixed raw arguments](#fixed-raw-arguments), and current ReActAgent identity is in [run-owned activation](../agent/README.md#run-owned-tool-group-activation).
 - [x] Full formatting, fatal-warning compilation and verification passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
 - [x] Existing processor contracts below retain their scoped acceptance and unchanged implementations. Current authorization acceptance belongs to [fixed raw arguments](#fixed-raw-arguments).
 
@@ -108,7 +109,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 | [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | a85af9fa35a0848944627973bda1413e4ca4e881 |
 | [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 703c7abec55bb3b4ea5d429ecefa76c9f1557b16 |
 
-The table records unchanged typed-result components. Current Tool, Toolkit and ReActAgent identities are recorded under [fixed raw arguments](#fixed-raw-arguments); separate invocation and [direct event forwarding](../agent/README.md#direct-event-forwarding) contracts retain their scoped evidence. Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
+The table records unchanged typed-result components. Current Tool and Toolkit identities are recorded under [fixed raw arguments](#fixed-raw-arguments), and ReActAgent under [run-owned activation](../agent/README.md#run-owned-tool-group-activation); separate invocation and [direct event forwarding](../agent/README.md#direct-event-forwarding) contracts retain their scoped evidence. Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
 
 Platform-specific symlink/junction behavior and hostile filesystem races remain outside the verified guarantees. Current command-screening evidence is recorded in the [test README](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions).
 

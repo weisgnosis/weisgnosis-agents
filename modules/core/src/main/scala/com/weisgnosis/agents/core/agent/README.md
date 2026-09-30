@@ -10,17 +10,37 @@ ReActAgent retains history and serializes runs. Model requests receive their own
 - [StructuredOutput](StructuredOutput.scala)
 - [TurnCompletionObserver](TurnCompletionObserver.scala)
 
+## Run-owned tool-group activation
+
+The optional `toolGroups` construction dependency uses the [immutable group registry](../tool/README.md#host-selected-tool-groups) as initial configuration. Each public ordinary or structured invocation owns fresh activation state. Structured native-to-synthetic fallback shares that invocation's state; a later public invocation starts from the configured defaults. Retained history does not restore group activation.
+
+One selected Toolkit snapshot supplies both a model request's definitions and its returned local call batch. `reset_equipped_tools` replaces the active Meta groups for the next request. It cannot enable an unadvertised tool in its own batch or revoke tools already admitted in that batch. External groups remain under host control. The reset tool declares both isConcurrencySafe and isReadOnly false, forces its batch through sequential dispatch and goes through ordinary authorization; a denied or invalid reset leaves activation unchanged.
+
+Runtime controls are composed after filtering the host toolkit. The reset tool and synthetic `generate_response` remain available even when group membership names refer to them. Name collisions are checked against the complete host toolkit, including hidden tools. Fixed arguments and host tool flags remain attached to the selected values. The reset tool exists only when Meta groups are configured, and structured-output capability selection counts it as a tool.
+
+Reset input is exactly an object containing `to_activate`, an array of group-name strings. Unknown or External groups produce an Error observation without partial mutation. Its schema and static discovery description include only configured Meta names/descriptions, never External groups or mutable status. Successful output is a JSON object whose active_groups array lists the selected Meta names. Recursive duplicate validation remains enforced; malformed duplicate arguments may be denied by the ordinary authorization boundary before decoding. Group configuration and permission policy are separate: this mechanism grants no filesystem or remote-client authority.
+
+Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a toolGroups setter and a defaulted field. Ordinary call sites retain prior behavior. Positional Builder patterns/Product arity change and downstream binaries must be rebuilt. This explicit dependency is not Toolkit metadata; filtering the supplied base toolkit cannot recover removed tools. Control-name collisions retain Toolkit's existing ToolExecutionError type/message.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, with no findings. Formatting and full `verify` passed in `react-tool-groups-verify.log`: 588 core / 673 harness / 78 MCP tests (1,339 total), zero compiler warnings or failures; compile task 6 seconds and test task 22 seconds.
+- [ ] Next: automatic MCP group installation. Skill-triggered groups, exact Java notes/prose and durable activation remain separate.
+
+| Current source/test | Git blob |
+| --- | --- |
+| [ReActAgent.scala](ReActAgent.scala) | `037ffd19b023a72357b22eb09dfd2a823c1a54e9` |
+| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `f9214fafdb6998edef61e2c518a9852e9cc53a34` |
+
 ## Fixed-argument authorization
 
 Attached [fixed raw arguments](../tool/README.md#fixed-raw-arguments) are prepared before local authorization, without changing the persisted original call while approval is pending. Malformed preparation yields Error without callback execution; signed-input changes and approved fixed-field alterations yield Denied. Nonfixed rewrites remain allowed. Approved history, invocation context and execution share the final prepared input, retaining original model-input provenance. Inline provider results still bypass local dispatch. Cancellation joins authorizer cleanup and retains the complete interruption/cleanup cause.
 
-Current Tool/Toolkit/ReAct source identities and verification for this integration belong to the linked tool acceptance; the result/event contracts below remain separate bounded scopes.
+Current Tool/Toolkit identities and scoped verification belong to the linked tool acceptance; the current ReActAgent identity is in [run-owned activation](#run-owned-tool-group-activation); the result/event contracts below remain separate bounded scopes.
 
 ## Current typed-result acceptance
 
-The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. Current reviewed ReActAgent identities for this scope belong to the [tool acceptance](../tool/README.md#current-review-acceptance).
+The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [run-owned activation](#run-owned-tool-group-activation); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
 
-- [x] `path_review` and `current_docs` approved typed local result publication at the six identities in the linked tool acceptance; full repository verification passed with no warnings or failures.
+- [x] `path_review` and `current_docs` approved typed local result publication within the linked tool acceptance; full repository verification passed with no warnings or failures.
 
 ## Result-bearing streams
 
@@ -35,10 +55,9 @@ Early consumers cancel and join owned execution but abandon later output, includ
 | Reviewed file | Git blob |
 | --- | --- |
 | [AgentRunUpdate.scala](AgentRunUpdate.scala) | `e441b9614dba3364da17b6b4780c3a6fae002396` |
-| [ReActAgent.scala](ReActAgent.scala) | `2b377323bd2bb4e6bc707338c15126b448488624` |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | `20b296b5e3c6430eab21f3124b8fd49bd1acc6a0` |
 
-The stream table records its reviewed baseline. Current ReActAgent identity and verification are recorded under [direct event forwarding](#direct-event-forwarding). The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
+The stream table records its reviewed baseline. Current ReActAgent identity and verification are recorded under [run-owned activation](#run-owned-tool-group-activation). The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
 
 ## Direct event forwarding
 
@@ -46,7 +65,7 @@ The package-visible `runForwarding(messages, destination, source)` runs once und
 
 The host-selected source prefixes any existing nested source with `/`; reply/request identities remain unchanged. Source labels are diagnostic data, not authentication. A closed destination drops publication without cancelling execution. Delivery remains unbounded, with no replay or backpressure. This internal ordinary-run primitive does not install forwarding in harness tools or add structured child execution.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at ReActAgent blob `c0c777162f43fa1753e3d22d12f8fd40c60d8276` and [ReActAgentForwardingSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) blob `9c602ab087cb78362035043bf07181b0aa108f89`, with no unresolved findings. Three grouped tests cover ordered nested events and complete results, exact mixed causes and held cancellation cleanup, and closed-destination execution. Required verification passed in `agent-forwarding-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for direct forwarding and [ReActAgentForwardingSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) blob `9c602ab087cb78362035043bf07181b0aa108f89`, with no unresolved findings. Three grouped tests cover ordered nested events and complete results, exact mixed causes and held cancellation cleanup, and closed-destination execution. Required verification passed in `agent-forwarding-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] The separately reviewed [harness adapters](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#scoped-child-event-forwarding) install this primitive for owned spawn/send operations with task attribution and per-invocation leases.
 
 ## Runtime events and result pairing
@@ -130,7 +149,7 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 ## Current post-reasoning identities
 
-Unchanged post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. Current ReActAgent and AgentError identities belong to the history-preparation scope below.
+Unchanged post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. Current ReActAgent identity belongs to [run-owned activation](#run-owned-tool-group-activation); unchanged error contracts remain separate.
 
 | File | Git blob |
 | --- | --- |
@@ -157,7 +176,7 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 The optional ToolAuthorizer runs after assistant persistence and fixed-argument preparation, before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs carrying either provider reasoning metadata key are denied. Non-interrupted failures and defects fail closed to Denied observations. Interrupted compound causes preserve interruption and cleanup defects; cancellation preserves completed work and reconciles unresolved calls. Matched inline results bypass the gate. See the [tool contracts](../tool/README.md) for argument provenance, scope ownership, failure semantics, migration, and exact current identities. The default allows calls; the harness InteractivePermissionAuthorizer provides opt-in policy/interactive confirmation. Durable approval resumption remains pending.
 
-- [x] `path_review` and `current_docs` approved fixed-argument authorization and compound-cause preservation with no findings; full verification passed. The [current six-file acceptance](../tool/README.md#fixed-raw-arguments) records exact identities and evidence. Durable policy adapters remain separate.
+- [x] `path_review` and `current_docs` approved fixed-argument authorization and compound-cause preservation with no findings; full verification passed. The [scoped fixed-argument acceptance](../tool/README.md#fixed-raw-arguments) records exact identities and evidence. Durable policy adapters remain separate.
 
 ## History preparation before model requests
 
@@ -175,7 +194,7 @@ Appending the optional make argument preserves ordinary callers; positional Buil
 
 ## Current history-preparation identities
 
-Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded below:
+Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [run-owned activation](#run-owned-tool-group-activation); unchanged components follow:
 
 | File | Git blob |
 | --- | --- |
@@ -264,7 +283,7 @@ Migration: the optional constructor/builder dependency is additive, but position
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-The current ReActAgent identity is recorded under [direct event forwarding](#direct-event-forwarding); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
+The current ReActAgent identity is recorded under [run-owned activation](#run-owned-tool-group-activation); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
 
 ## Current completion-observer identities
 

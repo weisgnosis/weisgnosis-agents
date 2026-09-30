@@ -4,6 +4,7 @@
 
 These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. Exhaustive upstream parity and complete runtime event ordering remain pending.
 
+- [ReActAgentToolGroupsSpec](ReActAgentToolGroupsSpec.scala)
 - [AgentRunUpdateSpec](AgentRunUpdateSpec.scala)
 - [PostReasoningHookSpec](PostReasoningHookSpec.scala)
 - [ReActAgentReasoningHookSpec](ReActAgentReasoningHookSpec.scala)
@@ -23,6 +24,12 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [StructuredOutputHttpSpec](StructuredOutputHttpSpec.scala)
 - [StructuredOutputCapabilityRoutingSpec](StructuredOutputCapabilityRoutingSpec.scala)
 - [StructuredOutputSpec](StructuredOutputSpec.scala)
+
+## Run-owned group verification
+
+[ReActAgentToolGroupsSpec](ReActAgentToolGroupsSpec.scala) uses five integration groups: next-request activation with one admitted batch snapshot and fixed policies; exact invalid/denied reset outcomes with Meta-only discovery and External isolation; fresh ordinary/streamed invocations and joined cancellation; native fallback after a successful reset with synthetic controls retained after deactivation; empty-host Auto routing and complete-base collision rejection. Reset flags exercise sequential dispatch even under Parallel configuration.
+
+Both independent reviewers approved the final source/spec, and full verification passed. Current identities and acceptance are in the [run-owned activation contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#run-owned-tool-group-activation). Skills, durable state and automatic MCP installation are not covered.
 
 ## Result-bearing stream evidence
 
@@ -78,7 +85,7 @@ Fixed-argument integration verifies prepared authorizer input, allowed nonfixed 
 
 [ReActAgentToolAuthorizerSpec](ReActAgentToolAuthorizerSpec.scala) covers scenarios for persistence before approval, precise argument rewriting, denial events, typed/defect/finalizer failure normalization, ambiguous JSON, signed and opaque reasoning metadata, unchanged signed calls, cooperative/fiber cancellation, duplicate calls, inline pairing, and unmatched provider-marked local dispatch. Two unsafe reasoning-metadata rewrites were reproduced by a failing regression before the presence-based guard was corrected. This covers the core port, not interactive or durable policy adapters.
 
-- [x] `path_review` and `current_docs` approved fixed-argument authorization and compound-cause preservation with no findings; full verification passed. The [current six-file acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments) records exact identities and evidence. Durable policy adapters remain separate.
+- [x] `path_review` and `current_docs` approved fixed-argument authorization and compound-cause preservation with no findings; full verification passed. The [scoped fixed-argument acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments) records exact identities and evidence. Durable policy adapters remain separate.
 
 ## History preparation verification
 

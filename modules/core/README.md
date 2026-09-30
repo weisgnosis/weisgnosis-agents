@@ -9,7 +9,7 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 | [event](src/main/scala/com/weisgnosis/agents/core/event/README.md) | 39 typed variants and source tagging; not all emitters are implemented |
 | [tool](src/main/scala/com/weisgnosis/agents/core/tool/README.md) | Typed tools, immutable host-selected groups, attached fixed raw arguments, host-selected descriptive output schemas, immutable registry, typed completed observations, path screening |
 | [client](src/main/scala/com/weisgnosis/agents/core/client/README.md) | Client port, scripted clients, validated text/function requests, scoped HTTP completion, SSE framing and indexed assembly |
-| [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | ReAct lifecycle, interruption, thinking retries, structured output |
+| [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | ReAct lifecycle, run-owned group activation, interruption, thinking retries, structured output |
 
 Typed failures are defined in [AgentError.scala](src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala). Provider extensions, remaining event integrations, automatic failover, and exhaustive upstream parity remain pending.
 
@@ -19,9 +19,11 @@ Tool.encodeResult preserves String/Success behavior by default and permits typed
 
 ## Current review acceptance
 
-- [x] `path_review` and `current_docs` approved [immutable host-selected tool groups](src/main/scala/com/weisgnosis/agents/core/tool/README.md#host-selected-tool-groups), including actual ReAct snapshot visibility and dispatch, with no findings. Exact two-file identities and full verification are recorded in the linked contract; live activation and automatic MCP installation remain separate.
+- [x] `path_review` and `current_docs` approved [run-owned model-facing group activation](src/main/scala/com/weisgnosis/agents/core/agent/README.md#run-owned-tool-group-activation), with fresh invocation state, request/batch snapshots and shared structured fallback. Exact source/spec identities and full verification are recorded in the linked contract.
 
-- [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Exact six-file identities and full verification are recorded in the linked contract; MCP installation has its own [binding contract](../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
+- [x] `path_review` and `current_docs` approved [immutable host-selected tool groups](src/main/scala/com/weisgnosis/agents/core/tool/README.md#host-selected-tool-groups), including actual ReAct snapshot visibility and dispatch, with no findings. Exact two-file identities and full verification are recorded in the linked contract; run-owned activation has separate acceptance, and automatic MCP installation remains pending.
+
+- [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Scoped identities and full verification are recorded in the linked contract; MCP installation has its own [binding contract](../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 
 - [x] `path_review` and `current_docs` approved host-selected descriptive output schemas, legacy optional codec semantics, actual model-call retention and current provider omission. The [tool contract](src/main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records five identities, migration and full verification.
 
