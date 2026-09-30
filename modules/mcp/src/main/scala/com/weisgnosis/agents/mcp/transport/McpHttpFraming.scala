@@ -30,8 +30,11 @@ import zio.stream.{ZChannel, ZPipeline}
  * line content, including comments, unknown fields and BOM, but exclude CR/LF separators.
  */
 object McpHttpFraming:
-  private type Decoder =
-    ZChannel[Any, Nothing, Chunk[Byte], Any, AgentError, Chunk[McpMessage], Any]
+  /** A completed SSE block; its cursor is inherited only within this response. */
+  final case class McpSseEvent(message: Option[McpMessage], lastEventId: String)
+
+  private type Decoder[A] =
+    ZChannel[Any, Nothing, Chunk[Byte], Any, AgentError, Chunk[A], Any]
 
   final private case class Buffer(segments: List[Chunk[Byte]], size: Int):
     def append(segment: Chunk[Byte]): Buffer =
@@ -49,6 +52,7 @@ object McpHttpFraming:
   final private case class SseState(
       line: Buffer = Buffer(Nil, 0),
       data: List[String] = Nil,
+      lastEventId: String = "",
       bodyBytes: Long = 0L,
       eventBytes: Int = 0,
       newline: Newline = Newline.Normal,
@@ -80,7 +84,7 @@ object McpHttpFraming:
 
   def json(maxBytes: Int = 1048576): ZPipeline[Any, AgentError, Byte, McpMessage] =
     ZPipeline.fromChannel:
-      def read(buffer: Buffer): Decoder =
+      def read(buffer: Buffer): Decoder[McpMessage] =
         ZChannel.readWithCause(
           input =>
             if input.size > maxBytes - buffer.size then
@@ -108,8 +112,20 @@ object McpHttpFraming:
       maxBodyBytes: Long = 8L * 1024 * 1024,
       maxEventBytes: Int = 1048576
   ): ZPipeline[Any, AgentError, Byte, McpMessage] =
+    sseEvents(maxBodyBytes, maxEventBytes).collect:
+      case McpSseEvent(Some(message), _) => message
+
+  /**
+   * Emits each blank-line-terminated block, including blocks without data. IDs are literal,
+   * NUL-containing values are ignored, and an empty ID resets the response-local cursor. No cursor
+   * or message is emitted for an unfinished final block. This does not implement resumption.
+   */
+  def sseEvents(
+      maxBodyBytes: Long = 8L * 1024 * 1024,
+      maxEventBytes: Int = 1048576
+  ): ZPipeline[Any, AgentError, Byte, McpSseEvent] =
     ZPipeline.fromChannel:
-      def read(state: SseState): Decoder =
+      def read(state: SseState): Decoder[McpSseEvent] =
         ZChannel.readWithCause(
           input => consume(input, state),
           cause => ZChannel.refailCause(cause),
@@ -118,7 +134,7 @@ object McpHttpFraming:
             else ZChannel.fromZIO(text(state.line.bytes)).unit
         )
 
-      def finishLine(rest: Chunk[Byte], state: SseState): Decoder =
+      def finishLine(rest: Chunk[Byte], state: SseState): Decoder[McpSseEvent] =
         ZChannel
           .fromZIO(text(state.line.bytes))
           .flatMap: decoded =>
@@ -129,17 +145,29 @@ object McpHttpFraming:
             if line.isEmpty then
               val reset = next.copy(data = Nil, eventBytes = 0)
               state.data match
-                case Nil => consume(rest, reset)
+                case Nil =>
+                  ZChannel
+                    .write(Chunk(McpSseEvent(None, state.lastEventId))) *> consume(rest, reset)
                 case data =>
                   ZChannel
                     .fromZIO(ZIO.fromEither(McpMessage.decode(data.reverse.mkString("\n"))))
-                    .flatMap(message => ZChannel.write(Chunk(message)) *> consume(rest, reset))
+                    .flatMap(message =>
+                      ZChannel.write(Chunk(McpSseEvent(Some(message), state.lastEventId))) *>
+                        consume(rest, reset)
+                    )
             else if line == "data" then consume(rest, next.copy(data = "" :: state.data))
             else if line.startsWith("data:") then
               consume(rest, next.copy(data = line.drop(5).stripPrefix(" ") :: state.data))
+            else if line == "id" then consume(rest, next.copy(lastEventId = ""))
+            else if line.startsWith("id:") then
+              val value = line.drop(3).stripPrefix(" ")
+              consume(
+                rest,
+                if value.contains('\u0000') then next else next.copy(lastEventId = value)
+              )
             else consume(rest, next)
 
-      def consume(input: Chunk[Byte], state: SseState): Decoder =
+      def consume(input: Chunk[Byte], state: SseState): Decoder[McpSseEvent] =
         ZChannel.suspend:
           if input.isEmpty then read(state)
           else if state.newline == Newline.AfterCr then
@@ -184,7 +212,7 @@ object McpHttpFraming:
 
       ZChannel.fromZIO(validate(maxBodyBytes > 0 && maxEventBytes > 0)) *> read(SseState())
 
-  private def bodyLimit: Decoder =
+  private def bodyLimit[A]: Decoder[A] =
     ZChannel.fail(AgentError.DeserializationError("MCP SSE body exceeds byte limit"))
 
   private def validate(valid: Boolean): IO[AgentError.InvalidConfiguration, Unit] =

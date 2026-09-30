@@ -17,6 +17,7 @@ package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.mcp.protocol.*
+import com.weisgnosis.agents.mcp.transport.McpHttpFraming.McpSseEvent
 import java.nio.charset.StandardCharsets
 import zio.*
 import zio.json.ast.Json
@@ -33,6 +34,51 @@ object McpHttpFramingSpec extends ZIOSpecDefault:
     ZIO.succeed(Chunk.fromArray(value.getBytes(StandardCharsets.UTF_8)))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpHttpFramingSpec")(
+    test("SSE snapshots commit literal, inherited IDs only at completed block boundaries") {
+      for
+        encoded <- ZIO.fromEither(McpMessage.encode(message))
+        data = s"data: $encoded\n\n"
+        cases = Chunk(
+          data -> Chunk(McpSseEvent(Some(message), "")),
+          ("id: first\n\n" + data) ->
+            Chunk(McpSseEvent(None, "first"), McpSseEvent(Some(message), "first")),
+          ("id: first\nid: second\nid: ignored\u0000value\nID: ignored\nid-suffix: ignored\n" + data) ->
+            Chunk(McpSseEvent(Some(message), "second")),
+          ("id: first\n\nid\n\n" + data) ->
+            Chunk(
+              McpSseEvent(None, "first"),
+              McpSseEvent(None, ""),
+              McpSseEvent(Some(message), "")
+            ),
+          ("id: first\n\nid:\n\n" + data) ->
+            Chunk(
+              McpSseEvent(None, "first"),
+              McpSseEvent(None, ""),
+              McpSseEvent(Some(message), "")
+            ),
+          ("\ufeffid:  caf\u00e9 \uD83D\uDE80 \n\n: comment\nunknown: value\n\n\n" + data) ->
+            Chunk(
+              McpSseEvent(None, " caf\u00e9 \uD83D\uDE80 "),
+              McpSseEvent(None, " caf\u00e9 \uD83D\uDE80 "),
+              McpSseEvent(None, " caf\u00e9 \uD83D\uDE80 "),
+              McpSseEvent(Some(message), " caf\u00e9 \uD83D\uDE80 ")
+            ),
+          "id: unfinished\n"                -> Chunk.empty[McpSseEvent],
+          "id: committed\n\nid: unfinished" -> Chunk(McpSseEvent(None, "committed"))
+        )
+        results <- ZIO.foreach(cases): (wire, expected) =>
+          ZIO.foreach(Chunk("\n", "\r\n", "\r")): newline =>
+            for
+              raw   <- bytes(wire.replace("\n", newline))
+              whole <- ZStream.fromChunk(raw).via(McpHttpFraming.sseEvents()).runCollect
+              fragmented <- ZStream
+                .fromChunk(raw)
+                .rechunk(1)
+                .via(McpHttpFraming.sseEvents())
+                .runCollect
+            yield whole == expected && fragmented == expected
+      yield assertTrue(results.flatten.forall(identity))
+    },
     test(
       "SSE handles fragmented BOM, Unicode, all line endings and multiline data, discarding unfinished events"
     ) {
@@ -133,6 +179,11 @@ object McpHttpFramingSpec extends ZIOSpecDefault:
             .runCollect
             .exit
         invalidPulled <- pulled.get
+        idBlock       <- bytes("id: cursor\n\n")
+        idLimits <- ZIO.foreach(
+          Chunk((idBlock.size.toLong, 10), (idBlock.size.toLong - 1, 10), (idBlock.size.toLong, 9))
+        ): (body, event) =>
+          ZStream.fromChunk(idBlock).via(McpHttpFraming.sseEvents(body, event)).runCollect.exit
       yield assertTrue(
         exact == Chunk(message),
         overEvent.isFailure,
@@ -145,7 +196,9 @@ object McpHttpFramingSpec extends ZIOSpecDefault:
         limited.isFailure,
         !continued,
         invalidLimits.forall(_.isFailure),
-        !invalidPulled
+        !invalidPulled,
+        idLimits.headOption.contains(Exit.succeed(Chunk(McpSseEvent(None, "cursor")))),
+        idLimits.drop(1).forall(_.isFailure)
       )
     },
     test(
@@ -215,15 +268,26 @@ object McpHttpFramingSpec extends ZIOSpecDefault:
           .take(1)
           .runCollect
         continued <- pulled.get
+        idBlock   <- bytes("id: committed\n\n")
+        firstEvent <- (ZStream.fromChunk(idBlock ++ prefix ++ Chunk(0xc3.toByte) ++ ending) ++
+          ZStream.fromZIO(pulled.set(true).as(10.toByte)))
+          .via(McpHttpFraming.sseEvents())
+          .take(1)
+          .runCollect
+        eventContinued <- pulled.get
         defect = new IllegalStateException("HTTP body failed")
         cause = Cause.fail(AgentError.McpError("read failed")) ++ Cause.die(defect) ++ Cause
           .interrupt(FiberId.None)
         upstream = ZStream.fromChannel(ZChannel.write(prefix) *> ZChannel.refailCause(cause))
         baselineFiber <- upstream.runCollect.forkScoped
         baseline      <- baselineFiber.await
-        failures <- ZIO.foreach(Chunk(McpHttpFraming.json(), McpHttpFraming.sse()))(decoder =>
-          upstream.via(decoder).runCollect.forkScoped.flatMap(_.await)
-        )
+        failures <- ZIO.foreach(
+          Chunk(
+            McpHttpFraming.json().map(_ => ()),
+            McpHttpFraming.sse().map(_ => ()),
+            McpHttpFraming.sseEvents().map(_ => ())
+          )
+        )(decoder => upstream.via(decoder).runCollect.forkScoped.flatMap(_.await))
         entered <- Promise.make[Nothing, Unit]
         cleanup <- Promise.make[Nothing, Unit]
         release <- Promise.make[Nothing, Unit]
@@ -241,6 +305,8 @@ object McpHttpFramingSpec extends ZIOSpecDefault:
       yield assertTrue(
         first == Chunk(message),
         !continued,
+        firstEvent == Chunk(McpSseEvent(None, "committed")),
+        !eventContinued,
         baseline.causeOption.contains(cause),
         failures.forall(_.causeOption.contains(cause)),
         pending.isEmpty,
