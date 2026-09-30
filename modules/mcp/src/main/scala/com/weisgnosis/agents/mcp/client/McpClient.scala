@@ -25,8 +25,9 @@ import zio.json.ast.Json
  * Initialized 2025-06-18 client over a borrowed transport. The host retains transport ownership.
  * One configured deadline cancels initialization and each list/call operation; returning waits for
  * owned cleanup and can exceed that deadline. Discovery is one page or an explicitly bounded
- * sequential traversal; no cache, reconnect, notification invalidation, cancellation notification,
- * schema evaluation, or Toolkit authority is installed.
+ * sequential traversal. Interrupted issued requests may send best-effort cancellation without
+ * waiting for delivery; pre-header HTTP cancellation is ineligible. No cache, reconnect, notification
+ * invalidation, schema evaluation, or Toolkit authority is installed.
  */
 final class McpClient private (
     val initialization: McpInitializationResult,

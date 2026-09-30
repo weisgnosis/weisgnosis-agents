@@ -41,6 +41,65 @@ object McpRequestsSpec extends ZIOSpecDefault:
       case _                      => false)
 
   def spec: Spec[TestEnvironment, Any] = suite("McpRequestsSpec")(
+    test("only atomic abandonment winners invoke their observer once, after releasing capacity") {
+      ZIO.scoped:
+        for
+          registry      <- McpRequests.make(1)
+          firstScope    <- scope
+          secondScope   <- scope
+          terminalScope <- scope
+          observed      <- Ref.make(Chunk.empty[Cause[AgentError]])
+          entered       <- Promise.make[Nothing, Unit]
+          release       <- Promise.make[Nothing, Unit]
+          defect = new IllegalStateException("abandoned request defect")
+          cause = Cause.fail(AgentError.McpError("request failed")) ++ Cause.die(defect) ++
+            Cause.interrupt(FiberId.None)
+          first <- firstScope.extend(
+            registry.register(value =>
+              observed.update(_ :+ value) *> entered.succeed(()) *> release.await
+            )
+          )
+          result <- ZIO.scoped {
+            (for
+              closing   <- firstScope.close(Exit.failCause(cause)).forkScoped
+              _         <- entered.await
+              pending   <- closing.poll
+              abandoned <- first.await.exit
+              late      <- registry.complete(success(first.id))
+              second <- secondScope.extend(registry.register(value => observed.update(_ :+ value)))
+              delivered   <- registry.complete(success(second.id))
+              _           <- secondScope.close(Exit.failCause(cause))
+              secondReply <- second.await
+              terminal <- terminalScope.extend(
+                registry.register(value => observed.update(_ :+ value))
+              )
+              _                <- registry.failAll(cause)
+              _                <- terminalScope.close(Exit.failCause(cause))
+              terminalExit     <- terminal.await.exit
+              _                <- release.succeed(())
+              _                <- closing.join
+              _                <- firstScope.close(Exit.failCause(cause))
+              callbacks        <- observed.get
+              observerRegistry <- McpRequests.make(1)
+              observerDefect = new IllegalStateException("abandonment observer defect")
+              observerExit <- ZIO
+                .scoped(
+                  observerRegistry.register(_ => ZIO.die(observerDefect)) *> ZIO.refailCause(cause)
+                )
+                .exit
+            yield assertTrue(
+              pending.isEmpty,
+              abandoned.causeOption.contains(cause),
+              late == McpRequests.Delivery.UnknownId,
+              delivered == McpRequests.Delivery.Delivered,
+              secondReply == success(second.id),
+              terminalExit.causeOption.contains(cause),
+              callbacks == Chunk(cause),
+              observerExit.causeOption.contains(cause ++ Cause.die(observerDefect))
+            )).ensuring(release.succeed(()).unit)
+          }
+        yield result
+    },
     test("runtime IDs correlate out-of-order responses and remote errors remain reply data") {
       ZIO.scoped:
         for

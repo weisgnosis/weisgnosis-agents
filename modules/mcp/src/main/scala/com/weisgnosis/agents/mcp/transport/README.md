@@ -18,7 +18,7 @@ A generic port may recover from a local send failure only if framing remains int
 - Outbound validation/encoding happens before write admission. One semaphore holds the complete frame write and flush. Cancelling a waiter for that permit does not poison the channel. Failure/interruption once writing is admitted publishes the first terminal cause before aborting, so subsequent pipe EOF cannot mask it. Later sends reject the terminated channel.
 - Cancellation of native pipe I/O uses an explicit process termination action rather than relying on thread interruption. Cleanup force-terminates and waits for the direct child, then closes all three streams. Stream closes are attempted even when termination fails; concurrent cleanup callers share its complete outcome. Scope release also performs this cleanup.
 
-This is direct-process ownership, not a process-tree sandbox. Descendant processes and inherited handles remain host/server responsibilities. The adapter has no graceful-shutdown timeout, reconnect policy, custom environment/directory support, protocol initialization, request deadlines or cancellation notifications. A selected executable is trusted host configuration, not untrusted model output.
+This is direct-process ownership, not a process-tree sandbox. Descendant processes and inherited handles remain host/server responsibilities. The adapter has no graceful-shutdown timeout, reconnect policy, custom environment/directory support, protocol initialization, request deadlines or self-originated cancellation notifications; it can carry the connection-owned notifications described below. A selected executable is trusted host configuration, not untrusted model output.
 
 ## Framing contract
 
@@ -52,7 +52,13 @@ Each send owns a fresh response scope and joins it before returning. Request adm
 
 Default limits are 1,048,576 outbound JSON bytes, 1,048,576 JSON response bytes, 8,388,608 SSE response bytes, 1,048,576 SSE event-content bytes, 64 queued messages and eight concurrent requests. All must be positive. Framing bounds count consumed bytes; queue/admission bounds count entries. McpClient supplies joined operation deadlines; the raw port adds no timeout.
 
-This is a bounded adaptation of the [2025-06-18 Streamable HTTP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports). It does not implement optional GET listening, event resumption, legacy HTTP+SSE fallback, cancellation notifications, session DELETE, automatic reinitialization, authentication discovery or token refresh. Owner cleanup is local only. The adapter does not add retries or redirects; the host must not inject an HTTP client configured to perform them. Full transport conformance and external-server interoperability remain unclaimed.
+This is a bounded adaptation of the [2025-06-18 Streamable HTTP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports). It does not implement optional GET listening, event resumption, legacy HTTP+SSE fallback, session DELETE, automatic reinitialization, authentication discovery or token refresh. Owner cleanup is local only. The adapter does not add retries or redirects; the host must not inject an HTTP client configured to perform them. Full transport conformance and external-server interoperability remain unclaimed.
+
+## Cancellation publication boundary
+
+`send(message, onIssued)` adds a bounded local publication callback to the borrowed port. Its default calls the original send and signals only on success, preserving existing implementers. Stdio overrides signal after a full validated frame write/flush. HTTP overrides signal after accepted status and validated session headers, before consuming the body. Pre-header interruption stays ineligible; this deliberately omits some optional notifications rather than treating local admission as a sent request.
+
+[McpConnection](../client/README.md#outbound-cancellation-contract) originates bounded best-effort notifications under the [selected cancellation specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/cancellation), never for initialize. The transport does not originate notifications, and callback publication does not acknowledge peer delivery or stopping. HTTP cleanup can delay enqueue. The connection retains the notification writer independently of the cancelled request and joins it before transport release; no transport-wide guarantee orders notification delivery after all request finalizers.
 
 ## Verification and acceptance
 
@@ -60,19 +66,19 @@ This is a bounded adaptation of the [2025-06-18 Streamable HTTP specification](h
 - [x] `mcp-http-transport-red.log` records two failing groups against defective source blob `088d057c91673b87f90ea6d93b3b348627d55bc7`: incoming lost the defect branch of a compound terminal Cause, and rejected duplicate initialization poisoned a valid session. Both regressions pass after correction. Terminal publication and reader acquisition races were corrected by inspection; no reproduced red run is claimed for those races.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for HTTP framing at the exact source/spec identities below, with no findings. Four grouped tests cover line/Unicode boundaries, exact budgets, checked JSON, unread suffixes, complete causes and joined cancellation. Acceptance excludes HTTP requests and session lifecycle.
 - [x] `path_review` approved framing FP/ZIO correctness and `child_factory` approved framing invariants, with no findings at the recorded source/spec identities.
-- [x] `path_review` and `registry_contract` approved the unchanged adapter and forked test configuration. `path_review` and `current_docs` approved the final process fixtures/spec, including initialized-client list/call and reaping, with no findings at the recorded identities.
+- [x] The direct-process ownership baseline and forked test configuration retain `path_review` and `registry_contract` approval; the current issuance callback extension has separate approval below. `path_review` and `current_docs` approved the final process fixtures/spec, including initialized-client list/call and reaping, with no findings at the recorded identities.
 - [x] Four framing groups and three real-process groups pass. They verify chunking, exact limits, strict Unicode, full upstream causes, early stop, direct validation, concurrent frames, one-reader admission, malformed/EOF handling and read/queued-write/active-write cancellation with direct-child reaping.
-- [x] `scalafmtAll`, `scalafmtSbt` and `verify` passed with zero compiler warnings or failed tests: core 564, harness 651, MCP 56; total 1,271. Evidence: `mcp-http-transport-verify.log`.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current port, stdio and HTTP issuance boundaries and updated HTTP spec, with no findings at the identities below and in the linked client table. Full `scalafmtAll scalafmtSbt verify` passed in `mcp-cancellation-verify.log`, with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 | Reviewed file | Git blob identity |
 | --- | --- |
-| [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | `820ce5cd9a7de6f6f49d3109c71f3736072063f7` |
-| [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | `9409825908a8711ee52e97cb13f83b298a53f75b` |
+| [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | `fb5401557d2ef608e47719dc4bcd10973b00c60e` |
+| [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | `ba42ce3a0b3a2ee5addd26cd9e95a08944dc64a9` |
 | [McpHttpFraming.scala](McpHttpFraming.scala) | `4c4a982ccd744e6cbf77bb7febab4253ae81cbf9` |
 | [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | `2067fccfb8018c753b5a259e3cd40254f2cc2de9` |
 | [McpStdioFraming.scala](McpStdioFraming.scala) | `76545199289183041d814f27de01eae0a2c2d33c` |
 | [McpStdioFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioFramingSpec.scala) | `83db8decf53febdb299190ac7a9c1237e039ae85` |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | `bf37d238e1b6b661e6c684a5c68c85ad3a223609` |
+| [McpStdioTransport.scala](McpStdioTransport.scala) | `8b6aad5870714b280e6a6a693cb759cbf98c8c8a` |
 | [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | `ffc6fd6b7c6ea614e12bf569b586050bd167344b` |
 | [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | `c5bfdbb4902ecfe599efa82f742a3fdae9ec0c77` |
 | [build.sbt](../../../../../../../../../../build.sbt) | `53c6ab513dab179a4940047c6eb86aedb768b36a` |
@@ -83,7 +89,7 @@ The port/connection acceptance is recorded separately in the [client contract](.
 
 - [x] Selected 2025-06-18 client initialization, capability checks, list/call and joined deadlines are implemented and reviewed in the [client contract](../client/README.md).
 - [x] Bounded manager registration/removal and host selection have separate [client acceptance](../client/README.md#scoped-manager-contract); manual Toolkit binding retains its separate tool-package contract.
-- [ ] Add an explicit cancellation-notification policy.
+- [x] Support the connection-owned optional outbound cancellation policy, with conservative issuance signals and no delivery acknowledgement.
 - [x] Implement and independently review the selected POST-only HTTP contract with bounded bodies, scoped cleanup and loopback integration.
 - [ ] Complete separately specified GET listening, event resumption, session DELETE/reinitialization and external-server interoperability.
 - [ ] Validate additional platform/process configurations before extending the documented ownership claims.

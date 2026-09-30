@@ -44,6 +44,9 @@ object McpConnectionSpec extends ZIOSpecDefault:
         case request: McpMessage.Request => ZIO.succeed(request)
         case _ => ZIO.fail(AgentError.McpError("Expected an outbound request"))
 
+  private enum CancellationCase:
+    case Awaiting, Sending, Initialize, Replied
+
   private def wire: ZIO[Scope, Nothing, Wire] =
     for
       received <- ZIO.acquireRelease(Queue.unbounded[Take[AgentError, McpMessage]])(_.shutdown)
@@ -58,6 +61,125 @@ object McpConnectionSpec extends ZIOSpecDefault:
       case _                      => false)
 
   def spec: Spec[TestEnvironment, Any] = suite("McpConnectionSpec")(
+    test("issued abandonment notifies once without blocking cancellation or overflowing controls") {
+      val eligibility = ZIO
+        .foreach(Chunk.fromArray(CancellationCase.values))(mode =>
+          ZIO.scoped:
+            for
+              duplex   <- wire
+              boundary <- Promise.make[Nothing, Unit]
+              transport = new McpTransport:
+                def send(message: McpMessage): ZIO[Scope, AgentError, Unit] =
+                  duplex.sent.offer(message).unit *> (message match
+                    case _: McpMessage.Request if mode == CancellationCase.Sending =>
+                      boundary.succeed(()) *> ZIO.never
+                    case _ => ZIO.unit)
+                override def send(message: McpMessage, onIssued: UIO[Unit])
+                    : ZIO[Scope, AgentError, Unit] =
+                  super.send(message, onIssued *> boundary.succeed(()).unit)
+                def incoming: ZStream[Any, AgentError, McpMessage] =
+                  duplex.transport().incoming
+              connection <- McpConnection.make(transport)
+              request <- connection
+                .request(
+                  if mode == CancellationCase.Initialize then "initialize" else "tools/list"
+                )
+                .forkScoped
+              outbound <- duplex.nextRequest
+              _        <- boundary.await
+              _ <-
+                if mode == CancellationCase.Replied then
+                  duplex.receive(success(outbound.id)) *> request.join.unit
+                else ZIO.unit
+              exit <- request.interrupt
+              marker = success(McpRequestId.Text("barrier"))
+              _    <- duplex.receive(McpMessage.Request(marker.id, "ping"))
+              sent <- ZStream.fromQueue(duplex.sent).takeUntil(_ == marker).runCollect
+            yield assertTrue(
+              mode match
+                case CancellationCase.Replied => exit == Exit.succeed(success(outbound.id))
+                case _                        => exit.isInterrupted,
+              sent == (if mode == CancellationCase.Awaiting then
+                         Chunk(
+                           McpMessage.Notification(
+                             "notifications/cancelled",
+                             Some(
+                               Json.Obj(
+                                 "requestId" -> Json.Num(1)
+                               )
+                             )
+                           ),
+                           marker
+                         )
+                       else Chunk(marker))
+            )
+        )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+      val bounded = ZIO.scoped:
+        for
+          duplex   <- wire
+          writing  <- Promise.make[Nothing, Unit]
+          cleaning <- Promise.make[Nothing, Unit]
+          release  <- Promise.make[Nothing, Unit]
+          issued   <- ZIO.acquireRelease(Queue.unbounded[Unit])(_.shutdown)
+          transport = new McpTransport:
+            def send(message: McpMessage): ZIO[Scope, AgentError, Unit] =
+              duplex.sent.offer(message).unit *> (message match
+                case McpMessage.Notification("notifications/cancelled", _) =>
+                  ZIO.acquireRelease(writing.succeed(()))(_ =>
+                    cleaning.succeed(()) *> release.await
+                  ) *> ZIO.never
+                case _ => ZIO.unit)
+            override def send(
+                message: McpMessage,
+                onIssued: UIO[Unit]
+            ): ZIO[Scope, AgentError, Unit] =
+              super.send(message, onIssued *> issued.offer(()).unit)
+            def incoming: ZStream[Any, AgentError, McpMessage] = duplex.transport().incoming
+          connection <- McpConnection.make(transport, controlCapacity = 1)
+          result <- ZIO.scoped {
+            (for
+              first         <- connection.request("one").forkScoped
+              _             <- duplex.nextRequest *> issued.take
+              stoppedFirst  <- first.interrupt
+              _             <- writing.await
+              sentFirst     <- duplex.sent.take
+              second        <- connection.request("two").forkScoped
+              _             <- duplex.nextRequest *> issued.take
+              stoppedSecond <- second.interrupt
+              third         <- connection.request("three").forkScoped
+              _             <- duplex.nextRequest *> issued.take
+              stoppedThird  <- third.interrupt
+              later         <- connection.request("still open").forkScoped
+              next          <- duplex.nextRequest
+              _             <- duplex.receive(success(next.id))
+              reply         <- later.join
+              closing       <- connection.close.forkScoped
+              _             <- cleaning.await
+              pending       <- closing.poll
+              _             <- release.succeed(())
+              _             <- closing.join
+              remaining     <- duplex.sent.takeAll
+            yield assertTrue(
+              stoppedFirst.isInterrupted,
+              stoppedSecond.isInterrupted,
+              stoppedThird.isInterrupted,
+              sentFirst == McpMessage.Notification(
+                "notifications/cancelled",
+                Some(
+                  Json.Obj(
+                    "requestId" -> Json.Num(1)
+                  )
+                )
+              ),
+              reply == success(next.id),
+              pending.isEmpty,
+              remaining.isEmpty
+            )).ensuring(release.succeed(()).unit)
+          }
+        yield result
+      eligibility.zipWith(bounded)(_ && _)
+    },
     test(
       "registers before sending and correlates concurrent replies without treating remote errors as local failures"
     ) {

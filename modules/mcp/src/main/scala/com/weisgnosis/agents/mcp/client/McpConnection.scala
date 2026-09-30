@@ -22,8 +22,10 @@ import zio.*
 import zio.json.ast.Json
 
 /**
- * Scoped RPC ownership over a borrowed transport; no initialization, version negotiation, deadlines,
- * or cancellation notifications. Incoming notifications are ignored, including server cancellation:
+ * Scoped RPC ownership over a borrowed transport; no initialization, version negotiation or deadlines.
+ * Interrupted issued requests enqueue best-effort cancellation notifications; delivery
+ * is connection-owned and may be dropped when its control queue is full. Incoming notifications are
+ * ignored, including server cancellation:
  * server request identities never grant authority to cancel this connection's outbound requests.
  * Owned sends, the incoming stream, and their finalizers must not close their own connection.
  */
@@ -41,6 +43,10 @@ object McpConnection:
   private enum Admission:
     case Open
     case Stopped(cause: Cause[AgentError])
+
+  private enum Dispatch:
+    case NotIssued
+    case Issued(request: McpMessage.Request)
 
   private enum Closing:
     case Open, Started
@@ -109,14 +115,37 @@ object McpConnection:
     ): IO[AgentError, McpRequests.Reply] =
       execute:
         for
-          pending <- requests.register
+          dispatch <- Ref.make[Dispatch](Dispatch.NotIssued)
+          pending <- requests.register(cause =>
+            if cause.isInterrupted then cancelIssued(dispatch) else ZIO.unit
+          )
           message <- ZIO.suspendSucceed(ZIO.fromEither(build(pending.id)))
           _ <- ZIO
             .fail(AgentError.InvalidMessage("MCP request builder changed its allocated identity"))
             .unless(message.id == pending.id)
-          _     <- send(message)
+          _ <- ZIO.fromEither(McpMessage.toJson(message)) *>
+            ZIO.suspendSucceed(transport.send(message, dispatch.set(Dispatch.Issued(message))))
           reply <- pending.await
         yield reply
+
+    /** The registry settles abandonment first; this bounded offer never waits on transport I/O. */
+    private def cancelIssued(dispatch: Ref[Dispatch]): UIO[Unit] =
+      dispatch.get.flatMap:
+        case Dispatch.NotIssued                                         => ZIO.unit
+        case Dispatch.Issued(request) if request.method == "initialize" => ZIO.unit
+        case Dispatch.Issued(request) =>
+          val id = request.id match
+            case McpRequestId.Text(value)   => Json.Str(value)
+            case McpRequestId.Number(value) => Json.Num(BigDecimal(value))
+          val notification = McpMessage.Notification(
+            "notifications/cancelled",
+            Some(Json.Obj("requestId" -> id))
+          )
+          ZIO.uninterruptible:
+            gate.withPermit:
+              admission.get.flatMap:
+                case Admission.Open       => controls.offer(notification).unit
+                case Admission.Stopped(_) => ZIO.unit
 
     def notify(notification: McpMessage.Notification): IO[AgentError, Unit] =
       execute(send(notification))

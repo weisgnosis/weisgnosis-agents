@@ -46,6 +46,8 @@ The bounded adaptation of pinned `McpTool.callAsync` is fixed remote invocation 
 - [x] Bounded scoped registration/removal and host-selected filtering/names have separate [manager acceptance](../client/README.md#scoped-manager-contract).
 - [ ] Define presets, groups and metadata overrides separately; host-selected naming does not imply every upstream registration option is implemented.
 - [ ] Implement provider multimodal projection separately; typed history/events alone do not supply it.
-- [ ] Keep caching, notification invalidation, cancellation notifications, reconnect and output-schema evaluation as separate work.
+The borrowed client supplies [bounded optional outbound cancellation](../client/README.md#outbound-cancellation-contract); binding adds no delivery guarantee.
+
+- [ ] Keep caching, notification invalidation, reconnect and output-schema evaluation as separate work.
 
 The manual binding does not close whole McpClientManager methods or establish complete MCP revision support.

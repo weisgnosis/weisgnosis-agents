@@ -342,7 +342,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
         )
     },
     test(
-      "matching SSE response closes an open body and cancellation joins cleanup while retaining defects"
+      "SSE completion and cancellation join cleanup; cancellation notification requires response headers"
     ) {
       ZIO.scoped:
         for
@@ -354,35 +354,69 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
                 .as(stream(event(McpMessage.Success(request.id, emptyTools)) ++ ZStream.never))
             )
           )
-          page    <- ready.listToolsPage()
-          closed  <- bodyClosed.get
-          entered <- Promise.make[Nothing, Unit]
-          cleanup <- Promise.make[Nothing, Unit]
-          release <- Promise.make[Nothing, Unit]
+          page      <- ready.listToolsPage()
+          closed    <- bodyClosed.get
+          entered   <- Promise.make[Nothing, Unit]
+          cleanup   <- Promise.make[Nothing, Unit]
+          release   <- Promise.make[Nothing, Unit]
+          requested <- Promise.make[Nothing, McpRequestId]
+          notified  <- Promise.make[Nothing, (Headers, Option[Json.Obj])]
           defect = new IllegalStateException("HTTP request cleanup failed")
           waiting <- client(
-            server(_ =>
-              ZIO
-                .addFinalizer(
-                  cleanup.succeed(()).unit *> release.await *> ZIO.die(defect)
-                )
-                .as(stream(ZStream.fromZIO(entered.succeed(()) *> ZIO.never)))
-            )
+            scripted(request =>
+              decode(request).flatMap:
+                case McpMessage.Request(id, "initialize", _) =>
+                  json(McpMessage.Success(id, initialization))
+                    .map(_.addHeader("Mcp-Session-Id", "cancel-session"))
+                case McpMessage.Request(id, "tools/call", _) =>
+                  requested.succeed(id) *> ZIO
+                    .addFinalizer(cleanup.succeed(()).unit *> release.await *> ZIO.die(defect))
+                    .as(stream(ZStream.fromZIO(entered.succeed(()) *> ZIO.never)))
+                case McpMessage.Notification("notifications/cancelled", params) =>
+                  notified.succeed(request.headers -> params).as(Response.status(Status.Accepted))
+                case _ => ZIO.succeed(Response.status(Status.Accepted))
+            ),
+            McpHttpLimits(maxConcurrentRequests = 1)
           )
-          running    <- waiting.callTool("echo").forkScoped
-          _          <- entered.await
-          cancelling <- running.interrupt.forkScoped
-          _          <- cleanup.await
-          pending    <- cancelling.poll
-          _          <- release.succeed(())
-          exit       <- cancelling.join
+          cancelled <- ZIO.scoped {
+            (for
+              running    <- waiting.callTool("echo").forkScoped
+              _          <- entered.await
+              cancelling <- running.interrupt.forkScoped
+              _          <- cleanup.await
+              pending    <- cancelling.poll
+              _          <- release.succeed(())
+              exit       <- cancelling.join
+              id         <- requested.await
+              notice     <- notified.await
+              expected   <- ZIO.fromEither(McpMessage.toJson(McpMessage.Success(id, Json.Obj())))
+            yield assertTrue(
+              pending.isEmpty,
+              exit.isInterrupted,
+              exit.causeOption.exists(_.defects == List(defect)),
+              notice._1.get("Mcp-Session-Id").contains("cancel-session"),
+              notice._2.flatMap(_.fields.find(_._1 == "requestId").map(_._2)) ==
+                expected.fields.find(_._1 == "id").map(_._2)
+            )).ensuring(release.succeed(()).unit)
+          }
+          beforeHeaders <- Promise.make[Nothing, Unit]
+          issued        <- Ref.make(0)
+          preHeaderPort <- McpStreamableHttpTransport.open(
+            scripted(_ => beforeHeaders.succeed(()) *> ZIO.never),
+            endpoint
+          )
+          preHeader <- preHeaderPort
+            .send(McpMessage.Request(McpRequestId.Number(1), "tools/list"), issued.update(_ + 1))
+            .forkScoped
+          _         <- beforeHeaders.await
+          earlyExit <- preHeader.interrupt
+          count     <- issued.get
         yield assertTrue(
           page.tools.isEmpty,
           closed,
-          pending.isEmpty,
-          exit.isInterrupted,
-          exit.causeOption.exists(_.defects.contains(defect))
-        )
+          earlyExit.isInterrupted,
+          count == 0
+        ) && cancelled
     },
     test(
       "bounded ingress terminates on overflow and a second reader cannot steal the first reader's lifecycle"

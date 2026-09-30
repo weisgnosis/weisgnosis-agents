@@ -104,6 +104,9 @@ object McpStdioTransport:
       yield result
 
     def send(message: McpMessage): ZIO[Scope, AgentError, Unit] =
+      send(message, ZIO.unit)
+
+    override def send(message: McpMessage, onIssued: UIO[Unit]): ZIO[Scope, AgentError, Unit] =
       McpStdioFraming
         .encode(message, maxFrameBytes)
         .flatMap: frame =>
@@ -118,7 +121,7 @@ object McpStdioTransport:
                   }(cancelIo)
                   .mapError(ioError("write", _))
               ).exit.flatMap:
-                case Exit.Success(_)     => ensureOpen
+                case Exit.Success(_)     => ensureOpen *> onIssued
                 case Exit.Failure(cause) => failWrite(cause)
 
     private def claimReader: IO[AgentError, Unit] =

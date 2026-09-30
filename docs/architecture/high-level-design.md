@@ -2,6 +2,8 @@
 
 ## Mission and authority
 
+MCP supports bounded optional outbound cancellation through the existing connection owner. Eligibility, transport boundaries and omissions are specified in the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#outbound-cancellation-contract); HTTP GET listening is next, with resumption and recovery separate.
+
 Build a pure functional Scala 3/ZIO 2 runtime with deterministic authority over lifecycle, state, permissions, and completion. Selected AgentScope Java mechanics inform the design; attribution does not imply exhaustive parity.
 
 The [tracker](tracker.md) distinguishes available components from the complete target platform.

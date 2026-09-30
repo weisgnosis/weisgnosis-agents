@@ -37,8 +37,11 @@ final case class McpHttpLimits(
  * POST-only 2025-06-18 transport over a borrowed HTTP client. Each send owns and joins a fresh
  * response Scope; connection workers must finish before the transport owner closes. Escaped caller
  * fibers are not supervised here. The host HTTP pool must permit concurrent request and control
- * POSTs and must not add automatic retries or redirects. No GET, resumption, cancellation messages,
- * DELETE or reinitialization is performed; owner closure is local cleanup only.
+ * POSTs and must not add automatic retries or redirects. The connection supplies cancellation
+ * notifications; this transport does not originate them. Issuance is published only after validated
+ * response headers, so cancellation before headers is ineligible and response cleanup can delay
+ * notification enqueue. No GET, resumption, DELETE or reinitialization is performed; owner closure
+ * is local cleanup only.
  */
 object McpStreamableHttpTransport:
   private enum Initialization:
@@ -190,6 +193,9 @@ object McpStreamableHttpTransport:
         .flatMap(message => ZChannel.write(Chunk(message)) *> receive)
 
     def send(message: McpMessage): ZIO[Scope, AgentError, Unit] =
+      send(message, ZIO.unit)
+
+    override def send(message: McpMessage, onIssued: UIO[Unit]): ZIO[Scope, AgentError, Unit] =
       val lane = message match
         case _: McpMessage.Request => requests
         case _                     => controls
@@ -198,7 +204,7 @@ object McpStreamableHttpTransport:
         _     <- ensureOpen
         _ <- lane.withPermit(ZIO.uninterruptibleMask: restore =>
           begin(message).flatMap: session =>
-            restore(exchange(message, bytes, session)).onExit:
+            restore(exchange(message, bytes, session, onIssued)).onExit:
               case Exit.Failure(cause) if initializing(message) => stop(cause)
               case _                                            => ZIO.unit)
       yield ()
@@ -206,35 +212,43 @@ object McpStreamableHttpTransport:
     private def exchange(
         message: McpMessage,
         bytes: Chunk[Byte],
-        session: Option[String]
+        session: Option[String],
+        onIssued: UIO[Unit]
     ): IO[AgentError, Unit] = ZIO.scoped:
-      val requestHeaders = headers ++ Headers(
-        "Content-Type"         -> "application/json",
-        "Accept"               -> "application/json, text/event-stream",
-        "MCP-Protocol-Version" -> McpInitialization.protocolVersion
-      ) ++ session.fold(Headers.empty)(id => Headers("Mcp-Session-Id", id))
-      val request = Request.post(url, Body.fromChunk(bytes)).addHeaders(requestHeaders)
-      for
-        response <- Client
-          .streaming(request)
-          .provideSomeEnvironment[Scope](_.add(http))
-          .mapError(boundary("MCP HTTP POST"))
-        _ <- checkStatus(message, session, response)
-        _ <- captureSession(message, session, response)
-        _ <- message match
-          case request: McpMessage.Request => consume(request, response)
-          case _ =>
-            response.body.asStream
-              .mapError(boundary("MCP HTTP acknowledgement body"))
-              .take(1)
-              .runCollect
-              .flatMap(bytes =>
-                ZIO
-                  .fail(AgentError.McpError("MCP HTTP 202 acknowledgement must have an empty body"))
-                  .unless(bytes.isEmpty)
-                  .unit
-              )
-      yield ()
+      ZIO.uninterruptibleMask: restore =>
+        val requestHeaders = headers ++ Headers(
+          "Content-Type"         -> "application/json",
+          "Accept"               -> "application/json, text/event-stream",
+          "MCP-Protocol-Version" -> McpInitialization.protocolVersion
+        ) ++ session.fold(Headers.empty)(id => Headers("Mcp-Session-Id", id))
+        val request = Request.post(url, Body.fromChunk(bytes)).addHeaders(requestHeaders)
+        for
+          response <- restore(
+            Client
+              .streaming(request)
+              .provideSomeEnvironment[Scope](_.add(http))
+              .mapError(boundary("MCP HTTP POST"))
+          )
+          _ <- checkStatus(message, session, response)
+          _ <- captureSession(message, session, response)
+          // A validated response proves issuance; pre-header interruption stays ineligible.
+          _ <- onIssued
+          _ <- restore(message match
+            case request: McpMessage.Request => consume(request, response)
+            case _ =>
+              response.body.asStream
+                .mapError(boundary("MCP HTTP acknowledgement body"))
+                .take(1)
+                .runCollect
+                .flatMap(bytes =>
+                  ZIO
+                    .fail(
+                      AgentError.McpError("MCP HTTP 202 acknowledgement must have an empty body")
+                    )
+                    .unless(bytes.isEmpty)
+                    .unit
+                ))
+        yield ()
 
     private def initializing(message: McpMessage): Boolean = message match
       case McpMessage.Request(_, "initialize", _) => true

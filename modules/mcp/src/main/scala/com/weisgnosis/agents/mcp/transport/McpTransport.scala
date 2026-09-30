@@ -27,4 +27,15 @@ import zio.stream.ZStream
  */
 trait McpTransport:
   def send(message: McpMessage): ZIO[Scope, AgentError, Unit]
+
+  /**
+   * Publish an issued-attempt boundary before waiting for a reply when supported. The callback must
+   * remain within this send and perform only bounded local publication. The legacy fallback signals
+   * after successful send, so response-owning implementations must override for in-flight eligibility.
+   * Publication is not proof of delivery to the peer.
+   */
+  def send(message: McpMessage, onIssued: UIO[Unit]): ZIO[Scope, AgentError, Unit] =
+    ZIO.uninterruptibleMask: restore =>
+      restore(send(message)) *> onIssued
+
   def incoming: ZStream[Any, AgentError, McpMessage]

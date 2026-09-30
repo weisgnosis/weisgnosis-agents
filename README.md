@@ -4,7 +4,7 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. The bounded scoped MCP manager, POST-only HTTP adapter, invocation-scoped tool event capability and direct result-preserving forwarding primitive have independent approval and full verification. Owned harness spawn/send forwarding is also reviewed and verified. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is MCP cancellation notifications over the existing scoped connection. The finite host-installed reusable-session catalog and retained ownership kernel are independently reviewed and verified. Bounded inline parsing and read-only local declaration loading are independently reviewed and verified. Durable host recovery remains separate.
+Implementation is active. The bounded scoped MCP manager, POST-only HTTP adapter, invocation-scoped tool event capability and direct result-preserving forwarding primitive have independent approval and full verification. Owned harness spawn/send forwarding is also reviewed and verified. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is scoped opt-in MCP HTTP GET listening; resumption and session recovery remain separate. Bounded optional outbound cancellation is independently reviewed and verified. The finite host-installed reusable-session catalog and retained ownership kernel are independently reviewed and verified. Bounded inline parsing and read-only local declaration loading are independently reviewed and verified. Durable host recovery remains separate.
 
 ## Implemented components
 
@@ -82,6 +82,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 - [x] Load bounded local declarations from an explicit host-controlled directory; see the [loader contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-declaration-loading).
 - [x] Install finite named reusable sessions with one runtime/history per entry and joined aggregate ownership; see the [session catalog contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#named-session-catalog).
 - [x] Route send/task/cancel to exact host-installed session names with retained history and invocation-scoped forwarding; see the [named tool contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#named-session-tools).
+- [x] Independently review bounded optional MCP outbound cancellation; [client acceptance](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#outbound-cancellation-contract) records exact scope and evidence.
 - [ ] Complete durable host recovery.
 
 Approval applies to the recorded scope and revisions, not exhaustive upstream parity. Other accepted components retain their package-level evidence.

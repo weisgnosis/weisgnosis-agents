@@ -22,7 +22,13 @@ import zio.stm.*
 
 /** Bounded correlation only; each register/build/send/await sequence requires a fresh request scope. */
 trait McpRequests:
-  def register: ZIO[Scope, AgentError.McpError, McpRequests.PendingRequest]
+  def register: ZIO[Scope, AgentError.McpError, McpRequests.PendingRequest] =
+    register(_ => ZIO.unit)
+
+  /** Called outside STM only by the winning abandonment, after its full cause is settled. */
+  def register(
+      onAbandon: Cause[AgentError] => UIO[Unit]
+  ): ZIO[Scope, AgentError.McpError, McpRequests.PendingRequest]
   def complete(reply: McpRequests.Reply): UIO[McpRequests.Delivery]
   def failAll(cause: Cause[AgentError]): UIO[Unit]
   def close: UIO[Unit]
@@ -36,6 +42,9 @@ object McpRequests:
   trait PendingRequest:
     def id: McpRequestId
     def await: IO[AgentError, Reply]
+
+  private enum Abandonment:
+    case Removed, Unchanged
 
   private type Completion = TPromise[Nothing, Exit[AgentError, Reply]]
 
@@ -52,8 +61,10 @@ object McpRequests:
       )(_.close)
 
   final private class Live(state: TRef[State], capacity: Int) extends McpRequests:
-    def register: ZIO[Scope, AgentError.McpError, PendingRequest] =
-      ZIO.acquireReleaseExit(reserve.commit)((request, exit) =>
+    def register(
+        onAbandon: Cause[AgentError] => UIO[Unit]
+    ): ZIO[Scope, AgentError.McpError, PendingRequest] =
+      ZIO.acquireReleaseExit(reserve(onAbandon).commit)((request, exit) =>
         val cause = exit match
           case Exit.Success(_) =>
             Cause.fail(AgentError.McpError("MCP request scope closed before reply"))
@@ -62,10 +73,12 @@ object McpRequests:
               case error: AgentError => error
               case _ =>
                 AgentError.McpError("MCP request scope failed outside the agent error domain")
-        abandon(request.id, cause).commit
+        abandon(request.id, cause, onAbandon)
       )
 
-    private def reserve: STM[AgentError.McpError, PendingRequest] =
+    private def reserve(
+        onAbandon: Cause[AgentError] => UIO[Unit]
+    ): STM[AgentError.McpError, PendingRequest] =
       state.get.flatMap:
         case State.Closed => STM.fail(AgentError.McpError("MCP request registry closed"))
         case State.Open(_, pending) if pending.size >= capacity =>
@@ -84,7 +97,7 @@ object McpRequests:
               completion.await.commit
                 .flatMap(exit => exit)
                 .onExit:
-                  case Exit.Failure(cause) if cause.isInterrupted => abandon(id, cause).commit
+                  case Exit.Failure(cause) if cause.isInterrupted => abandon(id, cause, onAbandon)
                   case _                                          => ZIO.unit
 
     /** Replies are already validated by the caller's protocol boundary; remote errors remain data. */
@@ -106,15 +119,24 @@ object McpRequests:
                       completion.succeed(Exit.succeed(reply)).as(Delivery.Delivered)
         .commit
 
-    private def abandon(id: McpRequestId, cause: Cause[AgentError]): USTM[Unit] =
-      state.get.flatMap:
-        case State.Closed => STM.unit
-        case State.Open(lastId, pending) =>
-          pending.get(id) match
-            case None => STM.unit
-            case Some(completion) =>
-              state.set(State.Open(lastId, pending.removed(id))) *>
-                completion.succeed(Exit.failCause(cause)).unit
+    private def abandon(
+        id: McpRequestId,
+        cause: Cause[AgentError],
+        onAbandon: Cause[AgentError] => UIO[Unit]
+    ): UIO[Unit] =
+      state.get
+        .flatMap:
+          case State.Closed => STM.succeed(Abandonment.Unchanged)
+          case State.Open(lastId, pending) =>
+            pending.get(id) match
+              case None => STM.succeed(Abandonment.Unchanged)
+              case Some(completion) =>
+                state.set(State.Open(lastId, pending.removed(id))) *>
+                  completion.succeed(Exit.failCause(cause)).as(Abandonment.Removed)
+        .commit
+        .flatMap:
+          case Abandonment.Removed   => ZIO.suspendSucceed(onAbandon(cause))
+          case Abandonment.Unchanged => ZIO.unit
 
     /** Empty causes become a local closure failure; every nonempty cause is retained unchanged. */
     def failAll(cause: Cause[AgentError]): UIO[Unit] =
