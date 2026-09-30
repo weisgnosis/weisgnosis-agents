@@ -7,7 +7,7 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 | [json](src/main/scala/com/weisgnosis/agents/core/json/README.md) | Shared internal complete-document and immutable AST validation |
 | [model](src/main/scala/com/weisgnosis/agents/core/model/README.md) | Msg, content, roles, usage, codecs |
 | [event](src/main/scala/com/weisgnosis/agents/core/event/README.md) | 39 typed variants and source tagging; not all emitters are implemented |
-| [tool](src/main/scala/com/weisgnosis/agents/core/tool/README.md) | Typed tools, immutable registry, typed completed observations, path screening |
+| [tool](src/main/scala/com/weisgnosis/agents/core/tool/README.md) | Typed tools, host-selected descriptive output schemas, immutable registry, typed completed observations, path screening |
 | [client](src/main/scala/com/weisgnosis/agents/core/client/README.md) | Client port, scripted clients, validated text/function requests, scoped HTTP completion, SSE framing and indexed assembly |
 | [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | ReAct lifecycle, interruption, thinking retries, structured output |
 
@@ -18,6 +18,8 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 Tool.encodeResult preserves String/Success behavior by default and permits typed Success/Error observations. ToolExecutionResult now stores payload/state; String constructors and its text projection remain available, while generated copy/unapply and JSON shape change. Runtime call identity/control metadata remain protected. See the [migration and limits](src/main/scala/com/weisgnosis/agents/core/tool/README.md#typed-execution-observations); the current HTTP request codec still rejects non-text tool output.
 
 ## Current review acceptance
+
+- [x] `path_review` and `current_docs` approved host-selected descriptive output schemas, legacy optional codec semantics, actual model-call retention and current provider omission. The [tool contract](src/main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records five identities, migration and full verification.
 
 - [x] `path_review` and `current_docs` approved package-visible direct event forwarding with caller-owned results, ordered draining and complete failure causes. The [agent contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md#direct-event-forwarding) records exact core evidence; harness wiring has its own scoped acceptance.
 

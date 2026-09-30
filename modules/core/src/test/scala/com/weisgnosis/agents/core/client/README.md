@@ -18,6 +18,8 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [StreamAccumulatorCompletionSpec](StreamAccumulatorCompletionSpec.scala)
 - [StreamAccumulatorSpec](StreamAccumulatorSpec.scala)
 
+ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadata does not change the encoded provider request. The [output-schema acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records its current reviewed identity and full verification.
+
 ## Current evidence
 
 - [x] Sixteen request-codec regressions cover ordered messages, schemas/options, authoritative arguments, paired parallel results, failure states, reasoning policies, private runtime data exclusion, and typed rejection of unsupported or malformed requests.

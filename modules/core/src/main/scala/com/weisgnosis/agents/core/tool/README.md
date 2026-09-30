@@ -2,6 +2,24 @@
 
 Tool keeps its input/output codecs and effectful handler together. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation.
 
+## Descriptive output schemas
+
+`ToolDef.outputSchema: Option[Json]` carries an optional host-selected output schema. Toolkit snapshots and model-call tool definitions retain this AST; it does not validate returned values or grant execution authority. A host selecting an MCP tool may explicitly retain, replace or omit the remote schema. Preset input-schema projection leaves this field unchanged.
+
+The current Chat Completions encoder emits only function name, description and input parameters. It does not send outputSchema as a provider extension. Custom model clients receive the complete ToolDef and own any supported provider projection.
+
+The derived domain codec reads an absent or explicit-null outputSchema as None and omits None when encoding. Non-null schema ASTs retain their structure; Some(Json.Null) does not round-trip as present. Existing constructors and named copies can omit the defaulted field; positional pattern matches and Product arity now have six fields, and downstream binaries must be rebuilt. No schema evaluation or custom compatibility codec is introduced.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the five identities below, with no findings. Formatting and full `verify` passed in `tool-output-schema-verify.log`: 574 core / 673 harness / 77 MCP tests (1,324 total), zero compiler warnings or failures.
+
+| Reviewed source/test | Git blob |
+| --- | --- |
+| [ToolDef.scala](ToolDef.scala) | `1884f7d4701df7e36c7b10235764534c6f699c29` |
+| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | `2d00729523014e9c29ca576bcf11fe90a720d379` |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `af9528e389c6de56042421fbf8bdbf7639d775f5` |
+| [McpToolMetadataSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) | `aea7102a3970ca7be863ea69bdf219e7df7651e5` |
+| [McpClientManagerSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `35ab8ddbb588f1600848a04fe59ed93a0a53e72d` |
+
 ## Typed execution observations
 
 `Tool.encodeResult(out)` defaults to the existing `encodeOutput(out)` as a successful text observation. Implementations may override it to return `ToolExecutionResult(payload, state)`, where `ToolResultPayload` retains ordered content blocks and metadata. Toolkit accepts only Success or Error from this projection; Running, Interrupted and Denied become descriptive Error observations. Authorization denials are produced separately by the runtime, and actual interruption remains cancellation.

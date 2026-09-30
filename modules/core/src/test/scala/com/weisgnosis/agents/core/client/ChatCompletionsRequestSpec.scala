@@ -107,7 +107,13 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
     test("serializes function definitions with exact parameters") {
       val result =
         ChatCompletionsRequest.encode(Chunk(Msg.user("search")), Chunk(definition), config)
+      val described = ChatCompletionsRequest.encode(
+        Chunk(Msg.user("search")),
+        Chunk(definition.copy(outputSchema = Some(schema))),
+        config
+      )
       assertTrue(
+        described == result,
         result.exists(
           _.get("tools").contains(
             Json.Arr(

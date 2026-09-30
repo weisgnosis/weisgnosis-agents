@@ -20,13 +20,15 @@ import zio.json.ast.Json
 
 /**
  * Declarative definition and JSON schema metadata of an executable tool.
+ * Output schema is host-selected descriptive data; it neither validates results nor grants authority.
  *
- * Corresponds to `io.agentscope.core.tool.ToolDefinition` in AgentScope Java.
+ * Adapts the declaration contract of `io.agentscope.core.tool.AgentTool`, including getOutputSchema.
  */
 final case class ToolDef(
     name: String,
     description: String,
     parametersSchema: Json,
     isConcurrencySafe: Boolean = true,
-    isReadOnly: Boolean = false
+    isReadOnly: Boolean = false,
+    outputSchema: Option[Json] = None
 ) derives JsonCodec

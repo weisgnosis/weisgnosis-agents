@@ -39,6 +39,11 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
     "nested"                   -> Json.Obj("value" -> Json.Null),
     "io.agentscope/toolCallId" -> Json.Str("host-value")
   )
+  private val remoteOutputSchema: Json.Obj = Json.Obj(
+    "type"       -> Json.Str("object"),
+    "properties" -> Json.Obj("answer" -> Json.Obj("$ref" -> Json.Str("#/$defs/Answer"))),
+    "$defs"      -> Json.Obj("Answer" -> Json.Obj("type" -> Json.Str("string")))
+  )
 
   final private case class Peer(client: McpClient, requests: Ref[Chunk[McpMessage.Request]])
 
@@ -61,8 +66,9 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
                 Json.Obj(
                   "tools" -> Json.Arr(
                     Json.Obj(
-                      "name"        -> Json.Str("remote"),
-                      "inputSchema" -> definition.parametersSchema
+                      "name"         -> Json.Str("remote"),
+                      "inputSchema"  -> definition.parametersSchema,
+                      "outputSchema" -> remoteOutputSchema
                     )
                   )
                 )
@@ -86,30 +92,33 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("McpToolMetadataSpec")(
     test(
-      "registered tools merge approved input with defaults while preserving metadata and occurrence identity"
+      "registered tools expose host output schemas while preserving approved defaults and invocation metadata"
     ) {
       ZIO.scoped:
         for
-          server     <- peer
-          manager    <- McpClientManager.make()
-          identities <- Ref.make(Chunk.empty[McpToolIdentity])
-          trace      <- Ref.make(userMeta)
-          authorized <- Ref.make(Chunk.empty[Json])
-          host = definition.copy(parametersSchema =
-            Json.Obj(
+          server           <- peer
+          manager          <- McpClientManager.make()
+          identities       <- Ref.make(Chunk.empty[McpToolIdentity])
+          trace            <- Ref.make(userMeta)
+          authorized       <- Ref.make(Chunk.empty[Json])
+          modelDefinitions <- Ref.make(Chunk.empty[Chunk[ToolDef]])
+          host = definition.copy(
+            parametersSchema = Json.Obj(
               "type"       -> Json.Str("object"),
               "properties" -> Json.Obj("value" -> Json.Obj(), "defaulted" -> Json.Obj()),
               "required"   -> Json.Arr(Json.Str("value"), Json.Str("defaulted"))
-            )
+            ),
+            isConcurrencySafe = false,
+            isReadOnly = true
           )
           _ <- manager.registerBindings(
             "peer",
             ZIO.succeed(server.client),
             1,
-            _ =>
+            remote =>
               McpToolBinding
                 .withPresets(
-                  host,
+                  host.copy(outputSchema = remote.outputSchema),
                   Json.Obj("value" -> Json.Str("preset"), "defaulted" -> Json.Str("injected")),
                   McpToolMetadata
                     .Propagate(identity => identities.update(_ :+ identity) *> trace.get)
@@ -128,11 +137,14 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
           )
           remoteInput = Json.Obj(Chunk("defaulted" -> Json.Str("injected")) ++ approved.fields)
           call        = ContentBlock.ToolUse("repeated", "local", input)
-          model <- LlmClient.mock(
-            Chunk(
-              TurnOutput.ToolCalls(Msg.assistant(Chunk(call, call))),
-              TurnOutput.FinalText(Msg.assistant("done"))
-            )
+          model = LlmClient.mockEffectful((history, definitions, _) =>
+            modelDefinitions
+              .update(_ :+ definitions)
+              .as(
+                if history.flatMap(_.toolResults).isEmpty then
+                  TurnOutput.ToolCalls(Msg.assistant(Chunk(call, call)))
+                else TurnOutput.FinalText(Msg.assistant("done"))
+              )
           )
           agent <- ReActAgent.make(
             config = AgentConfig(toolExecution = ToolExecution.Sequential),
@@ -146,9 +158,11 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
           actual              <- identities.get
           requests            <- server.requests.get.map(_.filter(_.method == "tools/call"))
           original            <- trace.get
-          approvedHistory     <- agent.history.map(_.flatMap(_.toolUses).map(_.input))
+          history             <- agent.history
           authorizationInputs <- authorized.get
-          active = actual.collect { case value: McpToolIdentity.Active => value }
+          exposed             <- modelDefinitions.get
+          approvedHistory = history.flatMap(_.toolUses).map(_.input)
+          active          = actual.collect { case value: McpToolIdentity.Active => value }
           expected = Json.Obj(
             userMeta.fields.filterNot(_._1 == "io.agentscope/toolCallId") :+
               ("io.agentscope/toolCallId" -> Json.Str("repeated"))
@@ -164,16 +178,19 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
           requests.forall(_.params.flatMap(_.get("arguments")).contains(remoteInput)),
           requests.forall(_.params.flatMap(_.get("name")).contains(Json.Str("remote"))),
           tools.definitions == Chunk(
-            definition.copy(parametersSchema =
-              Json.Obj(
+            host.copy(
+              parametersSchema = Json.Obj(
                 "type"       -> Json.Str("object"),
                 "properties" -> Json.Obj(),
                 "required"   -> Json.Arr()
-              )
+              ),
+              outputSchema = Some(remoteOutputSchema)
             )
           ),
+          exposed == Chunk.fill(2)(tools.definitions),
           authorizationInputs == Chunk.fill(2)(input),
           approvedHistory == Chunk.fill(2)(approved),
+          history.flatMap(_.toolResults).map(_.state) == Chunk.fill(2)(ToolResultState.Success),
           original == userMeta
         )
     },

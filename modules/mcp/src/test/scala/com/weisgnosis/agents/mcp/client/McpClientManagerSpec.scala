@@ -84,9 +84,10 @@ object McpClientManagerSpec extends ZIOSpecDefault:
                     "tools" -> Json.Arr(
                       tools.map(name =>
                         Json.Obj(
-                          "name"        -> Json.Str(name),
-                          "inputSchema" -> schema,
-                          "annotations" -> Json.Obj("readOnlyHint" -> Json.Bool(true))
+                          "name"         -> Json.Str(name),
+                          "inputSchema"  -> schema,
+                          "outputSchema" -> schema,
+                          "annotations"  -> Json.Obj("readOnlyHint" -> Json.Bool(true))
                         )
                       )
                     )
@@ -177,11 +178,20 @@ object McpClientManagerSpec extends ZIOSpecDefault:
               select("")
             )
             .exit
-          snapshot          <- manager.toolkit
-          names             <- manager.names
-          closed            <- releases.get
-          result            <- snapshot.executeSafe("local_echo", Json.Obj())
-          _                 <- manager.register("second", acquire, 1, select("second_"))
+          snapshot <- manager.toolkit
+          names    <- manager.names
+          closed   <- releases.get
+          result   <- snapshot.executeSafe("local_echo", Json.Obj())
+          _ <- manager.register(
+            "second",
+            acquire,
+            1,
+            remote =>
+              select("second_")(remote).map(_.map(_.copy(outputSchema = Some(Json.Bool(true)))))
+          )
+          chosenSchemas <- manager.toolkit.map(
+            _.definitions.map(tool => tool.name -> tool.outputSchema).toMap
+          )
           capacity          <- manager.register("third", acquire, 1, select("third_")).exit
           after             <- acquisitions.get
           missing           <- manager.remove("missing")
@@ -231,6 +241,7 @@ object McpClientManagerSpec extends ZIOSpecDefault:
           closed == 5,
           snapshot.definitions.map(_.name) == Chunk("local_echo"),
           snapshot.definitions.forall(!_.isReadOnly),
+          chosenSchemas == Map("local_echo" -> None, "second_echo" -> Some(Json.Bool(true))),
           names == Chunk("first"),
           result.output == "echo",
           result.state == ToolResultState.Success,
