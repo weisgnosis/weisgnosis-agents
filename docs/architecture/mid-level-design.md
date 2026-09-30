@@ -10,7 +10,7 @@ The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/
 - [x] Both independent reviewers approved the bounded scoped MCP manager and full verification passed: registration owns acquisition resources, applies host ToolDef selection and publishes immutable Toolkit snapshots atomically. Pending/removing registrations retain capacity; removal joins cleanup and old snapshots retain their original client identity. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract) owns the accepted scope and evidence.
 - [x] Implement scoped HTTP POST and explicit GET with bounded JSON/SSE responses and session headers.
 - [x] Enqueue optional outbound cancellation only for interrupted issued requests whose abandonment wins, excluding initialize; bounded connection-owned delivery has no acknowledgement.
-- [ ] Next: define and implement bounded connection-loss continuation with explicit failure classification and complete-cause preservation; listener restart and recovery remain unfinished.
+- [ ] Next: define and implement bounded listener resumption within the same host-owned listen effect; general I/O recovery, session reinitialization and external interoperability remain unfinished.
 - [ ] Presets, groups, ambient metadata propagation, caching, schema evaluation and reconnect remain separate integrations.
 
 ## 1. ReAct lifecycle

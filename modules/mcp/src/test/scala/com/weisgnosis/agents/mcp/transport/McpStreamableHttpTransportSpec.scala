@@ -110,6 +110,167 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpStreamableHttpTransportSpec")(
     test(
+      "typed connection loss resumes the committed cursor and captured session within one GET budget"
+    ) {
+      val request: McpMessage.Request = McpMessage.Request(McpRequestId.Number(51), "initialize")
+      val acquisitionLoss =
+        new io.netty.handler.codec.PrematureChannelClosureException("GET connection lost")
+      for results <- ZIO.foreach(
+          Chunk(
+            (Some(new java.nio.channels.ClosedChannelException: Throwable), 0, 1),
+            (
+              Some(
+                new io.netty.handler.codec.PrematureChannelClosureException(
+                  "body closed"
+                ): Throwable
+              ),
+              1,
+              2
+            ),
+            (Some(new java.nio.channels.ClosedChannelException: Throwable), 3, 2),
+            (None, 1, 2)
+          )
+        ): (bodyLoss, failedGets, budget) =>
+          ZIO.scoped:
+            for
+              gets  <- Ref.make(Chunk.empty[Headers])
+              posts <- Ref.make(Chunk.empty[McpMessage])
+              http = scripted(r =>
+                if r.method == Method.GET then
+                  gets
+                    .modify(previous => (previous.size, previous :+ r.headers))
+                    .flatMap(index =>
+                      if index < failedGets then ZIO.fail(acquisitionLoss)
+                      else
+                        ZIO.succeed(stream(event(McpMessage.Success(request.id, initialization))))
+                    )
+                else
+                  decode(r).flatMap(message =>
+                    posts
+                      .update(_ :+ message)
+                      .as(
+                        stream(
+                          rawEvents("id: committed\n") ++ event(
+                            McpMessage.Notification("notifications/message")
+                          ) ++
+                            rawEvents("id: unfinished\n") ++ bodyLoss.fold(
+                              ZStream.empty: ZStream[Any, Throwable, Byte]
+                            )(error => ZStream.fromChannel(ZChannel.refailCause(Cause.fail(error))))
+                        )
+                          .addHeader("Mcp-Session-Id", "recovering")
+                      )
+                  )
+              )
+              transport <- McpStreamableHttpTransport.open(
+                http,
+                endpoint,
+                continuation = McpHttpContinuation.OnPrematureEofOrConnectionLoss(budget)
+              )
+              result   <- transport.send(request).exit
+              selected <- gets.get
+              original <- posts.get
+              received <- transport.incoming.take(2).runCollect.exit
+            yield selected.size == math.min(failedGets + 1, budget) &&
+              selected.forall(h =>
+                h.get("Last-Event-ID").contains("committed") &&
+                  h.get("Mcp-Session-Id").contains("recovering")
+              ) && original == Chunk(request) &&
+              (if failedGets < budget then
+                 result.isSuccess && received == Exit.succeed(
+                   Chunk(
+                     McpMessage.Notification("notifications/message"),
+                     McpMessage.Success(request.id, initialization)
+                   )
+                 )
+               else
+                 result.causeOption.exists(
+                   _.failureOption.contains(
+                     AgentError.McpError(
+                       "MCP HTTP continuation GET failed (io.netty.handler.codec.PrematureChannelClosureException): GET connection lost"
+                     )
+                   )
+                 ))
+      yield assertTrue(results.forall(identity))
+    },
+    test(
+      "connection-loss recovery excludes old policies, uncommitted cursors and non-network or cleanup causes"
+    ) {
+      val request: McpMessage.Request = McpMessage.Request(McpRequestId.Number(61), "tools/list")
+      val closed                      = new java.nio.channels.ClosedChannelException
+      val domain                      = AgentError.McpError("domain body failure")
+      val defect                      = new IllegalStateException("body defect")
+      val enabled                     = McpHttpContinuation.OnPrematureEofOrConnectionLoss(2)
+      def projected(error: Throwable): AgentError = error match
+        case value: AgentError => value
+        case other =>
+          AgentError.McpError(
+            s"MCP HTTP response body failed (${other.getClass.getName}): ${Option(other.getMessage).getOrElse("no message")}"
+          )
+      val rows = Chunk(
+        (McpHttpContinuation.Disabled, "id: cursor\n\n", Cause.fail(closed)),
+        (McpHttpContinuation.OnPrematureEof(2), "id: cursor\n\n", Cause.fail(closed)),
+        (enabled, "id: unfinished\n", Cause.fail(closed)),
+        (enabled, "id: cursor\n\nid:\n\n", Cause.fail(closed)),
+        (enabled, "id: cursor\n\n", Cause.fail(new java.nio.channels.ClosedByInterruptException)),
+        (enabled, "id: cursor\n\n", Cause.fail(new java.io.IOException("ordinary truncation"))),
+        (enabled, "id: cursor\n\n", Cause.fail(new java.net.SocketException("socket failure"))),
+        (enabled, "id: cursor\n\n", Cause.fail(new javax.net.ssl.SSLException("TLS failure"))),
+        (enabled, "id: cursor\n\n", Cause.fail(new IllegalArgumentException("programmer failure"))),
+        (enabled, "id: cursor\n\n", Cause.fail(domain)),
+        (enabled, "id: cursor\n\n", Cause.die(closed)),
+        (enabled, "id: cursor\n\n", Cause.fail(closed) ++ Cause.die(defect)),
+        (enabled, "id: cursor\n\n", Cause.fail(closed) ++ Cause.interrupt(FiberId.None))
+      )
+      for
+        exclusions <- ZIO.foreach(rows): (policy, prefix, cause) =>
+          ZIO.scoped:
+            for
+              gets <- Ref.make(0)
+              http = scripted(r =>
+                if r.method == Method.GET then gets.update(_ + 1).as(Response.ok)
+                else
+                  ZIO.succeed(
+                    stream(rawEvents(prefix) ++ ZStream.fromChannel(ZChannel.refailCause(cause)))
+                  )
+              )
+              transport <- McpStreamableHttpTransport.open(http, endpoint, continuation = policy)
+              running   <- transport.send(request).forkScoped
+              result    <- running.await
+              retries   <- gets.get
+            yield result.causeOption.contains(cause.map(projected)) && retries == 0
+        cleanupResult <- ZIO.scoped:
+          for
+            entered <- Promise.make[Nothing, Unit]
+            release <- Promise.make[Nothing, Unit]
+            gets    <- Ref.make(0)
+            http = scripted(r =>
+              if r.method == Method.GET then gets.update(_ + 1).as(Response.ok)
+              else
+                ZIO
+                  .addFinalizer(entered.succeed(()).unit *> release.await *> ZIO.die(defect))
+                  .as(
+                    stream(
+                      rawEvents("id: cursor\n\n") ++ ZStream
+                        .fromChannel(ZChannel.refailCause(Cause.fail(closed)))
+                    )
+                  )
+            )
+            transport <- McpStreamableHttpTransport.open(http, endpoint, continuation = enabled)
+            running   <- transport.send(request).forkScoped
+            observed <- (for
+              _       <- entered.await
+              pending <- running.poll
+              before  <- gets.get
+              _       <- release.succeed(())
+              result  <- running.await
+              after   <- gets.get
+            yield pending.isEmpty && before == 0 && after == 0 &&
+              result.causeOption.contains(Cause.fail(projected(closed)) ++ Cause.die(defect)))
+              .ensuring(release.succeed(()).unit)
+          yield observed
+      yield assertTrue(exclusions.forall(identity), cleanupResult)
+    },
+    test(
       "explicit termination follows joined client closure, sends one authenticated DELETE and seals owner release"
     ) {
       ZIO
@@ -446,15 +607,22 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
               _ == Method.GET
             ) == expected
         called <- Ref.make(false)
-        invalid <- ZIO
-          .scoped(
-            McpStreamableHttpTransport.open(
-              scripted(_ => called.set(true).as(Response.ok)),
-              endpoint,
-              continuation = McpHttpContinuation.OnPrematureEof(0)
-            )
+        invalid <- ZIO.foreach(
+          Chunk(
+            McpHttpContinuation.OnPrematureEof(0),
+            McpHttpContinuation.OnPrematureEofOrConnectionLoss(0)
           )
-          .exit
+        )(policy =>
+          ZIO
+            .scoped(
+              McpStreamableHttpTransport.open(
+                scripted(_ => called.set(true).as(Response.ok)),
+                endpoint,
+                continuation = policy
+              )
+            )
+            .exit
+        )
         acquired <- called.get
         isolated <- ZIO.scoped:
           for
@@ -495,7 +663,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
           yield observed
       yield assertTrue(
         results.forall(identity),
-        invalid.isFailure,
+        invalid.forall(_.isFailure),
         !acquired,
         isolated._1 == Chunk(None),
         isolated._2 == 1
