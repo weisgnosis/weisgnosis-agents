@@ -144,6 +144,6 @@ The port/connection acceptance is recorded separately in the [client contract](.
 - [x] Bounded manager registration/removal and host selection have separate [client acceptance](../client/README.md#scoped-manager-contract); manual Toolkit binding retains its separate tool-package contract.
 - [x] Support the connection-owned optional outbound cancellation policy, with conservative issuance signals and no delivery acknowledgement.
 - [x] Implement and independently review the selected HTTP POST and explicit GET contract with bounded bodies, scoped cleanup and loopback integration.
-- [ ] Next module task: skill-triggered groups; see the [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work). General I/O recovery, session reinitialization and durable integration remain unfinished.
+- [ ] Next module task: actual harness Plan admission for the runtime skill loader; see the [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work). General I/O recovery, session reinitialization and durable integration remain unfinished.
 - [ ] Complete separately specified general I/O recovery, session reinitialization and broader server interoperability.
 - [ ] Validate additional platform/process configurations before extending the documented ownership claims.

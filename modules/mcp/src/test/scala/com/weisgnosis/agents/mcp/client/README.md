@@ -22,6 +22,6 @@ The terminal cause and post-terminal dispatch regressions failed against the unc
 - [x] Verify explicit metadata projection, restricted invocation identity and omission boundaries in the tool package.
 - [x] Checked fixed-argument selection failure rolls back the entire registration through the existing owner; actual invocation/schema exclusion is covered in the tool package.
 - [x] Grouped registration uses the existing peer and lifecycle fixtures, including pending initialization, held shared-group removal and unchanged capacity reservations.
-- [ ] Next: skill-triggered groups; complete remaining method mappings and ambient context integration separately.
+- [ ] Next: actual harness Plan admission for the runtime skill loader; complete remaining method mappings and ambient context integration separately.
 
 These controlled-port scenarios do not establish external-server interoperability, acknowledged remote cancellation or complete AgentScope wrapper parity.

@@ -19,6 +19,7 @@ import com.weisgnosis.agents.core.client.*
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
+import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
 import com.weisgnosis.agents.core.tool.*
 import zio.*
 import zio.json.*
@@ -28,6 +29,7 @@ import zio.test.*
 object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
   private val reset        = "reset_equipped_tools"
   private val capture      = StructuredOutput.ToolName
+  private val loadSkill    = SkillCatalog.LoadToolName
   private val schema: Json = Json.Obj("type" -> Json.Str("integer"))
   final private case class Request(tools: Chunk[ToolDef], config: LlmConfig)
 
@@ -48,6 +50,24 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
 
   private def activate(names: String*): Json.Obj =
     Json.Obj("to_activate" -> Json.Arr(Chunk.fromIterable(names.map(Json.Str(_)))))
+
+  private def resource(id: String, path: String = "SKILL.md"): Json.Obj =
+    Json.Obj("skillId" -> Json.Str(id), "path" -> Json.Str(path))
+
+  private def skillCatalog: IO[AgentError, SkillCatalog] = ZIO.fromEither(
+    SkillCatalog.make(
+      Chunk(
+        SkillDefinition(
+          "first",
+          "First skill",
+          "First instructions",
+          Map("guide.md" -> "  First resource\r\n"),
+          Set("a")
+        ),
+        SkillDefinition("second", "Second skill", "Second instructions", activateGroups = Set("b"))
+      )
+    )
+  )
 
   private def call(id: String, name: String, input: Json = Json.Obj()): ContentBlock.ToolUse =
     ContentBlock.ToolUse(id, name, input)
@@ -102,6 +122,269 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
     yield result
 
   def spec: Spec[TestEnvironment, Any] = suite("ReActAgentToolGroupsSpec")(
+    test(
+      "successful skill loads union groups for the next request without changing later run defaults"
+    ) {
+      ZIO.scoped:
+        for
+          configured <- groups
+          defaults <- ZIO.fromEither(
+            configured.replaceMetaActive(Set.empty).flatMap(_.addTool("b", loadSkill))
+          )
+          catalog  <- skillCatalog
+          executed <- Ref.make(Chunk.empty[(String, Json)])
+          requests <- Ref.make(Chunk.empty[Request])
+          base     <- toolkit(executed)
+          model = recording(requests)((index, _) =>
+            ZIO.succeed(index match
+              case 0 =>
+                calls(call("missing", loadSkill, resource("first", "missing.md")))
+              case 1 =>
+                calls(
+                  call("first", loadSkill, resource("first", "guide.md")),
+                  call("too-soon", "a")
+                )
+              case 2 =>
+                calls(call("second", loadSkill, resource("second")), call("first-tool", "a"))
+              case 3 =>
+                calls(call("second-tool", "b"), call("omitted", loadSkill, resource("omitted")))
+              case _ => finish)
+          )
+          agent <- ReActAgent
+            .builder()
+            .model(model)
+            .toolkit(base)
+            .toolGroups(defaults)
+            .skills(catalog)
+            .toolExecution(ToolExecution.Parallel)
+            .build
+          result   <- agent.run(Msg.user("load selected skills"))
+          _        <- agent.run(Msg.user("start another invocation"))
+          observed <- requests.get
+          ran      <- executed.get
+        yield assertTrue(
+          observed.map(_.tools.map(_.name)) == Chunk(
+            Chunk("external", loadSkill, reset),
+            Chunk("external", loadSkill, reset),
+            Chunk("a", "external", loadSkill, reset),
+            Chunk("a", "b", "external", loadSkill, reset),
+            Chunk("a", "b", "external", loadSkill, reset),
+            Chunk("external", loadSkill, reset)
+          ),
+          observed.forall(
+            _.tools
+              .find(_.name == loadSkill)
+              .exists(tool =>
+                tool.isReadOnly && !tool.isConcurrencySafe && tool.description
+                  .contains("guide.md") &&
+                  !tool.description.contains("First instructions") && !tool.description
+                    .contains("omitted")
+              )
+          ),
+          ran == Chunk("a" -> Json.Obj("tenant" -> Json.Str("host")), "b" -> Json.Obj()),
+          result.history.flatMap(_.toolResults).map(_.state) == Chunk(
+            ToolResultState.Error,
+            ToolResultState.Success,
+            ToolResultState.Error,
+            ToolResultState.Success,
+            ToolResultState.Success,
+            ToolResultState.Success,
+            ToolResultState.Error
+          ),
+          result.history
+            .flatMap(_.toolResults)
+            .filter(result => Set("first", "second").contains(result.id))
+            .map(_.outputText) == Chunk("  First resource\r\n", "Second instructions"),
+          defaults.activeNames == Set("external")
+        )
+    },
+    test(
+      "skill input and host authorization cannot bypass configuration or hidden control collisions"
+    ) {
+      val invalid = Chunk[Json](
+        Json.Obj(),
+        Json.Null,
+        Json.Obj("skillId" -> Json.Str("second"), "path" -> Json.Num(1)),
+        resource("second", " "),
+        Json.Obj(
+          "skillId" -> Json.Str("second"),
+          "path"    -> Json.Str("SKILL.md"),
+          "extra"   -> Json.Bool(true)
+        )
+      )
+      ZIO.scoped:
+        for
+          defaults <- groups
+          catalog  <- skillCatalog
+          executed <- Ref.make(Chunk.empty[(String, Json)])
+          requests <- Ref.make(Chunk.empty[Request])
+          attempts <- Ref.make(Chunk.empty[Request])
+          base     <- toolkit(executed)
+          model = recording(requests)((index, _) =>
+            ZIO.succeed(
+              if index == 0 then
+                TurnOutput.ToolCalls(
+                  Msg.assistant(
+                    invalid.zipWithIndex.map((input, index) =>
+                      call(s"invalid-$index", loadSkill, input)
+                    ) ++ Chunk(
+                      call(
+                        "duplicate",
+                        loadSkill,
+                        Json.Obj(
+                          "skillId" -> Json.Str("first"),
+                          "skillId" -> Json.Str("second"),
+                          "path"    -> Json.Str("SKILL.md")
+                        )
+                      ),
+                      call("denied", loadSkill, resource("second")),
+                      call(
+                        "allowed",
+                        loadSkill,
+                        Json.Obj("path" -> Json.Str("SKILL.md"), "skillId" -> Json.Str("first"))
+                      )
+                    )
+                  )
+                )
+              else finish
+            )
+          )
+          agent <- ReActAgent.make(
+            client = model,
+            toolkit = base,
+            toolGroups = Some(defaults),
+            skills = catalog,
+            toolAuthorizer = ToolAuthorizer(request =>
+              ZIO.succeed(
+                if request.call.id == "denied" then ToolAuthorization.Denied("Host denied skill")
+                else ToolAuthorization.Approved(request.call.input)
+              )
+            )
+          )
+          result   <- agent.run(Msg.user("validate skill loads"))
+          observed <- requests.get
+          mismatch <- ReActAgent
+            .make(client = recording(attempts)((_, _) => ZIO.succeed(finish)), skills = catalog)
+            .exit
+          external <- ZIO.fromEither(
+            SkillCatalog.make(
+              Chunk(
+                SkillDefinition("external", "Host only", "Text", activateGroups = Set("external"))
+              )
+            )
+          )
+          externalMismatch <- ReActAgent
+            .make(
+              client = recording(attempts)((_, _) => ZIO.succeed(finish)),
+              toolGroups = Some(defaults),
+              skills = external
+            )
+            .exit
+          hidden <- ZIO.fromEither(defaults.addTool("b", loadSkill))
+          collision <- ZIO.fromEither(
+            base.register(
+              Tool.make(ToolDef(loadSkill, "Hidden host tool", Json.Obj()))(_ =>
+                ZIO.succeed("unused")
+              )
+            )
+          )
+          collided <- ReActAgent.make(
+            client = recording(attempts)((_, _) => ZIO.succeed(finish)),
+            toolkit = collision,
+            toolGroups = Some(hidden),
+            skills = catalog
+          )
+          collisionExit <- collided.run(Msg.user("collision")).exit
+          sent          <- attempts.get
+        yield assertTrue(
+          observed.map(_.tools.map(_.name)) == Chunk.fill(2)(
+            Chunk("a", "external", loadSkill, reset)
+          ),
+          result.history.flatMap(_.toolResults).map(_.state) == Chunk.fill(invalid.size)(
+            ToolResultState.Error
+          ) ++
+            Chunk(ToolResultState.Denied, ToolResultState.Denied, ToolResultState.Success),
+          mismatch.isFailure,
+          externalMismatch.isFailure,
+          collisionExit.causeOption
+            .flatMap(_.failureOption)
+            .contains(
+              AgentError.ToolExecutionError(
+                loadSkill,
+                s"Tool collision: '$loadSkill' is already registered"
+              )
+            ),
+          sent.isEmpty
+        )
+    },
+    test(
+      "skill activation survives native fallback and content-only skills participate in Auto routing"
+    ) {
+      ZIO.scoped:
+        for
+          defaults <- groups
+          catalog  <- skillCatalog
+          executed <- Ref.make(Chunk.empty[(String, Json)])
+          requests <- Ref.make(Chunk.empty[Request])
+          base     <- toolkit(executed)
+          model = recording(requests)((index, _) =>
+            index match
+              case 0 => ZIO.succeed(calls(call("load", loadSkill, resource("second"))))
+              case 1 => ZIO.fail(AgentError.ModelError(400, "native unsupported", Some("fixture")))
+              case _ =>
+                ZIO.succeed(calls(call("capture", capture, Json.Obj("response" -> Json.Num(7)))))
+          )
+          agent <- ReActAgent.make(
+            client = model,
+            toolkit = base,
+            toolGroups = Some(defaults),
+            skills = catalog,
+            llmConfig = LlmConfig(
+              "model",
+              structuredOutputCapability =
+                StructuredOutputCapability.Native(NativeToolSupport.Supported)
+            )
+          )
+          result   <- agent.runStructured[Int](Chunk(Msg.user("number")), schema)
+          observed <- requests.get
+          plain <- ZIO.fromEither(
+            SkillCatalog.make(Chunk(SkillDefinition("plain", "Content only", "Plain instructions")))
+          )
+          plainRequests <- Ref.make(Chunk.empty[Request])
+          plainModel = recording(plainRequests)((index, _) =>
+            ZIO.succeed(
+              if index == 0 then calls(call("plain", loadSkill, resource("plain")))
+              else calls(call("capture", capture, Json.Obj("response" -> Json.Num(8))))
+            )
+          )
+          plainAgent <- ReActAgent.make(
+            client = plainModel,
+            skills = plain,
+            llmConfig = LlmConfig(
+              "model",
+              structuredOutputCapability =
+                StructuredOutputCapability.Native(NativeToolSupport.Unsupported)
+            )
+          )
+          plainResult   <- plainAgent.runStructured[Int](Chunk(Msg.user("number")), schema)
+          plainObserved <- plainRequests.get
+        yield assertTrue(
+          result._2 == 7,
+          observed.map(_.config.responseFormat.isDefined) == Chunk(true, true, false),
+          observed.map(_.tools.map(_.name)) == Chunk(
+            Chunk("a", "external", loadSkill, reset),
+            Chunk("a", "b", "external", loadSkill, reset),
+            Chunk("a", "b", "external", capture, loadSkill, reset)
+          ),
+          plainResult._2 == 8,
+          plainObserved.map(_.tools.map(_.name)) == Chunk.fill(2)(Chunk(capture, loadSkill)),
+          plainObserved.forall(_.config.responseFormat.isEmpty),
+          plainResult._1.history
+            .flatMap(_.toolResults)
+            .find(_.id == "plain")
+            .exists(_.outputText == "Plain instructions")
+        )
+    },
     test(
       "reset changes the next request while every call in its batch retains the admitted snapshot"
     ) {

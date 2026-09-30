@@ -25,6 +25,7 @@ import com.weisgnosis.agents.core.client.{
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
+import com.weisgnosis.agents.core.skill.SkillCatalog
 import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.core.json.JsonBoundary
 import zio.*
@@ -57,7 +58,8 @@ final class ReActAgent private (
     val historyPreparer: HistoryPreparer,
     val modelInputTransform: ModelInputTransform,
     val completionObserver: TurnCompletionObserver,
-    val toolGroups: Option[ToolGroups]
+    val toolGroups: Option[ToolGroups],
+    val skills: SkillCatalog
 ):
 
   def name: String        = config.name
@@ -406,16 +408,85 @@ final class ReActAgent private (
         .flatMap(_ => controls.register(tool).map(updated => copy(controls = updated)))
 
   private def makeRunTools: IO[AgentError, RunTools] =
-    toolGroups match
-      case None => ZIO.succeed(RunTools(toolkit, None))
-      case Some(initial) =>
-        Ref
-          .make(initial)
-          .flatMap: activation =>
-            val runTools = RunTools(toolkit, Some(activation))
-            val meta     = initial.groups.filter(_.scope == ToolGroupScope.Meta)
-            if meta.isEmpty then ZIO.succeed(runTools)
-            else ZIO.fromEither(runTools.withControl(resetEquippedTools(activation, initial)))
+    if toolGroups.isEmpty && skills.isEmpty then ZIO.succeed(RunTools(toolkit, None))
+    else
+      val initial = toolGroups.getOrElse(ToolGroups.empty)
+      Ref
+        .make(initial)
+        .flatMap: activation =>
+          val runTools = RunTools(toolkit, Some(activation))
+          ZIO.fromEither:
+            for
+              withReset <-
+                if initial.groups.exists(_.scope == ToolGroupScope.Meta) then
+                  runTools.withControl(resetEquippedTools(activation, initial))
+                else Right(runTools)
+              withSkills <-
+                if skills.isEmpty then Right(withReset)
+                else withReset.withControl(loadSkill(activation))
+            yield withSkills
+
+  final private case class SkillRequest(skillId: String, path: String)
+
+  /** Reads only preloaded text; group visibility is the invocation's existing atomic state. */
+  private def loadSkill(activation: Ref[ToolGroups]): Tool[Any, SkillRequest, String] =
+    new Tool[Any, SkillRequest, String]:
+      def definition: ToolDef = ToolDef(
+        SkillCatalog.LoadToolName,
+        "Load a selected skill resource and activate its Meta groups for the next model request.\n" +
+          skills.definitions
+            .map(skill =>
+              val paths =
+                Chunk("SKILL.md") ++ Chunk.fromIterable(skill.resources.keys.toList.sorted)
+              s"${skill.id}: ${skill.description}\nResources: ${paths.mkString(", ")}"
+            )
+            .mkString("\n"),
+        Json.Obj(
+          "type" -> Json.Str("object"),
+          "properties" -> Json.Obj(
+            "skillId" -> Json.Obj(
+              "type" -> Json.Str("string"),
+              "enum" -> Json.Arr(skills.definitions.map(skill => Json.Str(skill.id)))
+            ),
+            "path" -> Json.Obj("type" -> Json.Str("string"), "minLength" -> Json.Num(1))
+          ),
+          "required"             -> Json.Arr(Json.Str("skillId"), Json.Str("path")),
+          "additionalProperties" -> Json.Bool(false)
+        ),
+        isConcurrencySafe = false,
+        isReadOnly = true
+      )
+
+      def decodeInput(raw: Json): Either[String, SkillRequest] =
+        JsonBoundary
+          .validate(raw)
+          .flatMap:
+            case value: Json.Obj if value.fields.map(_._1).toSet == Set("skillId", "path") =>
+              (value.get("skillId"), value.get("path")) match
+                case (Some(Json.Str(id)), Some(Json.Str(path)))
+                    if id.trim.nonEmpty && path.trim.nonEmpty =>
+                  Right(SkillRequest(id, path))
+                case _ => Left("skillId and path must be nonblank strings")
+            case _ => Left("Expected exactly skillId and path fields")
+
+      def execute(request: SkillRequest): IO[AgentError, String] =
+        ZIO
+          .fromEither(skills.load(request.skillId, request.path))
+          .flatMap: resource =>
+            activation
+              .modify(current =>
+                val active = current.groups.collect {
+                  case group
+                      if group.scope == ToolGroupScope.Meta && group.activation == ToolGroupActivation.Active =>
+                    group.name
+                }.toSet
+                current.replaceMetaActive(active ++ resource.activateGroups) match
+                  case Left(error)    => (Left(error), current)
+                  case Right(updated) => (Right(resource.content), updated)
+              )
+              .absolve
+
+      def encodeOutput(out: String): String = out
 
   private def resetEquippedTools(
       activation: Ref[ToolGroups],
@@ -1270,13 +1341,15 @@ object ReActAgent:
       historyPreparer: HistoryPreparer = HistoryPreparer.identity,
       modelInputTransform: ModelInputTransform = ModelInputTransform.identity,
       completionObserver: TurnCompletionObserver = TurnCompletionObserver.ignore,
-      toolGroups: Option[ToolGroups] = None
+      toolGroups: Option[ToolGroups] = None,
+      skills: SkillCatalog = SkillCatalog.empty
   ): IO[AgentError, ReActAgent] =
     for
-      _                     <- ZIO.fromEither(config.validated)
-      stateRef              <- Ref.make(initialHistory)
-      agentId               <- Random.nextUUID.map(_.toString)
-      p                     <- Promise.make[Nothing, Unit]
+      _        <- ZIO.fromEither(config.validated)
+      _        <- ZIO.fromEither(skills.validateGroups(toolGroups.getOrElse(ToolGroups.empty)))
+      stateRef <- Ref.make(initialHistory)
+      agentId  <- Random.nextUUID.map(_.toString)
+      p        <- Promise.make[Nothing, Unit]
       interruptedPromiseRef <- Ref.make(p)
       runLock               <- Semaphore.make(1)
     yield new ReActAgent(
@@ -1294,7 +1367,8 @@ object ReActAgent:
       historyPreparer,
       modelInputTransform,
       completionObserver,
-      toolGroups
+      toolGroups,
+      skills
     )
 
   def builder(): Builder = Builder()
@@ -1311,7 +1385,8 @@ object ReActAgent:
       private val _historyPreparer: HistoryPreparer = HistoryPreparer.identity,
       private val _modelInputTransform: ModelInputTransform = ModelInputTransform.identity,
       private val _completionObserver: TurnCompletionObserver = TurnCompletionObserver.ignore,
-      private val _toolGroups: Option[ToolGroups] = None
+      private val _toolGroups: Option[ToolGroups] = None,
+      private val _skills: SkillCatalog = SkillCatalog.empty
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -1323,6 +1398,7 @@ object ReActAgent:
     def toolExecution(te: ToolExecution): Builder = copy(_config = _config.copy(toolExecution = te))
     def toolkit(tk: Toolkit): Builder             = copy(_toolkit = tk)
     def toolGroups(groups: ToolGroups): Builder   = copy(_toolGroups = Some(groups))
+    def skills(catalog: SkillCatalog): Builder    = copy(_skills = catalog)
     def model(c: LlmClient): Builder              = copy(_client = Some(c))
     def client(c: LlmClient): Builder             = copy(_client = Some(c))
     def llmConfig(c: LlmConfig): Builder          = copy(_llmConfig = c)
@@ -1360,6 +1436,7 @@ object ReActAgent:
             _historyPreparer,
             _modelInputTransform,
             _completionObserver,
-            _toolGroups
+            _toolGroups,
+            _skills
           )
         )

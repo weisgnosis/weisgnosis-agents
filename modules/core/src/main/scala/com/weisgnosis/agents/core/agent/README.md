@@ -22,13 +22,25 @@ Reset input is exactly an object containing `to_activate`, an array of group-nam
 
 Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a toolGroups setter and a defaulted field. Ordinary call sites retain prior behavior. Positional Builder patterns/Product arity change and downstream binaries must be rebuilt. This explicit dependency is not Toolkit metadata; filtering the supplied base toolkit cannot recover removed tools. Control-name collisions retain Toolkit's existing ToolExecutionError type/message. The reset result now adds a notes string; consumers that reject unknown result fields must accept it. Descriptions now reflect each request snapshot rather than static construction-time text.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, with no findings. Formatting and full `verify` passed in `tool-group-notes-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
-- [ ] Next: skill-triggered groups. Exact Java prose and durable activation remain separate.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, including group notes and the preloaded-skill integration, with no findings. Formatting and full `verify` passed in `skill-runtime-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
+- [ ] Next: actual harness Plan admission for the runtime skill loader. Exact Java prose and durable activation remain separate.
 
 | Current source/test | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | `6439ba82fb9468c1df96829819d1060ed154510e` |
-| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `75ef47cdf578f357d4679a07f2eed96efbb58754` |
+| [ReActAgent.scala](ReActAgent.scala) | `a7ac3288b6adf318e8b1f20972fdd78ef40e421e` |
+| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `679f6d58aa6adfe4df52cb698c5ef746e0945302` |
+
+## Preloaded skills
+
+`make` appends `skills: SkillCatalog = SkillCatalog.empty`; Builder adds the same defaulted field and a skills setter. Ordinary source calls keep their behavior, while positional Builder patterns/Product arity change and dependent binaries require rebuilding. The [checked catalogue](../skill/README.md) contains host-preloaded text only. Construction validates its explicit target groups against the actual configured ToolGroups before allocating runtime refs or calling the model; unknown and External targets fail. No generated group names are inferred.
+
+A nonempty catalogue installs the protected `load_skill_through_path` control after base filtering, with complete-base collision checks. Its description exposes configured skill IDs, descriptions and exact resource identifiers. Input is exactly nonblank skillId and path strings with recursive duplicate validation. The path is data used for catalogue lookup, never filesystem access. SKILL.md selects main content; other resources require exact keys. Missing, malformed or unknown requests cannot activate groups.
+
+The loader is read-only and concurrency-unsafe, uses ordinary authorization and forces sequential batch dispatch. Successful lookup atomically unions the skill's explicit Meta targets with currently active Meta groups while preserving External state, then returns the exact resource content. Existing request/batch snapshots keep new tools unavailable until the next model request. Load and reset controls stay available after filtering; activation shares native-to-synthetic fallback state and resets on the next public run. A content-only catalogue still contributes a control to structured Auto capability routing.
+
+- [x] Both reviewers approved three new runtime groups within the eight-case ReActAgentToolGroupsSpec; [current runtime identities](#run-owned-tool-group-activation) and full verification cover union, exact content, error/denial isolation, hidden collisions, construction validation, fresh runs, fallback and content-only Auto routing.
+- [ ] Verify actual harness Plan admission next. isReadOnly alone does not close the upstream Plan middleware contract.
+- [ ] Implement filesystem/parser/repository loading, child skill allowlists, skill-specific notes/reminders and durable activation separately. This adapter grants no new external capabilities.
 
 ## Fixed-argument authorization
 

@@ -16,7 +16,7 @@ Removing groups or membership reports `newlyUngrouped` names alongside the next 
 - [x] Formatting and full `verify` passed in `tool-group-notes-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals.
 The runtime installs an optional [run-owned activation adapter](../agent/README.md#run-owned-tool-group-activation) over this foundation.
 
-- [ ] Next: skill-triggered groups. Durable activation remains separate work.
+- [ ] Next: actual harness Plan admission for the runtime skill loader. Durable activation remains separate work.
 
 Group data/enums use derived codecs; decoding does not bypass checked registration. Immutable values replace Java builders and defensive copying, and null contracts are not reproduced. Unknown activation/membership groups fail atomically rather than following upstream permissive or partially applied paths. The pure activeNotes/metaNotes accessors are additive; no existing Tool or Toolkit signature changes. Runtime note output has the [adapter migration](../agent/README.md#run-owned-tool-group-activation).
 

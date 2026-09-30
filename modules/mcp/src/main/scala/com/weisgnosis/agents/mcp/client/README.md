@@ -16,7 +16,7 @@ Host selection explicitly retains, omits or overrides remote outputSchema in Too
 
 Selected bindings can also attach core fixed arguments, prepared before runtime authorization rather than merged as defaults afterward; the [fixed binding contract](../tool/README.md#fixed-arguments) defines the distinction and current acceptance.
 
-This scope includes checked shallow defaults and root properties/required exclusion through selected bindings. Skill-triggered activation, ambient metadata propagation, broader schema rewriting/evaluation, discovery caches and notification invalidation remain separate. It does not make discovery an atomic server snapshot or broaden the selected 2025-06-18 protocol support. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded adaptations and intentional differences.
+This scope includes checked shallow defaults and root properties/required exclusion through selected bindings. Skill Plan admission, child propagation, ambient metadata propagation, broader schema rewriting/evaluation, discovery caches and notification invalidation remain separate. It does not make discovery an atomic server snapshot or broaden the selected 2025-06-18 protocol support. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded adaptations and intentional differences.
 
 - [x] Implement bounded registration, immutable Toolkit publication and joined removal/closure with five grouped contract tests, including grouped installation.
 - [x] Obtain independent FP/ZIO approval from `path_review` and invariant approval from `current_docs` for the final source/test identities below, with no unresolved findings.
@@ -39,7 +39,7 @@ Custom managers inherit an ungrouped installation from their existing toolkit an
 | [McpClientManager.scala](McpClientManager.scala) | `7e940e964c3c99755d510aaddf27a9d3f8adef1c` |
 | [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `c3e0580c997e5e078850710f2f14083bab4b63c6` |
 
-- [ ] Next: skill-triggered groups. Ambient metadata, discovery caching and durable activation remain separate.
+- [ ] Next: actual harness Plan admission for the runtime skill loader. Ambient metadata, discovery caching and durable activation remain separate.
 
 ## Initialized client contract
 
@@ -131,8 +131,8 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
 - [x] Install host-selected groups coherently with Ready tool snapshots; current manager source/spec acceptance is in [grouped installation](#grouped-installation).
-- [ ] Next: skill-triggered groups; fixed arguments and model-overridable defaults remain distinct.
-- [ ] Define skill-triggered activation, ambient metadata propagation, broader schema transformation and discovery caching separately.
+- [ ] Next: actual harness Plan admission for the runtime skill loader; fixed arguments and model-overridable defaults remain distinct.
+- [ ] Define skill Plan admission, child propagation, ambient metadata propagation, broader schema transformation and discovery caching separately.
 Manager/ReAct grouped installation is covered here; manual binding and metadata integration also have tool-package tests; the stdio contract records real-process initialization/list/call coverage.
 
 These tests establish local concurrency and ownership contracts using controlled message ports. AgentScope Java delegates wire/request machinery to MCP Java SDK 0.17.2; wrapper listTools, callTool and close behaviors remain separate integration mappings. No complete MCP revision or whole-wrapper parity is claimed. MCP 2026-07-28 has a different lifecycle without initialize; it is not implemented by the selected older payload helpers.

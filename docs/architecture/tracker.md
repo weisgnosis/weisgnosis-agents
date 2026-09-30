@@ -4,6 +4,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 ## Current acceptance
 
+- [x] Both independent reviewers approved the [preloaded skill catalogue](../../modules/core/src/main/scala/com/weisgnosis/agents/core/skill/README.md) and [runtime loader](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#preloaded-skills), including checked resources, explicit Meta targets, ordinary authorization and per-invocation activation. The linked contracts own final identities and verification.
+
 - [x] Both independent reviewers approved [MCP grouped installation](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#grouped-installation): explicit host groups, coherent Ready-only snapshots, rollback and held removal, plus actual ReAct activation preserving fixed policies. Current source/spec identities and verification are recorded there.
 
 - [x] `path_review` and `current_docs` approved [run-owned model-facing group activation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#run-owned-tool-group-activation), with fresh invocation state, snapshot-consistent descriptions/reset notes and shared structured fallback. Exact source/spec identities and full verification are recorded in the linked contract.
@@ -20,7 +22,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 589 core / 673 harness / 79 MCP tests (1,341 total), zero compiler warnings or failures. Evidence: `tool-group-notes-verify.log`; compile task 11 seconds, test task 16 seconds including compilation.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 595 core / 673 harness / 79 MCP tests (1,347 total), zero compiler warnings or failures. Evidence: `skill-runtime-verify.log`; compile task 5 seconds, test task 20 seconds including downstream compilation.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -88,7 +90,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
-- [ ] Next: skill-triggered groups; fixed arguments and model-overridable defaults remain distinct. General I/O recovery, session reinitialization and durable integration remain unfinished.
+- [ ] Next: actual harness Plan admission for the runtime skill loader; fixed arguments and model-overridable defaults remain distinct. General I/O recovery, session reinitialization and durable integration remain unfinished.
 - [x] Implement and independently review scoped HTTP POST and explicit GET requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [ ] Complete separately specified general I/O recovery, session reinitialization and broader server interoperability.
 - [ ] Define durable host reuse/recovery and post-promotion event delivery separately, with explicit lifetime and retention contracts.
@@ -114,7 +116,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [x] `path_review` and `current_docs` approved manual MCP Toolkit binding at the exact [tool identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance), and full verification passed.
 - [x] Implement bounded manager ownership, host-selected registration, atomic immutable Toolkit publication and joined removal/closure. Both independent reviewers approved the final scope and full verification passed.
 - [x] Implement bounded HTTP JSON/SSE body framing with strict UTF-8, all SSE line endings, incomplete-event discard, complete causes and demand-preserving decoding. Both reviewers approved the exact [transport identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance); the HTTP adapter has separate bounded acceptance.
-- [ ] Define skill-triggered groups, ambient metadata propagation, broader schema transformation and discovery caching separately; bounded manager acceptance does not close these upstream contracts.
+- [ ] Define skill Plan admission, child propagation, ambient metadata propagation, broader schema transformation and discovery caching separately; bounded manager acceptance does not close these upstream contracts.
 - [ ] Validate live end-to-end cancellation, resource release and operational controls, confirm remote CI, and complete release/API compatibility and production acceptance.
 
 ## Verification and contracts

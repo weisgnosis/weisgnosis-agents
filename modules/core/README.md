@@ -7,9 +7,10 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 | [json](src/main/scala/com/weisgnosis/agents/core/json/README.md) | Shared internal complete-document and immutable AST validation |
 | [model](src/main/scala/com/weisgnosis/agents/core/model/README.md) | Msg, content, roles, usage, codecs |
 | [event](src/main/scala/com/weisgnosis/agents/core/event/README.md) | 39 typed variants and source tagging; not all emitters are implemented |
+| [skill](src/main/scala/com/weisgnosis/agents/core/skill/README.md) | Checked preloaded catalogue, exact logical resources and explicit Meta targets; runtime loading uses ordinary authorization |
 | [tool](src/main/scala/com/weisgnosis/agents/core/tool/README.md) | Typed tools, immutable host-selected groups and pure scoped notes, attached fixed raw arguments, host-selected descriptive output schemas, immutable registry, typed completed observations, path screening |
 | [client](src/main/scala/com/weisgnosis/agents/core/client/README.md) | Client port, scripted clients, validated text/function requests, scoped HTTP completion, SSE framing and indexed assembly |
-| [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | ReAct lifecycle, run-owned group activation and snapshot-consistent descriptions/results, interruption, thinking retries, structured output |
+| [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | ReAct lifecycle, run-owned group activation, preloaded skill loading and snapshot-consistent descriptions/results, interruption, thinking retries, structured output |
 
 Typed failures are defined in [AgentError.scala](src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala). Provider extensions, remaining event integrations, automatic failover, and exhaustive upstream parity remain pending.
 
@@ -18,6 +19,8 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 Tool.encodeResult preserves String/Success behavior by default and permits typed Success/Error observations. ToolExecutionResult now stores payload/state; String constructors and its text projection remain available, while generated copy/unapply and JSON shape change. Runtime call identity/control metadata remain protected. See the [migration and limits](src/main/scala/com/weisgnosis/agents/core/tool/README.md#typed-execution-observations); the current HTTP request codec still rejects non-text tool output.
 
 ## Current review acceptance
+
+- [x] Both independent reviewers approved the [preloaded catalogue](src/main/scala/com/weisgnosis/agents/core/skill/README.md) and [runtime skill control](src/main/scala/com/weisgnosis/agents/core/agent/README.md#preloaded-skills); exact scope, identities and verification are recorded there.
 
 - [x] `path_review` and `current_docs` approved [run-owned model-facing group activation](src/main/scala/com/weisgnosis/agents/core/agent/README.md#run-owned-tool-group-activation), with fresh invocation state, request/batch snapshots and shared structured fallback. Exact source/spec identities and full verification are recorded in the linked contract.
 
