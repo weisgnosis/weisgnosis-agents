@@ -6,6 +6,7 @@ The [current contracts and acceptance](../../../../../../../main/scala/com/weisg
 
 | Suite | Contract evidence |
 | --- | --- |
+| [SubagentCatalogSpec](SubagentCatalogSpec.scala) | Three groups cover actual parent selection and fresh isolated child histories; strict/configuration rejection; depth rejection with selected identity, retained per-entry capacity and foreign-task isolation; promotion and concurrent cancel/owner closure with both entry finalizers entered before release. |
 | [SubagentDeclarationSpec](SubagentDeclarationSpec.scala) | Three groups cover checked lazy composition; actual prompt/model/execution inheritance and explicit overrides with final tool filtering; retained-session resource lifetime, history, live Deny/Plan and independent child review. Existing construction tests retain nested/cancellation coverage. |
 | [TaskSupervisorSpec](TaskSupervisorSpec.scala) | Sixteen cases cover masked admission, parent/host cancellation and cleanup joining, explicit cancellation, full typed/defect/interruption causes, completed and repeated observation, 30-second same-execution promotion, per-wait budgets, closed admission, parallel shutdown and cancellation/admission races. Race cases repeat twenty times; this is not exhaustive schedule coverage. |
 | [TaskSupervisorAgentSpec](TaskSupervisorAgentSpec.scala) | Two actual ReAct cases verify assistant-before-tool persistence, one interrupted Error result and recovery, and promoted continuation after parent closure without repeated execution. |
@@ -60,8 +61,9 @@ Both resource defects were reproduced before correction. The initialization regr
 - [x] Verify strict model-facing directory routing, selected-session result identity, isolation and joined promoted task control.
 - [x] Verify derived construction propagates static/live-denial/live-Plan restrictions while preserving own child authority across nested execution and reuse.
 - [x] Verify inline declarations and the general-purpose preset; `path_review` and `current_docs` approved the exact source/spec identities in the package acceptance, with full verification passing.
-- [ ] Complete broader declaration loading/routing and remaining upstream propagation assertions.
+- [x] `path_review` and `current_docs` approved catalog routing and the reproduced selected-identity regression; exact scope, hashes and full verification are in the package acceptance.
+- [ ] Complete broader declaration loading, automatic named reusable-session creation and remaining upstream propagation assertions.
 - [ ] Verify correlated child event forwarding and automatic source attribution.
 - [ ] Complete remaining applicable upstream method mappings after those APIs exist.
 
-Next task: verify host-declared factory selection for spawn/task/cancel tools; correlated events and durable host integration remain separate.
+Next task: verify result-preserving scoped event observation; correlated events and durable host integration remain separate.

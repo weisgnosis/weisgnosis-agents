@@ -46,6 +46,12 @@ enum SubagentSessionToolResult derives JsonCodec:
   case Session(sessionId: String, result: SubagentToolResult)
   case Missing(sessionId: String)
 
+/** Catalog selection is descriptive identity, never a factory or parent capability. */
+enum SubagentCatalogToolResult derives JsonCodec:
+  case Agent(agentId: String, result: SubagentToolResult)
+  case Missing(agentId: String)
+  case Failed(agentId: String, message: SubagentToolText)
+
 /** Opt-in controls bound to trusted host capabilities and their configured child factories. */
 object SubagentTools:
   val MaximumTextCharacters: Int = 4000
@@ -71,6 +77,34 @@ object SubagentTools:
   /** Reuse one host-selected session; task inspection and cancellation share its execution registry. */
   def forSession(session: SubagentSession): Toolkit =
     controls(session.executions, Invocation.Send)
+
+  /** Select fresh children only from this fixed host catalog; task operations keep that selection. */
+  def forCatalog(catalog: SubagentCatalog): Toolkit =
+    val spawn = catalogTool[String](
+      catalog,
+      "agent_spawn",
+      "Run the selected configured child. After 30 seconds, return its retained task ID.",
+      "prompt",
+      Access.Control,
+      Right(_)
+    )(submit)
+    val inspect = catalogTool[SubagentTaskId](
+      catalog,
+      "agent_task",
+      "Inspect a retained task of the selected child without making a model request.",
+      "task_id",
+      Access.Observation,
+      value => uuid("task_id", value).map(SubagentTaskId(_))
+    )(inspectTask)
+    val cancel = catalogTool[SubagentTaskId](
+      catalog,
+      "agent_cancel",
+      "Cancel a task of the selected child and wait for its owned cleanup.",
+      "task_id",
+      Access.Control,
+      value => uuid("task_id", value).map(SubagentTaskId(_))
+    )(cancelTask)
+    Toolkit(Map("agent_spawn" -> spawn, "agent_task" -> inspect, "agent_cancel" -> cancel))
 
   /** Route only to ready memberships in this host-selected directory; no creation authority. */
   def forDirectory(directory: SubagentSessionDirectory): Toolkit =
@@ -109,6 +143,7 @@ object SubagentTools:
       case Error(value)   => Error(f(value))
 
   final private case class RoutedInput[A](sessionId: SubagentSessionId, value: A)
+  final private case class CatalogInput[A](agentId: String, value: A)
 
   private def controls(registry: SubagentTaskRegistry, invocation: Invocation): Toolkit =
     val invoke = tool[String, SubagentToolResult](
@@ -207,7 +242,7 @@ object SubagentTools:
     tool[RoutedInput[In], SubagentSessionToolResult](
       definition(name, description, Chunk("session_id", field), access),
       raw =>
-        pairedStrings(field)(raw).flatMap: (session, value) =>
+        pairedStrings("session_id", field)(raw).flatMap: (session, value) =>
           for
             id    <- uuid("session_id", session).map(SubagentSessionId(_))
             input <- decodeValue(value)
@@ -228,6 +263,52 @@ object SubagentTools:
                 observation.map(result =>
                   SubagentSessionToolResult.Session(input.sessionId.value.toString, result)
                 )
+              )
+            )
+    )
+
+  private def catalogTool[In](
+      catalog: SubagentCatalog,
+      name: String,
+      description: String,
+      field: String,
+      access: Access,
+      decodeValue: String => Either[String, In]
+  )(
+      run: (SubagentTaskRegistry, In) => IO[AgentError, Observation[SubagentToolResult]]
+  ): Tool[Any, CatalogInput[In], SubagentCatalogToolResult] =
+    val available =
+      catalog.entries.map(entry => s"${entry.name}: ${entry.description}").mkString("\n")
+    tool[CatalogInput[In], SubagentCatalogToolResult](
+      definition(
+        name,
+        description + "\nAvailable agents:\n" + available,
+        Chunk("agent_id", field),
+        access
+      ),
+      raw =>
+        pairedStrings("agent_id", field)(raw).flatMap: (agentId, value) =>
+          decodeValue(value).map(CatalogInput(agentId, _))
+    )(input =>
+      catalog.lookup(input.agentId) match
+        case None =>
+          respond[SubagentCatalogToolResult](
+            name,
+            Observation.Error(SubagentCatalogToolResult.Missing(input.agentId))
+          )
+        case Some(registry) =>
+          run(registry, input.value)
+            .mapError: error =>
+              val failure: SubagentCatalogToolResult =
+                SubagentCatalogToolResult.Failed(input.agentId, preview(error.message))
+              AgentError.ToolExecutionError(
+                name,
+                failure.toJson
+              )
+            .flatMap(observation =>
+              respond[SubagentCatalogToolResult](
+                name,
+                observation.map(result => SubagentCatalogToolResult.Agent(input.agentId, result))
               )
             )
     )
@@ -276,15 +357,17 @@ object SubagentTools:
     case Json.Obj(Chunk((field, Json.Str(value)))) if field == name => Right(value)
     case _ => Left(s"Expected exactly one string field named $name")
 
-  private def pairedStrings(name: String)(input: Json): Either[String, (String, String)] =
+  private def pairedStrings(identity: String, name: String)(
+      input: Json
+  ): Either[String, (String, String)] =
     input match
-      case Json.Obj(Chunk(("session_id", Json.Str(session)), (field, Json.Str(value))))
-          if field == name =>
-        Right((session, value))
-      case Json.Obj(Chunk((field, Json.Str(value)), ("session_id", Json.Str(session))))
-          if field == name =>
-        Right((session, value))
-      case _ => Left(s"Expected exactly two string fields named session_id and $name")
+      case Json.Obj(Chunk((key, Json.Str(selected)), (field, Json.Str(value))))
+          if key == identity && field == name =>
+        Right((selected, value))
+      case Json.Obj(Chunk((field, Json.Str(value)), (key, Json.Str(selected))))
+          if key == identity && field == name =>
+        Right((selected, value))
+      case _ => Left(s"Expected exactly two string fields named $identity and $name")
 
   private def taskIdInput(input: Json): Either[String, SubagentTaskId] =
     stringField("task_id")(input).flatMap(value => uuid("task_id", value).map(SubagentTaskId(_)))

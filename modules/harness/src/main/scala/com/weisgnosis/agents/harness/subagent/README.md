@@ -64,7 +64,7 @@ A raw spawner does not automatically carry the factory's static boundary or inhe
 
 Final tool selection includes inherited and registered tools under the ancestor boundary. `AllAvailable` inherits available tools; `Only(Set.empty)` permits none. Declarations cannot disable live ancestor Deny/Plan checks or inherit approval authority. Callbacks remain trusted scoped host capabilities; supply fresh authorizer/Plan state per build for isolation. Plan tools, review delivery and nested controls require explicit installation.
 
-The resulting factory works with existing fresh-child registries and retained sessions. Declaration names are descriptive configuration, not session credentials or reuse keys. This additive API does not change existing factory signatures. Markdown/YAML loading, named declaration routing, skills, workspace policies, topP/variant options, structured-output execution and remote/durable declarations remain separate work.
+The resulting factory works with existing fresh-child registries and retained sessions. Declaration names are descriptive configuration, not session credentials or reuse keys. This additive API does not change existing factory signatures. Markdown/YAML loading, automatic named-session creation, skills, workspace policies, topP/variant options, structured-output execution and remote/durable declarations remain separate work.
 
 ## Policy-aware child construction
 
@@ -132,6 +132,16 @@ Reply and failure text previews are bounded to 4,000 UTF-16 code units, includin
 
 The host can install [PlanPermissionGate.inherited](../plan/PlanPermissionGate.scala) in the child's authorizer to restrict admission whenever the live parent or child mode is Plan. This adapter changes neither session nor review authority, and it adds no default exemption for spawn/send/task/cancel names. SubagentConstruction installs equivalent live admission and propagates restrictions through its derived factory path; automatic Plan tool/prompt installation remains explicit host integration work. Inline declarations use this construction path.
 
+## Host factory catalog
+
+[SubagentCatalog.open](SubagentCatalog.scala)(parent, entries, maxTrackedPerAgent = 256) validates nonblank unique entry names, nonblank descriptions and positive capacity before acquiring existing task registries. Entries pair trusted display metadata with a factory; they have no codec. Membership is immutable, and all entries retain the supplied parent capability. Opening acquires no child/client. Each spawn builds a fresh runtime. Host `lookup` exposes its registry, including explicit completed-record retirement.
+
+Capacity counts retained tasks per entry; total records are bounded by the finite entry count times that capacity, not by a byte limit. Scope closure closes entry registries in parallel and joins their tasks, including promoted work. There is no additional supervisor or lifecycle state machine. Retain the catalog and parent owner scopes for background execution; owned tasks must not close their own enclosing owner.
+
+`SubagentTools.forCatalog` installs `agent_spawn(agent_id, prompt)`, `agent_task(agent_id, task_id)` and `agent_cancel(agent_id, task_id)`. Definitions list host-selected names/descriptions. Strict two-string inputs reject extra fields; task IDs remain confined to the selected registry. Results wrap the selected agent and bounded task observation. Unknown entries and typed admission failures, including depth rejection, retain the selected identity as Error observations. Invalid input and unexpected defects use ordinary Toolkit diagnostics. Existing 30-second promotion, bounded text and joined cancellation apply unchanged.
+
+This additive adapter changes no fixed-registry, session or directory call sites. Catalog names are exact host keys, not runtime IDs or credentials. Factories determine child policy; compiling them through SubagentDeclaration/SubagentConstruction preserves inherited restrictions, while raw host factories remain trusted capabilities. There is no dynamic membership, hidden/primary mode, context-selected manager, declaration loading, reusable-session key, durable recovery or event forwarding.
+
 ## Directory-bound model routing
 
 `SubagentTools.forDirectory(directory)` supplies `agent_send`, `agent_task` and `agent_cancel` within one host-selected directory. Send requires exactly two string fields, `session_id` and `prompt`; task inspection/cancellation require exactly `session_id` and `task_id`. IDs require canonical UUID shape. Missing, duplicate, extra or wrong-type fields are rejected before lookup or work. The host supplies known membership IDs to the model; the toolkit has no discovery, construction, registration, removal or directory-closure tool.
@@ -144,12 +154,17 @@ Lookup is a membership snapshot, not atomic revocation. Removal or closure hides
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The unchanged lineage and static boundary retain their recorded approvals; the supervisor's current resource extension is reviewed below.
 
-On 2026-09-30, `path_review` and `current_docs` independently approved policy-aware construction, the shared factory build stage and three grouped integration contracts at the updated construction/factory/spec identities below, with no unresolved FP/ZIO or invariant findings. Acceptance covers derived static/live-denial/live-Plan propagation, preserved child authority, later factory derivatives, reused sessions, scoped per-build initialization and filtering before client acquisition. Existing directory, resource, session, tools, registry and boundary approvals remain scoped to the listed unchanged identities; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full `scalafmtAll scalafmtSbt verify` passed 564 core / 654 harness / 56 MCP tests (1,274 total), with zero compiler warnings or failed tests (`subagent-declaration-verify.log`).
+On 2026-09-30, `path_review` and `current_docs` independently approved policy-aware construction, the shared factory build stage and three grouped integration contracts at the updated construction/factory/spec identities below, with no unresolved FP/ZIO or invariant findings. Acceptance covers derived static/live-denial/live-Plan propagation, preserved child authority, later factory derivatives, reused sessions, scoped per-build initialization and filtering before client acquisition. Existing directory, resource, session, registry and boundary approvals remain scoped to the listed unchanged identities; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full `scalafmtAll scalafmtSbt verify` passed 564 core / 657 harness / 56 MCP tests (1,277 total), with zero compiler warnings or failed tests (`subagent-catalog-verify.log`).
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for inline declarations and the general-purpose preset at the exact identities below, with no findings. Three grouped tests cover pure validation/lazy composition, actual runtime configuration/filtering and retained-session live policy/independent Plan review. Existing construction tests supply the unchanged nested/cancellation coverage.
 
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the catalog, updated tools and three grouped integration tests at the exact identities below, with no findings. Existing fixed/session/directory paths retain their full-suite verification.
+- [x] `subagent-catalog-red.log` reproduced selected-agent identity loss on depth rejection against tools blob `f005f40434e2fe5812235abfd7d08e0137f43110`: two groups passed and the strict-routing group failed because `depthPayload` was absent. The unchanged regression passes with bounded selected-agent failure projection.
+
 | Reviewed source | Git blob |
 | --- | --- |
+| [SubagentCatalog.scala](SubagentCatalog.scala) | `fd4bb5846275c82ded15994123b299408f537e94` |
+| [SubagentCatalogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentCatalogSpec.scala) | `1659fa0d628ea35c1d394da92d953ec4ee391c21` |
 | [SubagentDeclaration.scala](SubagentDeclaration.scala) | `3b19dbb1ff08fd68a8ad0839104cf2652078ce22` |
 | [SubagentDeclarationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | `46990ef2b23ef8accd7272e1eda471173a118b3a` |
 | [SubagentSessionDirectory.scala](SubagentSessionDirectory.scala) | `41cec391f9070731db8eaf9dfa486f230b691a10` |
@@ -159,7 +174,7 @@ On 2026-09-30, `path_review` and `current_docs` independently approved policy-aw
 | [TaskSupervisor.scala](TaskSupervisor.scala) | `83aefd60831a5dbd60778327d216f589acbb7372` |
 | [TaskResource.scala](TaskResource.scala) | `075ff00099098e2bfd3278e108d24fe601412d65` |
 | [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `d8e62d19ef0b00ab6d68cc47afcc6d42ce43a85f` |
-| [SubagentTools.scala](SubagentTools.scala) | `f3611a02aadbcb2c7afbfcba41a536c06efae93d` |
+| [SubagentTools.scala](SubagentTools.scala) | `a87bf799bd883d545be30d47ef241d936cfad783` |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | `279c22f4ee3bb2f7678967e1df7fa854665eaa20` |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `70202e9940875a3813f22ed2eaa81c6ca9a343b3` |
@@ -172,7 +187,7 @@ On 2026-09-30, `path_review` and `current_docs` independently approved policy-aw
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
 
-Declaration loading/routing, inheritance through arbitrary raw host callbacks, model-selected session construction, correlated child-event forwarding, external parent permission gates and durable historical policy accumulation remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
+Declaration loading and automatic named reusable-session creation, inheritance through arbitrary raw host callbacks, model-selected session construction, correlated child-event forwarding, external parent permission gates and durable historical policy accumulation remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
 
 - [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
 - [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
@@ -188,7 +203,8 @@ Declaration loading/routing, inheritance through arbitrary raw host callbacks, m
 - [x] Verify and independently approve strict model-facing routing among host-registered sessions with scoped task controls.
 - [x] Verify and independently approve policy-aware child construction with automatic descendant restrictions through derived factories and live reused-session admission.
 - [x] Implement inline declarations and the general-purpose preset while retaining construction capability and child approval authority.
-- [ ] Complete declaration loading/routing and broader host installation.
+- [x] Implement and independently approve named host factory routing with bounded per-entry registries and parallel joined closure.
+- [ ] Complete declaration loading, automatic named reusable-session creation and broader host installation.
 - [ ] Implement correlated event forwarding and optional remote/durable task routing.
 
-Next task: host-declared factory selection for spawn/task/cancel tools; correlated event routing and durable host integration remain separate. No exhaustive upstream parity is claimed.
+Next task: result-preserving scoped event observation; correlated event routing and durable host integration remain separate. No exhaustive upstream parity is claimed.
