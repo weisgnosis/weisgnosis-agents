@@ -54,6 +54,33 @@ object SkillCatalogSpec extends ZIOSpecDefault:
   )
 
   def spec: Spec[TestEnvironment, Any] = suite("SkillCatalogSpec")(
+    test("group reminders are sorted advisory projections without changing raw definitions") {
+      val first  = definition.copy(id = "alpha", activateGroups = Set("z", "shared"))
+      val second = definition.copy(id = "omega", activateGroups = Set("shared"))
+      val quoted = definition.copy(id = "a\"b\nc", activateGroups = Set("g\"r\np"))
+      val cases = Chunk(
+        Chunk.empty[SkillDefinition]                       -> "",
+        Chunk(definition.copy(activateGroups = Set.empty)) -> "",
+        Chunk(second, first) -> ("Skill group reminders:\n" +
+          "- Keep group \"shared\" active while using any of these skills: \"alpha\", \"omega\".\n" +
+          "- Keep group \"z\" active while using any of these skills: \"alpha\"."),
+        Chunk(quoted) -> ("Skill group reminders:\n" +
+          "- Keep group \"g\\\"r\\np\" active while using any of these skills: \"a\\\"b\\nc\".")
+      )
+      ZIO
+        .foreach(cases) { case (values, expected) =>
+          for
+            catalog <- ZIO.fromEither(SkillCatalog.make(values))
+            rebuilt <- ZIO.fromEither(SkillCatalog.make(catalog.definitions))
+          yield assertTrue(
+            catalog.groupNotes == expected,
+            rebuilt.groupNotes == expected,
+            catalog.definitions == values.sortBy(_.id),
+            rebuilt.definitions == catalog.definitions
+          )
+        }
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
     test("checked catalogues reject malformed declarations and duplicates without altering text") {
       val invalid = Chunk(
         definition.copy(id = " "),

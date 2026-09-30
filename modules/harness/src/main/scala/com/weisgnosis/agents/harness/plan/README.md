@@ -81,7 +81,7 @@ This is a host adapter rather than automatic factory wiring. It does not registe
 
 ## Current admission identities
 
-`path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current gate and two changed admission suites, with no findings. The scope covers opt-in admitted-tool fallback, explicit host precedence, actual skill loading followed by mutation denial, model spoof rejection and confirmation rechecks retaining evidence while sampling live mode. Unchanged inherited admission retains its acceptance. Full `scalafmtAll scalafmtSbt verify` passed with zero compiler warnings or failed tests (`plan-admission-verify.log`); current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Automatic child metadata forwarding, full factory/reuse installation and post-admission revocation are excluded.
+`path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current gate and two changed admission suites, with no findings. The scope covers opt-in admitted-tool fallback, explicit host precedence, actual skill loading followed by mutation denial, model spoof rejection and confirmation rechecks retaining evidence while sampling live mode. Unchanged inherited admission retains its acceptance. Full `scalafmtAll scalafmtSbt verify` passed with zero compiler warnings or failed tests (`skill-reminders-final-verify.log`); current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Automatic child metadata forwarding, full factory/reuse installation and post-admission revocation are excluded.
 
 | Source | Git blob |
 | --- | --- |
@@ -92,11 +92,13 @@ This is a host adapter rather than automatic factory wiring. It does not registe
 | [PosixReadCommand.scala](PosixReadCommand.scala) | b1279b9d804743bc8e9df9fc46f0f4fd44a4bee9 |
 | [PlanModeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanModeSpec.scala) | 269fe9cba0e22e4bfbda8735ed9d4dc7b43c1e52 |
 | [PlanPermissionGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionGateSpec.scala) | ae9f03e2d791c575d0703986401a3d1addc83cbe |
-| [PlanPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionIntegrationSpec.scala) | aa81b48245b831a8bcf3a798547cb364933124e7 |
+| [PlanPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionIntegrationSpec.scala) | 297ba4dd097dc6962da659d08b61316f769e7209 |
 | [PlanShellInspectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanShellInspectionSpec.scala) | 06263d26f34e47b65a869298ac9d3db515d0fe7c |
 
 - [x] Retain `review_fp`, `review_harness` and `review_docs` acceptance against `0ad16e5` for unchanged typed classifications, exact command input and ordinary admission integration.
 - [x] Both reviewers approved the current opt-in gate and admission suites; unchanged configured-child integration retains its reviewed identity above.
+
+The skill integration compares exact call-ID/state pairs, retaining cardinality checks without assuming completion order for parallel tools. A Promise barrier releases the reader only after the denied write result is persisted. Diagnostic spec `9fe7828d5efbbf5854059dc10aaaa28419e7e3af` failed the old ordered expectation in `plan-admission-order-barrier-red.log`: Success/Denied/Success instead of Success/Success/Denied. This was a fixture expectation defect, not a runtime correction. Both reviewers approved the corrected spec identity above; full verification passed. The initial aggregate failure is recorded in `skill-reminders-verify.log`.
 
 ## In-memory plan-session lifecycle
 

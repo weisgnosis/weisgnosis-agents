@@ -488,6 +488,9 @@ final class ReActAgent private (
 
       def encodeOutput(out: String): String = out
 
+  private def toolGroupNotes(snapshot: ToolGroups): String =
+    Chunk(snapshot.metaNotes, skills.groupNotes).filter(_.nonEmpty).mkString("\n\n")
+
   private def resetEquippedTools(
       activation: Ref[ToolGroups],
       snapshot: ToolGroups
@@ -497,7 +500,7 @@ final class ReActAgent private (
       def definition: ToolDef = ToolDef(
         "reset_equipped_tools",
         "Replace the active Meta tool groups for the next model request; unlisted Meta groups are deactivated.\n" +
-          snapshot.metaNotes,
+          toolGroupNotes(snapshot),
         Json.Obj(
           "type" -> Json.Str("object"),
           "properties" -> Json.Obj(
@@ -544,7 +547,7 @@ final class ReActAgent private (
               .Obj(
                 "active_groups" -> Json
                   .Arr(Chunk.fromIterable(names.toList.sorted.map(Json.Str(_)))),
-                "notes" -> Json.Str(updated.metaNotes)
+                "notes" -> Json.Str(toolGroupNotes(updated))
               )
               .toJson
           )

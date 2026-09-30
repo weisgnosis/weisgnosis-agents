@@ -20,6 +20,7 @@ Tool.encodeResult preserves String/Success behavior by default and permits typed
 
 ## Current review acceptance
 
+- [x] Both reviewers approved pure skill-group reminders and snapshot-consistent reset description/result integration; the [catalogue](src/main/scala/com/weisgnosis/agents/core/skill/README.md) and [runtime](src/main/scala/com/weisgnosis/agents/core/agent/README.md#preloaded-skills) record exact current identities, verification and advisory limits.
 - [x] Both independent reviewers approved [transient admitted tool access](src/main/scala/com/weisgnosis/agents/core/tool/README.md#admitted-tool-access) and its ReAct propagation for opt-in [harness Plan admission](../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission); full plan-admission-verify.log verification passed. Exact identities and migration are in the linked contracts.
 
 - [x] Both independent reviewers approved the [preloaded catalogue](src/main/scala/com/weisgnosis/agents/core/skill/README.md) and [runtime skill control](src/main/scala/com/weisgnosis/agents/core/agent/README.md#preloaded-skills); exact scope, identities and verification are recorded there.

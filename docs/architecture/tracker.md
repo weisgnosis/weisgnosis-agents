@@ -1,6 +1,6 @@
 # Architecture implementation tracker
 
-Last synchronized: 2026-09-30. Implementation is active. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
+Last synchronized: 2026-10-01. Implementation is active. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
 
 ## Current acceptance
 
@@ -22,7 +22,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 595 core / 675 harness / 79 MCP tests (1,349 total), zero compiler warnings or failures. Evidence: `plan-admission-verify.log`; compile task 1 second, test task 11 seconds.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 596 core / 675 harness / 79 MCP tests (1,350 total), zero compiler warnings or failures. Evidence: `skill-reminders-final-verify.log`; compile task 1 second, test task 14 seconds including the changed harness test compilation.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -91,7 +91,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
 - [x] Both independent reviewers approved actual skill-loader Plan admission using trusted admitted-tool access, explicit host precedence and confirmation rechecks; the [Plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities) owns exact acceptance.
-- [ ] Next: pure skill-to-group reminder projection from explicit catalogue bindings; no generated registration or new activation state. General I/O recovery, session reinitialization and durable integration remain unfinished.
+- [x] Both reviewers approved pure skill-group reminders with snapshot-consistent reset descriptions/results; no generated registration or active-skill state. Exact identities and verification belong to the [catalogue](../../modules/core/src/main/scala/com/weisgnosis/agents/core/skill/README.md) and [runtime](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#preloaded-skills).
+- [ ] Next: bounded inline SKILL.md parsing; repository/filesystem loading, child propagation, general I/O recovery and durable integration remain unfinished.
 - [x] Implement and independently review scoped HTTP POST and explicit GET requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [ ] Complete separately specified general I/O recovery, session reinitialization and broader server interoperability.
 - [ ] Define durable host reuse/recovery and post-promotion event delivery separately, with explicit lifetime and retention contracts.

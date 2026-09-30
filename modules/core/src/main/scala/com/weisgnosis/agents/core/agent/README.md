@@ -22,13 +22,13 @@ Reset input is exactly an object containing `to_activate`, an array of group-nam
 
 Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a toolGroups setter and a defaulted field. Ordinary call sites retain prior behavior. Positional Builder patterns/Product arity change and downstream binaries must be rebuilt. This explicit dependency is not Toolkit metadata; filtering the supplied base toolkit cannot recover removed tools. Control-name collisions retain Toolkit's existing ToolExecutionError type/message. The reset result now adds a notes string; consumers that reject unknown result fields must accept it. Descriptions now reflect each request snapshot rather than static construction-time text.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, including group notes, preloaded skills and admitted-access propagation, with no findings. Formatting and full `verify` passed in `plan-admission-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
-- [ ] Next: skill-to-group reminder projection. Exact Java prose, child propagation and durable activation remain separate.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, including group/skill reminders, preloaded skills and admitted-access propagation, with no findings. Formatting and full `verify` passed in `skill-reminders-final-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
+- [ ] Next: bounded inline SKILL.md parsing. Exact Java prose, child propagation and durable activation remain separate.
 
 | Current source/test | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | `7250cf7c7e4c8a5c2caec91fad8b817ab23c71a0` |
-| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `679f6d58aa6adfe4df52cb698c5ef746e0945302` |
+| [ReActAgent.scala](ReActAgent.scala) | `0fbbe1a282f1740efcb96b05d3d4befb39f44f4c` |
+| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
 ## Preloaded skills
 
@@ -38,9 +38,11 @@ A nonempty catalogue installs the protected `load_skill_through_path` control af
 
 The loader is read-only and concurrency-unsafe, uses ordinary authorization and forces sequential batch dispatch. Successful lookup atomically unions the skill's explicit Meta targets with currently active Meta groups while preserving External state, then returns the exact resource content. Existing request/batch snapshots keep new tools unavailable until the next model request. Load and reset controls stay available after filtering; activation shares native-to-synthetic fallback state and resets on the next public run. A content-only catalogue still contributes a control to structured Auto capability routing.
 
+Reset descriptions and result notes include the catalogue's pure group-binding reminders beside the corresponding Meta snapshot. Rendering starts from immutable raw definitions each time, so repeated requests, fresh runs and structured fallback do not accumulate reminders. Notes are advisory: successful reset-to-empty still deactivates all Meta groups and returns their current inactive notes. Empty/no-target catalogues preserve previous note text. No active-skill state or automatic group registration is introduced.
+
 - [x] Both reviewers approved three new runtime groups within the eight-case ReActAgentToolGroupsSpec; [current runtime identities](#run-owned-tool-group-activation) and full verification cover union, exact content, error/denial isolation, hidden collisions, construction validation, fresh runs, fallback and content-only Auto routing.
 - [x] Actual skill-loader admission is verified through the opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission), including policy/confirmation and denial of mutating tools. The read-only flag alone grants no permission.
-- [ ] Implement filesystem/parser/repository loading, child skill allowlists, skill-specific notes/reminders and durable activation separately. This adapter grants no new external capabilities.
+- [ ] Implement filesystem/parser/repository loading, child skill allowlists, system-prompt skill injection and durable activation separately. This adapter grants no new external capabilities.
 
 ## Fixed-argument authorization
 

@@ -17,7 +17,7 @@ Removing groups or membership reports `newlyUngrouped` names alongside the next 
 The runtime installs an optional [run-owned activation adapter](../agent/README.md#run-owned-tool-group-activation) over this foundation.
 
 - [x] Opt-in [harness Plan admission](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission) consumes the runtime admitted-access view.
-- [ ] Next: skill-to-group reminder projection. Durable activation and automatic child propagation remain separate work.
+- [ ] Complete remaining skill/child integration from the root tracker; pure reminders have separate [catalogue acceptance](../skill/README.md). Durable activation remains separate work.
 
 Group data/enums use derived codecs; decoding does not bypass checked registration. Immutable values replace Java builders and defensive copying, and null contracts are not reproduced. Unknown activation/membership groups fail atomically rather than following upstream permissive or partially applied paths. The pure activeNotes/metaNotes accessors are additive; no existing Tool or Toolkit signature changes. Runtime note output has the [adapter migration](../agent/README.md#run-owned-tool-group-activation).
 

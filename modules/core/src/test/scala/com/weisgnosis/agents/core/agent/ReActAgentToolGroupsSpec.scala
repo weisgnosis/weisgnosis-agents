@@ -31,7 +31,22 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
   private val capture      = StructuredOutput.ToolName
   private val loadSkill    = SkillCatalog.LoadToolName
   private val schema: Json = Json.Obj("type" -> Json.Str("integer"))
+  private val skillReminders: String =
+    "Skill group reminders:\n" +
+      "- Keep group \"a\" active while using any of these skills: \"first\".\n" +
+      "- Keep group \"b\" active while using any of these skills: \"second\"."
   final private case class Request(tools: Chunk[ToolDef], config: LlmConfig)
+
+  private def hasSingleSkillReminder(request: Request): Boolean =
+    request.tools
+      .find(_.name == reset)
+      .exists(tool =>
+        tool.description.endsWith(skillReminders) &&
+          tool.description
+            .sliding("Skill group reminders:".length)
+            .count(_ == "Skill group reminders:") == 1 &&
+          !tool.description.contains("omitted")
+      )
 
   private def recording(
       requests: Ref[Chunk[Request]]
@@ -171,6 +186,7 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
             Chunk("a", "b", "external", loadSkill, reset),
             Chunk("external", loadSkill, reset)
           ),
+          observed.forall(hasSingleSkillReminder),
           observed.forall(
             _.tools
               .find(_.name == loadSkill)
@@ -331,6 +347,7 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
             index match
               case 0 => ZIO.succeed(calls(call("load", loadSkill, resource("second"))))
               case 1 => ZIO.fail(AgentError.ModelError(400, "native unsupported", Some("fixture")))
+              case 2 => ZIO.succeed(calls(call("clear", reset, activate())))
               case _ =>
                 ZIO.succeed(calls(call("capture", capture, Json.Obj("response" -> Json.Num(7)))))
           )
@@ -347,6 +364,7 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
           )
           result   <- agent.runStructured[Int](Chunk(Msg.user("number")), schema)
           observed <- requests.get
+          cleared  <- ZIO.fromEither(defaults.replaceMetaActive(Set.empty))
           plain <- ZIO.fromEither(
             SkillCatalog.make(Chunk(SkillDefinition("plain", "Content only", "Plain instructions")))
           )
@@ -370,12 +388,24 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
           plainObserved <- plainRequests.get
         yield assertTrue(
           result._2 == 7,
-          observed.map(_.config.responseFormat.isDefined) == Chunk(true, true, false),
+          observed.map(_.config.responseFormat.isDefined) == Chunk(true, true, false, false),
+          observed.forall(hasSingleSkillReminder),
           observed.map(_.tools.map(_.name)) == Chunk(
             Chunk("a", "external", loadSkill, reset),
             Chunk("a", "b", "external", loadSkill, reset),
-            Chunk("a", "b", "external", capture, loadSkill, reset)
+            Chunk("a", "b", "external", capture, loadSkill, reset),
+            Chunk("external", capture, loadSkill, reset)
           ),
+          result._1.history
+            .flatMap(_.toolResults)
+            .find(_.id == "clear")
+            .exists(result =>
+              result.outputText.fromJson[Json].toOption.exists {
+                case value: Json.Obj =>
+                  value.get("notes").contains(Json.Str(cleared.metaNotes + "\n\n" + skillReminders))
+                case _ => false
+              }
+            ),
           plainResult._2 == 8,
           plainObserved.map(_.tools.map(_.name)) == Chunk.fill(2)(Chunk(capture, loadSkill)),
           plainObserved.forall(_.config.responseFormat.isEmpty),

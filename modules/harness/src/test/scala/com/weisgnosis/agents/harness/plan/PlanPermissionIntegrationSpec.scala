@@ -53,15 +53,17 @@ object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
   private def overriddenTool(
       name: String,
       access: AdmittedToolAccess,
-      executed: Ref[Chunk[String]]
+      executed: Ref[Chunk[String]],
+      before: UIO[Unit] = ZIO.unit
   ): Tool[Any, Json, String] =
     new Tool[Any, Json, String]:
       def definition: ToolDef =
         ToolDef(name, "Host tool", Json.Obj(), isReadOnly = access == AdmittedToolAccess.Mutating)
       override def isReadOnly: Boolean                 = access == AdmittedToolAccess.ReadOnly
       def decodeInput(raw: Json): Either[String, Json] = Right(raw)
-      def execute(input: Json): UIO[String]            = executed.update(_ :+ name).as("ok")
-      def encodeOutput(out: String): String            = out
+      def execute(input: Json): UIO[String] =
+        before *> executed.update(_ :+ name).as("ok")
+      def encodeOutput(out: String): String = out
 
   private def toolkit(names: Chunk[String], run: (String, Json) => UIO[String]): Toolkit =
     Toolkit(
@@ -98,10 +100,11 @@ object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
     ) {
       for outcomes <- ZIO.foreach(Chunk.fromIterable(SkillAdmission.values)): scenario =>
           for
-            requests <- PermissionRequests.make
-            mode     <- Ref.make(PlanMode.Plan)
-            executed <- Ref.make(Chunk.empty[String])
-            observed <- Ref.make(Chunk.empty[Chunk[String]])
+            requests        <- PermissionRequests.make
+            mode            <- Ref.make(PlanMode.Plan)
+            executed        <- Ref.make(Chunk.empty[String])
+            deniedPersisted <- Promise.make[Nothing, Unit]
+            observed        <- Ref.make(Chunk.empty[Chunk[String]])
             groups <- ZIO.fromEither(
               ToolGroups.empty.register(
                 ToolGroup(
@@ -121,7 +124,12 @@ object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
             )
             base <- ZIO.fromEither(
               Toolkit(
-                overriddenTool("read", AdmittedToolAccess.ReadOnly, executed),
+                overriddenTool(
+                  "read",
+                  AdmittedToolAccess.ReadOnly,
+                  executed,
+                  deniedPersisted.await
+                ),
                 overriddenTool("write", AdmittedToolAccess.Mutating, executed)
               )
             )
@@ -173,27 +181,40 @@ object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
               toolkit = base,
               toolGroups = Some(groups),
               skills = skills,
-              toolAuthorizer = guarded
+              toolAuthorizer = guarded,
+              toolResultProcessor = ToolResultProcessor(result =>
+                (if result.id == "write" then deniedPersisted.succeed(()).unit else ZIO.unit)
+                  .as(ToolResultPayload.fromResult(result))
+              )
             )
             result      <- runtime.run(Msg.user("investigate the skill"))
             actual      <- executed.get
             definitions <- observed.get
             expected = scenario match
               case SkillAdmission.RuntimeAccess =>
-                Chunk(ToolResultState.Success, ToolResultState.Success, ToolResultState.Denied)
-              case _ => Chunk(ToolResultState.Denied)
-          yield result.history.flatMap(_.toolResults).map(_.state) == expected &&
+                Chunk(
+                  "load"  -> ToolResultState.Success,
+                  "read"  -> ToolResultState.Success,
+                  "write" -> ToolResultState.Denied
+                )
+              case _ => Chunk("load" -> ToolResultState.Denied)
+          yield assertTrue(
+            result.history
+              .flatMap(_.toolResults)
+              .map(value => value.id -> value.state)
+              .sortBy(_._1) == expected,
             actual == (if scenario == SkillAdmission.RuntimeAccess then Chunk("read")
-                       else Chunk.empty) &&
+                       else Chunk.empty),
             definitions.headOption.contains(
               Chunk(SkillCatalog.LoadToolName, "reset_equipped_tools")
-            ) &&
+            ),
             definitions
               .drop(1)
               .forall(names =>
                 names.contains("write") == (scenario == SkillAdmission.RuntimeAccess)
               )
-      yield assertTrue(outcomes.forall(identity))
+          )
+      yield outcomes.foldLeft(assertTrue(true))(_ && _)
     },
     test(
       "active plan restrictions persist and stream denied observations while forwarding read and limited plan capabilities"

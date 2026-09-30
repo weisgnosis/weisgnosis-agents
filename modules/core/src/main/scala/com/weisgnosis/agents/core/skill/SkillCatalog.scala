@@ -18,7 +18,8 @@ package com.weisgnosis.agents.core.skill
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.tool.{ToolGroups, ToolGroupScope}
 import zio.Chunk
-import zio.json.JsonCodec
+import zio.json.*
+import zio.json.ast.Json
 
 /** Host-preloaded text; decoded declarations still require checked catalogue construction. */
 final case class SkillDefinition(
@@ -34,6 +35,20 @@ final class SkillCatalog private (entries: Map[String, SkillDefinition]):
   def definitions: Chunk[SkillDefinition] =
     Chunk.fromIterable(entries.toList.sortBy(_._1).map(_._2))
   def isEmpty: Boolean = entries.isEmpty
+
+  /** Advisory guidance derived from explicit bindings, without tracking which skills are in use. */
+  def groupNotes: String =
+    val bindings = definitions.toList
+      .flatMap(skill => skill.activateGroups.toList.map(group => group -> skill.id))
+      .groupMap(_._1)(_._2)
+    if bindings.isEmpty then ""
+    else
+      val lines = bindings.toList
+        .sortBy(_._1)
+        .map: (group, ids) =>
+          val quotedIds = ids.distinct.sorted.map(id => Json.Str(id).toJson).mkString(", ")
+          s"- Keep group ${Json.Str(group).toJson} active while using any of these skills: $quotedIds."
+      "Skill group reminders:\n" + lines.mkString("\n")
 
   def validateGroups(groups: ToolGroups): Either[AgentError.InvalidConfiguration, Unit] =
     definitions
