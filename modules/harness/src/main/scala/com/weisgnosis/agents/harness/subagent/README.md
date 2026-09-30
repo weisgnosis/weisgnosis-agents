@@ -207,4 +207,4 @@ Declaration loading and automatic named reusable-session creation, inheritance t
 - [ ] Complete declaration loading, automatic named reusable-session creation and broader host installation.
 - [ ] Implement correlated event forwarding and optional remote/durable task routing.
 
-Next task: result-preserving scoped event observation; correlated event routing and durable host integration remain separate. No exhaustive upstream parity is claimed.
+Next task: invocation-scoped tool event capability and child forwarding; correlated event routing and durable host integration remain separate. No exhaustive upstream parity is claimed.

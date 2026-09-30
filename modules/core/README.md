@@ -19,6 +19,8 @@ Tool.encodeResult preserves String/Success behavior by default and permits typed
 
 ## Current review acceptance
 
+- [x] `path_review` and `current_docs` approved ordinary/structured result-bearing event streams, preserving complete results, terminal causes and joined cancellation; exact identities and full verification are in the [agent contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md#result-bearing-streams).
+
 - [x] `path_review` and `current_docs` approved typed execution payloads and compound-cause preservation; full repository verification passed and the [tool acceptance](src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) records the final evidence.
 
 - [x] `path_review` and `current_docs` approved the additive [McpError and McpRemoteError boundaries](src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) and their request/client integration, including absent versus explicit-null remote data, with no findings.

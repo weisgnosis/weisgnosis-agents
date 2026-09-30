@@ -66,4 +66,4 @@ Both resource defects were reproduced before correction. The initialization regr
 - [ ] Verify correlated child event forwarding and automatic source attribution.
 - [ ] Complete remaining applicable upstream method mappings after those APIs exist.
 
-Next task: verify result-preserving scoped event observation; correlated events and durable host integration remain separate.
+Next task: verify invocation-scoped tool event capability and child forwarding; correlated events and durable host integration remain separate.

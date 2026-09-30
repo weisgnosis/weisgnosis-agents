@@ -10,7 +10,7 @@ ReActAgent retains in-memory history through private Ref values and serializes r
 
 | Module | Available | Pending |
 | --- | --- | --- |
-| core | Models/codecs, event ADT, tools, path checks, SSE parsing/assembly, scoped HTTP completion, client port, ReAct and structured output | Provider extensions, complete event integration, and exhaustive upstream parity |
+| core | Models/codecs, event ADT, tools, path checks, SSE parsing/assembly, scoped HTTP completion, client port, ReAct, structured output and result-bearing streams | Provider extensions, complete event integration, and exhaustive upstream parity |
 | harness | Daily-memory extraction/local storage, in-memory/recoverable local consolidation, in-memory/local transcript observations, compactor, token estimator, opt-in result eviction/store and permission adapters, reviewed plan sessions and local drafts, scoped task supervision, configured child factories, task/session registries and tools, live denial/Plan inheritance and explicit policy-aware child construction, inline declarations and a scoped named factory catalog | Durable checkpoints/reuse, remote memory/transcript storage, declaration loading, automatic named reusable-session creation and correlated event routing |
 | mcp | Checked 2025-06-18 initialization, capability-checked list/call, bounded discovery, joined deadlines, scoped stdio, bounded POST-only HTTP with JSON/SSE responses and session headers, explicit Toolkit binding and bounded scoped manager ownership | GET/resumption, session termination/recovery, cancellation notifications; presets, groups, ambient metadata propagation, caching and schema evaluation |
 

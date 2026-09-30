@@ -12,7 +12,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 657 harness / 56 MCP tests (1,277 total), zero compiler warnings or failures. Evidence: `subagent-catalog-verify.log`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 567 core / 657 harness / 56 MCP tests (1,280 total), zero compiler warnings or failures. Evidence: `agent-run-update-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -59,7 +59,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 - [x] Implement and independently review inline declared/general-purpose composition through SubagentConstruction, preserving scoped host dependencies and inherited policy.
 - [x] Expose and independently review a bounded host-declared factory catalog through model-facing spawn/task/cancel tools, retaining existing registry ownership.
-- [ ] Next: add result-preserving scoped event observation as the prerequisite for correlated child event forwarding.
+- [x] Add and independently review ordinary/structured result-bearing event streams with complete result state, full terminal causes and joined cleanup.
+- [ ] Next: add an explicit invocation-scoped tool event capability, then correlate child event forwarding through owned execution.
 - [x] Implement and independently review scoped POST-only HTTP requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [ ] Complete separately specified GET listening, resumption, session DELETE/reinitialization, cancellation notifications and external-server interoperability.
 - [ ] Complete declaration loading and automatic named reusable-session creation; retain the accepted construction boundary.

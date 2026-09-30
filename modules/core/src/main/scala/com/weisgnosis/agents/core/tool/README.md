@@ -44,6 +44,8 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 | [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | a85af9fa35a0848944627973bda1413e4ca4e881 |
 | [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 703c7abec55bb3b4ea5d429ecefa76c9f1557b16 |
 
+The table records the typed-result review baseline. ReActAgent's current identity and verification are recorded in the independently approved [result-bearing stream extension](../agent/README.md#result-bearing-streams); typed tool behavior is unchanged.
+
 Platform-specific symlink/junction behavior and hostile filesystem races remain outside the verified guarantees. Current command-screening evidence is recorded in the [test README](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions).
 
 ## Completed result processing

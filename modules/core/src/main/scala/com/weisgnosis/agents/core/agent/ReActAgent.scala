@@ -242,9 +242,37 @@ final class ReActAgent private (
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
     runStructured[A](Chunk(message), schema, StructuredMode.Auto)
 
+  /**
+   * Streams one invocation's events followed by its complete result, after execution cleanup.
+   * A fully consumed stream preserves the full failure Cause and emits no Result on failure.
+   * Early consumers cancel and join owned work but abandon subsequent output, including terminal
+   * observer failures. This uses the existing unbounded delivery buffers and provides no replay.
+   */
+  def streamWithResult(
+      messages: Chunk[Msg]
+  ): ZStream[Scope, AgentError, AgentRunUpdate[AgentResult]] =
+    streamRun((hub, complete) => runOrdinaryWithHub(messages, hub, complete))
+
+  def streamWithResult(message: Msg): ZStream[Scope, AgentError, AgentRunUpdate[AgentResult]] =
+    streamWithResult(Chunk(message))
+
+  /** The terminal value retains both the complete result and its validated structured value. */
+  def streamStructuredWithResult[A: JsonCodec](
+      messages: Chunk[Msg],
+      schema: Json,
+      mode: StructuredMode = StructuredMode.Auto
+  ): ZStream[Scope, AgentError, AgentRunUpdate[(AgentResult, A)]] =
+    streamRun((hub, complete) => runStructuredWithHub[A](messages, schema, mode, hub, complete))
+
+  def streamStructuredWithResult[A: JsonCodec](
+      message: Msg,
+      schema: Json
+  ): ZStream[Scope, AgentError, AgentRunUpdate[(AgentResult, A)]] =
+    streamStructuredWithResult[A](Chunk(message), schema, StructuredMode.Auto)
+
   /** Streams typed lifecycle and delta events while running the turn in the background. */
   def streamEvents(messages: Chunk[Msg]): ZStream[Scope, AgentError, AgentEvent] =
-    streamRun((hub, complete) => runOrdinaryWithHub(messages, hub, complete))
+    streamWithResult(messages).collect { case AgentRunUpdate.Event(event) => event }
 
   /** Streams an attempt through validated structured completion before its result/end events. */
   def streamStructuredEvents[A: JsonCodec](
@@ -252,7 +280,9 @@ final class ReActAgent private (
       schema: Json,
       mode: StructuredMode = StructuredMode.Auto
   ): ZStream[Scope, AgentError, AgentEvent] =
-    streamRun((hub, complete) => runStructuredWithHub[A](messages, schema, mode, hub, complete))
+    streamStructuredWithResult[A](messages, schema, mode).collect {
+      case AgentRunUpdate.Event(event) => event
+    }
 
   def streamStructuredEvents[A: JsonCodec](
       message: Msg,
@@ -262,15 +292,17 @@ final class ReActAgent private (
 
   private def streamRun[A](
       runEffect: (Hub[AgentEvent], AgentResult => IO[AgentError, Unit]) => ZIO[Scope, AgentError, A]
-  ): ZStream[Scope, AgentError, AgentEvent] =
+  ): ZStream[Scope, AgentError, AgentRunUpdate[A]] =
     ZStream.unwrapScoped {
       for
-        hub      <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-        sub      <- hub.subscribe
-        delivery <- ZIO.acquireRelease(Queue.unbounded[Take[AgentError, AgentEvent]])(_.shutdown)
+        hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+        sub <- hub.subscribe
+        delivery <- ZIO.acquireRelease(Queue.unbounded[Take[AgentError, AgentRunUpdate[A]]])(
+          _.shutdown
+        )
         forwarder <- ZStream
           .fromQueue(sub)
-          .runForeach(event => delivery.offer(Take.single(event)).unit)
+          .runForeach(event => delivery.offer(Take.single(AgentRunUpdate.Event(event))).unit)
           .forkScoped
         _ <- ZIO.uninterruptibleMask { restore =>
           for
@@ -283,11 +315,13 @@ final class ReActAgent private (
             tail <- sub.takeAll
             _    <- sub.shutdown
             _    <- forwarder.join
-            _    <- delivery.offer(Take.chunk(tail))
-            terminal = exit match
-              case Exit.Success(_)     => Take.end
-              case Exit.Failure(cause) => Take.failCause(cause)
-            _ <- delivery.offer(terminal)
+            _    <- delivery.offer(Take.chunk(tail.map(AgentRunUpdate.Event(_))))
+            _ <- exit match
+              case Exit.Success(value) =>
+                delivery.offer(Take.single(AgentRunUpdate.Result(value))) *> delivery.offer(
+                  Take.end
+                )
+              case Exit.Failure(cause) => delivery.offer(Take.failCause(cause))
           yield ()
         }.forkScoped
       yield ZStream.fromQueue(delivery).flattenTake

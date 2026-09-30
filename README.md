@@ -4,11 +4,11 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. The bounded scoped MCP manager and POST-only HTTP adapter have independent approval and full verification. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is result-preserving event observation, followed by correlated child event forwarding. Event routing and durable host recovery remain separate.
+Implementation is active. The bounded scoped MCP manager and POST-only HTTP adapter have independent approval and full verification. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is an invocation-scoped tool event capability, followed by correlated child event forwarding. Event routing and durable host recovery remain separate.
 
 ## Implemented components
 
-- **core:** immutable messages, 39 typed event variants, JSON codecs, typed tools with completed observation payloads, path screening, SSE parsing and chunk assembly, and ReAct execution with interruption recovery, bounded thinking retries, and structured output.
+- **core:** immutable messages, 39 typed event variants, JSON codecs, typed tools with completed observation payloads, path screening, SSE parsing and chunk assembly, and ReAct execution with interruption recovery, bounded thinking retries, structured output and result-bearing event streams.
 - **harness:** daily-memory extraction, scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, typed transcript observations with in-memory and scoped local stores and opt-in completion recording, typed memory triggers with shared monotonic admission, a scoped task queue with pending conversation coalescing and completion-triggered memory flush, conversation compaction, opt-in runtime result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
 - **mcp:** checked 2025-06-18 payloads, bounded request correlation, scoped RPC ownership, direct-process stdio and bounded HTTP JSON/SSE body framing. The initialized client adds capability-checked listing/calls, bounded discovery and joined deadlines. Manual tool binding and the scoped manager preserve host authority, typed observations and resource ownership. A scoped POST-only HTTP adapter supports JSON/SSE responses and session headers; GET, resumption and automatic recovery remain separate.
 
