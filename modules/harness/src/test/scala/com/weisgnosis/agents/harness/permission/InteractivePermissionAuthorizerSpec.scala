@@ -34,6 +34,89 @@ object InteractivePermissionAuthorizerSpec extends ZIOSpecDefault:
   private val allow: PermissionRule = PermissionRule("read", PermissionBehavior.Allow)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("InteractivePermissionAuthorizerSpec")(
+    test(
+      "an additional gate keeps original authority and shares confirmed rules without changing the original view"
+    ) {
+      val toolBlocked        = Json.Str("blocked by original tool gate")
+      val interceptorBlocked = Json.Str("blocked by original interceptor")
+      val sharedRule         = PermissionRule("shared", PermissionBehavior.Allow)
+      for
+        requests         <- PermissionRequests.make
+        published        <- Queue.unbounded[ToolAuthorizationRequest]
+        publicationCount <- Ref.make(0)
+        addedInputs      <- Ref.make(Chunk.empty[Json])
+        authorizer <- InteractivePermissionAuthorizer.make(
+          requests,
+          value => publicationCount.update(_ + 1) *> published.offer(value).unit,
+          PermissionEngine(Chunk(allow)),
+          toolGate = PermissionGate((_, input) =>
+            ZIO.succeed(Option.when(input == toolBlocked)(PermissionBehavior.Deny))
+          ),
+          interceptorGate = PermissionGate((name, input) =>
+            ZIO.succeed(
+              if input == interceptorBlocked then Some(PermissionBehavior.Deny)
+              else Option.when(name == "read")(PermissionBehavior.Allow)
+            )
+          )
+        )
+        view = authorizer.withAdditionalGate(
+          PermissionGate((_, input) =>
+            addedInputs
+              .update(_ :+ input)
+              .as(
+                Some(
+                  if input == modified then PermissionBehavior.Deny else PermissionBehavior.Ask
+                )
+              )
+          )
+        )
+        waiting          <- ZIO.scoped(view.authorize(request("added"))).forkScoped
+        publication      <- published.take
+        pending          <- requests.pendingIds
+        unfinished       <- waiting.poll
+        originalDecision <- ZIO.scoped(authorizer.authorize(request("original")))
+        _ <- requests.resolve("added", ConfirmResult(true, Some(modified), Chunk(sharedRule)))
+        modifiedDecision <- waiting.join
+        toolDecision <- ZIO.scoped(
+          view.authorize(
+            request("tool").copy(
+              call = request("tool").call.copy(input = toolBlocked)
+            )
+          )
+        )
+        interceptorDecision <- ZIO.scoped(
+          view.authorize(
+            request("interceptor").copy(
+              call = request("interceptor").call.copy(input = interceptorBlocked)
+            )
+          )
+        )
+        sharedDecision <- ZIO.scoped(
+          authorizer.authorize(
+            request("shared").copy(
+              call = request("shared").call.copy(name = "shared")
+            )
+          )
+        )
+        originalPolicy <- authorizer.policy
+        viewPolicy     <- view.policy
+        inputs         <- addedInputs.get
+        count          <- publicationCount.get
+      yield assertTrue(
+        publication.requestId == "added",
+        pending.contains("added"),
+        unfinished.isEmpty,
+        originalDecision == ToolAuthorization.Approved(original),
+        modifiedDecision.isInstanceOf[ToolAuthorization.Denied],
+        toolDecision.isInstanceOf[ToolAuthorization.Denied],
+        interceptorDecision.isInstanceOf[ToolAuthorization.Denied],
+        sharedDecision == ToolAuthorization.Approved(original),
+        originalPolicy.rules == Chunk(allow, sharedRule),
+        viewPolicy == originalPolicy,
+        inputs == Chunk(original, modified, toolBlocked, interceptorBlocked),
+        count == 1
+      )
+    },
     test("known allow skips publication and an independent deny still wins") {
       for
         requests  <- PermissionRequests.make

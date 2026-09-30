@@ -26,6 +26,21 @@ trait PermissionGate:
       input: Json
   ): ZIO[Scope, AgentError.PermissionDenied, Option[PermissionBehavior]]
 
+  /**
+   * Evaluate both votes in separate scopes, including after a Deny vote; None abstains.
+   * Failed evaluation or cleanup stops composition and preserves its cause.
+   */
+  def and(that: PermissionGate): PermissionGate =
+    PermissionGate: (name, input) =>
+      for
+        first  <- ZIO.scoped(ZIO.suspendSucceed(evaluate(name, input)))
+        second <- ZIO.scoped(ZIO.suspendSucceed(that.evaluate(name, input)))
+      yield (first, second) match
+        case (Some(left), Some(right)) => Some(PermissionBehavior.combine(left, right))
+        case (Some(left), None)        => Some(left)
+        case (None, Some(right))       => Some(right)
+        case (None, None)              => None
+
 object PermissionGate:
   val abstain: PermissionGate = PermissionGate((_, _) => ZIO.none)
 

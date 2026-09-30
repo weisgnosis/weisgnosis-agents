@@ -5,7 +5,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 ## Current acceptance
 
 - [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved resource ownership, host-held sessions, bounded host session membership, fixed-session tools and directory-routed tools, with no findings. Exact reviewed scope and identities are in the [tool](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 645 harness tests (1,206 total), zero compiler warnings or failures. Local evidence: `subagent-routing-verify.log`.
+- [x] `path_review` and `current_docs` approved explicit gate composition and authorizer views; exact identities and scope are in the [permission contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance). Automatic child installation remains unfinished.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 648 harness tests (1,209 total), zero compiler warnings or failures. Local evidence: `permission-composition-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -22,6 +23,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 - [x] Pair-safe compaction, merged summaries, retained user provenance, token estimation and opt-in local/inline result eviction with 80,000-character offloading and 2,000-character previews.
 - [x] Immutable permission priorities, interactive Promise-based confirmation, current-policy/input rechecks and serializable durable approval data.
+- [x] Explicit permission-gate composition preserves priority, separate sequential resource scopes and failure/cancellation causes; immutable authorizer views retain shared policy/confirmation authority and rerun added gates against confirmed input.
 - [x] Daily-memory extraction, in-memory and cooperative local stores, budgeted consolidation and recoverable local publication. Daily writers target `memory/YYYY-MM-DD.md`; only the consolidator writes curated `MEMORY.md` within 4,000 configured-counter tokens.
 - [x] Typed transcripts, opt-in completion recording, shared monotonic triggers, bounded scoped task queues, pending conversation coalescing and completion-triggered flush.
 - [x] Configured maintenance with acknowledged daily archival, explicit ordered transcript pruning, calendar retention, immutable budgets and literal prompt templates.

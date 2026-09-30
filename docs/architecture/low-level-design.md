@@ -192,6 +192,8 @@ PlanMode is Build or Plan. PlanToolAccess is ReadOnly, PlanControl, RequestExecu
 
 `PlanPermissionGate.inherited(parentMode, childMode, access)` constructs a gate without evaluating either UIO. Each admission reads both modes and delegates to the existing gate with Plan if either sample is Plan; otherwise it abstains in Build. Interactive confirmation re-evaluates this gate against current modes and approved arguments. The samples are not atomic; later changes do not revoke admitted work. Hosts install the adapter explicitly, with no session mutation, approval copying or automatic nested/reuse configuration.
 
+`PermissionGate.and` composes optional votes with separate sequential scopes and existing priority; failure or cancellation stops evaluation. `InteractivePermissionAuthorizer.withAdditionalGate` preserves policy and confirmation authority while adding a live interceptor to initial admission and confirmed-input checks. The original view remains usable and unchanged. These are host composition APIs; automatic child construction remains pending.
+
 ## Plan-session APIs
 
 PlanSession.make returns control and reviewer capabilities. Control exposes snapshot/mode, enter, replaceDraft(PlanDraft), and scoped requestReview. PlanReview.await returns Approved(exact ApprovedPlan), Declined, Superseded or Cancelled. Reviewer.resolve returns Applied or NotCurrent after exact current-ticket comparison. PlanSessionSnapshot has Build, Planning and AwaitingReview cases; its codec is observational data, not a restore API. See the [unchanged prior session identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-session-identities).

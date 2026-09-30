@@ -15,12 +15,113 @@
  */
 package com.weisgnosis.agents.harness.permission
 
+import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 import zio.json.ast.Json
 import zio.test.*
 
 object PermissionGateSpec extends ZIOSpecDefault:
+  private enum Stop:
+    case Failure, Defect, Cancellation
+
   def spec: Spec[TestEnvironment, Any] = suite("PermissionGateSpec")(
+    test("composed gates retain optional votes and close each scope before evaluating the next") {
+      val cases = Chunk(
+        (None, None, None),
+        (None, Some(PermissionBehavior.Allow), Some(PermissionBehavior.Allow)),
+        (Some(PermissionBehavior.Allow), None, Some(PermissionBehavior.Allow)),
+        (
+          Some(PermissionBehavior.Deny),
+          Some(PermissionBehavior.Ask),
+          Some(PermissionBehavior.Deny)
+        ),
+        (Some(PermissionBehavior.Allow), Some(PermissionBehavior.Ask), Some(PermissionBehavior.Ask))
+      )
+      ZIO
+        .foreach(cases) { case (firstVote, secondVote, expected) =>
+          for
+            events <- Ref.make(Chunk.empty[String])
+            first = PermissionGate((name, input) =>
+              ZIO
+                .acquireRelease(events.update(_ :+ s"first:$name:$input"))(_ =>
+                  events.update(_ :+ "first released")
+                )
+                .as(firstVote)
+            )
+            second = PermissionGate((name, input) =>
+              ZIO
+                .acquireRelease(events.update(_ :+ s"second:$name:$input"))(_ =>
+                  events.update(_ :+ "second released")
+                )
+                .as(secondVote)
+            )
+            combined = first.and(second).evaluate("tool", Json.Obj())
+            before <- events.get
+            result <- ZIO.scoped(
+              combined.flatMap(vote => events.get.map(observed => (vote, observed)))
+            )
+          yield assertTrue(
+            before.isEmpty,
+            result._1 == expected,
+            result._2 == Chunk(
+              s"first:tool:${Json.Obj()}",
+              "first released",
+              s"second:tool:${Json.Obj()}",
+              "second released"
+            )
+          )
+        }
+        .map(results => results.reduceOption(_ && _).getOrElse(assertTrue(false)))
+    },
+    test(
+      "composed gate failure defect and cancellation join cleanup without evaluating the second gate"
+    ) {
+      val failure = AgentError.PermissionDenied("tool", "gate unavailable")
+      val defect  = new IllegalStateException("gate defect")
+      ZIO
+        .foreach(Chunk(Stop.Failure, Stop.Defect, Stop.Cancellation)) { stop =>
+          ZIO.scoped:
+            for
+              entered     <- Promise.make[Nothing, Unit]
+              cleaning    <- Promise.make[Nothing, Unit]
+              release     <- Promise.make[Nothing, Unit]
+              secondCalls <- Ref.make(0)
+              closed      <- Ref.make(0)
+              first = PermissionGate((_, _) =>
+                ZIO.acquireRelease(entered.succeed(()))(_ =>
+                  cleaning.succeed(()) *> release.await *> closed.update(_ + 1)
+                ) *> (stop match
+                  case Stop.Failure      => ZIO.fail(failure)
+                  case Stop.Defect       => ZIO.die(defect)
+                  case Stop.Cancellation => ZIO.never)
+              )
+              second = PermissionGate((_, _) =>
+                secondCalls.update(_ + 1).as(Some(PermissionBehavior.Allow))
+              )
+              evaluating <- ZIO.scoped(first.and(second).evaluate("tool", Json.Obj())).forkScoped
+              _          <- entered.await
+              finishing <- (stop match
+                case Stop.Cancellation => evaluating.interrupt
+                case _                 => evaluating.await
+              ).forkScoped
+              _        <- cleaning.await
+              pending  <- finishing.poll
+              _        <- release.succeed(())
+              result   <- finishing.join
+              calls    <- secondCalls.get
+              releases <- closed.get
+            yield assertTrue(
+              pending.isEmpty,
+              calls == 0,
+              releases == 1,
+              stop match
+                case Stop.Failure      => result.causeOption.exists(_.failures.contains(failure))
+                case Stop.Defect       => result.causeOption.exists(_.defects.contains(defect))
+                case Stop.Cancellation => result.isInterrupted
+            )
+        }
+        .map(results => results.reduceOption(_ && _).getOrElse(assertTrue(false)))
+    },
     test("effectful gates are lazy and abstention makes no policy decision") {
       for
         calls <- Ref.make(0)

@@ -30,6 +30,19 @@ final class InteractivePermissionAuthorizer private (
 ) extends ToolAuthorizer:
   def policy: UIO[PermissionEngine] = policyRef.get
 
+  /**
+   * Add a live gate while retaining this instance's policy and confirmation authority.
+   * The original view is unchanged. Allow is an affirmative vote, not an abstention.
+   */
+  def withAdditionalGate(gate: PermissionGate): InteractivePermissionAuthorizer =
+    new InteractivePermissionAuthorizer(
+      policyRef,
+      requests,
+      publish,
+      toolGate,
+      interceptorGate.and(gate)
+    )
+
   def authorize(
       request: ToolAuthorizationRequest
   ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization] =

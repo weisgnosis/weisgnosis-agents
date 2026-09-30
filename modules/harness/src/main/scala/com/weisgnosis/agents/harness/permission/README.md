@@ -14,6 +14,10 @@ The authorizer owns an in-memory Ref of immutable PermissionEngine state, expose
 
 PermissionGate evaluates only the authoritative tool name and Json input, never cached raw argument text or model control metadata. The default gate abstains. Both injected gates run in separate scopes; resources close before publication/waiting and before dispatch. Gates must handle arbitrary Json; core performs final unique-key JSON and signed/detailed reasoning checks after authorization.
 
+`PermissionGate.and` evaluates both successful votes in order, including after Deny, and combines them with the existing priority. Each evaluator and its cleanup finish in a separate Scope before the next begins. A typed failure, defect or interruption stops composition and retains its cause. None abstains; Allow is an affirmative vote that can resolve the implicit Ask default when all other sources abstain.
+
+`InteractivePermissionAuthorizer.withAdditionalGate` returns an immutable view with the same policy Ref, confirmation requests, publisher and tool gate, composing the added gate after the existing interceptor. The added gate runs for initial admission and confirmed-input rechecks. The original view remains unchanged; confirmed rules are shared. Hosts control which view is installed and must not treat composition as revocation of an older capability or automatic child-policy installation.
+
 Initial decisions use the current policy after gate evaluation. Allow executes without prompting; Deny produces a completed Denied observation without execution. Ask and Passthrough await confirmation. A decline preserves a supplied reason, defaults to "Tool execution declined", installs no new rules, and does not rerun gates.
 
 Positive confirmation reruns both gates against modifiedInput, or the original input if absent. The adapter then atomically resumes against the latest policy and merges newRules. Confirmation satisfies the interactive Ask/Passthrough decision but never overrides a policy or gate Deny. No policy lock spans the human wait, so other requests sharing the authorizer can complete and install a deny that applies to an earlier waiter. The agent run lock remains held; concurrent invocations on the same agent serialize. Gate typed failures remain PermissionDenied; core converts failures and defects into fail-closed Denied observations. Publication defects and cancellation remove pending waiters; late resolution returns false.
@@ -36,14 +40,17 @@ See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harne
 
 ## Current review acceptance
 
-- [x] `review_fp` and `review_harness` approved the final five-file interactive permission increment against `5eb4bdc` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 61 harness tests, including sixteen added permission tests. Approval covers in-memory active-invocation authorization; durable resumption, authentication, and post-decision revocation remain outside scope.
+- [x] `path_review` and `current_docs` independently approved scoped gate composition and authority-preserving authorizer views at the four identities below on 2026-09-30, with no unresolved findings. Three grouped additions verify lazy ordered cleanup, optional votes, failure/cancellation and shared confirmation policy with modified-input rechecks.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed 561 core and 648 harness tests (1,209 total), with zero compiler warnings or failures (`permission-composition-verify.log`).
+- [ ] Integrate inherited policy automatically during child construction. Composition itself does not install policy or revoke existing views.
+- [ ] Implement durable resumption, authenticated delivery and remaining upstream permission mode/batch-event integration.
 
-Final formatted scope against `5eb4bdc`:
+The unchanged runtime integration suite retains `review_fp` and `review_harness` approval against `5eb4bdc`. Current acceptance is limited to in-memory active-invocation authorization and the named composition contracts, not exhaustive upstream parity or post-decision revocation.
 
-| File | Git blob |
+| File | Reviewed Git blob |
 | --- | --- |
-| [PermissionGate.scala](PermissionGate.scala) | 335a66086bd57d45a38b7cad1397c03eafccee5d |
-| [InteractivePermissionAuthorizer.scala](InteractivePermissionAuthorizer.scala) | 42c652ff8bc3c4616501d444904655e627f20cfe |
-| [PermissionGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PermissionGateSpec.scala) | 7e9bd36dfe54b878a9cffb0a79e62345f72885a0 |
-| [InteractivePermissionAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionAuthorizerSpec.scala) | 86989c6062a5a3f71440fb0e77c9de876c58d38c |
-| [InteractivePermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionIntegrationSpec.scala) | 39018f4506ff02e122901c661f7d7d96cedfa192 |
+| [PermissionGate.scala](PermissionGate.scala) | `c5ac48853643e028ddb354d4eac8a4fc7979398a` |
+| [InteractivePermissionAuthorizer.scala](InteractivePermissionAuthorizer.scala) | `0b4eddb646312518865d26adae85ec5e4faec0d9` |
+| [PermissionGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PermissionGateSpec.scala) | `9b5b4cd0e4d28763fe0905bc6387b8213fc3fd5f` |
+| [InteractivePermissionAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionAuthorizerSpec.scala) | `79b0aa4b4c179f1baf45a79a5dff31f0c062cbc0` |
+| [InteractivePermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionIntegrationSpec.scala), unchanged | `39018f4506ff02e122901c661f7d7d96cedfa192` |

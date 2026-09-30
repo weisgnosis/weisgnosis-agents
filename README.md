@@ -69,6 +69,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 ## Current acceptance
 
 - [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved retained resource ownership, host-held sessions, bounded host session membership, fixed-session tools and directory-routed tools, with no findings. Exact scope and reviewed identities are in the [tool](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
+- [x] `path_review` and `current_docs` approved [scoped permission composition and shared authorizer views](modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance), including confirmed-input rechecks. Automatic child installation remains pending.
 - [x] Required formatting, fatal-warning compilation and tests pass; the [tracker](docs/architecture/tracker.md#current-acceptance) records current verification evidence.
 - [ ] Complete automatic nested policy integration; durable host recovery remains separate.
 

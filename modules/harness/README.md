@@ -19,6 +19,7 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 ## Current review acceptance
 
 - [x] `path_review` approved configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved retained resource ownership, host-held sessions, bounded host session membership, fixed-session tools and directory-routed tools, with no findings. The [subagent](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts record exact scope and reviewed identities; other packages retain their own scoped acceptance.
+- [x] `path_review` and `current_docs` approved [scoped permission composition and shared authorizer views](src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance), including confirmed-input rechecks. Automatic child installation remains pending.
 - [x] Required formatting, fatal-warning compilation and tests pass; see [current verification evidence](../../docs/architecture/tracker.md#current-acceptance).
 - [ ] Complete automatic nested/reused-child policy integration; durable host recovery remains separate.
 
