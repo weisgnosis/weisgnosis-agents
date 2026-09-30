@@ -1,6 +1,6 @@
 # com.weisgnosis.agents.mcp.transport
 
-Status: planned. No process, HTTP, SSE, or other MCP transport is implemented. The [protocol package](../protocol/README.md) provides accepted checked envelopes and pure 2025-06-18 initialization payload helpers accepted within the documented payload scope; neither implements a runtime handshake.
+Status: planned. No process, HTTP, SSE, or other MCP transport is implemented. The [protocol package](../protocol/README.md) provides accepted checked envelopes and pure 2025-06-18 initialization, tool request, list-result, and call-result helpers within their documented payload scope; these do not implement a runtime handshake.
 
 Transport design must make ownership, request correlation, inbound server messages, cancellation, message size limits, and shutdown explicit. Local processes and network streams must remain scoped; cancellation must join owned cleanup. Authentication and server trust are host responsibilities.
 

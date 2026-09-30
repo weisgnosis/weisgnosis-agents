@@ -1,6 +1,6 @@
 # mcp: source package index
 
-- [protocol](protocol/README.md): accepted envelope/2025-06-18 initialization helpers; accepted tool request/list-result helpers.
+- [protocol](protocol/README.md): accepted envelope/2025-06-18 initialization helpers; accepted tool request/list/call-result projections.
 - [transport](transport/README.md): planned connection and transport ownership.
 - [client](client/README.md): planned version-specific lifecycle, discovery, tool calls, and Toolkit integration.
 

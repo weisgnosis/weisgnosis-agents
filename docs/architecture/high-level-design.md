@@ -19,7 +19,7 @@ harness: compactor, eviction/store port, permission components
 core: models, codecs, events, tools, client port,
       SSE parsing/assembly, scoped HTTP completion, ReAct lifecycle, structured output
 
-mcp: checked envelopes, 2025-06-18 initialization/discovery/call requests; client and transports pending
+mcp: checked envelopes and 2025-06-18 initialization/discovery/call payloads; client and transports pending
 ```
 
 The host owns durable transactions, replay, tenant authentication, and execution idempotency. ReActAgent owns in-memory conversation state and serializes runs. Per-run and per-request scopes bound resources independently of the caller's outer scope.
@@ -65,6 +65,7 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Checked common MCP request, notification, success and error envelopes.
 - [x] Pure 2025-06-18 initialization payloads with exact-version checks and capability projection; connection lifecycle remains planned.
 - [x] Checked 2025-06-18 discovery pages and tool-call requests, preserving schema/extension data without assigning local authority to remote hints.
+- [x] Checked call-result content variants, typed tool outcomes and nested metadata; format interpretation and local observation conversion remain separate.
 - [ ] Version-specific MCP methods, client, transports, discovery and toolkit bridging.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).

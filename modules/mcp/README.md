@@ -6,11 +6,11 @@ The checked codecs validate one complete JSON document, preserve integer identit
 
 | Package | Current scope |
 | --- | --- |
-| [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted envelope/initialization helpers; accepted tool request/list-result helpers |
+| [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted envelope/initialization helpers and tool request/list/call-result projections |
 | [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Planned transport and connection ownership |
 | [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Planned version-specific lifecycle, discovery, calls, and Toolkit bridge |
 
-[McpTools](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpTools.scala) now implements 2025-06-18 list/call request builders and one-page tool-list parsing; the bounded request/list-result scope is independently reviewed and accepted. Declarations preserve order and duplicate names, schemas remain unevaluated ASTs, and remote annotation hints confer no local authority. Call-result parsing and runtime invocation remain pending.
+[McpTools](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpTools.scala) now implements 2025-06-18 list/call request builders and one-page tool-list parsing; the bounded request/list-result scope is independently reviewed and accepted. Declarations preserve order and duplicate names, schemas remain unevaluated ASTs, and remote annotation hints confer no local authority. [McpCallResult](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpCallResult.scala) adds the accepted five content variants, typed success/error outcome, structuredContent, annotations, and metadata. Embedded text and blob are both retained when present; every provided body field must be a string. URI/base64/timestamp strings remain opaque data. Runtime invocation remains pending.
 
 ## Verification and acceptance
 
@@ -23,14 +23,15 @@ These tests are specification-derived envelope coverage. The pinned AgentScope J
 - [x] Four additional [McpInitializationSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) groups cover initialization payloads, covering the accepted initialization scope.
 - [x] `path_review` and `current_docs` approved the exact initialization payload scope with no unresolved findings; the linked protocol acceptance records its reviewed identities and final verification.
 
-- [x] Four [McpToolsSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpToolsSpec.scala) groups pass, bringing the MCP suite to thirteen groups.
+- [x] Four [McpToolsSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpToolsSpec.scala) groups pass.
 - [x] Both independent reviewers approved the exact tool payload scope with no unresolved findings; the linked protocol acceptance records reviewed identities and full verification.
+
+- [x] Four [McpCallResultSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpCallResultSpec.scala) groups pass, bringing the MCP suite to seventeen groups. Both independent reviewers approved the bounded result projection; the linked protocol acceptance records the final identities and full verification.
 
 ## Remaining work
 
-- [ ] Next: 2025-06-18 call-result content ADTs, structuredContent, and isError; then scoped client/transport integration.
-- [ ] Scoped transports, request correlation, cancellation, and connection shutdown.
+- [ ] Next: scoped client/transport lifecycle, request correlation, cancellation, and connection shutdown for the explicitly selected revision.
 - [ ] Revision-specific client lifecycle. MCP 2026-07-28 does not use `initialize`; older initialization/negotiation behavior requires explicitly selected legacy support.
-- [ ] Tool discovery, execution results, and Toolkit integration.
+- [ ] Tool discovery, runtime invocation, core content conversion, output-schema evaluation, and Toolkit integration.
 
 No complete support claim is made for MCP 2024-11-05 or any later revision. The newer [2026-07-28 specification](https://modelcontextprotocol.io/specification/2026-07-28/basic) contains method/version requirements outside this envelope slice.
