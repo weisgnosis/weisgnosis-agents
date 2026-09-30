@@ -1,6 +1,6 @@
 # Scoped child execution verification
 
-The [current contracts and acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md) define accepted supervision, shared resource ownership, reusable host-held sessions, bounded host session membership, lineage, configured construction, bounded registry, live parent denial and model-facing spawn/send/task controls. Automatic nested/reused-child installation and model-facing session routing remain pending.
+The [current contracts and acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md) define accepted supervision, shared resource ownership, reusable host-held sessions, bounded host session membership, lineage, configured construction, bounded registry, live parent denial and model-facing spawn/send/task controls. Directory-bound model routing is available; automatic policy-aware child construction remains pending.
 
 ## Current suites
 
@@ -17,6 +17,7 @@ The [current contracts and acceptance](../../../../../../../main/scala/com/weisg
 | [SubagentSessionSpec](SubagentSessionSpec.scala) | Five scenarios cover one filtered depth-three runtime with retained history/resources and distinct task IDs, queued cancellation without history changes, live parent-denial/Plan changes between turns, joined promoted turn and actual descendant cleanup, and invalid/closed/failed acquisition. Serial execution is verified without claiming FIFO scheduling. |
 | [SubagentSessionDirectorySpec](SubagentSessionDirectorySpec.scala) | Four grouped scenarios cover bounded IDs/collision/alias admission with rejection preserving caller ownership, isolated reused histories and original-owner closure, overlapping removal with capacity retained through normal/defective promoted cleanup, and parallel directory/host closure with joined defects and already-closed host admission. |
 | [SubagentToolsSpec](SubagentToolsSpec.scala) | Seven scenarios cover actual parent-to-child delegation, promotion and joined cancellation, strict inputs/missing IDs, bounded projections, caller interruption, and session-bound send with retained history/distinct IDs, rejected routing, capacity, registry isolation, queued/active cancellation, later reuse and closed admission. Shared projection and parser checks are not duplicated for send. |
+| [SubagentDirectoryToolsSpec](SubagentDirectoryToolsSpec.scala) | Three integration contracts cover retained isolated session histories and wrapped success/error identities; strict fields and directory/task isolation without work; and promoted inspection/cancellation with joined cleanup and removal hiding later routing without another model request. |
 | [PlanInheritedPermissionSpec](../plan/PlanInheritedPermissionSpec.scala) | Three configured-child scenarios verify parent Plan restrictions with child-owned controls, child Plan retention until its own exact review, and live parent/modified-input rechecks during confirmation. |
 
 AgentErrorSpec verifies the depth diagnostic and codec. Factory and boundary scenarios use table-driven cases for distinct selection and resource phases. No tests execute external commands or use a real model.
@@ -40,7 +41,7 @@ These bounded adaptations are reviewed and verified at the recorded source ident
 
 ## Acceptance and remaining checks
 
-On 2026-09-30, `path_review` and `current_docs` independently approved bounded host session membership, shared owner integration and paired directory tests, with no unresolved FP/ZIO or invariant findings. The [main acceptance record](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) records the three updated and retained source/test identities; the [plan admission identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities) retain separate adapter approval. Full `scalafmtAll scalafmtSbt verify` passed 561 core and 642 harness tests (1,203 total), with zero compiler warnings or failed tests (`subagent-directory-verify.log`). Host lookup adds no whole upstream method mapping; model-facing routing remains outside acceptance. The defensive suspended-session guard has no integration evidence because current ReAct execution does not produce Suspended.
+On 2026-09-30, `path_review` and `current_docs` independently approved the routed tool implementation and three paired integration contracts, with no unresolved FP/ZIO or invariant findings. The [main acceptance record](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) records the updated tools/routing-spec identities and unchanged directory/resource/session evidence; the [plan admission identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities) retain separate adapter approval. Full `scalafmtAll scalafmtSbt verify` passed 561 core and 645 harness tests (1,206 total), with zero compiler warnings or failed tests (`subagent-routing-verify.log`). Directory routing adds no whole upstream method mapping or atomic revocation guarantee. The defensive suspended-session guard has no integration evidence because current ReAct execution does not produce Suspended.
 
 Both resource defects were reproduced before correction. The initialization regression observed `Success(())` instead of the failed/interrupted initialization Exit (`resource-exit-red.log`: zero passed, one failed). The competing-close regression observed a completed rival before cleanup release and lost the cleanup defect (`resource-close-red.log`: zero passed, one failed). Barrier-based regressions now pass and release all held cleanup before assertions. These tests establish library-controlled closure contracts, not new guarantees for arbitrary concurrent calls to raw `Scope.close`.
 
@@ -54,9 +55,9 @@ Both resource defects were reproduced before correction. The initialization regr
 - [x] Verify host-held reusable child sessions with per-execution IDs, serialized history, current policy and bounded descendant lifetime.
 - [x] Verify model-facing send through one bound session, task-ID isolation, scoped cancellation and subsequent reuse.
 - [x] Verify bounded host session lookup, aliases, original-owner lifetime, rejection ownership and joined removal/closure.
-- [ ] Verify model-facing session routing when implemented.
+- [x] Verify strict model-facing directory routing, selected-session result identity, isolation and joined promoted task control.
 - [ ] Verify declared/general-purpose/reused-child plan propagation.
 - [ ] Verify correlated child event forwarding and automatic source attribution.
 - [ ] Complete remaining applicable upstream method mappings after those APIs exist.
 
-Next task: verify model-facing session routing and automatic child policy integration.
+Next task: verify automatic policy-aware child construction.

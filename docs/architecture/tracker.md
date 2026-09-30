@@ -4,8 +4,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 ## Current acceptance
 
-- [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved resource ownership, host-held sessions, bounded host session membership and the session-bound send adapter, with no findings. Exact reviewed scope and identities are in the [tool](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 642 harness tests (1,203 total), zero compiler warnings or failures. Local evidence: `subagent-directory-verify.log`.
+- [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved resource ownership, host-held sessions, bounded host session membership, fixed-session tools and directory-routed tools, with no findings. Exact reviewed scope and identities are in the [tool](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 645 harness tests (1,206 total), zero compiler warnings or failures. Local evidence: `subagent-routing-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -40,13 +40,13 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] Optional live parent-denial inheritance preserves child policy and rereads parent rules against approved input; external parent gates and atomic post-decision revocation are excluded.
 
 - [x] Opt-in model-facing controls: make supplies `agent_spawn`/`agent_task`/`agent_cancel` for a fresh-child registry; forSession supplies `agent_send`/`agent_task`/`agent_cancel` for one host-held session. Strict prompt-only invocation, isolated task lookup, bounded result projection and scoped wait/promotion/cancellation preserve the fixed capability.
+- [x] Directory-bound send/task/cancel accepts strict session/task identifiers, preserves isolated histories and selected IDs in success/error observations, and joins cancellation during removal. Models cannot construct, register or remove sessions; membership lookup is not atomic revocation.
 - [x] Host-installed inherited plan gate: either parent or child Plan mode restricts execution, including confirmation rechecks, without copying approval state.
 
 The host installs these capabilities explicitly. It owns background supervisor scopes, trusted filesystem ancestors, authenticated approval delivery, provider settings and operational monitoring. Durable approval values are not a durable resume implementation. Root distribution and retained raw spawner capabilities remain trusted-host responsibilities.
 
 ## Immediate next work
 
-- [ ] Route model-facing send/task/cancel through the accepted host session directory with explicit capability ownership; execution IDs are not session credentials.
 - [ ] Integrate inherited policy automatically for nested/reused children, preserving live denial/plan checks and child approval authority.
 - [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 

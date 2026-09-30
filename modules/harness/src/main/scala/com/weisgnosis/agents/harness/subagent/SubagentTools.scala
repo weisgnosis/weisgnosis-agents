@@ -41,7 +41,12 @@ enum SubagentToolResult derives JsonCodec:
   case Task(taskId: String, state: SubagentToolState)
   case Rejected(reason: SubagentToolRejection)
 
-/** Opt-in controls bound to one trusted registry, parent lineage and configured child factory. */
+/** Routed observations retain the selected membership without exposing a session capability. */
+enum SubagentSessionToolResult derives JsonCodec:
+  case Session(sessionId: String, result: SubagentToolResult)
+  case Missing(sessionId: String)
+
+/** Opt-in controls bound to trusted host capabilities and their configured child factories. */
 object SubagentTools:
   val MaximumTextCharacters: Int = 4000
 
@@ -67,115 +72,227 @@ object SubagentTools:
   def forSession(session: SubagentSession): Toolkit =
     controls(session.executions, Invocation.Send)
 
+  /** Route only to ready memberships in this host-selected directory; no creation authority. */
+  def forDirectory(directory: SubagentSessionDirectory): Toolkit =
+    val send = routedTool[String](
+      directory,
+      "agent_send",
+      "Send a prompt to a registered child session. After 30 seconds, return its retained task ID.",
+      "prompt",
+      Access.Control,
+      Right(_)
+    )(submit)
+    val inspect = routedTool[SubagentTaskId](
+      directory,
+      "agent_task",
+      "Inspect a retained task in the selected session without making a model request.",
+      "task_id",
+      Access.Observation,
+      value => uuid("task_id", value).map(SubagentTaskId(_))
+    )(inspectTask)
+    val cancel = routedTool[SubagentTaskId](
+      directory,
+      "agent_cancel",
+      "Cancel a task in the selected session and wait for its owned cleanup.",
+      "task_id",
+      Access.Control,
+      value => uuid("task_id", value).map(SubagentTaskId(_))
+    )(cancelTask)
+    Toolkit(Map("agent_send" -> send, "agent_task" -> inspect, "agent_cancel" -> cancel))
+
+  private enum Observation[+A]:
+    case Success(value: A)
+    case Error(value: A)
+
+    def map[B](f: A => B): Observation[B] = this match
+      case Success(value) => Success(f(value))
+      case Error(value)   => Error(f(value))
+
+  final private case class RoutedInput[A](sessionId: SubagentSessionId, value: A)
+
   private def controls(registry: SubagentTaskRegistry, invocation: Invocation): Toolkit =
-    val invoke = tool[String](
-      definition(
-        invocation.name,
-        invocation.description,
-        "prompt",
-        Access.Control
-      ),
+    val invoke = tool[String, SubagentToolResult](
+      definition(invocation.name, invocation.description, Chunk("prompt"), Access.Control),
       stringField("prompt")
-    )(prompt =>
-      ZIO.scoped:
-        registry
-          .submit(Msg.user(prompt))
-          .flatMap:
-            case SubagentTaskSubmission.Accepted(id) =>
-              registry
-                .awaitOrPromote(id)
-                .flatMap:
-                  case Some(TaskWait.Promoted) => ZIO.succeed(task(id, SubagentToolState.Promoted))
-                  case Some(TaskWait.Completed(exit)) =>
-                    exit match
-                      case Exit.Failure(_) => fail(invocation.name, project(id, exit))
-                      case Exit.Success(result) if result.state == AgentRunState.Interrupted =>
-                        fail(invocation.name, project(id, exit))
-                      case Exit.Success(_) => ZIO.succeed(project(id, exit))
-                  case None => fail(invocation.name, task(id, SubagentToolState.Missing))
-            case SubagentTaskSubmission.Capacity =>
-              fail(invocation.name, SubagentToolResult.Rejected(SubagentToolRejection.Capacity))
-            case SubagentTaskSubmission.Closed =>
-              fail(invocation.name, SubagentToolResult.Rejected(SubagentToolRejection.Closed))
-            case SubagentTaskSubmission.IdentityCollision =>
-              fail(
-                invocation.name,
-                SubagentToolResult.Rejected(SubagentToolRejection.IdentityCollision)
-              )
-    )
-    val inspect = tool[SubagentTaskId](
+    )(prompt => submit(registry, prompt).flatMap(respond(invocation.name, _)))
+    val inspect = tool[SubagentTaskId, SubagentToolResult](
       definition(
         "agent_task",
         "Inspect a retained task without waiting, restarting it or making a model request.",
-        "task_id",
+        Chunk("task_id"),
         Access.Observation
       ),
       taskIdInput
-    )(id =>
-      registry
-        .inspect(id)
-        .flatMap:
-          case Some(SubagentTaskSnapshot(_, SubagentTaskState.Running)) =>
-            ZIO.succeed(task(id, SubagentToolState.Running))
-          case Some(SubagentTaskSnapshot(_, SubagentTaskState.Completed(exit))) =>
-            ZIO.succeed(project(id, exit))
-          case None => fail("agent_task", task(id, SubagentToolState.Missing))
-    )
-    val cancel = tool[SubagentTaskId](
+    )(id => inspectTask(registry, id).flatMap(respond("agent_task", _)))
+    val cancel = tool[SubagentTaskId, SubagentToolResult](
       definition(
         "agent_cancel",
         "Cancel the tracked task and wait for its owned cleanup. Completed results remain unchanged.",
-        "task_id",
+        Chunk("task_id"),
         Access.Control
       ),
       taskIdInput
-    )(id =>
-      registry
-        .cancel(id)
-        .flatMap:
-          case Some(exit) => ZIO.succeed(project(id, exit))
-          case None       => fail("agent_cancel", task(id, SubagentToolState.Missing))
-    )
+    )(id => cancelTask(registry, id).flatMap(respond("agent_cancel", _)))
     Toolkit(Map(invocation.name -> invoke, "agent_task" -> inspect, "agent_cancel" -> cancel))
+
+  private def submit(
+      registry: SubagentTaskRegistry,
+      prompt: String
+  ): IO[AgentError, Observation[SubagentToolResult]] =
+    ZIO.scoped:
+      registry
+        .submit(Msg.user(prompt))
+        .flatMap:
+          case SubagentTaskSubmission.Accepted(id) =>
+            registry
+              .awaitOrPromote(id)
+              .map:
+                case Some(TaskWait.Promoted) =>
+                  Observation.Success(task(id, SubagentToolState.Promoted))
+                case Some(TaskWait.Completed(exit)) =>
+                  exit match
+                    case Exit.Failure(_) => Observation.Error(project(id, exit))
+                    case Exit.Success(result) if result.state == AgentRunState.Interrupted =>
+                      Observation.Error(project(id, exit))
+                    case Exit.Success(_) => Observation.Success(project(id, exit))
+                case None => Observation.Error(task(id, SubagentToolState.Missing))
+          case SubagentTaskSubmission.Capacity =>
+            ZIO.succeed(
+              Observation.Error(SubagentToolResult.Rejected(SubagentToolRejection.Capacity))
+            )
+          case SubagentTaskSubmission.Closed =>
+            ZIO.succeed(
+              Observation.Error(SubagentToolResult.Rejected(SubagentToolRejection.Closed))
+            )
+          case SubagentTaskSubmission.IdentityCollision =>
+            ZIO.succeed(
+              Observation.Error(
+                SubagentToolResult.Rejected(SubagentToolRejection.IdentityCollision)
+              )
+            )
+
+  private def inspectTask(
+      registry: SubagentTaskRegistry,
+      id: SubagentTaskId
+  ): UIO[Observation[SubagentToolResult]] =
+    registry
+      .inspect(id)
+      .map:
+        case Some(SubagentTaskSnapshot(_, SubagentTaskState.Running)) =>
+          Observation.Success(task(id, SubagentToolState.Running))
+        case Some(SubagentTaskSnapshot(_, SubagentTaskState.Completed(exit))) =>
+          Observation.Success(project(id, exit))
+        case None => Observation.Error(task(id, SubagentToolState.Missing))
+
+  private def cancelTask(
+      registry: SubagentTaskRegistry,
+      id: SubagentTaskId
+  ): UIO[Observation[SubagentToolResult]] =
+    registry
+      .cancel(id)
+      .map:
+        case Some(exit) => Observation.Success(project(id, exit))
+        case None       => Observation.Error(task(id, SubagentToolState.Missing))
+
+  private def routedTool[In](
+      directory: SubagentSessionDirectory,
+      name: String,
+      description: String,
+      field: String,
+      access: Access,
+      decodeValue: String => Either[String, In]
+  )(
+      run: (SubagentTaskRegistry, In) => IO[AgentError, Observation[SubagentToolResult]]
+  ): Tool[Any, RoutedInput[In], SubagentSessionToolResult] =
+    tool[RoutedInput[In], SubagentSessionToolResult](
+      definition(name, description, Chunk("session_id", field), access),
+      raw =>
+        pairedStrings(field)(raw).flatMap: (session, value) =>
+          for
+            id    <- uuid("session_id", session).map(SubagentSessionId(_))
+            input <- decodeValue(value)
+          yield RoutedInput(id, input)
+    )(input =>
+      directory
+        .lookup(input.sessionId)
+        .flatMap:
+          case None =>
+            respond[SubagentSessionToolResult](
+              name,
+              Observation.Error(SubagentSessionToolResult.Missing(input.sessionId.value.toString))
+            )
+          case Some(session) =>
+            run(session.executions, input.value).flatMap(observation =>
+              respond[SubagentSessionToolResult](
+                name,
+                observation.map(result =>
+                  SubagentSessionToolResult.Session(input.sessionId.value.toString, result)
+                )
+              )
+            )
+    )
 
   private def definition(
       name: String,
       description: String,
-      field: String,
+      fields: Chunk[String],
       access: Access
   ): ToolDef =
     ToolDef(
       name,
       description,
       Json.Obj(
-        "type"                 -> Json.Str("object"),
-        "properties"           -> Json.Obj(field -> Json.Obj("type" -> Json.Str("string"))),
-        "required"             -> Json.Arr(Json.Str(field)),
+        "type" -> Json.Str("object"),
+        "properties" -> Json.Obj(
+          fields.map(field => field -> Json.Obj("type" -> Json.Str("string")))
+        ),
+        "required"             -> Json.Arr(fields.map(Json.Str(_))),
         "additionalProperties" -> Json.Bool(false)
       ),
       isConcurrencySafe = true,
       isReadOnly = access == Access.Observation
     )
 
-  private def tool[In](definitionValue: ToolDef, decode: Json => Either[String, In])(
-      run: In => IO[AgentError, SubagentToolResult]
-  ): Tool[Any, In, SubagentToolResult] = new Tool[Any, In, SubagentToolResult]:
-    def definition: ToolDef                                    = definitionValue
-    def execute(input: In): IO[AgentError, SubagentToolResult] = ZIO.suspendSucceed(run(input))
-    def decodeInput(raw: Json): Either[String, In]             = decode(raw)
-    def encodeOutput(output: SubagentToolResult): String       = output.toJson
+  private def tool[In, Out: JsonEncoder](
+      definitionValue: ToolDef,
+      decode: Json => Either[String, In]
+  )(
+      run: In => IO[AgentError, Out]
+  ): Tool[Any, In, Out] = new Tool[Any, In, Out]:
+    def definition: ToolDef                        = definitionValue
+    def execute(input: In): IO[AgentError, Out]    = ZIO.suspendSucceed(run(input))
+    def decodeInput(raw: Json): Either[String, In] = decode(raw)
+    def encodeOutput(output: Out): String          = output.toJson
+
+  private def respond[A: JsonEncoder](
+      name: String,
+      observation: Observation[A]
+  ): IO[AgentError, A] =
+    observation match
+      case Observation.Success(value) => ZIO.succeed(value)
+      case Observation.Error(value)   => ZIO.fail(AgentError.ToolExecutionError(name, value.toJson))
 
   private def stringField(name: String)(input: Json): Either[String, String] = input match
     case Json.Obj(Chunk((field, Json.Str(value)))) if field == name => Right(value)
     case _ => Left(s"Expected exactly one string field named $name")
 
+  private def pairedStrings(name: String)(input: Json): Either[String, (String, String)] =
+    input match
+      case Json.Obj(Chunk(("session_id", Json.Str(session)), (field, Json.Str(value))))
+          if field == name =>
+        Right((session, value))
+      case Json.Obj(Chunk((field, Json.Str(value)), ("session_id", Json.Str(session))))
+          if field == name =>
+        Right((session, value))
+      case _ => Left(s"Expected exactly two string fields named session_id and $name")
+
   private def taskIdInput(input: Json): Either[String, SubagentTaskId] =
-    stringField("task_id")(input).flatMap: value =>
-      if value.matches(
-          "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
-        )
-      then Json.Str(value).as[UUID].map(SubagentTaskId(_))
-      else Left("task_id must be a canonical UUID string")
+    stringField("task_id")(input).flatMap(value => uuid("task_id", value).map(SubagentTaskId(_)))
+
+  private def uuid(name: String, value: String): Either[String, UUID] =
+    if value.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+    then Json.Str(value).as[UUID]
+    else Left(s"$name must be a canonical UUID string")
 
   private def task(id: SubagentTaskId, state: SubagentToolState): SubagentToolResult =
     SubagentToolResult.Task(id.value.toString, state)
@@ -211,6 +328,3 @@ object SubagentTools:
       val tail =
         if rawTail.headOption.exists(Character.isLowSurrogate) then rawTail.drop(1) else rawTail
       SubagentToolText(head + marker + tail, text.length - head.length - tail.length)
-
-  private def fail(name: String, result: SubagentToolResult): IO[AgentError, Nothing] =
-    ZIO.fail(AgentError.ToolExecutionError(name, result.toJson))

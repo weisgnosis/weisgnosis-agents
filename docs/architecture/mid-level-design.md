@@ -1,6 +1,6 @@
 # Mid-level behavior and planned integrations
 
-Sections 1-6 describe current components. Section 7 describes daily extraction, scoped daily storage and process-local or recoverable local consolidation. Section 8 describes planned behavior; section 9 distinguishes implemented child execution from pending routing and automatic policy integration; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
+Sections 1-6 describe current components. Section 7 describes daily extraction, scoped daily storage and process-local or recoverable local consolidation. Section 8 describes planned behavior; section 9 distinguishes implemented child execution from pending automatic policy integration; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
 
 ## 1. ReAct lifecycle
 
@@ -99,7 +99,7 @@ SubagentSpawner.root mints depth-zero authority in ZIO. spawn checks depth befor
 
 Configured factories filter inherited and registered tools before building fresh runtimes. A bounded execution registry supplies runtime IDs, inspection, promotion, cancellation and explicit completed-record retirement. Host-held sessions retain one configured runtime, history and lineage across serialized turns with distinct execution IDs. Their resource owner also bounds further descendants. Queued cancellation does not modify history; session closure joins promoted work before releasing clients.
 
-Model-facing controls bind either fresh-child invocation or send to one host-selected session, with strict inputs and bounded observations. Installed parent-denial and plan effects remain live without copying child approval authority. Model-facing session routing, declaration-driven construction, automatic policy installation, event forwarding and durable recovery remain separate integration work. See the [current subagent contract and acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md).
+Model-facing controls bind fresh-child invocation or send to one host-selected session, or route send/task/cancel through a host-selected session directory. Strict inputs and bounded observations preserve this authority; lookup snapshots do not provide atomic revocation. Installed parent-denial and plan effects remain live without copying child approval authority. Declaration-driven construction, automatic policy installation, event forwarding and durable recovery remain separate integration work. See the [current subagent contract and acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md).
 
 ## 10. Plan-mode hardening and remaining integration
 
