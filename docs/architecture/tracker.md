@@ -6,7 +6,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 - [x] Current reviewed scope includes PathSafety screening, configured factory/static filtering and bounded registry/polling and model-facing task tools (`path_review`), plus live parent-denial inheritance and inherited plan admission (`current_docs`). The reviewers approved FP/ZIO correctness and relevant invariants at the exact source/test identities in the [tool contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
 - [x] `path_review` and `current_docs` approved the retained-resource primitive at the four exact source/test identities in the subagent acceptance record, with no findings.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 631 harness tests (1,192 total), zero compiler warnings or failures. Local evidence: `resource-owner-verify.log`.
+- [x] Both reviewers approved host-held child sessions, the spawner/registry integration and paired actual-runtime tests at the four session identities in the subagent acceptance record, with no findings.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 636 harness tests (1,197 total), zero compiler warnings or failures. Local evidence: `subagent-session-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; maintain method mappings and explicit exclusions in the [parity audit](test-parity.md).
 - [x] Close the reproduced PathSafety recursive-command and argument-substring defects with lexical warning semantics and bounded regressions; this helper is not shell parsing or execution authorization.
 - [x] Verify configured child construction, monotone final tool filtering, preserved authorizers and scoped resource cleanup; map the two ManagedSubagentBoundary methods as bounded static adaptations.
@@ -36,6 +37,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 - [x] Configured factories build fresh children with final static filtering after inherited and automatic registration, deterministic assembly diagnostics, preserved authorizers and supervisor-owned execution.
 
+- [x] Host-held child sessions retain one configured runtime/history, filtered toolkit and lineage across serialized sends with separate execution IDs. Queued cancellation leaves history unchanged; live injected denial/plan gates remain effective, and session closure joins promoted descendants before resource release.
+
 - [x] Bounded task registry with lookup, waiting/promotion, cancellation and completed-record removal; registry closure cancels and joins promoted work. Capacity bounds records, not retained result bytes.
 - [x] Optional live parent-denial inheritance preserves child policy and rereads parent rules against approved input; external parent gates and atomic post-decision revocation are excluded.
 
@@ -46,10 +49,11 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Build child sessions, persistent reuse and send on the accepted resource ownership contract, preserving narrowed factories and current parent denial/plan restrictions for every invocation.
+- [ ] Implement model-facing send bound to one trusted host-held session, preserving its fixed capability and current injected policy.
+- [ ] Add explicit session lookup/routing and durable reuse contracts; execution IDs are not session credentials.
 - [ ] Install inherited policy automatically for nested/reused children, then add correlated event routing with explicit lifetime and retention contracts.
 
-The accepted resource primitive, factory, registry, task tools and plan adapter use host-selected process-local capabilities. They do not add declaration parsing, durable restart recovery or automatic inheritance through raw spawner callbacks. Hosts control capability distribution and completed-record retention.
+The accepted resource primitive, child session, factory, registry, task tools and plan adapter use host-selected process-local capabilities. They do not add declaration parsing, durable restart recovery or automatic inheritance through raw spawner callbacks. Hosts control capability distribution and completed-record retention.
 
 ## Remaining integration and parity
 

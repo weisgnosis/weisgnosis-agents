@@ -16,7 +16,7 @@ An operand must not begin with a hyphen. Implicit stdin, unknown options, wrappe
 
 ## Current acceptance and identities
 
-Current APIs provide typed plan admission, scoped draft/review authority, stored publication, model controls, request-only context, validated workspace-relative directories and a host-installed parent/child admission gate. Automatic nested/reused-child propagation, persistent child ownership and authenticated host routing remain separate integration work. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) retains eight bounded method adaptations and six unfinished methods; the inherited gate does not complete automatic factory or persistent spawn/send mappings. Unchanged accepted source identities are retained below, with the current gate identity in the admission table.
+Current APIs provide typed plan admission, scoped draft/review authority, stored publication, model controls, request-only context, validated workspace-relative directories and a host-installed parent/child admission gate. The [subagent package](../subagent/README.md#reusable-child-sessions) retains installed live gates across host-held session turns. Automatic nested/reused-child installation and authenticated host routing remain separate integration work. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) retains eight bounded method adaptations and six unfinished methods; the inherited gate does not complete automatic factory or persistent spawn/send mappings. Unchanged accepted source identities are retained below, with the current gate identity in the admission table.
 
 | Source | Git blob |
 | --- | --- |
@@ -43,7 +43,7 @@ Current APIs provide typed plan admission, scoped draft/review authority, stored
 - [x] Verify a host-installed live parent/child gate through configured child execution without transferring approval authority.
 - [ ] Install restrictions automatically for nested/reused children before granting plan-mode access to their spawn/send tools.
 
-Next task: complete persistent child resource ownership and session/send integration with explicit live plan gates. The persistent ownership primitive in progress is unaccepted.
+Next task: integrate model-facing session send and automatic child installation with explicit live plan gates. Host-held reusable sessions and resource ownership are accepted within the subagent package's recorded scope.
 
 - [x] Retain `review_docs` acceptance of the unchanged static-shell contracts against `2d4094b`; current source identities and limitations are recorded in the associated sections.
 

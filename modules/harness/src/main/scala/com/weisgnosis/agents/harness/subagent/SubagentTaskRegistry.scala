@@ -71,6 +71,12 @@ object SubagentTaskRegistry:
       factory: SubagentFactory,
       maxTracked: Int = 256
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
+    openWith(input => factory.spawn(parent, input), maxTracked)
+
+  private[subagent] def openWith(
+      launchTask: Msg => ZIO[Scope, AgentError, TaskAdmission[AgentResult]],
+      maxTracked: Int
+  ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
     ZIO.uninterruptible:
       for
         _ <- ZIO
@@ -78,13 +84,12 @@ object SubagentTaskRegistry:
           .when(maxTracked <= 0)
         gate  <- Semaphore.make(1)
         state <- Ref.make[State](State.Open(Chunk.empty))
-        registry = new Live(parent, factory, maxTracked, gate, state)
+        registry = new Live(launchTask, maxTracked, gate, state)
         _ <- ZIO.addFinalizer(registry.close)
       yield registry
 
   final private class Live(
-      parent: SubagentSpawner[AgentResult],
-      factory: SubagentFactory,
+      launchTask: Msg => ZIO[Scope, AgentError, TaskAdmission[AgentResult]],
       maxTracked: Int,
       gate: Semaphore,
       state: Ref[State]
@@ -112,8 +117,8 @@ object SubagentTaskRegistry:
               if entries.exists(_.id == id) then
                 ZIO.succeed(SubagentTaskSubmission.IdentityCollision)
               else
-                factory
-                  .spawn(parent, input)
+                ZIO
+                  .suspendSucceed(launchTask(input))
                   .flatMap:
                     case TaskAdmission.Closed => ZIO.succeed(SubagentTaskSubmission.Closed)
                     case TaskAdmission.Accepted(task) =>

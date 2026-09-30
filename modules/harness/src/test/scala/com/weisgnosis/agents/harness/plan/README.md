@@ -17,7 +17,7 @@ These tests execute no shell and establish no path/process isolation. The [curre
 - [x] Verify host-installed live parent/child admission with independent child controls and exact-review authority.
 - [ ] Verify automatic nested/reused-child installation and authenticated host UI routing.
 
-Next task: verify persistent child resource ownership and session/send integration while retaining explicit live plan gates. The ownership primitive in progress is unaccepted.
+Next task: verify model-facing session send and automatic child installation while retaining explicit live plan gates. The [subagent session suite](../subagent/SubagentSessionSpec.scala) already verifies current installed gates across host-held reused turns; its accepted scope is recorded in the [subagent contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
 
 ## Admission verification
 
