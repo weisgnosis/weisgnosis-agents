@@ -21,7 +21,7 @@ import com.weisgnosis.agents.mcp.protocol.*
 import zio.*
 import zio.http.*
 import zio.json.ast.Json
-import zio.stream.ZStream
+import zio.stream.{ZChannel, ZStream}
 import zio.test.*
 
 object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
@@ -85,6 +85,9 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
       body = Body.fromStreamChunked(body)
     )
 
+  private def rawEvents(value: String): ZStream[Any, Nothing, Byte] =
+    ZStream.suspend(ZStream.fromIterable(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+
   private def server(
       call: McpMessage.Request => ZIO[Scope, Throwable, Response],
       session: Headers = Headers.empty
@@ -106,6 +109,360 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
       .flatMap(McpClient.open(_, McpImplementation("client", "1")))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpStreamableHttpTransportSpec")(
+    test(
+      "same-send continuation carries UTF-8 cursor bytes and captured initialization session without replay"
+    ) {
+      ZIO
+        .scoped {
+          for
+            original <- Promise.make[Nothing, McpRequestId]
+            answered <- Promise.make[Nothing, Unit]
+            posts    <- Ref.make(Chunk.empty[McpMessage])
+            gets     <- Ref.make(Chunk.empty[Headers])
+            cursor = "caf\u00e9-\uD83D\uDE80"
+            port <- Server.install(
+              Routes(
+                Method.POST / "mcp" -> handler { (request: Request) =>
+                  decode(request)
+                    .flatMap(message =>
+                      posts.update(_ :+ message) *> (message match
+                        case McpMessage.Request(id, "initialize", _) =>
+                          original
+                            .succeed(id)
+                            .as(
+                              stream(rawEvents(s"id: $cursor\n\n"))
+                                .addHeader("Mcp-Session-Id", "resuming")
+                            )
+                        case McpMessage.Success(id, _) if id == pingId =>
+                          answered.succeed(()).as(Response.status(Status.Accepted))
+                        case McpMessage.Request(id, "tools/list", _) =>
+                          json(McpMessage.Success(id, emptyTools))
+                        case _ => ZIO.succeed(Response.status(Status.Accepted)))
+                    )
+                    .orElseSucceed(Response.status(Status.InternalServerError))
+                },
+                Method.GET / "mcp" -> handler { (request: Request) =>
+                  gets.update(_ :+ request.headers) *> original.await.map(id =>
+                    stream(
+                      (event(McpMessage.Request(pingId, "ping")) ++
+                        ZStream.fromZIO(answered.await).drain ++ event(
+                          McpMessage.Success(id, initialization)
+                        )).rechunk(1)
+                    )
+                  )
+                }
+              )
+            )
+            http <- ZIO.service[Client]
+            transport <- McpStreamableHttpTransport.open(
+              http,
+              s"http://127.0.0.1:$port/mcp",
+              Headers("Authorization", "Bearer continuation"),
+              McpHttpLimits(maxConcurrentRequests = 1),
+              McpHttpContinuation.OnPrematureEof(1)
+            )
+            initialized <- McpClient.open(transport, McpImplementation("client", "1"))
+            page        <- initialized.listToolsPage()
+            seen        <- gets.get
+            sent        <- posts.get
+            expectedBytes <- ZIO.succeed(
+              Chunk.fromArray(cursor.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+            )
+            receivedBytes <- ZIO.succeed(
+              seen.map(
+                _.get("Last-Event-ID").map(value =>
+                  Chunk.fromArray(value.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1))
+                )
+              )
+            )
+          yield assertTrue(
+            page.tools.isEmpty,
+            seen.size == 1,
+            receivedBytes == Chunk(Some(expectedBytes)),
+            seen.forall(h =>
+              h.get("Accept").contains("text/event-stream") &&
+                h.get("Mcp-Session-Id").contains("resuming") &&
+                h.get("MCP-Protocol-Version").contains(McpInitialization.protocolVersion) &&
+                h.get("Authorization").contains("Bearer continuation")
+            ),
+            sent.count {
+              case McpMessage.Request(_, "initialize", _) => true; case _ => false
+            } == 1,
+            sent.exists { case McpMessage.Success(id, _) => id == pingId; case _ => false }
+          )
+        }
+        .provide(Client.default, Server.defaultWithPort(0))
+    } @@ TestAspect.withLiveClock,
+    test(
+      "continuation is opt-in and rejects missing, reset, unsafe or exhausted cursors and invalid GET replies"
+    ) {
+      val request = McpMessage.Request(McpRequestId.Number(42), "tools/list")
+      val rows = Chunk(
+        (
+          McpHttpContinuation.Disabled,
+          "id: next\n\n",
+          Status.Ok,
+          "text/event-stream",
+          "id: later\n\n",
+          0
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(1),
+          ": no cursor\n\n",
+          Status.Ok,
+          "text/event-stream",
+          "",
+          0
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(1),
+          "id: next\n\nid:\n\n",
+          Status.Ok,
+          "text/event-stream",
+          "",
+          0
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(1),
+          "id:  unsafe\n\n",
+          Status.Ok,
+          "text/event-stream",
+          "",
+          0
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(1),
+          "id: unsafe\u0001\n\n",
+          Status.Ok,
+          "text/event-stream",
+          "",
+          0
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(2),
+          "id: next\n\n",
+          Status.Ok,
+          "text/event-stream",
+          "id: later\n\n",
+          2
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(2),
+          "id: next\n\n",
+          Status.Ok,
+          "text/event-stream",
+          "",
+          2
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(2),
+          "id: next\n\n",
+          Status.Ok,
+          "text/event-stream",
+          "id:\n\n",
+          1
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(2),
+          "id: next\n\n",
+          Status.Ok,
+          "text/event-stream",
+          ": no inherited cursor\n\n",
+          1
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(1),
+          "id: next\n\n",
+          Status.MethodNotAllowed,
+          "text/event-stream",
+          "",
+          1
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(1),
+          "id: next\n\n",
+          Status.Ok,
+          "application/json",
+          "{}",
+          1
+        ),
+        (
+          McpHttpContinuation.OnPrematureEof(1),
+          "id: next\n\n",
+          Status.Ok,
+          "text/event-stream",
+          "data: {\"jsonrpc\":\"2.0\",\"id\":99,\"result\":{}}\n\n",
+          1
+        )
+      )
+      for
+        results <- ZIO.foreach(rows): (policy, first, status, contentType, next, expected) =>
+          ZIO.scoped:
+            for
+              calls <- Ref.make(Chunk.empty[Method])
+              http = scripted(r =>
+                calls
+                  .update(_ :+ r.method)
+                  .as(
+                    if r.method == Method.POST then stream(rawEvents(first))
+                    else
+                      Response(
+                        status = status,
+                        headers = Headers("Content-Type", contentType),
+                        body = Body.fromString(next)
+                      )
+                  )
+              )
+              transport <- McpStreamableHttpTransport.open(http, endpoint, continuation = policy)
+              exit      <- transport.send(request).exit
+              seen      <- calls.get
+            yield exit.isFailure && seen.count(_ == Method.POST) == 1 && seen.count(
+              _ == Method.GET
+            ) == expected
+        called <- Ref.make(false)
+        invalid <- ZIO
+          .scoped(
+            McpStreamableHttpTransport.open(
+              scripted(_ => called.set(true).as(Response.ok)),
+              endpoint,
+              continuation = McpHttpContinuation.OnPrematureEof(0)
+            )
+          )
+          .exit
+        acquired <- called.get
+        isolated <- ZIO.scoped:
+          for
+            entered  <- Promise.make[Nothing, Unit]
+            release  <- Promise.make[Nothing, Unit]
+            sessions <- Ref.make(Chunk.empty[Option[String]])
+            posts    <- Ref.make(Chunk.empty[McpMessage])
+            http = scripted(r =>
+              if r.method == Method.GET then
+                sessions
+                  .update(_ :+ r.headers.get("Mcp-Session-Id"))
+                  .as(stream(event(McpMessage.Success(McpRequestId.Number(42), emptyTools))))
+              else
+                decode(r).flatMap(message =>
+                  posts.update(_ :+ message) *> (message match
+                    case McpMessage.Request(_, "tools/list", _) =>
+                      entered.succeed(()) *> release.await.as(stream(rawEvents("id: original\n\n")))
+                    case McpMessage.Request(id, "initialize", _) =>
+                      json(McpMessage.Success(id, initialization))
+                        .map(_.addHeader("Mcp-Session-Id", "new-session"))
+                    case _ => ZIO.succeed(Response.status(Status.Accepted)))
+                )
+            )
+            transport <- McpStreamableHttpTransport.open(
+              http,
+              endpoint,
+              continuation = McpHttpContinuation.OnPrematureEof(1)
+            )
+            original <- transport.send(request).forkScoped
+            observed <- (for
+              _        <- entered.await
+              _        <- transport.send(McpMessage.Request(McpRequestId.Number(43), "initialize"))
+              _        <- release.succeed(())
+              _        <- original.join
+              selected <- sessions.get
+              sent     <- posts.get
+            yield (selected, sent.count(_ == request))).ensuring(release.succeed(()).unit)
+          yield observed
+      yield assertTrue(
+        results.forall(identity),
+        invalid.isFailure,
+        !acquired,
+        isolated._1 == Chunk(None),
+        isolated._2 == 1
+      )
+    },
+    test(
+      "continuation waits for successful response cleanup and never retries failures or caller cancellation"
+    ) {
+      ZIO.scoped:
+        for
+          cleanup <- Promise.make[Nothing, Unit]
+          release <- Promise.make[Nothing, Unit]
+          gets    <- Ref.make(0)
+          request: McpMessage.Request = McpMessage.Request(McpRequestId.Number(7), "tools/list")
+          http = scripted(r =>
+            if r.method == Method.GET then
+              gets.update(_ + 1).as(stream(event(McpMessage.Success(request.id, emptyTools))))
+            else
+              ZIO
+                .addFinalizer(cleanup.succeed(()).unit *> release.await)
+                .as(stream(rawEvents("id: next\n\n")))
+          )
+          transport <- McpStreamableHttpTransport.open(
+            http,
+            endpoint,
+            continuation = McpHttpContinuation.OnPrematureEof(1)
+          )
+          pending <- transport.send(request).forkScoped
+          joined <- (for
+            _      <- cleanup.await
+            before <- gets.get
+            _      <- release.succeed(())
+            _      <- pending.join
+          yield before).ensuring(release.succeed(()).unit)
+          after <- gets.get
+          defect = new IllegalStateException("response cleanup")
+          cause  = Cause.fail(AgentError.McpError("response body failed")) ++ Cause.die(defect)
+          failedGets <- Ref.make(0)
+          failureHttp = scripted(r =>
+            if r.method == Method.GET then failedGets.update(_ + 1).as(Response.ok)
+            else
+              ZIO.succeed(
+                stream(
+                  rawEvents("id: next\n\n") ++ ZStream.fromChannel(ZChannel.refailCause(cause))
+                )
+              )
+          )
+          failureTransport <- McpStreamableHttpTransport.open(
+            failureHttp,
+            endpoint,
+            continuation = McpHttpContinuation.OnPrematureEof(1)
+          )
+          failure       <- failureTransport.send(request).exit
+          retried       <- failedGets.get
+          cancelEntered <- Promise.make[Nothing, Unit]
+          cancelRelease <- Promise.make[Nothing, Unit]
+          bodyEntered   <- Promise.make[Nothing, Unit]
+          cancelledGets <- Ref.make(0)
+          cancelHttp = scripted(r =>
+            if r.method == Method.GET then
+              cancelledGets.update(_ + 1) *> ZIO
+                .addFinalizer(
+                  cancelEntered.succeed(()).unit *> cancelRelease.await *> ZIO.die(defect)
+                )
+                .as(stream(ZStream.fromZIO(bodyEntered.succeed(())).drain ++ ZStream.never))
+            else ZIO.succeed(stream(rawEvents("id: next\n\n")))
+          )
+          cancelTransport <- McpStreamableHttpTransport.open(
+            cancelHttp,
+            endpoint,
+            continuation = McpHttpContinuation.OnPrematureEof(1)
+          )
+          running <- cancelTransport.send(request).forkScoped
+          stopped <- (for
+            _          <- bodyEntered.await
+            cancelling <- running.interrupt.forkScoped
+            _          <- cancelEntered.await
+            unfinished <- cancelling.poll
+            _          <- cancelRelease.succeed(())
+            exit       <- cancelling.join
+          yield (unfinished, exit)).ensuring(cancelRelease.succeed(()).unit)
+          cancelledRetries <- cancelledGets.get
+        yield assertTrue(
+          joined == 0,
+          after == 1,
+          failure.causeOption.contains(cause),
+          retried == 0,
+          stopped._1.isEmpty,
+          stopped._2.isInterrupted,
+          stopped._2.causeOption.exists(_.defects == List(defect)),
+          cancelledRetries == 1
+        )
+    },
     test("explicit GET routes server traffic while the only request permit is occupied") {
       ZIO
         .scoped {

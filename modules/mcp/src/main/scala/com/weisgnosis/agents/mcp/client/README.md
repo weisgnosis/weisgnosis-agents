@@ -96,7 +96,7 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 
 - [x] HTTP POST and explicit GET have separate transport acceptance.
 - [x] Bounded optional outbound cancellation is accepted under the [cancellation contract](#outbound-cancellation-contract).
-- [ ] Next: implement opt-in bounded continuation within the same send; session recovery and remaining manager policies remain unfinished.
+- [ ] Next: define explicit host-controlled HTTP session termination (DELETE); network-failure resumption, listener restart, session recovery and remaining manager policies remain unfinished.
 - [ ] Define presets, groups, ambient metadata propagation, schema transformation and discovery caching separately.
 Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
 
