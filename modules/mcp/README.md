@@ -1,41 +1,30 @@
 # weisgnosis-agents-mcp
 
-The implemented scope is a pure MCP JSON-RPC envelope boundary in [McpMessage](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpMessage.scala). It models requests, notifications, successful responses, and remote protocol errors. The bounded envelope scope is independently reviewed and accepted. Pure [2025-06-18 initialization helpers](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpInitialization.scala) are independently reviewed and accepted within their payload-only scope; runtime integration remains pending.
-
-The checked codecs validate one complete JSON document, preserve integer identity within the signed 256-bit parser-compatible range without floating-point conversion, and reject duplicate keys and unknown envelope/error fields. Method-specific payload extensions are retained. This foundation does not implement an MCP connection, handshake, negotiated protocol version, or tool client.
+This module supplies checked MCP messages, selected 2025-06-18 payload helpers, and bounded scoped request correlation. Scoped connection ownership over an injected port is independently reviewed and accepted; no process or HTTP transport, initialized client, or Toolkit bridge is available yet.
 
 | Package | Current scope |
 | --- | --- |
-| [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted envelope/initialization helpers and tool request/list/call-result projections |
-| [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Planned transport and connection ownership |
-| [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Scoped request correlation; version-specific lifecycle, transport integration, discovery, and Toolkit bridge remain pending |
+| [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted checked envelopes, initialization helpers, tool requests, discovery pages and call results |
+| [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Accepted request correlation and connection ownership over an injected transport |
+| [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Borrowed message-port contract; concrete transports remain pending |
 
-[McpTools](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpTools.scala) now implements 2025-06-18 list/call request builders and one-page tool-list parsing; the bounded request/list-result scope is independently reviewed and accepted. Declarations preserve order and duplicate names, schemas remain unevaluated ASTs, and remote annotation hints confer no local authority. [McpCallResult](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpCallResult.scala) adds the accepted five content variants, typed success/error outcome, structuredContent, annotations, and metadata. Embedded text and blob are both retained when present; every provided body field must be a string. URI/base64/timestamp strings remain opaque data. Runtime invocation remains pending.
+The protocol boundary rejects ambiguous variants, duplicate keys and malformed known fields. Numeric envelope identities use a signed 256-bit parser-compatible range. Payload extensions remain data; tool annotations confer no execution authority. Schemas, URI/base64 strings and timestamps are retained without evaluation or resource fetching.
 
-[McpRequests](src/main/scala/com/weisgnosis/agents/mcp/client/McpRequests.scala) adds bounded scoped correlation with runtime-generated numeric IDs, atomic reply completion, lease cancellation, and terminal failure propagation. Hosts must register in a fresh request scope before checked request construction, sending, and awaiting. It owns no transport or send callback.
+The request registry allocates monotonic numeric IDs before sending, atomically settles replies and retains complete terminal causes. Each request requires its own short-lived scope. The connection composes that registry with bounded operations, a reader and a separate bounded server-response writer. Its transport belongs to the host and must outlive connection cleanup.
 
 ## Verification and acceptance
 
-- [x] Five grouped [McpProtocolSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) tests pass, including the reproduced integer-boundary regression.
-- [x] Independent FP/ZIO and protocol-invariant reviews approved the bounded envelope scope with no unresolved findings.
-- [x] Formatting and full repository verification passed with zero compiler warnings or failed tests. Exact scope, reviewers, reviewed source identities, and verification evidence are recorded in the [protocol acceptance](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance).
+- [x] The [protocol acceptance](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance) records independent FP/ZIO and invariant approvals for the exact envelope and payload scope.
+- [x] The [client acceptance](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records independent approvals for scoped request correlation.
+- [x] Both reviewers approved the connection/port/test identities with no findings; the linked client acceptance records the exact scope and successful full verification.
 
-These tests are specification-derived envelope coverage. The pinned AgentScope Java reference delegates wire schemas and transport serialization to MCP Java SDK 0.17.2; its wrapper tests do not establish envelope codec parity.
-
-- [x] Four additional [McpInitializationSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) groups cover initialization payloads, covering the accepted initialization scope.
-- [x] `path_review` and `current_docs` approved the exact initialization payload scope with no unresolved findings; the linked protocol acceptance records its reviewed identities and final verification.
-
-- [x] Four [McpToolsSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpToolsSpec.scala) groups pass.
-- [x] Both independent reviewers approved the exact tool payload scope with no unresolved findings; the linked protocol acceptance records reviewed identities and full verification.
-
-- [x] Four [McpCallResultSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpCallResultSpec.scala) groups pass. Both independent reviewers approved the bounded result projection; the linked protocol acceptance records the final identities and full verification.
-
-- [x] Four [McpRequestsSpec](src/test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) groups pass, bringing the MCP suite to twenty-one groups. The [client acceptance](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records the current scope, review status, and full verification.
+These are specification-derived protocol and ZIO ownership tests. AgentScope Java delegates its wire machinery to MCP Java SDK 0.17.2. Passing these tests does not close whole upstream client-wrapper methods or establish network interoperability.
 
 ## Remaining work
 
-- [ ] Next: actual scoped client/transport lifecycle, request sending, cancellation, and connection shutdown for the explicitly selected revision.
-- [ ] Revision-specific client lifecycle. MCP 2026-07-28 does not use `initialize`; older initialization/negotiation behavior requires explicitly selected legacy support.
-- [ ] Tool discovery, runtime invocation, core content conversion, output-schema evaluation, and Toolkit integration.
+- [ ] Next: implement concrete transport and revision-specific initialization.
+- [ ] Define bounded framing, deadlines, cancellation notifications and transport-specific failure recovery.
+- [ ] Implement discovery pagination, invocation and core content conversion, followed by Toolkit integration with explicit naming and authority policy.
+- [ ] Evaluate output schemas where required by the selected client contract.
 
-No complete support claim is made for MCP 2024-11-05 or any later revision. The newer [2026-07-28 specification](https://modelcontextprotocol.io/specification/2026-07-28/basic) contains method/version requirements outside this envelope slice.
+Initialization helpers explicitly select 2025-06-18. They do not support the different [2026-07-28 lifecycle](https://modelcontextprotocol.io/specification/2026-07-28/basic), which has no initialize exchange. No complete MCP revision support is claimed.

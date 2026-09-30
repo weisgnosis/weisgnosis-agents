@@ -19,7 +19,7 @@ harness: compactor, eviction/store port, permission components
 core: models, codecs, events, tools, client port,
       SSE parsing/assembly, scoped HTTP completion, ReAct lifecycle, structured output
 
-mcp: checked 2025-06-18 payloads and scoped correlation; connection lifecycle and transports pending
+mcp: checked 2025-06-18 payloads, scoped correlation and borrowed-port RPC ownership; concrete transports and revision lifecycle pending
 ```
 
 The host owns durable transactions, replay, tenant authentication, and execution idempotency. ReActAgent owns in-memory conversation state and serializes runs. Per-run and per-request scopes bound resources independently of the caller's outer scope.
@@ -63,11 +63,12 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Typed workspace-relative directory selection with explicit stricter normalization.
 - [ ] Skills and child propagation.
 - [x] Checked common MCP request, notification, success and error envelopes.
-- [x] Pure 2025-06-18 initialization payloads with exact-version checks and capability projection; connection lifecycle remains planned.
+- [x] Pure 2025-06-18 initialization payloads with exact-version checks and capability projection; revision-specific lifecycle remains planned.
 - [x] Checked 2025-06-18 discovery pages and tool-call requests, preserving schema/extension data without assigning local authority to remote hints.
 - [x] Checked call-result content variants, typed tool outcomes and nested metadata; format interpretation and local observation conversion remain separate.
 - [x] Bounded MCP request correlation with runtime-owned identities, transactional reply settlement and scoped abandonment; no transport or sender fibers are owned by this component.
-- [ ] Version-specific MCP methods, client, transports, discovery and toolkit bridging.
+- [x] Scoped RPC ownership over a borrowed duplex port, with bounded operations/control replies, terminal cleanup and shared joined close; both reviewers approved the bounded scope recorded in the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
+- [ ] Concrete transports, revision-specific MCP client lifecycle, discovery and toolkit bridging.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
 

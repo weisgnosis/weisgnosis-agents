@@ -7,7 +7,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved resource ownership, host-held sessions, bounded host session membership, fixed-session tools, directory-routed tools and policy-aware child construction, with no findings. Exact reviewed scope and identities are in the [tool](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
 - [x] `path_review` and `current_docs` approved explicit gate composition and authorizer views; exact identities and scope are in the [permission contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance). SubagentConstruction supplies the reviewed opt-in installation path.
 - [x] `path_review` and `current_docs` approved the checked MCP envelope, including reproduced numeric-boundary fixes, with no findings. Exact identities and scope are in the [protocol contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance).
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 651 harness / 21 MCP tests (1,233 total), zero compiler warnings or failures. Local evidence: `mcp-requests-verify.log`.
+- [x] `path_review` and `current_docs` approved borrowed-port RPC ownership and its final connection tests with no findings; exact scope and identities are in the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
+- [x] Full `scalafmtAll scalafmtSbt verify` passed for the connection slice on 2026-09-30: 561 core / 651 harness / 28 MCP tests (1,240 total), zero compiler warnings or failures. Local evidence: `mcp-connection-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -51,7 +52,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Implement scoped MCP client/transport lifecycle next, then toolkit bridging. Pure initialization helpers do not establish a working connection or complete revision support.
+- [ ] Implement a concrete scoped MCP transport and the explicit 2025-06-18 client lifecycle next, then toolkit bridging. Borrowed-port RPC ownership and pure payload helpers do not establish wire connectivity or complete revision support.
 - [ ] Complete declared/general-purpose composition, including explicit tool/prompt/configuration installation; retain the accepted construction boundary.
 - [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 
@@ -69,7 +70,8 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [x] Implement checked 2025-06-18 call-result projection for all content variants, embedded text/blob overlap, typed outcomes and nested metadata. Both reviewers approved the recorded protocol identities; transport and local observation conversion remain excluded.
 - [x] Implement checked 2025-06-18 discovery requests/pages and tool-call requests, preserving schema/extension data and untrusted annotations. Both independent reviewers approved the exact [protocol scope and identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance).
 - [x] Implement pure 2025-06-18 initialization request/result helpers, truthful empty client capabilities, exact-version validation and typed tools capability projection. `path_review` and `current_docs` approved the exact [protocol identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance) with no findings.
-- [ ] Implement version-specific MCP methods, transports, discovery and tool bridging.
+- [x] Implement borrowed-port scoped RPC ownership with checked sends, bounded operation/control admission, direction-safe server dispatch, owner-operated terminal cleanup and shared joined closure. Seven connection tests and full verification pass; both reviewers approved the final scope.
+- [ ] Implement concrete transports, version-specific MCP client lifecycle, discovery and tool bridging.
 - [ ] Validate live end-to-end cancellation, resource release and operational controls, confirm remote CI, and complete release/API compatibility and production acceptance.
 
 ## Verification and contracts

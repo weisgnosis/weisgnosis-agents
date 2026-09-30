@@ -1,15 +1,18 @@
 # com.weisgnosis.agents.mcp.transport
 
-Status: planned. No process, HTTP, SSE, or other MCP transport is implemented. The [protocol package](../protocol/README.md) provides accepted checked envelopes and pure 2025-06-18 initialization, tool request, list-result, and call-result helpers within their documented payload scope; these do not implement a runtime handshake.
+[McpTransport](McpTransport.scala) is an injected duplex message port. There is no concrete process, HTTP or SSE implementation. Its lifecycle integration is independently reviewed and accepted with [McpConnection](../client/README.md).
 
-Transport design must make ownership, request correlation, inbound server messages, cancellation, message size limits, and shutdown explicit. Local processes and network streams must remain scoped; cancellation must join owned cleanup. Authentication and server trust are host responsibilities.
+The host acquires the transport before its connection and releases it after connection cleanup. The incoming stream emits checked [McpMessage](../protocol/McpMessage.scala) values; malformed framing or decoding must fail the stream with a typed AgentError. The connection checks outbound envelopes before sending. Implementations must support concurrent sends without interleaving wire frames, suspend all real-world interaction, and make cancellation wait for owned cleanup. Every send receives a fresh scope.
 
-## Remaining work
+A local send failure fails that operation. A transport may remain reusable only if the failed or interrupted write leaves framing intact. Ambiguous or fatal writes must also fail incoming so the connection terminates; a future byte-stream backend cannot silently treat partial writes as recoverable.
 
-- [ ] Next: select transport/revision scope after method schemas and client lifecycle are defined.
-- [ ] Implement scoped stdio process transport and bounded framing.
-- [ ] Define and implement the selected HTTP transport; any legacy SSE compatibility needs separate scope and tests.
-- [ ] Implement request correlation, server requests/notifications, cancellation, and terminal failure handling.
-- [ ] Add local integration tests for framing, errors, and cleanup before independent review and verification.
+The connection bounds active operations and queued server responses, not payload bytes. Framing, message-size limits, process/network resources, authentication, server trust and transport-specific reconnect policy remain explicit adapter/host responsibilities.
 
-Transport and protocol-version support must be established by implementation and tests. No wire connectivity or complete MCP revision support follows from the envelope codecs.
+## Verification and remaining work
+
+- [x] `path_review` and `current_docs` approved the port with the connection source and controlled-transport suite; full formatting, compilation and repository tests passed.
+- [ ] Next: implement a scoped concrete transport with bounded framing and local integration tests.
+- [ ] Define HTTP revision and legacy SSE support separately; no connectivity follows from this port.
+- [ ] Add explicit deadline and cancellation-notification policy before claiming a complete client lifecycle.
+
+Exact reviewed identities and verification are recorded in the [client acceptance](../client/README.md#verification-and-acceptance). The protocol helpers alone do not perform a handshake.

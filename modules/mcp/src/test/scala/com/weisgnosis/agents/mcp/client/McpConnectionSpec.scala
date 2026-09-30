@@ -1,0 +1,370 @@
+/*
+ * Copyright 2024-2026 WeisGnosis (https://weisgnosis.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.weisgnosis.agents.mcp.client
+
+import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.mcp.protocol.*
+import com.weisgnosis.agents.mcp.transport.McpTransport
+import zio.*
+import zio.json.ast.Json
+import zio.stream.*
+import zio.test.*
+
+object McpConnectionSpec extends ZIOSpecDefault:
+  final private case class Wire(
+      received: Queue[Take[AgentError, McpMessage]],
+      sent: Queue[McpMessage]
+  ):
+    def transport(
+        afterSend: McpMessage => ZIO[Scope, AgentError, Unit] = _ => ZIO.unit,
+        onReadClose: UIO[Unit] = ZIO.unit
+    ): McpTransport = new McpTransport:
+      def send(message: McpMessage): ZIO[Scope, AgentError, Unit] =
+        sent.offer(message).unit *> afterSend(message)
+      def incoming: ZStream[Any, AgentError, McpMessage] =
+        ZStream.fromQueue(received).flattenTake.ensuring(onReadClose)
+
+    def receive(message: McpMessage): UIO[Unit] = received.offer(Take.single(message)).unit
+
+    def nextRequest: IO[AgentError, McpMessage.Request] =
+      sent.take.flatMap:
+        case request: McpMessage.Request => ZIO.succeed(request)
+        case _ => ZIO.fail(AgentError.McpError("Expected an outbound request"))
+
+  private def wire: ZIO[Scope, Nothing, Wire] =
+    for
+      received <- ZIO.acquireRelease(Queue.unbounded[Take[AgentError, McpMessage]])(_.shutdown)
+      sent     <- ZIO.acquireRelease(Queue.unbounded[McpMessage])(_.shutdown)
+    yield Wire(received, sent)
+
+  private def success(id: McpRequestId): McpMessage.Success = McpMessage.Success(id, Json.Obj())
+
+  private def localFailure(exit: Exit[AgentError, Any]): Boolean =
+    exit.causeOption.exists(_.failures.exists:
+      case _: AgentError.McpError => true
+      case _                      => false)
+
+  def spec: Spec[TestEnvironment, Any] = suite("McpConnectionSpec")(
+    test(
+      "registers before sending and correlates concurrent replies without treating remote errors as local failures"
+    ) {
+      ZIO.scoped:
+        for
+          immediateWire <- wire
+          immediate <- McpConnection.make(immediateWire.transport:
+            case McpMessage.Request(_, "send-failure", _) =>
+              ZIO.fail(AgentError.McpError("send failed"))
+            case request: McpMessage.Request => immediateWire.receive(success(request.id))
+            case _                           => ZIO.unit)
+          immediateReply <- immediate.request("ping")
+          sendFailure    <- immediate.request("send-failure").exit
+          recovered      <- immediate.request("ping").exit
+          _              <- immediateWire.sent.takeAll
+          invalid <- immediate
+            .request("invalid", Some(Json.Obj("key" -> Json.Null, "key" -> Json.Null)))
+            .exit
+          leaked        <- immediateWire.sent.takeAll
+          duplex        <- wire
+          connection    <- McpConnection.make(duplex.transport())
+          first         <- connection.request("first").forkScoped
+          firstRequest  <- duplex.nextRequest
+          second        <- connection.request("second").forkScoped
+          secondRequest <- duplex.nextRequest
+          remote = McpMessage.Failure(Some(secondRequest.id), McpRpcError(-32602, "rejected"))
+          _            <- duplex.receive(remote)
+          _            <- duplex.receive(success(firstRequest.id))
+          secondReply  <- second.join
+          firstReply   <- first.join
+          _            <- connection.notify(McpMessage.Notification("notifications/initialized"))
+          notification <- duplex.sent.take
+        yield assertTrue(
+          immediateReply == success(McpRequestId.Number(1)),
+          localFailure(sendFailure),
+          recovered.isSuccess,
+          invalid.isFailure,
+          leaked.isEmpty,
+          firstReply == success(firstRequest.id),
+          secondReply == remote,
+          firstRequest.id != secondRequest.id,
+          notification == McpMessage.Notification("notifications/initialized")
+        )
+    },
+    test(
+      "cancellation waits for send cleanup, preserves its defect, and releases bounded admission"
+    ) {
+      ZIO.scoped:
+        for
+          duplex         <- wire
+          cleanupStarted <- Promise.make[Nothing, Unit]
+          releaseCleanup <- Promise.make[Nothing, Unit]
+          entered        <- Promise.make[Nothing, Unit]
+          cleaned        <- Ref.make(false)
+          defect = new IllegalStateException("send cleanup defect")
+          connection <- McpConnection.make(
+            duplex.transport {
+              case McpMessage.Request(_, "blocked", _) =>
+                ZIO.acquireRelease(ZIO.unit)(_ =>
+                  cleanupStarted.succeed(()).unit *> releaseCleanup.await *>
+                    cleaned.set(true) *> ZIO.die(defect)
+                ) *> entered.succeed(()) *> ZIO.never
+              case request: McpMessage.Request => duplex.receive(success(request.id))
+              case _                           => ZIO.unit
+            },
+            capacity = 1
+          )
+          request     <- connection.request("blocked").forkScoped
+          _           <- duplex.nextRequest
+          _           <- entered.await
+          full        <- connection.request("full").exit
+          cancel      <- request.interrupt.forkScoped
+          _           <- cleanupStarted.await
+          before      <- cancel.poll
+          _           <- releaseCleanup.succeed(())
+          interrupted <- cancel.join
+          after       <- cleaned.get
+          replacement <- connection.request("replacement")
+        yield assertTrue(
+          localFailure(full),
+          before.isEmpty,
+          after,
+          interrupted.isInterrupted,
+          interrupted.causeOption.exists(_.defects.contains(defect)),
+          replacement == success(McpRequestId.Number(2))
+        )
+    },
+    test("reader failure preserves its complete cause during send and reply waiting") {
+      ZIO
+        .foreach(Chunk("blocked", "awaiting")): mode =>
+          for
+            observed <- Promise.make[Nothing, TestResult]
+            defect = new IllegalStateException("reader defect")
+            cause  = Cause.fail(AgentError.McpError("reader failed")) ++ Cause.die(defect)
+            scopeExit <- ZIO
+              .scoped(
+                for
+                  duplex  <- wire
+                  cleaned <- Promise.make[Nothing, Unit]
+                  entered <- Promise.make[Nothing, Unit]
+                  connection <- McpConnection.make(
+                    duplex.transport {
+                      case request: McpMessage.Request =>
+                        ZIO.acquireRelease(ZIO.unit)(_ => cleaned.succeed(()).unit) *>
+                          (if mode == "blocked" then duplex.receive(success(request.id))
+                           else ZIO.unit) *>
+                          entered.succeed(()) *>
+                          (if mode == "blocked" then ZIO.never else ZIO.unit)
+                      case _ => ZIO.unit
+                    },
+                    capacity = 1
+                  )
+                  request  <- connection.request(mode).forkScoped
+                  _        <- duplex.nextRequest
+                  _        <- entered.await
+                  full     <- connection.request("full").exit
+                  _        <- duplex.received.offer(Take.failCause(cause))
+                  failed   <- request.await
+                  _        <- cleaned.await
+                  rejected <- connection.request("after failure").exit
+                  _ <- observed.succeed(
+                    assertTrue(
+                      localFailure(full),
+                      failed.causeOption.contains(cause),
+                      localFailure(rejected)
+                    )
+                  )
+                yield ()
+              )
+              .exit
+            result <- observed.await
+          yield result && assertTrue(scopeExit.causeOption.exists(_.defects.contains(defect)))
+        .map(results => results.foldLeft(assertTrue(true))(_ && _))
+    },
+    test("acquisition in an already closed parent scope cannot start borrowed transport activity") {
+      for
+        parent <- Scope.make
+        _      <- parent.close(Exit.unit)
+        starts <- Ref.make(0)
+        transport = new McpTransport:
+          def send(message: McpMessage): ZIO[Scope, AgentError, Unit] = ZIO.unit
+          def incoming: ZStream[Any, AgentError, McpMessage] =
+            ZStream.fromZIO(starts.update(_ + 1)) *> ZStream.never
+        _     <- McpConnection.make(transport).provideEnvironment(ZEnvironment[Scope](parent))
+        count <- starts.get
+      yield assertTrue(count == 0)
+    },
+    test(
+      "control writes do not block reply correlation and incoming cancellation cannot cancel outgoing IDs"
+    ) {
+      ZIO.scoped:
+        for
+          duplex  <- wire
+          writing <- Promise.make[Nothing, Unit]
+          release <- Promise.make[Nothing, Unit]
+          connection <- McpConnection.make(duplex.transport:
+            case _: McpMessage.Success => writing.succeed(()).unit *> release.await
+            case _                     => ZIO.unit)
+          request  <- connection.request("tools/list").forkScoped
+          outbound <- duplex.nextRequest
+          _        <- duplex.receive(McpMessage.Request(outbound.id, "ping"))
+          _        <- writing.await
+          ping     <- duplex.sent.take
+          _ <- duplex.receive(
+            McpMessage.Notification(
+              "notifications/cancelled",
+              Some(
+                Json.Obj(
+                  "requestId" -> Json.Num(1)
+                )
+              )
+            )
+          )
+          _     <- duplex.receive(success(outbound.id))
+          reply <- request.join
+          _     <- release.succeed(())
+          _ <- duplex.receive(
+            McpMessage.Request(McpRequestId.Text("server"), "sampling/createMessage")
+          )
+          unsupported <- duplex.sent.take
+        yield assertTrue(
+          ping == success(outbound.id),
+          reply == success(outbound.id),
+          unsupported match
+            case McpMessage.Failure(Some(McpRequestId.Text("server")), error) =>
+              error.code == BigInt(-32601)
+            case _ => false
+        )
+    },
+    test(
+      "concurrent close waits for active cleanup and reader release before the borrowed transport closes"
+    ) {
+      for
+        order    <- Ref.make(Chunk.empty[String])
+        observed <- Promise.make[Nothing, TestResult]
+        defect = new IllegalStateException("close cleanup defect")
+        scopeExit <- ZIO
+          .scoped(
+            for
+              _       <- ZIO.acquireRelease(ZIO.unit)(_ => order.update(_ :+ "transport"))
+              duplex  <- wire
+              cleanup <- Promise.make[Nothing, Unit]
+              release <- Promise.make[Nothing, Unit]
+              entered <- Promise.make[Nothing, Unit]
+              connection <- McpConnection.make(
+                duplex.transport(
+                  _ =>
+                    ZIO.acquireRelease(ZIO.unit)(_ =>
+                      cleanup.succeed(()).unit *> release.await *> order.update(_ :+ "send") *> ZIO
+                        .die(defect)
+                    ) *>
+                      entered.succeed(()) *> ZIO.never,
+                  order.update(_ :+ "reader")
+                )
+              )
+              request  <- connection.request("blocked").forkScoped
+              _        <- duplex.nextRequest
+              _        <- entered.await
+              closeOne <- connection.close.forkScoped
+              _        <- cleanup.await
+              closeTwo <- connection.close.forkScoped
+              rejected <- connection.request("closed").exit
+              before   <- closeOne.poll.zip(closeTwo.poll)
+              _        <- release.succeed(())
+              closers  <- closeOne.await.zipPar(closeTwo.await)
+              failed   <- request.await
+              inside   <- order.get
+              _ <- observed.succeed(
+                assertTrue(
+                  before._1.isEmpty,
+                  before._2.isEmpty,
+                  localFailure(rejected),
+                  localFailure(failed),
+                  inside.contains("send"),
+                  inside.contains("reader"),
+                  !inside.contains("transport"),
+                  closers._1.causeOption.exists(_.defects.contains(defect)),
+                  closers._2.causeOption == closers._1.causeOption
+                )
+              )
+            yield ()
+          )
+          .exit
+        result     <- observed.await
+        finalOrder <- order.get
+      yield result && assertTrue(
+        finalOrder.lastOption.contains("transport"),
+        scopeExit.causeOption.exists(_.defects.contains(defect))
+      )
+    },
+    test("EOF, uncorrelatable peer errors, and control overflow terminate admission") {
+      ZIO.scoped:
+        for
+          afterTerminalSent <- Ref.make(0)
+          written           <- Promise.make[Nothing, Unit]
+          readerStopped     <- Promise.make[Nothing, Unit]
+          terminalTransport = new McpTransport:
+            def send(message: McpMessage): ZIO[Scope, AgentError, Unit] =
+              afterTerminalSent.update(_ + 1) *> written.succeed(()).unit
+            def incoming: ZStream[Any, AgentError, McpMessage] =
+              (ZStream.fromIterable(
+                Chunk(
+                  McpMessage.Failure(None, McpRpcError(-32700, "invalid JSON")),
+                  McpMessage.Request(McpRequestId.Text("after-terminal"), "ping")
+                )
+              ) ++ ZStream.fromZIO(written.await).drain)
+                .ensuring(readerStopped.succeed(()).unit)
+          _              <- McpConnection.make(terminalTransport)
+          _              <- readerStopped.await
+          terminalSends  <- afterTerminalSent.get
+          duplex         <- wire
+          invalid        <- McpConnection.make(duplex.transport(), capacity = 0).exit
+          invalidControl <- McpConnection.make(duplex.transport(), controlCapacity = 0).exit
+          connection     <- McpConnection.make(duplex.transport())
+          request        <- connection.request("pending").forkScoped
+          _              <- duplex.nextRequest
+          _              <- duplex.received.offer(Take.end)
+          eof            <- request.await
+          peer           <- wire
+          peerConnection <- McpConnection.make(peer.transport())
+          peerRequest    <- peerConnection.request("pending").forkScoped
+          _              <- peer.nextRequest
+          _           <- peer.receive(McpMessage.Failure(None, McpRpcError(-32700, "invalid JSON")))
+          peerFailure <- peerRequest.await
+          flooded     <- wire
+          writing     <- Promise.make[Nothing, Unit]
+          floodConnection <- McpConnection.make(
+            flooded.transport {
+              case _: McpMessage.Success => writing.succeed(()).unit *> ZIO.never
+              case _                     => ZIO.unit
+            },
+            controlCapacity = 1
+          )
+          floodRequest <- floodConnection.request("pending").forkScoped
+          _            <- flooded.nextRequest
+          _            <- flooded.receive(McpMessage.Request(McpRequestId.Text("one"), "ping"))
+          _            <- writing.await
+          _            <- flooded.receive(McpMessage.Request(McpRequestId.Text("two"), "ping"))
+          _            <- flooded.receive(McpMessage.Request(McpRequestId.Text("three"), "ping"))
+          overflow     <- floodRequest.await
+        yield assertTrue(
+          terminalSends == 0,
+          invalid.isFailure,
+          invalidControl.isFailure,
+          localFailure(eof),
+          localFailure(peerFailure),
+          localFailure(overflow)
+        )
+    }
+  ) @@ TestAspect.timeout(10.seconds)

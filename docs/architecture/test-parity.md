@@ -879,7 +879,7 @@ The [current acceptance record](../../modules/harness/src/main/scala/com/weisgno
 
 The six unfinished plan-mode methods remain unfinished. Parent Build must not manufacture child approval. Explicitly installed gates remain effective across host-held session turns and session-bound sends. Declaration-driven composition, event routing and durable host recovery remain separate.
 
-## MCP envelope boundary
+## MCP protocol and connection boundaries
 
 AgentScope Java delegates JSON-RPC encoding to MCP SDK 0.17.2 at the pinned upstream revision. Its async/sync wrapper and builder tests cover SDK delegation, not the raw wire boundary. The [protocol suite](../../modules/mcp/src/test/scala/com/weisgnosis/agents/mcp/protocol/README.md) adds specification-derived coverage; it does not close those upstream wrapper methods.
 
@@ -891,6 +891,10 @@ AgentScope Java delegates JSON-RPC encoding to MCP SDK 0.17.2 at the pinned upst
 - [x] Four grouped call-result tests cover all five content variants and embedded text/blob overlap, typed tool outcomes and independent metadata levels, malformed fields and compact numeric bounds, and recursive duplicates. URI/base64/timestamp format interpretation and JSON Schema evaluation are excluded; malformed supplied body members are rejected even when another union branch could accept the payload.
 - [ ] Adapt upstream client initialization, discovery, invocation and transport lifecycle behaviors. `McpSyncClientWrapperTest.testListTools_Success`, `testCallTool_Success` and `testCallTool_ReturnsError` remain integration targets; payload projections do not close them.
 - [x] Four request-registry groups cover out-of-order correlation and remote error data, capacity and scoped release, actual waiting-fiber cancellation versus completed replies, and owner/terminal closure. Live failed request scopes preserve compound domain causes and project foreign typed failures without losing defects or interruption. This ZIO ownership foundation does not close upstream connection methods or establish transport cleanup.
+
+- [x] Seven [McpConnectionSpec](../../modules/mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) groups pass against an in-memory borrowed port: checked out-of-order RPC, isolated send failures, bounded operations and server-control replies, directional notification handling, caller/terminal cleanup, and shared close with cleanup-defect replay. Both reviewers approved the final bounded scope and full verification passed; exact identities and evidence are in the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance). These tests do not implement a concrete transport or close upstream initialization/discovery methods.
+- [x] `mcp-terminal-dispatch-red.log` records duplicated terminal defects and a post-terminal send count of 1 instead of 0 against unchanged connection blob `1217d4467307297381bed0e01804ca898a85c8d5`. The corrected focused suite passes. Closed-parent startup is fixed and contract-covered, but that scheduling hazard was not reproduced in the red run.
+- [ ] Add concrete transport framing, explicit 2025-06-18 initialization ordering and client discovery/invocation integration, then Toolkit adaptation.
 
 The [2026-07-28 specification](https://modelcontextprotocol.io/specification/2026-07-28/basic) defines the common envelope. Strict unknown-field rejection and bounded integers are explicit local constraints. Method-level result tags, capabilities, request correlation state and version compatibility remain outside this codec's acceptance.
 
