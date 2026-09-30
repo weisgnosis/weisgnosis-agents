@@ -22,7 +22,7 @@ Last synchronized: 2026-10-01. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 599 core / 678 harness / 79 MCP tests (1,356 total), zero compiler warnings or failures. Evidence: `event-forwarder-verify.log`; compile task 5 seconds, test task 12 seconds.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 599 core / 681 harness / 79 MCP tests (1,359 total), zero compiler warnings or failures. Evidence: `local-skill-final-verify.log`; compile task 6 seconds, test task 12 seconds.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -38,7 +38,7 @@ Last synchronized: 2026-10-01. Implementation is active. This document records c
 
 ### Harness
 
-- [x] Bounded inline SKILL.md parsing with required string name/description, exact body preservation, typed validation and empty capability bindings; generic metadata and local skill loading remain separate.
+- [x] Bounded inline SKILL.md parsing with required string name/description, exact body preservation, typed validation and empty capability bindings; generic metadata remains separate.
 - [x] Pair-safe compaction, merged summaries, retained user provenance, token estimation and opt-in local/inline result eviction with 80,000-character offloading and 2,000-character previews.
 - [x] Immutable permission priorities, interactive Promise-based confirmation, current-policy/input rechecks and serializable durable approval data.
 - [x] Explicit permission-gate composition preserves priority, separate sequential resource scopes and failure/cancellation causes; immutable authorizer views retain shared policy/confirmation authority and rerun added gates against confirmed input.
@@ -94,7 +94,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Both independent reviewers approved actual skill-loader Plan admission using trusted admitted-tool access, explicit host precedence and confirmation rechecks; the [Plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities) owns exact acceptance.
 - [x] Both reviewers approved pure skill-group reminders with snapshot-consistent reset descriptions/results; no generated registration or active-skill state. Exact identities and verification belong to the [catalogue](../../modules/core/src/main/scala/com/weisgnosis/agents/core/skill/README.md) and [runtime](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#preloaded-skills).
 - [x] Both reviewers approved bounded inline SKILL.md parsing with a strict two-string-field profile and exact body preservation; the [parser contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/skill/README.md#verification-and-acceptance) records exact identities and verification.
-- [ ] Next: bounded host-owned local skill loading; general metadata, child propagation, general I/O recovery and durable integration remain unfinished.
+- [x] Implement and independently review [bounded selected local skill loading](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/skill/README.md#selected-local-loading), with explicit host trust, UTF-8/count/byte limits and joined file cleanup. No recursive discovery or atomic sandbox is claimed.
+- [ ] Next: child skill/access propagation; general metadata, repository discovery, general I/O recovery and durable integration remain unfinished.
 - [x] Implement and independently review scoped HTTP POST and explicit GET requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [ ] Complete separately specified general I/O recovery, session reinitialization and broader server interoperability.
 - [ ] Define durable host reuse/recovery and post-promotion event delivery separately, with explicit lifetime and retention contracts.

@@ -4,7 +4,7 @@ Standalone context and permission components built on core.
 
 | Package | Current status |
 | --- | --- |
-| [skill](src/main/scala/com/weisgnosis/agents/harness/skill/README.md) | Bounded inline SKILL.md parsing with strict required strings and exact body preservation; generic metadata/filesystem loading pending |
+| [skill](src/main/scala/com/weisgnosis/agents/harness/skill/README.md) | Bounded inline SKILL.md parsing and selected local UTF-8 resources with explicit host trust; generic metadata/repository discovery pending |
 | [memory](src/main/scala/com/weisgnosis/agents/harness/memory/README.md) | Pair-safe compaction, summary/user provenance, token estimation and daily extraction/local storage and atomic in-memory and recoverable local consolidation |
 | [transcript](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md) | Typed observation projection, atomic in-memory linkage, and strict scoped local persistence; remote segments pending |
 | [storage](src/main/scala/com/weisgnosis/agents/harness/storage/README.md) | Internal cooperative scoped ownership shared by memory and transcripts |
@@ -18,6 +18,8 @@ MemoryFlushManager supplies daily extraction through an injected DailyMemoryStor
 Local storage requires WorkspaceTrust.HostControlled and protected filesystem ancestors. Tool-result publication requires hard-link support; memory/transcript publication requires atomic-move support. It is not a sandbox for untrusted workspaces. See [implementation notes](../../docs/architecture/phase-4-implementation.md) and the [tracker](../../docs/architecture/tracker.md).
 
 ## Current review acceptance
+
+- [x] `path_review` and `current_docs` approved bounded [selected local skill loading](src/main/scala/com/weisgnosis/agents/harness/skill/README.md#selected-local-loading), including host trust, file cleanup and strict UTF-8/size limits. Three grouped regressions and full verification passed; the package records exact identities and filesystem limitations.
 
 - [x] Both independent reviewers approved the bounded [inline skill parser](src/main/scala/com/weisgnosis/agents/harness/skill/README.md#verification-and-acceptance); three table groups and full verification passed. The package contract records exact identities and intentional profile restrictions.
 - [x] `path_review` and `current_docs` approved [opt-in admitted-tool Plan admission](src/main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities), including real skill loading, explicit host/policy denial and confirmation rechecks. The linked contract owns exact identities, verification and child-propagation limits.

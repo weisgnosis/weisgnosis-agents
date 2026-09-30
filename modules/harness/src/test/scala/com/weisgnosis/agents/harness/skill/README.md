@@ -1,4 +1,4 @@
-# Inline skill parsing: verification
+# Inline and local skill verification
 
 [SkillMarkdownParserSpec](SkillMarkdownParserSpec.scala) uses three table-driven groups:
 
@@ -7,4 +7,11 @@
 - Positive UTF-16 limits, exact size boundaries, delimiter near-misses, BOM/leading-whitespace rejection and blank bodies.
 
 - [x] Both independent reviewers approved the [source contract and exact identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/skill/README.md#verification-and-acceptance). Focused and full verification passed; current evidence belongs to that contract.
-- [ ] Verify separately scoped filesystem/repository loading, generic metadata preservation and capability installation when implemented. These tests parse immutable text only.
+
+## Selected local loading
+
+[LocalSkillSpec](LocalSkillSpec.scala) adds three grouped contracts: cold scoped loading of exact metadata/body and selected UTF-8 resources with stream release; trust, traversal/sensitive-path, identifier and file-shape rejection; and count, byte, decoding and parser bounds. Selected empty text and multibyte UTF-8 exercise exact limits, while corrupt unselected files remain unread. No filesystem discovery or generated activation is inferred.
+
+- [x] `path_review` and `current_docs` approved both [local source/test identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/skill/README.md#selected-local-loading), with no findings. Focused `local-skill-test.log` passed all three groups in 218 ms.
+- [x] Full `local-skill-final-verify.log` verification passed with zero compiler warnings or failures; the linked source acceptance records totals and timing. Platform symlink execution is not covered; the source contract records the advisory filesystem guarantees.
+- [ ] Next: explicit child skills and admitted-access propagation. Repository discovery, general metadata and capability installation remain separate.
