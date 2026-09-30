@@ -134,21 +134,10 @@ final class ReActAgent private (
           for
             hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
             subscription <- hub.subscribe
-            forwarder <- ZStream
-              .fromQueue(subscription)
-              .runForeachChunk(events => ZIO.foreachDiscard(events)(forward).uninterruptible)
-              .forkScoped
+            drain        <- AgentEventForwarder.start(subscription, forward)
             result <- ZIO
               .scoped(runOrdinaryWithHub(messages, hub, complete))
-              .ensuring(
-                for
-                  // No execution producers remain: join the claimed prefix before forwarding the suffix.
-                  tail <- subscription.takeAll
-                  _    <- subscription.shutdown
-                  _    <- forwarder.join
-                  _    <- ZIO.foreachDiscard(tail)(forward)
-                yield ()
-              )
+              .ensuring(drain)
           yield result
       )
     )
@@ -354,10 +343,10 @@ final class ReActAgent private (
         delivery <- ZIO.acquireRelease(Queue.unbounded[Take[AgentError, AgentRunUpdate[A]]])(
           _.shutdown
         )
-        forwarder <- ZStream
-          .fromQueue(sub)
-          .runForeach(event => delivery.offer(Take.single(AgentRunUpdate.Event(event))).unit)
-          .forkScoped
+        drain <- AgentEventForwarder.start(
+          sub,
+          event => delivery.offer(Take.single(AgentRunUpdate.Event(event))).unit
+        )
         _ <- ZIO.uninterruptibleMask { restore =>
           for
             exit <- restore(
@@ -365,11 +354,7 @@ final class ReActAgent private (
                 observeInvocation(complete => ZIO.scoped(runEffect(hub, complete)))
               )
             ).exit
-            // Join the claimed prefix before appending the unclaimed suffix and terminal signal.
-            tail <- sub.takeAll
-            _    <- sub.shutdown
-            _    <- forwarder.join
-            _    <- delivery.offer(Take.chunk(tail.map(AgentRunUpdate.Event(_))))
+            _ <- drain
             _ <- exit match
               case Exit.Success(value) =>
                 delivery.offer(Take.single(AgentRunUpdate.Result(value))) *> delivery.offer(

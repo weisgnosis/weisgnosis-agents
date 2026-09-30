@@ -6,6 +6,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 
 - [ReActAgentToolGroupsSpec](ReActAgentToolGroupsSpec.scala)
 - [AgentRunUpdateSpec](AgentRunUpdateSpec.scala)
+- [AgentEventForwarderSpec](AgentEventForwarderSpec.scala)
 - [PostReasoningHookSpec](PostReasoningHookSpec.scala)
 - [ReActAgentReasoningHookSpec](ReActAgentReasoningHookSpec.scala)
 - [AgentConfigSpec](AgentConfigSpec.scala)
@@ -36,7 +37,11 @@ Both independent reviewers approved the final source/spec, and full verification
 - [x] Three AgentRunUpdateSpec groups verify one actual ordinary execution with full history/aggregate usage and cleanup-before-result, a cooperatively interrupted result with one recovery, decoded structured values and exact mixed terminal causes, and held cleanup on early consumer completion or caller cancellation. No result is fabricated on failure.
 - [x] `path_review` and `current_docs` approved the final source/spec identities; full verification passed. The [stream contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#result-bearing-streams) owns exact hashes, commands and limitations.
 - [x] [ToolInvocationSpec](../tool/ToolInvocationSpec.scala) verifies approved occurrence context and scoped event publication through actual ReAct runs; both reviewers approved the [capability contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#invocation-event-capability).
-- [x] [ReActAgentForwardingSpec](ReActAgentForwardingSpec.scala) verifies direct result-preserving forwarding, nested attribution/order, exact compound causes and held cancellation cleanup, and completion through a closed port. Both reviewers approved the [exact source/spec identities](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#direct-event-forwarding).
+[ReActAgentForwardingSpec](ReActAgentForwardingSpec.scala) verifies direct result-preserving forwarding, nested attribution/order, exact compound causes and held cancellation cleanup, and completion through a closed port. Its unchanged ordering assertion exposed the competing-consumer race in `local-skill-verify.log`: ReActAgent blob `0fbbe1a282f1740efcb96b05d3d4befb39f44f4c` delivered ModelResponseEnd last instead of AgentEnd.
+
+[AgentEventForwarderSpec](AgentEventForwarderSpec.scala) adds three groups using real Hub/Promise barriers: one consumer delivers a held claimed prefix before the queued suffix while finish waits; empty and claimed-only shutdown complete without leaking queue-shutdown interruption; delivery defects retain their exact cause and caller cancellation joins held publication. Both direct forwarding and result-bearing streams now signal completion to this sole consumer and join delivery before termination.
+
+- [x] `path_review` and `current_docs` approved the [current forwarding identities](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#direct-event-forwarding), with no findings. The focused helper, existing integration and stream suites passed 27 tests in 522 ms; full `event-forwarder-verify.log` verification passed with zero compiler warnings or failures. The linked acceptance records scoped totals and timing.
 - [x] Separate [harness integration evidence](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/README.md) covers child forwarding and promotion wiring. Existing early-consumer abandonment of later observer errors is unchanged.
 
 ## Typed local-result evidence
