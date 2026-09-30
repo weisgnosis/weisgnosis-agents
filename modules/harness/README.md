@@ -19,6 +19,8 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 ## Current review acceptance
 
+- [x] `registry_contract` and `current_docs` approved [child admitted-access propagation](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#admitted-tool-plan-access), with explicit Plan opt-in, unchanged defaults and preserved parent-denial/confirmation checks. The linked contract owns four source/spec identities and full verification.
+
 - [x] `path_review` and `current_docs` approved bounded [selected local skill loading](src/main/scala/com/weisgnosis/agents/harness/skill/README.md#selected-local-loading), including host trust, file cleanup and strict UTF-8/size limits. Three grouped regressions and full verification passed; the package records exact identities and filesystem limitations.
 
 - [x] Both independent reviewers approved the bounded [inline skill parser](src/main/scala/com/weisgnosis/agents/harness/skill/README.md#verification-and-acceptance); three table groups and full verification passed. The package contract records exact identities and intentional profile restrictions.

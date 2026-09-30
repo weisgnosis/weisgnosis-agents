@@ -28,11 +28,16 @@ import com.weisgnosis.agents.harness.plan.{
 }
 import zio.*
 
+/** Explicit host classifications remain the default; admitted-tool fallback requires opt-in. */
+enum SubagentPlanAccess:
+  case ExplicitAccess, AdmittedTools
+
 /** Live child capabilities, without codecs or parent approval authority. */
 final case class SubagentPermissions(
     authorizer: InteractivePermissionAuthorizer,
     plan: PlanSessionControl,
-    access: Map[String, PlanToolAccess]
+    access: Map[String, PlanToolAccess],
+    planAccess: SubagentPlanAccess = SubagentPlanAccess.ExplicitAccess
 )
 
 /**
@@ -79,9 +84,12 @@ final class SubagentConstruction private (
             mode
           )
           additions <- ZIO.suspendSucceed(register(descendants, permissions))
-          authorizer = permissions.authorizer.withAdditionalGate(
-            PlanPermissionGate.make(mode, permissions.access)
-          )
+          gate = permissions.planAccess match
+            case SubagentPlanAccess.ExplicitAccess =>
+              PlanPermissionGate.make(mode, permissions.access)
+            case SubagentPlanAccess.AdmittedTools =>
+              PlanPermissionGate.withAdmittedTools(mode, permissions.access)
+          authorizer = permissions.authorizer.withAdditionalGate(gate)
         yield (additions, authorizer),
       client,
       parentDenials

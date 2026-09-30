@@ -19,7 +19,14 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
-import com.weisgnosis.agents.core.tool.{ToolAuthorization, ToolAuthorizer, ToolEventPort, Toolkit}
+import com.weisgnosis.agents.core.tool.{
+  AdmittedToolAccess,
+  ToolAuthorization,
+  ToolAuthorizationRequest,
+  ToolAuthorizer,
+  ToolEventPort,
+  Toolkit
+}
 import com.weisgnosis.agents.harness.permission.{PermissionBehavior, PermissionEngine}
 import zio.*
 import zio.json.ast.Json
@@ -149,20 +156,30 @@ object SubagentFactory:
       authorizer: ToolAuthorizer,
       readParentPolicy: UIO[PermissionEngine]
   ): ToolAuthorizer =
-    ToolAuthorizer: request =>
-      def parentDenies(input: Json): UIO[Boolean] =
-        ZIO
-          .suspendSucceed(readParentPolicy)
-          .map(_.evaluate(request.call.name, input) == PermissionBehavior.Deny)
+    new ToolAuthorizer:
+      def authorize(
+          request: ToolAuthorizationRequest
+      ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization] = authorize(request, None)
 
-      parentDenies(request.call.input).flatMap:
-        case true => ZIO.succeed(ToolAuthorization.Denied("Tool execution denied by parent policy"))
-        case false =>
+      override def authorize(
+          request: ToolAuthorizationRequest,
+          admittedAccess: Option[AdmittedToolAccess]
+      ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization] =
+        def parentDenies(input: Json): UIO[Boolean] =
           ZIO
-            .suspendSucceed(authorizer.authorize(request))
-            .flatMap:
-              case approved @ ToolAuthorization.Approved(input) =>
-                parentDenies(input).map:
-                  case true => ToolAuthorization.Denied("Approved input is denied by parent policy")
-                  case false => approved
-              case denied: ToolAuthorization.Denied => ZIO.succeed(denied)
+            .suspendSucceed(readParentPolicy)
+            .map(_.evaluate(request.call.name, input) == PermissionBehavior.Deny)
+
+        parentDenies(request.call.input).flatMap:
+          case true =>
+            ZIO.succeed(ToolAuthorization.Denied("Tool execution denied by parent policy"))
+          case false =>
+            ZIO
+              .suspendSucceed(authorizer.authorize(request, admittedAccess))
+              .flatMap:
+                case approved @ ToolAuthorization.Approved(input) =>
+                  parentDenies(input).map:
+                    case true =>
+                      ToolAuthorization.Denied("Approved input is denied by parent policy")
+                    case false => approved
+                case denied: ToolAuthorization.Denied => ZIO.succeed(denied)

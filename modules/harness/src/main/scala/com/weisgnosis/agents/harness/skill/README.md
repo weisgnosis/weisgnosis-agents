@@ -14,7 +14,7 @@ This additive API changes no core declaration, catalogue codec or existing subag
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the two identities below, with no findings.
 - [x] Three focused table groups passed in `skill-markdown-test.log` (192 ms). Full `scalafmtAll scalafmtSbt verify` passed in `skill-markdown-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
-- [ ] Next: explicit child skills and admitted-access propagation. Generic metadata, repository discovery and capability registration remain separate.
+- [ ] Next: explicit child skill catalogue/group propagation. Generic metadata, repository discovery and capability registration remain separate.
 
 | File | Reviewed Git blob |
 | --- | --- |

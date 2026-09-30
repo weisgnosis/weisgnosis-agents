@@ -129,6 +129,91 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentConstructionSpec")(
     test(
+      "constructed children opt into admitted Plan access without overriding host or parent denials"
+    ) {
+      val cases = Chunk(
+        (
+          SubagentPlanAccess.ExplicitAccess,
+          Map.empty[String, PlanToolAccess],
+          ToolResultState.Denied
+        ),
+        (
+          SubagentPlanAccess.AdmittedTools,
+          Map.empty[String, PlanToolAccess],
+          ToolResultState.Success
+        ),
+        (
+          SubagentPlanAccess.AdmittedTools,
+          Map("read" -> PlanToolAccess.Mutation),
+          ToolResultState.Denied
+        )
+      )
+      ZIO
+        .foreach(cases) { case (admission, access, expectedRead) =>
+          ZIO.scoped:
+            for
+              supervisor <- TaskSupervisor.open[AgentResult]
+              root       <- SubagentSpawner.root(supervisor)
+              parentMode <- Ref.make(PlanMode.Build)
+              policy     <- Ref.make(PermissionEngine())
+              executed   <- Ref.make(Chunk.empty[String])
+              construction = SubagentConstruction.root(
+                root,
+                SubagentToolBoundary(),
+                policy.get,
+                parentMode.get
+              )
+              tools = Toolkit(
+                Chunk("read", "write")
+                  .map(name =>
+                    name -> Tool.make(
+                      ToolDef(name, "Child access probe", Json.Obj(), isReadOnly = name == "read")
+                    )(_ => executed.update(_ :+ name).as("executed"))
+                  )
+                  .toMap
+              )
+              client = LlmClient.mockEffectful((history, _, _) =>
+                ZIO.succeed(
+                  if history.lastOption.exists(_.role == Role.User) then
+                    val name = history.lastOption.fold("")(_.text)
+                    TurnOutput.ToolCalls(
+                      Msg.assistant(Chunk(ContentBlock.ToolUse(name, name, Json.Obj())))
+                    )
+                  else TurnOutput.FinalText(Msg.assistant("done"))
+                )
+              )
+              configured <- factory(
+                construction,
+                permissions(allow, access).map(_.copy(planAccess = admission)),
+                (_, _) => ZIO.succeed(tools),
+                _ => ZIO.succeed(client)
+              )
+              resource   <- session(root, configured)
+              buildRead  <- turn(resource.value, "read")
+              buildWrite <- turn(resource.value, "write")
+              _          <- parentMode.set(PlanMode.Plan)
+              planRead   <- turn(resource.value, "read")
+              planWrite  <- turn(resource.value, "write")
+              _ <- policy.set(
+                PermissionEngine(Chunk(PermissionRule("read", PermissionBehavior.Deny)))
+              )
+              denied <- turn(resource.value, "read")
+              actual <- executed.get
+            yield assertTrue(
+              Chunk(buildRead, buildWrite, planRead, planWrite, denied) == Chunk(
+                ToolResultState.Success,
+                ToolResultState.Success,
+                expectedRead,
+                ToolResultState.Denied,
+                ToolResultState.Denied
+              ),
+              actual == (Chunk("read", "write") ++
+                (if expectedRead == ToolResultState.Success then Chunk("read") else Chunk.empty))
+            )
+        }
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
+    test(
       "nested construction preserves narrowed boundaries and ancestor argument denials through factory derivatives"
     ) {
       val deniedNames = Chunk("root_hidden", "child_hidden", "later_hidden")

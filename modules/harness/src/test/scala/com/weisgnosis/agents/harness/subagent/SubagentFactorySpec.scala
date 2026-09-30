@@ -19,12 +19,20 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
-import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorization, ToolAuthorizer, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.tool.{
+  AdmittedToolAccess,
+  Tool,
+  ToolAuthorization,
+  ToolAuthorizer,
+  ToolDef,
+  Toolkit
+}
 import com.weisgnosis.agents.harness.permission.{
   ConfirmResult,
   InteractivePermissionAuthorizer,
   PermissionBehavior,
   PermissionEngine,
+  PermissionGate,
   PermissionRequests,
   PermissionRule
 }
@@ -187,13 +195,26 @@ object SubagentFactorySpec extends ZIOSpecDefault:
             root       <- SubagentSpawner.root(supervisor)
             policy     <- Ref.make(initial)
             executions <- Ref.make(Chunk.empty[Json])
+            admitted   <- Ref.make(Chunk.empty[(Json, Option[AdmittedToolAccess])])
             requests   <- PermissionRequests.make
             published  <- Promise.make[Nothing, String]
+            gate = new PermissionGate:
+              def evaluate(name: String, input: Json): UIO[Option[PermissionBehavior]] =
+                evaluate(name, input, None)
+              override def evaluate(
+                  name: String,
+                  input: Json,
+                  access: Option[AdmittedToolAccess]
+              ): UIO[Option[PermissionBehavior]] =
+                admitted.update(_ :+ (input -> access)).as(None)
             child <- InteractivePermissionAuthorizer
-              .make(requests, request => published.succeed(request.requestId).unit)
+              .make(requests, request => published.succeed(request.requestId).unit, toolGate = gate)
             base <- permissionFactory(original, executions, child)
             task <- accepted(
-              base.inheritingParentDenials(policy.get).spawn(root, Msg.user("perform the probe"))
+              base
+                .inheritingParentDenials(policy.get)
+                .inheritingParentDenials(ZIO.succeed(PermissionEngine()))
+                .spawn(root, Msg.user("perform the probe"))
             )
             requestId <- published.await
             _         <- policy.set(latestPolicy)
@@ -202,17 +223,25 @@ object SubagentFactorySpec extends ZIOSpecDefault:
             result   <- task.await
             executed <- executions.get
             pending  <- requests.pendingIds
-          yield resolved && pending.isEmpty &&
+            evidence <- admitted.get
+          yield assertTrue(
+            resolved,
+            pending.isEmpty,
+            evidence == Chunk(
+              original -> Some(AdmittedToolAccess.Mutating),
+              approved -> Some(AdmittedToolAccess.Mutating)
+            ),
             executed == (if expectedState == ToolResultState.Success then Chunk(approved)
-                         else Chunk.empty) &&
+                         else Chunk.empty),
             result.exists(value =>
               value.history.flatMap(_.toolResults).map(_.state) == Chunk(expectedState) &&
                 value.history
                   .flatMap(_.toolUses)
                   .forall(call => call.id == "permission-call" && call.name == "probe")
             )
+          )
         }
-        .map(results => assertTrue(results.forall(identity)))
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     },
     test(
       "inherited policy failures stay fail closed and interruption joins cleanup on either policy read"
