@@ -27,6 +27,9 @@ final class SupervisedTask[+A] private[subagent] (
 
   def await: UIO[Exit[AgentError, A]] = fiber.await
 
+  /** Observes completion only after the task's owned cleanup has finished. */
+  def poll: UIO[Option[Exit[AgentError, A]]] = fiber.poll
+
   /** Cancels even promoted work and waits for all task-owned cleanup. */
   def cancel: UIO[Exit[AgentError, A]] =
     ZIO.uninterruptible(ownership.set(Ownership.Released) *> fiber.interrupt)

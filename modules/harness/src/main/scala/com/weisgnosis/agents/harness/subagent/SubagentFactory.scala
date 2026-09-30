@@ -19,8 +19,10 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
-import com.weisgnosis.agents.core.tool.{ToolAuthorizer, Toolkit}
+import com.weisgnosis.agents.core.tool.{ToolAuthorization, ToolAuthorizer, Toolkit}
+import com.weisgnosis.agents.harness.permission.{PermissionBehavior, PermissionEngine}
 import zio.*
+import zio.json.ast.Json
 
 /** Builds fresh child runtimes only after applying their final static tool boundary. */
 final class SubagentFactory private (
@@ -42,6 +44,35 @@ final class SubagentFactory private (
       client,
       authorizer
     )
+
+  /**
+   * Applies live parent denials before child authorization and again to its approved input.
+   * Parent Allow/Ask decisions and approval authority are never inherited. The final policy read
+   * is a decision snapshot, not atomic execution revocation or durable historical deny accumulation.
+   * Confirmed child rules remain installed even if this final parent check denies execution.
+   */
+  def inheritingParentDenials(readParentPolicy: UIO[PermissionEngine]): SubagentFactory =
+    val inheritedAuthorizer = ToolAuthorizer: request =>
+      def parentDenies(input: Json): UIO[Boolean] =
+        ZIO
+          .suspendSucceed(readParentPolicy)
+          .map(
+            _.evaluate(request.call.name, input) == PermissionBehavior.Deny
+          )
+
+      parentDenies(request.call.input).flatMap:
+        case true => ZIO.succeed(ToolAuthorization.Denied("Tool execution denied by parent policy"))
+        case false =>
+          ZIO
+            .suspendSucceed(authorizer.authorize(request))
+            .flatMap:
+              case approved @ ToolAuthorization.Approved(input) =>
+                parentDenies(input).map:
+                  case true => ToolAuthorization.Denied("Approved input is denied by parent policy")
+                  case false => approved
+              case denied: ToolAuthorization.Denied => ZIO.succeed(denied)
+
+    new SubagentFactory(config, model, inherited, boundary, register, client, inheritedAuthorizer)
 
   /** The caller must retain this Scope for the returned runtime's resource lifetime. */
   def build(child: SubagentSpawner[AgentResult]): ZIO[Scope, AgentError, ReActAgent] =

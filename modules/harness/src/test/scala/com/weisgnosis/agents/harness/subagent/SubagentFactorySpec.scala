@@ -20,11 +20,22 @@ import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorization, ToolAuthorizer, ToolDef, Toolkit}
+import com.weisgnosis.agents.harness.permission.{
+  ConfirmResult,
+  InteractivePermissionAuthorizer,
+  PermissionBehavior,
+  PermissionEngine,
+  PermissionRequests,
+  PermissionRule
+}
 import zio.*
 import zio.json.ast.Json
 import zio.test.*
 
 object SubagentFactorySpec extends ZIOSpecDefault:
+  private enum PolicyFailure:
+    case Interrupt, Defect
+
   private val model: LlmConfig = LlmConfig("configured-child-model")
   private val config: AgentConfig =
     AgentConfig(name = "reader", systemPrompt = "Read the requested material")
@@ -61,7 +72,196 @@ object SubagentFactorySpec extends ZIOSpecDefault:
       case TaskAdmission.Closed =>
         ZIO.fail(AgentError.InvalidConfiguration("Unexpected closed supervisor"))
 
+  private def permissionFactory(
+      input: Json,
+      executions: Ref[Chunk[Json]],
+      authorizer: ToolAuthorizer
+  ): IO[AgentError, SubagentFactory] =
+    val probe = Tool.make(ToolDef("probe", "Record authorized arguments", Json.Obj()))(input =>
+      executions.update(_ :+ input).as("executed")
+    )
+    factory(
+      inherited = Toolkit(Map("probe" -> probe)),
+      client = _ =>
+        LlmClient.mock(
+          Chunk(
+            TurnOutput.ToolCalls(
+              Msg.assistant(Chunk(ContentBlock.ToolUse("permission-call", "probe", input)))
+            ),
+            TurnOutput.FinalText(Msg.assistant("done"))
+          )
+        ),
+      authorizer = authorizer
+    )
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentFactorySpec")(
+    test(
+      "live parent denial preserves child policy, argument boundaries and narrowed factory authority"
+    ) {
+      val cases = Chunk(
+        (PermissionBehavior.Deny, PermissionBehavior.Allow, "blocked", ToolResultState.Denied, 0),
+        (
+          PermissionBehavior.Deny,
+          PermissionBehavior.Allow,
+          "permitted",
+          ToolResultState.Success,
+          0
+        ),
+        (PermissionBehavior.Allow, PermissionBehavior.Ask, "blocked", ToolResultState.Success, 1),
+        (PermissionBehavior.Ask, PermissionBehavior.Allow, "blocked", ToolResultState.Success, 0),
+        (
+          PermissionBehavior.Passthrough,
+          PermissionBehavior.Allow,
+          "blocked",
+          ToolResultState.Success,
+          0
+        ),
+        (PermissionBehavior.Allow, PermissionBehavior.Deny, "blocked", ToolResultState.Denied, 0)
+      )
+      ZIO
+        .foreach(cases) {
+          case (parentBehavior, childBehavior, command, expectedState, expectedPrompts) =>
+            val input = Json.Obj("command" -> Json.Str(command))
+            val parentPolicy =
+              PermissionEngine(Chunk(PermissionRule("probe", parentBehavior, Some("blocked"))))
+            val childPolicy = PermissionEngine(Chunk(PermissionRule("probe", childBehavior)))
+            for
+              supervisor <- TaskSupervisor.open[AgentResult]
+              root       <- SubagentSpawner.root(supervisor)
+              executions <- Ref.make(Chunk.empty[Json])
+              prompts    <- Ref.make(0)
+              reads      <- Ref.make(0)
+              requests   <- PermissionRequests.make
+              child <- InteractivePermissionAuthorizer.make(
+                requests,
+                request =>
+                  prompts.update(_ + 1) *> requests
+                    .resolve(request.requestId, ConfirmResult(confirmed = true))
+                    .unit,
+                childPolicy
+              )
+              base <- permissionFactory(input, executions, child)
+              configured = base
+                .inheritingParentDenials(reads.update(_ + 1).as(parentPolicy))
+                .narrowed(SubagentToolBoundary(SubagentToolSelection.Only(Set("probe"))))
+              before         <- reads.get
+              task           <- accepted(configured.spawn(root, Msg.user("perform the probe")))
+              result         <- task.await
+              executed       <- executions.get
+              published      <- prompts.get
+              retainedPolicy <- child.policy
+            yield before == 0 && published == expectedPrompts && retainedPolicy == childPolicy &&
+              executed == (if expectedState == ToolResultState.Success then Chunk(input)
+                           else Chunk.empty) &&
+              result.exists(_.history.flatMap(_.toolResults).map(_.state) == Chunk(expectedState))
+        }
+        .map(results => assertTrue(results.forall(identity)))
+    },
+    test(
+      "parent denials recheck confirmed arguments and policy changes while the actual child waits"
+    ) {
+      val initial =
+        PermissionEngine(Chunk(PermissionRule("probe", PermissionBehavior.Deny, Some("blocked"))))
+      val cases = Chunk(
+        (initial, "blocked", ToolResultState.Denied),
+        (
+          PermissionEngine(
+            Chunk(PermissionRule("probe", PermissionBehavior.Deny, Some("original")))
+          ),
+          "original",
+          ToolResultState.Denied
+        ),
+        (
+          PermissionEngine(Chunk(PermissionRule("probe", PermissionBehavior.Deny, Some("edited")))),
+          "edited",
+          ToolResultState.Denied
+        ),
+        (initial, "permitted", ToolResultState.Success)
+      )
+      ZIO
+        .foreach(cases) { case (latestPolicy, approvedCommand, expectedState) =>
+          val original = Json.Obj("command" -> Json.Str("original"))
+          val approved = Json.Obj("command" -> Json.Str(approvedCommand))
+          for
+            supervisor <- TaskSupervisor.open[AgentResult]
+            root       <- SubagentSpawner.root(supervisor)
+            policy     <- Ref.make(initial)
+            executions <- Ref.make(Chunk.empty[Json])
+            requests   <- PermissionRequests.make
+            published  <- Promise.make[Nothing, String]
+            child <- InteractivePermissionAuthorizer
+              .make(requests, request => published.succeed(request.requestId).unit)
+            base <- permissionFactory(original, executions, child)
+            task <- accepted(
+              base.inheritingParentDenials(policy.get).spawn(root, Msg.user("perform the probe"))
+            )
+            requestId <- published.await
+            _         <- policy.set(latestPolicy)
+            resolved <- requests
+              .resolve(requestId, ConfirmResult(confirmed = true, modifiedInput = Some(approved)))
+            result   <- task.await
+            executed <- executions.get
+            pending  <- requests.pendingIds
+          yield resolved && pending.isEmpty &&
+            executed == (if expectedState == ToolResultState.Success then Chunk(approved)
+                         else Chunk.empty) &&
+            result.exists(value =>
+              value.history.flatMap(_.toolResults).map(_.state) == Chunk(expectedState) &&
+                value.history
+                  .flatMap(_.toolUses)
+                  .forall(call => call.id == "permission-call" && call.name == "probe")
+            )
+        }
+        .map(results => assertTrue(results.forall(identity)))
+    },
+    test(
+      "inherited policy failures stay fail closed and interruption joins cleanup on either policy read"
+    ) {
+      val cases =
+        for read <- Chunk(1, 2); mode <- Chunk(PolicyFailure.Interrupt, PolicyFailure.Defect)
+        yield (read, mode)
+      ZIO
+        .foreach(cases) { case (failureRead, mode) =>
+          for
+            supervisor     <- TaskSupervisor.open[AgentResult]
+            root           <- SubagentSpawner.root(supervisor)
+            executions     <- Ref.make(Chunk.empty[Json])
+            reads          <- Ref.make(0)
+            cleaned        <- Ref.make(0)
+            authorizations <- Ref.make(0)
+            child = ToolAuthorizer(request =>
+              authorizations.update(_ + 1).as(ToolAuthorization.Approved(request.call.input))
+            )
+            base <- permissionFactory(Json.Obj(), executions, child)
+            readPolicy = ZIO.scoped(
+              ZIO
+                .acquireRelease(reads.updateAndGet(_ + 1))(_ => cleaned.update(_ + 1))
+                .flatMap(index =>
+                  if index != failureRead then ZIO.succeed(PermissionEngine())
+                  else
+                    mode match
+                      case PolicyFailure.Interrupt => ZIO.interrupt
+                      case PolicyFailure.Defect    => ZIO.die(failure)
+                )
+            )
+            agent     <- base.inheritingParentDenials(readPolicy).build(root)
+            result    <- agent.run(Msg.user("perform the probe")).exit
+            history   <- agent.history
+            executed  <- executions.get
+            releases  <- cleaned.get
+            delegated <- authorizations.get
+          yield executed.isEmpty && releases == failureRead && delegated == failureRead - 1 &&
+            (mode match
+              case PolicyFailure.Interrupt =>
+                result.isInterrupted && history.lastOption
+                  .exists(_.generateReason.contains("interrupted"))
+              case PolicyFailure.Defect =>
+                result.exists(
+                  _.history.flatMap(_.toolResults).map(_.state) == Chunk(ToolResultState.Denied)
+                ))
+        }
+        .map(results => assertTrue(results.forall(identity)))
+    },
     test(
       "the model sees final filtering of inherited and automatic tools, with monotone factory narrowing"
     ) {

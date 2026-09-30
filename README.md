@@ -4,7 +4,7 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is task registry integration, followed by inherited permission/plan policy and model-facing child tools.
+Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is model-facing spawn, inspect and cancel tools that retain the narrowed factory capability; live plan propagation and persistent reuse remain pending.
 
 ## Implemented components
 
@@ -12,7 +12,7 @@ Implementation is active. The [immediate next work](docs/architecture/tracker.md
 - **harness:** daily-memory extraction, scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, typed transcript observations with in-memory and scoped local stores and opt-in completion recording, typed memory triggers with shared monotonic admission, a scoped task queue with pending conversation coalescing and completion-triggered memory flush, conversation compaction, opt-in runtime result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
 - **mcp:** architecture and package scaffolding only.
 
-LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable approval resumption, broader middleware integration, remote memory/transcript storage, subagent registry integration and inherited child policy remain separate work.
+LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable approval resumption, broader middleware integration, remote memory/transcript storage, model-facing child tools, live plan propagation and persistent child reuse remain separate work.
 
 ## Build and verification
 
@@ -68,9 +68,9 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 ## Current acceptance
 
-- [x] Advisory PathSafety command screening and configured child construction with final static tool filtering are independently approved by `path_review` for FP/ZIO correctness and relevant invariants. Exact reviewed source/test identities and limits are in the [tool contract](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) and [subagent contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
-- [x] `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 609 harness tests (1,170 total), zero compiler warnings or failures. Local evidence: `resumed-implementation-verify.log`.
-- [ ] Complete task registry integration, currently in progress, and remaining work in the [tracker](docs/architecture/tracker.md). Registry changes are outside this acceptance.
+- [x] Advisory PathSafety screening, configured child construction and bounded task registry/polling are independently approved by `path_review`; live parent-denial inheritance is approved by `current_docs`, covering FP/ZIO correctness and relevant invariants. Exact reviewed source/test identities and limits are in the [tool contract](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) and [subagent contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
+- [x] `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 618 harness tests (1,179 total), zero compiler warnings or failures. Local evidence: `registry-policy-verify.log`.
+- [ ] Implement model-facing spawn/inspect/cancel tools, live plan propagation and persistent child reuse; the [tracker](docs/architecture/tracker.md) records remaining integration.
 
 Approval covers the named source/test revisions and documented contracts. Existing accepted components retain their package-level evidence; passing verification does not establish exhaustive upstream parity.
 
@@ -82,4 +82,4 @@ Local execution supports an optional scoped ToolAuthorizer with runtime-owned ca
 
 [Plan mode](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) provides conservative static command inspection, opt-in runtime admission, exact-draft review, request-only context, cooperative local draft storage and strict enter/write/exit tools. Reopened text remains unapproved. Exact-ticket host review is mandatory for exit; location metadata grants no filesystem or approval authority. Typed directories select existing strict workspace descendants. Child propagation and remaining plan adaptations are pending.
 
-[Task supervision](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) owns scoped tasks, parent cancellation leases and same-execution promotion after a 30-second wait per invocation. The host retains the owner Scope for background work. Runtime-owned lineage enforces descendant depth <=3. Configured factories build fresh children with scoped resources and final filtering of inherited and registered tools; the injected authorizer remains effective. Registry integration, model-facing spawn/send, event forwarding and inherited dynamic permission/plan policy remain unfinished.
+[Task supervision](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) owns scoped tasks, parent cancellation leases and same-execution promotion after a 30-second wait per invocation. The host retains the owner Scope for background work. Runtime-owned lineage enforces descendant depth <=3. Configured factories build fresh children with scoped resources and final filtering of inherited and registered tools; the injected authorizer remains effective. A bounded scoped registry retains full results and supports inspection, waiting, promotion, cancellation and completed-record removal. Opt-in parent-denial inheritance rereads current policy before child authorization and against approved arguments without copying child approval authority. Model-facing spawn/send, event forwarding, live plan propagation and persistent reuse remain unfinished.

@@ -4,12 +4,12 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 ## Current acceptance
 
-- [x] The accepted base `f5bc9a0d9c46ad6b162315ba760b98b1ce89276a` is extended by independently approved PathSafety screening and configured factory/static-boundary changes. Reviewer `path_review` approved FP/ZIO correctness and relevant invariants for the exact source/test identities in the [tool contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) and [subagent contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 609 harness tests (1,170 total), zero compiler warnings or failures. Local evidence: `resumed-implementation-verify.log`.
+- [x] Current reviewed scope includes PathSafety screening, configured factory/static filtering and bounded registry/polling (`path_review`), plus live parent-denial inheritance (`current_docs`). The reviewers approved FP/ZIO correctness and relevant invariants at the exact source/test identities in the [tool contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) and [subagent contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 618 harness tests (1,179 total), zero compiler warnings or failures. Local evidence: `registry-policy-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; maintain method mappings and explicit exclusions in the [parity audit](test-parity.md).
 - [x] Close the reproduced PathSafety recursive-command and argument-substring defects with lexical warning semantics and bounded regressions; this helper is not shell parsing or execution authorization.
 - [x] Verify configured child construction, monotone final tool filtering, preserved authorizers and scoped resource cleanup; map the two ManagedSubagentBoundary methods as bounded static adaptations.
-- [ ] Complete and independently approve task registry integration. Registry work is in progress and outside the verified scope above.
+- [x] Verify bounded registry admission, full-Exit inspection, retention, private caller leases and joined shutdown, plus live parent-denial checks around child authorization without copying approval authority.
 
 ## Available capabilities
 
@@ -33,14 +33,18 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 - [x] Configured factories build fresh children with final static filtering after inherited and automatic registration, deterministic assembly diagnostics, preserved authorizers and supervisor-owned execution.
 
+- [x] Bounded task registry with lookup, waiting/promotion, cancellation and completed-record removal; registry closure cancels and joins promoted work. Capacity bounds records, not retained result bytes.
+- [x] Optional live parent-denial inheritance preserves child policy and rereads parent rules against approved input; external parent gates and atomic post-decision revocation are excluded.
+
 The host installs these capabilities explicitly. It owns background supervisor scopes, trusted filesystem ancestors, authenticated approval delivery, provider settings and operational monitoring. Durable approval values are not a durable resume implementation. Root distribution and retained raw spawner capabilities remain trusted-host responsibilities.
 
 ## Immediate next work
 
-- [ ] Finish task registry integration, currently in progress, with scoped inspection/cancellation and final independent review before exposing model-facing spawn/send, reuse or event forwarding.
-- [ ] Implement inherited argument-sensitive parent Deny policy while preserving child Allow/Ask, then live plan restrictions for new and reused children. Static exact-name filtering is not PermissionEngine inheritance; nested model-facing spawning must retain the narrowed factory capability.
+- [ ] Implement model-facing spawn, inspect and cancel tools using the retained narrowed factory/registry capability. Strict inputs, task-result projection and cancellation must preserve runtime authority.
+- [ ] Implement live plan restrictions for new and reused children without copying approval authority; current parent-denial inheritance covers the supplied PermissionEngine rules only.
+- [ ] Implement persistent child reuse, send/session ownership and correlated event routing with explicit host lifetime and retention contracts.
 
-The configured factory acceptance covers host-supplied registration and client callbacks, not declarative parsing, durable reuse or unrestricted raw spawner callbacks. The host retains responsibility for capability distribution and scoped resource ownership.
+The accepted factory and registry use host-supplied callbacks and process-local authority. They do not add declaration parsing, durable restart recovery or automatic inheritance through raw spawner callbacks. Hosts control capability distribution and completed-record retention.
 
 ## Remaining integration and parity
 
