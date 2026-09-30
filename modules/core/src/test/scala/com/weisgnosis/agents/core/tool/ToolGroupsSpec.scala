@@ -30,6 +30,44 @@ object ToolGroupsSpec extends ZIOSpecDefault:
     ToolGroup("second", "Second group", ToolGroupActivation.Inactive, tools = Set("shared", "two"))
 
   def spec: Spec[TestEnvironment, Any] = suite("ToolGroupsSpec")(
+    test("notes sort group names and separate host visibility from Meta activation") {
+      val external   = ToolGroup("external", "Host controlled", scope = ToolGroupScope.External)
+      val inactive   = second.copy(description = "")
+      val noActive   = "No tool groups are currently activated."
+      val noInactive = "No tool groups are currently inactive."
+      val cases = Chunk(
+        (
+          Chunk.empty[ToolGroup],
+          noActive,
+          s"Activated tool groups:\n$noActive\nInactive tool groups:\n$noInactive\n"
+        ),
+        (
+          Chunk(inactive),
+          noActive,
+          s"Activated tool groups:\n$noActive\nInactive tool groups:\n- second: \n"
+        ),
+        (
+          Chunk(second, first, external),
+          "Activated tool groups:\n- external: Host controlled\n- first: First group\n",
+          "Activated tool groups:\n- first: First group\nInactive tool groups:\n- second: Second group\n"
+        ),
+        (
+          Chunk(external),
+          "Activated tool groups:\n- external: Host controlled\n",
+          s"Activated tool groups:\n$noActive\nInactive tool groups:\n$noInactive\n"
+        )
+      )
+      ZIO
+        .foreach(cases): (values, active, meta) =>
+          ZIO
+            .fromEither(
+              values.foldLeft[Either[AgentError, ToolGroups]](Right(ToolGroups.empty))(
+                (result, value) => result.flatMap(_.register(value))
+              )
+            )
+            .map(groups => assertTrue(groups.activeNotes == active, groups.metaNotes == meta))
+        .map(results => results.foldLeft(assertTrue(true))(_ && _))
+    },
     test(
       "registration and multi-name activation validate atomically without mutating earlier snapshots"
     ) {

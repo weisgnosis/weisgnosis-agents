@@ -389,9 +389,16 @@ final class ReActAgent private (
       controls: Toolkit = Toolkit.empty
   ):
     def snapshot: UIO[Toolkit] =
-      activation
-        .fold[UIO[Toolkit]](ZIO.succeed(base))(_.get.map(_.select(base)))
-        .map(selected => Toolkit(selected.tools ++ controls.tools))
+      activation match
+        case None => ZIO.succeed(Toolkit(base.tools ++ controls.tools))
+        case Some(current) =>
+          current.get.map: groups =>
+            val selected = groups.select(base)
+            val describedControls =
+              if controls.contains("reset_equipped_tools") then
+                controls.tools.updated("reset_equipped_tools", resetEquippedTools(current, groups))
+              else controls.tools
+            Toolkit(selected.tools ++ describedControls)
 
     def withControl(tool: Tool[Any, ?, ?]): Either[AgentError, RunTools] =
       base
@@ -408,17 +415,18 @@ final class ReActAgent private (
             val runTools = RunTools(toolkit, Some(activation))
             val meta     = initial.groups.filter(_.scope == ToolGroupScope.Meta)
             if meta.isEmpty then ZIO.succeed(runTools)
-            else ZIO.fromEither(runTools.withControl(resetEquippedTools(activation, meta)))
+            else ZIO.fromEither(runTools.withControl(resetEquippedTools(activation, initial)))
 
   private def resetEquippedTools(
       activation: Ref[ToolGroups],
-      meta: Chunk[ToolGroup]
+      snapshot: ToolGroups
   ): Tool[Any, Set[String], String] =
+    val meta = snapshot.groups.filter(_.scope == ToolGroupScope.Meta)
     new Tool[Any, Set[String], String]:
       def definition: ToolDef = ToolDef(
         "reset_equipped_tools",
         "Replace the active Meta tool groups for the next model request; unlisted Meta groups are deactivated.\n" +
-          meta.map(group => s"${group.name}: ${group.description}").mkString("\n"),
+          snapshot.metaNotes,
         Json.Obj(
           "type" -> Json.Str("object"),
           "properties" -> Json.Obj(
@@ -457,14 +465,15 @@ final class ReActAgent private (
           .modify(current =>
             current.replaceMetaActive(names) match
               case Left(error)    => (Left(error), current)
-              case Right(updated) => (Right(()), updated)
+              case Right(updated) => (Right(updated), updated)
           )
           .absolve
-          .as(
+          .map(updated =>
             Json
               .Obj(
                 "active_groups" -> Json
-                  .Arr(Chunk.fromIterable(names.toList.sorted.map(Json.Str(_))))
+                  .Arr(Chunk.fromIterable(names.toList.sorted.map(Json.Str(_)))),
+                "notes" -> Json.Str(updated.metaNotes)
               )
               .toJson
           )

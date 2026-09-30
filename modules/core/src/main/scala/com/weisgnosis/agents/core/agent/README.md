@@ -18,17 +18,17 @@ One selected Toolkit snapshot supplies both a model request's definitions and it
 
 Runtime controls are composed after filtering the host toolkit. The reset tool and synthetic `generate_response` remain available even when group membership names refer to them. Name collisions are checked against the complete host toolkit, including hidden tools. Fixed arguments and host tool flags remain attached to the selected values. The reset tool exists only when Meta groups are configured, and structured-output capability selection counts it as a tool.
 
-Reset input is exactly an object containing `to_activate`, an array of group-name strings. Unknown or External groups produce an Error observation without partial mutation. Its schema and static discovery description include only configured Meta names/descriptions, never External groups or mutable status. Successful output is a JSON object whose active_groups array lists the selected Meta names. Recursive duplicate validation remains enforced; malformed duplicate arguments may be denied by the ordinary authorization boundary before decoding. Group configuration and permission policy are separate: this mechanism grants no filesystem or remote-client authority.
+Reset input is exactly an object containing `to_activate`, an array of group-name strings. Unknown or External groups produce an Error observation without partial mutation. Its schema includes only configured Meta names. Each request regenerates the discovery description from metaNotes on the same immutable snapshot used for available tools; active/inactive Meta names and descriptions are visible, while External groups remain excluded. Successful output retains active_groups for the selected Meta names and adds notes from the atomic replacement result, without a later state read. Recursive duplicate validation remains enforced; malformed duplicate arguments may be denied by the ordinary authorization boundary before decoding. Group configuration and permission policy are separate: this mechanism grants no filesystem or remote-client authority.
 
-Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a toolGroups setter and a defaulted field. Ordinary call sites retain prior behavior. Positional Builder patterns/Product arity change and downstream binaries must be rebuilt. This explicit dependency is not Toolkit metadata; filtering the supplied base toolkit cannot recover removed tools. Control-name collisions retain Toolkit's existing ToolExecutionError type/message.
+Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a toolGroups setter and a defaulted field. Ordinary call sites retain prior behavior. Positional Builder patterns/Product arity change and downstream binaries must be rebuilt. This explicit dependency is not Toolkit metadata; filtering the supplied base toolkit cannot recover removed tools. Control-name collisions retain Toolkit's existing ToolExecutionError type/message. The reset result now adds a notes string; consumers that reject unknown result fields must accept it. Descriptions now reflect each request snapshot rather than static construction-time text.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, with no findings. Formatting and full `verify` passed in `react-tool-groups-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
-- [ ] Next: human-readable group notes. Skill-triggered groups, exact Java prose and durable activation remain separate.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for both identities below, with no findings. Formatting and full `verify` passed in `tool-group-notes-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
+- [ ] Next: skill-triggered groups. Exact Java prose and durable activation remain separate.
 
 | Current source/test | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | `037ffd19b023a72357b22eb09dfd2a823c1a54e9` |
-| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `f9214fafdb6998edef61e2c518a9852e9cc53a34` |
+| [ReActAgent.scala](ReActAgent.scala) | `6439ba82fb9468c1df96829819d1060ed154510e` |
+| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `75ef47cdf578f357d4679a07f2eed96efbb58754` |
 
 ## Fixed-argument authorization
 

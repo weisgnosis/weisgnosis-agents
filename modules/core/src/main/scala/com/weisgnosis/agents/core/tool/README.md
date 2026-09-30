@@ -8,15 +8,17 @@ Tool keeps its input/output codecs and effectful handler together. Toolkit regis
 
 `replaceActive` replaces activation across both scopes. `replaceMetaActive` changes only Meta groups and rejects requested External groups. Membership is independent of a particular Toolkit. Ungrouped tools are available; a tool in several groups is available when at least one is active. `select(toolkit)` filters existing tool values, preserving their fixed arguments, execution overrides and borrowed resources. It produces a snapshot for the host to supply to ReAct; it does not mutate an already-running agent or install a model-facing activation tool.
 
+`activeNotes` renders active groups from both scopes for the host. `metaNotes` renders separate active and inactive Meta sections and excludes External groups. Both are pure snapshot projections, sort names, include host descriptions and handle empty sections explicitly. They grant no permissions or skill activation.
+
 Removing groups or membership reports `newlyUngrouped` names alongside the next registry. Removing the last membership makes a retained tool available as ungrouped. A host that wants to remove those tools must also prune its Toolkit; group removal performs no disposal or capability revocation. Group selection does not replace permission policy.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for [ToolGroups.scala](ToolGroups.scala), blob `ee51930197f5091a398e57c53c3f93fed2eb7922`, and [ToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolGroupsSpec.scala), blob `3729dbeef275e731a215743117ef55e4e2de8c62`, with no findings. Four grouped contracts cover atomic transitions, scope separation, membership/removal and policy preservation, and actual ReAct snapshot visibility/dispatch.
-- [x] Formatting and full `verify` passed in `tool-groups-verify.log`: 583 core / 673 harness / 78 MCP tests (1,334 total), zero compiler warnings or failures; test task 12 seconds.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for [ToolGroups.scala](ToolGroups.scala), blob `43d6517ae7940fbacf714e0e03512cacd5ff5e6f`, and [ToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolGroupsSpec.scala), blob `64db7b416f38bced4792c2eb653da87a74850626`, with no findings. Five grouped contracts cover sorted/empty/scoped notes, atomic transitions, scope separation, membership/removal and policy preservation, and actual ReAct snapshot visibility/dispatch.
+- [x] Formatting and full `verify` passed in `tool-group-notes-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals.
 The runtime installs an optional [run-owned activation adapter](../agent/README.md#run-owned-tool-group-activation) over this foundation.
 
-- [ ] Next: human-readable group notes. Skill-triggered groups and durable activation remain separate work.
+- [ ] Next: skill-triggered groups. Durable activation remains separate work.
 
-Group data/enums use derived codecs; decoding does not bypass checked registration. Immutable values replace Java builders and defensive copying, and null contracts are not reproduced. Unknown activation/membership groups fail atomically rather than following upstream permissive or partially applied paths. No existing Tool or Toolkit signature changes.
+Group data/enums use derived codecs; decoding does not bypass checked registration. Immutable values replace Java builders and defensive copying, and null contracts are not reproduced. Unknown activation/membership groups fail atomically rather than following upstream permissive or partially applied paths. The pure activeNotes/metaNotes accessors are additive; no existing Tool or Toolkit signature changes. Runtime note output has the [adapter migration](../agent/README.md#run-owned-tool-group-activation).
 
 ## Fixed raw arguments
 

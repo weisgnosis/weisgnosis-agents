@@ -21,6 +21,7 @@ import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.*
 import zio.*
+import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
@@ -104,6 +105,12 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
     test(
       "reset changes the next request while every call in its batch retains the admitted snapshot"
     ) {
+      val initialNotes =
+        "Activated tool groups:\n- a: Initially available\nInactive tool groups:\n- b: Initially unavailable\n"
+      val activatedNotes =
+        "Activated tool groups:\n- b: Initially unavailable\nInactive tool groups:\n- a: Initially available\n"
+      val clearedNotes =
+        "Activated tool groups:\nNo tool groups are currently activated.\nInactive tool groups:\n- a: Initially available\n- b: Initially unavailable\n"
       ZIO.scoped:
         for
           defaults <- groups
@@ -157,6 +164,23 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
                 tool.description.contains("Initially unavailable") && !tool.description
                   .contains("Host managed")
               )
+          ),
+          observed
+            .zip(Chunk(initialNotes, activatedNotes, clearedNotes, clearedNotes))
+            .forall((request, notes) =>
+              request.tools.find(_.name == reset).exists(_.description.endsWith(notes))
+            ),
+          result.history
+            .flatMap(_.toolResults)
+            .filter(_.name.contains(reset))
+            .map(_.outputText.fromJson[Json]) == Chunk(
+            Right(
+              Json.Obj(
+                "active_groups" -> Json.Arr(Json.Str("b")),
+                "notes"         -> Json.Str(activatedNotes)
+              )
+            ),
+            Right(Json.Obj("active_groups" -> Json.Arr(), "notes" -> Json.Str(clearedNotes)))
           ),
           result.history.flatMap(_.toolResults).map(_.state) == Chunk(
             ToolResultState.Success,

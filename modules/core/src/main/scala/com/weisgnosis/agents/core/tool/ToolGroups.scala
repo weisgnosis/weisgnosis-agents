@@ -46,6 +46,24 @@ final class ToolGroups private (entries: Map[String, ToolGroup]):
     case (name, value) if value.tools.contains(tool) => name
   }.toSet
 
+  /** Host-facing notes include active groups from both scopes, ordered by name. */
+  def activeNotes: String =
+    val active = groups.filter(_.activation == ToolGroupActivation.Active)
+    if active.isEmpty then "No tool groups are currently activated."
+    else "Activated tool groups:\n" + describe(active, "")
+
+  /** Model-facing notes describe this immutable snapshot and exclude External groups. */
+  def metaNotes: String =
+    val (active, inactive) = groups
+      .filter(_.scope == ToolGroupScope.Meta)
+      .partition(_.activation == ToolGroupActivation.Active)
+    "Activated tool groups:\n" + describe(active, "No tool groups are currently activated.") +
+      "Inactive tool groups:\n" + describe(inactive, "No tool groups are currently inactive.")
+
+  private def describe(values: Chunk[ToolGroup], empty: String): String =
+    if values.isEmpty then empty + "\n"
+    else values.map(group => s"- ${group.name}: ${group.description}\n").mkString
+
   def register(value: ToolGroup): Either[AgentError.InvalidConfiguration, ToolGroups] =
     for
       _ <- validName(value.name)
