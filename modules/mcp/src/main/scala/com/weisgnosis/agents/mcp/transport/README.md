@@ -1,6 +1,6 @@
 # com.weisgnosis.agents.mcp.transport
 
-[McpTransport](McpTransport.scala) is a borrowed duplex message port. [McpStdioTransport](McpStdioTransport.scala) implements it for a host-selected direct child process; [McpStdioFraming](McpStdioFraming.scala) provides bounded UTF-8 newline framing. [McpHttpFraming](McpHttpFraming.scala) supplies bounded JSON/SSE body decoding and outbound JSON encoding. HTTP requests and session ownership remain unfinished.
+[McpTransport](McpTransport.scala) is a borrowed duplex message port. [McpStdioTransport](McpStdioTransport.scala) implements it for a host-selected direct child process; [McpStdioFraming](McpStdioFraming.scala) provides bounded UTF-8 newline framing. [McpHttpFraming](McpHttpFraming.scala) supplies bounded JSON/SSE bodies, and [McpStreamableHttpTransport](McpStreamableHttpTransport.scala) supplies the bounded POST-only HTTP contract below.
 
 ## Port and lifetime
 
@@ -38,16 +38,36 @@ The body limit counts every consumed byte. The event limit counts raw line conte
 
 This component performs no HTTP requests, session negotiation, media-type dispatch, retries or cancellation notifications. It is a transport prerequisite, not an HTTP client or a complete protocol implementation.
 
+## POST-only HTTP contract
+
+`McpStreamableHttpTransport.open(http, endpoint, headers = Headers.empty, limits = McpHttpLimits())` acquires a transport in Scope and borrows the injected zio-http Client. The absolute HTTP(S) endpoint cannot contain user information or a fragment. Header names must be ASCII tokens and values visible ASCII or spaces; transport-controlled headers cannot be overridden. Invalid configuration performs no network request.
+
+Every message uses a separate POST with JSON content type, JSON/SSE Accept values and the selected `2025-06-18` protocol header. Requests accept one matching JSON reply or an SSE stream containing server requests/notifications before the matching reply. Matching completion closes the response scope without demanding an open tail. A premature SSE EOF or mismatched reply fails that send. Notifications and responses require exactly status 202 with an empty body. For JSON-RPC requests, response Content-Type must appear once and be JSON or SSE; only absent parameters or exact case-insensitive `charset=utf-8` / `charset="utf-8"` parameters are accepted. This parameter whitelist is a local compatibility constraint.
+
+The first admitted initialize exchange can capture one nonempty visible-ASCII Mcp-Session-Id header before its SSE messages are delivered. Later POSTs carry that session ID; conflicting or malformed session headers terminate the transport. Duplicate initialize requests fail before sending, and rejected or queued-cancelled initializers cannot poison an existing session. Failure or cancellation after initialization admission terminates it, including response cleanup failures. Arbitrary stateless raw port requests remain possible; McpClient owns protocol initialization order, negotiated-version validation and capability checks.
+
+A session-bearing 404 terminates the old transport. The host must acquire a fresh transport and initialized client; the failed operation is never replayed automatically. A 404 without a session is an ordinary HTTP rejection. Other request failures remain local unless they violate shared session state or overflow ingress. HTTP error bodies are not collected; status diagnostics remain explicit. Foreign network/body failures retain operation, exception class and message as McpError; existing AgentError values, full failure-cause structure and interruption are preserved.
+
+Each send owns a fresh response scope and joins it before returning. Request admission has `maxConcurrentRequests` permits and control messages have a separate single permit, allowing a server ping response while ordinary requests are held open. The host HTTP pool must also permit this concurrency. Incoming is single-use; a rejected second consumer does not close the first. Bounded ingress uses immediate overflow failure rather than blocking producers. Terminal publication closes admission and discards queued messages, without joining its own producer. Owner closure and incoming completion perform local termination. The owning connection must join its send workers before transport release; escaped direct-caller fibers are not supervised by this adapter.
+
+Default limits are 1,048,576 outbound JSON bytes, 1,048,576 JSON response bytes, 8,388,608 SSE response bytes, 1,048,576 SSE event-content bytes, 64 queued messages and eight concurrent requests. All must be positive. Framing bounds count consumed bytes; queue/admission bounds count entries. McpClient supplies joined operation deadlines; the raw port adds no timeout.
+
+This is a bounded adaptation of the [2025-06-18 Streamable HTTP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports). It does not implement optional GET listening, event resumption, legacy HTTP+SSE fallback, cancellation notifications, session DELETE, automatic reinitialization, authentication discovery or token refresh. Owner cleanup is local only. The adapter does not add retries or redirects; the host must not inject an HTTP client configured to perform them. Full transport conformance and external-server interoperability remain unclaimed.
+
 ## Verification and acceptance
 
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the POST-only HTTP source/spec identities below, with no remaining findings. Four grouped tests include actual loopback initialization with a session-bearing control response, concurrent calls, invalid responses/configuration, bounded ingress, exact causes and joined cancellation.
+- [x] `mcp-http-transport-red.log` records two failing groups against defective source blob `088d057c91673b87f90ea6d93b3b348627d55bc7`: incoming lost the defect branch of a compound terminal Cause, and rejected duplicate initialization poisoned a valid session. Both regressions pass after correction. Terminal publication and reader acquisition races were corrected by inspection; no reproduced red run is claimed for those races.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for HTTP framing at the exact source/spec identities below, with no findings. Four grouped tests cover line/Unicode boundaries, exact budgets, checked JSON, unread suffixes, complete causes and joined cancellation. Acceptance excludes HTTP requests and session lifecycle.
 - [x] `path_review` approved framing FP/ZIO correctness and `child_factory` approved framing invariants, with no findings at the recorded source/spec identities.
 - [x] `path_review` and `registry_contract` approved the unchanged adapter and forked test configuration. `path_review` and `current_docs` approved the final process fixtures/spec, including initialized-client list/call and reaping, with no findings at the recorded identities.
 - [x] Four framing groups and three real-process groups pass. They verify chunking, exact limits, strict Unicode, full upstream causes, early stop, direct validation, concurrent frames, one-reader admission, malformed/EOF handling and read/queued-write/active-write cancellation with direct-child reaping.
-- [x] `scalafmtAll`, `scalafmtSbt` and `verify` passed with zero compiler warnings or failed tests: core 564, harness 651, MCP 52; total 1,267. Evidence: `mcp-http-framing-verify.log`.
+- [x] `scalafmtAll`, `scalafmtSbt` and `verify` passed with zero compiler warnings or failed tests: core 564, harness 651, MCP 56; total 1,271. Evidence: `mcp-http-transport-verify.log`.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
+| [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | `820ce5cd9a7de6f6f49d3109c71f3736072063f7` |
+| [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | `9409825908a8711ee52e97cb13f83b298a53f75b` |
 | [McpHttpFraming.scala](McpHttpFraming.scala) | `4c4a982ccd744e6cbf77bb7febab4253ae81cbf9` |
 | [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | `2067fccfb8018c753b5a259e3cd40254f2cc2de9` |
 | [McpStdioFraming.scala](McpStdioFraming.scala) | `76545199289183041d814f27de01eae0a2c2d33c` |
@@ -64,5 +84,6 @@ The port/connection acceptance is recorded separately in the [client contract](.
 - [x] Selected 2025-06-18 client initialization, capability checks, list/call and joined deadlines are implemented and reviewed in the [client contract](../client/README.md).
 - [x] Bounded manager registration/removal and host selection have separate [client acceptance](../client/README.md#scoped-manager-contract); manual Toolkit binding retains its separate tool-package contract.
 - [ ] Add an explicit cancellation-notification policy.
-- [ ] Implement the selected HTTP transport with its own limits, cleanup and integration review.
+- [x] Implement and independently review the selected POST-only HTTP contract with bounded bodies, scoped cleanup and loopback integration.
+- [ ] Complete separately specified GET listening, event resumption, session DELETE/reinitialization and external-server interoperability.
 - [ ] Validate additional platform/process configurations before extending the documented ownership claims.

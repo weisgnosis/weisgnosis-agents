@@ -1,6 +1,6 @@
 # com.weisgnosis.agents.mcp.client
 
-[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. HTTP remains unfinished.
+[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. POST-only HTTP connectivity has a separate [transport contract](../transport/README.md#post-only-http-contract).
 
 ## Scoped manager contract
 
@@ -81,7 +81,8 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 
 ## Remaining work
 
-- [ ] Next MCP implementation: HTTP transport with an explicit selected-revision contract.
+- [x] POST-only HTTP has separate transport acceptance.
+- [ ] Cancellation notifications, transport recovery and remaining manager policies require separate implementation.
 - [ ] Define presets, groups, ambient metadata propagation, schema transformation and discovery caching separately.
 - [ ] Define cancellation notification and transport-specific recovery policy.
 Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.

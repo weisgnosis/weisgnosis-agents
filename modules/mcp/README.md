@@ -1,13 +1,13 @@
 # weisgnosis-agents-mcp
 
-This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter, initialized client, bounded discovery, manual Toolkit binding and bounded scoped manager are independently reviewed and verified. Bounded HTTP JSON/SSE body framing is also reviewed; HTTP requests and session ownership remain unfinished.
+This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter, initialized client, bounded discovery, manual Toolkit binding and bounded scoped manager are independently reviewed and verified. Bounded HTTP JSON/SSE body framing and the scoped POST-only HTTP adapter are also reviewed; broader HTTP listening, resumption and recovery remain unfinished.
 
 | Package | Current scope |
 | --- | --- |
 | [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted checked envelopes, initialization helpers, tool requests, discovery pages and call results |
 | [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Request correlation, connection ownership, initialized 2025-06-18 client and bounded scoped manager with host-selected immutable Toolkit publication |
 | [tool](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md) | Explicit borrowed-client binding, host definitions and typed content/error projection |
-| [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Borrowed message port, strict stdio and HTTP JSON/SSE framing, scoped direct-process stdio; independently reviewed and verified |
+| [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Borrowed message port, strict stdio and HTTP JSON/SSE framing, scoped direct-process stdio and POST-only HTTP; independently reviewed and verified |
 
 The protocol boundary rejects ambiguous variants, duplicate keys and malformed known fields. Numeric envelope identities use a signed 256-bit parser-compatible range. Payload extensions remain data; tool annotations confer no execution authority. Schemas, URI/base64 strings and timestamps are retained without evaluation or resource fetching.
 
@@ -21,10 +21,12 @@ Explicit `discoverTools(maxPages, maxTools, meta)` traverses pages sequentially 
 
 [McpTool.bind](src/main/scala/com/weisgnosis/agents/mcp/tool/McpTool.scala) borrows one initialized client and fixes its remote name. The host supplies ToolDef naming/schema/read-only/concurrency declarations. All five content variants and nested metadata are preserved; tool isError retains its payload, while Toolkit normalizes RPC failures to textual Error observations without code/data. This neither fetches resources nor grants authority from annotations.
 
+POST-only HTTP borrows a host HTTP client, owns each response scope, handles JSON/SSE replies and session headers, and reserves independent request/control admission. Session expiry terminates the old transport without replay. The [transport contract](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#post-only-http-contract) defines exact limits, required host client behavior and excluded features. This additive API changes no existing client or stdio signature.
+
 ## Verification and acceptance
 
-- [x] Current `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 52 MCP tests (1,267 total), zero compiler warnings or failures. Evidence: `mcp-http-framing-verify.log`.
-- [x] Both independent reviewers approved bounded HTTP body framing, and full verification passed. The [transport acceptance](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance) records exact identities and excludes unfinished HTTP networking/session behavior.
+- [x] Current `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 56 MCP tests (1,271 total), zero compiler warnings or failures. Evidence: `mcp-http-transport-verify.log`.
+- [x] Both independent reviewers approved bounded HTTP body framing and the scoped POST-only HTTP adapter, and full verification passed. The [transport acceptance](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance) records exact identities and records the bounded POST-only HTTP acceptance and its remaining transport features.
 - [x] `path_review` and `current_docs` approved scoped manager acquisition, atomic registration, immutable Toolkit snapshots and joined removal/closure. The [client contract](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract) owns exact identities and regression evidence.
 
 - [x] `path_review` and `current_docs` approved manual binding with no findings, and full verification passed; the [tool acceptance](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance) owns its scoped identities and evidence.
@@ -40,7 +42,8 @@ These are specification-derived protocol and ZIO ownership tests. AgentScope Jav
 
 ## Remaining work
 
-- [ ] Next: HTTP transport with an explicit selected-revision contract.
+- [x] Implement scoped POST-only HTTP for the selected 2025-06-18 contract.
+- [ ] Complete separately specified GET/resumption, session DELETE/reinitialization and external-server interoperability.
 - [ ] Add cancellation notifications and transport-specific recovery only under separately reviewed contracts.
 - [ ] Define presets, tool groups, ambient metadata propagation and schema transformation separately; manager selection retains explicit host authority.
 - [ ] Implement provider multimodal projection; core typed conversion is available, while caching, notification invalidation and reconnect remain separate.

@@ -8,7 +8,8 @@ The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/
 
 - [x] Both independent reviewers approved manual McpTool.bind with explicit host naming/schema/read-only/concurrency authority and retained typed observations; full verification passed. Exact identities are in the [tool acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance).
 - [x] Both independent reviewers approved the bounded scoped MCP manager and full verification passed: registration owns acquisition resources, applies host ToolDef selection and publishes immutable Toolkit snapshots atomically. Pending/removing registrations retain capacity; removal joins cleanup and old snapshots retain their original client identity. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract) owns the accepted scope and evidence.
-- [ ] Next MCP implementation: HTTP transport with an explicit selected-revision contract.
+- [x] Implement scoped POST-only HTTP with bounded JSON/SSE responses and session headers.
+- [ ] Complete separately specified transport listening/resumption and recovery.
 - [ ] Presets, groups, ambient metadata propagation, caching, schema evaluation, cancellation notifications and reconnect remain separate integrations.
 
 ## 1. ReAct lifecycle

@@ -17,7 +17,8 @@ The terminal cause and post-terminal dispatch regressions failed against the unc
 
 - [x] All twenty-one client-package groups pass in full verification: 564 core / 651 harness / 48 MCP tests (1,263 total), zero compiler warnings or failures, recorded in `mcp-manager-verify.log`.
 - [x] Both reviewers approved the final connection and initialized-client scope and full verification passed; exact identities and evidence are in the [client acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
-- [ ] Next: HTTP transport coverage for an explicitly selected revision. Outgoing cancellation notifications remain separate. The tool package covers manual Toolkit/ReAct binding, and the transport suite covers actual stdio initialization, list/call and cleanup.
+- [x] The transport suite covers the selected POST-only HTTP contract.
+- [ ] Complete remaining transport features and interoperability coverage. Outgoing cancellation notifications remain separate. The tool package covers manual Toolkit/ReAct binding, and the transport suite covers actual stdio initialization, list/call and cleanup.
 - [ ] Complete applicable upstream method mappings and metadata trust boundaries.
 
 These controlled-port scenarios do not establish external-server interoperability, cancellation notifications or complete AgentScope wrapper parity.
