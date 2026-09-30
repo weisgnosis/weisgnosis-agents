@@ -51,7 +51,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [ ] Remote memory storage and timestamp-watermark migration, remote transcript persistence, and memory scheduling.
 - [x] Scoped local task ownership, cancellation and same-execution promotion.
 - [x] Runtime-owned lineage and descendant depth limits before callback/model construction.
-- [ ] Child factories, registry and spawn/send integration.
+- [x] Configured child factories, bounded execution registries, host-held reusable sessions, bounded host session membership and fixed-capability spawn/send controls; accepted scope is recorded in the [subagent contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md).
+- [ ] Model-facing session routing, declaration-driven child construction and automatic child policy installation.
 - [x] Static plan inspection, opt-in tool restrictions and in-memory reviewed sessions.
 - [x] Truthful request-only plan projection with preserved canonical history.
 - [x] Standalone scoped local plan-draft storage with atomic publication.

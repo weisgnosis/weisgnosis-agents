@@ -56,7 +56,7 @@ private[subagent] object TaskResourceOwner:
   private enum Phase:
     case Open, Closing
 
-  def make(parent: Scope.Closeable): UIO[TaskResourceOwner] =
+  def make(parent: Scope): UIO[TaskResourceOwner] =
     ZIO.uninterruptible:
       for
         scope        <- Scope.make

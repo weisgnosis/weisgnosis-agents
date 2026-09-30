@@ -1,6 +1,6 @@
 # Scoped child execution and sessions
 
-[TaskSupervisor](TaskSupervisor.scala), [SupervisedTask](SupervisedTask.scala) and [SubagentSpawner](SubagentSpawner.scala) provide host-owned execution and runtime lineage. [SubagentFactory](SubagentFactory.scala) assembles fresh configured ReAct children with a final [static tool boundary](SubagentToolBoundary.scala) and optional live parent-denial inheritance. [SubagentTaskRegistry](SubagentTaskRegistry.scala) adds bounded task admission and inspection. These APIs are accepted within the exact reviewed scope below.
+[TaskSupervisor](TaskSupervisor.scala), [SupervisedTask](SupervisedTask.scala) and [SubagentSpawner](SubagentSpawner.scala) provide host-owned execution and runtime lineage. [SubagentFactory](SubagentFactory.scala) assembles fresh configured ReAct children with a final [static tool boundary](SubagentToolBoundary.scala) and optional live parent-denial inheritance. [SubagentTaskRegistry](SubagentTaskRegistry.scala) adds bounded task admission and inspection; [SubagentSessionDirectory](SubagentSessionDirectory.scala) supplies bounded host membership for acquired sessions. These APIs are accepted within the exact reviewed scope below.
 
 ## Ownership, cancellation and promotion
 
@@ -54,7 +54,7 @@ Each build creates fresh runtime/history state with the supplied AgentConfig, Ll
 
 The caller must retain `build`'s Scope for the runtime lifetime; acquired registration/client resources are released when that Scope closes, including after construction failure. `spawn` delegates to `SubagentSpawner` so construction and execution share a supervised worker Scope, including cancellation and cleanup. Depth rejection and closed admission precede factory callbacks. Ordinary `spawn` does not itself wait or promote; the returned handle supplies those operations.
 
-A raw spawner does not automatically carry the factory's static boundary or inherited-denial wrapper. Trusted host callbacks can construct another factory or task. Model-facing controls retain their registry or session capability; hosts must separately configure any nested child controls. Declaration parsing, automatic plan propagation and session routing remain pending. No production automatic registrations are introduced: the callback supplies host-selected registrations.
+A raw spawner does not automatically carry the factory's static boundary or inherited-denial wrapper. Trusted host callbacks can construct another factory or task. Model-facing controls retain their registry or session capability; hosts must separately configure any nested child controls. Declaration parsing, automatic plan propagation and model-facing session routing remain pending. No production automatic registrations are introduced: the callback supplies host-selected registrations.
 
 ## Reusable child sessions
 
@@ -66,7 +66,17 @@ Turns are serialized, without a FIFO guarantee. Cancelling a queued turn reaches
 
 The host retains the returned TaskResource and its acquiring Scope. Closing it joins running, queued and promoted turns and further descendants before releasing registration/client resources. Promoted turns survive their individual caller Scope, not session closure. After closure, sends return Closed. Complete execution records remain inspectable through the retained registry; hosts manage retirement and retained result memory.
 
-This API supports ordinary runs only. A defensive continuation guard rejects later sends if a result is Suspended, but current ReAct execution does not produce that state, so this branch has no integration evidence. No resume API, session-ID lookup, durable restoration or automatic nested policy installation is provided. The model-facing adapter below binds `agent_send` to a host-selected session.
+This API supports ordinary runs only. A defensive continuation guard rejects later sends if a result is Suspended, but current ReAct execution does not produce that state, so this branch has no integration evidence. No resume API, durable restoration or automatic nested policy installation is provided. Host session-ID lookup is supplied by the explicit directory below. The model-facing adapter below binds `agent_send` to a host-selected session.
+
+## Bounded host session directory
+
+`SubagentSessionDirectory.open(maxSessions = 64)` acquires a host-scoped directory and rejects nonpositive capacity. `register(resource)` accepts an already acquired `TaskResource[SubagentSession]`, returning Accepted(directory-local UUID ID), Capacity, Closed or IdentityCollision. IDs describe membership independently of execution IDs; they carry no durable or authentication authority. Registration adds a closure obligation without transferring ownership. Original acquiring scopes and supervisors still bound the session lifetime, and every rejected registration leaves the resource untouched.
+
+Aliases are permitted and each retained ID counts toward capacity. Removing one alias closes their shared resource; other aliases may still be listed and return the now-closed session. `lookup` returns only ready members while the directory is open, without promising liveness after an external owner closes a resource. `list` reports all retained IDs, including removal/shutdown entries awaiting cleanup. Membership is process-local and the count bound does not bound session history or result bytes.
+
+`remove` hides the member before joining its resource cleanup and retains capacity until cleanup completes. Overlapping removals join the same cleanup outcome; missing IDs return Missing, successful removal returns Removed, and cleanup defects remain defects. The entry is retired even if cleanup defects. Explicit directory close and its host finalizer share closure completion, reject new registration/lookup, close retained resources in parallel and join all cleanup before clearing membership. Closure and removal wait outside the admission permit. Session workers/finalizers must not remove themselves or close their own directory.
+
+The host selects which resources to register and which returned capabilities to distribute. This API provides no model-facing routing, session construction, ownership transfer, durable restoration or automatic policy installation. Existing fixed-session toolkits remain unchanged.
 
 ## Live parent-denial inheritance
 
@@ -106,14 +116,16 @@ The host can install [PlanPermissionGate.inherited](../plan/PlanPermissionGate.s
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The unchanged lineage and static boundary retain their recorded approvals; the supervisor's current resource extension is reviewed below.
 
-On 2026-09-30, `path_review` and `current_docs` independently approved the final shared spawn/send tool implementation and paired tests below, with no unresolved FP/ZIO or invariant findings. Acceptance covers fixed session binding, strict inputs, scoped waiting/promotion, task-ID isolation, joined cancellation and subsequent history reuse. The session, spawner, registry, resource, factory and boundary approvals remain scoped to their listed identities; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Full `scalafmtAll scalafmtSbt verify` passed 561 core and 638 harness tests (1,199 total), with zero compiler warnings or failed tests (`subagent-send-verify.log`).
+On 2026-09-30, `path_review` and `current_docs` independently approved the host session directory, shared owner integration and paired directory tests at the three updated identities below, with no unresolved FP/ZIO or invariant findings. Acceptance covers bounded membership, rejection without resource closure, original-owner lifetime, aliases, isolated lookup, and joined removal/parallel shutdown with defect preservation. Their existing resource/session/tool approvals and the factory, registry and boundary approvals remain scoped to the listed unchanged identities; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Full `scalafmtAll scalafmtSbt verify` passed 561 core and 642 harness tests (1,203 total), with zero compiler warnings or failed tests (`subagent-directory-verify.log`).
 
 | Reviewed source | Git blob |
 | --- | --- |
+| [SubagentSessionDirectory.scala](SubagentSessionDirectory.scala) | `41cec391f9070731db8eaf9dfa486f230b691a10` |
+| [SubagentSessionDirectorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionDirectorySpec.scala) | `3210d1e7f1e86fd65cd54727ebe287431cac0b94` |
 | [SubagentSession.scala](SubagentSession.scala) | `dd6d83f5f24d6bf411e2e93c3a5e6183dbea6572` |
 | [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | `01df51dd8127f5f14373eac0e013c6f2d06b6bb6` |
 | [TaskSupervisor.scala](TaskSupervisor.scala) | `83aefd60831a5dbd60778327d216f589acbb7372` |
-| [TaskResource.scala](TaskResource.scala) | `1398310565fc51bb5f525a55fd7acb3868969217` |
+| [TaskResource.scala](TaskResource.scala) | `075ff00099098e2bfd3278e108d24fe601412d65` |
 | [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `d8e62d19ef0b00ab6d68cc47afcc6d42ce43a85f` |
 | [SubagentTools.scala](SubagentTools.scala) | `dbd413e47c704b8f9c4564c14f5bba4add2d62e6` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | `279c22f4ee3bb2f7678967e1df7fa854665eaa20` |
@@ -137,7 +149,8 @@ Declaration parsing, automatic nested plan propagation, model-selected session r
 - [x] Verify and independently approve shared resource ownership, failure/cancellation cleanup and competing closure.
 - [x] Verify and independently approve host-held reusable child sessions with retained resources, history and current installed policy.
 - [x] Verify and independently approve model-facing send, inspection and cancellation bound to one trusted session.
-- [ ] Implement declared/general-purpose integration, session routing and automatic nested/reused-child plan propagation while retaining narrowed factory authority.
+- [x] Verify and independently approve bounded host session membership, aliases, rejection ownership and joined removal/shutdown.
+- [ ] Implement declared/general-purpose integration, model-facing session routing and automatic nested/reused-child plan propagation while retaining narrowed factory authority.
 - [ ] Implement correlated event forwarding and optional remote/durable task routing.
 
-Next task: bounded session lookup/routing and automatic child policy integration. No exhaustive upstream parity is claimed.
+Next task: model-facing session routing and automatic child policy integration. No exhaustive upstream parity is claimed.

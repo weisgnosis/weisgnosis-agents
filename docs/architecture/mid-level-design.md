@@ -1,6 +1,6 @@
 # Mid-level behavior and planned integrations
 
-Sections 1-6 describe current components. Section 7 describes implemented daily extraction, scoped daily storage, and process-local consolidation, and recoverable local consolidation. Section 8 describes planned behavior; section 9 distinguishes implemented supervision from pending child factories; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
+Sections 1-6 describe current components. Section 7 describes daily extraction, scoped daily storage and process-local or recoverable local consolidation. Section 8 describes planned behavior; section 9 distinguishes implemented child execution from pending routing and automatic policy integration; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
 
 ## 1. ReAct lifecycle
 
@@ -87,13 +87,19 @@ LocalDailyMemoryStore delegates to this repository. Its capability cannot propos
 
 Middleware checks permission before execution. Interactive hosts route authenticated confirmations to Promise waiters. Durable hosts persist partial history and pending approvals before ending an activity, then resume pending execution from ConfirmResult without re-prompting the model. Tool execution checkpoints and idempotency belong to the host.
 
-## 9. Subagent supervision and remaining factories
+## 9. Subagent execution and remaining integration
 
-TaskSupervisor now owns local executions and parent cancellation leases. Each awaitOrPromote invocation starts a fresh 30-second wait; after the timer wins, masked promotion relinquishes the parent lease without moving/restarting execution. Explicit cancellation and owner closure join cleanup and full Exit remains observable. The owner Scope outlives promoted work only when the host retains it. Runtime-owned depth <=3 is now enforced by SubagentSpawner capabilities; configured child factories, task registry and model-facing spawn/send remain pending.
+SubagentSessionDirectory adds bounded host registration and lookup of acquired sessions. Removal and shutdown join cleanup without extending the original caller/supervisor lifetime. Directory IDs are membership data, separate from execution IDs and authorization.
+
+TaskSupervisor owns local executions and parent cancellation leases. Each awaitOrPromote invocation starts a fresh 30-second wait; after the timer wins, masked promotion relinquishes the parent lease without moving/restarting execution. Explicit cancellation and owner closure join cleanup and full Exit remains observable. The owner Scope outlives promoted work only when the host retains it. Shared resource owners join initialization and nested workers before releasing retained resources; competing library close paths share the cleanup outcome.
 
 The supervisor owner uses parallel closure, but each worker scope is sequential. ZIO 2.1.26 forkIn self-cleanup depends on same-fiber identity; direct inheritance of parallel finalizers caused a reproduced self-join hang. Explicit worker-scope completion closes/unregisters it. Short admission serialization ends before user work or waiting; owner closure closes admission before shutdown.
 
 SubagentSpawner.root mints depth-zero authority in ZIO. spawn checks depth before allocating a descendant UUID and suspends the callback within the supervisor task Scope. Descendants inherit lineage and the same supervisor; nested attached tasks cancel with their caller Scope, while promoted descendants remain supervisor-owned. Retained spawners are reusable capabilities, not automatically revoked invocation tokens.
+
+Configured factories filter inherited and registered tools before building fresh runtimes. A bounded execution registry supplies runtime IDs, inspection, promotion, cancellation and explicit completed-record retirement. Host-held sessions retain one configured runtime, history and lineage across serialized turns with distinct execution IDs. Their resource owner also bounds further descendants. Queued cancellation does not modify history; session closure joins promoted work before releasing clients.
+
+Model-facing controls bind either fresh-child invocation or send to one host-selected session, with strict inputs and bounded observations. Installed parent-denial and plan effects remain live without copying child approval authority. Model-facing session routing, declaration-driven construction, automatic policy installation, event forwarding and durable recovery remain separate integration work. See the [current subagent contract and acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md).
 
 ## 10. Plan-mode hardening and remaining integration
 
