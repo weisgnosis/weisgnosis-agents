@@ -12,7 +12,7 @@ The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/
 - [x] Enqueue optional outbound cancellation only for interrupted issued requests whose abandonment wins, excluding initialize; bounded connection-owned delivery has no acknowledgement.
 - [x] Explicit host-controlled metadata propagation through registered tools has final FP/ZIO and invariant approval; both omission gates, restricted identity and effectful resolver cleanup are verified.
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
-- [ ] Next: adapt host-selected tool-group registration and activation; fixed arguments and model-overridable defaults remain distinct. General I/O recovery, session reinitialization and durable integration remain unfinished.
+- [ ] Next: implement run-owned model-facing tool-group activation; fixed arguments and model-overridable defaults remain distinct. General I/O recovery, session reinitialization and durable integration remain unfinished.
 - [ ] Groups, ambient metadata propagation, caching, schema evaluation and reconnect remain separate integrations.
 
 ## 1. ReAct lifecycle

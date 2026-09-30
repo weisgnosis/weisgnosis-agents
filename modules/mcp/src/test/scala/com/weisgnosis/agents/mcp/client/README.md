@@ -21,6 +21,6 @@ The terminal cause and post-terminal dispatch regressions failed against the unc
 - [ ] Complete remaining transport features and interoperability coverage. Bounded optional outbound cancellation is covered; notification delivery is not guaranteed. The tool package covers manual Toolkit/ReAct binding, and the transport suite covers actual stdio initialization, list/call and cleanup.
 - [x] Verify explicit metadata projection, restricted invocation identity and omission boundaries in the tool package.
 - [x] Checked fixed-argument selection failure rolls back the entire registration through the existing owner; actual invocation/schema exclusion is covered in the tool package.
-- [ ] Next: adapt host-selected tool-group registration and activation; complete remaining method mappings and ambient context integration separately.
+- [ ] Next: implement run-owned model-facing tool-group activation; complete remaining method mappings and ambient context integration separately.
 
 These controlled-port scenarios do not establish external-server interoperability, acknowledged remote cancellation or complete AgentScope wrapper parity.

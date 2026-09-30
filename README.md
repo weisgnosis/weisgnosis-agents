@@ -4,7 +4,7 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. Current MCP scope includes owned clients and registration, HTTP POST/GET, explicit metadata propagation and one independent SDK interoperability check. Scoped subagent composition, reusable sessions and child event forwarding are also available. The [tracker](docs/architecture/tracker.md#current-acceptance) and linked package contracts record exact acceptance and limitations. Checked host presets, input-schema exclusion and host-selected descriptive output schemas are available. The core fixed-argument foundation prepares input before authorization. MCP bindings can install that policy separately from model-overridable defaults. Next is tool-group registration/activation adaptation; broader interoperability and durable host recovery remain unfinished.
+Implementation is active. Current MCP scope includes owned clients and registration, HTTP POST/GET, explicit metadata propagation and one independent SDK interoperability check. Scoped subagent composition, reusable sessions and child event forwarding are also available. The [tracker](docs/architecture/tracker.md#current-acceptance) and linked package contracts record exact acceptance and limitations. Checked host presets, input-schema exclusion and host-selected descriptive output schemas are available. The core fixed-argument foundation prepares input before authorization. MCP bindings can install that policy separately from model-overridable defaults. Host-selected immutable tool groups now filter toolkit snapshots. Next is run-owned model-facing activation; broader interoperability and durable host recovery remain unfinished.
 
 ## Implemented components
 
@@ -67,6 +67,8 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 [Apache-2.0](LICENSE).
 
 ## Current acceptance
+
+- [x] `path_review` and `current_docs` approved [immutable host-selected tool groups](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#host-selected-tool-groups), including actual ReAct snapshot visibility and dispatch, with no findings. Exact two-file identities and full verification are recorded in the linked contract; live activation and automatic MCP installation remain separate.
 
 - [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Exact six-file identities and full verification are recorded in the linked contract; MCP installation has its own [binding contract](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 

@@ -51,8 +51,8 @@ These are specification-derived protocol and ZIO ownership tests. AgentScope Jav
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
-- [ ] Next: adapt host-selected tool-group registration and activation; fixed arguments and model-overridable defaults remain distinct. General I/O recovery, session reinitialization and durable integration remain unfinished.
-- [ ] Define tool groups, ambient metadata propagation and broader schema transformation separately; manager selection retains explicit host authority.
+- [ ] Next: implement run-owned model-facing tool-group activation; fixed arguments and model-overridable defaults remain distinct. General I/O recovery, session reinitialization and durable integration remain unfinished.
+- [ ] Integrate automatic MCP group installation, ambient metadata propagation and broader schema transformation separately; manager selection retains explicit host authority.
 - [ ] Implement provider multimodal projection; core typed conversion is available, while caching, notification invalidation and reconnect remain separate.
 - [ ] Evaluate output schemas where required by the selected client contract.
 

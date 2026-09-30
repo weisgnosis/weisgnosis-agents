@@ -2,6 +2,20 @@
 
 Tool keeps its input/output codecs and effectful handler together. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation.
 
+## Host-selected tool groups
+
+`ToolGroups` is an immutable registry of named `ToolGroup` declarations. Activation is `Active` or `Inactive`; scope is `Meta` (eligible for agent-managed selection) or `External` (host-managed). Registration and updates return checked values without acquiring resources or changing existing registries. Names are exact and must be nonblank. Batch activation validates every requested group before producing a replacement; unknown names fail instead of partially updating or silently skipping them.
+
+`replaceActive` replaces activation across both scopes. `replaceMetaActive` changes only Meta groups and rejects requested External groups. Membership is independent of a particular Toolkit. Ungrouped tools are available; a tool in several groups is available when at least one is active. `select(toolkit)` filters existing tool values, preserving their fixed arguments, execution overrides and borrowed resources. It produces a snapshot for the host to supply to ReAct; it does not mutate an already-running agent or install a model-facing activation tool.
+
+Removing groups or membership reports `newlyUngrouped` names alongside the next registry. Removing the last membership makes a retained tool available as ungrouped. A host that wants to remove those tools must also prune its Toolkit; group removal performs no disposal or capability revocation. Group selection does not replace permission policy.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for [ToolGroups.scala](ToolGroups.scala), blob `ee51930197f5091a398e57c53c3f93fed2eb7922`, and [ToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolGroupsSpec.scala), blob `3729dbeef275e731a215743117ef55e4e2de8c62`, with no findings. Four grouped contracts cover atomic transitions, scope separation, membership/removal and policy preservation, and actual ReAct snapshot visibility/dispatch.
+- [x] Formatting and full `verify` passed in `tool-groups-verify.log`: 583 core / 673 harness / 78 MCP tests (1,334 total), zero compiler warnings or failures; test task 12 seconds.
+- [ ] Next: implement run-owned model-facing activation. Skill-triggered groups, human-readable notes and automatic MCP group installation remain separate work.
+
+Group data/enums use derived codecs; decoding does not bypass checked registration. Immutable values replace Java builders and defensive copying, and null contracts are not reproduced. Unknown activation/membership groups fail atomically rather than following upstream permissive or partially applied paths. No existing Tool or Toolkit signature changes.
+
 ## Fixed raw arguments
 
 [ToolFixedArguments](ToolFixedArguments.scala) is a checked immutable host policy. Nonempty policies require object input, validate the complete original AST before replacement, and apply shallow fixed-wins values. Existing root field positions are retained; missing fixed fields append in policy order, so preparation is AST-idempotent. Empty policy is identity even for scalar/array input and leaves legacy decoder validation unchanged. `validateApproved` rejects changed or missing fixed values while allowing other approved edits. No schema hiding or evaluation is added.
@@ -12,7 +26,7 @@ ReAct prepares before authorization. Invalid preparation becomes Error without c
 
 Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and Toolkit checks are additive. Existing raw scalar tools retain their decoding contract. MCP model-overridable defaults remain separate; manager installation of framework-fixed arguments has a separate [MCP contract](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these six identities, with no findings. Formatting and full `verify` passed in `tool-fixed-arguments-verify.log`: 579 core / 673 harness / 77 MCP tests (1,329 total), zero compiler warnings or failures; test task 12 seconds.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these six identities, with no findings. Scoped verification passed in `tool-fixed-arguments-verify.log`; current full-repository evidence and totals are recorded under [host-selected tool groups](#host-selected-tool-groups).
 
 | Source/test | Reviewed Git blob |
 | --- | --- |
