@@ -29,6 +29,11 @@ import zio.json.ast.Json
  */
 trait McpConnection:
   def request(method: String, params: Option[Json.Obj] = None): IO[AgentError, McpRequests.Reply]
+
+  /** Custom implementations must allocate and register an identity before invoking this builder. */
+  def request(
+      build: McpRequestId => Either[AgentError.InvalidMessage, McpMessage.Request]
+  ): IO[AgentError, McpRequests.Reply]
   def notify(notification: McpMessage.Notification): IO[AgentError, Unit]
   def close: UIO[Unit]
 
@@ -97,10 +102,18 @@ object McpConnection:
       closed: Promise[Nothing, Exit[Nothing, Unit]]
   ) extends McpConnection:
     def request(method: String, params: Option[Json.Obj]): IO[AgentError, McpRequests.Reply] =
+      request(id => Right(McpMessage.Request(id, method, params)))
+
+    def request(
+        build: McpRequestId => Either[AgentError.InvalidMessage, McpMessage.Request]
+    ): IO[AgentError, McpRequests.Reply] =
       execute:
         for
           pending <- requests.register
-          message = McpMessage.Request(pending.id, method, params)
+          message <- ZIO.suspendSucceed(ZIO.fromEither(build(pending.id)))
+          _ <- ZIO
+            .fail(AgentError.InvalidMessage("MCP request builder changed its allocated identity"))
+            .unless(message.id == pending.id)
           _     <- send(message)
           reply <- pending.await
         yield reply

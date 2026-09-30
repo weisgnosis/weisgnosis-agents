@@ -2,6 +2,13 @@
 
 Sections 1-6 describe current components. Section 7 describes daily extraction, scoped daily storage and process-local or recoverable local consolidation. Section 8 describes planned behavior; section 9 distinguishes implemented child execution from pending declared/general-purpose integration; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.
 
+## MCP client behavior
+
+The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/McpClient.scala) borrows a host-owned transport, completes the exact 2025-06-18 initialize/result/initialized sequence, and exposes one-page tool listing and invocation only when the server advertises tools. Each operation uses the configured positive finite deadline, defaulting to 30 seconds. Deadline expiry triggers cancellation and joins cleanup, so completion can take longer than that duration. Initialization failure closes the connection immediately; ordinary remote protocol rejections preserve typed error payloads, and tool isError remains a valid result. Real-process stdio integration exercises initialization, discovery, invocation and child reaping. Both reviewers approved the bounded scope and full verification passed; the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and evidence.
+
+- [ ] Next: bounded discovery pagination and Toolkit integration with explicit tool naming and authority.
+- [ ] HTTP, caching, schema evaluation, cancellation notifications and reconnect remain separate integrations.
+
 ## 1. ReAct lifecycle
 
 1. Acquire the instance run permit, establish run-owned resources, initialize interruption, and append input.

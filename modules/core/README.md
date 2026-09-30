@@ -17,7 +17,7 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 
 ## Current review acceptance
 
-- [x] `path_review` and `current_docs` approved the additive [McpError boundary](src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) and its request-ownership integration, with no findings.
+- [x] `path_review` and `current_docs` approved the additive [McpError and McpRemoteError boundaries](src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) and their request/client integration, including absent versus explicit-null remote data, with no findings.
 
 - [x] `path_review` approved the advisory command-screening correction and regressions for FP/ZIO correctness and relevant invariants. The [tool README](src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) records exact source/test blobs and the lexical helper's limits.
 - [x] Full formatting, fatal-warning compilation and tests pass; the [tracker](../../docs/architecture/tracker.md#current-acceptance) records current verification evidence.

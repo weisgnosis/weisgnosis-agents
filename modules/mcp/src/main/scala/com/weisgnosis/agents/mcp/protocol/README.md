@@ -1,6 +1,6 @@
 # com.weisgnosis.agents.mcp.protocol
 
-[McpMessage](McpMessage.scala) implements the common JSON-RPC envelope shape used by MCP. The API is pure and has no transport, generated identifiers, method dispatch, or negotiated-version state. The bounded envelope scope is accepted. [McpInitialization](McpInitialization.scala) adds pure 2025-06-18 initialization helpers accepted within the documented payload scope; runtime integration remains pending.
+[McpMessage](McpMessage.scala) implements the common JSON-RPC envelope shape used by MCP. The API is pure and has no transport, generated identifiers, method dispatch, or negotiated-version state. The bounded envelope scope is accepted. [McpInitialization](McpInitialization.scala) adds pure 2025-06-18 initialization helpers accepted within the documented payload scope; selected runtime integration is accepted separately in the [client contract](../client/README.md).
 
 ## Types and wire contract
 
@@ -91,8 +91,9 @@ Accepted scope: the four message cases, checked wire/AST conversion, strict enve
 
 ## Remaining work
 
-- [ ] Next: selected-revision client lifecycle over the accepted stdio transport; payload helpers and RPC cleanup do not implement a handshake.
+- [x] Selected-revision client initialization, capability checks, list/call and joined deadlines are accepted in the [client contract](../client/README.md).
+- [ ] Next: bounded discovery pagination and Toolkit integration.
 - [ ] Toolkit integration and core content conversion with explicit authority boundaries; output-schema evaluation remains pending.
 - [ ] Method/version validation and integration with the lifecycle of each explicitly supported revision.
 
-This is new specification-derived codec coverage. AgentScope Java uses SDK `McpSchema` objects and delegates serialization to MCP Java SDK 0.17.2; wrapper discovery, calls, cleanup, and explicitly supported legacy initialization remain separate future mappings.
+This is new specification-derived codec coverage. AgentScope Java uses SDK `McpSchema` objects and delegates serialization to MCP Java SDK 0.17.2; wrapper discovery, calls, cleanup, and explicitly supported legacy initialization retain separate bounded mappings and exclusions in the parity audit.

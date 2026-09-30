@@ -9,13 +9,13 @@
 | Storage | MemoryStorageError and PlanStorageError cover backend I/O, ownership and closed-handle failures. Path rejection remains PermissionDenied; finalizer failures remain observable defects. See [memory](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md) and [plan](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md). |
 | Tools, permissions and runtime limits | ToolExecutionError, ToolNotFoundError, PermissionDenied, ContextLengthExceeded, MaxIterationsExceeded and TimeoutError retain their dedicated diagnostics. Interrupted is domain data, not a substitute for fiber interruption. |
 | Descendant lineage | SpawnDepthExceeded rejects excessive depth before child construction or identity allocation; see the [subagent contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md). |
-| MCP request ownership | McpError identifies local correlation capacity, identity exhaustion, closure and abandoned-request failures. It is distinct from malformed-wire DeserializationError/InvalidMessage and remote JSON-RPC error data. See the [MCP client contract](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md). |
+| MCP request ownership | McpError identifies local correlation capacity, identity exhaustion, closure and abandoned-request failures. It is distinct from malformed-wire DeserializationError/InvalidMessage and McpRemoteError, which preserves remote JSON-RPC code/message/data. Tagged McpErrorData distinguishes absent data from explicit JSON null through its domain codec. See the [MCP client contract](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md). |
 
 Each leaf exposes a message and its individual derived JSON codec. The hierarchy does not provide a single shared wire codec. Adding a leaf requires exhaustive AgentError matches to handle the new case.
 
 ## Current review acceptance
 
-- [x] `path_review` and `current_docs` approved the additive McpError boundary with no findings. AgentError.scala blob: `bc673debd766d15bca237f7b56bd085c2dfefa80`. The linked MCP client acceptance records the reviewed runtime/spec identities and full verification.
+- [x] `path_review` and `current_docs` approved the additive McpError and McpRemoteError boundaries with no findings. AgentError.scala blob: `bae41021a96e04f4aac45f9112775e63f5a7aad3`; AgentErrorSpec.scala blob: `3ac85212d13dc997172525b23b340ad37b12f07f`. The linked MCP client acceptance records the reviewed runtime/spec identities and full verification.
 - [x] Existing failure boundaries retain their originating package acceptance and integration evidence; the links above describe current behavior instead of repeating closed review history.
 - [ ] Complete exhaustive error-hierarchy and applicable upstream scenario mapping. Neither this additive review nor passing suites establishes exhaustive parity.
 

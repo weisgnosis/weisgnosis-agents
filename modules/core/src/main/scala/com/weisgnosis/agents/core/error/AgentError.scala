@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.core.error
 
 import zio.json.*
+import zio.json.ast.Json
 
 /**
  * Typed recoverable domain errors for the agent runtime.
@@ -32,6 +33,18 @@ object AgentError:
 
   /** Local MCP connection or request-ownership failure; remote protocol errors remain reply data. */
   final case class McpError(message: String) extends AgentError derives JsonCodec
+
+  /** Explicit presence in the domain codec; this tagged representation is not JSON-RPC wire JSON. */
+  enum McpErrorData derives JsonCodec:
+    case Absent
+    case Present(value: Json)
+
+  /** Remote JSON-RPC rejection, distinct from local MCP failures and successful tool error results. */
+  final case class McpRemoteError(
+      code: BigInt,
+      message: String,
+      data: McpErrorData = McpErrorData.Absent
+  ) extends AgentError derives JsonCodec
 
   final case class ModelError(
       statusCode: Int,

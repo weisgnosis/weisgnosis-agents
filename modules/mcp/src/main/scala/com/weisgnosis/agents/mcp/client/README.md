@@ -1,6 +1,19 @@
 # com.weisgnosis.agents.mcp.client
 
-[McpRequests](McpRequests.scala) implements scoped, bounded request correlation. It owns no transport, send callback, or fibers. [McpConnection](McpConnection.scala) composes it with scoped RPC operations over an injected [McpTransport](../transport/README.md). The [protocol package](../protocol/README.md) supplies checked envelopes and selected 2025-06-18 payload helpers. A [stdio adapter](../transport/McpStdioTransport.scala) is independently reviewed and verified; initialization, discovery and Toolkit integration remain unfinished.
+[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Toolkit integration and HTTP remain unfinished.
+
+## Initialized client contract
+
+- `open(transport, clientInfo, deadline = 30.seconds)` creates an owned connection in the caller's scope. The host acquires the transport first. The deadline must be positive and finite; invalid values start no reader. Initialization advertises empty optional client capabilities, requires the exact selected revision, and publishes the client only after `notifications/initialized` finishes sending. Failed or interrupted initialization closes and joins the connection immediately.
+- `initialization` exposes checked server information and capabilities. `listToolsPage(cursor, meta)` returns one ordered page, including its next cursor. `callTool(name, arguments, meta)` preserves checked content and metadata. Both require the actual advertised tools capability; uninterpreted extensions confer no authority.
+- Each initialization/list/call uses the configured deadline. Expiration triggers cancellation and returns `TimeoutError` after owned cleanup finishes; cleanup can exceed the deadline. Caller interruption also joins cleanup and retains independent failures and defects. No outgoing cancellation notification or retry is implied.
+- Remote JSON-RPC failures become `McpRemoteError(code, message, data)`. `McpErrorData.Absent` and `Present(Json.Null)` remain distinct through the domain codec. A tool's `isError` result is valid `McpCallResult` data, not a protocol failure. `close` joins the connection while the transport remains host-owned.
+
+There is no discovery cache, automatic pagination, notification invalidation, schema evaluation, reconnect or Toolkit installation. The client does not implement the different 2026-07-28 lifecycle.
+
+## API migration
+
+Custom `McpConnection` implementations must implement the new checked `request(builder)` overload: allocate and register an ID before invoking the builder, reject a substituted ID before sending, and clean up rejected requests. The built-in connection suspends the builder. Exhaustive `AgentError` matches must handle the additive `McpRemoteError` leaf; its tagged data codec is a domain representation, not the JSON-RPC wire format.
 
 ## Request ownership contract
 
@@ -15,7 +28,7 @@ The host must keep each request lease short-lived. This primitive neither sends 
 ## Connection ownership contract
 
 - `make(transport, capacity = 64, controlCapacity = 16)` registers cleanup in the caller's scope before starting the reader and control writer. Both bounds must be positive. A closed acquiring scope starts no transport activity. The host acquires the borrowed transport first and releases it after connection cleanup.
-- `request(method, params)` registers a runtime ID before checked sending and awaiting. `notify(notification)` validates and sends without a request ID. Both occupy bounded operation slots through send cleanup; an early reply cannot free a slot while sending is still running. Every operation owns a fresh scope and supervised action. Cancellation joins that action and retains failure/cleanup causes.
+- `request(method, params)` and `request(builder)` register a runtime ID before checked sending and awaiting; builders cannot replace that ID. `notify(notification)` validates and sends without a request ID. Both occupy bounded operation slots through send cleanup; an early reply cannot free a slot while sending is still running. Every operation owns a fresh scope and supervised action. Cancellation joins that action and retains failure/cleanup causes.
 - Remote `Failure` replies remain data. Unknown, duplicate and late IDs are ignored. Local send failure ends that operation; the transport must terminate incoming after fatal or framing-ambiguous writes. No retry or partial-write recovery is implied.
 - EOF, incoming failure, an ID-less remote error, control-write failure or control-queue overflow publishes the first terminal cause, closes admission and signals the reader/writer to stop. Owned operation workers observe termination independently of their callers and join send cleanup. First observed operation completion versus termination wins; independent losing failures survive, while a terminal cause already delivered by the registry is not duplicated.
 - Server `ping` receives the same ID with an empty object result; other server requests receive `-32601`. A separate bounded nonblocking queue and one writer keep control sending out of reply correlation. Incoming notifications are ignored, including cancellation: server-originated request IDs cannot cancel client-originated requests merely by matching their values.
@@ -25,29 +38,32 @@ These bounds count operations and queued messages, not bytes. This is a raw RPC 
 
 ## Verification and acceptance
 
-Accepted registry scope: bounded correlation, monotonic IDs, atomic settlement/abandonment, complete causes and the additive AgentError.McpError boundary. Accepted connection scope: the borrowed port, bounded scoped RPC ownership, terminal dispatch and joined cleanup described above. Network transports and version-specific lifecycle remain excluded.
+Accepted scope covers the registry, borrowed-port connection, checked builders, initialized client and typed remote errors described above. HTTP, Toolkit integration and complete revision support remain excluded.
 
 - [x] Four grouped [McpRequestsSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) tests establish registry contracts; `path_review` and `current_docs` approved their recorded identities with no findings.
 - [x] Seven grouped [McpConnectionSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) tests pass for immediate/out-of-order replies, cancellation, complete causes, closed-parent startup, control dispatch, concurrent closure and terminal errors.
 - [x] Regressions failed against unchanged connection blob `1217d4467307297381bed0e01804ca898a85c8d5`: terminal cause duplication and a ping sent after terminal failure. `mcp-terminal-dispatch-red.log` records the assertion failures. Closed-parent startup ordering was corrected by inspection and covered by a contract test; no reproduced startup failure is claimed.
 - [x] `path_review` independently approved FP/ZIO correctness and `current_docs` independently approved invariants for the final connection/port/spec identities below, with no unresolved findings.
-- [x] `scalafmtAll`, `scalafmtSbt`, and `verify` passed with zero compiler warnings or failed tests: core 561, harness 651, MCP 28; total 1,240. Evidence: `mcp-connection-verify.log`.
+- [x] `path_review` approved final FP/ZIO correctness and `current_docs` approved final invariants for the client, builder overload, remote error codec and associated tests at the identities below, with no findings. Four client groups and actual stdio initialization/list/call integration pass.
+- [x] `scalafmtAll scalafmtSbt verify` passed: 562 core / 651 harness / 39 MCP tests (1,252 total), zero compiler warnings or failures. Evidence: `mcp-client-verify.log`.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
 | [McpRequests.scala](McpRequests.scala) | `70c693b3b10b6c3b1bde45e8809725eca73e26a7` |
 | [McpRequestsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) | `9d2a51529a8cf151637a05346083e7b35bf8eb0b` |
-| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | `bc673debd766d15bca237f7b56bd085c2dfefa80` |
-| [McpConnection.scala](McpConnection.scala) | `2ae27ca85a6b1bc5eaaee28d8825806d9c1e5470` |
+| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | `bae41021a96e04f4aac45f9112775e63f5a7aad3` |
+| [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | `3ac85212d13dc997172525b23b340ad37b12f07f` |
+| [McpConnection.scala](McpConnection.scala) | `5c20eb7985ff2bb647a5438b4b4a820aced63522` |
 | [McpTransport.scala](../transport/McpTransport.scala) | `acf9f4e3fc8d67fc7b66537b223fdacfffca0099` |
-| [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `4e9616939a74fa38cd227f0bc700086492f79215` |
+| [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `0062446d5c91dc2ec4af0cb5b6c6d0cc044e6387` |
+| [McpClient.scala](McpClient.scala) | `351bfeef5f50697e744e47d9506e1b7c473ce59a` |
+| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `6ed1ad698da5448e08ba59e893c846c3446b3850` |
 
 ## Remaining work
 
-- [ ] Next: explicitly selected 2025-06-18 initialization, capability handling and discovery over the connection.
-- [ ] Define request deadlines; implement HTTP transport separately.
+- [ ] Next: bounded discovery pagination and Toolkit integration with explicit naming, content conversion and authority policy.
+- [ ] Implement HTTP transport separately.
 - [ ] Define cancellation notification and transport-specific recovery policy.
-- [ ] Implement discovery pagination and tool invocation, then bridge into Toolkit with explicit metadata, naming and authority policy.
-- [ ] Add revision-specific client/ReAct integration tests; the separate stdio contract records accepted real-process coverage.
+- [ ] Add Toolkit/ReAct integration tests; the separate stdio contract records real-process initialization/list/call coverage.
 
 These tests establish local concurrency and ownership contracts using controlled message ports. AgentScope Java delegates wire/request machinery to MCP Java SDK 0.17.2; wrapper listTools, callTool and close behaviors remain separate integration mappings. No complete MCP revision or whole-wrapper parity is claimed. MCP 2026-07-28 has a different lifecycle without initialize; it is not implemented by the selected older payload helpers.

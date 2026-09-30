@@ -31,24 +31,25 @@ Split UTF-8 and multiple frames per chunk are supported. Completed messages are 
 ## Verification and acceptance
 
 - [x] `path_review` approved framing FP/ZIO correctness and `child_factory` approved framing invariants, with no findings at the recorded source/spec identities.
-- [x] `path_review` and `registry_contract` approved the adapter, actual process fixtures and forked MCP test configuration, with no findings at the recorded identities.
+- [x] `path_review` and `registry_contract` approved the unchanged adapter and forked test configuration. `path_review` and `current_docs` approved the final process fixtures/spec, including initialized-client list/call and reaping, with no findings at the recorded identities.
 - [x] Four framing groups and three real-process groups pass. They verify chunking, exact limits, strict Unicode, full upstream causes, early stop, direct validation, concurrent frames, one-reader admission, malformed/EOF handling and read/queued-write/active-write cancellation with direct-child reaping.
-- [x] `scalafmtAll`, `scalafmtSbt` and `verify` passed with zero compiler warnings or failed tests: core 561, harness 651, MCP 35; total 1,247. Evidence: `mcp-stdio-verify.log`.
+- [x] `scalafmtAll`, `scalafmtSbt` and `verify` passed with zero compiler warnings or failed tests: core 562, harness 651, MCP 39; total 1,252. Evidence: `mcp-client-verify.log`.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
 | [McpStdioFraming.scala](McpStdioFraming.scala) | `76545199289183041d814f27de01eae0a2c2d33c` |
 | [McpStdioFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioFramingSpec.scala) | `83db8decf53febdb299190ac7a9c1237e039ae85` |
 | [McpStdioTransport.scala](McpStdioTransport.scala) | `bf37d238e1b6b661e6c684a5c68c85ad3a223609` |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | `3d2b207d144e67b6991a0fa8b174150a7025ba0a` |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | `38d141504d52f82e3b97e9852cd427ad40398750` |
+| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | `ffc6fd6b7c6ea614e12bf569b586050bd167344b` |
+| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | `c5bfdbb4902ecfe599efa82f742a3fdae9ec0c77` |
 | [build.sbt](../../../../../../../../../../build.sbt) | `53c6ab513dab179a4940047c6eb86aedb768b36a` |
 
 The port/connection acceptance is recorded separately in the [client contract](../client/README.md#verification-and-acceptance). Stdio tests exercise a local JVM peer; they do not establish complete MCP revision support or interoperability with every server/platform.
 
 ## Remaining work
 
-- [ ] Next: selected 2025-06-18 initialization/capability lifecycle, discovery and invocation, then Toolkit integration.
-- [ ] Add explicit request deadline/cancellation-notification policy.
+- [x] Selected 2025-06-18 client initialization, capability checks, list/call and joined deadlines are implemented and reviewed in the [client contract](../client/README.md).
+- [ ] Next: bounded discovery pagination and Toolkit integration.
+- [ ] Add an explicit cancellation-notification policy.
 - [ ] Implement the selected HTTP transport with its own limits, cleanup and integration review.
 - [ ] Validate additional platform/process configurations before extending the documented ownership claims.

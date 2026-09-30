@@ -16,8 +16,13 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.client.McpConnection
-import com.weisgnosis.agents.mcp.protocol.McpMessage
+import com.weisgnosis.agents.mcp.client.{McpClient, McpConnection}
+import com.weisgnosis.agents.mcp.protocol.{
+  McpCallOutcome,
+  McpContentBlock,
+  McpImplementation,
+  McpMessage
+}
 import java.nio.file.Paths
 import scala.jdk.OptionConverters.*
 import zio.*
@@ -90,7 +95,7 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("McpStdioTransportSpec")(
     test(
-      "a real process receives complete concurrent frames and is reaped after connection release"
+      "real processes support concurrent RPC and initialized tool calls and are reaped after release"
     ) {
       for
         outcome <- ZIO.scoped:
@@ -123,7 +128,23 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
             )
           )
         remains <- alive(outcome._1)
-      yield outcome._2 && assertTrue(!remains)
+        initialized <- ZIO.scoped:
+          for
+            server <- peer("client")
+            client <- McpClient.open(server.transport, McpImplementation("stdio-test", "1"))
+            pid    <- server.ready.await
+            page   <- client.listToolsPage()
+            result <- client.callTool("echo")
+          yield (
+            pid,
+            assertTrue(
+              page.tools.map(_.name) == Chunk("echo"),
+              result.outcome == McpCallOutcome.Success,
+              result.content.map(_.block) == Chunk(McpContentBlock.Text("ok"))
+            )
+          )
+        clientRemains <- alive(initialized._1)
+      yield outcome._2 && initialized._2 && assertTrue(!remains, !clientRemains)
     },
     test(
       "invalid configuration, malformed stdout and process EOF cannot become successful replies"

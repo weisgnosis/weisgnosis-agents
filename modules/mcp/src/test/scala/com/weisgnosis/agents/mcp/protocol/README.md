@@ -54,7 +54,8 @@ URI, base64, and timestamp strings are structural data; no format validation, ne
 - [x] Four initialization payload groups pass, within the accepted initialization scope; `path_review` and `current_docs` approved the exact source/test identities recorded in the linked protocol acceptance.
 - [x] Four tool request/list-result groups pass. Both independent reviewers approved this bounded scope; reviewed identities and full verification are recorded in the linked protocol acceptance.
 - [x] Four call-result groups pass, bringing MCP coverage to seventeen groups. Both reviewers approved the exact source/test identities in the linked protocol acceptance; full verification passed with zero compiler warnings or failures.
-- [ ] Next: scoped client/transport lifecycle, correlation, cancellation, and cleanup tests, then Toolkit integration.
+- [x] Separate client/transport suites cover initialized lifecycle, correlation, cancellation and cleanup within their recorded scope.
+- [ ] Next: bounded pagination and Toolkit integration.
 
 No transport, correlation state machine, server handshake, runtime ordering, or whole-SDK compatibility is exercised here.
 

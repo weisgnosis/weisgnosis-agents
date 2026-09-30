@@ -76,6 +76,12 @@ object McpConnectionSpec extends ZIOSpecDefault:
           invalid <- immediate
             .request("invalid", Some(Json.Obj("key" -> Json.Null, "key" -> Json.Null)))
             .exit
+          wrongId <- immediate
+            .request(_ => Right(McpMessage.Request(McpRequestId.Number(-1), "wrong")))
+            .exit
+          rejectedBuilder <- immediate
+            .request(_ => Left(AgentError.InvalidMessage("Rejected request payload")))
+            .exit
           leaked        <- immediateWire.sent.takeAll
           duplex        <- wire
           connection    <- McpConnection.make(duplex.transport())
@@ -95,6 +101,8 @@ object McpConnectionSpec extends ZIOSpecDefault:
           localFailure(sendFailure),
           recovered.isSuccess,
           invalid.isFailure,
+          wrongId.isFailure,
+          rejectedBuilder.isFailure,
           leaked.isEmpty,
           firstReply == success(firstRequest.id),
           secondReply == remote,

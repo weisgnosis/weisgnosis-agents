@@ -1,19 +1,20 @@
 # com.weisgnosis.agents.mcp.client: tests
 
-[McpRequestsSpec](McpRequestsSpec.scala) and [McpConnectionSpec](McpConnectionSpec.scala) verify the [client contract](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md) using scopes, STM, queues and explicit coordination promises. No test starts a network server or process.
+[McpRequestsSpec](McpRequestsSpec.scala), [McpConnectionSpec](McpConnectionSpec.scala) and [McpClientSpec](McpClientSpec.scala) verify the [client contract](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md) using scopes, STM, queues and explicit coordination promises. No test starts a network server or process.
 
 | Suite / groups | Independent contracts |
 | --- | --- |
 | Request registry / four | Out-of-order correlation and remote error data; capacity and scope release; waiting-fiber interruption versus completed replies; owner/terminal closure with complete causes |
 | Connection / seven | Immediate and concurrent replies, local send recovery and checked dispatch; cancellation joins cleanup and retains defects; terminal cause preservation during send and reply waiting; closed-parent startup; control writes and directional cancellation; concurrent close and defect replay before borrowed-resource release; EOF, uncorrelated errors and bounded control overflow |
+| Initialized client / four | Publication after initialized send; exact-version/error cleanup and invalid-deadline rejection before reader startup; tools capability authority; initialization/call deadline and caller cancellation joining held cleanup while retaining its defect |
 
 The terminal cause and post-terminal dispatch regressions failed against the unchanged draft before correction. They assert the public ownership contract, not internal Ref layouts. The already-closed-scope case is contract coverage; no failing-before-fix result is claimed for the inspected startup ordering hazard. Existing groups cover shared closure defects without adding getter tests or duplicating setup mechanically.
 
 ## Acceptance and next tests
 
-- [x] All eleven client groups pass in focused verification; registry identities were independently accepted.
-- [x] Both reviewers approved the final connection scope and full verification passed; exact identities and evidence are in the [client acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
-- [ ] Next: selected-revision initialization, deadlines and cancellation notifications; the separate transport suite now covers actual stdio framing and cleanup.
-- [ ] Discovery/invocation followed by Toolkit/ReAct integration and metadata trust boundaries.
+- [x] All fifteen client groups pass in focused verification; registry identities were independently accepted.
+- [x] Both reviewers approved the final connection and initialized-client scope and full verification passed; exact identities and evidence are in the [client acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
+- [ ] Next: bounded discovery pagination and Toolkit/ReAct integration; outgoing cancellation notifications remain separate. The transport suite covers actual stdio initialization, list/call and cleanup.
+- [ ] Complete applicable upstream method mappings and metadata trust boundaries.
 
-These controlled-port scenarios do not establish network interoperability, initialization ordering, deadlines, cancellation notifications or complete AgentScope wrapper parity.
+These controlled-port scenarios do not establish external-server interoperability, cancellation notifications or complete AgentScope wrapper parity.

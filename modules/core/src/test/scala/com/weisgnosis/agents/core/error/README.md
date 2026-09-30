@@ -1,6 +1,6 @@
 # Typed error verification
 
-[AgentErrorSpec](AgentErrorSpec.scala) verifies selected individual codecs and diagnostics for text transformation, memory/plan storage and descendant depth. Narrow host callback suites cover reasoning, history preparation, input projection and completion-observation error provenance. Their runtime integrations verify that host failures do not become provider fallback signals.
+[AgentErrorSpec](AgentErrorSpec.scala) verifies selected individual codecs and diagnostics for text transformation, memory/plan storage, descendant depth and remote MCP errors. One table-driven codec group preserves absent, explicit-null and object error data. Narrow host callback suites cover reasoning, history preparation, input projection and completion-observation error provenance. Their runtime integrations verify that host failures do not become provider fallback signals.
 
 [McpRequestsSpec](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) exercises the additive McpError boundary through capacity rejection, scoped abandonment and closure. It checks complete domain causes and the mapping of foreign typed request-scope failures without losing defects or interruption.
 
