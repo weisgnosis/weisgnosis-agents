@@ -64,7 +64,7 @@ A raw spawner does not automatically carry the factory's static boundary or inhe
 
 Final tool selection includes inherited and registered tools under the ancestor boundary. `AllAvailable` inherits available tools; `Only(Set.empty)` permits none. Declarations cannot disable live ancestor Deny/Plan checks or inherit approval authority. Callbacks remain trusted scoped host capabilities; supply fresh authorizer/Plan state per build for isolation. Plan tools, review delivery and nested controls require explicit installation.
 
-The resulting factory works with existing fresh-child registries and retained sessions. Declaration names are descriptive configuration, not session credentials or reuse keys. This additive API does not change existing factory signatures. Filesystem discovery/loading, automatic named-session creation, skills, workspace policies, topP/variant options, structured-output execution and remote/durable declarations remain separate work.
+The resulting factory works with existing fresh-child registries and retained sessions. Declaration names are descriptive configuration, not session credentials or reuse keys. This additive API does not change existing factory signatures. Automatic named-session creation, skills, workspace policies, topP/variant options, structured-output execution and remote/durable declarations remain separate work.
 
 ## Inline declaration parsing
 
@@ -76,15 +76,34 @@ Tools accept a scalar comma-separated list or a scalar sequence. Omitted/plain-n
 
 Opening and closing delimiters are column-zero `---` lines with optional trailing spaces/tabs and LF or CRLF; a delimiter may end at EOF. A BOM is rejected. The prompt body after the closing line ending is preserved exactly, including blank lines and trailing whitespace. Positive limits default to 128,000 UTF-16 code units for the whole document and 16,000 for the header excluding delimiter lines. Limits are checked before YAML decoding. SnakeYAML Engine 3.1.1 event iteration is suspended in ZIO and translated through immutable state, without object loading. Syntax failures become bounded InvalidConfiguration diagnostics. This is a supported profile, not full YAML compatibility; the engine may ignore reserved directives that its public event API does not expose.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the parser, paired spec and harness-only dependency at the exact identities below, with no unresolved findings. Full `scalafmtAll scalafmtSbt verify` passed in `subagent-declaration-parser-verify.log`: 573 core / 663 harness / 56 MCP tests (1,292 total), zero compiler warnings or failures.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the parser, paired spec and harness-only dependency at the exact identities below, with no unresolved findings. Full `scalafmtAll scalafmtSbt verify` passed in `subagent-declaration-parser-verify.log`, with zero compiler warnings or failures. Current verification totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] `subagent-declaration-parser-red.log` reproduced two failed groups against parser blob `8ffa283fef78d674023cfe230debbd15088bd027`: bare-CR/NEL/LS/PS boundaries were accepted as closing markers, and valid CRLF body equality failed. One group passed; the same expectations pass after the explicit LF/CRLF correction.
-- [ ] Add bounded local declaration discovery/loading; automatic reusable-session installation remains separate.
+- [x] Bounded local discovery/loading is available through the separately reviewed adapter below; automatic reusable-session installation remains separate.
 
 | Reviewed file | Git blob |
 | --- | --- |
 | [SubagentDeclarationParser.scala](SubagentDeclarationParser.scala) | `2011caef46b7078b125bb7dfc4d6e091ede72fcd` |
 | [SubagentDeclarationParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | `d9b5962abc88a8ace5b2f9740cc06aeb5e2c5b6f` |
 | [build.sbt](../../../../../../../../../../build.sbt) | `87773171635d77e6fe408aab5531d6554f8e1c7e` |
+
+## Local declaration loading
+
+[LocalSubagentDeclarations.load](LocalSubagentDeclarations.scala) returns `IO[AgentError, Chunk[SubagentDeclaration]]` from one existing directory and an explicit `WorkspaceTrust.HostControlled` acknowledgement. `Untrusted` is rejected before filesystem access. This additive adapter only reads declaration data: it acquires no writer lease, writes nothing and installs no factory, catalog, session or execution capability. Existing parser and construction APIs are unchanged.
+
+Discovery is nonrecursive. Exact lowercase `.md` entries are sorted by filename; the filename without that suffix supplies declaration identity. Defaults count every direct entry toward `maxEntries = 1024`, permit at most 64 selected declarations and read at most 512,000 bytes per document, with one additional byte used to detect overflow. Positive parser limits also apply (128,000 document and 16,000 header UTF-16 code units). Strict UTF-8 decoding rejects malformed input. Every selected file must validate; missing directories, scan/read/parse errors and exceeded bounds fail the whole batch instead of returning partial results.
+
+Traversal components are rejected before canonicalization. Both lexical and canonical paths are screened for sensitive locations; the root must be a non-symlink directory, and selected entries must be non-symlink regular files directly inside its canonical directory. Host-controlled ancestors are required throughout the operation. These checks are advisory, not an atomic sandbox against replacement races. Directory and input streams have scoped release; each blocking operation is masked until it finishes, so cancellation waits for that operation and cleanup without a deadline. No hostile/network-filesystem responsiveness or snapshot consistency is promised.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the exact source/spec identities below, with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `local-subagent-declarations-verify.log`, with zero compiler warnings or failures; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] Three grouped tests establish suspended sorted discovery and exact parsed values; trust/path/nonregular rejection and whole-batch recovery; scan/count/byte/parser bounds, strict UTF-8 and resource release.
+- [ ] Add runtime symlink and held-I/O cancellation integration coverage. Symlink preflight was rejected by automatic execution policy, not demonstrated to be unsupported by the OS; no runtime symlink test or reproduced-defect claim is made.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [LocalSubagentDeclarations.scala](LocalSubagentDeclarations.scala) | `9fb5713fb50778e5ea5135b7f65d1a8c290fadae` |
+| [LocalSubagentDeclarationsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/LocalSubagentDeclarationsSpec.scala) | `ee16735690e57793ec281df869f21f70836d433d` |
+
+The pinned Java `AgentSpecLoader.loadFromDirectory`/`loadFromFile` source supplies the sorted, direct-child, filename-identity adaptation. Scala intentionally rejects missing directories and any selected-file failure instead of returning empty or silently skipping entries, and rejects selected directories/symlinks. No corresponding standalone upstream test method is claimed closed; filesystem namespaces, workspace/skills configuration and automatic named reusable-session creation remain separate.
 
 ## Policy-aware child construction
 
@@ -94,7 +113,7 @@ Each build runs permission initialization before registration in the same owned 
 
 The derived capability carries the effective static boundary, ancestor live denial readers plus the child's current policy, and the effective live Plan mode. Further `narrowed` and `inheritingParentDenials` factory derivatives propagate through this path. Child authorization preserves its own interactive policy/confirmation authority; added Plan admission uses `withAdditionalGate`, while parent Deny wrappers recheck original and approved arguments. Reused sessions retain these live readers rather than copying policy or approval state.
 
-Effective Plan is the live OR of ancestor and child modes. An ancestor returning to Build removes only its restriction; the child's own Plan remains until its own review. Neither Plan control is mutated, no historical parent denials accumulate, and reads are decision snapshots rather than atomic revocation. Only construction through the derived `child.factory` path inherits these restrictions automatically. Public raw spawners, `SubagentFactory.make` and factories used under another parent remain explicit trusted-host capabilities; model input cannot select a new root. Inline parsing and general-purpose factory composition are available; local discovery and automatic installation remain separate integration work.
+Effective Plan is the live OR of ancestor and child modes. An ancestor returning to Build removes only its restriction; the child's own Plan remains until its own review. Neither Plan control is mutated, no historical parent denials accumulate, and reads are decision snapshots rather than atomic revocation. Only construction through the derived `child.factory` path inherits these restrictions automatically. Public raw spawners, `SubagentFactory.make` and factories used under another parent remain explicit trusted-host capabilities; model input cannot select a new root. Inline parsing and general-purpose factory composition are available; read-only local discovery is available above, while automatic installation remains separate integration work.
 
 ## Reusable child sessions
 
@@ -160,7 +179,7 @@ Capacity counts retained tasks per entry; total records are bounded by the finit
 
 `SubagentTools.forCatalog` installs `agent_spawn(agent_id, prompt)`, `agent_task(agent_id, task_id)` and `agent_cancel(agent_id, task_id)`. Definitions list host-selected names/descriptions. Strict two-string inputs reject extra fields; task IDs remain confined to the selected registry. Results wrap the selected agent and bounded task observation. Unknown entries and typed admission failures, including depth rejection, retain the selected identity as Error observations. Invalid input and unexpected defects use ordinary Toolkit diagnostics. Existing 30-second promotion, bounded text and joined cancellation apply unchanged.
 
-This additive adapter changes no fixed-registry, session or directory call sites. Catalog names are exact host keys, not runtime IDs or credentials. Factories determine child policy; compiling them through SubagentDeclaration/SubagentConstruction preserves inherited restrictions, while raw host factories remain trusted capabilities. There is no dynamic membership, hidden/primary mode, context-selected manager, declaration loading, reusable-session key or durable recovery. Scoped event forwarding follows the execution contract below.
+This additive adapter changes no fixed-registry, session or directory call sites. Catalog names are exact host keys, not runtime IDs or credentials. Factories determine child policy; compiling them through SubagentDeclaration/SubagentConstruction preserves inherited restrictions, while raw host factories remain trusted capabilities. There is no dynamic membership, hidden/primary mode, context-selected manager, implicit declaration loading, reusable-session key or durable recovery. Scoped event forwarding follows the execution contract below.
 
 ## Directory-bound model routing
 
@@ -184,7 +203,7 @@ Migration: existing `submit(input)`, `send(input)` and factory spawn calls retai
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The unchanged lineage and static boundary retain their recorded approvals; the supervisor's current resource extension is reviewed below.
 
-`path_review` and `current_docs` independently approved policy-aware construction and its scoped dependencies. The current forwarding extension renews their approval of the factory, registry, session and tools at the exact identities below, with no unresolved FP/ZIO or invariant findings. Unchanged directory, resource, construction and boundary identities retain their existing scoped acceptance; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full verification is recorded in `subagent-declaration-parser-verify.log` and the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+`path_review` and `current_docs` independently approved policy-aware construction and its scoped dependencies. The current forwarding extension renews their approval of the factory, registry, session and tools at the exact identities below, with no unresolved FP/ZIO or invariant findings. Unchanged directory, resource, construction and boundary identities retain their existing scoped acceptance; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full verification is recorded in `local-subagent-declarations-verify.log` and the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 - [x] Both reviewers approved scoped forwarding, runtime task attribution, per-send leases and unchanged ownership, including three grouped integration scenarios for nested events/results, promotion and session cancellation/removal. Full formatting, fatal-warning compilation and repository tests passed.
 
@@ -220,7 +239,7 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
 
-Local declaration discovery/loading and automatic named reusable-session creation, inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and delivery after promotion remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
+Automatic named reusable-session creation, inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and delivery after promotion remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
 
 - [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
 - [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
@@ -238,8 +257,9 @@ Local declaration discovery/loading and automatic named reusable-session creatio
 - [x] Implement inline declarations and the general-purpose preset while retaining construction capability and child approval authority.
 - [x] Implement and independently approve named host factory routing with bounded per-entry registries and parallel joined closure.
 - [x] Parse bounded inline Markdown/YAML declarations into the validated model; see [parser acceptance](#inline-declaration-parsing).
-- [ ] Complete local declaration discovery/loading, automatic named reusable-session creation and broader host installation.
+- [x] Load bounded local declaration data without acquiring execution capabilities; see [loader acceptance](#local-declaration-loading).
+- [ ] Complete automatic named reusable-session creation and broader host installation.
 - [x] Implement and independently approve scoped correlated child forwarding through all existing spawn/send routes.
 - [ ] Complete optional remote/durable task routing and independently observed cancellation-tail delivery.
 
-Next task: bounded local declaration discovery/loading through an explicit host filesystem boundary; automatic reusable-session installation remains separate. No exhaustive upstream parity is claimed.
+Next task: automatic named reusable-session creation atop existing construction and scoped ownership. No exhaustive upstream parity is claimed.

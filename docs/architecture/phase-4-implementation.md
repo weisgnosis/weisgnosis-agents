@@ -131,7 +131,8 @@ Configured factories apply final static filtering to inherited and registered to
 - [x] Independent reviews accepted these bounded lifecycle, factory, registry, session and tool contracts at the exact identities in the [subagent acceptance record](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance). The [tracker](tracker.md#current-acceptance) records current verification; the [parity audit](test-parity.md#subagent-supervision-inventory) identifies whole-method adaptations and exclusions.
 - [x] Opt-in SubagentConstruction installs inherited static boundaries and live denial/Plan checks for descendants and retains child approval authority.
 - [x] Complete and independently review inline declared/general-purpose tool, prompt and configuration composition through SubagentConstruction; raw factories remain host-controlled.
-- [ ] Complete local declaration discovery/loading and automatic reusable-session installation.
+- [x] Load bounded declarations from explicit host-controlled local directories without installing capabilities.
+- [ ] Complete automatic reusable-session installation.
 - [x] Add and independently review scoped child event forwarding with task-ID attribution, fresh per-send leases, retained outcomes and closed delivery after promotion.
 - [ ] Add durable host recovery and post-promotion event delivery under separate retention and persistence contracts.
 
