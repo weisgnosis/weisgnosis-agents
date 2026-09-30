@@ -56,7 +56,7 @@ Each send owns a fresh response scope and joins it before returning. Request adm
 
 Default limits are 1,048,576 outbound JSON bytes, 1,048,576 JSON response bytes, 8,388,608 SSE response bytes, 1,048,576 SSE event-content bytes, 64 queued messages and eight concurrent requests. All must be positive. Framing bounds count consumed bytes; queue/admission bounds count entries. McpClient supplies joined operation deadlines; the raw port adds no timeout.
 
-This is a bounded adaptation of the [2025-06-18 Streamable HTTP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports). It does not implement general I/O recovery, legacy HTTP+SSE fallback, automatic reinitialization, authentication discovery or token refresh. Owner cleanup is local only. Only the opt-in continuation policies initiate additional GETs within a send; the borrowed host HTTP client must not add automatic retries or redirects. Full transport conformance and external-server interoperability remain unclaimed.
+This is a bounded adaptation of the [2025-06-18 Streamable HTTP specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports). It does not implement general I/O recovery, legacy HTTP+SSE fallback, automatic reinitialization, authentication discovery or token refresh. Owner cleanup is local only. Only the opt-in continuation policies initiate additional GETs within a send; the borrowed host HTTP client must not add automatic retries or redirects. A bounded independent-server check is documented below; full transport conformance and broader interoperability remain unclaimed.
 
 ## Explicit GET listening
 
@@ -100,8 +100,17 @@ Migration: `terminateSession` is a new abstract member of `McpStreamableHttpTran
 
 [McpConnection](../client/README.md#outbound-cancellation-contract) originates bounded best-effort notifications under the [selected cancellation specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/cancellation), never for initialize. The transport does not originate notifications, and callback publication does not acknowledge peer delivery or stopping. HTTP cleanup can delay enqueue. The connection retains the notification writer independently of the cancelled request and joins it before transport release; no transport-wide guarantee orders notification delivery after all request finalizers.
 
+## Independent-server interoperability
+
+[McpJavaSdkInteropSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) runs the unchanged MCP Java SDK 0.17.2 HTTP servlet provider on Tomcat 11.0.18 over real loopback HTTP. The initialized Scala client verifies server information/capabilities, tool listing, successful text, `isError` observations and a distinct RPC error with code/data. It closes the client before explicit DELETE, then verifies Tomcat `DESTROYED` and removal of the owned temporary directory.
+
+This is one bounded 2025-06-18 HTTP check, not full external-server conformance, reconnection/cancellation interoperability or proof of every failed-startup schedule. The SDK HTTP provider supports this revision; its stdio provider advertises only 2024-11-05 and is not used. SDK 0.17.2 has no `notifications/cancelled` handler and suppresses some session-shutdown errors, so fixture success does not establish those contracts. The SDK and production transport are unchanged; no behavioral defect or RED is claimed.
+
+The [test-only build dependencies](../../../../../../../../../../project/README.md) include SDK/Jackson, embedded Tomcat and SLF4J JDK logging. No production dependency is added.
+
 ## Verification and acceptance
 
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the independent SDK fixture and build identities below. The focused check passed once in 1.897 seconds; full `mcp-java-sdk-interop-verify.log` verification passed with zero compiler/runtime warnings or failures. Production HTTP identities retain their separate approval.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the HTTP source/spec identities below, with no remaining findings. Sixteen groups cover POST, explicit GET with optional resumption, both bounded continuation policies, cancellation and explicit termination; the [test contract](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/README.md) describes the evidence. Two listener groups verify cursor/session isolation, reply rejection, finite restarts, custom-subtype compatibility, joined cleanup and complete causes. Controlled drivers provide actual retry evidence; the real loopback exercises opted-in single-GET behavior without a cursor, not reconnection. The focused HTTP/client run passed 22 tests in 3.973 seconds. Listener resumption is a new feature, with no behavioral RED claim.
 - [x] `mcp-http-continuation-session-red.log` records nine passing groups and one failing group against source `7a99df8727368110c0e06f02b6022bdb0cf2d297` and spec `656e201a0cecf1e5ec077168515318481bb88da7`: a raw stateless request's continuation expected no session header but acquired `new-session` from concurrent initialization. The original POST count already passed. Returning the request's captured session fixes the unchanged regression; no compile/fixture failure is claimed as defect evidence.
 - [x] `mcp-post-acquisition-red.log` records six passing groups and one failing group against source `b4cc28dd46328e9542e1e2441111eccdeec046e9` and spec `73b180a72384447261642a56e0869506b484f277`: public client cancellation lost the driver's typed acquisition failure. The unchanged assertion now preserves interruption, exactly one expected typed failure and no defects. Error translation runs under the existing mask while network acquisition remains interruptible; issuance timing and public APIs are unchanged.
@@ -111,10 +120,12 @@ Migration: `terminateSession` is a new abstract member of `McpStreamableHttpTran
 - [x] `path_review` approved framing FP/ZIO correctness and `child_factory` approved framing invariants, with no findings at the recorded source/spec identities.
 - [x] The direct-process ownership baseline and forked test configuration retain `path_review` and `registry_contract` approval; the current issuance callback extension has separate approval below. `path_review` and `current_docs` approved the final process fixtures/spec, including initialized-client list/call and reaping, with no findings at the recorded identities.
 - [x] Four framing groups and three real-process groups pass. They verify chunking, exact limits, strict Unicode, full upstream causes, early stop, direct validation, concurrent frames, one-reader admission, malformed/EOF handling and read/queued-write/active-write cancellation with direct-child reaping.
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current port, stdio and HTTP issuance boundaries and updated HTTP spec, with no findings at the identities below and in the linked client table. Full `scalafmtAll scalafmtSbt verify` passed in `mcp-http-listener-resumption-verify.log`, with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current port, stdio and HTTP issuance boundaries and updated HTTP spec, with no findings at the identities below and in the linked client table. Full `scalafmtAll scalafmtSbt verify` passed in `mcp-java-sdk-interop-verify.log`, with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 | Reviewed file | Git blob identity |
 | --- | --- |
+| [McpJavaSdkInteropSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) | `ce2f1b6d0740897b4bf63f25f2bd23837eb877c8` |
+| [build.sbt](../../../../../../../../../../build.sbt), test-only interoperability configuration | `6c54a59788d5342f2ca7c4948bf0ad9352b6bd4c` |
 | [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | `af30380c4239214e0cd81a1958f1cf9b987d734a` |
 | [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | `b8ebef1043f822caa0ed5add09d77c81c76b269c` |
 | [McpHttpFraming.scala](McpHttpFraming.scala) | `fbdfa581f7228b8da97ccac46f523a173b3781e5` |
@@ -124,7 +135,6 @@ Migration: `terminateSession` is a new abstract member of `McpStreamableHttpTran
 | [McpStdioTransport.scala](McpStdioTransport.scala) | `8b6aad5870714b280e6a6a693cb759cbf98c8c8a` |
 | [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | `ffc6fd6b7c6ea614e12bf569b586050bd167344b` |
 | [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | `c5bfdbb4902ecfe599efa82f742a3fdae9ec0c77` |
-| [build.sbt](../../../../../../../../../../build.sbt) | `53c6ab513dab179a4940047c6eb86aedb768b36a` |
 
 The port/connection acceptance is recorded separately in the [client contract](../client/README.md#verification-and-acceptance). Stdio tests exercise a local JVM peer; they do not establish complete MCP revision support or interoperability with every server/platform.
 
@@ -134,6 +144,6 @@ The port/connection acceptance is recorded separately in the [client contract](.
 - [x] Bounded manager registration/removal and host selection have separate [client acceptance](../client/README.md#scoped-manager-contract); manual Toolkit binding retains its separate tool-package contract.
 - [x] Support the connection-owned optional outbound cancellation policy, with conservative issuance signals and no delivery acknowledgement.
 - [x] Implement and independently review the selected HTTP POST and explicit GET contract with bounded bodies, scoped cleanup and loopback integration.
-- [ ] Next: define and verify reproducible interoperability with a pinned independent server; general I/O recovery, session reinitialization and durable integration remain unfinished.
-- [ ] Complete separately specified general I/O recovery, session reinitialization and external-server interoperability.
+- [ ] Next: define and implement explicit metadata propagation through registered MCP tools; general I/O recovery, session reinitialization and durable integration remain unfinished.
+- [ ] Complete separately specified general I/O recovery, session reinitialization and broader server interoperability.
 - [ ] Validate additional platform/process configurations before extending the documented ownership claims.

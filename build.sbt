@@ -3,6 +3,9 @@ val zioVersion                     = "2.1.26"
 val zioJsonVersion                 = "0.9.1"
 val zioHttpVersion                 = "3.11.3"
 val snakeYamlEngineVersion: String = "3.1.1"
+val mcpJavaSdkVersion: String      = "0.17.2"
+val tomcatVersion: String          = "11.0.18"
+val slf4jVersion: String           = "2.0.16"
 
 ThisBuild / scalaVersion := scala3Version
 ThisBuild / version      := "0.1.0-SNAPSHOT"
@@ -60,13 +63,21 @@ lazy val mcp = (project in file("modules/mcp"))
     name := "weisgnosis-agents-mcp",
     commonSettings,
     Test / fork := true,
+    Test / javaOptions ++= Seq(
+      "--add-opens=java.base/java.lang=ALL-UNNAMED",
+      "--add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED"
+    ),
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"          % zioVersion,
-      "dev.zio" %% "zio-streams"  % zioVersion,
-      "dev.zio" %% "zio-json"     % zioJsonVersion,
-      "dev.zio" %% "zio-http"     % zioHttpVersion,
-      "dev.zio" %% "zio-test"     % zioVersion % Test,
-      "dev.zio" %% "zio-test-sbt" % zioVersion % Test
+      "io.modelcontextprotocol.sdk" % "mcp-core"          % mcpJavaSdkVersion % Test,
+      "io.modelcontextprotocol.sdk" % "mcp-json-jackson2" % mcpJavaSdkVersion % Test,
+      "org.apache.tomcat.embed"     % "tomcat-embed-core" % tomcatVersion     % Test,
+      "org.slf4j"                   % "slf4j-jdk14"       % slf4jVersion      % Test,
+      "dev.zio"                    %% "zio"               % zioVersion,
+      "dev.zio"                    %% "zio-streams"       % zioVersion,
+      "dev.zio"                    %% "zio-json"          % zioJsonVersion,
+      "dev.zio"                    %% "zio-http"          % zioHttpVersion,
+      "dev.zio"                    %% "zio-test"          % zioVersion        % Test,
+      "dev.zio"                    %% "zio-test-sbt"      % zioVersion        % Test
     )
   )
 

@@ -25,7 +25,8 @@ The HTTP adapter borrows a host client, owns each response scope, handles JSON/S
 
 ## Verification and acceptance
 
-- [x] Current `scalafmtAll scalafmtSbt verify` passed in `mcp-http-listener-resumption-verify.log`, with zero compiler warnings or failures; the [tracker](../../docs/architecture/tracker.md#current-acceptance) owns current totals. `path_review` and `current_docs` approved the exact [cancellation/client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#outbound-cancellation-contract) and [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#cancellation-publication-boundary) scope and identities.
+- [x] Current `scalafmtAll scalafmtSbt verify` passed in `mcp-java-sdk-interop-verify.log`, with zero compiler warnings or failures; the [tracker](../../docs/architecture/tracker.md#current-acceptance) owns current totals. `path_review` and `current_docs` approved the exact [cancellation/client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#outbound-cancellation-contract) and [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#cancellation-publication-boundary) scope and identities.
+- [x] Both reviewers approved the pinned independent SDK HTTP fixture and test-only build, with successful full verification; the [interop contract](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#independent-server-interoperability) records exact identities and limitations.
 - [x] Both independent reviewers approved bounded HTTP body framing and the scoped HTTP POST and explicit GET adapter, and full verification passed. The [transport acceptance](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance) records exact identities, regression evidence and remaining transport features.
 - [x] `path_review` and `current_docs` approved scoped manager acquisition, atomic registration, immutable Toolkit snapshots and joined removal/closure. The [client contract](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract) owns exact identities and regression evidence.
 
@@ -38,14 +39,14 @@ The HTTP adapter borrows a host client, owns each response scope, handles JSON/S
 - [x] Independent framing/stdio reviews approved the bounded transport scope; the [transport acceptance](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) records exact identities and evidence.
 - [x] `path_review` and `current_docs` approved the final client scope with no findings. Six client groups cover ordered initialization, capability checks, remote failures, bounded discovery and joined deadlines/cancellation; the real-process fixture also initializes, lists and invokes a tool.
 
-These are specification-derived protocol and ZIO ownership tests. AgentScope Java delegates its wire machinery to MCP Java SDK 0.17.2. Passing these tests does not close whole upstream client-wrapper methods or establish network interoperability.
+These are specification-derived protocol and ZIO ownership tests. AgentScope Java delegates its wire machinery to MCP Java SDK 0.17.2. One [independent SDK HTTP check](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#independent-server-interoperability) exercises the unchanged SDK provider over real loopback. It does not close whole upstream client-wrapper methods or establish full server, cancellation or reconnection interoperability.
 
 ## Remaining work
 
 - [x] Implement scoped HTTP POST and explicit GET for the selected 2025-06-18 contract.
-- [ ] Complete separately specified general I/O recovery, session reinitialization and external-server interoperability.
+- [ ] Complete separately specified general I/O recovery, session reinitialization and broader server interoperability.
 - [x] Enqueue bounded optional outbound cancellation for interrupted issued requests, excluding initialize and reply/terminal winners.
-- [ ] Next: define and verify reproducible interoperability with a pinned independent server; general I/O recovery, session reinitialization and durable integration remain unfinished.
+- [ ] Next: define and implement explicit metadata propagation through registered MCP tools; general I/O recovery, session reinitialization and durable integration remain unfinished.
 - [ ] Define presets, tool groups, ambient metadata propagation and schema transformation separately; manager selection retains explicit host authority.
 - [ ] Implement provider multimodal projection; core typed conversion is available, while caching, notification invalidation and reconnect remain separate.
 - [ ] Evaluate output schemas where required by the selected client contract.

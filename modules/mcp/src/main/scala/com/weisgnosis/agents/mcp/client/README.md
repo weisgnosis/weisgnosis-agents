@@ -63,7 +63,7 @@ The abandonment observer runs outside STM after removal and full-cause settlemen
 Migration: `McpRequests` adds abstract `register(onAbandon: Cause[AgentError] => UIO[Unit])`; existing custom implementations must implement or delegate this winner-only callback contract. This is source-incompatible for implementers, while no-argument callers retain the delegating API. Observers must avoid waiting on their own owner; observer defects are retained in caller cleanup rather than swallowed. `McpTransport.send(message, onIssued)` is additive with a successful-send fallback. Custom overrides must publish only a real issuance boundary within the send and keep the callback bounded and local; response-owning adapters need an override for in-flight eligibility.
 
 - [x] One new request-registry group verifies callback-once settlement, capacity release before a held observer, reply/terminal suppression and exact observer-defect composition. One new connection group covers eligible/ineligible/initialize/completed cases and bounded dropping with independent writer cleanup. The existing HTTP group adds request-ID/session-header checks, exact cleanup-defect preservation and pre-header suppression.
-- [x] Explicit host-run HTTP GET listening has separate [transport acceptance](../transport/README.md#explicit-get-listening). Resumption, session recovery and external-server interoperability remain separate; no complete upstream cancellation-method parity is claimed.
+- [x] Explicit host-run HTTP GET listening has separate [transport acceptance](../transport/README.md#explicit-get-listening). Bounded same-send/listener resumption and one independent SDK HTTP check have separate transport acceptance; session recovery and cancellation interoperability remain unfinished. No complete upstream cancellation-method parity is claimed.
 
 ## Verification and acceptance
 
@@ -96,7 +96,7 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 
 - [x] HTTP POST and explicit GET have separate transport acceptance.
 - [x] Bounded optional outbound cancellation is accepted under the [cancellation contract](#outbound-cancellation-contract).
-- [ ] Next: define and verify reproducible interoperability with a pinned independent server; general I/O recovery, session reinitialization and durable integration remain unfinished.
+- [ ] Next: define and implement explicit metadata propagation through registered MCP tools; general I/O recovery, session reinitialization and durable integration remain unfinished.
 - [ ] Define presets, groups, ambient metadata propagation, schema transformation and discovery caching separately.
 Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
 
