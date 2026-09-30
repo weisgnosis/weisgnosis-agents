@@ -58,6 +58,34 @@ object SubagentDeclarationParserSpec extends ZIOSpecDefault:
         (
           "description: Review\ntools:\n  - read\n  - search",
           base.copy(tools = SubagentToolSelection.Only(Set("read", "search")))
+        ),
+        ("description: Review\nskills: null", base),
+        ("description: Review\nskills:", base),
+        (
+          "description: Review\nskills: []",
+          base.copy(skills = SubagentSkillSelection.Only(Set.empty))
+        ),
+        (
+          "description: Review\nskills: ''",
+          base.copy(skills = SubagentSkillSelection.Only(Set.empty))
+        ),
+        (
+          "description: Review\nskills: first, second, first",
+          base.copy(skills = SubagentSkillSelection.Only(Set("first", "second")))
+        ),
+        (
+          "description: Review\nskills: [first, 'null', ' first ']\ntools: [read]",
+          base.copy(
+            tools = SubagentToolSelection.Only(Set("read")),
+            skills = SubagentSkillSelection.Only(Set("first", "null"))
+          )
+        ),
+        (
+          "description: Review\ntools: []\nskills:\n  - ' first '\n  - second",
+          base.copy(
+            tools = SubagentToolSelection.Only(Set.empty),
+            skills = SubagentSkillSelection.Only(Set("first", "second"))
+          )
         )
       )
       val body = "\r\n# Instructions\r\nKeep --- inside the body.\r\n  "
@@ -116,6 +144,15 @@ object SubagentDeclarationParserSpec extends ZIOSpecDefault:
         "description: Review\ntools: [null]",
         "description: Review\ntools: [read, '']",
         "description: Review\ntools: read,,search",
+        "description: Review\nskills: [first]\nskills: [second]",
+        "description: Review\nskills: !!seq [first]",
+        "description: Review\nskills: [!!str first]",
+        "description: Review\nskills: [&name first, *name]",
+        "description: Review\nskills: [[first]]",
+        "description: Review\nskills: {first: true}",
+        "description: Review\nskills: [null]",
+        "description: Review\nskills: [first, ' ']",
+        "description: Review\nskills: first,,second",
         "description: [unterminated"
       )
       for outcomes <- ZIO.foreach(headers)(header =>

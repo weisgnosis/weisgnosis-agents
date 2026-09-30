@@ -36,7 +36,7 @@ final case class SubagentDeclarationLimits(
 object SubagentDeclarationParser:
   private enum Value:
     case Scalar(text: Option[String])
-    case Tools(names: Set[String])
+    case Names(names: Set[String])
 
   private type Header = Map[String, Value]
 
@@ -44,13 +44,13 @@ object SubagentDeclarationParser:
     case StreamStart, DocumentStart, Root
     case Key(values: Header)
     case Field(name: String, values: Header)
-    case Tools(values: Header, names: Set[String])
+    case Names(field: String, values: Header, names: Set[String])
     case DocumentEnd(values: Header)
     case StreamEnd(values: Header)
     case Done(values: Header)
 
   private val fields: Set[String] =
-    Set("description", "model", "temperature", "tools", "steps", "maxIters")
+    Set("description", "model", "temperature", "tools", "skills", "steps", "maxIters")
 
   def parse(
       name: String,
@@ -134,19 +134,22 @@ object SubagentDeclarationParser:
           else Right(State.Field(key, values))
         case (State.Field(name, values), scalar: ScalarEvent) =>
           Right(State.Key(values.updated(name, Value.Scalar(text(scalar)))))
-        case (State.Field("tools", values), _: SequenceStartEvent) =>
-          Right(State.Tools(values, Set.empty))
-        case (State.Tools(values, names), scalar: ScalarEvent) =>
+        case (State.Field(name, values), _: SequenceStartEvent)
+            if name == "tools" || name == "skills" =>
+          Right(State.Names(name, values, Set.empty))
+        case (State.Names(field, values, names), scalar: ScalarEvent) =>
           text(scalar)
             .filterNot(_.isBlank)
-            .toRight(invalid("tool names must be nonblank scalars"))
-            .map(value => State.Tools(values, names + value.trim))
-        case (State.Tools(values, names), _: SequenceEndEvent) =>
-          Right(State.Key(values.updated("tools", Value.Tools(names))))
+            .toRight(invalid(s"${nameLabel(field)} must be nonblank scalars"))
+            .map(value => State.Names(field, values, names + value.trim))
+        case (State.Names(field, values, names), _: SequenceEndEvent) =>
+          Right(State.Key(values.updated(field, Value.Names(names))))
         case (State.DocumentEnd(values), _: DocumentEndEvent) => Right(State.StreamEnd(values))
         case (State.StreamEnd(values), _: StreamEndEvent)     => Right(State.Done(values))
         case _ =>
-          Left(invalid("expected one scalar-valued mapping with an optional tools sequence"))
+          Left(
+            invalid("expected one scalar-valued mapping with optional tools or skills sequences")
+          )
 
   private def text(scalar: ScalarEvent): Option[String] =
     val value = scalar.getValue
@@ -178,15 +181,19 @@ object SubagentDeclarationParser:
   ): Either[AgentError, Option[A]] =
     value.fold[Either[AgentError, Option[A]]](Right(None))(text => decode(text).map(Some(_)))
 
-  private def selection(values: Header): Either[AgentError, SubagentToolSelection] =
-    values.get("tools") match
-      case None | Some(Value.Scalar(None)) => Right(SubagentToolSelection.AllAvailable)
-      case Some(Value.Tools(names))        => Right(SubagentToolSelection.Only(names))
+  private def nameLabel(field: String): String =
+    if field == "tools" then "tool names" else "skill IDs"
+
+  private def selection(values: Header, field: String): Either[AgentError, Option[Set[String]]] =
+    values.get(field) match
+      case None | Some(Value.Scalar(None)) => Right(None)
+      case Some(Value.Names(names))        => Right(Some(names))
       case Some(Value.Scalar(Some(value))) =>
         val names =
           if value.isBlank then Set.empty[String] else value.split(",", -1).toSet.map(_.trim)
-        if names.exists(_.isBlank) then Left(invalid("comma-separated tool names must be nonblank"))
-        else Right(SubagentToolSelection.Only(names))
+        if names.exists(_.isBlank) then
+          Left(invalid(s"comma-separated ${nameLabel(field)} must be nonblank"))
+        else Right(Some(names))
 
   private def project(
       name: String,
@@ -195,7 +202,8 @@ object SubagentDeclarationParser:
   ): Either[AgentError, SubagentDeclaration] =
     for
       description <- scalar(values, "description").toRight(invalid("description is required"))
-      tools       <- selection(values)
+      tools       <- selection(values, "tools")
+      skills      <- selection(values, "skills")
       sampled     <- optional(scalar(values, "temperature"), temperature)
       steps       <- optional(scalar(values, "steps"), integer)
       maxIters    <- optional(scalar(values, "maxIters"), integer)
@@ -203,9 +211,14 @@ object SubagentDeclarationParser:
         name,
         description,
         body,
-        tools,
+        tools.fold[SubagentToolSelection](SubagentToolSelection.AllAvailable)(
+          SubagentToolSelection.Only(_)
+        ),
         scalar(values, "model"),
         sampled,
-        steps.orElse(maxIters)
+        steps.orElse(maxIters),
+        skills.fold[SubagentSkillSelection](SubagentSkillSelection.AllAvailable)(
+          SubagentSkillSelection.Only(_)
+        )
       ).validated
     yield declaration

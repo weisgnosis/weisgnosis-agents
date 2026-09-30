@@ -19,6 +19,8 @@ Local storage requires WorkspaceTrust.HostControlled and protected filesystem an
 
 ## Current review acceptance
 
+- [x] `registry_contract` and `current_docs` approved [declaration skill selection](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#inline-declaration-parsing), including parsed inheritance/subset/empty behavior in actual runtime execution and legacy missing-field JSON. Exact identities and verification are in the linked contract.
+
 - [x] `registry_contract` and `current_docs` approved [explicit child skill snapshots](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#child-skill-snapshots), including descendant narrowing, required-control admission and filtered fixed-policy tools. Exact identities and full verification are recorded in the linked contract.
 
 - [x] `registry_contract` and `current_docs` approved [child admitted-access propagation](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#admitted-tool-plan-access), with explicit Plan opt-in, unchanged defaults and preserved parent-denial/confirmation checks. The linked contract owns four source/spec identities and full verification.

@@ -34,12 +34,16 @@ final case class SubagentDeclaration(
     tools: SubagentToolSelection = SubagentToolSelection.AllAvailable,
     model: Option[String] = None,
     temperature: Option[Double] = None,
-    maxIterations: Option[Int] = None
+    maxIterations: Option[Int] = None,
+    skills: SubagentSkillSelection = SubagentSkillSelection.AllAvailable
 ) derives JsonCodec:
   def validated: Either[AgentError, SubagentDeclaration] =
     val validTools = tools match
       case SubagentToolSelection.AllAvailable => true
       case SubagentToolSelection.Only(names)  => names.forall(!_.isBlank)
+    val validSkills = skills match
+      case SubagentSkillSelection.AllAvailable => true
+      case SubagentSkillSelection.Only(ids)    => ids.forall(!_.isBlank)
     if name.isBlank || description.isBlank then
       Left(AgentError.InvalidConfiguration("Subagent name and description must be nonblank"))
     else if model.exists(_.isBlank) then
@@ -50,13 +54,15 @@ final case class SubagentDeclaration(
       Left(AgentError.InvalidConfiguration("Subagent maxIterations must be positive"))
     else if !validTools then
       Left(AgentError.InvalidConfiguration("Subagent selected tool names must be nonblank"))
+    else if !validSkills then
+      Left(AgentError.InvalidConfiguration("Subagent selected skill IDs must be nonblank"))
     else Right(this)
 
   /**
    * Pure composition through the supplied descendant capability. Installation remains lazy and
    * scoped per build; Plan tools and reviewers are host dependencies. The declaration can narrow
-   * tools but cannot discard ancestor static, Deny or Plan restrictions. It creates no session or
-   * directory membership and does not resolve model names through an external registry.
+   * tool and skill sets but cannot discard ancestor static, Deny or Plan restrictions. It creates
+   * no session or directory membership and does not resolve model names through an external registry.
    */
   def factory(
       construction: SubagentConstruction,
@@ -83,7 +89,8 @@ final case class SubagentDeclaration(
         SubagentToolBoundary(declaration.tools),
         initialize,
         register,
-        client
+        client,
+        declaration.skills
       )
 
 object SubagentDeclaration:

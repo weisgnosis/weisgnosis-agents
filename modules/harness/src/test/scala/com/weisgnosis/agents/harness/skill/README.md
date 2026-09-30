@@ -14,4 +14,4 @@
 
 - [x] `path_review` and `current_docs` approved both [local source/test identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/skill/README.md#selected-local-loading), with no findings. Focused `local-skill-test.log` passed all three groups in 218 ms.
 - [x] Full `local-skill-final-verify.log` verification passed with zero compiler warnings or failures; the linked source acceptance records totals and timing. Platform symlink execution is not covered; the source contract records the advisory filesystem guarantees.
-- [ ] Next: declaration skill allowlist parsing and installation. Repository discovery, general metadata and capability installation remain separate.
+- [ ] Next: bounded preservation of additional skill metadata. Repository discovery, general metadata and capability installation remain separate.

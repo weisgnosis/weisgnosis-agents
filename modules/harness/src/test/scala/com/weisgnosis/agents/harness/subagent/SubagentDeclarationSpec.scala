@@ -20,6 +20,7 @@ import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
+import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import com.weisgnosis.agents.harness.permission.*
 import com.weisgnosis.agents.harness.plan.*
@@ -149,19 +150,95 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
           declared.copy(temperature = Some(Double.NaN)),
           declared.copy(temperature = Some(Double.PositiveInfinity)),
           declared.copy(maxIterations = Some(0)),
-          declared.copy(tools = SubagentToolSelection.Only(Set("")))
+          declared.copy(tools = SubagentToolSelection.Only(Set(""))),
+          declared.copy(skills = SubagentSkillSelection.Only(Set(" "))),
+          declared.copy(skills = SubagentSkillSelection.Only(Set("unknown")))
         ).map(compile(_, parentConfig))
         valid         = compile(declared, parentConfig)
         invalidParent = compile(declared, parentConfig.copy(timeout = Duration.Zero))
-        roundTrip     = declared.copy(tools = SubagentToolSelection.Only(Set.empty))
+        roundTrip = declared.copy(
+          tools = SubagentToolSelection.Only(Set.empty),
+          skills = SubagentSkillSelection.Only(Set("guide"))
+        )
         untouched <- acquired.get
       yield assertTrue(
         invalid.forall(_.isLeft),
         invalidParent.isLeft,
         valid.isRight,
         untouched == 0,
-        roundTrip.toJson.fromJson[SubagentDeclaration] == Right(roundTrip)
+        roundTrip.toJson.fromJson[SubagentDeclaration] == Right(roundTrip),
+        """{"name":"reviewer","description":"Reviews delegated work","systemPrompt":"Review carefully."}"""
+          .fromJson[SubagentDeclaration] == Right(declared)
       )
+    },
+    test("parsed skill declarations install only the selected parent catalogue") {
+      val ids = Chunk("first", "second")
+      val cases = Chunk(
+        ""                  -> ids.toSet,
+        "skills: [first]\n" -> Set("first"),
+        "skills: []\n"      -> Set.empty[String]
+      )
+      ZIO
+        .foreach(cases) { case (header, expected) =>
+          ZIO.scoped:
+            for
+              supervisor <- TaskSupervisor.open[AgentResult]
+              parent     <- SubagentSpawner.root(supervisor)
+              catalog <- ZIO.fromEither(
+                SkillCatalog.make(ids.map(id => SkillDefinition(id, s"Guide $id", s"Content $id")))
+              )
+              declaration <- SubagentDeclarationParser.parse(
+                "selected",
+                "---\ndescription: Selected guides\n" + header + "---\nInstructions"
+              )
+              construction = SubagentConstruction.root(
+                parent,
+                SubagentToolBoundary(),
+                ZIO.succeed(PermissionEngine()),
+                ZIO.succeed(PlanMode.Build),
+                catalog
+              )
+              factory <- ZIO.fromEither(
+                declaration.factory(
+                  construction,
+                  parentConfig,
+                  parentModel,
+                  Toolkit.empty,
+                  PlanSession.make.flatMap(permissions),
+                  (_, _) => ZIO.succeed(Toolkit.empty),
+                  _ =>
+                    LlmClient.mock(
+                      Chunk(
+                        TurnOutput.ToolCalls(
+                          Msg.assistant(
+                            ids.map(id =>
+                              ContentBlock.ToolUse(
+                                id,
+                                SkillCatalog.LoadToolName,
+                                Json.Obj("skillId" -> Json.Str(id), "path" -> Json.Str("SKILL.md"))
+                              )
+                            )
+                          )
+                        ),
+                        TurnOutput.FinalText(Msg.assistant("done"))
+                      )
+                    )
+                )
+              )
+              runtime <- factory.build(parent)
+              result  <- runtime.run(Msg.user("load guides"))
+              observations = result.history.flatMap(_.toolResults)
+            yield assertTrue(
+              runtime.skills.definitions.map(_.id).toSet == expected,
+              observations.map(_.state) == ids.map(id =>
+                if expected.contains(id) then ToolResultState.Success else ToolResultState.Error
+              ),
+              observations.filter(_.state == ToolResultState.Success).map(_.outputText) ==
+                ids.filter(expected.contains).map(id => s"Content $id"),
+              catalog.definitions.map(_.id) == ids
+            )
+        }
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     },
     test(
       "declared and general-purpose builds compose actual prompts models execution settings and final tool selection"

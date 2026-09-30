@@ -53,7 +53,7 @@ These are specification-derived protocol and ZIO ownership tests. AgentScope Jav
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
 - [ ] Complete general I/O recovery, session reinitialization and durable integration; the root tracker owns the cross-module sequence.
 - [x] Install selected MCP aliases into host-declared groups with one coherent Ready-only snapshot; [grouped installation](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#grouped-installation) records final approvals and current source/spec identities. The host supplies both unfiltered toolkit and groups to ReAct; existing agents do not refresh.
-- [ ] Complete remaining declaration skill selection, ambient metadata propagation and broader schema transformation separately; core/harness provide selected skills, child snapshots and opt-in Plan admission, while manager selection retains explicit host authority.
+- [ ] Complete remaining ambient metadata propagation and broader schema transformation separately; core/harness provide selected skills, child snapshots and opt-in Plan admission, while manager selection retains explicit host authority.
 - [ ] Implement provider multimodal projection; core typed conversion is available, while caching, notification invalidation and reconnect remain separate.
 - [ ] Evaluate output schemas where required by the selected client contract.
 

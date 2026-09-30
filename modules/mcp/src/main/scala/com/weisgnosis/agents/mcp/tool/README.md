@@ -90,7 +90,7 @@ The bounded adaptation of pinned `McpTool.callAsync` is fixed remote invocation 
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
-- [ ] Complete repository skill discovery, declaration skill allowlists and ambient context bags separately; fixed arguments and model-overridable defaults remain distinct.
+- [ ] Complete repository skill discovery and ambient context bags separately; fixed arguments and model-overridable defaults remain distinct.
 - [ ] Implement provider multimodal projection separately; typed history/events alone do not supply it.
 The borrowed client supplies [bounded optional outbound cancellation](../client/README.md#outbound-cancellation-contract); binding adds no delivery guarantee.
 
