@@ -78,7 +78,7 @@ Opening and closing delimiters are column-zero `---` lines with optional trailin
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the parser, paired spec and harness-only dependency at the exact identities below, with no unresolved findings. Full `scalafmtAll scalafmtSbt verify` passed in `subagent-declaration-parser-verify.log`, with zero compiler warnings or failures. Current verification totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] `subagent-declaration-parser-red.log` reproduced two failed groups against parser blob `8ffa283fef78d674023cfe230debbd15088bd027`: bare-CR/NEL/LS/PS boundaries were accepted as closing markers, and valid CRLF body equality failed. One group passed; the same expectations pass after the explicit LF/CRLF correction.
-- [x] Bounded local discovery/loading is available through the separately reviewed adapter below; model-facing named-session routing remains separate.
+- [x] Bounded local discovery/loading is available through the separately reviewed adapter below; named-session tools are separately reviewed below.
 
 | Reviewed file | Git blob |
 | --- | --- |
@@ -103,7 +103,7 @@ Traversal components are rejected before canonicalization. Both lexical and cano
 | [LocalSubagentDeclarations.scala](LocalSubagentDeclarations.scala) | `9fb5713fb50778e5ea5135b7f65d1a8c290fadae` |
 | [LocalSubagentDeclarationsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/LocalSubagentDeclarationsSpec.scala) | `ee16735690e57793ec281df869f21f70836d433d` |
 
-The pinned Java `AgentSpecLoader.loadFromDirectory`/`loadFromFile` source supplies the sorted, direct-child, filename-identity adaptation. Scala intentionally rejects missing directories and any selected-file failure instead of returning empty or silently skipping entries, and rejects selected directories/symlinks. No corresponding standalone upstream test method is claimed closed; filesystem namespaces, workspace/skills configuration and named session send/task/cancel routing remain separate.
+The pinned Java `AgentSpecLoader.loadFromDirectory`/`loadFromFile` source supplies the sorted, direct-child, filename-identity adaptation. Scala intentionally rejects missing directories and any selected-file failure instead of returning empty or silently skipping entries, and rejects selected directories/symlinks. No corresponding standalone upstream test method is claimed closed; filesystem namespaces and workspace/skills configuration remain separate.
 
 ## Policy-aware child construction
 
@@ -113,7 +113,7 @@ Each build runs permission initialization before registration in the same owned 
 
 The derived capability carries the effective static boundary, ancestor live denial readers plus the child's current policy, and the effective live Plan mode. Further `narrowed` and `inheritingParentDenials` factory derivatives propagate through this path. Child authorization preserves its own interactive policy/confirmation authority; added Plan admission uses `withAdditionalGate`, while parent Deny wrappers recheck original and approved arguments. Reused sessions retain these live readers rather than copying policy or approval state.
 
-Effective Plan is the live OR of ancestor and child modes. An ancestor returning to Build removes only its restriction; the child's own Plan remains until its own review. Neither Plan control is mutated, no historical parent denials accumulate, and reads are decision snapshots rather than atomic revocation. Only construction through the derived `child.factory` path inherits these restrictions automatically. Public raw spawners, `SubagentFactory.make` and factories used under another parent remain explicit trusted-host capabilities; model input cannot select a new root. Inline parsing and general-purpose factory composition are available; read-only local discovery is available above, while model-facing named-session routing remains separate integration work.
+Effective Plan is the live OR of ancestor and child modes. An ancestor returning to Build removes only its restriction; the child's own Plan remains until its own review. Neither Plan control is mutated, no historical parent denials accumulate, and reads are decision snapshots rather than atomic revocation. Only construction through the derived `child.factory` path inherits these restrictions automatically. Public raw spawners, `SubagentFactory.make` and factories used under another parent remain explicit trusted-host capabilities; model input cannot select a new root. Inline parsing and general-purpose factory composition are available; read-only local discovery is available above, and named-session tools are available below.
 
 ## Reusable child sessions
 
@@ -207,23 +207,35 @@ One owned initializer acquires the entire catalog; any partial failure, defect, 
 
 `entries` remains the immutable descriptive input. `lookup(name)` resolves current membership to a session ID and its initialized session; repeated lookups reuse that runtime/history, while different names and catalogs have isolated sessions. `remove(name)` hides the entry, joins its existing resource closure and never recreates it. Lookup is a snapshot, not an atomic liveness guarantee: aggregate closure may leave membership visible while cleanup is underway, then closes the index. Existing task retention bounds apply per session; completed records still require host retention policy.
 
-Close the returned resource to close the aggregate, or end its acquiring caller/supervisor scope. Session workers and finalizers must not remove themselves or await their own catalog/resource closure. This API adds no model-facing named routing, dynamic arbitrary labels, deterministic durable reuse keys, restoration or automatic policy installation through raw factories. Public SubagentSession.open and SubagentSessionDirectory.open retain their existing caller-lease and closure behavior.
+Close the returned resource to close the aggregate, or end its acquiring caller/supervisor scope. Session workers and finalizers must not remove themselves or await their own catalog/resource closure. Model-facing named routing is an opt-in adapter below. The catalog adds no dynamic arbitrary labels, deterministic durable reuse keys, restoration or automatic policy installation through raw factories. Public SubagentSession.open and SubagentSessionDirectory.open retain their existing caller-lease and closure behavior.
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the catalog, retained ownership kernel and paired evidence at the exact identities below and in the shared acceptance table, with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `subagent-session-catalog-verify.log`, with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] Three catalog groups verify validation before acquisition, stable names/history and isolated sessions with unchanged depth; partial compound-failure/caller/owner rollback; and concurrent removal/aggregate closure with exact cleanup causes. One additional TaskResourceSpec group verifies retention past a short caller scope, later use, single physical cleanup, exact repeated cause replay and closed admission.
 - [x] `subagent-session-catalog-red.log` recorded two passing groups and one failure against catalog `d2a1708ca1c4e1d79cf2bb8d59663e133abea425` and spawner `a2cfbbec9191e80a8be5bbbed1f56e5c4782b6ef`: resource and caller closure expected `Die(defect)` but received `Then(Die(defect), Both(Die(defect), Die(defect)))`, despite each client finalizer running once. The unchanged catalog spec below passes after removing duplicate automatic ownership edges; no Cause filtering or deduplication is used.
-- [ ] Add named session send/task/cancel routing through the existing tool protocol. Dynamic labels, durable keys/restoration and post-promotion delivery remain separate.
+- [x] Named session tools are independently reviewed below.
+- [ ] Define dynamic labels, durable keys/restoration and post-promotion delivery separately.
 
 | Reviewed file | Git blob |
 | --- | --- |
 | [SubagentSessionCatalog.scala](SubagentSessionCatalog.scala) | `0e2668dcf149eab0adfec29a43481b5b5430a82c` |
 | [SubagentSessionCatalogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionCatalogSpec.scala) | `8b795d88b930efd93fc293913a42bb59725bb1fb` |
 
+## Named session tools
+
+`SubagentTools.forSessionCatalog(catalog)` adds opt-in `agent_send`, `agent_task` and `agent_cancel` bound to one host-installed catalog. Send requires exactly string `agent_id` and `prompt`; task/cancel require exactly string `agent_id` and canonical UUID `task_id`. Duplicate or extra fields are rejected. Exact names select current membership only: unknown or removed names return Missing, foreign task IDs cannot reach another registry, and no call creates or replaces a session. Tool descriptions expose the immutable entry names/descriptions, including entries subsequently removed.
+
+The existing `SubagentCatalogToolResult` carries selected agent identity and bounded task observations; there is no new session-ID DTO. Typed execution errors retain selected identity, while malformed-input and defect diagnostics keep existing Toolkit normalization. Each accepted send reuses the selected runtime/history but gets a fresh execution ID and current invocation event port. Existing scoped wait, same-execution promotion and joined cancellation apply; inspection/cancellation do not create a model request. Full results and cleanup causes remain in the selected registry.
+
+Migration: this is an additive toolkit factory. `forCatalog` still spawns fresh children, and fixed-session/directory call sites are unchanged. The adapter grants no factory selection, dynamic labels, recreation, durable keys, restoration or new approval authority. Lookup remains a snapshot subject to owner closure.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for SubagentTools `74abf14b4410b07e6da5bf14b9d41f0286a3478f` and [SubagentSessionCatalogToolsSpec](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionCatalogToolsSpec.scala) `a76f336edcf65df903aa4784eafd0ac6eed3d82a`, with no findings. Three new grouped tests establish actual parent reuse with fresh event/task identities, strict selection/isolation/removal without work, and promotion with held cleanup cancellation and retained defect. The three existing fresh-catalog groups also pass.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed in `named-session-tools-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
+
 ## Verification and acceptance
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The unchanged lineage and static boundary retain their recorded approvals; the supervisor's current resource extension is reviewed below.
 
-`path_review` and `current_docs` independently approved policy-aware construction and its scoped dependencies. Scoped forwarding retains its approval for the factory, registry and tools. Both reviewers also approved the session catalog and retained ownership changes to supervisor, spawner, session and private directory indexing at the exact identities below, with no unresolved findings. Public caller-leased ownership and public directory closure semantics remain unchanged; TaskResource changes only its ownership comment, with TaskResourceOwner code unchanged. Construction and boundary identities retain their existing scoped acceptance; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full verification is recorded in `subagent-session-catalog-verify.log` and the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+`path_review` and `current_docs` independently approved policy-aware construction and its scoped dependencies. Scoped forwarding retains its approval for the factory and registry. The named-session adapter renews tool approval at the current identity below. Both reviewers also approved the session catalog and retained ownership changes to supervisor, spawner, session and private directory indexing at the exact identities below, with no unresolved findings. Public caller-leased ownership and public directory closure semantics remain unchanged; TaskResource changes only its ownership comment, with TaskResourceOwner code unchanged. Construction and boundary identities retain their existing scoped acceptance; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full verification is recorded in `named-session-tools-verify.log` and the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 - [x] Both reviewers approved scoped forwarding, runtime task attribution, per-send leases and unchanged ownership, including three grouped integration scenarios for nested events/results, promotion and session cancellation/removal. Full formatting, fatal-warning compilation and repository tests passed.
 
@@ -245,7 +257,7 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [TaskSupervisor.scala](TaskSupervisor.scala) | `3ae295da2603a952bc23b7b05d2546ed274cb600` |
 | [TaskResource.scala](TaskResource.scala) | `ff8c69ba4d8c1623388325e4b2e33bd26df45314` |
 | [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `b8c862182e0a625e7d6f83c0ac72c120f700e80b` |
-| [SubagentTools.scala](SubagentTools.scala) | `3c64f965c9ee2541d9feb1baee6a9beaf908107e` |
+| [SubagentTools.scala](SubagentTools.scala) | `74abf14b4410b07e6da5bf14b9d41f0286a3478f` |
 | [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | `417dacb3a10064054d6d834e9cb29121833c5682` |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | `279c22f4ee3bb2f7678967e1df7fa854665eaa20` |
@@ -259,7 +271,7 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
 
-Named session send/task/cancel routing, inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and delivery after promotion remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
+Inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and delivery after promotion remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
 
 - [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
 - [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
@@ -279,8 +291,8 @@ Named session send/task/cancel routing, inheritance through arbitrary raw host c
 - [x] Parse bounded inline Markdown/YAML declarations into the validated model; see [parser acceptance](#inline-declaration-parsing).
 - [x] Load bounded local declaration data without acquiring execution capabilities; see [loader acceptance](#local-declaration-loading).
 - [x] Install and independently approve finite named reusable sessions with a sole automatic supervisor owner; see [session catalog acceptance](#named-session-catalog).
-- [ ] Complete named session send/task/cancel routing and broader host installation.
+- [ ] Complete broader host installation.
 - [x] Implement and independently approve scoped correlated child forwarding through all existing spawn/send routes.
 - [ ] Complete optional remote/durable task routing and independently observed cancellation-tail delivery.
 
-Next task: named session send/task/cancel routing through the existing tool protocol. No exhaustive upstream parity is claimed.
+Next repository task: MCP cancellation notifications through the existing scoped connection. No exhaustive upstream parity is claimed.

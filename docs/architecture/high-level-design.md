@@ -59,7 +59,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Scoped host catalog for named fresh-child spawn/task/cancel with per-entry task retention.
 - [x] Scoped child event forwarding through spawn/send, with runtime execution attribution, retained complete outcomes and publication revocation after promotion.
 - [x] Finite host-installed named reusable sessions with retained ownership, stable runtime/history per entry and joined rollback/closure.
-- [ ] Named session send/task/cancel routing and broader host integration.
+- [x] Named send/task/cancel routing to installed reusable sessions, with selected-name observations and fresh invocation forwarding.
+- [ ] Complete broader host integration.
 - [x] Static plan inspection, opt-in tool restrictions and in-memory reviewed sessions.
 - [x] Truthful request-only plan projection with preserved canonical history.
 - [x] Standalone scoped local plan-draft storage with atomic publication.

@@ -80,16 +80,38 @@ object SubagentTools:
 
   /** Select fresh children only from this fixed host catalog; task operations keep that selection. */
   def forCatalog(catalog: SubagentCatalog): Toolkit =
-    val spawn = catalogTool[String](
-      catalog,
-      "agent_spawn",
-      "Run the selected configured child. After 30 seconds, return its retained task ID.",
+    namedControls(catalog.entries, name => ZIO.succeed(catalog.lookup(name)), Invocation.Spawn)
+
+  /** Send to live named sessions installed by the host; removed names are never recreated. */
+  def forSessionCatalog(catalog: SubagentSessionCatalog): Toolkit =
+    namedControls(
+      catalog.entries,
+      name => catalog.lookup(name).map(_.map(_._2.executions)),
+      Invocation.Send
+    )
+
+  private def namedControls(
+      entries: Chunk[SubagentEntry],
+      lookup: String => UIO[Option[SubagentTaskRegistry]],
+      invocation: Invocation
+  ): Toolkit =
+    val description = invocation match
+      case Invocation.Spawn =>
+        "Run the selected configured child. After 30 seconds, return its retained task ID."
+      case Invocation.Send =>
+        "Send a prompt to the selected child session. After 30 seconds, return its retained task ID."
+    val invoke = catalogTool[String](
+      entries,
+      lookup,
+      invocation.name,
+      description,
       "prompt",
       Access.Control,
       Right(_)
     )(submit)
     val inspect = catalogTool[SubagentTaskId](
-      catalog,
+      entries,
+      lookup,
       "agent_task",
       "Inspect a retained task of the selected child without making a model request.",
       "task_id",
@@ -97,14 +119,15 @@ object SubagentTools:
       value => uuid("task_id", value).map(SubagentTaskId(_))
     )((registry, id, _) => inspectTask(registry, id))
     val cancel = catalogTool[SubagentTaskId](
-      catalog,
+      entries,
+      lookup,
       "agent_cancel",
       "Cancel a task of the selected child and wait for its owned cleanup.",
       "task_id",
       Access.Control,
       value => uuid("task_id", value).map(SubagentTaskId(_))
     )((registry, id, _) => cancelTask(registry, id))
-    Toolkit(Map("agent_spawn" -> spawn, "agent_task" -> inspect, "agent_cancel" -> cancel))
+    Toolkit(Map(invocation.name -> invoke, "agent_task" -> inspect, "agent_cancel" -> cancel))
 
   /** Route only to ready memberships in this host-selected directory; no creation authority. */
   def forDirectory(directory: SubagentSessionDirectory): Toolkit =
@@ -271,7 +294,8 @@ object SubagentTools:
     )
 
   private def catalogTool[In](
-      catalog: SubagentCatalog,
+      entries: Chunk[SubagentEntry],
+      lookup: String => UIO[Option[SubagentTaskRegistry]],
       name: String,
       description: String,
       field: String,
@@ -283,7 +307,7 @@ object SubagentTools:
       ]]
   ): Tool[Any, CatalogInput[In], SubagentCatalogToolResult] =
     val available =
-      catalog.entries.map(entry => s"${entry.name}: ${entry.description}").mkString("\n")
+      entries.map(entry => s"${entry.name}: ${entry.description}").mkString("\n")
     tool[CatalogInput[In], SubagentCatalogToolResult](
       definition(
         name,
@@ -295,7 +319,7 @@ object SubagentTools:
         pairedStrings("agent_id", field)(raw).flatMap: (agentId, value) =>
           decodeValue(value).map(CatalogInput(agentId, _))
     )((input, events) =>
-      catalog.lookup(input.agentId) match
+      lookup(input.agentId).flatMap:
         case None =>
           respond[SubagentCatalogToolResult](
             name,
