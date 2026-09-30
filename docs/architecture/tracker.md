@@ -5,7 +5,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 ## Current acceptance
 
 - [x] Current reviewed scope includes PathSafety screening, configured factory/static filtering and bounded registry/polling and model-facing task tools (`path_review`), plus live parent-denial inheritance and inherited plan admission (`current_docs`). The reviewers approved FP/ZIO correctness and relevant invariants at the exact source/test identities in the [tool contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 626 harness tests (1,187 total), zero compiler warnings or failures. Local evidence: `subagent-tools-plan-final-verify.log`.
+- [x] `path_review` and `current_docs` approved the retained-resource primitive at the four exact source/test identities in the subagent acceptance record, with no findings.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 631 harness tests (1,192 total), zero compiler warnings or failures. Local evidence: `resource-owner-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; maintain method mappings and explicit exclusions in the [parity audit](test-parity.md).
 - [x] Close the reproduced PathSafety recursive-command and argument-substring defects with lexical warning semantics and bounded regressions; this helper is not shell parsing or execution authorization.
 - [x] Verify configured child construction, monotone final tool filtering, preserved authorizers and scoped resource cleanup; map the two ManagedSubagentBoundary methods as bounded static adaptations.
@@ -31,6 +32,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] Conservative static plan inspection and opt-in live admission; exact-draft in-memory review, request-only context, scoped stored publication, strict model-facing plan controls and validated workspace-relative directories. Reopened drafts do not restore approval.
 - [x] Scoped task supervision, cancellation leases and same-execution promotion after a 30-second wait per `awaitOrPromote` invocation. Runtime-owned lineage admits descendants through depth three and rejects depth four before identity allocation or callbacks.
 
+- [x] Supervisor-owned typed resources outlive initialization and completed turns. Caller/supervisor closure joins initialization and nested running, queued and promoted workers before releasing resources; competing closers share completion and cleanup defects.
+
 - [x] Configured factories build fresh children with final static filtering after inherited and automatic registration, deterministic assembly diagnostics, preserved authorizers and supervisor-owned execution.
 
 - [x] Bounded task registry with lookup, waiting/promotion, cancellation and completed-record removal; registry closure cancels and joins promoted work. Capacity bounds records, not retained result bytes.
@@ -43,11 +46,10 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Complete supervisor-owned persistent resource leases with final independent review and verification. This prerequisite is in progress and outside current acceptance.
-- [ ] Build child sessions, persistent reuse and send on that ownership contract, preserving narrowed factories and current parent denial/plan restrictions for every invocation.
+- [ ] Build child sessions, persistent reuse and send on the accepted resource ownership contract, preserving narrowed factories and current parent denial/plan restrictions for every invocation.
 - [ ] Install inherited policy automatically for nested/reused children, then add correlated event routing with explicit lifetime and retention contracts.
 
-The accepted factory, registry, task tools and plan adapter use host-selected process-local capabilities. They do not add declaration parsing, durable restart recovery or automatic inheritance through raw spawner callbacks. Hosts control capability distribution and completed-record retention.
+The accepted resource primitive, factory, registry, task tools and plan adapter use host-selected process-local capabilities. They do not add declaration parsing, durable restart recovery or automatic inheritance through raw spawner callbacks. Hosts control capability distribution and completed-record retention.
 
 ## Remaining integration and parity
 
@@ -65,7 +67,7 @@ Run `sbt scalafmtAll scalafmtSbt` and `sbt verify` with JDK 21. Verification req
 
 On the current Windows host, use one sbt process at a time. If normal JVM startup fails under commit pressure, the previously successful process-local settings were `JAVA_TOOL_OPTIONS=-Xms128m -Xmx768m -Xss2m -XX:ActiveProcessorCount=4` and sbt `--mem 768`; unavailable proxy settings previously required `-Dhttp.nonProxyHosts=*` and `-Dhttps.nonProxyHosts=*`. These are environment workarounds, not repository defaults.
 
-TaskSupervisor lifecycle changes must preserve its parallel outer owner scope, sequential worker scopes and explicit worker-owner completion closure; direct `forkIn` into the parallel owner previously caused self-join on immediate completion. Tests cover full Exit observation and cancellation cleanup.
+TaskSupervisor lifecycle changes must preserve its parallel outer owner scope, sequential worker scopes and explicit worker-owner completion closure; direct `forkIn` into the parallel owner previously caused self-join on immediate completion. Tests cover full Exit observation and cancellation cleanup. Resource closure must retain the first closer's Exit for finalizers and share its complete cleanup outcome with concurrent/repeated closers. Custom TaskSupervisor implementations must implement the new abstract own method; delegating only attach is insufficient.
 
 - [Core module and tests](../../modules/core/README.md)
 - [Harness module and tests](../../modules/harness/README.md)

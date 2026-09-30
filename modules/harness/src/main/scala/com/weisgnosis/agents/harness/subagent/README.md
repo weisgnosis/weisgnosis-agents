@@ -12,6 +12,16 @@ The supervisor owns each fiber from launch. Closing the attaching parent Scope c
 
 Host shutdown closes worker scopes in parallel, preventing one blocked finalizer from postponing interruption of other workers. Each worker closes its own sequential scope on completion, avoiding the ZIO 2.1.26 `forkIn` self-join deadlock. Task resources keep ordinary scoped cleanup and complete failure causes. Explicitly masked work or blocked finalizers can delay cancellation indefinitely. Tasks/finalizers must not wait for an owner or parent whose closure is joining them, or for their own handle. The host must retain its Scope for all desired background work; no daemon lifetime, remote adoption or restart durability exists.
 
+## Shared resource ownership
+
+`TaskSupervisor.own(initialize)` acquires a [TaskResource](TaskResource.scala) in both the supervisor and acquiring caller Scope. Closed admission evaluates no initializer. The initializer receives a nested supervisor and runs interruptibly; its scoped acquisitions outlive initialization and individual nested tasks. Initialization failure, defect or cancellation joins partial cleanup before returning, preserving the failure Exit supplied to resource finalizers.
+
+Explicit `resource.close`, acquiring-caller finalization and supervisor shutdown share one closure authority. It closes nested admission, joins initialization and all nested workers (including queued and promoted work), then releases shared resources exactly once. Competing library close paths wait for the same complete cleanup outcome, including defects. The first close supplies the resource finalizer Exit: explicit close and normal supervisor shutdown use success; an initialization failure or caller finalizer can supply failure. This does not alter concurrent calls to a raw ZIO `Scope.close`. Completed resource registrations detach from the supervisor.
+
+The host must retain the acquiring Scope for the intended resource lifetime. Owned workers and finalizers must not close or await their own resource owner. Resource values and handles are process-local capabilities, with no codecs, session lookup, restart recovery or child-runtime reuse implied.
+
+Migration: `TaskSupervisor` adds abstract `own[B](TaskSupervisor[A] => ZIO[Scope, AgentError, B]): ZIO[Scope, AgentError, TaskResourceAdmission[B]]`. Custom implementations and test doubles must implement or delegate this ownership contract. A short-lived `ZIO.scoped` acquisition or `attach` call is not an equivalent implementation.
+
 ## Runtime-owned lineage
 
 `SubagentSpawner.root[A]` suspends creation of a UUID-derived root at depth zero. Trusted hosts control root and retained capability distribution. Private construction and no codec prevent descriptive fields from recreating authority. A retained spawner can be reused under another caller Scope while its supervisor is open.
@@ -80,23 +90,26 @@ The host can install [PlanPermissionGate.inherited](../plan/PlanPermissionGate.s
 
 ## Verification and acceptance
 
-The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The supervisor/lineage foundations retain their recorded approvals against `26f524c` and `279b7a3`; the unchanged static boundary retains its acceptance in `f92772b`.
+The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The unchanged lineage and static boundary retain their recorded approvals; the supervisor's current resource extension is reviewed below.
 
-On 2026-09-30, `path_review` approved the final task-control source/test identities below, retaining the registry/polling acceptance; `current_docs` approved the inherited-plan adapter at the [plan admission identities](../plan/README.md#current-admission-identities), retaining the inherited-denial factory acceptance. Independent FP/ZIO and invariant reviews report no findings in these named scopes. Acceptance covers registry admission/retention/shutdown, configured child authority, live parent denials, strict spawn/inspect/cancel controls, same-execution promotion, bounded observations, and host-installed inherited plan admission. Full `sbt scalafmtAll scalafmtSbt verify` passed 561 core and 626 harness tests (1,187 total), with zero compiler warnings or failed tests; execution evidence is `subagent-tools-plan-final-verify.log`.
+On 2026-09-30, `path_review` and `current_docs` independently approved the final supervisor/resource source and tests below, including the registry fixture's `own` delegation, with no unresolved FP/ZIO or lifecycle findings. Acceptance covers retained resource acquisition, joined initialization/worker cleanup, first-close Exit preservation and competing-close outcome sharing. Existing task controls, registry/polling, factory and boundary approvals remain scoped to their listed identities; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Full formatting and `verify` passed 561 core and 631 harness tests (1,192 total), with zero compiler warnings or failed tests; evidence is `resource-owner-focused.log` and `resource-owner-verify.log`.
 
 | Reviewed source | Git blob |
 | --- | --- |
+| [TaskSupervisor.scala](TaskSupervisor.scala) | `83aefd60831a5dbd60778327d216f589acbb7372` |
+| [TaskResource.scala](TaskResource.scala) | `1398310565fc51bb5f525a55fd7acb3868969217` |
+| [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `d8e62d19ef0b00ab6d68cc47afcc6d42ce43a85f` |
 | [SubagentTools.scala](SubagentTools.scala) | `6f7d8556997377723229aad775ed92c2d0071c5a` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | `045d006f2e3304604d802d5280fb8fa4c208d032` |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `bf32c16f1eba0ac244d7ffa42781a40af2d593d7` |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `9fcf06b9c2fb17571415b6fb91a1aacff8bfc899` |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `adcb1e66ff2105137a35339d6bf7ab5e5b9b5475` |
 | [SubagentFactory.scala](SubagentFactory.scala) | `2d0800879664810ca2bb46ebad2673fc504f7466` |
 | [SubagentFactorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentFactorySpec.scala) | `532a6c2c77cb991ed98024c88877fcd047fbafea` |
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
 
-Declaration parsing, automatic nested plan propagation, persistent runtime/session ownership, reuse/send, correlated child-event forwarding, external parent permission gates and durable historical policy accumulation remain outside this accepted scope. The in-progress persistent ownership primitive is unaccepted.
+Declaration parsing, automatic nested plan propagation, persistent child runtime/session construction, reuse/send, correlated child-event forwarding, external parent permission gates and durable historical policy accumulation remain outside this accepted scope. The resource primitive supplies ownership but does not construct reusable child sessions.
 
 - [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
 - [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
@@ -105,8 +118,9 @@ Declaration parsing, automatic nested plan propagation, persistent runtime/sessi
 - [x] Verify and independently approve live parent-denial inheritance without approval-authority copying at the recorded identities.
 - [x] Verify and independently approve strict model-facing spawn, inspection and cancellation through the retained registry/factory.
 - [x] Verify the host-installed inherited plan gate through configured-child execution without copying review authority.
-- [ ] Implement persistent child reuse and session ownership.
+- [x] Verify and independently approve shared resource ownership, failure/cancellation cleanup and competing closure.
+- [ ] Implement persistent child reuse and session construction on the resource ownership contract.
 - [ ] Implement declared/general-purpose integration, automatic nested/reused-child plan propagation and send tools while retaining narrowed factory authority.
 - [ ] Implement correlated event forwarding and optional remote/durable task routing.
 
-Next task: complete persistent child resource ownership, then session reuse and send integration with current permission and plan boundaries. The ownership primitive in progress is unaccepted. No exhaustive upstream parity is claimed.
+Next task: construct reusable child sessions and integrate send with current permission and plan boundaries. No exhaustive upstream parity is claimed.

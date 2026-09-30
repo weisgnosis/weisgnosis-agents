@@ -1,6 +1,6 @@
 # Scoped child execution verification
 
-The [current contracts and acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md) define accepted supervision, lineage, configured construction, bounded registry, live parent denial and model-facing task controls. The separate inherited-plan adapter is verified through actual configured children; automatic nested/reused-child installation, persistent ownership and send remain pending.
+The [current contracts and acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md) define accepted supervision, shared resource ownership, lineage, configured construction, bounded registry, live parent denial and model-facing task controls. The separate inherited-plan adapter is verified through actual configured children; automatic nested/reused-child installation, persistent child sessions and send remain pending.
 
 ## Current suites
 
@@ -8,6 +8,7 @@ The [current contracts and acceptance](../../../../../../../main/scala/com/weisg
 | --- | --- |
 | [TaskSupervisorSpec](TaskSupervisorSpec.scala) | Sixteen cases cover masked admission, parent/host cancellation and cleanup joining, explicit cancellation, full typed/defect/interruption causes, completed and repeated observation, 30-second same-execution promotion, per-wait budgets, closed admission, parallel shutdown and cancellation/admission races. Race cases repeat twenty times; this is not exhaustive schedule coverage. |
 | [TaskSupervisorAgentSpec](TaskSupervisorAgentSpec.scala) | Two actual ReAct cases verify assistant-before-tool persistence, one interrupted Error result and recovery, and promoted continuation after parent closure without repeated execution. |
+| [TaskResourceSpec](TaskResourceSpec.scala) | Five grouped scenarios cover resources surviving initialization and completed tasks, typed/defect/interrupted initialization cleanup, caller/root cancellation, joined queued/promoted work, and seven competing explicit/caller/root closure pairs with first-Exit preservation and cleanup-defect replay. |
 | [SubagentSpawnerSpec](SubagentSpawnerSpec.scala) | Six cases cover private runtime capability construction/no codec, lazy identity and callback effects, exact ancestry/depth rejection without identity consumption, concurrent siblings, closed admission and promoted descendants. |
 | [SubagentSpawnerAgentSpec](SubagentSpawnerAgentSpec.scala) | Two actual nested ReAct cases verify fourth-level rejection as an Error observation and cancellation/reconciliation at all three running depths. The spawn tool is a test fixture. |
 | [SubagentToolBoundarySpec](SubagentToolBoundarySpec.scala) | Selection/denial intersections across three generations and JSON round trips, plus deterministic malformed-key and excluded-collision rejection. |
@@ -37,7 +38,9 @@ These bounded adaptations are reviewed and verified at the recorded source ident
 
 ## Acceptance and remaining checks
 
-On 2026-09-30, `path_review` approved the final task-control source/test scope and `current_docs` approved the inherited-plan adapter and integration tests with no findings. The [main acceptance record](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan admission identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities) record exact current and retained identities. Full `sbt scalafmtAll scalafmtSbt verify` passed 561 core and 626 harness tests (1,187 total), with zero compiler warnings or failed tests (`subagent-tools-plan-final-verify.log`). The in-progress persistent resource-ownership primitive is outside this accepted scope.
+On 2026-09-30, `path_review` and `current_docs` independently approved the final resource ownership source/tests and registry fixture delegation, with no unresolved FP/ZIO or lifecycle findings. The [main acceptance record](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) records exact current and retained identities; the [plan admission identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/plan/README.md#current-admission-identities) retain separate adapter approval. Full formatting and `verify` passed 561 core and 631 harness tests (1,192 total), with zero compiler warnings or failed tests (`resource-owner-focused.log`, `resource-owner-verify.log`). Child-session construction and reuse/send remain outside acceptance.
+
+Both resource defects were reproduced before correction. The initialization regression observed `Success(())` instead of the failed/interrupted initialization Exit (`resource-exit-red.log`: zero passed, one failed). The competing-close regression observed a completed rival before cleanup release and lost the cleanup defect (`resource-close-red.log`: zero passed, one failed). Barrier-based regressions now pass and release all held cleanup before assertions. These tests establish library-controlled closure contracts, not new guarantees for arbitrary concurrent calls to raw `Scope.close`.
 
 - [x] Verify supervisor/runtime integration and lineage/error contracts.
 - [x] Verify and independently approve configured-factory/static-boundary scenarios and the two bounded upstream adaptations at the recorded identities.
@@ -45,9 +48,10 @@ On 2026-09-30, `path_review` approved the final task-control source/test scope a
 - [x] Verify and independently approve live parent-denial checks before authorization and after confirmation without copying approval authority.
 - [x] Verify actual model-facing spawn/inspect/cancel entry points, bounded observations and scoped caller cancellation.
 - [x] Verify opt-in inherited Plan admission with child-owned controls and review authority.
-- [ ] Verify persistent runtime ownership, reuse and send entry points when implemented.
+- [x] Verify retained shared resources, initialization failure/cancellation, worker-before-resource teardown and competing-close outcome sharing.
+- [ ] Verify persistent child sessions, reuse and send entry points when implemented.
 - [ ] Verify declared/general-purpose/reused-child plan propagation.
 - [ ] Verify correlated child event forwarding and automatic source attribution.
 - [ ] Complete remaining applicable upstream method mappings after those APIs exist.
 
-Next task: verify persistent child resource ownership, then session reuse and send while preserving current static and live permission boundaries. The ownership primitive in progress remains unaccepted.
+Next task: verify child-session construction, reuse and send while preserving current static and live permission boundaries.

@@ -87,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, persistent resource/session ownership, child reuse/send, automatic nested policy installation and MCP remain unfinished. Configured child factories, parent-denial inheritance, bounded scoped task registries, model-facing task tools and host-installed inherited plan admission are available. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, persistent child sessions, reuse/send, automatic nested policy installation and MCP remain unfinished. Supervisor-owned retained resources, configured child factories, parent-denial inheritance, bounded scoped task registries, model-facing task tools and host-installed inherited plan admission are available. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -226,6 +226,22 @@ PlanDirectory.fromString returns Either[AgentError.InvalidConfiguration, PlanDir
 
 TaskSupervisor.open[A] returns ZIO[Scope, Nothing, TaskSupervisor[A]]. attach accepts a suspended ZIO[Scope, AgentError, A] and returns scoped TaskAdmission.Accepted(handle) or Closed. SupervisedTask.poll returns `UIO[Option[Exit[AgentError, A]]]` without waiting; await and cancel return UIO[Exit[AgentError, A]]; awaitOrPromote returns Completed(exit) or Promoted after its own 30-second deadline. These are runtime capabilities without codecs. Parent/host cleanup joins the task; callers inspect its Exit for failures. Tasks must not await their own handle or closure of a scope currently joining them. Explicitly masked work/finalizers can delay cancellation.
 
+## Retained task resource API
+
+[TaskSupervisor.own](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/TaskSupervisor.scala) adds this abstract method to `TaskSupervisor[A]`:
+
+```scala
+def own[B](
+    initialize: TaskSupervisor[A] => ZIO[Scope, AgentError, B]
+): ZIO[Scope, AgentError, TaskResourceAdmission[B]]
+```
+
+Initialization is suspended and receives a nested supervisor. Accepted admission returns a [TaskResource[B]](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/TaskResource.scala) with `value: B` and `close: UIO[Unit]`; closed admission invokes no initializer. Acquired resources survive initialization and completed nested turns. The acquiring caller Scope and parent supervisor bound that lifetime. Closing rejects nested admission, joins initialization and every running, queued or promoted nested worker, then releases retained resources.
+
+Initialization failure, defect or interruption returns no resource and joins partial cleanup with the failing Exit. The first closure path supplies the Exit seen by resource finalizers; explicit close supplies success. Concurrent and repeated library-owned closure paths wait for the same cleanup and replay its complete outcome, including defects, with finalizers run once. This does not change repeated raw Scope.close behavior. Owned workers/finalizers must not close or await their own resource owner; masked or slow cleanup can delay closure. Hosts must stop using the exposed value after closure.
+
+Migration: custom TaskSupervisor implementations and decorators must implement `own` with these lifecycle guarantees; an `attach` fallback cannot retain resources across turns. This process-local primitive does not serialize turns, create a child session, reopen a closed runtime or provide durable reuse. Its [paired resource tests and acceptance](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/README.md) record the bounded contract.
+
 ## Bounded lineage API
 
 SubagentSpawner.root accepts a typed supervisor and returns UIO[SubagentSpawner[A]]. spawn(callback) returns ZIO[Scope, AgentError, TaskAdmission[A]]. Public depth/source fields describe privately constructed lineage; there is no codec or source-based restoration. MaximumDepth is three. SpawnDepthExceeded is checked before UUID allocation or callback evaluation. Eligible closed admission may consume a UUID but invokes no callback. Callers must handle the new sealed AgentError leaf in exhaustive matches.
@@ -252,4 +268,4 @@ SubagentSpawner.root accepts a typed supervisor and returns UIO[SubagentSpawner[
 
 Spawn owns a caller Scope through completion or its 30-second same-execution promotion. Interruption joins attached child cleanup; promoted work remains registry/supervisor-owned. Inspection never waits or calls the model; cancellation joins cleanup and preserves completed results. Missing IDs and rejected admission become Error observations. Failed/interrupted spawn results are Error observations with an ID; inspecting their retained state is a successful observation. Task states are data, not runtime capabilities.
 
-Model text is limited to 4,000 UTF-16 characters with surrogate-safe head/tail previews and omitted-character counts; raw full results stay in the registry. Defect details use generic messages. These tools provide no agent_send, persistent session reuse, declaration selection or event forwarding. Current acceptance excludes the in-progress persistent resource-lease prerequisite.
+Model text is limited to 4,000 UTF-16 characters with surrogate-safe head/tail previews and omitted-character counts; raw full results stay in the registry. Defect details use generic messages. These tools provide no agent_send, persistent session reuse, declaration selection or event forwarding. The accepted retained-resource primitive is a separate host API; these tools still construct fresh children.
