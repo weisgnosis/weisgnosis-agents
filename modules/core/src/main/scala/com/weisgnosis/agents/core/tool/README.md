@@ -14,14 +14,17 @@ Tool keeps its input/output codecs and effectful handler together. Toolkit regis
 
 See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md) for integration boundaries and invariant definitions.
 
+## Command screening
+
+`isDangerousCommand` is a conservative lexical warning helper, not shell parsing or execution authorization. It normalizes input and configured fragments with Locale.ROOT, allows whitespace between fragment words, and requires lexical boundaries around alphanumeric fragment ends. It detects recursive chmod/chown, path-qualified dd, mkfs suffix commands, and the `/dev/` redirection prefix without matching dd inside address. Quoted dangerous text can still match. A false result does not establish command safety; plan admission uses its separate typed inspection and permission policy.
+
 ## Current review acceptance
 
-- [x] Reviewed revision: `fb80428`; accepted files: PathSafety.scala and PathSafetySpec.scala.
-- [x] Independent final approval: `review_harness`, reconfirmed for unchanged code on 2026-09-29 after corrections and cross-review.
-- [x] No unresolved findings in the accepted scope: Parent traversal rejection before normalization and its deterministic regression.
-- [x] Verification at the reviewed revision: `sbt verify`, 108 core and 40 harness tests, no failed tests or compiler warnings.
+- [x] Independent FP/ZIO and invariant reviewer `path_review` approved the advisory command-screening fix and regressions: source blob `3d7a102d03c47719271ad2e4ba791af81247170e`, test blob `981212ee32c51cf92d12d844f4fe5a7403f70b78`. All eight focused tests pass.
+- [x] Accept this scope after `scalafmtAll scalafmtSbt verify` on 2026-09-30: 561 core and 609 harness tests passed with zero compiler warnings or failures.
+- [x] Existing processor and authorization contracts below were accepted by review_fp and review_harness in their recorded source revisions; this change does not modify those implementations.
 
-This is the accepted reference behavior for the scope above. Actual symlink/junction behavior was not dynamically verified; this acceptance does not cover all neighboring tool APIs. Changes to this behavior require renewed independent review and an updated acceptance entry.
+Platform-specific symlink/junction behavior and hostile filesystem races remain outside the verified guarantees. Current command-screening evidence is recorded in the [test README](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions).
 
 ## Completed result processing
 
@@ -35,16 +38,6 @@ Tool execution still returns completed text. A processor can replace its output 
 
 Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. Processor values are runtime dependencies, not serialized agent configuration.
 
-- [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
-
-## Current processor and eviction identities
-
-Unchanged processor/eviction identities from the scope against `8850a60`; commit `a34201f` preserves its full eight-file scope. Changed runtime, processor, and integration-test identities are recorded in the [agent table](../agent/README.md):
-
-| File | Git blob |
-| --- | --- |
-| [ToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolResultProcessorSpec.scala) | 76dfbb00d2aa68613b8770cf727b418d33f79b93 |
-| [EvictionTestSupport.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/EvictionTestSupport.scala) | 7bcf8ad1d2ad45469ac91bec9e7b1079e1e64d92 |
 
 ## Scoped local authorization
 
@@ -60,20 +53,7 @@ Interruption reconciliation first consumes eligible inline observations, then ma
 
 Appending the optional make argument preserves ordinary calls; positional Builder matches must follow the current Builder constructor. This core extension point is implemented by the opt-in harness InteractivePermissionAuthorizer for policy checks, interactive confirmation, and atomic policy updates. Durable suspension/resumption and full upstream permission event ordering remain pending.
 
-- [x] `review_fp` and `review_harness` approved the final five-file core authorization increment against `a34201f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 481 core and 45 harness tests, including fifteen added authorization tests. Interactive and durable policy adapters are excluded from this acceptance.
-
-## Current authorization identities
-
-Unchanged authorization identities from the five-file scope against `a34201f`; commit `5eb4bdc` preserves its full scope. Current ReActAgent identity is in the [history-preparation table](../agent/README.md).
-
-| File | Git blob |
-| --- | --- |
-| [ToolAuthorizer.scala](ToolAuthorizer.scala) | d0e3d498ddabc4f57b0ea28203b048b9696bb1dd |
-| [ToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | 6e9b21dd13f4c23281f0672033bcc465ee8d3664 |
-| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | aeb56e34bb6a7c7f2fce1c956a21e79d6e4ac6d9 |
 
 The optional [interactive harness adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md) owns policy lifetime and approval callbacks; the core remains independent of harness dependencies.
 
-- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope. Supplied-history eviction is covered by a later scope; exhaustive upstream middleware parity remains pending. Current changed identities are in the [agent table](../agent/README.md); prior complete source identities remain in `a34201f` and `5eb4bdc`.
-
-Superseded history/eviction source identities remain in `cc8fa7b`; changed identities are in the [eviction table](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/eviction/README.md).
+Current runtime/processor scope and identities remain in the [agent README](../agent/README.md). Authorization source acceptance is retained in `5eb4bdc`; earlier review chronology is available in Git.

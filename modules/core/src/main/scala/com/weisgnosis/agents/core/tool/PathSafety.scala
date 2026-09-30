@@ -19,6 +19,7 @@ import java.nio.file.{Files, LinkOption, Path}
 import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 import java.util.Locale
+import scala.util.matching.Regex
 
 /**
  * Path and command safety utilities enforcing invariant INV-10 (Sensitive Path Canonicalization)
@@ -72,6 +73,18 @@ object PathSafety:
     "> /dev/"
   )
 
+  private val dangerousCommandPatterns: Chunk[Regex] =
+    Chunk
+      .fromIterable(DangerousCommands)
+      .map: fragment =>
+        val normalized = fragment.toLowerCase(Locale.ROOT)
+        val start =
+          if normalized.headOption.exists(_.isLetterOrDigit) then "(?<![\\p{L}\\p{N}_])" else ""
+        val end =
+          if normalized.lastOption.exists(_.isLetterOrDigit) then "(?![\\p{L}\\p{N}_])" else ""
+        val words = normalized.split(" ").toList.map(Regex.quote).mkString("\\s+")
+        (start + words + end).r
+
   def expandTilde(path: String): IO[AgentError, String] =
     if path == "~" || path.startsWith("~/") || path.startsWith("~\\") then
       zio.System
@@ -87,11 +100,11 @@ object PathSafety:
 
   /** Canonicalizes the nearest existing ancestor, including links above new files. */
   def canonicalPath(path: Path): IO[AgentError, Path] =
-    ZIO.suspendSucceed {
+    ZIO.suspendSucceed:
       if containsParentTraversal(path) then
         ZIO.fail(AgentError.PermissionDenied("path", "Parent traversal is not permitted"))
       else
-        io(Files.exists(path, LinkOption.NOFOLLOW_LINKS)).flatMap { exists =>
+        io(Files.exists(path, LinkOption.NOFOLLOW_LINKS)).flatMap: exists =>
           if exists then io(path.toRealPath())
           else
             (Option(path.getParent), Option(path.getFileName)) match
@@ -100,8 +113,6 @@ object PathSafety:
                 ZIO.fail(
                   AgentError.PermissionDenied("path", "Cannot resolve a filesystem ancestor")
                 )
-        }
-    }
 
   private def containsParentTraversal(path: Path): Boolean =
     (0 until path.getNameCount).exists(index => path.getName(index).toString == "..")
@@ -138,9 +149,10 @@ object PathSafety:
           else canonicalPath(absolute).map(isSensitivePath(_, dangerousFiles, dangerousDirectories))
       yield result
 
+  /** Advisory lexical fragments only: quoted text may match and false does not authorize execution. */
   def isDangerousCommand(command: String): Boolean =
     val lower = command.toLowerCase(Locale.ROOT)
-    DangerousCommands.exists(lower.contains)
+    dangerousCommandPatterns.exists(_.findFirstIn(lower).nonEmpty)
 
   private def io[A](operation: => A): IO[AgentError, A] =
     ZIO

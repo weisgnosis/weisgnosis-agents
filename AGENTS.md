@@ -79,6 +79,8 @@ All code, identifiers, comments, documentation, commit messages, and PR descript
 
 Production/test packages belong under com.weisgnosis.agents. Every domain component, parser, and state machine requires a paired ZIOSpecDefault suite. The target is coverage of every applicable upstream behavior; record the method-level mapping, intentional differences, and justified exclusions. Do not claim exhaustive parity merely because suites pass.
 
+Keep tests proportional to independent contracts and reproduced defects. Prefer concise table-driven cases and shared fixtures over repeated setup, accessor checks, or mechanically duplicated scenarios. Preserve meaningful integration and cancellation coverage; raw test counts and line counts are not acceptance targets.
+
 ## 6. Verification
 
 Before committing or opening a PR:
@@ -92,6 +94,8 @@ sbt test
 The sbt verify alias checks scalafmtCheckAll, scalafmtSbtCheck, compile, and test. Compilation uses -Werror with deprecation, feature, unchecked, and unused warnings. All required checks must pass with zero compiler warnings and zero failed tests.
 
 Automated checks do not prove referential transparency, lifecycle safety, English prose, or exhaustive parity.
+
+For a confirmed defect, derive regression expectations from the public contract, not from the implementation's current output. Run the regression against the unchanged defective implementation and record the specific assertion failure before fixing it. For command classifiers, pair rejection cases with permitted near-misses and an actual forbidden executable so that always-allow and always-deny implementations both fail. Keep fixtures as data; never execute destructive commands to test a pure command classifier. A user-requested failing-test checkpoint remains explicitly unaccepted and uncommitted until the fix, independent review, and required verification pass.
 
 ## 7. Independent review and documentation gates
 
@@ -118,6 +122,8 @@ The completion sequence is mandatory:
 7. Run the required verification, check documentation links and English prose, and commit the code, README updates, and report removal. No step is complete until its evidence exists.
 
 A reference implementation is accepted only within the explicitly reviewed scope, with no unresolved findings. Acceptance is not a claim that every future feature or exhaustive upstream parity is already implemented. Prefer updating an existing current document over adding another status report; remove superseded Markdown documents after preserving their still-applicable contracts.
+
+Documentation describes current APIs, limitations, next work, and current review evidence. Replace outdated descriptions and acceptance entries instead of appending milestone narratives or historical test totals; Git retains that history.
 
 ## 9. Visible progress tracking
 

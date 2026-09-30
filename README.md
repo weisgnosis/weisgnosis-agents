@@ -4,7 +4,7 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is paused at the user's request. The [current handoff](docs/architecture/tracker.md#paused-handoff-2026-09-29) records the accepted revision, verification, preserved local drafts and exact next steps.
+Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is task registry integration, followed by inherited permission/plan policy and model-facing child tools.
 
 ## Implemented components
 
@@ -12,7 +12,7 @@ Implementation is paused at the user's request. The [current handoff](docs/archi
 - **harness:** daily-memory extraction, scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, typed transcript observations with in-memory and scoped local stores and opt-in completion recording, typed memory triggers with shared monotonic admission, a scoped task queue with pending conversation coalescing and completion-triggered memory flush, conversation compaction, opt-in runtime result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
 - **mcp:** architecture and package scaffolding only.
 
-LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable storage, middleware integration, remote memory/transcript storage, subagent factories/registry and plan child propagation remain separate work. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available.
+LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable approval resumption, broader middleware integration, remote memory/transcript storage, subagent registry integration and inherited child policy remain separate work.
 
 ## Build and verification
 
@@ -68,35 +68,18 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 ## Current acceptance
 
-- [x] Core lifecycle/path fixes and harness compactor/store fixes at `fb80428` received independent final approval after corrections and cross-review.
-- [x] Structured-output preservation and interruption fixes received final independent approval; accepted revisions and current contracts are in the core agent README.
-- [x] Current verification: 1158 tests passed, zero compiler warnings.
-- [ ] Complete the remaining work in the [progress tracker](docs/architecture/tracker.md).
+- [x] Advisory PathSafety command screening and configured child construction with final static tool filtering are independently approved by `path_review` for FP/ZIO correctness and relevant invariants. Exact reviewed source/test identities and limits are in the [tool contract](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) and [subagent contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
+- [x] `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 609 harness tests (1,170 total), zero compiler warnings or failures. Local evidence: `resumed-implementation-verify.log`.
+- [ ] Complete task registry integration, currently in progress, and remaining work in the [tracker](docs/architecture/tracker.md). Registry changes are outside this acceptance.
 
-The [core README](modules/core/README.md) and [harness README](modules/harness/README.md) link the exact accepted scopes. Closed review reports live in Git history; current acceptance is maintained in these READMEs.
+Approval covers the named source/test revisions and documented contracts. Existing accepted components retain their package-level evidence; passing verification does not establish exhaustive upstream parity.
 
-Local execution supports an optional scoped ToolAuthorizer with runtime-owned call identity, approved-input persistence, and fail-closed denial observations. The default allows calls; the harness InteractivePermissionAuthorizer installs policy and in-memory confirmation. Durable resumption remains pending.
+## Integration boundaries
 
-Explicit ordered transcript retention now integrates with daily maintenance under one owned background job. See the [harness contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance) for selection, partial progress and review evidence.
+Local execution supports an optional scoped ToolAuthorizer with runtime-owned call identity, approved-input persistence and fail-closed denial observations. The default allows calls; InteractivePermissionAuthorizer installs harness policy and in-memory confirmation. Durable resumption requires host persistence, authentication, checkpoints and idempotency.
 
-Immutable memory configuration now carries validated budgets, literal custom prompt templates and independent retention/trigger policies. The [configuration contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#immutable-memory-configuration) records runtime wiring, review evidence and the six newly completed upstream method adaptations.
+[Memory maintenance](modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md) supports validated configuration, scoped consolidation, acknowledged daily archival and explicitly selected transcript pruning under one owned job. Remote storage and session discovery remain pending; local backends require host-controlled filesystem ancestors.
 
-Conservative static POSIX command inspection is now available as a [plan-mode foundation](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md). Opt-in runtime permission admission is implemented below.
+[Plan mode](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) provides conservative static command inspection, opt-in runtime admission, exact-draft review, request-only context, cooperative local draft storage and strict enter/write/exit tools. Reopened text remains unapproved. Exact-ticket host review is mandatory for exit; location metadata grants no filesystem or approval authority. Typed directories select existing strict workspace descendants. Child propagation and remaining plan adaptations are pending.
 
-Opt-in plan admission now denies mutating/unclassified tools, preserves permission priority and rechecks confirmed input/current mode. See the [reviewed plan contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission).
-
-In-memory planning sessions now bind host approval to the exact draft and review generation, atomically rejecting stale/replayed requests. The [session contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#in-memory-plan-session-lifecycle) records scoped review ownership and remaining persistence/tool work.
-
-Plan-session context can now be projected into each model request without changing canonical history or System messages. The [projection contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#request-only-plan-context) distinguishes descriptive reminders from live permission authority.
-
-Standalone local plan-draft storage now preserves exact content under scoped cooperative ownership and atomic replacement. Persisted text does not restore session mode or approval. The plan package README records its boundaries and current reviewed identities.
-
-Stored plan sessions now invalidate review before writing and reopen content only as unapproved Plan drafts. Opt-in model-facing controls are now available; descriptive location context is available; typed workspace-relative directories are available; durable approval restoration remains separate work.
-
-PlanTools now adds strict opt-in enter/write/exit capabilities. Exact-ticket host review is mandatory inside exit even with ordinary Allow rules; publisher transport and authenticated decision routing remain host responsibilities.
-
-PlanContext now associates one snapshot with configured/observed location metadata. Four additional manager/prompt scenarios and the stricter typed-directory scenario are adapted; no location value grants filesystem or approval authority.
-
-Typed PlanDirectory configuration now selects an existing strict descendant of an explicit host-controlled workspace. Native Path opening retains its semantics; no directory creation or implicit workspace discovery is provided. Plan parity now records eight of fourteen named adaptations; skills and supervised child propagation remain pending.
-
-Local TaskSupervisor now owns scoped tasks, parent cancellation leases and same-execution promotion after a 30-second wait. The host must retain its owner Scope for background work. Runtime-owned lineage now enforces descendant depth <=3; registry, model-facing spawn/send and plan propagation remain pending.
+[Task supervision](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) owns scoped tasks, parent cancellation leases and same-execution promotion after a 30-second wait per invocation. The host retains the owner Scope for background work. Runtime-owned lineage enforces descendant depth <=3. Configured factories build fresh children with scoped resources and final filtering of inherited and registered tools; the injected authorizer remains effective. Registry integration, model-facing spawn/send, event forwarding and inherited dynamic permission/plan policy remain unfinished.

@@ -1,82 +1,60 @@
-# Scoped task supervision
+# Scoped child execution and configured factories
 
-[TaskSupervisor.open[A]](TaskSupervisor.scala) creates a local execution owner in the host Scope. [TaskAdmission](TaskAdmission.scala) and [SupervisedTask](SupervisedTask.scala) carry live authority and complete Exit values; they intentionally have no JSON codecs. This is the execution-ownership foundation for subagents, not a child factory, registry or model-facing spawn tool.
+[TaskSupervisor](TaskSupervisor.scala), [SupervisedTask](SupervisedTask.scala) and [SubagentSpawner](SubagentSpawner.scala) provide host-owned execution and runtime lineage. [SubagentFactory](SubagentFactory.scala) assembles fresh configured ReAct children with a final [static tool boundary](SubagentToolBoundary.scala). The configured factory and static boundary are accepted within the reviewed scope below; registry integration remains unaccepted.
 
-## Ownership and lifetime
+## Ownership, cancellation and promotion
 
-attach accepts a suspended ZIO[Scope, AgentError, A] and requires a separate parent Scope. Admission returns Accepted(handle) or Closed. Construction performs no task effects; closed admission evaluates no task. A short semaphore serializes launch against the host finalizer's admission closure. Acquire/release masks registration; task execution is explicitly interruptible even under a masked caller. User task effects and completion waits never hold the admission permit.
+`TaskSupervisor.open[A]` creates an execution owner in the host Scope. `attach` accepts a suspended scoped task and a separate parent cancellation lease. Admission is serialized against host closure; closed admission evaluates no task callback. Launch registration is masked, but task execution remains interruptible. Task effects and completion waits never hold the admission permit.
 
-The supervisor owns each fiber from creation. The parent receives a cancellation lease represented by Attached, Promoted or Released runtime state. Parent closure atomically releases and interrupts Attached work, waiting for its cleanup. If another caller already released the lease through cancel, parent cleanup still joins completion. Promoted work survives parent scope closure; host scope closure always cancels and joins owned work. Explicit cancel also cancels promoted work and returns its complete Exit.
+The supervisor owns each fiber from launch. Closing the attaching parent Scope cancels attached work and joins all task cleanup, including cleanup already started by explicit cancellation. `await` observes the complete Exit without cancelling. `cancel` also stops promoted work and waits for cleanup. Parent/host finalizers join tasks; task failures remain in the handle Exit. Live handles, admissions and lineage capabilities have no JSON codecs.
 
-The host owner closes worker scopes in parallel, so one blocked task finalizer cannot postpone interruption of other tasks. Each worker uses a sequential child scope and explicitly closes it on completion. This matters with ZIO 2.1.26 forkIn: its same-fiber interruption guard must run on the completing worker, not on a parallel finalizer fiber that would wait for that worker. Completed worker scopes unregister from the owner. Task-local resources retain ordinary scoped cleanup and full failure causes.
+`awaitOrPromote` races completion against a fresh 30-second budget on each call, without restarting work. Only the winning timer's masked transition promotes the attached lease. Released work cannot be promoted. Promoted work survives parent closure; explicit cancellation and host closure still stop it. At simultaneous completion/deadline, the race winner decides. Cancelling a waiting observer does not by itself cancel the task or reverse committed promotion.
 
-The host must keep the supervisor Scope alive for all desired background work. No global/daemon lifetime, remote adoption or restart durability is provided. Tasks and finalizers must not await closure of the owner currently joining them, their own handle, or a parent whose finalizer is joining that task. Explicitly masked task effects or blocked finalizers can delay cancellation indefinitely; parallel shutdown does not bypass cleanup.
+Host shutdown closes worker scopes in parallel, preventing one blocked finalizer from postponing interruption of other workers. Each worker closes its own sequential scope on completion, avoiding the ZIO 2.1.26 `forkIn` self-join deadlock. Task resources keep ordinary scoped cleanup and complete failure causes. Explicitly masked work or blocked finalizers can delay cancellation indefinitely. Tasks/finalizers must not wait for an owner or parent whose closure is joining them, or for their own handle. The host must retain its Scope for all desired background work; no daemon lifetime, remote adoption or restart durability exists.
 
-## Waiting and promotion
+## Runtime-owned lineage
 
-await returns the complete Exit[AgentError, A], including typed failures, defects, interruption and cleanup defects. It observes without cancelling work. cancel masks lease release through interruption and cleanup joining. Automatic parent/host cleanup joins fibers; callers inspect the handle Exit for task failures rather than receiving those failures through scope finalization.
+`SubagentSpawner.root[A]` suspends creation of a UUID-derived root at depth zero. Trusted hosts control root and retained capability distribution. Private construction and no codec prevent descriptive fields from recreating authority. A retained spawner can be reused under another caller Scope while its supervisor is open.
 
-awaitOrPromote races completion against a fresh 30-second budget beginning with each invocation. Every invocation has its own budget, including a later call on an already promoted but unfinished task. Completed work returns Completed(exit) promptly. No waiting call restarts execution. The timer branch changes no ownership; only after it wins does a masked transition commit promotion. Released work cannot be promoted and instead waits for its terminal Exit.
+`spawn` supplies the callback a new descendant capability under the supervisor worker Scope. It preserves structural ancestry and the supervisor, admitting depths one through three. Depth three rejects another spawn with `AgentError.SpawnDepthExceeded(3)` before identity allocation or callback invocation. Constructing a spawn effect and closed admission invoke no callback. At an eligible depth, identity allocation precedes admission and may consume an unused UUID if admission is closed.
 
-If completion and the deadline coincide, the race winner decides; Promoted can refer to work that finishes immediately afterward. Cancelling an observer before promotion commits does not itself cancel the child; closing its attaching parent Scope does. Cancellation after committed promotion does not restore the parent's lease. Explicit cancel or host closure still stops promoted work. These are runtime decisions, not durable acknowledgements.
+`source` is slash-separated UUID lineage for diagnostics, not a path, registry credential or automatically assigned event tag. Nested attached cancellation waits for descendant cleanup and ReAct reconciliation. Promoted descendants remain supervisor-owned. The tool boundary normalizes depth failure to an Error observation; no model-facing spawn tool is installed.
 
-## Verification and remaining integration
+Migration: exhaustive `AgentError` matches must handle the existing `SpawnDepthExceeded(maximumDepth)` leaf. Its codec conveys diagnostics only.
 
-The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) covers sixteen supervisor cases, two direct ReAct cases and the later lineage cases below. The original lifecycle review applies to its recorded five-file scope. The upstream inventory records related behavioral evidence without claiming whole spawn/promotion tool parity.
+## Configured child construction
 
-- [x] Implement masked admission, explicit child interruption policy and scoped parent cancellation leases.
-- [x] Implement completion observation and same-execution promotion with a 30-second wait budget.
-- [x] Verify parallel shutdown with sequential worker cleanup, including reproduced forkIn closure deadlock correction.
-- [x] Verify actual ReAct history reconciliation and continuation after parent closure.
-- [x] Add runtime-owned lineage and maximum descendant depth of three.
-- [ ] Add task identities, registry inspection and bounded admission policy for model-facing spawning.
-- [ ] Implement declared/general-purpose child factories and capability narrowing.
-- [ ] Enforce inherited plan restrictions for new and reused children without copying approval authority.
-- [ ] Implement persistent child reuse, spawn/send tools and correlated event forwarding.
-- [ ] Implement separate remote/durable tasks, push delivery and host routing if required.
+`SubagentFactory.make` validates AgentConfig and combines host-supplied parent and child boundaries without acquiring resources. `narrowed` returns an immutable factory whose selection is intersected and denials accumulated. Exact tool names are used. `AllAvailable` means all tools present at construction, including automatic registrations; `Only(Set.empty)` permits none. Unknown selected names do not create tools.
 
-## Current source identities
+`build` suspends the registration callback, validates inherited and registered map keys against declared names, merges all registrations with collision rejection, and only then applies the static filter before client acquisition and `ReActAgent.make`. Invalid keys are checked in lexical key order, inherited before registered. Registration collisions are checked in lexical key order even for excluded names. The inherited Toolkit is immutable. Tool existential types are preserved without casts.
 
-Final formatted five-file scope against 26f524c, including the parallel-owner/sequential-worker correction.
+Each build creates fresh runtime/history state with the supplied AgentConfig, LlmConfig and ToolAuthorizer. The authorizer still controls actual execution of statically available tools. Static filtering is not dynamic permission inheritance: arguments, approval decisions and plan restrictions are not copied or inferred. Host callbacks are trusted adapters and must suspend external work, translate boundary failures and acquire resources with scoped combinators.
 
-| Source | Git blob |
+The caller must retain `build`'s Scope for the runtime lifetime; acquired registration/client resources are released when that Scope closes, including after construction failure. `spawn` delegates to `SubagentSpawner` so construction and execution share a supervised worker Scope, including cancellation and cleanup. Depth rejection and closed admission precede factory callbacks. Ordinary `spawn` does not itself wait or promote; the returned handle supplies those operations.
+
+A raw spawner does not automatically carry the factory's static boundary. Trusted host callbacks can construct another factory or task. Future model-facing nested spawning must retain the narrowed factory capability. Declarative parsing, dynamic permission inheritance, plan propagation, registry/reuse and model-facing spawn/send integration remain pending. No production automatic registrations are introduced: the callback supplies host-selected registrations.
+
+## Verification and acceptance
+
+The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps the current suites and bounded upstream adaptations. The supervisor and lineage foundations retain their `review_fp`, `review_harness` and `review_docs` approvals against `26f524c` and `279b7a3` respectively. Those approvals do not extend to registry changes or the new `SupervisedTask.poll` API.
+
+`path_review` approved the following exact factory revision on 2026-09-30. Accepted scope covers configured fresh child construction, final filtering after inherited and construction-time registration, monotone exact-name selection/denial, deterministic validation and collisions, supplied authorization, scoped resource cleanup, and spawning through runtime-owned descendant authority. No findings remain within that scope. Full `sbt scalafmtAll scalafmtSbt verify` passed 561 core and 609 harness tests (1,170 total), with zero compiler warnings or failed tests, before registry integration.
+
+| Reviewed source | Git blob |
 | --- | --- |
-| [TaskSupervisor.scala](TaskSupervisor.scala) | 56cc017c3507f145a726ce3c930947087d52b2a5 |
-| [SupervisedTask.scala](SupervisedTask.scala) | 7c69264e6c894248ae8f2e8304a2a31f54bba0e0 |
-| [TaskAdmission.scala](TaskAdmission.scala) | b7c0abcfc3fcfd24ef22d329b7684721860108bf |
-| [TaskSupervisorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskSupervisorSpec.scala) | 62946d851394f01cd07141557460b10f4b248a10 |
-| [TaskSupervisorAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskSupervisorAgentSpec.scala) | 98a892bcdbc6f2b9a9f7d021fdf14a571f3c4fa1 |
+| [SubagentFactory.scala](SubagentFactory.scala) | `a87164bde938363ea7d5b5585081cce66fc64e9a` |
+| [SubagentToolBoundary.scala](SubagentToolBoundary.scala) | `f2e7df236e266050c733d1974bed02f42119efea` |
+| [SubagentFactorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentFactorySpec.scala) | `f6a329caf4ffc7653274a5fcc1ece35eb07a7fad` |
+| [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala) | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
 
-- [x] `review_fp` and `review_harness` renewed approval of the final five-file supervision scope against `26f524c` on 2026-09-29 after reproducing and correcting the parallel forkIn self-join. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 593 harness tests, including eighteen new cases, with zero compiler warnings. No findings remain within local scoped admission, cancellation leases, same-execution promotion, full-Exit observation, parallel shutdown and actual ReAct continuation/reconciliation. Registry, depth enforcement, spawn/send tools, persistence, event forwarding and plan propagation are excluded.
+This acceptance excludes the in-progress task registry and `SupervisedTask.poll`, declaration parsing, dynamic permission inheritance, plan propagation, persistent reuse, model-facing spawn/send, and automatic event routing. These require their own final review and verification.
 
-- [x] `review_docs` approved corrected supervision documentation against `26f524c`: five identities, eighteen new cases and 556 core / 593 harness tests. Parent/host scope ownership, per-invocation deadlines, full-Exit observation and the forkIn cleanup correction are explicit. Depth, registry, spawn/send, event forwarding and plan propagation remain pending; no whole upstream method is marked complete. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
+- [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
+- [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
+- [x] Verify and independently approve the configured factory and final static tool boundary scope at the four identities above, including its paired scenarios and pinned upstream adaptations.
+- [ ] Add task registry/inspection, bounded admission and persistent child reuse.
+- [ ] Implement declared/general-purpose host integration and model-facing spawn/send tools while retaining narrowed factory authority.
+- [ ] Implement dynamic permission inheritance and plan restrictions for new/reused children without copying approval authority.
+- [ ] Implement correlated event forwarding and optional remote/durable task routing.
 
-## Runtime-owned descendant lineage
-
-[SubagentSpawner.root[A]](SubagentSpawner.scala) takes a TaskSupervisor[A] and lazily mints a UUID-derived root capability at depth zero. Only trusted hosts should create or distribute roots. The private constructor and absence of a JSON codec prevent descriptive source/depth fields from reconstructing a spawner. Retaining or creating a separate root is host authority; this API is not a sandbox for arbitrary Scala code.
-
-spawn receives a callback that will run under the existing supervisor's worker Scope. The callback receives only the newly minted descendant spawner, with immutable structural lineage, the same supervisor and depth increased by one. Depths one through three are admitted. A depth-three capability fails with AgentError.SpawnDepthExceeded(3) before identity allocation or callback invocation. The effect is lazy; neither building the spawn effect nor closed supervisor admission invokes the callback. At an eligible depth, identity allocation precedes supervisor admission, so a closed admission can consume an unused UUID.
-
-source joins the runtime lineage into descriptive slash-separated UUID text. It is not a filesystem path, registry lookup credential or automatic AgentEvent source tag. There is no identity registry/collision protocol in this primitive. Sibling requests mint independent identities without changing their parent. No public API accepts a depth, source string or model JSON as authority.
-
-The callback's Scope supplies the default cancellation lease for further nested attached tasks. Cascading cancellation waits for descendant cleanup and reconciliation. A descendant promoted through its handle survives the earlier parent scope and still belongs to the supervisor owner. Spawner capabilities are not automatically revoked when the callback finishes; a trusted holder can reuse one under another caller Scope while the supervisor remains open, preserving its original depth/lineage. Hosts must control capability distribution.
-
-At a tool boundary, Toolkit normalizes SpawnDepthExceeded as an Error observation; the containing ReAct run can still finish. Actual three-level tests establish this and cancellation reconciliation at each running level. Their spawn_child tool is a test fixture, not a library-registered model tool. No factory policy, registry, declaration, parent permission, plan propagation or event forwarding is implied.
-
-Migration: the sealed AgentError hierarchy now includes SpawnDepthExceeded(maximumDepth), with an individual derived codec and diagnostic message. Exhaustive matches must handle the new leaf. Decoding this diagnostic grants no spawn authority.
-
-## Current lineage identities
-
-Final formatted five-file scope against 279b7a3. Earlier AgentError/AgentErrorSpec identities remain in that commit and are retired from the plan-storage table.
-
-| Source | Git blob |
-| --- | --- |
-| [SubagentSpawner.scala](SubagentSpawner.scala) | 75cd20da3998b0d66b8afb050a8c2e5012ce44b4 |
-| [SubagentSpawnerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSpawnerSpec.scala) | b2866e1bab047dc31f463a1f809d45fe4676b7ba |
-| [SubagentSpawnerAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSpawnerAgentSpec.scala) | 56b59a7fa9a7af22f4d63b8578533a068312cd21 |
-| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | 4b4b37d57e469975eaf208e8466fa1640fa8e11f |
-| [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | b564c375448d4a6789dc2e45f9261c02a8075650 |
-
-- [x] `review_fp` and `review_harness` approved the final five-file lineage scope against `279b7a3` on 2026-09-29, including the corrected ancestry assertion. Full `sbt scalafmtAll scalafmtSbt verify` passed 557 core / 601 harness tests, including nine new cases, with zero compiler warnings. No findings remain within runtime-owned depth <=3, suspended identity/callback effects, sibling lineage, nested cancellation and actual ReAct depth-error normalization. Registry, child factory configuration, automatic source tagging, inherited permission/plan policy and model-facing spawn/send remain excluded.
-
-- [x] `review_docs` approved corrected lineage documentation against `279b7a3`: five identities, nine new cases and 557 core / 601 harness tests. Host root authority, retained capabilities, descriptive source, depth rejection and the sealed-error migration are explicit. Factories, registry, inherited policy and model-facing spawn/send remain pending; no additional whole upstream method is closed. All 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain within this scope.
+Next task: complete bounded task registry admission and inspection, including its `SupervisedTask.poll` dependency, then obtain independent review and verification before accepting that scope. No exhaustive upstream parity is claimed.

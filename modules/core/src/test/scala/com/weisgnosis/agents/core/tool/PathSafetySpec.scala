@@ -64,16 +64,36 @@ object PathSafetySpec extends ZIOSpecDefault:
         canonical.forall(_.left.exists(_.isInstanceOf[AgentError.PermissionDenied]))
       )
     },
-    test("destructive command screening is total") {
-      assertTrue(
-        PathSafety.isDangerousCommand("rm -rf /"),
-        PathSafety.isDangerousCommand("sudo rm test.txt"),
-        PathSafety.isDangerousCommand("kill -9 1234"),
-        PathSafety.isDangerousCommand("chmod 777 /etc/hosts"),
-        !PathSafety.isDangerousCommand("git status"),
-        !PathSafety.isDangerousCommand("sbt test"),
-        !PathSafety.isDangerousCommand("cat README.md"),
-        !PathSafety.isDangerousCommand("")
+    test("advisory fragments preserve lexical boundaries, whitespace and device prefixes") {
+      val flagged = Chunk(
+        "rm -rf /",
+        "sudo rm test.txt",
+        "kill -9 1234",
+        "chmod 777 /etc/hosts",
+        "chmod\t-R   777 workspace",
+        "/bin/dd if=input.bin of=output.bin",
+        "mkfs.ext4 /dev/example",
+        "echo> /dev/null",
+        "printf 'dd'"
       )
-    }
+      val unflagged = Chunk("git status", "sbt test", "cat README.md", "", "reformat file")
+      assertTrue(
+        flagged.filterNot(PathSafety.isDangerousCommand).isEmpty,
+        unflagged.filter(PathSafety.isDangerousCommand).isEmpty
+      )
+    },
+    suite("command screening regression counterexamples")(
+      test("rejects recursive chmod with the actual uppercase -R option")(
+        assertTrue(PathSafety.isDangerousCommand("chmod -R 777 workspace"))
+      ),
+      test("rejects recursive chown with the actual uppercase -R option")(
+        assertTrue(PathSafety.isDangerousCommand("chown -R user workspace"))
+      ),
+      test("does not mistake dd inside an echo argument for the dd executable")(
+        assertTrue(!PathSafety.isDangerousCommand("echo address"))
+      ),
+      test("still rejects the actual dd executable")(
+        assertTrue(PathSafety.isDangerousCommand("dd if=input.bin of=output.bin"))
+      )
+    )
   )

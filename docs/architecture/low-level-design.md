@@ -29,7 +29,7 @@ AgentStart/AgentEnd share a fresh replyId per engine attempt. streamEvents drain
 
 Registration, withTool, and merging return Either[AgentError, Toolkit]. Duplicate names fail. Resolve returns Option. Existentially stored tools retain type-safe execution without casts.
 
-[PathSafety](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/PathSafety.scala) exposes effectful home expansion/canonicalization and pure sensitive-name screening. Errors remain typed. Reject parent traversal before normalization can erase link-aware traversal semantics.
+[PathSafety](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/PathSafety.scala) exposes effectful home expansion/canonicalization and pure sensitive-name screening. Errors remain typed. Reject parent traversal before normalization can erase link-aware traversal semantics. `isDangerousCommand` is an advisory lexical matcher: Locale.ROOT normalization, flexible inter-word whitespace and alphanumeric boundaries fix recursive-command and argument-substring classification. It is not shell parsing or execution authorization; see the [reviewed tool contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#command-screening).
 
 ## Client and agent
 
@@ -87,7 +87,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, child factories/registry, plan child propagation, and MCP are not implemented. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, child registry/reuse, inherited dynamic permission/plan policy, and MCP remain unfinished. Configured child factories with final static tool filtering are available; registry integration is in progress and unaccepted. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Completion delta decoding
 
@@ -227,3 +227,9 @@ TaskSupervisor.open[A] returns ZIO[Scope, Nothing, TaskSupervisor[A]]. attach ac
 ## Bounded lineage API
 
 SubagentSpawner.root accepts a typed supervisor and returns UIO[SubagentSpawner[A]]. spawn(callback) returns ZIO[Scope, AgentError, TaskAdmission[A]]. Public depth/source fields describe privately constructed lineage; there is no codec or source-based restoration. MaximumDepth is three. SpawnDepthExceeded is checked before UUID allocation or callback evaluation. Eligible closed admission may consume a UUID but invokes no callback. Callers must handle the new sealed AgentError leaf in exhaustive matches.
+
+## Configured factory APIs
+
+[SubagentFactory.make](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentFactory.scala) returns `Either[AgentError, SubagentFactory]`, validating AgentConfig and combining parent/child static boundaries without acquiring resources. `narrowed` intersects selections and accumulates denials. `build(child)` returns `ZIO[Scope, AgentError, ReActAgent]`: it suspends registration, validates toolkit keys/names, rejects collisions before filtering, then acquires the client and constructs fresh runtime state with the supplied authorizer. The caller retains that Scope for the runtime lifetime. `spawn(parent, input)` delegates construction and execution to the existing supervised descendant scope.
+
+[SubagentToolBoundary](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundary.scala) uses exact names; `AllAvailable` includes automatic registrations and `Only(Set.empty)` permits none. Assembly checks inherited then registered names in lexical order and rejects collisions even when excluded by the final selection. The final Toolkit constrains both model schemas and actual dispatch. Dynamic policy inheritance, declaration parsing, registry/reuse and model-facing spawn/send are separate work. See the [current review identities and verification](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).

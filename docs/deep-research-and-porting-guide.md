@@ -21,25 +21,26 @@ Measured on 2026-09-29 at accepted implementation f5bc9a0. Tracked Scala source 
 | harness | 73 | 5,621 | 3,867 | 91 | 15,842 | 14,184 |
 | Total | 115 | 11,245 | 8,069 | 157 | 28,299 | 25,235 |
 
-The last full verification passed 1,158 tests: 557 core and 601 harness, with zero compiler warnings. These are test counts, not exhaustive upstream parity or production-readiness percentages. MCP remains unimplemented; configured child factories, registry, inherited policy, additional protocol scenarios and host integration remain tracked work.
+That measured revision passed 1,158 tests: 557 core and 601 harness, with zero compiler warnings. These measurements are not current delivery totals, exhaustive upstream parity or production-readiness percentages. The [implementation tracker](architecture/tracker.md) records current verification and unfinished work.
 
 The initial projection of 2,300-3,300 production SLOC and 2,800-4,300 test SLOC did not hold. Current production already exceeds it by approximately 2.4-3.5 times and tests by 5.9-9.0 times. The earlier claim that the complete library and comprehensive tests would fit below 7,600 lines is withdrawn.
 
 The original estimate underestimated explicit runtime state machines, strict protocol validation, scoped ownership, recoverable local persistence, interruption races and the number of meaningful safety/parity scenarios. Scala/ZIO removes much implementation ceremony, but that does not make these contracts or their tests disappear. Code volume is a measurement, not a quality target. Do not compress away domain guarantees or tests to match the earlier projection.
 
-No validated calendar forecast or new final LOC ceiling is established here. A remaining-work estimate needs the unfinished method-level inventory and integration scope. The [implementation tracker and pause handoff](architecture/tracker.md#paused-handoff-2026-09-29) record the exact accepted state and next work.
+No validated calendar forecast or new final LOC ceiling is established here. A remaining-work estimate needs the unfinished method-level inventory and integration scope. The [implementation tracker](architecture/tracker.md#immediate-next-work) records the current accepted state and next work.
 
 ---
 
 ## 2. Architectural Separation: Temporal (Macro) vs `weisgnosis-agents` (Micro)
 
-A primary takeaway from the codebase audit: **why was AgentScope Java so tightly coupled?**
+The upstream design combines local agent execution with host responsibilities that can also be supplied by an external durable execution engine such as Temporal:
 
-Upstream AgentScope lacked an external durable execution engine (such as **Temporal**). Consequently, the upstream team was forced to reconstruct an ad-hoc, in-process workflow orchestrator inside the JVM on top of Spring and Project Reactor:
-1. **`WorkspaceTaskRepository` + JSON files + 30s heartbeat + 5m orphan sweeper:** An ad-hoc imitation of Durable Tasks and node failure recovery.
-2. **`MessageBus` + inbox queues + `agentscope:wakeups`:** An ad-hoc imitation of Signal Channels and waking sleeping sessions.
-3. **`AgentStateStore` with CAS versioning (`saveIfVersion`, OCC locks):** An ad-hoc mechanism to guard against race conditions during concurrent session access.
-4. **`PeriodicGate` + thread pools:** An ad-hoc cron-like scheduler for periodic maintenance.
+1. **`WorkspaceTaskRepository` + JSON files + 30s heartbeat + 5m orphan sweeper:** Task persistence and node failure recovery.
+2. **`MessageBus` + inbox queues + `agentscope:wakeups`:** Message delivery and waking sleeping sessions.
+3. **`AgentStateStore` with CAS versioning (`saveIfVersion`, OCC locks):** Concurrent session update coordination.
+4. **`PeriodicGate` + thread pools:** Periodic maintenance admission and scheduling.
+
+The port separates these responsibilities through explicit capabilities. Temporal is a possible macro-layer host, not a dependency or an implemented integration of this library. The diagram shows the target host arrangement; current delivery boundaries are defined in [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ### Layer Separation of Concerns (Macro vs Micro)
 
@@ -59,18 +60,20 @@ Upstream AgentScope lacked an external durable execution engine (such as **Tempo
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   weisgnosis-agents (MICRO LAYER)                      │
 │                                                                        │
-│   • Pure Stateless ReAct Engine (single-turn or local loop)           │
-│   • ZStream of 31 typed events (real-time SSE)                         │
+│   • Effectful ReAct runtime with scoped, in-memory state              │
+│   • Typed AgentEvent streams and correlated model deltas             │
 │   • ReAct Loop: Model -> Tool Call -> Local/MCP Execution -> History   │
 │   • Model protocol resilience (Dangling Reconcile, Thinking tokens)   │
 │   • Context management (ConversationCompactor, Tool Eviction)          │
 │   • Local lightweight subagents on ZIO Fibers (forkScoped/merge)       │
-│   • Total isolation via ZIO Structured Concurrency and FiberRef        │
+│   • Scoped ownership and optional cooperative local storage          │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Core Principle:**  
-`weisgnosis-agents` **contains zero** internal background daemons, thread-sleeping loops, external schedulers, or ad-hoc file-based task databases. It is purely deterministic functional code (Pure FP), functioning as a high-performance execution engine inside Temporal Activities or as a standalone library in CLI/microservices.
+`weisgnosis-agents` combines pure immutable transformations with effects suspended in ZIO. ReActAgent retains private in-memory state and serializes runs per instance. Scoped supervisors and queues can run background work while their explicit host-owned scopes remain open; thread-sleeping loops and unowned daemon lifetimes are not the execution model.
+
+Optional local adapters persist memory, transcripts, tool results and plan drafts under cooperative ownership. This is a supported local capability, not distributed workflow or task-database authority. An external host owns durable replay, cross-process coordination, authentication, checkpoints and execution idempotency. Structured concurrency controls resource lifetime; it does not provide process or filesystem isolation. The same micro runtime can be embedded in a CLI, a service or a durable host activity without claiming that those host integrations are already implemented.
 
 ---
 

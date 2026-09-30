@@ -6,6 +6,8 @@ The reference is the clean local `agentscope-java` checkout at commit `f98a685fd
 
 ## Progress checklist
 
+- [x] Close the reproduced PathSafety command-classification gaps with independently approved [advisory lexical screening regressions](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions). This is additional local contract coverage, not a new upstream mapping or shell-authorization guarantee.
+
 - [x] Implement selected local suites for messages/content, events, tools, stream parsing, ReAct, structured output, compaction, eviction, and permissions.
 - [x] Add deterministic ZIO regressions for cancellation, scope cleanup, storage publication, and repeated compaction.
 - [x] Record the known intentional differences below.
@@ -836,7 +838,7 @@ PlanModeTools has no separately named pinned test suite in this inventory. Its i
 
 ## Subagent supervision inventory
 
-Pinned upstream f98a685fdc4589f81e626e1686ac2c63d14a2304 contains the following related lifecycle methods. TaskSupervisorSpec and TaskSupervisorAgentSpec establish scoped execution ownership only. They do not invoke agent_spawn, create task IDs/list entries, forward child events or persist adopted tasks. No entire upstream method below is closed by this first supervision increment.
+Pinned upstream f98a685fdc4589f81e626e1686ac2c63d14a2304 contains the following related lifecycle methods. TaskSupervisorSpec and TaskSupervisorAgentSpec establish scoped execution ownership only. They do not invoke agent_spawn, create task IDs/list entries, forward child events or persist adopted tasks. These supervision primitives do not alone close the tool/registry methods below; configured factory evidence supports only the bounded static adaptations explicitly marked complete.
 
 - [x] Verify eighteen local supervision cases, including real ReAct cancellation and same-execution continuation.
 - [ ] AgentSpawnToolPromotionTest.innerTimeoutPromotesToAdoptedTaskRunSpec: continuation is covered; spawn-tool result, task identity and adoption registry remain pending.
@@ -846,8 +848,11 @@ Pinned upstream f98a685fdc4589f81e626e1686ac2c63d14a2304 contains the following 
 - [ ] AgentSpawnToolForceSyncTest.helpers, zeroTimeoutCoercedToSync and timeoutHardFailsWithoutPromotion: typed execution policy and spawn-tool integration remain pending; the local primitive currently has a fixed per-wait promotion budget.
 - [ ] AdoptedTaskRunSpecTest.adoptedFuture_completesSuccessfully, adoptedFuture_failsTransitionsToFailed and adoptedFuture_alreadyCompleted: local full-Exit observation is covered; adopted task state/registry remains pending.
 - [ ] AdoptedTaskRunSpecTest.adoptedFuture_appearsInTaskList and adoptedFuture_eligibleForPushDelivery: task inspection and push delivery remain pending.
-- [ ] ManagedSubagentBoundaryTest.declarationFiltersAutoRegisteredToolsAsWellAsInheritedTools and childCannotReenableParentDeniedTool: actual child construction and capability narrowing remain pending.
+- [x] ManagedSubagentBoundaryTest.declarationFiltersAutoRegisteredToolsAsWellAsInheritedTools: bounded adaptation in [SubagentFactorySpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentFactorySpec.scala), `the model sees final filtering of inherited and automatic tools, with monotone factory narrowing`. Actual supervised children advertise the final inherited/registered selection; excluded hallucinated calls produce Error observations without executing the tool. Host callbacks replace upstream automatic platform registration and declarative parsing.
+- [x] ManagedSubagentBoundaryTest.childCannotReenableParentDeniedTool: bounded static exact-name adaptation in the same table-driven child execution test. Child selection cannot restore parent-denied tools; derived factory boundaries remain narrowed and parent toolkits remain unchanged. Argument-sensitive PermissionEngine inheritance is outside this mapping.
 
-The six unfinished plan-mode methods above remain unfinished. A child approval must never bypass an inherited parent restriction, and parent Build must not manufacture child approval. These requirements need real factory/reuse/send integration, not only a restriction-combining function.
+The [factory acceptance record](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) binds `path_review` approval to four source/test blobs. Full formatting, fatal-warning compilation and verification passed on 2026-09-30: 561 core / 609 harness tests, zero warnings or failures. [SubagentToolBoundarySpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala) adds deterministic assembly and selection coverage; factory lifecycle tests establish preserved authorization and scoped cleanup. Registry work is in progress and is not included in this acceptance.
+
+The six unfinished plan-mode methods above remain unfinished. A child approval must never bypass an inherited parent restriction, and parent Build must not manufacture child approval. These requirements still need dynamic policy, reuse and model-facing spawn/send integration; the available factory static filter does not carry approval authority.
 
 - [x] Verify runtime-owned lineage with six capability cases, two actual nested ReAct cases and one error-codec case. Depth-four rejection occurs before UUID/callback effects; cancellation reconciles every running level. These test-fixture spawn calls do not close production AgentSpawnTool mappings.
