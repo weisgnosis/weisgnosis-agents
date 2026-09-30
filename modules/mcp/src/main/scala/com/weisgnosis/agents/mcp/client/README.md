@@ -6,7 +6,7 @@ The future client must follow explicitly selected version-specific method/lifecy
 
 ## Remaining work
 
-- [ ] Next: define the scoped 2025-06-18 client lifecycle after tool-list/call payload contracts are implemented.
+- [ ] Next: define the scoped 2025-06-18 client lifecycle after call-result content contracts are implemented. List/call request helpers and a one-page list parser alone do not discover or execute tools.
 - [ ] Implement the selected revision's capability and discovery behavior. MCP 2026-07-28 does not use `initialize`; older initialization and negotiation require explicit legacy support.
 - [ ] Implement tool invocation and scoped connection shutdown.
 - [ ] Bridge discovered tools into Toolkit with explicit metadata and naming policy.

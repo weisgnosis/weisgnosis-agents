@@ -1,6 +1,6 @@
 # mcp: test package index
 
-- [protocol](protocol/README.md): five accepted envelope groups plus four 2025-06-18 initialization payload groups accepted within the documented payload scope.
+- [protocol](protocol/README.md): thirteen accepted envelope, initialization, and tool request/list-result groups.
 - [transport](transport/README.md): planned local transport and cleanup tests.
 - [client](client/README.md): planned lifecycle and Toolkit integration tests.
 

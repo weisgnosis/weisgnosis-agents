@@ -42,13 +42,24 @@ The envelope does not validate method names, payload schemas, `_meta`, or revisi
 
 These helpers allocate no identities and implement no runtime, correlation, ordering enforcement, handshake, or negotiated-version state. MCP 2026-07-28 has no `initialize` method and is not accepted by this revision-specific result reader. Unsupported revisions fail without fallback.
 
+## 2025-06-18 tool requests and list results
+
+[McpTools](McpTools.scala) adds checked request builders and a one-page list-result parser for the same 2025-06-18 revision. The bounded request/list-result scope is independently reviewed and accepted as recorded below.
+
+- `listRequest(id, cursor, meta)` constructs `tools/list`; it omits params when both options are absent. `callRequest(id, name, arguments, meta)` constructs `tools/call` and preserves absent arguments separately from an empty object. Both return `Either[AgentError.InvalidMessage, McpMessage.Request]` and reuse checked envelope validation for IDs and recursive duplicate keys.
+- `readListResult(Json.Obj)` returns `Either[AgentError.DeserializationError, McpToolsPage]`. Required tools stay in server order, including duplicate names. Optional nextCursor and object `_meta` are retained; unknown page fields remain in extensions. There is no pagination loop, deduplication, or local registration.
+- Each `McpToolDefinition` retains name, complete inputSchema, optional title/description/outputSchema/annotations/object `_meta`, and unknown extension fields. Input and output schemas require root `type: "object"`; optional properties must be an object and required must be an array of strings. These limited structural checks do not evaluate JSON Schema, resolve references, or validate tool arguments. Definitions, references, and other schema keywords remain in the original AST.
+- `McpToolAnnotations` retains optional title and readOnlyHint/destructiveHint/idempotentHint/openWorldHint booleans plus unknown extensions. Absence is distinct from false. These are untrusted remote hints, never local ToolDef flags, permissions, or execution guarantees.
+
+Known optional fields reject explicit null or malformed types. Duplicate keys are rejected throughout incoming schemas/extensions and outgoing arguments/metadata. Extension objects exclude the corresponding typed fields. No implicit codec bypasses checked parsing. A call request is implemented; parsing call results and executing calls are not.
+
 ## Verification and acceptance
 
-Accepted scope: the four message cases, checked wire/AST conversion, strict envelope/error fields, recursive duplicate rejection, complete-document decoding, optional null error data, and guarded signed 256-bit IDs/error codes. The accepted initialization scope is limited to the fixed 2025-06-18 request, initialized notification, implementation identity, and checked result/capability projection described above. Other method/version contracts, transport, correlation, runtime lifecycle/ordering, and tool adapters remain excluded.
+Accepted scope: the four message cases, checked wire/AST conversion, strict envelope/error fields, recursive duplicate rejection, complete-document decoding, optional null error data, and guarded signed 256-bit IDs/error codes. The accepted initialization scope is limited to the fixed 2025-06-18 request, initialized notification, implementation identity, and checked result/capability projection described above. The accepted tool scope adds 2025-06-18 list/call request construction, one-page ordered list parsing, limited schema-shape checks, and untrusted annotations/extensions. Call-result parsing, other method/version contracts, transport, correlation, runtime lifecycle/ordering, and tool adapters remain excluded.
 
 - [x] Five grouped [McpProtocolSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) tests pass for integer bounds, identities, notifications, responses, and strict boundaries.
 - [x] `path_review` independently approved FP/ZIO correctness and `current_docs` independently approved protocol invariants for the final source/test identities below, with no unresolved findings.
-- [x] `scalafmtAll`, `scalafmtSbt`, and `verify` passed with zero compiler warnings or failed tests: core 561, harness 651, MCP 9; total 1,221. Evidence: `mcp-initialization-verify.log`.
+- [x] `scalafmtAll`, `scalafmtSbt`, and `verify` passed with zero compiler warnings or failed tests: core 561, harness 651, MCP 13; total 1,225. Evidence: `mcp-tools-verify.log`.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
@@ -56,12 +67,16 @@ Accepted scope: the four message cases, checked wire/AST conversion, strict enve
 | [McpProtocolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) | `22b9640fee4539891d6bfc6077b693a1623cd47c` |
 | [McpInitialization.scala](McpInitialization.scala) | `ccfe85505e6fce523e255bb0b9cc4619e4af477e` |
 | [McpInitializationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) | `a2937c98c7ddd00c94afca7f50925237f3d9fe6a` |
+| [McpTools.scala](McpTools.scala) | `91819dd4870965c2f335e6f254ba240374beaa74` |
+| [McpToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpToolsSpec.scala) | `e4aca1b1c6beb9ace6ae91a7cd97d7e647f10d87` |
 
 - [x] Four grouped [McpInitializationSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) tests pass for request/notification shape, capability projection, malformed fields, and exact revision handling.
 
+- [x] Four grouped [McpToolsSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpToolsSpec.scala) tests pass for request shape, retained definitions, malformed known fields, and recursive duplicate rejection.
+
 ## Remaining work
 
-- [ ] Next: 2025-06-18 tool-listing and tool-call payload schemas, content, and result semantics.
+- [ ] Next: 2025-06-18 call-result ADTs for text, image, audio, resource links, and embedded resources, plus structuredContent and isError.
 - [ ] Scoped client/transport integration after those method contracts; initialization helpers alone do not implement a handshake.
 - [ ] Method/version validation and integration with the lifecycle of each explicitly supported revision.
 

@@ -23,12 +23,24 @@ These are specification-derived tests, not claimed one-to-one mappings to AgentS
 | Checked result boundary | Required fields, malformed/null known optionals, and recursive duplicate rejection |
 | Exact revision | Reject other revisions and malformed version fields without fallback |
 
+## Tool request and list-result tests
+
+[McpToolsSpec](McpToolsSpec.scala) adds four grouped tests for 2025-06-18. This bounded request/list-result scope is accepted with the linked review and verification evidence.
+
+| Test | Coverage |
+| --- | --- |
+| Request builders | List cursor/metadata, omitted params, supplied ID limits, and absent versus empty call arguments |
+| List projection | Ordered duplicate names, complete input/output schema ASTs, optional tool descriptions, untrusted hints, metadata, and extension fields |
+| Known-field validation | Missing/null/malformed fields, limited schema shape checks, and retained external references without resolution |
+| Recursive boundaries | Duplicate keys inside schemas and outgoing arguments/metadata, with valid nearby cases |
+
 ## Acceptance and next tests
 
 - [x] Five grouped envelope tests pass with positive and negative cases.
 - [x] Independent reviews and full repository verification are complete. The [protocol acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance) records exact scope, reviewers, reviewed identities, and verification evidence.
-- [x] Four initialization payload groups pass, for nine MCP groups in total; `path_review` and `current_docs` approved the exact source/test identities recorded in the linked protocol acceptance.
-- [ ] Next: tool-list/call payload tests for 2025-06-18, then scoped client/transport integration. MCP 2026-07-28 initialization is outside this explicitly selected older contract.
+- [x] Four initialization payload groups pass, within the accepted initialization scope; `path_review` and `current_docs` approved the exact source/test identities recorded in the linked protocol acceptance.
+- [x] Four tool request/list-result groups pass, for thirteen MCP groups in total. Both independent reviewers approved this bounded scope; reviewed identities and full verification are recorded in the linked protocol acceptance.
+- [ ] Next: 2025-06-18 call-result content variants, structuredContent, and isError, then scoped client/transport tests.
 
 No transport, correlation state machine, server handshake, runtime ordering, or whole-SDK compatibility is exercised here.
 

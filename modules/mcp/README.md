@@ -6,9 +6,11 @@ The checked codecs validate one complete JSON document, preserve integer identit
 
 | Package | Current scope |
 | --- | --- |
-| [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted envelope codecs; 2025-06-18 initialization payload helpers accepted within the documented payload scope |
+| [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted envelope/initialization helpers; accepted tool request/list-result helpers |
 | [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Planned transport and connection ownership |
 | [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Planned version-specific lifecycle, discovery, calls, and Toolkit bridge |
+
+[McpTools](src/main/scala/com/weisgnosis/agents/mcp/protocol/McpTools.scala) now implements 2025-06-18 list/call request builders and one-page tool-list parsing; the bounded request/list-result scope is independently reviewed and accepted. Declarations preserve order and duplicate names, schemas remain unevaluated ASTs, and remote annotation hints confer no local authority. Call-result parsing and runtime invocation remain pending.
 
 ## Verification and acceptance
 
@@ -18,12 +20,15 @@ The checked codecs validate one complete JSON document, preserve integer identit
 
 These tests are specification-derived envelope coverage. The pinned AgentScope Java reference delegates wire schemas and transport serialization to MCP Java SDK 0.17.2; its wrapper tests do not establish envelope codec parity.
 
-- [x] Four additional [McpInitializationSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) groups cover initialization payloads, bringing the MCP suite to nine groups.
+- [x] Four additional [McpInitializationSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) groups cover initialization payloads, covering the accepted initialization scope.
 - [x] `path_review` and `current_docs` approved the exact initialization payload scope with no unresolved findings; the linked protocol acceptance records its reviewed identities and final verification.
+
+- [x] Four [McpToolsSpec](src/test/scala/com/weisgnosis/agents/mcp/protocol/McpToolsSpec.scala) groups pass, bringing the MCP suite to thirteen groups.
+- [x] Both independent reviewers approved the exact tool payload scope with no unresolved findings; the linked protocol acceptance records reviewed identities and full verification.
 
 ## Remaining work
 
-- [ ] Next: tool-listing and tool-call payload schemas for the same explicitly selected 2025-06-18 revision, followed by scoped client/transport integration.
+- [ ] Next: 2025-06-18 call-result content ADTs, structuredContent, and isError; then scoped client/transport integration.
 - [ ] Scoped transports, request correlation, cancellation, and connection shutdown.
 - [ ] Revision-specific client lifecycle. MCP 2026-07-28 does not use `initialize`; older initialization/negotiation behavior requires explicitly selected legacy support.
 - [ ] Tool discovery, execution results, and Toolkit integration.
