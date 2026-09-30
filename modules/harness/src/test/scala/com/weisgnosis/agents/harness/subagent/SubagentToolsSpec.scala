@@ -18,7 +18,7 @@ package com.weisgnosis.agents.harness.subagent
 import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorizer, ToolDef, Toolkit}
 import zio.*
 import zio.json.*
@@ -58,6 +58,20 @@ object SubagentToolsSpec extends ZIOSpecDefault:
 
   private def taskInput(id: String): Json = Json.Obj("task_id" -> Json.Str(id))
 
+  private def session(
+      configured: SubagentFactory,
+      capacity: Int
+  ): ZIO[Scope, AgentError, TaskResource[SubagentSession]] =
+    for
+      supervisor <- TaskSupervisor.open[AgentResult]
+      root       <- SubagentSpawner.root(supervisor)
+      admission  <- SubagentSession.open(root, configured, capacity)
+      resource <- admission match
+        case TaskResourceAdmission.Accepted(value) => ZIO.succeed(value)
+        case TaskResourceAdmission.Closed =>
+          ZIO.fail(AgentError.InvalidConfiguration("Unexpected closed session owner"))
+    yield resource
+
   private def observation(output: String): IO[AgentError, (String, SubagentToolState)] =
     ZIO
       .fromEither(output.dropWhile(_ != '{').fromJson[SubagentToolResult])
@@ -68,6 +82,144 @@ object SubagentToolsSpec extends ZIOSpecDefault:
           ZIO.fail(AgentError.InvalidConfiguration(s"Expected task observation: $other"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentToolsSpec")(
+    test("session controls reuse one child across sends and reject model-selected session routing") {
+      for
+        builds <- Ref.make(0)
+        calls  <- Ref.make(0)
+        configured <- factory(
+          _ => builds.update(_ + 1).as(Toolkit.empty),
+          _ =>
+            ZIO.succeed(
+              LlmClient.mockEffectful((history, _, _) =>
+                calls
+                  .update(_ + 1)
+                  .as(
+                    TurnOutput.FinalText(
+                      Msg.assistant(
+                        history.filter(_.role == Role.User).map(_.text).mkString("|")
+                      )
+                    )
+                  )
+              )
+            )
+        )
+        resource <- session(configured, 2)
+        tools = SubagentTools.forSession(resource.value)
+        rejected <- tools.executeSafe(
+          "agent_send",
+          Json.Obj(
+            "prompt"     -> Json.Str("untrusted"),
+            "session_id" -> Json.Str("other")
+          )
+        )
+        before   <- calls.get
+        first    <- tools.executeSafe("agent_send", Json.Obj("prompt" -> Json.Str("first")))
+        one      <- observation(first.output)
+        second   <- tools.executeSafe("agent_send", Json.Obj("prompt" -> Json.Str("second")))
+        two      <- observation(second.output)
+        read     <- tools.executeSafe("agent_task", taskInput(two._1))
+        retained <- observation(read.output)
+        full     <- tools.executeSafe("agent_send", input)
+        count    <- calls.get
+        built    <- builds.get
+      yield assertTrue(
+        tools.tools.keySet == Set("agent_send", "agent_task", "agent_cancel"),
+        tools.resolve("agent_send").exists(tool => !tool.isReadOnly && tool.isConcurrencySafe),
+        rejected.state == ToolResultState.Error,
+        before == 0,
+        first.state == ToolResultState.Success,
+        second.state == ToolResultState.Success,
+        one._1 != two._1,
+        one._2 == SubagentToolState.Completed(SubagentToolText("first", 0)),
+        two._2 == SubagentToolState.Completed(SubagentToolText("first|second", 0)),
+        retained == two,
+        built == 1,
+        count == 2,
+        full.state == ToolResultState.Error,
+        full.output.contains("Capacity"),
+        full.output.contains("'agent_send'"),
+        !full.output.contains("agent_spawn")
+      )
+    },
+    test(
+      "session send promotion and cancellation remain bound and the session accepts a later turn"
+    ) {
+      for
+        entered  <- Promise.make[Nothing, Unit]
+        cleaning <- Promise.make[Nothing, Unit]
+        release  <- Promise.make[Nothing, Unit]
+        calls    <- Ref.make(0)
+        freed    <- Ref.make(0)
+        configured <- factory(
+          _ => ZIO.succeed(Toolkit.empty),
+          _ =>
+            ZIO
+              .acquireRelease(ZIO.unit)(_ => freed.update(_ + 1))
+              .as(
+                LlmClient.mockEffectful((history, _, _) =>
+                  val users = history.filter(_.role == Role.User).map(_.text)
+                  calls.update(_ + 1) *>
+                    (if users.lastOption.contains("block") then
+                       (entered.succeed(()) *> ZIO.never)
+                         .onInterrupt(cleaning.succeed(()) *> release.await)
+                     else ZIO.succeed(TurnOutput.FinalText(Msg.assistant(users.mkString("|")))))
+                )
+              )
+        )
+        resource <- session(configured, 3)
+        other    <- session(configured, 1)
+        tools = SubagentTools.forSession(resource.value)
+        sending <- tools
+          .executeSafe("agent_send", Json.Obj("prompt" -> Json.Str("block")))
+          .forkScoped
+        _        <- entered.await
+        _        <- TestClock.adjust(30.seconds)
+        sent     <- sending.join
+        promoted <- observation(sent.output)
+        missing <- SubagentTools
+          .forSession(other.value)
+          .executeSafe("agent_task", taskInput(promoted._1))
+        foreign <- observation(missing.output)
+        queued <- tools
+          .executeSafe("agent_send", Json.Obj("prompt" -> Json.Str("queued")))
+          .forkScoped
+        _          <- TestClock.adjust(0.seconds)
+        queuedExit <- queued.interrupt
+        read       <- tools.executeSafe("agent_task", taskInput(promoted._1))
+        running    <- observation(read.output)
+        cancelling <- tools.executeSafe("agent_cancel", taskInput(promoted._1)).forkScoped
+        _          <- cleaning.await
+        pending    <- cancelling.poll
+        _          <- release.succeed(())
+        cancelled  <- cancelling.join
+        terminal   <- observation(cancelled.output)
+        next       <- tools.executeSafe("agent_send", Json.Obj("prompt" -> Json.Str("again")))
+        resumed    <- observation(next.output)
+        count      <- calls.get
+        before     <- freed.get
+        _          <- resource.close
+        after      <- freed.get
+        closed     <- tools.executeSafe("agent_send", input)
+      yield assertTrue(
+        promoted._2 == SubagentToolState.Promoted,
+        missing.state == ToolResultState.Error,
+        foreign == (promoted._1, SubagentToolState.Missing),
+        queuedExit.isInterrupted,
+        running == (promoted._1, SubagentToolState.Running),
+        pending.isEmpty,
+        terminal == (promoted._1, SubagentToolState.Interrupted),
+        next.state == ToolResultState.Success,
+        resumed._1 != promoted._1,
+        resumed._2 == SubagentToolState.Completed(SubagentToolText("block|again", 0)),
+        count == 2,
+        before == 0,
+        after == 1,
+        closed.state == ToolResultState.Error,
+        closed.output.contains("Closed"),
+        closed.output.contains("'agent_send'"),
+        !closed.output.contains("agent_spawn")
+      )
+    },
     test("a parent ReAct delegates to the fixed filtered child and receives its retained result") {
       for
         executions <- Ref.make(0)

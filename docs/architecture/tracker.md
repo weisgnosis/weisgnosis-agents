@@ -4,14 +4,9 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 ## Current acceptance
 
-- [x] Current reviewed scope includes PathSafety screening, configured factory/static filtering and bounded registry/polling and model-facing task tools (`path_review`), plus live parent-denial inheritance and inherited plan admission (`current_docs`). The reviewers approved FP/ZIO correctness and relevant invariants at the exact source/test identities in the [tool contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md).
-- [x] `path_review` and `current_docs` approved the retained-resource primitive at the four exact source/test identities in the subagent acceptance record, with no findings.
-- [x] Both reviewers approved host-held child sessions, the spawner/registry integration and paired actual-runtime tests at the four session identities in the subagent acceptance record, with no findings.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 636 harness tests (1,197 total), zero compiler warnings or failures. Local evidence: `subagent-session-verify.log`.
-- [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; maintain method mappings and explicit exclusions in the [parity audit](test-parity.md).
-- [x] Close the reproduced PathSafety recursive-command and argument-substring defects with lexical warning semantics and bounded regressions; this helper is not shell parsing or execution authorization.
-- [x] Verify configured child construction, monotone final tool filtering, preserved authorizers and scoped resource cleanup; map the two ManagedSubagentBoundary methods as bounded static adaptations.
-- [x] Verify bounded registry admission, full-Exit inspection, retention, private caller leases and joined shutdown, plus live parent-denial checks around child authorization without copying approval authority.
+- [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved resource ownership, host-held sessions and the session-bound send adapter, with no findings. Exact reviewed scope and identities are in the [tool](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed on 2026-09-30: 561 core / 638 harness tests (1,199 total), zero compiler warnings or failures. Local evidence: `subagent-send-verify.log`.
+- [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
 
@@ -42,16 +37,16 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] Bounded task registry with lookup, waiting/promotion, cancellation and completed-record removal; registry closure cancels and joins promoted work. Capacity bounds records, not retained result bytes.
 - [x] Optional live parent-denial inheritance preserves child policy and rereads parent rules against approved input; external parent gates and atomic post-decision revocation are excluded.
 
-- [x] Opt-in model-facing `agent_spawn`, `agent_task` and `agent_cancel`, bound to one configured registry, with strict inputs, bounded result projection and joined cancellation.
+- [x] Opt-in model-facing controls: make supplies `agent_spawn`/`agent_task`/`agent_cancel` for a fresh-child registry; forSession supplies `agent_send`/`agent_task`/`agent_cancel` for one host-held session. Strict prompt-only invocation, isolated task lookup, bounded result projection and scoped wait/promotion/cancellation preserve the fixed capability.
 - [x] Host-installed inherited plan gate: either parent or child Plan mode restricts execution, including confirmation rechecks, without copying approval state.
 
 The host installs these capabilities explicitly. It owns background supervisor scopes, trusted filesystem ancestors, authenticated approval delivery, provider settings and operational monitoring. Durable approval values are not a durable resume implementation. Root distribution and retained raw spawner capabilities remain trusted-host responsibilities.
 
 ## Immediate next work
 
-- [ ] Implement model-facing send bound to one trusted host-held session, preserving its fixed capability and current injected policy.
-- [ ] Add explicit session lookup/routing and durable reuse contracts; execution IDs are not session credentials.
-- [ ] Install inherited policy automatically for nested/reused children, then add correlated event routing with explicit lifetime and retention contracts.
+- [ ] Add bounded session lookup/routing with explicit capability ownership; execution IDs are not session credentials.
+- [ ] Integrate inherited policy automatically for nested/reused children, preserving live denial/plan checks and child approval authority.
+- [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 
 The accepted resource primitive, child session, factory, registry, task tools and plan adapter use host-selected process-local capabilities. They do not add declaration parsing, durable restart recovery or automatic inheritance through raw spawner callbacks. Hosts control capability distribution and completed-record retention.
 

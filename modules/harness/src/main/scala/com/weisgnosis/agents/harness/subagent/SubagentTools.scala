@@ -48,11 +48,30 @@ object SubagentTools:
   private enum Access:
     case Observation, Control
 
+  private enum Invocation(val name: String, val description: String):
+    case Spawn
+        extends Invocation(
+          "agent_spawn",
+          "Run the configured child. After 30 seconds, return its retained task ID without restarting it."
+        )
+    case Send
+        extends Invocation(
+          "agent_send",
+          "Send a prompt to the bound child session. After 30 seconds, return its retained task ID without restarting it."
+        )
+
   def make(registry: SubagentTaskRegistry): Toolkit =
-    val spawn = tool[String](
+    controls(registry, Invocation.Spawn)
+
+  /** Reuse one host-selected session; task inspection and cancellation share its execution registry. */
+  def forSession(session: SubagentSession): Toolkit =
+    controls(session.executions, Invocation.Send)
+
+  private def controls(registry: SubagentTaskRegistry, invocation: Invocation): Toolkit =
+    val invoke = tool[String](
       definition(
-        "agent_spawn",
-        "Run the configured child. After 30 seconds, return its retained task ID without restarting it.",
+        invocation.name,
+        invocation.description,
         "prompt",
         Access.Control
       ),
@@ -69,18 +88,18 @@ object SubagentTools:
                   case Some(TaskWait.Promoted) => ZIO.succeed(task(id, SubagentToolState.Promoted))
                   case Some(TaskWait.Completed(exit)) =>
                     exit match
-                      case Exit.Failure(_) => fail("agent_spawn", project(id, exit))
+                      case Exit.Failure(_) => fail(invocation.name, project(id, exit))
                       case Exit.Success(result) if result.state == AgentRunState.Interrupted =>
-                        fail("agent_spawn", project(id, exit))
+                        fail(invocation.name, project(id, exit))
                       case Exit.Success(_) => ZIO.succeed(project(id, exit))
-                  case None => fail("agent_spawn", task(id, SubagentToolState.Missing))
+                  case None => fail(invocation.name, task(id, SubagentToolState.Missing))
             case SubagentTaskSubmission.Capacity =>
-              fail("agent_spawn", SubagentToolResult.Rejected(SubagentToolRejection.Capacity))
+              fail(invocation.name, SubagentToolResult.Rejected(SubagentToolRejection.Capacity))
             case SubagentTaskSubmission.Closed =>
-              fail("agent_spawn", SubagentToolResult.Rejected(SubagentToolRejection.Closed))
+              fail(invocation.name, SubagentToolResult.Rejected(SubagentToolRejection.Closed))
             case SubagentTaskSubmission.IdentityCollision =>
               fail(
-                "agent_spawn",
+                invocation.name,
                 SubagentToolResult.Rejected(SubagentToolRejection.IdentityCollision)
               )
     )
@@ -117,7 +136,7 @@ object SubagentTools:
           case Some(exit) => ZIO.succeed(project(id, exit))
           case None       => fail("agent_cancel", task(id, SubagentToolState.Missing))
     )
-    Toolkit(Map("agent_spawn" -> spawn, "agent_task" -> inspect, "agent_cancel" -> cancel))
+    Toolkit(Map(invocation.name -> invoke, "agent_task" -> inspect, "agent_cancel" -> cancel))
 
   private def definition(
       name: String,

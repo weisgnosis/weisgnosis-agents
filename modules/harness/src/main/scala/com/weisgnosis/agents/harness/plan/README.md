@@ -43,7 +43,7 @@ Current APIs provide typed plan admission, scoped draft/review authority, stored
 - [x] Verify a host-installed live parent/child gate through configured child execution without transferring approval authority.
 - [ ] Install restrictions automatically for nested/reused children before granting plan-mode access to their spawn/send tools.
 
-Next task: integrate model-facing session send and automatic child installation with explicit live plan gates. Host-held reusable sessions and resource ownership are accepted within the subagent package's recorded scope.
+Next task: integrate session routing and automatic child installation with explicit live plan gates. Host-held reusable sessions, resource ownership and fixed-session send tools are accepted within the subagent package's recorded scope.
 
 - [x] Retain `review_docs` acceptance of the unchanged static-shell contracts against `2d4094b`; current source identities and limitations are recorded in the associated sections.
 

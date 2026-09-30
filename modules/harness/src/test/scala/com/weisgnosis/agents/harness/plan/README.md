@@ -17,7 +17,7 @@ These tests execute no shell and establish no path/process isolation. The [curre
 - [x] Verify host-installed live parent/child admission with independent child controls and exact-review authority.
 - [ ] Verify automatic nested/reused-child installation and authenticated host UI routing.
 
-Next task: verify model-facing session send and automatic child installation while retaining explicit live plan gates. The [subagent session suite](../subagent/SubagentSessionSpec.scala) already verifies current installed gates across host-held reused turns; its accepted scope is recorded in the [subagent contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
+Next task: verify session routing and automatic child installation while retaining explicit live plan gates. The [subagent session suite](../subagent/SubagentSessionSpec.scala) verifies current installed gates across host-held reused turns; [tool tests](../subagent/SubagentToolsSpec.scala) cover fixed-session send. Their accepted scope is recorded in the [subagent contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
 
 ## Admission verification
 
@@ -31,7 +31,7 @@ No test executes a process or proves filesystem isolation. The inherited gate is
 
 `current_docs` approved current PlanPermissionGate and PlanInheritedPermissionSpec identities on 2026-09-30 with no FP/ZIO or invariant findings. Full `sbt scalafmtAll scalafmtSbt verify` passed 561 core and 626 harness tests (1,187 total), with zero compiler warnings or failed tests (`subagent-tools-plan-final-verify.log`). The unchanged ordinary admission foundation retains its approval against `0ad16e5`.
 
-The pinned Java comparison is `f98a685fdc4589f81e626e1686ac2c63d14a2304`. `PlanModeSubagentPropagationTest.declaredSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration` and `generalPurposeSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration` have supporting child-admission evidence here, but automatic factory construction, inherited manager/configuration, directory and prompt installation remain unfinished. `AgentSpawnToolPlanModeTest.persistentSpawnReuse_reappliesParentPlanModeBeforeReturningOrInvoking` and `agentSend_reappliesParentPlanModeBeforeInvokingExistingChild` remain unfinished because this adapter provides neither session reuse nor send integration. All four whole-method mappings remain pending; supporting runtime evidence does not change that status.
+The pinned Java comparison is `f98a685fdc4589f81e626e1686ac2c63d14a2304`. `PlanModeSubagentPropagationTest.declaredSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration` and `generalPurposeSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration` have supporting child-admission evidence here, but automatic factory construction, inherited manager/configuration, directory and prompt installation remain unfinished. `AgentSpawnToolPlanModeTest.persistentSpawnReuse_reappliesParentPlanModeBeforeReturningOrInvoking` and `agentSend_reappliesParentPlanModeBeforeInvokingExistingChild` have supporting host-held session and fixed-session send evidence, but automatic manager/configuration wiring remains unfinished. All four whole-method mappings remain pending; supporting runtime evidence does not change that status.
 
 ## Session and review verification
 
