@@ -19,7 +19,7 @@ harness: compactor, eviction/store port, permission components
 core: models, codecs, events, tools, client port,
       SSE parsing/assembly, scoped HTTP completion, ReAct lifecycle, structured output
 
-mcp: initialized 2025-06-18 client, scoped RPC ownership and direct-process stdio; manual Toolkit binding; automatic management and HTTP pending
+mcp: initialized 2025-06-18 client, scoped RPC ownership and direct-process stdio; manual Toolkit binding and bounded scoped manager; HTTP pending
 ```
 
 The host owns durable transactions, replay, tenant authentication, and execution idempotency. ReActAgent owns in-memory conversation state and serializes runs. Per-run and per-request scopes bound resources independently of the caller's outer scope.
@@ -71,7 +71,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Independently reviewed direct-process stdio with bounded UTF-8/LF framing, single-use incoming, serialized writes and scoped child reaping; focused tests and full verification pass.
 - [x] Initialized 2025-06-18 client with capability-checked listing/calls, bounded discovery, typed remote errors and configured joined deadlines; both reviewers approved the bounded scope and full verification passed.
 - [x] Manual Toolkit binding with host-owned authority and typed observations passed both independent reviews and full verification; exact scope is in the [tool acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance).
-- [ ] Next: automatic manager policy; HTTP remains separate.
+- [x] Bounded scoped manager ownership and atomic host-selected registration passed both independent reviews and full verification; the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract) records the accepted scope.
+- [ ] Next MCP implementation: HTTP transport with an explicit selected-revision contract.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
 

@@ -4,7 +4,7 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is explicit MCP manager registration/lifetime policy; manual Toolkit binding is implemented and HTTP transport remains separate. Declared/general-purpose composition, event routing and durable host recovery remain separate.
+Implementation is active. The bounded scoped MCP manager has independent approval and full verification. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is HTTP transport with an explicit selected-revision contract. Declared/general-purpose composition, event routing and durable host recovery remain separate.
 
 ## Implemented components
 
@@ -83,6 +83,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 Approval applies to the recorded scope and revisions, not exhaustive upstream parity. Other accepted components retain their package-level evidence.
 
 - [x] Both independent reviewers approved and full verification passed for [manual MCP tool binding](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance).
+- [x] Both independent reviewers approved the bounded scoped [MCP manager](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract); registration uses explicit host definitions and owns acquired resources. Full verification passed 1,263 tests with zero compiler warnings or failures; the client acceptance records exact identities and evidence.
 
 ## Integration boundaries
 

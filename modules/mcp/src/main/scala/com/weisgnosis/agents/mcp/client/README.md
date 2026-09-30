@@ -1,6 +1,20 @@
 # com.weisgnosis.agents.mcp.client
 
-[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract; automatic management and HTTP remain unfinished.
+[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. HTTP remains unfinished.
+
+## Scoped manager contract
+
+[McpClientManager](McpClientManager.scala) exposes `make(maxClients = 16, maxTools = 256): ZIO[Scope, AgentError.InvalidConfiguration, McpClientManager]` to acquire a bounded owner. `register(name, acquire, maxPages, select): IO[AgentError, Unit]` accepts a `ZIO[Scope, AgentError, McpClient]` acquisition and a `McpToolDefinition => Either[AgentError, Option[ToolDef]]` selector. It performs bounded discovery and publishes immutable Toolkit snapshots. The host chooses local names, schemas and read-only/concurrency declarations; server annotation hints do not grant authority. Prefixes and filtering can be expressed by the selector without changing the remote invocation name.
+
+Registration publishes the complete client/tool set atomically after capacity and collision checks. `maxClients` counts Pending, Ready and Removing entries; published tool names and count remain reserved through removal. Discovery counts every returned definition against `maxTools`; remote duplicates are not deduplicated, and selected local names must be unique. `toolkit: UIO[Toolkit]` returns the current immutable snapshot and `names: UIO[Chunk[String]]` exposes Ready registrations only. `remove(name): UIO[McpClientRemoval]` returns Removed or Missing after joined cleanup; `close: UIO[Unit]` joins manager cleanup. Previously returned snapshots retain their original bindings, whose calls fail after removal rather than routing to a later registration with the same name.
+
+The acquisition must place owned transport resources in its supplied scope. The manager closes the returned client before releasing those resources. Registering an externally initialized client does not extend its original lifetime, and registration still authorizes the manager to close it. Copying a Toolkit snapshot never transfers ownership. Acquisitions, selectors and owned finalizers must not remove their own registration or close their manager, because closure joins that work.
+
+This accepted scope does not include presets, groups, ambient metadata propagation, schema rewriting/evaluation, discovery caches or notification invalidation. It does not make discovery an atomic server snapshot or broaden the client's selected 2025-06-18 protocol support. The verification section records exact accepted identities; the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded upstream adaptations and intentional differences.
+
+- [x] Implement bounded registration, immutable Toolkit publication and joined removal/closure with four grouped contract tests.
+- [x] Obtain independent FP/ZIO approval from `path_review` and invariant approval from `current_docs` for the final source/test identities below, with no unresolved findings.
+- [x] Pass formatting and full fatal-warning verification recorded below.
 
 ## Initialized client contract
 
@@ -40,14 +54,16 @@ These bounds count operations and queued messages, not bytes. This is a raw RPC 
 
 ## Verification and acceptance
 
-Accepted scope covers the registry, borrowed-port connection, checked builders, initialized client and typed remote errors described above. HTTP and complete revision support remain excluded; manual Toolkit binding has a separate [tool contract](../tool/README.md).
+Accepted scope covers the request registry, borrowed-port connection, checked builders, initialized client, typed remote errors and bounded scoped manager described above. HTTP and complete revision support remain excluded; manual Toolkit binding has a separate [tool contract](../tool/README.md).
 
 - [x] Four grouped [McpRequestsSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) tests establish registry contracts; `path_review` and `current_docs` approved their recorded identities with no findings.
 - [x] Seven grouped [McpConnectionSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) tests pass for immediate/out-of-order replies, cancellation, complete causes, closed-parent startup, control dispatch, concurrent closure and terminal errors.
 - [x] Regressions failed against unchanged connection blob `1217d4467307297381bed0e01804ca898a85c8d5`: terminal cause duplication and a ping sent after terminal failure. `mcp-terminal-dispatch-red.log` records the assertion failures. Closed-parent startup ordering was corrected by inspection and covered by a contract test; no reproduced startup failure is claimed.
 - [x] `path_review` independently approved FP/ZIO correctness and `current_docs` independently approved invariants for the final connection/port/spec identities below, with no unresolved findings.
 - [x] `path_review` approved final FP/ZIO correctness and `current_docs` approved final invariants for the client, builder overload, remote error codec and associated tests at the identities below, with no findings. Six client groups and actual stdio initialization/list/call integration pass. Both reviewers also approved bounded discovery at the recorded final identities, with no findings.
-- [x] `scalafmtAll scalafmtSbt verify` passed: 562 core / 651 harness / 41 MCP tests (1,254 total), zero compiler warnings or failures. Evidence: `mcp-discovery-verify.log`.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the final manager/spec identities below. Four grouped tests establish atomic collision publication, host authority, retained capacity during acquisition/removal, cancellation and shared cleanup, immutable snapshot routing and closure of externally initialized clients.
+- [x] The compound-cause regression failed against unchanged manager blob `9b4a5780f0904dced3a41267bf2d3647799123cb`: initializer defects `[a,b]` plus resource cleanup defect `c` incorrectly produced `[a,b,a,b,c]`. `mcp-manager-cause-red.log` records three passing groups and that one assertion failure. The corrected test checks the exact composed Cause and `[a,b,c]`; initialization and resource-cleanup provenance remain separate.
+- [x] `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 48 MCP tests (1,263 total), zero compiler warnings or failures. Evidence: `mcp-manager-verify.log`.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
@@ -60,11 +76,13 @@ Accepted scope covers the registry, borrowed-port connection, checked builders, 
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `0062446d5c91dc2ec4af0cb5b6c6d0cc044e6387` |
 | [McpClient.scala](McpClient.scala) | `4657a3ad1d38dbf6b420f3cde80de2bd3c2d9061` |
 | [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `24acfbfe2a8b16b2b66fb9ed40d11be286e24ef9` |
+| [McpClientManager.scala](McpClientManager.scala) | `bec51ef6b82e88cdb585d467f8166fdc585da0bb` |
+| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `ca14cba8389a148adbb7e7b9c747318a66c4dd8a` |
 
 ## Remaining work
 
-- [ ] Next: automatic manager registration/removal with explicit authority and lifetime policy; manual binding has a separate tool-package contract.
-- [ ] Implement HTTP transport separately.
+- [ ] Next MCP implementation: HTTP transport with an explicit selected-revision contract.
+- [ ] Define presets, groups, ambient metadata propagation, schema transformation and discovery caching separately.
 - [ ] Define cancellation notification and transport-specific recovery policy.
 Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
 

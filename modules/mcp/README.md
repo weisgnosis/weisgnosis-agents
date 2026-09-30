@@ -1,11 +1,11 @@
 # weisgnosis-agents-mcp
 
-This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter with bounded framing is independently reviewed and verified. An initialized 2025-06-18 client is independently reviewed and verified. Bounded discovery is independently reviewed. Manual Toolkit binding preserves host authority and typed observations; automatic client/tool management and HTTP remain unfinished.
+This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter, initialized client, bounded discovery, manual Toolkit binding and bounded scoped manager are independently reviewed and verified. HTTP remains separate.
 
 | Package | Current scope |
 | --- | --- |
 | [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted checked envelopes, initialization helpers, tool requests, discovery pages and call results |
-| [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Request correlation, connection ownership and an initialized 2025-06-18 client over a borrowed transport |
+| [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Request correlation, connection ownership, initialized 2025-06-18 client and bounded scoped manager with host-selected immutable Toolkit publication |
 | [tool](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md) | Explicit borrowed-client binding, host definitions and typed content/error projection |
 | [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Borrowed message port, strict UTF-8/LF framing and scoped direct-process stdio; independently reviewed and verified |
 
@@ -23,6 +23,8 @@ Explicit `discoverTools(maxPages, maxTools, meta)` traverses pages sequentially 
 
 ## Verification and acceptance
 
+- [x] `path_review` and `current_docs` approved scoped manager acquisition, atomic registration, immutable Toolkit snapshots and joined removal/closure. The [client contract](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract) owns exact identities and regression evidence. Full verification passed 564 core / 651 harness / 48 MCP tests (1,263 total), zero compiler warnings or failures, in `mcp-manager-verify.log`.
+
 - [x] `path_review` and `current_docs` approved manual binding with no findings, and full verification passed; the [tool acceptance](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance) owns exact identities and current totals.
 
 - [x] The [protocol acceptance](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance) records independent FP/ZIO and invariant approvals for the exact envelope and payload scope.
@@ -36,9 +38,9 @@ These are specification-derived protocol and ZIO ownership tests. AgentScope Jav
 
 ## Remaining work
 
-- [ ] Next: automatic manager registration/removal with explicit host authority and ownership; manual binding is implemented separately.
+- [ ] Next: HTTP transport with an explicit selected-revision contract.
 - [ ] Add cancellation notifications and transport-specific recovery only under separately reviewed contracts.
-- [ ] Implement HTTP transport separately with an explicit revision contract.
+- [ ] Define presets, tool groups, ambient metadata propagation and schema transformation separately; manager selection retains explicit host authority.
 - [ ] Implement provider multimodal projection; core typed conversion is available, while caching, notification invalidation and reconnect remain separate.
 - [ ] Evaluate output schemas where required by the selected client contract.
 

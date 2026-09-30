@@ -11,7 +11,8 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` and `child_factory` approved bounded stdio framing; `path_review` and `registry_contract` approved direct-process stdio and real-process tests. Exact identities and scope are in the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md).
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 44 MCP tests (1,259 total), zero compiler warnings or failures. Evidence: `mcp-tool-verify.log`.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 48 MCP tests (1,263 total), zero compiler warnings or failures. Evidence: `mcp-manager-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -56,7 +57,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Next: define automatic MCP manager registration/removal with explicit authority and lifetime policy; manual Toolkit binding is implemented. The initialized client explicitly selects 2025-06-18 without claiming complete revision support; HTTP remains a separate transport task.
+- [ ] Next: HTTP transport with an explicit selected-revision contract. The initialized client selects 2025-06-18 without claiming complete revision support.
 - [ ] Complete declared/general-purpose composition, including explicit tool/prompt/configuration installation; retain the accepted construction boundary.
 - [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 
@@ -78,7 +79,9 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [x] Implement reviewed bounded UTF-8/LF framing and scoped direct-process stdio with single-use incoming, serialized writes, terminal write poisoning and shared process cleanup. Four framing and three real-process groups pass.
 - [x] Implement exact 2025-06-18 initialization, capability-checked one-page listing/invocation, joined configured deadlines and typed remote errors, including real-process stdio integration. Both reviewers approved the final scope and full verification passed.
 - [x] Implement bounded sequential discovery with explicit page/tool limits, exact opaque cursor handling, cycle rejection and no partial catalogue on failure. Both reviewers approved the final client/spec identities.
-- [x] `path_review` and `current_docs` approved manual MCP Toolkit binding at the exact [tool identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance), and full verification passed; automatic management and separately scoped HTTP remain unfinished.
+- [x] `path_review` and `current_docs` approved manual MCP Toolkit binding at the exact [tool identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance), and full verification passed.
+- [x] Implement bounded manager ownership, host-selected registration, atomic immutable Toolkit publication and joined removal/closure. Both independent reviewers approved the final scope and full verification passed.
+- [ ] Define presets, groups, ambient metadata propagation, schema transformation and discovery caching separately; bounded manager acceptance does not close these upstream contracts.
 - [ ] Validate live end-to-end cancellation, resource release and operational controls, confirm remote CI, and complete release/API compatibility and production acceptance.
 
 ## Verification and contracts

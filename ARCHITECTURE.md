@@ -11,8 +11,8 @@ ReActAgent retains in-memory history through private Ref values and serializes r
 | Module | Available | Pending |
 | --- | --- | --- |
 | core | Models/codecs, event ADT, tools, path checks, SSE parsing/assembly, scoped HTTP completion, client port, ReAct and structured output | Provider extensions, complete event integration, and exhaustive upstream parity |
-| harness | Daily-memory extraction/local storage, in-memory/recoverable local consolidation, in-memory/local transcript observations, compactor, token estimator, opt-in local/inline result eviction/store adapter, interactive policy adapter, approval requests, durable approval DTOs, static plan inspection, opt-in plan admission and in-memory reviewed sessions and request-only plan context, standalone local plan drafts, local scoped task supervision and bounded descendant lineage | Durable checkpoints, remote memory/transcript storage, child factories/registry, plan child propagation |
-| mcp | Checked 2025-06-18 initialization, capability-checked list/call, bounded discovery, joined deadlines, scoped stdio and explicit Toolkit binding | Automatic manager policy and HTTP |
+| harness | Daily-memory extraction/local storage, in-memory/recoverable local consolidation, in-memory/local transcript observations, compactor, token estimator, opt-in result eviction/store and permission adapters, reviewed plan sessions and local drafts, scoped task supervision, configured child factories, task/session registries and tools, live denial/Plan inheritance and explicit policy-aware child construction | Durable checkpoints/reuse, remote memory/transcript storage, declared/general-purpose composition and correlated event routing |
+| mcp | Checked 2025-06-18 initialization, capability-checked list/call, bounded discovery, joined deadlines, scoped stdio, explicit Toolkit binding and bounded scoped manager ownership | HTTP with an explicit revision contract; presets, groups, ambient metadata propagation, caching and schema evaluation |
 
 Dependencies point from harness and mcp to core. Core must not import harness services. Hosts compose components and supply external dependencies.
 
