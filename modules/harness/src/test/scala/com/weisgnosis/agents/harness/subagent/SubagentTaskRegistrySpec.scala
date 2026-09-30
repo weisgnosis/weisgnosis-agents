@@ -331,6 +331,10 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
         ): ZIO[Scope, AgentError, TaskResourceAdmission[B]] =
           supervisor.own(initialize)
 
+        def ownRetained[B](
+            initialize: TaskSupervisor[AgentResult] => ZIO[Scope, AgentError, B]
+        ): IO[AgentError, TaskResourceAdmission[B]] = supervisor.ownRetained(initialize)
+
         def attach(
             task: => ZIO[Scope, AgentError, AgentResult]
         ): ZIO[Scope, Nothing, TaskAdmission[AgentResult]] =

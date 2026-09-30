@@ -115,7 +115,7 @@ ToolResultStore.local accepts ResultStorageLocation.WorkspaceDefault or Absolute
 
 ## Pending interfaces
 
-General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, durable child reuse, automatic named reusable-session creation and MCP presets/groups/ambient metadata propagation/schema transformation remain unfinished. Bounded scoped MCP manager ownership is accepted. Supervisor-owned retained resources, host-held reusable child sessions, configured child factories, parent-denial inheritance, bounded scoped task registries, model-facing spawn and session-bound send tools and host-installed inherited plan admission are available. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
+General model-call middleware, broader legacy hooks, remote memory/transcript storage and scheduling, durable checkpoint storage, durable child reuse, named session send/task/cancel routing and MCP presets/groups/ambient metadata propagation/schema transformation remain unfinished. Bounded scoped MCP manager ownership is accepted. Supervisor-owned retained resources, host-held reusable child sessions, configured child factories, parent-denial inheritance, bounded scoped task registries, model-facing spawn and session-bound send tools and host-installed inherited plan admission are available. Static plan inspection, opt-in permission admission and in-memory reviewed sessions, request projection and standalone draft storage are available. The live client supports a narrower scoped ModelTextTransform that changes only visible fragments before validated assembly and publication. Consult [planned behavior](mid-level-design.md) and the [tracker](tracker.md); architectural sketches are not importable APIs.
 
 ## Result-bearing event streams
 
@@ -266,19 +266,23 @@ TaskSupervisor.open[A] returns ZIO[Scope, Nothing, TaskSupervisor[A]]. attach ac
 
 ## Retained task resource API
 
-[TaskSupervisor.own](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/TaskSupervisor.scala) adds this abstract method to `TaskSupervisor[A]`:
+[TaskSupervisor](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/TaskSupervisor.scala) requires both ownership methods:
 
 ```scala
 def own[B](
     initialize: TaskSupervisor[A] => ZIO[Scope, AgentError, B]
 ): ZIO[Scope, AgentError, TaskResourceAdmission[B]]
+
+def ownRetained[B](
+    initialize: TaskSupervisor[A] => ZIO[Scope, AgentError, B]
+): IO[AgentError, TaskResourceAdmission[B]]
 ```
 
-Initialization is suspended and receives a nested supervisor. Accepted admission returns a [TaskResource[B]](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/TaskResource.scala) with `value: B` and `close: UIO[Unit]`; closed admission invokes no initializer. Acquired resources survive initialization and completed nested turns. The acquiring caller Scope and parent supervisor bound that lifetime. Closing rejects nested admission, joins initialization and every running, queued or promoted nested worker, then releases retained resources.
+Initialization is suspended and receives a nested supervisor. Accepted admission returns a [TaskResource[B]](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/TaskResource.scala) with `value: B` and `close: UIO[Unit]`; closed admission invokes no initializer. Acquired resources survive initialization and completed nested turns. For `own`, the acquiring caller Scope and parent supervisor bound that lifetime. `ownRetained` adds no caller lease after successful acquisition: the supervisor and explicit resource closure bound retention. Closing rejects nested admission, joins initialization and every running, queued or promoted nested worker, then releases retained resources.
 
 Initialization failure, defect or interruption returns no resource and joins partial cleanup with the failing Exit. The first closure path supplies the Exit seen by resource finalizers; explicit close supplies success. Concurrent and repeated library-owned closure paths wait for the same cleanup and replay its complete outcome, including defects, with finalizers run once. This does not change repeated raw Scope.close behavior. Owned workers/finalizers must not close or await their own resource owner; masked or slow cleanup can delay closure. Hosts must stop using the exposed value after closure.
 
-Migration: custom TaskSupervisor implementations and decorators must implement `own` with these lifecycle guarantees; an `attach` fallback cannot retain resources across turns. This process-local primitive does not serialize turns, create a child session, reopen a closed runtime or provide durable reuse. Its [paired resource tests and acceptance](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/README.md) record the bounded contract.
+Migration: custom TaskSupervisor implementations and decorators must now implement the new abstract `ownRetained` as well as `own`. This is a source-breaking addition for custom implementations. There is no fallback; `attach` or wrapping caller-leased acquisition in a short `ZIO.scoped` cannot provide equivalent retained ownership. This process-local primitive does not serialize turns, create a child session, reopen a closed runtime or provide durable reuse. Its [paired resource tests and acceptance](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/README.md) record the bounded contract.
 
 ## Bounded lineage API
 
@@ -288,7 +292,7 @@ SubagentSpawner.root accepts a typed supervisor and returns UIO[SubagentSpawner[
 
 [SubagentFactory.make](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentFactory.scala) returns `Either[AgentError, SubagentFactory]`, validating AgentConfig and combining parent/child static boundaries without acquiring resources. `narrowed` intersects selections and accumulates denials. `build(child)` returns `ZIO[Scope, AgentError, ReActAgent]`: it suspends registration, validates toolkit keys/names, rejects collisions before filtering, then acquires the client and constructs fresh runtime state with the supplied authorizer. The caller retains that Scope for the runtime lifetime. `spawn(parent, input)` delegates construction and execution to the existing supervised descendant scope.
 
-[SubagentToolBoundary](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundary.scala) uses exact names; `AllAvailable` includes automatic registrations and `Only(Set.empty)` permits none. Assembly checks inherited then registered names in lexical order and rejects collisions even when excluded by the final selection. The final Toolkit constrains both model schemas and actual dispatch. Inline declarations and the general-purpose preset compose through SubagentConstruction. Automatic named reusable-session creation and durable reuse remain separate work. See the [current review identities and verification](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
+[SubagentToolBoundary](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundary.scala) uses exact names; `AllAvailable` includes automatic registrations and `Only(Set.empty)` permits none. Assembly checks inherited then registered names in lexical order and rejects collisions even when excluded by the final selection. The final Toolkit constrains both model schemas and actual dispatch. Inline declarations and the general-purpose preset compose through SubagentConstruction. Named session send/task/cancel routing and durable reuse remain separate work. See the [current review identities and verification](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance).
 
 ## Parent-denial inheritance API
 
@@ -309,6 +313,12 @@ SubagentSpawner.root accepts a typed supervisor and returns UIO[SubagentSpawner[
 `SubagentDeclarationParser.parse(name, markdown, limits)` returns an effectful validated declaration. The host supplies identity; SnakeYAML Engine 3.1.1 events are consumed inside ZIO into immutable state. Exact LF/CRLF delimiter handling preserves the body. Positive UTF-16 document/header limits precede decoding; duplicate/unknown fields and unsupported structures fail with typed diagnostics. Both iteration aliases validate before steps precedence; null inheritance and explicit empty tool selection remain distinct. The [parser contract and acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#inline-declaration-parsing) owns the six fields, limits, exclusions and exact evidence. The parser itself performs no filesystem discovery or automatic installation.
 
 `LocalSubagentDeclarations.load(directory, WorkspaceTrust.HostControlled, limits)` adds read-only local discovery. Every direct entry counts toward the scan bound; exact lowercase .md selections are sorted and read with byte and parser limits. Traversal and lexical/canonical sensitive paths fail before parsing, selected nonregular files are rejected, and any error fails the entire batch. Scoped masked blocking calls protect closure but provide no cancellation deadline or atomic filesystem sandbox. The [loader contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-declaration-loading) records defaults, untested platform paths and accepted identities.
+
+## Named session catalog API
+
+`SubagentSessionCatalog.open(parent, entries, maxSessions = 64, maxTrackedPerSession = 256)` validates finite host-selected entries before eager acquisition and returns `TaskResourceAdmission[SubagentSessionCatalog]`. One supervised initializer owns rollback. Private context ownership consumes no lineage depth or UUID; each retained session uses existing descendant admission. The enclosing supervisor owns session resources, while a private directory index only owns membership. Public session and directory acquisition semantics remain unchanged.
+
+Exact names resolve stable runtime/history through live membership lookup; removal joins resource closure without recreation. Aggregate cleanup can leave a lookup snapshot visible until the index closes. The returned resource, acquiring caller and supervisor bound the aggregate lifetime. No named model routing, dynamic label, durable key or restoration API is included. The [session catalog contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#named-session-catalog) owns the reviewed identities, reproduced duplicate-cleanup-cause correction and exclusions.
 
 ## Host factory catalog
 

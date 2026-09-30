@@ -132,7 +132,8 @@ Configured factories apply final static filtering to inherited and registered to
 - [x] Opt-in SubagentConstruction installs inherited static boundaries and live denial/Plan checks for descendants and retains child approval authority.
 - [x] Complete and independently review inline declared/general-purpose tool, prompt and configuration composition through SubagentConstruction; raw factories remain host-controlled.
 - [x] Load bounded declarations from explicit host-controlled local directories without installing capabilities.
-- [ ] Complete automatic reusable-session installation.
+- [x] Eagerly install finite host-selected reusable sessions under aggregate ownership, with partial initialization rollback and exact cleanup-cause replay.
+- [ ] Add named session send/task/cancel routing through the existing tool protocol.
 - [x] Add and independently review scoped child event forwarding with task-ID attribution, fresh per-send leases, retained outcomes and closed delivery after promotion.
 - [ ] Add durable host recovery and post-promotion event delivery under separate retention and persistence contracts.
 

@@ -886,7 +886,7 @@ The [current acceptance record](../../modules/harness/src/main/scala/com/weisgno
 
 - [x] Verify opt-in policy-aware construction in three [SubagentConstructionSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) scenarios: nested static/argument restrictions with factory derivatives and a permitted near-miss; live reused denials and independent ancestor/child Plan checks with modified confirmation; isolated supplied per-build permissions and joined initialization/filtering cleanup. This does not install declared/general-purpose tools, prompts or directories and does not reproduce Java sticky mode mutation or historical denial accumulation; whole-method mappings remain open.
 
-The six unfinished plan-mode methods remain unfinished. Parent Build must not manufacture child approval. Explicitly installed gates remain effective across host-held session turns and session-bound sends. Local declaration discovery/loading, automatic reusable-session installation, post-promotion/remote event delivery and durable host recovery remain separate.
+The six unfinished plan-mode methods remain unfinished. Parent Build must not manufacture child approval. Explicitly installed gates remain effective across host-held session turns and session-bound sends. Local declaration loading and finite host-installed reusable-session catalogs are available. Named model routing, post-promotion/remote event delivery and durable host recovery remain separate.
 
 ### Inline subagent declarations
 
@@ -909,7 +909,7 @@ The six unfinished plan-mode methods remain unfinished. Parent Build must not ma
 - [x] Three [LocalSubagentDeclarationsSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/LocalSubagentDeclarationsSpec.scala) groups verify cold, sorted nonrecursive discovery and filename identity; explicit trust/path/whole-batch rejection; all-entry and selected-document limits, strict UTF-8, byte/parser bounds and resource release. Both reviewers approved the [exact source/spec identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-declaration-loading), and full verification passed.
 - [x] Adapt the pinned `AgentSpecLoader.loadFromDirectory` and `loadFromFile` source behavior for sorted direct lowercase .md entries and filename-derived names. No standalone matched upstream test method is claimed closed. Scala intentionally fails missing directories and the whole batch on selected-file errors instead of Java's empty/skip behavior, and rejects selected directories/symlinks.
 - [ ] Verify runtime symlink rejection and held-I/O cancellation cleanup. Automatic execution policy blocked symlink preflight; this is not evidence of OS inability. Masked operations and scoped closure are source-reviewed, with no cancellation deadline or atomic sandbox claim.
-- [ ] Complete automatic named reusable-session creation, workspace/skills and filesystem-namespace contracts separately. No full loader parity is claimed.
+- [ ] Complete named session send/task/cancel routing, workspace/skills and filesystem-namespace contracts separately. No full loader parity is claimed.
 
 ### Named factory catalog
 
@@ -917,7 +917,15 @@ The six unfinished plan-mode methods remain unfinished. Parent Build must not ma
 - [x] Adapt named selection and unknown-agent rejection from `AgentSpawnToolKeyTest.runtimeContextManagerIsUsedForSpawnAndSend`. The catalog captures a fixed host parent and factories; it does not implement per-call manager overrides, primary mode, deterministic reuse keys or restoration, so the whole method remains open.
 - [x] Adapt `SubagentModeHiddenTest.renderSubagentSection_programmaticEntriesAlwaysShown` through catalog names/descriptions in tool definitions. All supplied entries are visible; no system-prompt renderer or hidden/primary mode is implemented.
 - [ ] Complete the applicability mapping for `DefaultAgentManagerRuntimeContextTest.createAgentIfPresent_forwardsParentRuntimeContext` and `createAgent_forwardsParentRuntimeContext`: Scala carries a captured lineage/policy capability rather than forwarding the Java RuntimeContext object. Null-context fallback is inapplicable to the non-null typed API.
-- [ ] Complete automatic named reusable-session creation; post-promotion/remote event delivery and durable recovery remain separate.
+- [ ] Complete named session send/task/cancel routing; post-promotion/remote event delivery and durable recovery remain separate.
+
+### Named reusable-session catalog
+
+- [x] Three [SubagentSessionCatalogSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionCatalogSpec.scala) groups verify eager finite host installation, stable per-name runtime/history, distinct-name/catalog isolation, unchanged descendant depth, partial compound-failure/cancellation rollback and joined removal/aggregate cleanup. One additional [TaskResourceSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) group verifies public ownRetained lifetime and exact closure-cause replay. Both reviewers approved the [exact identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#named-session-catalog); full verification passes.
+- [x] Reproduce duplicate cleanup causes in `subagent-session-catalog-red.log`: two groups passed and aggregate/caller closure failed exact single-defect equality. The same catalog spec passes after removing redundant automatic ownership edges, without changing public caller-leased ownership or applying Cause filtering.
+- [x] Supply bounded supporting evidence for reusable runtime/history behavior within `AgentSpawnToolKeyTest.runtimeContextManagerIsUsedForSpawnAndSend`. This whole method remains open: per-call manager selection, named model routing, repository restoration and its background-send adapter are not implemented by this host API.
+- [ ] Add named session send/task/cancel routing with the existing protocol. Java deterministic-key methods (`sameInputs_produceSameHash`, `hashIs12HexChars`, parent/agent/label differences and null fallbacks) are not equivalent to process-local host names and random directory IDs; no whole-method completion is claimed.
+- [ ] Define dynamic labels, durable reuse keys/restoration and post-promotion delivery separately.
 
 ### Result-bearing event streams
 

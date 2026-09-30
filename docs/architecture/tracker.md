@@ -12,7 +12,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 573 core / 666 harness / 56 MCP tests (1,295 total), zero compiler warnings or failures. Evidence: `local-subagent-declarations-verify.log`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 573 core / 670 harness / 56 MCP tests (1,299 total), zero compiler warnings or failures. Evidence: `subagent-session-catalog-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -65,7 +65,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Wire and independently review forwarding through fixed/catalog spawn and fixed/directory send, with runtime task attribution, fresh session-send leases, retained results and revoked delivery after promotion.
 - [x] Parse and independently review bounded inline Markdown/YAML declarations, with exact body preservation and strict typed validation; [parser acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#inline-declaration-parsing) records hashes, reviewers and reproduced framing corrections.
 - [x] Load and independently review bounded local declarations through an explicit host-controlled read-only filesystem boundary; [loader acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-declaration-loading) records exact identities and coverage limits.
-- [ ] Next: automatic named reusable-session creation atop the accepted construction, resource ownership and session-directory contracts.
+- [x] Eagerly install finite named reusable sessions through an independently reviewed retained ownership kernel; [session catalog acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#named-session-catalog) records exact identities, the reproduced cleanup-cause correction and custom-supervisor migration.
+- [ ] Next: named session send/task/cancel routing through the existing tool protocol, preserving exact host-selected names and session/task isolation.
 - [x] Implement and independently review scoped POST-only HTTP requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [ ] Complete separately specified GET listening, resumption, session DELETE/reinitialization, cancellation notifications and external-server interoperability.
 - [ ] Define durable host reuse/recovery and post-promotion event delivery separately, with explicit lifetime and retention contracts.

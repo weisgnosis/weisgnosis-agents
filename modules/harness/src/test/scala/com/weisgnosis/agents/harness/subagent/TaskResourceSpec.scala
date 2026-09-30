@@ -46,6 +46,40 @@ object TaskResourceSpec extends ZIOSpecDefault:
         ZIO.fail(AgentError.InvalidConfiguration("Unexpected closed task admission"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("TaskResourceSpec")(
+    test(
+      "retained acquisition survives caller scope closure and explicit closers replay the full cleanup cause"
+    ) {
+      val first  = new IllegalStateException("first retained cleanup defect")
+      val second = new IllegalStateException("second retained cleanup defect")
+      val cause  = Cause.die(first) ++ Cause.die(second)
+      for
+        supervisor <- TaskSupervisor.open[Int]
+        released   <- Ref.make(0)
+        resource <- ZIO.scoped(
+          accepted(
+            supervisor.ownRetained(nested =>
+              ZIO
+                .acquireRelease(ZIO.unit)(_ => released.update(_ + 1) *> ZIO.refailCause(cause))
+                .as(nested)
+            )
+          )
+        )
+        before   <- released.get
+        task     <- attached(resource.value.attach(ZIO.succeed(7)))
+        value    <- task.await
+        closed   <- resource.close.exit
+        replayed <- resource.close.exit
+        after    <- released.get
+        rejected <- resource.value.attach(ZIO.succeed(8))
+      yield assertTrue(
+        before == 0,
+        value == Exit.succeed(7),
+        after == 1,
+        closed.causeOption.contains(cause),
+        replayed.causeOption.contains(cause),
+        rejected == TaskAdmission.Closed
+      )
+    },
     test("typed resources outlive initialization and completed turns but close exactly once") {
       for
         supervisor <- TaskSupervisor.open[Int]

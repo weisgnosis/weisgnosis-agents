@@ -18,7 +18,8 @@ package com.weisgnosis.agents.harness.subagent
 import zio.*
 
 /**
- * Host-held resource lifetime, also bounded by the owning supervisor and acquiring caller Scope.
+ * Host-held resource lifetime bounded by the owning supervisor. TaskSupervisor.own adds an
+ * acquiring caller-scope lease; ownRetained leaves that additional lifetime bound absent.
  * Owned workers and finalizers must not close or wait for their own resource owner.
  */
 final class TaskResource[+A] private[subagent] (

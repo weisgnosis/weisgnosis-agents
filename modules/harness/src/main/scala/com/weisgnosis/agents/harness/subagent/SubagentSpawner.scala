@@ -26,17 +26,33 @@ final class SubagentSpawner[A] private (
   val depth: Int     = lineage.size - 1
   val source: String = lineage.mkString("/")
 
+  /** Own initialization and resources without allocating a descendant or changing lineage. */
+  private[subagent] def ownContext[B](
+      initialize: SubagentSpawner[A] => ZIO[Scope, AgentError, B]
+  ): ZIO[Scope, AgentError, TaskResourceAdmission[B]] =
+    supervisor.own(nested => ZIO.suspendSucceed(initialize(new SubagentSpawner(nested, lineage))))
+
   /** Allocate one descendant whose resources and further descendants belong to its nested owner. */
   private[subagent] def ownChild[B](
       initialize: (SubagentSpawner[A], TaskSupervisor[A]) => ZIO[Scope, AgentError, B]
   ): ZIO[Scope, AgentError, TaskResourceAdmission[B]] =
     if depth >= SubagentSpawner.MaximumDepth then
       ZIO.fail(AgentError.SpawnDepthExceeded(SubagentSpawner.MaximumDepth))
-    else
-      supervisor.own: nested =>
-        Random.nextUUID.flatMap: id =>
-          val child = new SubagentSpawner(nested, lineage :+ id.toString)
-          ZIO.suspendSucceed(initialize(child, nested))
+    else supervisor.own(initializeChild(initialize))
+
+  private[subagent] def ownChildRetained[B](
+      initialize: (SubagentSpawner[A], TaskSupervisor[A]) => ZIO[Scope, AgentError, B]
+  ): IO[AgentError, TaskResourceAdmission[B]] =
+    if depth >= SubagentSpawner.MaximumDepth then
+      ZIO.fail(AgentError.SpawnDepthExceeded(SubagentSpawner.MaximumDepth))
+    else supervisor.ownRetained(initializeChild(initialize))
+
+  private def initializeChild[B](
+      initialize: (SubagentSpawner[A], TaskSupervisor[A]) => ZIO[Scope, AgentError, B]
+  )(nested: TaskSupervisor[A]): ZIO[Scope, AgentError, B] =
+    Random.nextUUID.flatMap: id =>
+      val child = new SubagentSpawner(nested, lineage :+ id.toString)
+      ZIO.suspendSucceed(initialize(child, nested))
 
   def spawn(
       task: SubagentSpawner[A] => ZIO[Scope, AgentError, A]

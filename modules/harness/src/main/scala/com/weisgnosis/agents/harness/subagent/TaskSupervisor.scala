@@ -27,6 +27,11 @@ trait TaskSupervisor[A]:
       initialize: TaskSupervisor[A] => ZIO[Scope, AgentError, B]
   ): ZIO[Scope, AgentError, TaskResourceAdmission[B]]
 
+  /** Retain acquired resources under this supervisor, without an additional caller-scope lease. */
+  def ownRetained[B](
+      initialize: TaskSupervisor[A] => ZIO[Scope, AgentError, B]
+  ): IO[AgentError, TaskResourceAdmission[B]]
+
 object TaskSupervisor:
   private enum Admission:
     case Open, Closed
@@ -64,16 +69,28 @@ object TaskSupervisor:
         .flatMap:
           case None => ZIO.succeed(TaskResourceAdmission.Closed)
           case Some(initialization) =>
-            initialization.task.await
-              .flatMap:
-                case Exit.Success(value) =>
-                  ZIO.succeed(
-                    TaskResourceAdmission.Accepted(new TaskResource(value, initialization.owner))
-                  )
-                case Exit.Failure(cause) => ZIO.refailCause(cause)
-              .onExit:
-                case failed @ Exit.Failure(_) => initialization.owner.close(failed)
-                case Exit.Success(_)          => ZIO.unit
+            ZIO.uninterruptibleMask: restore =>
+              restore(initialization.task.await.flatMap(exit => exit)).exit
+                .flatMap(observe(initialization, _))
+
+    def ownRetained[B](
+        initialize: TaskSupervisor[A] => ZIO[Scope, AgentError, B]
+    ): IO[AgentError, TaskResourceAdmission[B]] =
+      ZIO.uninterruptibleMask: restore =>
+        reserve(initialize).flatMap:
+          case None => ZIO.succeed(TaskResourceAdmission.Closed)
+          case Some(initialization) =>
+            restore(initialization.task.await.flatMap(exit => exit)).exit
+              .flatMap(observe(initialization, _))
+
+    private def observe[B](
+        initialization: Initialization[B],
+        outcome: Exit[AgentError, B]
+    ): IO[AgentError, TaskResourceAdmission[B]] = outcome match
+      case Exit.Success(value) =>
+        ZIO.succeed(TaskResourceAdmission.Accepted(new TaskResource(value, initialization.owner)))
+      case failed @ Exit.Failure(cause) =>
+        ZIO.refailCause(cause).onExit(_ => initialization.owner.close(failed))
 
     private def reserve[B](
         initialize: TaskSupervisor[A] => ZIO[Scope, AgentError, B]

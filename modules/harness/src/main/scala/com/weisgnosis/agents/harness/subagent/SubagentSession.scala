@@ -41,20 +41,41 @@ object SubagentSession:
       factory: SubagentFactory,
       maxTracked: Int = 256
   ): ZIO[Scope, AgentError, TaskResourceAdmission[SubagentSession]] =
+    validateCapacity(maxTracked) *>
+      parent.ownChild((child, supervisor) => initialize(child, supervisor, factory, maxTracked))
+
+  private[subagent] def openRetained(
+      parent: SubagentSpawner[AgentResult],
+      factory: SubagentFactory,
+      maxTracked: Int
+  ): IO[AgentError, TaskResourceAdmission[SubagentSession]] =
+    validateCapacity(maxTracked) *>
+      parent.ownChildRetained((child, supervisor) =>
+        initialize(child, supervisor, factory, maxTracked)
+      )
+
+  private def validateCapacity(maxTracked: Int): IO[AgentError, Unit] =
     ZIO
       .fail(AgentError.InvalidConfiguration("Subagent task capacity must be positive"))
-      .when(maxTracked <= 0) *>
-      parent.ownChild: (child, supervisor) =>
-        for
-          runtime      <- factory.build(child)
-          turn         <- Semaphore.make(1)
-          continuation <- Ref.make(Continuation.Ready)
-          executions <- SubagentTaskRegistry.openWith(
-            (input, id, events) =>
-              supervisor.attach(turn.withPermit(runTurn(runtime, continuation, input, id, events))),
-            maxTracked
-          )
-        yield new SubagentSession(executions)
+      .when(maxTracked <= 0)
+      .unit
+
+  private def initialize(
+      child: SubagentSpawner[AgentResult],
+      supervisor: TaskSupervisor[AgentResult],
+      factory: SubagentFactory,
+      maxTracked: Int
+  ): ZIO[Scope, AgentError, SubagentSession] =
+    for
+      runtime      <- factory.build(child)
+      turn         <- Semaphore.make(1)
+      continuation <- Ref.make(Continuation.Ready)
+      executions <- SubagentTaskRegistry.openWith(
+        (input, id, events) =>
+          supervisor.attach(turn.withPermit(runTurn(runtime, continuation, input, id, events))),
+        maxTracked
+      )
+    yield new SubagentSession(executions)
 
   private def runTurn(
       runtime: ReActAgent,

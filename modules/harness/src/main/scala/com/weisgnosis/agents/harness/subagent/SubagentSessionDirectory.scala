@@ -30,8 +30,8 @@ enum SubagentSessionRemoval:
   case Removed, Missing
 
 /**
- * Bounded host-controlled membership of already acquired sessions. Registration adds a closure
- * obligation without transferring ownership: original caller scopes and supervisors still apply.
+ * Bounded host-controlled membership of already acquired sessions. Directories created by open add
+ * a closure obligation without transferring ownership: original caller scopes and supervisors apply.
  * Rejection leaves the resource untouched. Aliases are allowed; removing one closes their shared
  * resource. Session workers and finalizers must not close their own directory or remove themselves.
  */
@@ -47,6 +47,9 @@ trait SubagentSessionDirectory:
   def close: UIO[Unit]
 
 object SubagentSessionDirectory:
+  private enum Ownership:
+    case Owned, MembershipOnly
+
   private enum Availability:
     case Ready, Removing
 
@@ -74,6 +77,19 @@ object SubagentSessionDirectory:
     case Missing
 
   def open(maxSessions: Int = 64): ZIO[Scope, AgentError, SubagentSessionDirectory] =
+    openWithOwnership(maxSessions, Ownership.Owned)
+
+  /**
+   * Internal membership index. Its enclosing supervisor must close and join registered resources
+   * before this index's scope ends; the index adds no automatic resource closure obligation.
+   */
+  private[subagent] def index(maxSessions: Int): ZIO[Scope, AgentError, SubagentSessionDirectory] =
+    openWithOwnership(maxSessions, Ownership.MembershipOnly)
+
+  private def openWithOwnership(
+      maxSessions: Int,
+      ownership: Ownership
+  ): ZIO[Scope, AgentError, SubagentSessionDirectory] =
     ZIO.uninterruptible:
       for
         _ <- ZIO
@@ -83,7 +99,7 @@ object SubagentSessionDirectory:
         owner  <- TaskResourceOwner.make(parent)
         gate   <- Semaphore.make(1)
         state  <- Ref.make[State](State.Open(Chunk.empty))
-        directory = new Live(maxSessions, owner, gate, state)
+        directory = new Live(maxSessions, owner, gate, state, ownership)
         _ <- owner.scope.addFinalizer(directory.shutdown)
       yield directory
 
@@ -91,7 +107,8 @@ object SubagentSessionDirectory:
       maxSessions: Int,
       owner: TaskResourceOwner,
       gate: Semaphore,
-      state: Ref[State]
+      state: Ref[State],
+      ownership: Ownership
   ) extends SubagentSessionDirectory:
     def register(resource: TaskResource[SubagentSession]): UIO[SubagentSessionRegistration] =
       gate.withPermit(ZIO.uninterruptible:
@@ -152,6 +169,9 @@ object SubagentSessionDirectory:
       gate
         .withPermit(state.modify(current => (current.entries, State.Closed(current.entries))))
         .flatMap(entries =>
-          ZIO.foreachPar(entries)(_.resource.close.exit).flatMap(Exit.collectAllParDiscard)
+          ownership match
+            case Ownership.MembershipOnly => ZIO.unit
+            case Ownership.Owned =>
+              ZIO.foreachPar(entries)(_.resource.close.exit).flatMap(Exit.collectAllParDiscard)
         )
         .ensuring(state.set(State.Closed(Chunk.empty)))
