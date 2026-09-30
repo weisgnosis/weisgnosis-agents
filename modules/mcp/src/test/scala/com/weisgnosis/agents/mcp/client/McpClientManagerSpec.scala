@@ -155,7 +155,7 @@ object McpClientManagerSpec extends ZIOSpecDefault:
               remote =>
                 if remote.name == "b" then
                   McpToolBinding
-                    .withPresets(
+                    .withFixedArguments(
                       ToolDef("candidate_b", "host", schema),
                       Json.Obj("same" -> Json.Num(1), "same" -> Json.Num(2))
                     )

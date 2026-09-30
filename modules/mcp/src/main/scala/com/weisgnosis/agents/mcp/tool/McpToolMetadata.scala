@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.tool
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.tool.ToolDef
+import com.weisgnosis.agents.core.tool.{ToolDef, ToolFixedArguments}
 import zio.IO
 import zio.json.ast.Json
 
@@ -40,7 +40,8 @@ enum McpToolMetadata:
 final case class McpToolBinding(
     definition: ToolDef,
     metadata: McpToolMetadata = McpToolMetadata.Omit,
-    presets: McpToolPresets = McpToolPresets.empty
+    presets: McpToolPresets = McpToolPresets.empty,
+    fixedArguments: ToolFixedArguments = ToolFixedArguments.empty
 )
 
 object McpToolBinding:
@@ -54,3 +55,15 @@ object McpToolBinding:
       presets   <- McpToolPresets.make(rawPresets)
       projected <- presets.project(definition)
     yield McpToolBinding(projected, metadata, presets)
+
+  /** Project fixed names without turning them into model-overridable defaults. */
+  def withFixedArguments(
+      definition: ToolDef,
+      rawFixed: Json.Obj,
+      metadata: McpToolMetadata = McpToolMetadata.Omit
+  ): Either[AgentError.InvalidConfiguration, McpToolBinding] =
+    for
+      fixed      <- ToolFixedArguments.make(rawFixed)
+      projection <- McpToolPresets.make(rawFixed)
+      projected  <- projection.project(definition)
+    yield McpToolBinding(projected, metadata, fixedArguments = fixed)

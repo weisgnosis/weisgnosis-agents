@@ -10,7 +10,7 @@ Tool keeps its input/output codecs and effectful handler together. Toolkit regis
 
 ReAct prepares before authorization. Invalid preparation becomes Error without calling the authorizer or handler. A change to arguments carrying provider reasoning metadata is Denied before authorization. The authorizer sees prepared arguments; changing or removing a fixed field is Denied, while edits to other fields are allowed. After approval, the exact final input is committed to history, supplied through Active.call and executed. Original model input remains provenance; while approval is pending or cancelled, history retains the original call. Authorization cancellation joins cleanup and preserves its full cause, mapping typed Throwable leaves to defects for the UIO boundary.
 
-Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and Toolkit checks are additive. Existing raw scalar tools retain their decoding contract. MCP model-overridable defaults remain separate; manager installation of framework-fixed arguments is not implemented.
+Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and Toolkit checks are additive. Existing raw scalar tools retain their decoding contract. MCP model-overridable defaults remain separate; manager installation of framework-fixed arguments has a separate [MCP contract](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these six identities, with no findings. Formatting and full `verify` passed in `tool-fixed-arguments-verify.log`: 579 core / 673 harness / 77 MCP tests (1,329 total), zero compiler warnings or failures; test task 12 seconds.
 
@@ -31,15 +31,13 @@ The current Chat Completions encoder emits only function name, description and i
 
 The derived domain codec reads an absent or explicit-null outputSchema as None and omits None when encoding. Non-null schema ASTs retain their structure; Some(Json.Null) does not round-trip as present. Existing constructors and named copies can omit the defaulted field; positional pattern matches and Product arity now have six fields, and downstream binaries must be rebuilt. No schema evaluation or custom compatibility codec is introduced.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the five identities below, with no findings. Formatting and full `verify` passed; current totals and evidence are recorded under [fixed raw arguments](#fixed-raw-arguments).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Unchanged core identities are below; current integration tests belong to the [MCP binding acceptance](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance). Formatting and full `verify` passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
 
 | Reviewed source/test | Git blob |
 | --- | --- |
 | [ToolDef.scala](ToolDef.scala) | `1884f7d4701df7e36c7b10235764534c6f699c29` |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | `2d00729523014e9c29ca576bcf11fe90a720d379` |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `af9528e389c6de56042421fbf8bdbf7639d775f5` |
-| [McpToolMetadataSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) | `aea7102a3970ca7be863ea69bdf219e7df7651e5` |
-| [McpClientManagerSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `35ab8ddbb588f1600848a04fe59ed93a0a53e72d` |
 
 ## Typed execution observations
 
@@ -87,7 +85,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 
 - [x] Independent FP/ZIO and invariant reviewer `path_review` approved the advisory command-screening fix and regressions: source blob `3d7a102d03c47719271ad2e4ba791af81247170e`, test blob `981212ee32c51cf92d12d844f4fe5a7403f70b78`. All eight focused tests pass.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed execution payloads, state admission, runtime control protection and compound-cause preservation. Both approved this scope with no findings; unchanged component identities are below, and current Tool/Toolkit/ReActAgent identities are in [fixed raw arguments](#fixed-raw-arguments).
-- [x] Full formatting, fatal-warning compilation and verification passed; current totals and evidence are recorded under [fixed raw arguments](#fixed-raw-arguments).
+- [x] Full formatting, fatal-warning compilation and verification passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
 - [x] Existing processor contracts below retain their scoped acceptance and unchanged implementations. Current authorization acceptance belongs to [fixed raw arguments](#fixed-raw-arguments).
 
 | Typed-result source/test | Reviewed Git blob |

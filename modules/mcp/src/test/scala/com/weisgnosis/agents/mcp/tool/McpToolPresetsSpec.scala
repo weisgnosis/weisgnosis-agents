@@ -102,15 +102,35 @@ object McpToolPresetsSpec extends ZIOSpecDefault:
         binding <- ZIO.fromEither(
           McpToolBinding.withPresets(host, Json.Obj("fixed" -> Json.Str("default")))
         )
+        fixedBinding <- ZIO.fromEither(
+          McpToolBinding.withFixedArguments(host, Json.Obj("fixed" -> Json.Str("enforced")))
+        )
         absent = host.copy(parametersSchema = Json.Obj("type" -> Json.Str("object")))
       yield assertTrue(
         presets.project(host) == Right(expected),
         binding.definition == expected,
+        fixedBinding.definition == expected,
+        fixedBinding.presets.merge(Json.Obj()) == Right(Json.Obj()),
+        fixedBinding.fixedArguments.prepare(Json.Obj("fixed" -> Json.Str("model"))) == Right(
+          Json.Obj("fixed" -> Json.Str("enforced"))
+        ),
+        McpToolBinding
+          .withFixedArguments(host, Json.Obj())
+          .exists(value => value.definition == host && value.fixedArguments.isEmpty),
+        McpToolBinding.withFixedArguments(host, Json.Obj("fixed" -> duplicate)).isLeft,
         binding.presets.merge(Json.Obj()) == Right(Json.Obj("fixed" -> Json.Str("default"))),
         McpToolPresets.empty.project(host) == Right(host),
         presets.project(absent) == Right(absent),
         McpToolBinding(host, presets = presets).definition == host,
-        invalid.forall(schema => presets.project(host.copy(parametersSchema = schema)).isLeft)
+        invalid.forall(schema => presets.project(host.copy(parametersSchema = schema)).isLeft),
+        invalid.forall(schema =>
+          McpToolBinding
+            .withFixedArguments(
+              host.copy(parametersSchema = schema),
+              Json.Obj("fixed" -> Json.Num(1))
+            )
+            .isLeft
+        )
       )
     }
   )

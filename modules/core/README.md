@@ -19,7 +19,7 @@ Tool.encodeResult preserves String/Success behavior by default and permits typed
 
 ## Current review acceptance
 
-- [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Exact six-file identities and full verification are recorded in the linked contract; MCP manager installation remains separate.
+- [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Exact six-file identities and full verification are recorded in the linked contract; MCP installation has its own [binding contract](../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 
 - [x] `path_review` and `current_docs` approved host-selected descriptive output schemas, legacy optional codec semantics, actual model-call retention and current provider omission. The [tool contract](src/main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records five identities, migration and full verification.
 

@@ -29,6 +29,9 @@ import zio.stream.ZStream
 import zio.test.*
 
 object McpToolMetadataSpec extends ZIOSpecDefault:
+  private enum FixedApproval:
+    case PreserveFixed, ChangeFixed
+
   private val definition: ToolDef = ToolDef(
     "local",
     "Host tool",
@@ -193,6 +196,128 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
           history.flatMap(_.toolResults).map(_.state) == Chunk.fill(2)(ToolResultState.Success),
           original == userMeta
         )
+    },
+    test(
+      "registered fixed arguments precede approval while defaults, metadata and provenance remain distinct"
+    ) {
+      ZIO
+        .foreach(Chunk(FixedApproval.PreserveFixed, FixedApproval.ChangeFixed)): approval =>
+          ZIO.scoped:
+            for
+              server     <- peer
+              manager    <- McpClientManager.make()
+              authorized <- Ref.make(Chunk.empty[Json])
+              identities <- Ref.make(Chunk.empty[McpToolIdentity])
+              defaults <- ZIO.fromEither(
+                McpToolPresets.make(
+                  Json.Obj(
+                    "tenant" -> Json.Str("default-tenant"),
+                    "value"  -> Json.Str("default-value"),
+                    "extra"  -> Json.Str("default-extra")
+                  )
+                )
+              )
+              binding <- ZIO.fromEither(
+                McpToolBinding
+                  .withFixedArguments(
+                    definition.copy(outputSchema = Some(remoteOutputSchema)),
+                    Json.Obj("tenant" -> Json.Str("host-tenant")),
+                    McpToolMetadata
+                      .Propagate(identity => identities.update(_ :+ identity).as(userMeta))
+                  )
+                  .map(_.copy(presets = defaults))
+              )
+              _ <- manager
+                .registerBindings("peer", ZIO.succeed(server.client), 1, _ => Right(Some(binding)))
+              tools <- manager.toolkit
+              input = Json
+                .Obj("tenant" -> Json.Str("model-tenant"), "value" -> Json.Str("model-value"))
+              prepared = Json
+                .Obj("tenant" -> Json.Str("host-tenant"), "value" -> Json.Str("model-value"))
+              approved = Json.Obj(
+                "tenant" -> Json.Str(
+                  if approval == FixedApproval.ChangeFixed then "changed" else "host-tenant"
+                ),
+                "value" -> Json.Str("approved-value")
+              )
+              call = ContentBlock.ToolUse("fixed-call", "local", input)
+              model = LlmClient.mockEffectful((history, _, _) =>
+                ZIO.succeed(
+                  if history.flatMap(_.toolResults).isEmpty then
+                    TurnOutput.ToolCalls(Msg.assistant(Chunk(call)))
+                  else TurnOutput.FinalText(Msg.assistant("done"))
+                )
+              )
+              agent <- ReActAgent.make(
+                config = AgentConfig(toolExecution = ToolExecution.Sequential),
+                client = model,
+                toolkit = tools,
+                toolAuthorizer = ToolAuthorizer(request =>
+                  authorized
+                    .update(_ :+ request.call.input)
+                    .as(ToolAuthorization.Approved(approved))
+                )
+              )
+              _          <- agent.run(Msg.user("invoke fixed"))
+              history    <- agent.history
+              seen       <- authorized.get
+              propagated <- identities.get
+              requests   <- server.requests.get.map(_.filter(_.method == "tools/call"))
+              bound = McpTool.bind(server.client, "remote", binding)
+              expectedRemote = Json.Obj(
+                Chunk("extra" -> Json.Str("default-extra")) ++ approved.fields
+              )
+              fixedOnly <- ZIO.fromEither(
+                Toolkit(
+                  McpTool.bind(
+                    server.client,
+                    "remote",
+                    binding.copy(presets = McpToolPresets.empty, metadata = McpToolMetadata.Omit)
+                  )
+                )
+              )
+              emptyResult  <- fixedOnly.executeSafe("local", Json.Obj())
+              emptyRequest <- server.requests.get.map(_.filter(_.method == "tools/call").lastOption)
+            yield assertTrue(
+              emptyResult.state == ToolResultState.Success,
+              emptyRequest
+                .flatMap(_.params)
+                .flatMap(_.get("arguments"))
+                .contains(Json.Obj("tenant" -> Json.Str("host-tenant"))),
+              seen == Chunk(prepared),
+              bound.decodeInput(input) == Right(prepared),
+              bound.decodeInput(Json.Obj()) == Right(Json.Obj("tenant" -> Json.Str("host-tenant"))),
+              bound
+                .decodeInput(Json.Obj("tenant" -> Json.Obj("x" -> Json.Num(1), "x" -> Json.Num(2))))
+                .isLeft,
+              tools.resolve("local").exists(_.fixedArguments == binding.fixedArguments),
+              tools.definitions == Chunk(binding.definition),
+              history.flatMap(_.toolResults).map(_.state) == Chunk(
+                if approval == FixedApproval.ChangeFixed then ToolResultState.Denied
+                else ToolResultState.Success
+              ),
+              if approval == FixedApproval.ChangeFixed then requests.isEmpty && propagated.isEmpty
+              else
+                requests.size == 1 && requests.forall(
+                  _.params.flatMap(_.get("arguments")).contains(expectedRemote)
+                ) &&
+                requests.forall(request =>
+                  metadata(request)
+                    .flatMap(_.asObject)
+                    .flatMap(_.get("io.agentscope/toolCallId"))
+                    .contains(Json.Str("fixed-call"))
+                ) &&
+                propagated.size == 1
+              ,
+              if approval == FixedApproval.ChangeFixed then
+                history.flatMap(_.toolUses).map(_.input) == Chunk(input)
+              else
+                history.flatMap(_.toolUses).map(_.input) == Chunk(approved) &&
+                history
+                  .flatMap(_.toolUses)
+                  .forall(_.metadata.get("agentscope_original_tool_input").contains(input))
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     },
     test(
       "omission skips resolver effects while live snapshots and explicit client metadata stay distinct"

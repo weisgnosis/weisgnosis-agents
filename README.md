@@ -4,7 +4,7 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. Current MCP scope includes owned clients and registration, HTTP POST/GET, explicit metadata propagation and one independent SDK interoperability check. Scoped subagent composition, reusable sessions and child event forwarding are also available. The [tracker](docs/architecture/tracker.md#current-acceptance) and linked package contracts record exact acceptance and limitations. Checked host presets, input-schema exclusion and host-selected descriptive output schemas are available. The core fixed-argument foundation prepares input before authorization. Next is MCP manager installation of that policy, distinct from model-overridable defaults; broader interoperability and durable host recovery remain unfinished.
+Implementation is active. Current MCP scope includes owned clients and registration, HTTP POST/GET, explicit metadata propagation and one independent SDK interoperability check. Scoped subagent composition, reusable sessions and child event forwarding are also available. The [tracker](docs/architecture/tracker.md#current-acceptance) and linked package contracts record exact acceptance and limitations. Checked host presets, input-schema exclusion and host-selected descriptive output schemas are available. The core fixed-argument foundation prepares input before authorization. MCP bindings can install that policy separately from model-overridable defaults. Next is tool-group registration/activation adaptation; broader interoperability and durable host recovery remain unfinished.
 
 ## Implemented components
 
@@ -68,7 +68,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 ## Current acceptance
 
-- [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Exact six-file identities and full verification are recorded in the linked contract; MCP manager installation remains separate.
+- [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Exact six-file identities and full verification are recorded in the linked contract; MCP installation has its own [binding contract](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 
 - [x] `path_review` and `current_docs` approved [bounded MCP request correlation](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance), including cancellation, scoped registration and full-cause settlement. The connection borrows its host-owned transport.
 
@@ -89,7 +89,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 Approval applies to the recorded scope and revisions, not exhaustive upstream parity. Other accepted components retain their package-level evidence.
 
-- [x] `path_review` and `current_docs` approved [MCP metadata propagation, checked presets and descriptive output schemas](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance); current identities and full `tool-output-schema-verify.log` verification are recorded in the package contracts.
+- [x] `path_review` and `current_docs` approved [MCP metadata propagation, checked presets and descriptive output schemas](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance); current identities and full `mcp-fixed-arguments-verify.log` verification are recorded in the package contracts.
 - [x] Both independent reviewers approved and full verification passed for [manual MCP tool binding](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance).
 - [x] Both independent reviewers approved the bounded scoped [MCP manager](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract); registration uses explicit host definitions and owns acquired resources. Required verification passed; the client acceptance records exact identities and evidence.
 - [x] Both independent reviewers approved bounded [HTTP body framing](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#http-body-framing), and full verification passed. The separately reviewed HTTP POST and explicit GET adapter adds scoped requests and session-header handling; its transport contract records the bounded acceptance.

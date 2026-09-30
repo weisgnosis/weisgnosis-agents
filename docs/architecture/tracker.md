@@ -4,7 +4,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 
 ## Current acceptance
 
-- [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Exact six-file identities and full verification are recorded in the linked contract; MCP manager installation remains separate.
+- [x] `path_review` and `current_docs` approved [core fixed arguments and runtime authorization](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), including the reproduced interrupted-authorizer cleanup correction. Exact six-file identities and full verification are recorded in the linked contract; MCP installation has its own [binding contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 
 - [x] `path_review` approved advisory PathSafety, configured factories, static filtering, registry/polling and task tools; `current_docs` approved live denial and plan inheritance. Both approved resource ownership, host-held sessions, bounded host session membership, fixed-session tools, directory-routed tools and policy-aware child construction, with no findings. Exact reviewed scope and identities are in the [tool](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance), [subagent](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance) and [plan](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) contracts.
 - [x] `path_review` and `current_docs` approved explicit gate composition and authorizer views; exact identities and scope are in the [permission contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance). SubagentConstruction supplies the reviewed opt-in installation path.
@@ -14,7 +14,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 579 core / 673 harness / 77 MCP tests (1,329 total), zero compiler warnings or failures. Evidence: `tool-fixed-arguments-verify.log`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 579 core / 673 harness / 78 MCP tests (1,330 total), zero compiler warnings or failures. Evidence: `mcp-fixed-arguments-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -81,7 +81,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Explicit host-controlled metadata propagation through registered tools has final FP/ZIO and invariant approval; both omission gates, restricted identity and effectful resolver cleanup are verified.
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
-- [ ] Next: install the core fixed-argument policy through MCP manager registration; current MCP presets remain model-overridable defaults. General I/O recovery, session reinitialization and durable integration remain unfinished.
+- [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
+- [ ] Next: adapt host-selected tool-group registration and activation; fixed arguments and model-overridable defaults remain distinct. General I/O recovery, session reinitialization and durable integration remain unfinished.
 - [x] Implement and independently review scoped HTTP POST and explicit GET requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [ ] Complete separately specified general I/O recovery, session reinitialization and broader server interoperability.
 - [ ] Define durable host reuse/recovery and post-promotion event delivery separately, with explicit lifetime and retention contracts.

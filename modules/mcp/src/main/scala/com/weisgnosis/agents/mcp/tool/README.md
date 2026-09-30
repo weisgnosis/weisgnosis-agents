@@ -14,11 +14,21 @@ A host may explicitly retain, omit or replace a remote output schema in ToolDef.
 
 `McpToolBinding.withPresets(definition, rawPresets, metadata)` returns a checked binding with the projected definition. `McpTool.bind(client, remoteName, binding)` and manager registration consume that binding unchanged. Direct binding construction deliberately preserves the supplied host schema, even when validated presets are present. Local aliases, descriptions and read-only/concurrency declarations remain host authority.
 
-Defaults are applied after authorization. The authorizer sees the supplied input and may replace it; the assistant history records the approved input. The remote arguments additionally contain missing defaults. Supplied input can override hidden preset names, so presets are neither permission constraints nor a way to enforce secret arguments. Host permission and concurrency declarations must remain valid for the defaults and permitted overrides. Request metadata remains separate.
+Defaults are applied after authorization. For defaults-only bindings, the authorizer sees the supplied input and may replace it; the assistant history records the approved input. The remote arguments additionally contain missing defaults. Supplied input can override hidden preset names, so presets are neither permission constraints nor a way to enforce secret arguments. Host permission and concurrency declarations must remain valid for the defaults and permitted overrides. Request metadata remains separate.
 
-Migration: existing bind/register calls and two-argument McpToolBinding construction retain empty defaults. McpToolBinding now has three fields; positional pattern matches must include presets. No new manager ownership or core authorization hook is introduced.
+Existing bind/register calls retain empty defaults. No new manager ownership or core authorization hook is introduced.
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the preset/binding scope with no findings; exact identities and verification are below.
+
+## Fixed arguments
+
+`McpToolBinding.withFixedArguments(definition, rawFixed, metadata)` checks fixed values and projects their root names out of the supplied input schema. It installs the core [ToolFixedArguments policy](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments), with empty model-overridable defaults. Direct binding construction or a named copy can combine checked fixed arguments and defaults while retaining an explicitly supplied schema.
+
+Manager registration preserves the whole selected binding. Raw decoding and Toolkit dispatch prepare fixed values; ReAct prepares them before authorization and rejects approved inputs that remove or change them. Accepted nonfixed edits remain intact in history and execution. Defaults still fill missing fields after authorization, so prepared fixed values win any overlap. Metadata propagation is independent. Trusted typed `execute`/`executeWithContext` calls bypass the fixed raw-input policy; fixed values are not secrets and can appear in history.
+
+The factory reuses the same bounded root-schema projection as presets. It does not evaluate JSON Schema or rewrite dependent constraints. Existing constructors and named copies may omit the new empty `fixedArguments` field; positional patterns and Product arity now have four fields, and consumers must rebuild.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the five changed source/test identities in the current acceptance below, with no findings.
 
 ## Explicit request metadata
 
@@ -28,7 +38,7 @@ The resolver receives only Detached or Active(replyId, requestId, callId, callOr
 
 Resolver failure becomes the existing typed direct-execution failure or Toolkit Error observation. Cancellation joins resolver cleanup and retains defects. The binding adds no resolver deadline or owner: the invoking host owns execution; the client's configured operation deadline begins with the subsequent client call. Explicit client `callTool(..., meta)` and `listToolsPage(..., meta)` bypass this bound-tool restriction intentionally.
 
-`McpToolBinding(definition, metadata = Omit, presets = empty)` pairs host authority, propagation policy and checked defaults for [manager registerBindings](../client/README.md#scoped-manager-contract). Existing bind calls retain omission; no implicit opt-in or core invocation API migration is required.
+`McpToolBinding(definition, metadata = Omit, presets = empty, fixedArguments = empty)` pairs host authority, propagation policy and checked argument policies for [manager registerBindings](../client/README.md#scoped-manager-contract). Existing bind calls retain omission; no implicit opt-in or core invocation API migration is required.
 
 ## Observation projection
 
@@ -57,17 +67,18 @@ A successful protocol reply with isError=true projects to ToolResultState.Error 
 
 ## Verification and acceptance
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current preset/binding source and test identities below and in the [client acceptance](../client/README.md#verification-and-acceptance), with no findings. Two pure preset groups, actual authorization/metadata/output-schema integration and checked manager rollback pass alongside existing binding scenarios. The [core acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records the output-schema scope.
-- [x] Formatting and full `verify` passed in `tool-output-schema-verify.log`: 574 core / 673 harness / 77 MCP tests (1,324 total), zero compiler warnings or failures.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current fixed-argument/binding source and test identities below, with no findings. Pure factory projection, actual registered authorization/default/metadata integration and checked manager rollback pass alongside the unchanged defaults-only scenario. The [core acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records the output-schema scope.
+- [x] Formatting and full `verify` passed in `mcp-fixed-arguments-verify.log`: 579 core / 673 harness / 78 MCP tests (1,330 total), zero compiler warnings or failures.
 
 | Source/test | Reviewed Git blob |
 | --- | --- |
 | [McpToolPresets.scala](McpToolPresets.scala) | 325bfc0091fe387b10c8a7a34d778defb9e1c242 |
-| [McpToolPresetsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolPresetsSpec.scala) | 53dec7e9f096a82ec8b663bd619b9b029e36a15b |
-| [McpTool.scala](McpTool.scala) | f7afaec0525d876666ddba031dc9495b5aa2fa44 |
-| [McpToolMetadata.scala](McpToolMetadata.scala) | 25bd3f5d6843fc9e0b01ea04bc8e01641b205cfa |
-| [McpToolMetadataSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) | aea7102a3970ca7be863ea69bdf219e7df7651e5 |
+| [McpToolPresetsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolPresetsSpec.scala) | cbb787de7a2ba56a81e8ab478c4b921fe44af481 |
+| [McpTool.scala](McpTool.scala) | 83f2dd83b1982bf67ce253015c0c9dd11fc43fd3 |
+| [McpToolMetadata.scala](McpToolMetadata.scala) | b67b218effea04ce18b2ba018bd37e121f03bcce |
+| [McpToolMetadataSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) | c5c8e8de8440c167c1a295d22209550998cda082 |
 | [McpToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolSpec.scala) | 2be53b2fdc30deea625a87e94057100b6d91858c |
+| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | c9b020b3f59e9b05e8ac627a640b483e97d2fe95 |
 
 ## Upstream scope and remaining work
 
@@ -77,7 +88,8 @@ The bounded adaptation of pinned `McpTool.callAsync` is fixed remote invocation 
 - [x] Explicit effectful metadata projection and live bound-tool omission have final independent approval; [method mappings](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) record default and context adaptations.
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
-- [ ] Next: install the core fixed-argument policy through MCP manager registration; current MCP presets remain model-overridable defaults. Groups and ambient context bags remain separate.
+- [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
+- [ ] Next: adapt host-selected tool-group registration and activation; fixed arguments and model-overridable defaults remain distinct. Groups and ambient context bags remain separate.
 - [ ] Implement provider multimodal projection separately; typed history/events alone do not supply it.
 The borrowed client supplies [bounded optional outbound cancellation](../client/README.md#outbound-cancellation-contract); binding adds no delivery guarantee.
 

@@ -22,6 +22,7 @@ import com.weisgnosis.agents.core.tool.{
   Tool,
   ToolDef,
   ToolExecutionResult,
+  ToolFixedArguments,
   ToolInvocation,
   ToolResultPayload
 }
@@ -52,11 +53,15 @@ object McpTool:
       binding: McpToolBinding
   ): Tool[Any, Json.Obj, McpCallResult] =
     new Tool[Any, Json.Obj, McpCallResult]:
-      def definition: ToolDef = binding.definition
+      def definition: ToolDef                         = binding.definition
+      override def fixedArguments: ToolFixedArguments = binding.fixedArguments
 
       def decodeInput(raw: Json): Either[String, Json.Obj] =
-        JsonBoundary
-          .validate(raw)
+        fixedArguments
+          .prepare(raw)
+          .left
+          .map(_.message)
+          .flatMap(JsonBoundary.validate)
           .flatMap:
             case value: Json.Obj => Right(value)
             case _               => Left("MCP tool arguments must be a JSON object")
