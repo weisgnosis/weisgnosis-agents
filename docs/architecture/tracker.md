@@ -12,7 +12,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 48 MCP tests (1,263 total), zero compiler warnings or failures. Evidence: `mcp-manager-verify.log`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 52 MCP tests (1,267 total), zero compiler warnings or failures. Evidence: `mcp-http-framing-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -57,7 +57,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-- [ ] Next: HTTP transport with an explicit selected-revision contract. The initialized client selects 2025-06-18 without claiming complete revision support.
+- [ ] Next: HTTP requests and session ownership with an explicit selected-revision contract; bounded JSON/SSE body framing is accepted. The initialized client selects 2025-06-18 without claiming complete revision support.
 - [ ] Complete declared/general-purpose composition, including explicit tool/prompt/configuration installation; retain the accepted construction boundary.
 - [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
 
@@ -81,6 +81,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [x] Implement bounded sequential discovery with explicit page/tool limits, exact opaque cursor handling, cycle rejection and no partial catalogue on failure. Both reviewers approved the final client/spec identities.
 - [x] `path_review` and `current_docs` approved manual MCP Toolkit binding at the exact [tool identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance), and full verification passed.
 - [x] Implement bounded manager ownership, host-selected registration, atomic immutable Toolkit publication and joined removal/closure. Both independent reviewers approved the final scope and full verification passed.
+- [x] Implement bounded HTTP JSON/SSE body framing with strict UTF-8, all SSE line endings, incomplete-event discard, complete causes and demand-preserving decoding. Both reviewers approved the exact [transport identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance); HTTP networking/session behavior remains unfinished.
 - [ ] Define presets, groups, ambient metadata propagation, schema transformation and discovery caching separately; bounded manager acceptance does not close these upstream contracts.
 - [ ] Validate live end-to-end cancellation, resource release and operational controls, confirm remote CI, and complete release/API compatibility and production acceptance.
 

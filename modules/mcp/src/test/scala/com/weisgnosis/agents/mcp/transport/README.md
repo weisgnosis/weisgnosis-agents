@@ -1,9 +1,10 @@
 # com.weisgnosis.agents.mcp.transport: tests
 
-The paired suites verify the [framing and stdio contracts](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md). They contain seven grouped scenarios, without accessor tests or artificial test-count targets.
+The paired suites verify the [framing and stdio contracts](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md). They contain eleven grouped scenarios, without accessor tests or artificial test-count targets.
 
 | Suite | Coverage |
 | --- | --- |
+| [McpHttpFramingSpec](McpHttpFramingSpec.scala), four groups | Fragmented BOM/Unicode and CR/LF/CRLF events; exact body/content budgets including ignored fields; strict JSON and outbound validation; incomplete-event discard, complete causes, unread malformed suffixes and joined cancellation. |
 | [McpStdioFramingSpec](McpStdioFramingSpec.scala), four groups | Bytewise UTF-8 and multiple LF/CRLF frames; exact byte budgets and malformed/BOM/blank/EOF rejection; full upstream causes and actual cancellation cleanup; checked outbound bytes and strict surrogate rejection. Same-chunk early take proves later malformed data is not decoded and no extra pull occurs. |
 | [McpStdioTransportSpec](McpStdioTransportSpec.scala), three groups | Real concurrent RPC frames and initialized-client list/call with reaping after scope release; direct invalid-send recovery and exclusive reader; invalid configuration, malformed stdout and process EOF; blocked-read, queued-write and active partial-write cancellation with observed child liveness. |
 
@@ -13,12 +14,13 @@ The complete-cause fixture uses a direct ZChannel and verifies the unframed base
 
 ## Acceptance and remaining tests
 
+- [x] `path_review` and `current_docs` approved HTTP framing source/spec identities with no findings; the transport acceptance records their exact scope and full verification evidence.
 - [x] `path_review` and `child_factory` independently approved final framing source/test identities with no findings.
 - [x] `path_review` and `registry_contract` approved unchanged stdio source/build identities; `path_review` and `current_docs` approved final spec/peer identities with initialized-client coverage and no findings.
-- [x] Seven focused groups pass against strict bytes and actual local JVM processes.
+- [x] Eleven groups pass against strict bytes and actual local JVM processes.
 - [x] Full repository verification passed; exact identities and evidence are in the [transport acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance).
 - [x] The real peer enforces initialize/initialized/ready ordering before discovery and invocation. Controlled-port client tests cover joined deadlines.
-- [ ] Cancellation notifications and automatic manager integration remain separate; manual Toolkit binding has its own tests.
-- [ ] HTTP framing/lifecycle and external-server/platform interoperability require separate implementation and evidence.
+- [x] Manager integration has separate [client tests](../client/README.md); manual Toolkit binding retains its own tests.
+- [ ] HTTP request/session lifecycle, cancellation notifications and external-server/platform interoperability require separate implementation and evidence.
 
 These tests do not establish whole AgentScope wrapper parity or complete protocol revision support.

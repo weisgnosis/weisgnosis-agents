@@ -1,7 +1,7 @@
 # mcp: test package index
 
 - [protocol](protocol/README.md): seventeen accepted envelope, initialization, and tool request/list/call-result groups.
-- [transport](transport/README.md): four framing and three real-process groups pass with independent final approvals and full repository verification.
+- [transport](transport/README.md): eight stdio/HTTP framing and three real-process groups pass with independent final approvals and full repository verification.
 - [client](client/README.md): twenty-one groups covering request registry, connection, initialized client and scoped manager ownership have independent approval and full verification; manager coverage includes the reproduced compound-cause regression.
 
 - [tool](tool/README.md): three binding integration groups covering authority/routing/content, argument validation/error distinctions and joined cancellation.

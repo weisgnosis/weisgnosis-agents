@@ -890,6 +890,10 @@ The six unfinished plan-mode methods remain unfinished. Parent Build must not ma
 
 ## MCP protocol and connection boundaries
 
+The HTTP prerequisite is covered by four [McpHttpFramingSpec](../../modules/mcp/src/test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) groups derived from SSE line/event rules and local strict-UTF-8, byte-budget and ZIO lifecycle contracts. JSON is one checked envelope at EOF; SSE dispatches complete data events only. These tests exercise no HTTP networking and close no upstream HTTP wrapper or builder method.
+
+- [x] `path_review` and `current_docs` approved the exact HTTP framing source/spec identities in the [transport acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance); full verification passed with 1,267 tests and zero compiler warnings or failures.
+
 AgentScope Java delegates JSON-RPC encoding to MCP SDK 0.17.2 at the pinned upstream revision. Its async/sync wrapper and builder tests cover SDK delegation, not the raw wire boundary. The [protocol suite](../../modules/mcp/src/test/scala/com/weisgnosis/agents/mcp/protocol/README.md) adds specification-derived coverage; it does not close those upstream wrapper methods.
 
 - [x] Preserve string versus integer correlation, notification omission, object results and absent versus explicit-null error data.

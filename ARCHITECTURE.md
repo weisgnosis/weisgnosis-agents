@@ -12,7 +12,7 @@ ReActAgent retains in-memory history through private Ref values and serializes r
 | --- | --- | --- |
 | core | Models/codecs, event ADT, tools, path checks, SSE parsing/assembly, scoped HTTP completion, client port, ReAct and structured output | Provider extensions, complete event integration, and exhaustive upstream parity |
 | harness | Daily-memory extraction/local storage, in-memory/recoverable local consolidation, in-memory/local transcript observations, compactor, token estimator, opt-in result eviction/store and permission adapters, reviewed plan sessions and local drafts, scoped task supervision, configured child factories, task/session registries and tools, live denial/Plan inheritance and explicit policy-aware child construction | Durable checkpoints/reuse, remote memory/transcript storage, declared/general-purpose composition and correlated event routing |
-| mcp | Checked 2025-06-18 initialization, capability-checked list/call, bounded discovery, joined deadlines, scoped stdio, explicit Toolkit binding and bounded scoped manager ownership | HTTP with an explicit revision contract; presets, groups, ambient metadata propagation, caching and schema evaluation |
+| mcp | Checked 2025-06-18 initialization, capability-checked list/call, bounded discovery, joined deadlines, scoped stdio, HTTP JSON/SSE body framing, explicit Toolkit binding and bounded scoped manager ownership | HTTP requests/session ownership with an explicit revision contract; presets, groups, ambient metadata propagation, caching and schema evaluation |
 
 Dependencies point from harness and mcp to core. Core must not import harness services. Hosts compose components and supply external dependencies.
 

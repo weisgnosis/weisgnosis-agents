@@ -92,7 +92,7 @@ Accepted scope: the four message cases, checked wire/AST conversion, strict enve
 ## Remaining work
 
 - [x] Selected-revision client initialization, capability checks, list/call and joined deadlines are accepted in the [client contract](../client/README.md).
-- [ ] Next: automatic manager registration/removal; manual Toolkit binding has a separate tool-package contract.
+- [x] Bounded manager registration/removal has separate [client acceptance](../client/README.md#scoped-manager-contract); manual Toolkit binding retains its separate tool-package contract.
 - [ ] Output-schema evaluation and provider multimodal projection remain separate from manual binding and core content conversion.
 - [ ] Method/version validation and integration with the lifecycle of each explicitly supported revision.
 

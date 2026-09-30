@@ -1,6 +1,6 @@
 # com.weisgnosis.agents.mcp.transport
 
-[McpTransport](McpTransport.scala) is a borrowed duplex message port. [McpStdioTransport](McpStdioTransport.scala) implements it for a host-selected direct child process; [McpStdioFraming](McpStdioFraming.scala) provides bounded UTF-8 newline framing. HTTP is not implemented.
+[McpTransport](McpTransport.scala) is a borrowed duplex message port. [McpStdioTransport](McpStdioTransport.scala) implements it for a host-selected direct child process; [McpStdioFraming](McpStdioFraming.scala) provides bounded UTF-8 newline framing. [McpHttpFraming](McpHttpFraming.scala) supplies bounded JSON/SSE body decoding and outbound JSON encoding. HTTP requests and session ownership remain unfinished.
 
 ## Port and lifetime
 
@@ -28,15 +28,28 @@ Split UTF-8 and multiple frames per chunk are supported. Completed messages are 
 
 `encode(message, maxFrameBytes)` validates the envelope, produces compact JSON with a strict UTF-8 encoder, checks the exact byte length and appends one LF. Bounds count wire bytes, not total JVM memory or the size of an already constructed message/serialized string. The adapter reads bounded chunks of available data and waits for at least one byte rather than waiting for an entire frame-sized buffer.
 
+## HTTP body framing
+
+`McpHttpFraming.encode(message, maxBytes = 1048576)` produces checked compact UTF-8 JSON without a delimiter. `json(maxBytes = 1048576)` reads one complete checked envelope at EOF, rejecting empty, multiple-envelope, BOM-prefixed and malformed UTF-8 bodies. Positive limits are validated before input is pulled; the outbound limit is checked before and after UTF-8 encoding.
+
+`sse(maxBodyBytes = 8L * 1024 * 1024, maxEventBytes = 1048576)` handles LF, CRLF and bare CR across chunk boundaries, strips one stream-leading BOM and combines `data` fields with newlines. Comments and other fields do not produce messages. A blank line dispatches a data event through the checked envelope decoder; `[DONE]` has no special meaning. Valid unfinished events are discarded at EOF, while an unfinished line must still contain valid UTF-8. Rejection of malformed UTF-8 is an explicit local policy, stricter than browser replacement decoding in the [SSE standard](https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation).
+
+The body limit counts every consumed byte. The event limit counts raw line content, including comments, unknown fields and BOM bytes, excluding CR/LF separators; it resets at each blank line. CR dispatches immediately without waiting for optional LF. Retained segments are bounded before copying. Emitting one event precedes inspecting later bytes in the same chunk, so early downstream completion does not decode an unread suffix. Both decoders preserve complete upstream failure causes and join owned stream cleanup on cancellation. These bounds do not cap an already allocated upstream chunk or total JVM memory.
+
+This component performs no HTTP requests, session negotiation, media-type dispatch, retries or cancellation notifications. It is a transport prerequisite, not an HTTP client or a complete protocol implementation.
+
 ## Verification and acceptance
 
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for HTTP framing at the exact source/spec identities below, with no findings. Four grouped tests cover line/Unicode boundaries, exact budgets, checked JSON, unread suffixes, complete causes and joined cancellation. Acceptance excludes HTTP requests and session lifecycle.
 - [x] `path_review` approved framing FP/ZIO correctness and `child_factory` approved framing invariants, with no findings at the recorded source/spec identities.
 - [x] `path_review` and `registry_contract` approved the unchanged adapter and forked test configuration. `path_review` and `current_docs` approved the final process fixtures/spec, including initialized-client list/call and reaping, with no findings at the recorded identities.
 - [x] Four framing groups and three real-process groups pass. They verify chunking, exact limits, strict Unicode, full upstream causes, early stop, direct validation, concurrent frames, one-reader admission, malformed/EOF handling and read/queued-write/active-write cancellation with direct-child reaping.
-- [x] `scalafmtAll`, `scalafmtSbt` and `verify` passed with zero compiler warnings or failed tests: core 562, harness 651, MCP 41; total 1,254. Evidence: `mcp-discovery-verify.log`.
+- [x] `scalafmtAll`, `scalafmtSbt` and `verify` passed with zero compiler warnings or failed tests: core 564, harness 651, MCP 52; total 1,267. Evidence: `mcp-http-framing-verify.log`.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
+| [McpHttpFraming.scala](McpHttpFraming.scala) | `4c4a982ccd744e6cbf77bb7febab4253ae81cbf9` |
+| [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | `2067fccfb8018c753b5a259e3cd40254f2cc2de9` |
 | [McpStdioFraming.scala](McpStdioFraming.scala) | `76545199289183041d814f27de01eae0a2c2d33c` |
 | [McpStdioFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioFramingSpec.scala) | `83db8decf53febdb299190ac7a9c1237e039ae85` |
 | [McpStdioTransport.scala](McpStdioTransport.scala) | `bf37d238e1b6b661e6c684a5c68c85ad3a223609` |
@@ -49,7 +62,7 @@ The port/connection acceptance is recorded separately in the [client contract](.
 ## Remaining work
 
 - [x] Selected 2025-06-18 client initialization, capability checks, list/call and joined deadlines are implemented and reviewed in the [client contract](../client/README.md).
-- [ ] Next: automatic manager registration/removal; manual Toolkit binding has a separate tool-package contract.
+- [x] Bounded manager registration/removal and host selection have separate [client acceptance](../client/README.md#scoped-manager-contract); manual Toolkit binding retains its separate tool-package contract.
 - [ ] Add an explicit cancellation-notification policy.
 - [ ] Implement the selected HTTP transport with its own limits, cleanup and integration review.
 - [ ] Validate additional platform/process configurations before extending the documented ownership claims.

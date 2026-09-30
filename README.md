@@ -10,7 +10,7 @@ Implementation is active. The bounded scoped MCP manager has independent approva
 
 - **core:** immutable messages, 39 typed event variants, JSON codecs, typed tools with completed observation payloads, path screening, SSE parsing and chunk assembly, and ReAct execution with interruption recovery, bounded thinking retries, and structured output.
 - **harness:** daily-memory extraction, scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, typed transcript observations with in-memory and scoped local stores and opt-in completion recording, typed memory triggers with shared monotonic admission, a scoped task queue with pending conversation coalescing and completion-triggered memory flush, conversation compaction, opt-in runtime result eviction and local storage, immutable permission decisions, interactive confirmation requests, and serializable durable approval data.
-- **mcp:** checked 2025-06-18 payloads, bounded request correlation, scoped RPC ownership and a direct-process stdio adapter with bounded framing. The initialized 2025-06-18 client adds capability-checked tool listing/calls, bounded discovery and joined operation deadlines. Manual McpTool binding adds host-selected authority and typed observations; its acceptance is recorded in the tool package.
+- **mcp:** checked 2025-06-18 payloads, bounded request correlation, scoped RPC ownership, direct-process stdio and bounded HTTP JSON/SSE body framing. The initialized client adds capability-checked listing/calls, bounded discovery and joined deadlines. Manual tool binding and the scoped manager preserve host authority, typed observations and resource ownership. HTTP networking/session support remains unfinished.
 
 LlmClient has scripted test clients and a scoped text/function HTTP implementation through ChatCompletionsClient. It publishes correlated incremental model events and requires validated stream completion before tool dispatch. Harness components are not automatically installed into ReActAgent. Durable approval resumption, broader middleware integration, remote memory/transcript storage, declaration-driven session creation remain separate work. Host-held sessions support process-local child reuse.
 
@@ -83,7 +83,8 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 Approval applies to the recorded scope and revisions, not exhaustive upstream parity. Other accepted components retain their package-level evidence.
 
 - [x] Both independent reviewers approved and full verification passed for [manual MCP tool binding](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance).
-- [x] Both independent reviewers approved the bounded scoped [MCP manager](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract); registration uses explicit host definitions and owns acquired resources. Full verification passed 1,263 tests with zero compiler warnings or failures; the client acceptance records exact identities and evidence.
+- [x] Both independent reviewers approved the bounded scoped [MCP manager](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract); registration uses explicit host definitions and owns acquired resources. Required verification passed; the client acceptance records exact identities and evidence.
+- [x] Both independent reviewers approved bounded [HTTP body framing](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#http-body-framing), and full verification passed. HTTP requests and session ownership remain outside this accepted scope.
 
 ## Integration boundaries
 

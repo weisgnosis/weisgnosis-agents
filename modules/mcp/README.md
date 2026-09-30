@@ -1,13 +1,13 @@
 # weisgnosis-agents-mcp
 
-This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter, initialized client, bounded discovery, manual Toolkit binding and bounded scoped manager are independently reviewed and verified. HTTP remains separate.
+This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter, initialized client, bounded discovery, manual Toolkit binding and bounded scoped manager are independently reviewed and verified. Bounded HTTP JSON/SSE body framing is also reviewed; HTTP requests and session ownership remain unfinished.
 
 | Package | Current scope |
 | --- | --- |
 | [protocol](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md) | Accepted checked envelopes, initialization helpers, tool requests, discovery pages and call results |
 | [client](src/main/scala/com/weisgnosis/agents/mcp/client/README.md) | Request correlation, connection ownership, initialized 2025-06-18 client and bounded scoped manager with host-selected immutable Toolkit publication |
 | [tool](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md) | Explicit borrowed-client binding, host definitions and typed content/error projection |
-| [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Borrowed message port, strict UTF-8/LF framing and scoped direct-process stdio; independently reviewed and verified |
+| [transport](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) | Borrowed message port, strict stdio and HTTP JSON/SSE framing, scoped direct-process stdio; independently reviewed and verified |
 
 The protocol boundary rejects ambiguous variants, duplicate keys and malformed known fields. Numeric envelope identities use a signed 256-bit parser-compatible range. Payload extensions remain data; tool annotations confer no execution authority. Schemas, URI/base64 strings and timestamps are retained without evaluation or resource fetching.
 
@@ -23,9 +23,11 @@ Explicit `discoverTools(maxPages, maxTools, meta)` traverses pages sequentially 
 
 ## Verification and acceptance
 
-- [x] `path_review` and `current_docs` approved scoped manager acquisition, atomic registration, immutable Toolkit snapshots and joined removal/closure. The [client contract](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract) owns exact identities and regression evidence. Full verification passed 564 core / 651 harness / 48 MCP tests (1,263 total), zero compiler warnings or failures, in `mcp-manager-verify.log`.
+- [x] Current `scalafmtAll scalafmtSbt verify` passed: 564 core / 651 harness / 52 MCP tests (1,267 total), zero compiler warnings or failures. Evidence: `mcp-http-framing-verify.log`.
+- [x] Both independent reviewers approved bounded HTTP body framing, and full verification passed. The [transport acceptance](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance) records exact identities and excludes unfinished HTTP networking/session behavior.
+- [x] `path_review` and `current_docs` approved scoped manager acquisition, atomic registration, immutable Toolkit snapshots and joined removal/closure. The [client contract](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract) owns exact identities and regression evidence.
 
-- [x] `path_review` and `current_docs` approved manual binding with no findings, and full verification passed; the [tool acceptance](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance) owns exact identities and current totals.
+- [x] `path_review` and `current_docs` approved manual binding with no findings, and full verification passed; the [tool acceptance](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance) owns its scoped identities and evidence.
 
 - [x] The [protocol acceptance](src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#verification-and-acceptance) records independent FP/ZIO and invariant approvals for the exact envelope and payload scope.
 - [x] The [client acceptance](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records independent approvals for scoped request correlation.

@@ -41,9 +41,10 @@ A successful protocol reply with isError=true projects to ToolResultState.Error 
 
 ## Upstream scope and remaining work
 
-The bounded adaptation of pinned `McpTool.callAsync` is fixed remote invocation and conversion of its result. `McpContentConverter.convertCallToolResult` maps to typed outcome/content projection. This implementation deliberately retains error content, audio, resources, structured content and metadata instead of upstream text-only error extraction and placeholders. It does not infer local read-only authority from remote hints as McpClientManager registration does.
+The bounded adaptation of pinned `McpTool.callAsync` is fixed remote invocation and conversion of its result. `McpContentConverter.convertCallToolResult` maps to typed outcome/content projection. This implementation deliberately retains error content, audio, resources, structured content and metadata instead of upstream text-only error extraction and placeholders. It does not infer local read-only authority from remote hints as the upstream Java McpClientManager registration does.
 
-- [ ] Implement automatic manager registration, filtering, prefixes, presets and removal under explicit host authority and lifetime contracts.
+- [x] Bounded scoped registration/removal and host-selected filtering/names have separate [manager acceptance](../client/README.md#scoped-manager-contract).
+- [ ] Define presets, groups and metadata overrides separately; host-selected naming does not imply every upstream registration option is implemented.
 - [ ] Implement provider multimodal projection separately; typed history/events alone do not supply it.
 - [ ] Keep caching, notification invalidation, cancellation notifications, reconnect, HTTP and output-schema evaluation as separate work.
 
