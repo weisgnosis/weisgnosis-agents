@@ -22,7 +22,7 @@ The [tool contract](../tool/README.md#typed-execution-observations) owns the res
 
 All events precede Result, including the terminal AgentEnd. Result preserves history, iteration count, aggregate usage and runtime state: ordinary cooperative interruption yields an Interrupted result with recovery history. Result does not imply Completed. A failing invocation emits no Result; fully consuming the stream retains its complete typed/defect/interruption Cause.
 
-Early consumers cancel and join owned execution but abandon later output, including later completion-observer errors. Existing unbounded delivery buffers provide neither backpressure nor replay. This additive execution envelope has no wire codec and changes no AgentEvent payload or constructor. Parent event forwarding, invocation-scoped tool event capabilities and delivery after promotion remain separate contracts.
+Early consumers cancel and join owned execution but abandon later output, including later completion-observer errors. Existing unbounded delivery buffers provide neither backpressure nor replay. This additive execution envelope has no wire codec and changes no AgentEvent payload or constructor. The separately reviewed [invocation event capability](../tool/README.md#invocation-event-capability) grants scoped publication to approved local tools; child forwarding and delivery after promotion remain pending.
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the exact identities below, with no remaining findings. Three grouped tests verify full ordinary/structured values, cooperative Interrupted state, terminal ordering, mixed causes and joined early/external cancellation. Required formatting, fatal-warning compilation and full verification passed: `agent-run-update-verify.log`; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
@@ -31,6 +31,8 @@ Early consumers cancel and join owned execution but abandon later output, includ
 | [AgentRunUpdate.scala](AgentRunUpdate.scala) | `e441b9614dba3364da17b6b4780c3a6fae002396` |
 | [ReActAgent.scala](ReActAgent.scala) | `2b377323bd2bb4e6bc707338c15126b448488624` |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | `20b296b5e3c6430eab21f3124b8fd49bd1acc6a0` |
+
+The stream table records its reviewed baseline. The current ReActAgent identity and verification belong to the [invocation capability acceptance](../tool/README.md#invocation-event-capability), which closes each approved tool's publication lease before result processing and preserves cancellation cleanup.
 
 ## Runtime events and result pairing
 
@@ -247,7 +249,7 @@ Migration: the optional constructor/builder dependency is additive, but position
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-The current ReActAgent identity is recorded under [result-bearing streams](#result-bearing-streams); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
+The current ReActAgent identity is recorded under [invocation capability acceptance](../tool/README.md#invocation-event-capability); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
 
 ## Current completion-observer identities
 

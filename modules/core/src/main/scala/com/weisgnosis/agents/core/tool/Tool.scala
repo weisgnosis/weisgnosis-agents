@@ -18,6 +18,7 @@ package com.weisgnosis.agents.core.tool
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
+import scala.annotation.unused
 
 /**
  * Type-safe functional tool interface with suspended ZIO execution.
@@ -29,6 +30,11 @@ trait Tool[-R, In, Out]:
   def isConcurrencySafe: Boolean = definition.isConcurrencySafe
   def isReadOnly: Boolean        = definition.isReadOnly
   def execute(input: In): ZIO[R, Throwable, Out]
+
+  /** Runtime invocation capabilities are explicit; existing tools retain their ordinary execution. */
+  def executeWithContext(input: In, @unused invocation: ToolInvocation): ZIO[R, Throwable, Out] =
+    execute(input)
+
   def decodeInput(raw: Json): Either[String, In]
   def encodeOutput(out: Out): String
 

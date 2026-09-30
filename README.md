@@ -4,7 +4,7 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. The bounded scoped MCP manager and POST-only HTTP adapter have independent approval and full verification. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is an invocation-scoped tool event capability, followed by correlated child event forwarding. Event routing and durable host recovery remain separate.
+Implementation is active. The bounded scoped MCP manager, POST-only HTTP adapter and invocation-scoped tool event capability have independent approval and full verification. The [immediate next work](docs/architecture/tracker.md#immediate-next-work) is correlated child event forwarding through owned execution. Durable host recovery remains separate.
 
 ## Implemented components
 

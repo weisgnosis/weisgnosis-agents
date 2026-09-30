@@ -955,7 +955,19 @@ final class ReActAgent private (
               if position == assistantPosition then
                 message.mapToolUseAt(indexed.ordinal)(_ => approved)
               else message
-            }) *> restore(toolkit.executeSafe(call.name, input))
+            }) *> restore(
+              ZIO.scoped(
+                ToolEventPort
+                  .open(eventHub)
+                  .flatMap(events =>
+                    toolkit.executeSafe(
+                      call.name,
+                      input,
+                      ToolInvocation.Active(context, approved, indexed.ordinal, events)
+                    )
+                  )
+              )
+            )
         resultBlock = res.payload.applyTo(
           ContentBlock.ToolResult(call.id, Some(call.name), state = res.state)
         )

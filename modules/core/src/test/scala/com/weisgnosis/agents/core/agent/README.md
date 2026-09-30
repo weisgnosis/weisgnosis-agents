@@ -26,7 +26,8 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 
 - [x] Three AgentRunUpdateSpec groups verify one actual ordinary execution with full history/aggregate usage and cleanup-before-result, a cooperatively interrupted result with one recovery, decoded structured values and exact mixed terminal causes, and held cleanup on early consumer completion or caller cancellation. No result is fabricated on failure.
 - [x] `path_review` and `current_docs` approved the final source/spec identities; full verification passed. The [stream contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#result-bearing-streams) owns exact hashes, commands and limitations.
-- [ ] Verify parent tool event capabilities and correlated child forwarding separately. Existing early-consumer abandonment of later observer errors is unchanged.
+- [x] [ToolInvocationSpec](../tool/ToolInvocationSpec.scala) verifies approved occurrence context and scoped event publication through actual ReAct runs; both reviewers approved the [capability contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#invocation-event-capability).
+- [ ] Verify correlated child forwarding separately. Existing early-consumer abandonment of later observer errors is unchanged.
 
 ## Typed local-result evidence
 

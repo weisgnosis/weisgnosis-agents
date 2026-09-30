@@ -44,18 +44,26 @@ final case class Toolkit(tools: Map[String, Tool[Any, ?, ?]] = Map.empty):
 
   /** Tool failures and defects are observations; interruption remains cancellation. */
   def executeSafe(name: String, rawArgs: Json): UIO[ToolExecutionResult] =
+    executeSafe(name, rawArgs, ToolInvocation.Detached)
+
+  def executeSafe(
+      name: String,
+      rawArgs: Json,
+      invocation: ToolInvocation
+  ): UIO[ToolExecutionResult] =
     ZIO.suspendSucceed {
       tools.get(name) match
         case None =>
           ZIO.succeed(
             ToolExecutionResult(s"Tool '$name' not found in toolkit.", ToolResultState.Error)
           )
-        case Some(tool) => executeTyped(tool, rawArgs)
+        case Some(tool) => executeTyped(tool, rawArgs, invocation)
     }
 
   private def executeTyped[In, Out](
       tool: Tool[Any, In, Out],
-      input: Json
+      input: Json,
+      invocation: ToolInvocation
   ): UIO[ToolExecutionResult] =
     ZIO
       .suspendSucceed {
@@ -67,7 +75,7 @@ final case class Toolkit(tools: Map[String, Tool[Any, ?, ?]] = Map.empty):
               s"Invalid arguments for '${tool.definition.name}': $error"
             )
           )
-          .flatMap(tool.execute)
+          .flatMap(input => tool.executeWithContext(input, invocation))
           .map: output =>
             val result = tool.encodeResult(output)
             result.state match

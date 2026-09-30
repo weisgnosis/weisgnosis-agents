@@ -12,6 +12,25 @@ Migration: String `ToolExecutionResult(...)` constructors and the `output` text 
 
 Interrupted compound causes are refailed with `orDie`: interruption and cleanup defects survive, while typed Throwable leaves become defects to retain the UIO contract. Ordinary non-interrupted failures and defects remain Error observations.
 
+## Invocation event capability
+
+`Tool.executeWithContext(input, invocation)` delegates to `execute(input)` by default. Existing tools need no implementation change. The original `Toolkit.executeSafe(name, arguments)` uses `ToolInvocation.Detached`; the overload accepts an explicit host capability. These execution dependencies have no JSON codec and cannot be supplied through model arguments.
+
+ReAct creates `Active(context, call, callOrdinal, events)` only for approved local execution, after persisting approved arguments. The zero-based tool occurrence distinguishes repeated model call IDs. Denied calls and matched provider inline results do not invoke this handler. Runtime request/reply correlation and the approved call are retained.
+
+`ToolEventPort` exposes publication only. Its scoped lease closes after execution cleanup and before result processing. Publication and closure are serialized: Published means enqueued on the runtime's unbounded hub, not consumed; retained ports return Closed after revocation. Cancellation joins cleanup and preserves interruption and cleanup defects. The lease does not own a child task, provide replay/backpressure, or forward child events automatically. Trusted contextual tools remain responsible for the events they publish; the port does not authenticate arbitrary event payloads.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the five identities below, with no unresolved findings. Three grouped tests cover approved occurrences, legacy/detached/denied execution, concurrent revocation and actual ReAct cancellation. Formatting, fatal-warning compilation and full verification passed in `tool-invocation-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [ ] Integrate correlated child execution and promotion with this capability; this acceptance does not close child-forwarding parity.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ToolInvocation.scala](ToolInvocation.scala) | `afaab56599f0bbb22efa95852bafb3938812aff9` |
+| [Tool.scala](Tool.scala) | `f03e5bf6e3e51de14a6a209c19dee0de913e8fed` |
+| [Toolkit.scala](Toolkit.scala) | `a4290b36029732a0d6d2e4e9714b95fc0661d9b2` |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | `73ef850c6317e79d7e2ffaff60efd0c6c5e0c607` |
+| [ToolInvocationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolInvocationSpec.scala) | `d43067266a986355091c9057ac55f9771b2947e8` |
+
 ## Implementation
 
 - [PathSafety](PathSafety.scala)
@@ -44,7 +63,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 | [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | a85af9fa35a0848944627973bda1413e4ca4e881 |
 | [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 703c7abec55bb3b4ea5d429ecefa76c9f1557b16 |
 
-The table records the typed-result review baseline. ReActAgent's current identity and verification are recorded in the independently approved [result-bearing stream extension](../agent/README.md#result-bearing-streams); typed tool behavior is unchanged.
+The table records the typed-result review baseline. Current Tool, Toolkit and ReActAgent identities are recorded under [invocation event capability](#invocation-event-capability); typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
 
 Platform-specific symlink/junction behavior and hostile filesystem races remain outside the verified guarantees. Current command-screening evidence is recorded in the [test README](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions).
 
