@@ -96,7 +96,7 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 
 - [x] HTTP POST and explicit GET have separate transport acceptance.
 - [x] Bounded optional outbound cancellation is accepted under the [cancellation contract](#outbound-cancellation-contract).
-- [ ] Next: define and implement bounded listener resumption within the same host-owned listen effect; general I/O recovery, session reinitialization and external interoperability remain unfinished.
+- [ ] Next: define and verify reproducible interoperability with a pinned independent server; general I/O recovery, session reinitialization and durable integration remain unfinished.
 - [ ] Define presets, groups, ambient metadata propagation, schema transformation and discovery caching separately.
 Manual Toolkit/ReAct integration tests belong to the separate tool package; the stdio contract records real-process initialization/list/call coverage.
 

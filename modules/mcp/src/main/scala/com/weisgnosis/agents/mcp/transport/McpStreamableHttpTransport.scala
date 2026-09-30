@@ -39,6 +39,10 @@ final case class McpHttpLimits(
 enum McpHttpListenResult:
   case Ended, Unsupported
 
+enum McpHttpListenPolicy derives JsonCodec:
+  case Single
+  case Resume(maxRestarts: Int)
+
 enum McpHttpTermination:
   case Deleted, Unsupported, AlreadyExpired, NoSession
 
@@ -50,6 +54,15 @@ enum McpHttpContinuation derives JsonCodec:
 /** Explicit host-run listening and termination; callers own and join both within the transport lifetime. */
 trait McpStreamableHttpTransport extends McpTransport:
   def listen: IO[AgentError, McpHttpListenResult]
+
+  /** Conservative compatibility default: custom transports must explicitly support resumption. */
+  def listen(policy: McpHttpListenPolicy): IO[AgentError, McpHttpListenResult] =
+    McpStreamableHttpTransport.listenBudget(policy) *> (policy match
+      case McpHttpListenPolicy.Single => listen
+      case _: McpHttpListenPolicy.Resume =>
+        ZIO.fail(
+          AgentError.McpError("MCP HTTP listener resumption is unsupported by this transport")
+        ))
 
   /**
    * Stops local admission for every outcome and attempts DELETE at most once. Callers share the full
@@ -66,7 +79,9 @@ trait McpStreamableHttpTransport extends McpTransport:
  * notifications; this transport does not originate them. Issuance is published only after validated
  * response headers, so cancellation before headers is ineligible and response cleanup can delay
  * notification enqueue. Listening is an explicit effect after initialization, never automatic. One
- * active explicit listener is allowed; EOF or 405 releases it for another fresh listen. Caller cancellation
+ * active explicit listener is allowed. Optional bounded resumption keeps its lease across GETs and
+ * requires a committed cursor; missing cursors and exhausted clean EOF return Ended, while 405
+ * returns Unsupported. Listener streams never accept RPC responses, including after resumption. Caller cancellation
  * joins GET cleanup without closing the transport unless cleanup also fails. Optional bounded
  * continuation resumes only the same send after joined response cleanup. Connection-loss recovery
  * also recognizes direct ClosedChannelException (except ClosedByInterruptException) and
@@ -78,6 +93,13 @@ trait McpStreamableHttpTransport extends McpTransport:
  * rejects a first termination attempt afterward. No automatic reinitialization is performed.
  */
 object McpStreamableHttpTransport:
+  private def listenBudget(policy: McpHttpListenPolicy): IO[AgentError.InvalidConfiguration, Int] =
+    policy match
+      case McpHttpListenPolicy.Single                     => ZIO.succeed(0)
+      case McpHttpListenPolicy.Resume(value) if value > 0 => ZIO.succeed(value)
+      case _: McpHttpListenPolicy.Resume =>
+        ZIO.fail(AgentError.InvalidConfiguration("MCP HTTP listener restarts must be positive"))
+
   private enum Initialization:
     case Fresh
     case Started(id: McpRequestId)
@@ -319,14 +341,18 @@ object McpStreamableHttpTransport:
           _ <- stopWithinGate(Cause.fail(AgentError.McpError("MCP HTTP transport closed")))
         yield ()
 
-    def listen: IO[AgentError, McpHttpListenResult] = ZIO.scoped:
-      ZIO
-        .acquireRelease(claimListener)(_ => gate.withPermit(listener.set(Listener.Idle)))
-        .flatMap(session =>
-          awaitListener(session).onExit:
-            case Exit.Failure(cause) if !cause.isInterruptedOnly => stop(cause)
-            case _                                               => ZIO.unit
-        )
+    def listen: IO[AgentError, McpHttpListenResult] = listen(McpHttpListenPolicy.Single)
+
+    override def listen(policy: McpHttpListenPolicy): IO[AgentError, McpHttpListenResult] =
+      listenBudget(policy).flatMap: budget =>
+        ZIO.scoped:
+          ZIO
+            .acquireRelease(claimListener)(_ => gate.withPermit(listener.set(Listener.Idle)))
+            .flatMap(session =>
+              awaitListener(session, budget).onExit:
+                case Exit.Failure(cause) if !cause.isInterruptedOnly => stop(cause)
+                case _                                               => ZIO.unit
+            )
 
     private def claimListener: IO[AgentError, Option[String]] = gate.withPermit:
       state.get.flatMap:
@@ -340,11 +366,14 @@ object McpStreamableHttpTransport:
           ZIO.fail(AgentError.McpError("MCP HTTP listening requires acknowledged initialization"))
 
     /** Keep the full GET outcome while racing terminal signals; cancellation always joins cleanup. */
-    private def awaitListener(session: Option[String]): IO[AgentError, McpHttpListenResult] =
+    private def awaitListener(
+        session: Option[String],
+        budget: Int
+    ): IO[AgentError, McpHttpListenResult] =
       ZIO.scoped:
         ZIO.uninterruptibleMask: restore =>
           for
-            action <- listenExchange(session).interruptible.forkScoped
+            action <- listenLoop(session, "", budget).interruptible.forkScoped
             observed <- restore(
               action.await
                 .map[Listening](Listening.Completed(_))
@@ -367,19 +396,52 @@ object McpStreamableHttpTransport:
       case Exit.Failure(observed) if !observed.isInterruptedOnly => cause ++ observed
       case _                                                     => cause
 
-    private def listenExchange(session: Option[String]): IO[AgentError, McpHttpListenResult] =
-      ZIO.scoped:
-        val requestHeaders = headers ++ Headers(
-          "Accept"               -> "text/event-stream",
-          "MCP-Protocol-Version" -> McpInitialization.protocolVersion
-        ) ++ session.fold(Headers.empty)(id => Headers("Mcp-Session-Id", id))
+    private def listenLoop(
+        session: Option[String],
+        cursor: String,
+        remaining: Int
+    ): IO[AgentError, McpHttpListenResult] =
+      ZIO.uninterruptibleMask: restore =>
         for
+          checkpoint <- Ref.make(cursor)
+          exit       <- restore(listenExchange(session, cursor, checkpoint)).exit
+          result <- exit match
+            case Exit.Success(McpHttpListenResult.Ended) if remaining > 0 =>
+              checkpoint.get.flatMap: committed =>
+                if committed.isEmpty then ZIO.succeed(McpHttpListenResult.Ended)
+                else restore(listenLoop(session, committed, remaining - 1))
+            case Exit.Success(value) => ZIO.succeed(value)
+            case Exit.Failure(cause @ Cause.Fail(_: ConnectionLoss, _)) if remaining > 0 =>
+              checkpoint.get.flatMap: committed =>
+                if committed.isEmpty then ZIO.refailCause(cause.map(domainError))
+                else restore(listenLoop(session, committed, remaining - 1))
+            case Exit.Failure(cause) => ZIO.refailCause(cause.map(domainError))
+        yield result
+
+    private def listenExchange(
+        session: Option[String],
+        cursor: String,
+        checkpoint: Ref[String]
+    ): IO[AttemptError, McpHttpListenResult] =
+      ZIO.scoped:
+        for
+          _ <- state.get.flatMap:
+            case State.Open(_) => ZIO.unit
+            // The outer terminal race interrupts this wait; never reflect its Cause into the action.
+            case State.Stopped(_, _) => ZIO.never
+          resumeHeaders <-
+            if cursor.isEmpty then ZIO.succeed(Headers.empty)
+            else cursorHeader(cursor).map(Headers("Last-Event-ID", _))
+          requestHeaders = headers ++ Headers(
+            "Accept"               -> "text/event-stream",
+            "MCP-Protocol-Version" -> McpInitialization.protocolVersion
+          ) ++ session.fold(Headers.empty)(id => Headers("Mcp-Session-Id", id)) ++ resumeHeaders
           response <- ZIO.uninterruptibleMask: restore =>
             restore(
               Client
                 .streaming(Request.get(url).addHeaders(requestHeaders))
                 .provideSomeEnvironment[Scope](_.add(http))
-            ).mapError(boundary("MCP HTTP GET"))
+            ).mapError(attemptBoundary("MCP HTTP GET"))
           result <-
             if response.status.code == 405 then ZIO.succeed(McpHttpListenResult.Unsupported)
             else
@@ -404,16 +466,9 @@ object McpStreamableHttpTransport:
                   .fail(AgentError.McpError("MCP HTTP GET requires text/event-stream"))
                   .unless(kind == ContentType.Sse)
                 _ <- response.body.asStream
-                  .mapError(boundary("MCP HTTP GET body"))
-                  .via(McpHttpFraming.sse(limits.sseResponseBytes, limits.sseEventBytes))
-                  .runForeach:
-                    case message: McpMessage.Request      => offerListening(message)
-                    case message: McpMessage.Notification => offerListening(message)
-                    case _ =>
-                      ZIO.fail(
-                        AgentError
-                          .McpError("MCP HTTP GET cannot carry responses without resumption")
-                      )
+                  .mapError(attemptBoundary("MCP HTTP GET body"))
+                  .via(McpHttpFraming.sseEvents(limits.sseResponseBytes, limits.sseEventBytes))
+                  .runForeach(event => offerListening(event, checkpoint))
               yield McpHttpListenResult.Ended
         yield result
 
@@ -443,18 +498,33 @@ object McpStreamableHttpTransport:
                 ))
         .flatMap(proceedListening)
 
-    private def offerListening(message: McpMessage): IO[AgentError, Unit] =
-      gate
-        .withPermit(state.get.flatMap:
-          case State.Stopped(_, _) => ZIO.succeed(ListeningGate.Stopped)
-          case State.Open(_) =>
-            queue
-              .offer(message)
-              .map:
-                case true => ListeningGate.Continue
-                case false =>
-                  ListeningGate.Rejected(AgentError.McpError("MCP HTTP incoming capacity reached")))
-        .flatMap(proceedListening)
+    private def offerListening(
+        event: McpHttpFraming.McpSseEvent,
+        checkpoint: Ref[String]
+    ): IO[AgentError, Unit] =
+      event.message match
+        case Some(_: McpMessage.Success) | Some(_: McpMessage.Failure) =>
+          ZIO.fail(AgentError.McpError("MCP HTTP listener streams cannot carry RPC responses"))
+        case _ =>
+          gate
+            .withPermit(ZIO.uninterruptible:
+              state.get.flatMap:
+                case State.Stopped(_, _) => ZIO.succeed(ListeningGate.Stopped)
+                case State.Open(_) =>
+                  val commit = checkpoint.set(event.lastEventId).as(ListeningGate.Continue)
+                  event.message match
+                    case None => commit
+                    case Some(message) =>
+                      queue
+                        .offer(message)
+                        .flatMap:
+                          case true => commit
+                          case false =>
+                            ZIO.succeed(
+                              ListeningGate
+                                .Rejected(AgentError.McpError("MCP HTTP incoming capacity reached"))
+                            ))
+            .flatMap(proceedListening)
 
     def incoming: ZStream[Any, AgentError, McpMessage] = ZStream.unwrapScoped:
       ZIO

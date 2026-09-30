@@ -18,6 +18,7 @@ package com.weisgnosis.agents.mcp.transport
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.mcp.client.McpClient
 import com.weisgnosis.agents.mcp.protocol.*
+import scala.annotation.unused
 import zio.*
 import zio.http.*
 import zio.json.ast.Json
@@ -108,7 +109,243 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
       .open(http, endpoint, limits = limits)
       .flatMap(McpClient.open(_, McpImplementation("client", "1")))
 
+  private def readyListener(
+      get: Request => ZIO[Scope, Throwable, Response]
+  ): ZIO[Scope, AgentError, McpStreamableHttpTransport] =
+    for
+      transport <- McpStreamableHttpTransport.open(
+        scripted(request =>
+          if request.method == Method.GET then get(request)
+          else
+            decode(request).flatMap:
+              case McpMessage.Request(id, "initialize", _) =>
+                json(McpMessage.Success(id, initialization))
+                  .map(_.addHeader("Mcp-Session-Id", "listener"))
+              case _ => ZIO.succeed(Response.status(Status.Accepted))
+        ),
+        endpoint
+      )
+      _ <- transport.send(McpMessage.Request(McpRequestId.Number(1), "initialize"))
+      _ <- transport.send(McpInitialization.initialized)
+    yield transport
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpStreamableHttpTransportSpec")(
+    test(
+      "listener resumption keeps its stream identity and finite cursor budget without granting reply routing"
+    ) {
+      for
+        routed <- ZIO.scoped:
+          for
+            seen <- Ref.make(Chunk.empty[Headers])
+            notice  = McpMessage.Notification("notifications/message")
+            request = McpMessage.Request(pingId, "ping")
+            transport <- readyListener(r =>
+              seen
+                .modify(previous => (previous.size, previous :+ r.headers))
+                .map(index =>
+                  if index == 0 then stream(rawEvents("id: first\n") ++ event(notice))
+                  else stream(rawEvents("id:\n") ++ event(request))
+                )
+            )
+            result   <- transport.listen(McpHttpListenPolicy.Resume(2))
+            incoming <- transport.incoming.take(3).runCollect
+            headers  <- seen.get
+          yield result == McpHttpListenResult.Ended &&
+            incoming == Chunk(
+              McpMessage.Success(McpRequestId.Number(1), initialization),
+              notice,
+              request
+            ) &&
+            headers.map(_.get("Last-Event-ID")) == Chunk(None, Some("first")) &&
+            headers.forall(_.get("Mcp-Session-Id").contains("listener"))
+        cases <- ZIO.foreach(
+          Chunk(
+            (
+              McpHttpListenPolicy.Single,
+              Chunk("id: cursor\n\n"),
+              Status.Ok,
+              Some(McpHttpListenResult.Ended),
+              1
+            ),
+            (
+              McpHttpListenPolicy.Resume(2),
+              Chunk("id: cursor\n\n", "", ""),
+              Status.Ok,
+              Some(McpHttpListenResult.Ended),
+              3
+            ),
+            (
+              McpHttpListenPolicy.Resume(2),
+              Chunk(": no cursor\n\n"),
+              Status.Ok,
+              Some(McpHttpListenResult.Ended),
+              1
+            ),
+            (
+              McpHttpListenPolicy.Resume(2),
+              Chunk("id: cursor\n\n", ": cleared\n\n"),
+              Status.Ok,
+              Some(McpHttpListenResult.Ended),
+              2
+            ),
+            (
+              McpHttpListenPolicy.Resume(2),
+              Chunk(""),
+              Status.MethodNotAllowed,
+              Some(McpHttpListenResult.Unsupported),
+              1
+            ),
+            (
+              McpHttpListenPolicy.Resume(2),
+              Chunk("id: cursor\n\n", "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n"),
+              Status.Ok,
+              None,
+              2
+            )
+          )
+        ): (policy, bodies, status, expected, count) =>
+          ZIO.scoped:
+            for
+              gets <- Ref.make(0)
+              transport <- readyListener(_ =>
+                gets
+                  .getAndUpdate(_ + 1)
+                  .map(index =>
+                    stream(rawEvents(bodies.lift(index).getOrElse(""))).copy(status = status)
+                  )
+              )
+              invalid <- transport.listen(McpHttpListenPolicy.Resume(0)).exit
+              before  <- gets.get
+              result  <- transport.listen(policy).exit
+              actual  <- gets.get
+            yield invalid.isFailure && before == 0 && actual == count && (expected match
+              case Some(value) => result == Exit.succeed(value)
+              case None        => result.isFailure)
+        calls <- Ref.make(0)
+        custom = new McpStreamableHttpTransport:
+          def listen: IO[AgentError, McpHttpListenResult] =
+            calls.update(_ + 1).as(McpHttpListenResult.Ended)
+          def terminateSession: IO[AgentError, McpHttpTermination] =
+            ZIO.succeed(McpHttpTermination.NoSession)
+          def send(@unused message: McpMessage): ZIO[Scope, AgentError, Unit] = ZIO.unit
+          def incoming: ZStream[Any, AgentError, McpMessage]                  = ZStream.empty
+        delegated      <- custom.listen(McpHttpListenPolicy.Single)
+        unsupported    <- custom.listen(McpHttpListenPolicy.Resume(1)).exit
+        invalid        <- custom.listen(McpHttpListenPolicy.Resume(0)).exit
+        delegatedCount <- calls.get
+      yield assertTrue(
+        routed,
+        cases.forall(identity),
+        delegated == McpHttpListenResult.Ended,
+        unsupported.isFailure,
+        invalid.causeOption.exists(_.failureOption.exists {
+          case _: AgentError.InvalidConfiguration => true
+          case _                                  => false
+        }),
+        delegatedCount == 1
+      )
+    },
+    test(
+      "listener retries only isolated typed loss after joined cleanup and keeps cancellation ownership across GETs"
+    ) {
+      def projected(error: Throwable): AgentError = error match
+        case domain: AgentError => domain
+        case other =>
+          AgentError.McpError(
+            s"MCP HTTP GET body failed (${other.getClass.getName}): ${Option(other.getMessage).getOrElse("no message")}"
+          )
+      ZIO.scoped:
+        for
+          gets          <- Ref.make(0)
+          cleaning      <- Promise.make[Nothing, Unit]
+          release       <- Promise.make[Nothing, Unit]
+          entered       <- Promise.make[Nothing, Unit]
+          cancelled     <- Promise.make[Nothing, Unit]
+          cancelRelease <- Promise.make[Nothing, Unit]
+          loss = new java.nio.channels.ClosedChannelException
+          transport <- readyListener(_ =>
+            gets
+              .getAndUpdate(_ + 1)
+              .flatMap(index =>
+                if index == 0 then
+                  ZIO
+                    .addFinalizer(cleaning.succeed(()).unit *> release.await)
+                    .as(
+                      stream(
+                        rawEvents("id: cursor\n\n") ++ ZStream
+                          .fromChannel(ZChannel.refailCause(Cause.fail(loss)))
+                      )
+                    )
+                else
+                  ZIO
+                    .addFinalizer(cancelled.succeed(()).unit *> cancelRelease.await)
+                    .as(stream(ZStream.fromZIO(entered.succeed(())).drain ++ ZStream.never))
+              )
+          )
+          listening <- transport.listen(McpHttpListenPolicy.Resume(2)).forkScoped
+          observed <- (for
+            _         <- cleaning.await
+            before    <- gets.get
+            duplicate <- transport.listen.exit
+            _         <- release.succeed(())
+            _         <- entered.await
+            stopping  <- listening.interrupt.forkScoped
+            _         <- cancelled.await
+            pending   <- stopping.poll
+            during    <- transport.listen.exit
+            _         <- cancelRelease.succeed(())
+            stopped   <- stopping.join
+            total     <- gets.get
+          yield before == 1 && duplicate.isFailure && pending.isEmpty && during.isFailure &&
+            stopped.isInterrupted && total == 2)
+            .ensuring(release.succeed(()).unit *> cancelRelease.succeed(()).unit)
+          excluded <- ZIO.foreach(
+            Chunk(
+              (
+                Cause.fail(new java.io.IOException("generic body loss")),
+                Exit.unit,
+                "id: cursor\n\n",
+                2,
+                1
+              ),
+              (
+                Cause.fail(new java.nio.channels.ClosedByInterruptException),
+                Exit.unit,
+                "id: cursor\n\n",
+                2,
+                1
+              ),
+              (
+                Cause.fail(loss),
+                Exit.die(new IllegalStateException("cleanup failure")),
+                "id: cursor\n\n",
+                2,
+                1
+              ),
+              (Cause.fail(loss), Exit.unit, "id: unfinished\n", 2, 1),
+              (Cause.fail(loss), Exit.unit, "id: cursor\n\n", 1, 2)
+            )
+          ): (cause, cleanup, prefix, budget, expectedAttempts) =>
+            ZIO.scoped:
+              for
+                count <- Ref.make(0)
+                port <- readyListener(_ =>
+                  count.update(_ + 1) *> ZIO
+                    .addFinalizer(cleanup)
+                    .as(
+                      stream(
+                        rawEvents(prefix) ++
+                          ZStream.fromChannel(ZChannel.refailCause(cause))
+                      )
+                    )
+                )
+                result   <- port.listen(McpHttpListenPolicy.Resume(budget)).exit
+                attempts <- count.get
+              yield attempts == expectedAttempts && result.causeOption.contains(
+                cause.map(projected) ++ cleanup.causeOption.getOrElse(Cause.empty)
+              )
+        yield assertTrue(observed, excluded.forall(identity))
+    },
     test(
       "typed connection loss resumes the committed cursor and captured session within one GET budget"
     ) {
@@ -807,7 +1044,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
             before      <- gets.get
             call        <- initialized.listToolsPage().forkScoped
             _           <- requested.await
-            listening   <- transport.listen.forkScoped
+            listening   <- transport.listen(McpHttpListenPolicy.Resume(1)).forkScoped
             result      <- listening.join
             page        <- call.join
             seen        <- gets.get
