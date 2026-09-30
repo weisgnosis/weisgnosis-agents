@@ -19,7 +19,7 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
-import com.weisgnosis.agents.core.tool.{ToolAuthorization, ToolAuthorizer, Toolkit}
+import com.weisgnosis.agents.core.tool.{ToolAuthorization, ToolAuthorizer, ToolEventPort, Toolkit}
 import com.weisgnosis.agents.harness.permission.{PermissionBehavior, PermissionEngine}
 import zio.*
 import zio.json.ast.Json
@@ -88,7 +88,26 @@ final class SubagentFactory private (
   ): ZIO[Scope, AgentError, TaskAdmission[AgentResult]] =
     parent.spawn(child => build(child).flatMap(_.run(input)))
 
+  private[subagent] def spawn(
+      parent: SubagentSpawner[AgentResult],
+      input: Msg,
+      id: SubagentTaskId,
+      events: Option[ToolEventPort]
+  ): ZIO[Scope, AgentError, TaskAdmission[AgentResult]] =
+    parent.spawn(child =>
+      build(child).flatMap(runtime => SubagentFactory.run(runtime, input, id, events))
+    )
+
 object SubagentFactory:
+  private[subagent] def run(
+      runtime: ReActAgent,
+      input: Msg,
+      id: SubagentTaskId,
+      events: Option[ToolEventPort]
+  ): ZIO[Scope, AgentError, AgentResult] = events match
+    case None              => runtime.run(input)
+    case Some(destination) => runtime.runForwarding(input, destination, id.value.toString)
+
   def make(
       config: AgentConfig,
       model: LlmConfig,

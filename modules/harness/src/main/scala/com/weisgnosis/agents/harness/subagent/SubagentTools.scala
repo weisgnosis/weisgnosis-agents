@@ -18,7 +18,7 @@ package com.weisgnosis.agents.harness.subagent
 import com.weisgnosis.agents.core.agent.{AgentResult, AgentRunState}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolEventPort, ToolInvocation, Toolkit}
 import java.util.UUID
 import zio.*
 import zio.json.*
@@ -95,7 +95,7 @@ object SubagentTools:
       "task_id",
       Access.Observation,
       value => uuid("task_id", value).map(SubagentTaskId(_))
-    )(inspectTask)
+    )((registry, id, _) => inspectTask(registry, id))
     val cancel = catalogTool[SubagentTaskId](
       catalog,
       "agent_cancel",
@@ -103,7 +103,7 @@ object SubagentTools:
       "task_id",
       Access.Control,
       value => uuid("task_id", value).map(SubagentTaskId(_))
-    )(cancelTask)
+    )((registry, id, _) => cancelTask(registry, id))
     Toolkit(Map("agent_spawn" -> spawn, "agent_task" -> inspect, "agent_cancel" -> cancel))
 
   /** Route only to ready memberships in this host-selected directory; no creation authority. */
@@ -123,7 +123,7 @@ object SubagentTools:
       "task_id",
       Access.Observation,
       value => uuid("task_id", value).map(SubagentTaskId(_))
-    )(inspectTask)
+    )((registry, id, _) => inspectTask(registry, id))
     val cancel = routedTool[SubagentTaskId](
       directory,
       "agent_cancel",
@@ -131,7 +131,7 @@ object SubagentTools:
       "task_id",
       Access.Control,
       value => uuid("task_id", value).map(SubagentTaskId(_))
-    )(cancelTask)
+    )((registry, id, _) => cancelTask(registry, id))
     Toolkit(Map("agent_send" -> send, "agent_task" -> inspect, "agent_cancel" -> cancel))
 
   private enum Observation[+A]:
@@ -149,7 +149,7 @@ object SubagentTools:
     val invoke = tool[String, SubagentToolResult](
       definition(invocation.name, invocation.description, Chunk("prompt"), Access.Control),
       stringField("prompt")
-    )(prompt => submit(registry, prompt).flatMap(respond(invocation.name, _)))
+    )((prompt, events) => submit(registry, prompt, events).flatMap(respond(invocation.name, _)))
     val inspect = tool[SubagentTaskId, SubagentToolResult](
       definition(
         "agent_task",
@@ -158,7 +158,7 @@ object SubagentTools:
         Access.Observation
       ),
       taskIdInput
-    )(id => inspectTask(registry, id).flatMap(respond("agent_task", _)))
+    )((id, _) => inspectTask(registry, id).flatMap(respond("agent_task", _)))
     val cancel = tool[SubagentTaskId, SubagentToolResult](
       definition(
         "agent_cancel",
@@ -167,16 +167,17 @@ object SubagentTools:
         Access.Control
       ),
       taskIdInput
-    )(id => cancelTask(registry, id).flatMap(respond("agent_cancel", _)))
+    )((id, _) => cancelTask(registry, id).flatMap(respond("agent_cancel", _)))
     Toolkit(Map(invocation.name -> invoke, "agent_task" -> inspect, "agent_cancel" -> cancel))
 
   private def submit(
       registry: SubagentTaskRegistry,
-      prompt: String
+      prompt: String,
+      events: Option[ToolEventPort]
   ): IO[AgentError, Observation[SubagentToolResult]] =
     ZIO.scoped:
       registry
-        .submit(Msg.user(prompt))
+        .submit(Msg.user(prompt), events)
         .flatMap:
           case SubagentTaskSubmission.Accepted(id) =>
             registry
@@ -237,7 +238,9 @@ object SubagentTools:
       access: Access,
       decodeValue: String => Either[String, In]
   )(
-      run: (SubagentTaskRegistry, In) => IO[AgentError, Observation[SubagentToolResult]]
+      run: (SubagentTaskRegistry, In, Option[ToolEventPort]) => IO[AgentError, Observation[
+        SubagentToolResult
+      ]]
   ): Tool[Any, RoutedInput[In], SubagentSessionToolResult] =
     tool[RoutedInput[In], SubagentSessionToolResult](
       definition(name, description, Chunk("session_id", field), access),
@@ -247,7 +250,7 @@ object SubagentTools:
             id    <- uuid("session_id", session).map(SubagentSessionId(_))
             input <- decodeValue(value)
           yield RoutedInput(id, input)
-    )(input =>
+    )((input, events) =>
       directory
         .lookup(input.sessionId)
         .flatMap:
@@ -257,7 +260,7 @@ object SubagentTools:
               Observation.Error(SubagentSessionToolResult.Missing(input.sessionId.value.toString))
             )
           case Some(session) =>
-            run(session.executions, input.value).flatMap(observation =>
+            run(session.executions, input.value, events).flatMap(observation =>
               respond[SubagentSessionToolResult](
                 name,
                 observation.map(result =>
@@ -275,7 +278,9 @@ object SubagentTools:
       access: Access,
       decodeValue: String => Either[String, In]
   )(
-      run: (SubagentTaskRegistry, In) => IO[AgentError, Observation[SubagentToolResult]]
+      run: (SubagentTaskRegistry, In, Option[ToolEventPort]) => IO[AgentError, Observation[
+        SubagentToolResult
+      ]]
   ): Tool[Any, CatalogInput[In], SubagentCatalogToolResult] =
     val available =
       catalog.entries.map(entry => s"${entry.name}: ${entry.description}").mkString("\n")
@@ -289,7 +294,7 @@ object SubagentTools:
       raw =>
         pairedStrings("agent_id", field)(raw).flatMap: (agentId, value) =>
           decodeValue(value).map(CatalogInput(agentId, _))
-    )(input =>
+    )((input, events) =>
       catalog.lookup(input.agentId) match
         case None =>
           respond[SubagentCatalogToolResult](
@@ -297,7 +302,7 @@ object SubagentTools:
             Observation.Error(SubagentCatalogToolResult.Missing(input.agentId))
           )
         case Some(registry) =>
-          run(registry, input.value)
+          run(registry, input.value, events)
             .mapError: error =>
               val failure: SubagentCatalogToolResult =
                 SubagentCatalogToolResult.Failed(input.agentId, preview(error.message))
@@ -338,10 +343,15 @@ object SubagentTools:
       definitionValue: ToolDef,
       decode: Json => Either[String, In]
   )(
-      run: In => IO[AgentError, Out]
+      run: (In, Option[ToolEventPort]) => IO[AgentError, Out]
   ): Tool[Any, In, Out] = new Tool[Any, In, Out]:
-    def definition: ToolDef                        = definitionValue
-    def execute(input: In): IO[AgentError, Out]    = ZIO.suspendSucceed(run(input))
+    def definition: ToolDef                     = definitionValue
+    def execute(input: In): IO[AgentError, Out] = ZIO.suspendSucceed(run(input, None))
+    override def executeWithContext(input: In, invocation: ToolInvocation): IO[AgentError, Out] =
+      val events = invocation match
+        case ToolInvocation.Detached              => None
+        case ToolInvocation.Active(_, _, _, port) => Some(port)
+      ZIO.suspendSucceed(run(input, events))
     def decodeInput(raw: Json): Either[String, In] = decode(raw)
     def encodeOutput(output: Out): String          = output.toJson
 

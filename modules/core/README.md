@@ -19,7 +19,7 @@ Tool.encodeResult preserves String/Success behavior by default and permits typed
 
 ## Current review acceptance
 
-- [x] `path_review` and `current_docs` approved package-visible direct event forwarding with caller-owned results, ordered draining and complete failure causes. The [agent contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md#direct-event-forwarding) records exact evidence; harness wiring remains pending.
+- [x] `path_review` and `current_docs` approved package-visible direct event forwarding with caller-owned results, ordered draining and complete failure causes. The [agent contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md#direct-event-forwarding) records exact core evidence; harness wiring has its own scoped acceptance.
 
 - [x] `path_review` and `current_docs` approved explicit tool invocation context and scoped publication revocation, including actual ReAct cancellation. The [capability contract](src/main/scala/com/weisgnosis/agents/core/tool/README.md#invocation-event-capability) records migration, limits, exact identities and full verification.
 

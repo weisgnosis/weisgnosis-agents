@@ -63,7 +63,8 @@ Both resource defects were reproduced before correction. The initialization regr
 - [x] Verify inline declarations and the general-purpose preset; `path_review` and `current_docs` approved the exact source/spec identities in the package acceptance, with full verification passing.
 - [x] `path_review` and `current_docs` approved catalog routing and the reproduced selected-identity regression; exact scope, hashes and full verification are in the package acceptance.
 - [ ] Complete broader declaration loading, automatic named reusable-session creation and remaining upstream propagation assertions.
-- [ ] Verify correlated child event forwarding and automatic source attribution.
+- [x] [SubagentForwardingSpec](SubagentForwardingSpec.scala) verifies actual fixed/catalog nested events with runtime execution sources and paired lifecycle IDs, full retained results and model-call counts; promotion with same-execution completion; and fresh fixed/directory session leases with joined cancellation/removal and retained cleanup defects. Both reviewers approved the [exact identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance), and full verification passed.
+- [ ] Verify independently observed cancellation-tail delivery; a cancelled public stream consumer is not promised its abandoned tail.
 - [ ] Complete remaining applicable upstream method mappings after those APIs exist.
 
-Next task: verify invocation-scoped tool event capability and child forwarding; correlated events and durable host integration remain separate.
+Next task: verify inline declaration parsing against the existing validated model; filesystem discovery and durable host integration remain separate.

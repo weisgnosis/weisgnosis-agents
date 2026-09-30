@@ -18,7 +18,9 @@ package com.weisgnosis.agents.harness.subagent
 import com.weisgnosis.agents.core.agent.AgentResult
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
+import com.weisgnosis.agents.core.tool.ToolEventPort
 import java.util.UUID
+import scala.annotation.unused
 import zio.*
 
 /** Identifies one execution within a registry; the value does not confer execution authority. */
@@ -44,6 +46,13 @@ enum SubagentTaskRemoval:
  */
 trait SubagentTaskRegistry:
   def submit(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission]
+
+  /** Existing custom registries may retain detached execution by using this default. */
+  def submit(
+      input: Msg,
+      @unused events: Option[ToolEventPort]
+  ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
+    submit(input)
   def inspect(id: SubagentTaskId): UIO[Option[SubagentTaskSnapshot]]
   def list: UIO[Chunk[SubagentTaskSnapshot]]
   def await(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]]
@@ -71,10 +80,14 @@ object SubagentTaskRegistry:
       factory: SubagentFactory,
       maxTracked: Int = 256
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
-    openWith(input => factory.spawn(parent, input), maxTracked)
+    openWith((input, id, events) => factory.spawn(parent, input, id, events), maxTracked)
 
   private[subagent] def openWith(
-      launchTask: Msg => ZIO[Scope, AgentError, TaskAdmission[AgentResult]],
+      launchTask: (Msg, SubagentTaskId, Option[ToolEventPort]) => ZIO[
+        Scope,
+        AgentError,
+        TaskAdmission[AgentResult]
+      ],
       maxTracked: Int
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
     ZIO.uninterruptible:
@@ -89,23 +102,36 @@ object SubagentTaskRegistry:
       yield registry
 
   final private class Live(
-      launchTask: Msg => ZIO[Scope, AgentError, TaskAdmission[AgentResult]],
+      launchTask: (Msg, SubagentTaskId, Option[ToolEventPort]) => ZIO[
+        Scope,
+        AgentError,
+        TaskAdmission[AgentResult]
+      ],
       maxTracked: Int,
       gate: Semaphore,
       state: Ref[State]
   ) extends SubagentTaskRegistry:
     def submit(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] =
+      submit(input, None)
+
+    override def submit(
+        input: Msg,
+        events: Option[ToolEventPort]
+    ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       ZIO.uninterruptibleMask: restore =>
         Scope.make.flatMap: lease =>
           // Register the caller lease outside admission: a closed caller may synchronously join cleanup.
-          restore(gate.withPermit(ZIO.uninterruptible(lease.extend(launch(input)))))
+          restore(gate.withPermit(ZIO.uninterruptible(lease.extend(launch(input, events)))))
             .onExit:
               case Exit.Success(SubagentTaskSubmission.Accepted(_)) =>
                 ZIO.addFinalizer(lease.close(Exit.unit))
               case Exit.Success(_)          => lease.close(Exit.unit)
               case failed @ Exit.Failure(_) => lease.close(failed)
 
-    private def launch(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] =
+    private def launch(
+        input: Msg,
+        events: Option[ToolEventPort]
+    ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       state.get.flatMap:
         case State.Closed(_) => ZIO.succeed(SubagentTaskSubmission.Closed)
         case State.Open(entries) if entries.size >= maxTracked =>
@@ -118,7 +144,7 @@ object SubagentTaskRegistry:
                 ZIO.succeed(SubagentTaskSubmission.IdentityCollision)
               else
                 ZIO
-                  .suspendSucceed(launchTask(input))
+                  .suspendSucceed(launchTask(input, id, events))
                   .flatMap:
                     case TaskAdmission.Closed => ZIO.succeed(SubagentTaskSubmission.Closed)
                     case TaskAdmission.Accepted(task) =>

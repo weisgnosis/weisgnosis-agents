@@ -140,7 +140,7 @@ Capacity counts retained tasks per entry; total records are bounded by the finit
 
 `SubagentTools.forCatalog` installs `agent_spawn(agent_id, prompt)`, `agent_task(agent_id, task_id)` and `agent_cancel(agent_id, task_id)`. Definitions list host-selected names/descriptions. Strict two-string inputs reject extra fields; task IDs remain confined to the selected registry. Results wrap the selected agent and bounded task observation. Unknown entries and typed admission failures, including depth rejection, retain the selected identity as Error observations. Invalid input and unexpected defects use ordinary Toolkit diagnostics. Existing 30-second promotion, bounded text and joined cancellation apply unchanged.
 
-This additive adapter changes no fixed-registry, session or directory call sites. Catalog names are exact host keys, not runtime IDs or credentials. Factories determine child policy; compiling them through SubagentDeclaration/SubagentConstruction preserves inherited restrictions, while raw host factories remain trusted capabilities. There is no dynamic membership, hidden/primary mode, context-selected manager, declaration loading, reusable-session key, durable recovery or event forwarding.
+This additive adapter changes no fixed-registry, session or directory call sites. Catalog names are exact host keys, not runtime IDs or credentials. Factories determine child policy; compiling them through SubagentDeclaration/SubagentConstruction preserves inherited restrictions, while raw host factories remain trusted capabilities. There is no dynamic membership, hidden/primary mode, context-selected manager, declaration loading, reusable-session key or durable recovery. Scoped event forwarding follows the execution contract below.
 
 ## Directory-bound model routing
 
@@ -150,11 +150,23 @@ Each invocation looks up a ready membership and then uses that session's executi
 
 Lookup is a membership snapshot, not atomic revocation. Removal or closure hides subsequent lookup and joins owned cleanup, but an invocation that already obtained the session can race with closure. Original resource owners still bound lifetime; membership may refer to an externally closed session, whose send returns a wrapped Closed rejection. Routed sends retain the same scoped 30-second wait/promotion and joined task cancellation; inspection/cancellation do not make another model request. Installing routing grants no new child tools, policy inheritance or approval authority. The host retains the directory and original resource/supervisor scopes for intended background work.
 
+## Scoped child event forwarding
+
+Model-facing spawn/send tools propagate the current `ToolInvocation.Active.events` through fixed registries, catalogs, bound sessions and directories. Each registry allocates its execution UUID before launch and uses it as the event source prefix; nested child sources append with `/`. Names and model call IDs do not supply this identity. Child request/reply correlation remains unchanged, parent events retain their own source, and child lifecycle events come from the actual runtime rather than synthetic duplicate bookends.
+
+Factory and session workers use the core [direct forwarding primitive](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#direct-event-forwarding) within existing supervisor ownership. Registry snapshots retain complete results and failure causes. Each session send captures a fresh port; neither the shared session nor factory stores an invocation destination. Inspection/cancellation does not attach a new destination or replay events.
+
+Returning Promoted after the existing 30-second wait ends the tool invocation and revokes its publication lease. The supervised child continues once and retains its outcome; later events are dropped. Delivery has no replay, acknowledgement or backpressure. Cancelling a public stream consumer still abandons subsequent output, even though owned cancellation joins cleanup. Cancellation-tail delivery through an independent observer is not claimed by the current harness tests.
+
+Migration: existing `submit(input)`, `send(input)` and factory spawn calls retain detached behavior. The additive registry `submit(input, events)` and session `send(input, events)` accept an optional host-held port. Existing custom registry implementations remain source-compatible through a detached default; they must override the new overload to support forwarding. Port possession is an explicit runtime capability, not serializable model input. Hosts remain responsible for retaining supervisor scopes for promoted work.
+
 ## Verification and acceptance
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The unchanged lineage and static boundary retain their recorded approvals; the supervisor's current resource extension is reviewed below.
 
-On 2026-09-30, `path_review` and `current_docs` independently approved policy-aware construction, the shared factory build stage and three grouped integration contracts at the updated construction/factory/spec identities below, with no unresolved FP/ZIO or invariant findings. Acceptance covers derived static/live-denial/live-Plan propagation, preserved child authority, later factory derivatives, reused sessions, scoped per-build initialization and filtering before client acquisition. Existing directory, resource, session, registry and boundary approvals remain scoped to the listed unchanged identities; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full `scalafmtAll scalafmtSbt verify` passed 564 core / 657 harness / 56 MCP tests (1,277 total), with zero compiler warnings or failed tests (`subagent-catalog-verify.log`).
+`path_review` and `current_docs` independently approved policy-aware construction and its scoped dependencies. The current forwarding extension renews their approval of the factory, registry, session and tools at the exact identities below, with no unresolved FP/ZIO or invariant findings. Unchanged directory, resource, construction and boundary identities retain their existing scoped acceptance; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full verification is recorded in `subagent-forwarding-verify.log` and the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
+- [x] Both reviewers approved scoped forwarding, runtime task attribution, per-send leases and unchanged ownership, including three grouped integration scenarios for nested events/results, promotion and session cancellation/removal. Full formatting, fatal-warning compilation and repository tests passed.
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for inline declarations and the general-purpose preset at the exact identities below, with no findings. Three grouped tests cover pure validation/lazy composition, actual runtime configuration/filtering and retained-session live policy/independent Plan review. Existing construction tests supply the unchanged nested/cancellation coverage.
 
@@ -169,25 +181,26 @@ On 2026-09-30, `path_review` and `current_docs` independently approved policy-aw
 | [SubagentDeclarationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | `46990ef2b23ef8accd7272e1eda471173a118b3a` |
 | [SubagentSessionDirectory.scala](SubagentSessionDirectory.scala) | `41cec391f9070731db8eaf9dfa486f230b691a10` |
 | [SubagentSessionDirectorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionDirectorySpec.scala) | `3210d1e7f1e86fd65cd54727ebe287431cac0b94` |
-| [SubagentSession.scala](SubagentSession.scala) | `dd6d83f5f24d6bf411e2e93c3a5e6183dbea6572` |
+| [SubagentSession.scala](SubagentSession.scala) | `33a4b5e1f677203d06ccd534823052b405436209` |
 | [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | `01df51dd8127f5f14373eac0e013c6f2d06b6bb6` |
 | [TaskSupervisor.scala](TaskSupervisor.scala) | `83aefd60831a5dbd60778327d216f589acbb7372` |
 | [TaskResource.scala](TaskResource.scala) | `075ff00099098e2bfd3278e108d24fe601412d65` |
 | [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `d8e62d19ef0b00ab6d68cc47afcc6d42ce43a85f` |
-| [SubagentTools.scala](SubagentTools.scala) | `a87bf799bd883d545be30d47ef241d936cfad783` |
+| [SubagentTools.scala](SubagentTools.scala) | `3c64f965c9ee2541d9feb1baee6a9beaf908107e` |
+| [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | `417dacb3a10064054d6d834e9cb29121833c5682` |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | `279c22f4ee3bb2f7678967e1df7fa854665eaa20` |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `70202e9940875a3813f22ed2eaa81c6ca9a343b3` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `b63432a7c6d16a0bc7bdd06a473b74631ced147a` |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
 | [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `adcb1e66ff2105137a35339d6bf7ab5e5b9b5475` |
 | [SubagentConstruction.scala](SubagentConstruction.scala) | `60d9897bb76518eedf0c6ab5a056b249d3211d52` |
 | [SubagentConstructionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) | `8d43eeeefc179a5551699166148ad01356af3bd3` |
-| [SubagentFactory.scala](SubagentFactory.scala) | `b3773de15e3adc8c4df9932b00075f1f83a72da4` |
+| [SubagentFactory.scala](SubagentFactory.scala) | `598194ef1d7485e1a4f22d01bab4b273c16f0331` |
 | [SubagentFactorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentFactorySpec.scala) | `532a6c2c77cb991ed98024c88877fcd047fbafea` |
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
 
-Declaration loading and automatic named reusable-session creation, inheritance through arbitrary raw host callbacks, model-selected session construction, correlated child-event forwarding, external parent permission gates and durable historical policy accumulation remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
+Declaration loading and automatic named reusable-session creation, inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and delivery after promotion remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
 
 - [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
 - [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
@@ -205,6 +218,7 @@ Declaration loading and automatic named reusable-session creation, inheritance t
 - [x] Implement inline declarations and the general-purpose preset while retaining construction capability and child approval authority.
 - [x] Implement and independently approve named host factory routing with bounded per-entry registries and parallel joined closure.
 - [ ] Complete declaration loading, automatic named reusable-session creation and broader host installation.
-- [ ] Implement correlated event forwarding and optional remote/durable task routing.
+- [x] Implement and independently approve scoped correlated child forwarding through all existing spawn/send routes.
+- [ ] Complete optional remote/durable task routing and independently observed cancellation-tail delivery.
 
-Next task: invocation-scoped tool event capability and child forwarding; correlated event routing and durable host integration remain separate. No exhaustive upstream parity is claimed.
+Next task: parse inline declaration documents into the existing validated declaration model, keeping filesystem discovery and automatic reusable-session installation separate. No exhaustive upstream parity is claimed.

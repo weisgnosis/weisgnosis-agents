@@ -18,12 +18,19 @@ package com.weisgnosis.agents.harness.subagent
 import com.weisgnosis.agents.core.agent.{AgentResult, AgentRunState, ReActAgent}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
+import com.weisgnosis.agents.core.tool.ToolEventPort
 import zio.*
 
 /** One host-held child runtime; the returned TaskResource owns its lifetime and descendants. */
 final class SubagentSession private (val executions: SubagentTaskRegistry):
   /** Each accepted send receives a distinct retained execution ID; waiting sends count toward capacity. */
   def send(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] = executions.submit(input)
+
+  def send(
+      input: Msg,
+      events: Option[ToolEventPort]
+  ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
+    executions.submit(input, events)
 
 object SubagentSession:
   private enum Continuation:
@@ -43,7 +50,8 @@ object SubagentSession:
           turn         <- Semaphore.make(1)
           continuation <- Ref.make(Continuation.Ready)
           executions <- SubagentTaskRegistry.openWith(
-            input => supervisor.attach(turn.withPermit(runTurn(runtime, continuation, input))),
+            (input, id, events) =>
+              supervisor.attach(turn.withPermit(runTurn(runtime, continuation, input, id, events))),
             maxTracked
           )
         yield new SubagentSession(executions)
@@ -51,7 +59,9 @@ object SubagentSession:
   private def runTurn(
       runtime: ReActAgent,
       continuation: Ref[Continuation],
-      input: Msg
+      input: Msg,
+      id: SubagentTaskId,
+      events: Option[ToolEventPort]
   ): ZIO[Scope, AgentError, AgentResult] =
     ZIO.uninterruptibleMask: restore =>
       continuation.get.flatMap:
@@ -62,7 +72,7 @@ object SubagentSession:
             )
           )
         case Continuation.Ready =>
-          restore(runtime.run(input)).tap(result =>
+          restore(SubagentFactory.run(runtime, input, id, events)).tap(result =>
             continuation.set(
               if result.state == AgentRunState.Suspended then Continuation.Suspended
               else Continuation.Ready

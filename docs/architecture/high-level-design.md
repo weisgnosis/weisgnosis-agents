@@ -55,6 +55,7 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Opt-in child construction with per-runtime permissions and automatically propagated static boundaries, live ancestor denials and Plan restrictions.
 - [x] Inline declaration-driven child configuration and the general-purpose preset through policy-aware construction.
 - [x] Scoped host catalog for named fresh-child spawn/task/cancel with per-entry task retention.
+- [x] Scoped child event forwarding through spawn/send, with runtime execution attribution, retained complete outcomes and publication revocation after promotion.
 - [ ] Declaration loading, automatic named reusable-session creation and broader host integration.
 - [x] Static plan inspection, opt-in tool restrictions and in-memory reviewed sessions.
 - [x] Truthful request-only plan projection with preserved canonical history.

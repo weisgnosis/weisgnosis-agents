@@ -12,7 +12,7 @@ Last synchronized: 2026-09-30. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 573 core / 657 harness / 56 MCP tests (1,286 total), zero compiler warnings or failures. Evidence: `agent-forwarding-verify.log`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 573 core / 660 harness / 56 MCP tests (1,289 total), zero compiler warnings or failures. Evidence: `subagent-forwarding-verify.log`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -62,11 +62,12 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Add and independently review ordinary/structured result-bearing event streams with complete result state, full terminal causes and joined cleanup.
 - [x] Add an explicit invocation-scoped tool event capability with approved occurrence context, publication revocation and preserved cancellation cleanup. Both reviewers approved the [exact source/spec identities](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#invocation-event-capability); full verification passed.
 - [x] Implement and independently review direct result-preserving event forwarding in core, including ordered draining, nested source prefixes, full causes and closed-port execution.
-- [ ] Next: wire forwarding into owned harness spawn/send execution, with runtime task attribution, fresh session-send leases and no publication after the parent tool invocation ends.
+- [x] Wire and independently review forwarding through fixed/catalog spawn and fixed/directory send, with runtime task attribution, fresh session-send leases, retained results and revoked delivery after promotion.
+- [ ] Next: parse inline declaration documents into the existing validated model; keep local discovery and automatic reusable-session installation separate.
 - [x] Implement and independently review scoped POST-only HTTP requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [ ] Complete separately specified GET listening, resumption, session DELETE/reinitialization, cancellation notifications and external-server interoperability.
 - [ ] Complete declaration loading and automatic named reusable-session creation; retain the accepted construction boundary.
-- [ ] Define durable host reuse/recovery and correlated event routing separately, with explicit lifetime and retention contracts.
+- [ ] Define durable host reuse/recovery and post-promotion event delivery separately, with explicit lifetime and retention contracts.
 
 The accepted resource primitive, child session, factory, registry, task tools and plan adapter use host-selected process-local capabilities. They do not add declaration parsing, durable restart recovery or automatic inheritance through raw spawner callbacks. Hosts control capability distribution and completed-record retention.
 
