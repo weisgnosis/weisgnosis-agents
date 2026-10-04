@@ -24,9 +24,9 @@ import zio.http.{Scheme, URL}
 import zio.json.*
 import zio.json.ast.Json
 
-/** Explicit replay policy for the reasoning_content protocol extension. */
+/** Explicit reasoning wire policy shared by response decoding and historical replay. */
 enum ReasoningReplay derives JsonCodec:
-  case Omit, LatestAssistant
+  case Omit, LatestAssistant, OpenRouterEncryptedDetails
 
 /** Explicit wire format for opaque per-call signatures; unrelated metadata is never projected. */
 enum ToolSignatureFormat derives JsonCodec:
@@ -66,6 +66,8 @@ object ChatCompletionsRequest:
         val replay = reasoningReplay match
           case ReasoningReplay.LatestAssistant if index == lastAssistant =>
             ReasoningReplay.LatestAssistant
+          case ReasoningReplay.OpenRouterEncryptedDetails =>
+            ReasoningReplay.OpenRouterEncryptedDetails
           case _ => ReasoningReplay.Omit
         encodeMessage(msg, replay, toolSignatureFormat)
       body = Json.Obj(
@@ -227,6 +229,13 @@ object ChatCompletionsRequest:
       )
       name  <- messageName(msg)
       calls <- traverse(msg.toolUses)(call => encodeCall(call, toolSignatureFormat))
+      details = msg.content
+        .collect { case thought: ContentBlock.Thinking => thought }
+        .flatMap(_.metadata.get("reasoningDetails"))
+      _ <- message(
+        details.isEmpty || replay == ReasoningReplay.OpenRouterEncryptedDetails,
+        "Reasoning details require an explicit replay profile"
+      )
       reasoning <- replay match
         case ReasoningReplay.Omit => Right(Chunk.empty)
         case ReasoningReplay.LatestAssistant =>
@@ -239,6 +248,20 @@ object ChatCompletionsRequest:
           yield
             if msg.thinking.isEmpty then Chunk.empty
             else Chunk("reasoning_content" -> Json.Str(msg.thinking))
+        case ReasoningReplay.OpenRouterEncryptedDetails =>
+          for
+            _ <- message(
+              msg.content
+                .collect { case thought: ContentBlock.Thinking => thought }
+                .forall(_.metadata.keySet.subsetOf(Set("reasoningDetails"))),
+              "Unsupported thinking metadata for encrypted reasoning replay"
+            )
+            arrays <- traverse(details)(value =>
+              EncryptedReasoningDetail.decodeArray(value).left.map(AgentError.InvalidMessage(_))
+            )
+          yield
+            if details.isEmpty then Chunk.empty
+            else Chunk("reasoning_details" -> Json.Arr(arrays.flatten.map(_.value)))
     yield Json.Obj(
       Chunk(
         "role"    -> Json.Str("assistant"),

@@ -392,7 +392,7 @@ Inline event metadata intentionally preserves the complete result map; pinned up
 
 The pinned extension OpenAIStreamingToolCallTest and OpenAIResponseParserTest were inspected for fragment, usage, and error semantics. They are outside the earlier core-only inventory, and their full applicability mapping remains open. The current adapter intentionally supports indexed function-call deltas and fails unsupported legacy calls instead of silently dropping them.
 
-The pinned core ToolCallsAccumulatorTest and ReasoningContextTest were inspected for parallel calls, raw argument preservation, interruption sanitization, and latest-snapshot usage. Mandatory compatible finish markers, strict complete object arguments, and stable identities are deliberate Scala hardening. LlmChunk has raw argument fragments rather than mutable parsed-map updates. Selected Google tool-call signatures now have the bounded mappings below. Parsed-map merge scenarios, richer reasoning details and the full method-level accumulator mapping remain pending.
+The pinned core ToolCallsAccumulatorTest and ReasoningContextTest were inspected for parallel calls, raw argument preservation, interruption sanitization, and latest-snapshot usage. Mandatory compatible finish markers, strict complete object arguments, and stable identities are deliberate Scala hardening. LlmChunk has raw argument fragments rather than mutable parsed-map updates. Selected Google tool-call signatures now have the bounded mappings below. Parsed-map merge scenarios, text/summary and other reasoning-detail variants and the full method-level accumulator mapping remain pending.
 
 ### User-image request projection
 
@@ -413,14 +413,26 @@ Both final reviews and full signature-mcp-verify.log verification passed for the
 - [x] ToolCallsAccumulatorTest.testAccumulateWithoutMetadata: unsigned calls remain unsigned.
 - [x] ToolCallsAccumulatorTest.testParallelToolCallsWithMetadata: stream-index isolation prevents signature propagation to other calls.
 - [x] OpenAIThoughtSignatureTest.testToolUseWithoutMetadata: unsigned request calls carry no signature extension.
-- [ ] OpenAIThoughtSignatureTest.testTypedMetadataAttachedDirectly and testToolMetadataRestoredAfterRoundTrip: tool-signature portions are covered by typed metadata, JSON round-trip and request replay; reasoningDetails assertions remain pending, so whole-method parity is not established.
-- [ ] Complete applicable ThinkingBlock reasoningDetails preservation/replay from testThinkingDetailsRestoredAfterRoundTrip; invalid-detail behavior and exact provider representation still need an explicit contract.
+- [ ] OpenAIThoughtSignatureTest.testTypedMetadataAttachedDirectly and testToolMetadataRestoredAfterRoundTrip: tool-signature portions are covered by typed metadata, JSON round-trip and request replay; their Thinking fixtures use type=signature, outside the accepted encrypted-only profile, so whole-method parity is not established.
+- [ ] Adapt testThinkingDetailsRestoredAfterRoundTrip only after supporting its type=signature fixture explicitly; encrypted-only preservation does not close that method.
 
 OpenAIThoughtSignatureTest's function.thoughtSignature DTO differs from the selected official Google extra_content.google.thought_signature wire format. testByteArraySignatureConverted has no direct Scala representation: already-opaque strings are preserved. testUnusableSignatureIgnored and testUnconvertibleThinkingDetailsSkipped are not adopted as silent-dropping policies; malformed recognized signature metadata fails closed. The real HTTP fixture is a local integration oracle, not an external Google server test. Server-tool authority, arbitrary metadata and thinking signatures are outside this selected format.
 
+### Selected encrypted reasoning
+
+The following method mappings use the pinned Java revision above. Formatter source: `agentscope-extensions/agentscope-extensions-model/agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/formatter/StreamingReasoningDetailsReplayTest.java`; accumulator source: `agentscope-core/src/test/java/io/agentscope/core/agent/accumulator/ThinkingAccumulatorReasoningDetailsTest.java`.
+
+- [x] StreamingReasoningDetailsReplayTest.preservesDistinctReasoningBlocksAcrossStreamingChunks (line 33): the bounded adaptation preserves distinct encrypted objects and their opaque data/IDs in received order through decoding, accumulation and request replay. EncryptedReasoningDetailSpec's ordered-delta group and the actual HTTP cycle exercise this path with immutable JSON values instead of mutable Java DTOs; repeated indexes do not merge objects.
+- [ ] ThinkingAccumulatorReasoningDetailsTest.preservesDetailsAcrossChunksWithoutChangingOtherMetadataSemantics (line 80): ordered detail concatenation is adapted, but the Java method also concatenates plaintext and applies last-write-wins to arbitrary provider metadata. This strict encrypted-only projection neither accepts arbitrary detail strings nor implements that metadata merge, so whole-method parity remains open.
+- [ ] ThinkingAccumulatorReasoningDetailsTest.keepsBuiltListsIndependentFromLaterWritesAndReset (line 114): immutable accumulator/Chunk/JSON values provide the corresponding snapshot boundary by construction. The Java method mutates caller and returned lists, resets the same accumulator, and expects null when empty. Those mutation/reset/null APIs and assertions are not reproduced; the current tests establish ordered immutable outputs, not whole-method parity.
+
+- [x] The explicit OpenRouterEncryptedDetails profile preserves checked encrypted objects in received order and replays all historical assistant arrays. Two checked-detail groups cover strict shapes, optional/null fields, repeated indexes, explicit empty arrays, interrupted preservation and incompatible-policy rejection.
+- [x] Extended runtime/pruning tables and one real HTTP cycle verify opaque-only retry, unchanged protected sibling arguments, denial before fixed/approved rewriting, historical wire replay and no fabricated Thinking events. The [canonical acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) records all 17 reviewed identities, reproduced classification assertions and full verification.
+- [ ] Text/summary detail variants, other signature representations and live-provider interoperability remain outside this encrypted-only scope. The mixed Java formatter methods above stay open; strict malformed-detail failure intentionally differs from testUnconvertibleThinkingDetailsSkipped.
+
 ## Live model stream adaptation
 
-- [x] Six ChatCompletionsClientSpec scenarios verify incremental publication, real HTTP tool cycles, request/reply correlation, late tool identity, incomplete/malformed input, and cancellation.
+- [x] ChatCompletionsClientSpec scenarios verify incremental publication, real HTTP tool cycles, request/reply correlation, late tool identity, incomplete/malformed input, and cancellation.
 - [x] Three ModelStreamPublisherSpec scenarios verify indexed text/thinking, interleaved tool deltas, and validated complete ending batches; two ModelStreamContextSpec scenarios cover all sixteen affected event variants and legacy payloads.
 - [x] Verify completed local tool results with request provenance, persistence before publication, and per-call start/delta/end ordering.
 - [x] Independently review and verify provisional local updates with exactly one authoritative final result and scoped cancellation.

@@ -101,4 +101,4 @@ The internal mapToolResultAt operation updates one result ordinal while preservi
 
 - [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope. Supplied-history eviction is covered by a later scope; exhaustive upstream middleware parity remains pending. Exact current identities are in the [agent table](../agent/README.md).
 
-The prior Msg.scala identity is preserved in `2b99226`; the current occurrence-update identity belongs to the agent table above.
+Msg.hasReasoning recognizes nonempty text, nonblank signatures and nonempty opaque detail arrays; preservesToolArguments conservatively checks reserved Thinking metadata key presence, including empty arrays. These pure accessors change no JSON fields. Current Msg identity and reviewed classification/protection evidence are in [encrypted reasoning](../client/README.md#encrypted-reasoning).

@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.model.ChatUsage
+import zio.Chunk
 import zio.json.*
 
 /**
@@ -28,6 +29,11 @@ object LlmChunk:
   final case class TextDelta(
       delta: String,
       blockIndex: Int = 0
+  ) extends LlmChunk derives JsonCodec
+
+  /** Ordered opaque objects, including an explicitly present empty array; never a text delta. */
+  final case class ReasoningDetailsDelta(
+      details: Chunk[EncryptedReasoningDetail]
   ) extends LlmChunk derives JsonCodec
 
   final case class ThinkingDelta(

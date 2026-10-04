@@ -152,35 +152,61 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
           1
         )
       )
+      val protectedScenarios = scenarios.map { case (original, decision, expected, requests) =>
+        (original, decision, expected, requests, Option.empty[ContentBlock.Thinking])
+      } ++ Chunk(
+        Json.Arr(),
+        Json.Arr(
+          Json.Obj(
+            "type" -> Json.Str("reasoning.encrypted"),
+            "data" -> Json.Str("opaque")
+          )
+        )
+      ).map(details =>
+        (
+          call,
+          ToolAuthorization.Approved(candidate),
+          ToolResultState.Denied,
+          0,
+          Some(ContentBlock.Thinking("", Map("reasoningDetails" -> details)))
+        )
+      )
       for
         fixed <- ZIO.fromEither(ToolFixedArguments.make(Json.Obj("tenant" -> Json.Str("host"))))
-        results <- ZIO.foreach(scenarios) { case (original, decision, expected, expectedRequests) =>
-          for
-            executions <- Ref.make(0)
-            requests   <- Ref.make(0)
-            bound <- ZIO.fromEither(
-              Tool.withFixedArguments(
-                Tool.make(ToolDef("lookup", "Read", Json.Obj()))(_ =>
-                  executions.update(_ + 1).as("ok")
-                ),
-                fixed
+        results <- ZIO.foreach(protectedScenarios) {
+          case (original, decision, expected, expectedRequests, thought) =>
+            for
+              executions <- Ref.make(0)
+              requests   <- Ref.make(0)
+              bound <- ZIO.fromEither(
+                Tool.withFixedArguments(
+                  Tool.make(ToolDef("lookup", "Read", Json.Obj()))(_ =>
+                    executions.update(_ + 1).as("ok")
+                  ),
+                  fixed
+                )
               )
+              model <- LlmClient.mock(
+                Chunk(
+                  TurnOutput.ToolCalls(Msg.assistant(Chunk.fromIterable(thought) :+ original)),
+                  TurnOutput.FinalText(Msg.assistant("done"))
+                )
+              )
+              agent <- ReActAgent.make(
+                client = model,
+                toolkit = Toolkit(Map("lookup" -> bound)),
+                toolAuthorizer = ToolAuthorizer(_ => requests.update(_ + 1).as(decision))
+              )
+              result <- agent.run(Msg.user("q"))
+              count  <- executions.get
+              asked  <- requests.get
+            yield assertTrue(
+              result.history.flatMap(_.toolUses) == Chunk(original),
+              result.history.flatMap(_.toolResults).map(_.state) == Chunk(expected),
+              count == (if expected == ToolResultState.Success then 1 else 0),
+              asked == expectedRequests,
+              thought.forall(value => result.history.exists(_.content.contains(value)))
             )
-            model <- client(Chunk(original))
-            agent <- ReActAgent.make(
-              client = model,
-              toolkit = Toolkit(Map("lookup" -> bound)),
-              toolAuthorizer = ToolAuthorizer(_ => requests.update(_ + 1).as(decision))
-            )
-            result <- agent.run(Msg.user("q"))
-            count  <- executions.get
-            asked  <- requests.get
-          yield assertTrue(
-            result.history.flatMap(_.toolUses) == Chunk(original),
-            result.history.flatMap(_.toolResults).map(_.state) == Chunk(expected),
-            count == (if expected == ToolResultState.Success then 1 else 0),
-            asked == expectedRequests
-          )
         }
       yield results.reduceOption(_ && _).getOrElse(assertTrue(false))
     },

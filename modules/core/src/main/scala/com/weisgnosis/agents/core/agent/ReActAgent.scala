@@ -781,6 +781,9 @@ final class ReActAgent private (
                     pendingCalls = inline.pending
                     allSafe = config.streamParallelTools && pendingCalls
                       .forall(c => activeToolkit.resolve(c.call.name).forall(_.isConcurrencySafe))
+                    argumentPolicy =
+                      if assistantMsg.preservesToolArguments then ArgumentPolicy.Preserve
+                      else ArgumentPolicy.AllowRewrite
                     execute = (call: IndexedToolCall) =>
                       executeAndRecord(
                         call,
@@ -788,7 +791,8 @@ final class ReActAgent private (
                         activeToolkit,
                         stateRef,
                         eventHub,
-                        context
+                        context,
+                        argumentPolicy
                       )
                     localPhase =
                       if allSafe then ZIO.foreachParDiscard(pendingCalls)(execute)
@@ -976,12 +980,15 @@ final class ReActAgent private (
                 .withMetadata((replacement.metadata - Msg.MetadataChatUsage) ++ usageMetadata)
               val classified =
                 if accepted.toolUses.nonEmpty then TurnOutput.ToolCalls(accepted)
-                else if accepted.text.trim.isEmpty && accepted.thinking.nonEmpty then
+                else if accepted.text.trim.isEmpty && accepted.hasReasoning then
                   TurnOutput.ThinkingOnly(accepted)
                 else TurnOutput.FinalText(accepted)
               ZIO.some(classified)
 
   final private case class IndexedToolCall(call: ContentBlock.ToolUse, ordinal: Int)
+
+  private enum ArgumentPolicy:
+    case AllowRewrite, Preserve
 
   final private case class IndexedToolResult(result: ContentBlock.ToolResult, ordinal: Int)
 
@@ -1120,10 +1127,11 @@ final class ReActAgent private (
       call: ContentBlock.ToolUse,
       preparedInput: Json,
       context: ModelStreamContext,
-      toolkit: Toolkit
+      toolkit: Toolkit,
+      argumentPolicy: ArgumentPolicy
   ): UIO[ToolAuthorization] =
     val decision =
-      if changesReasoningInput(call, preparedInput) then
+      if changesReasoningInput(call, preparedInput, argumentPolicy) then
         ZIO.succeed(
           ToolAuthorization.Denied("Cannot modify arguments carrying provider reasoning metadata")
         )
@@ -1147,7 +1155,7 @@ final class ReActAgent private (
           case ToolAuthorization.Approved(input) =>
             JsonBoundary.validate(input) match
               case Left(error) => ToolAuthorization.Denied(s"Invalid approved input: $error")
-              case Right(_) if changesReasoningInput(call, input) =>
+              case Right(_) if changesReasoningInput(call, input, argumentPolicy) =>
                 ToolAuthorization.Denied(
                   "Cannot modify arguments carrying provider reasoning metadata"
                 )
@@ -1172,9 +1180,14 @@ final class ReActAgent private (
       ZIO.succeed(_)
     )
 
-  private def changesReasoningInput(call: ContentBlock.ToolUse, input: Json): Boolean =
+  private def changesReasoningInput(
+      call: ContentBlock.ToolUse,
+      input: Json,
+      argumentPolicy: ArgumentPolicy
+  ): Boolean =
     input != call.input &&
-      (call.metadata.contains("thoughtSignature") || call.metadata.contains("reasoningDetails"))
+      (argumentPolicy == ArgumentPolicy.Preserve || call.metadata.contains("thoughtSignature") ||
+        call.metadata.contains("reasoningDetails"))
 
   private def withToolInput(call: ContentBlock.ToolUse, input: Json): ContentBlock.ToolUse =
     if input == call.input then call
@@ -1191,14 +1204,15 @@ final class ReActAgent private (
       toolkit: Toolkit,
       stateRef: Ref[Chunk[Msg]],
       eventHub: Hub[AgentEvent],
-      context: ModelStreamContext
+      context: ModelStreamContext,
+      argumentPolicy: ArgumentPolicy
   ): ZIO[Any, Nothing, Unit] =
     ZIO.uninterruptibleMask: restore =>
       val call = indexed.call
       for
         authorization <- ZIO
           .fromEither(toolkit.prepareInput(call.name, call.input))
-          .flatMap(input => restore(authorizeTool(call, input, context, toolkit)))
+          .flatMap(input => restore(authorizeTool(call, input, context, toolkit, argumentPolicy)))
           .either
         _ <- eventHub.publish(
           AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))

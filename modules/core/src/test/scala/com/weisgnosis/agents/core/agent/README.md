@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+The extended post-reasoning table verifies opaque-only reminders and empty-array controls; the authorization table rejects fixed-input changes for protected sibling calls before consulting the authorizer. [Current identities and evidence](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) include these cases without claiming protection from trusted host history/reasoning replacements.
+
 - [x] Both independent reviewers approved fixed-argument preparation and runtime integration; full verification passed. The [current acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments) records exact scope and identities.
 
 These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. Exhaustive upstream parity and complete runtime event ordering remain pending.

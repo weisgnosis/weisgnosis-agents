@@ -110,7 +110,9 @@ private[client] object ModelStreamPublisher:
                     ),
                     Chunk.empty
                   )
-        case _: LlmChunk.UsageChunk | _: LlmChunk.FinishReason => (this, Chunk.empty)
+        case _: LlmChunk.UsageChunk | _: LlmChunk.FinishReason |
+            _: LlmChunk.ReasoningDetailsDelta =>
+          (this, Chunk.empty)
 
     def endEvents(
         output: TurnOutput,

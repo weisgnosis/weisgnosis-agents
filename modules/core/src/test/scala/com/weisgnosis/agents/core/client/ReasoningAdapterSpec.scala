@@ -17,6 +17,7 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
 import zio.Chunk
+import zio.json.ast.Json
 import zio.test.*
 
 /**
@@ -131,6 +132,32 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
 
         val history = Chunk(turn1User, turn1Assistant, turn2User, turn2Assistant)
         val pruned  = ReasoningModelAdapter.pruneObsoleteReasoning(history)
+        val protectedThinking = Chunk(
+          ContentBlock.Thinking("", Map("thoughtSignature" -> Json.Str("opaque"))),
+          ContentBlock.Thinking("", Map("reasoningDetails" -> Json.Arr())),
+          ContentBlock.Thinking(
+            "",
+            Map(
+              "reasoningDetails" -> Json.Arr(
+                Json.Obj(
+                  "type" -> Json.Str("reasoning.encrypted"),
+                  "data" -> Json.Str("opaque")
+                )
+              )
+            )
+          )
+        )
+        val retained = protectedThinking.map(thought =>
+          ReasoningModelAdapter
+            .pruneObsoleteReasoning(
+              Chunk(
+                Msg.assistant(Chunk(thought, ContentBlock.Thinking("obsolete"))),
+                turn2Assistant
+              )
+            )
+            .headOption
+            .exists(_.content == Chunk(thought))
+        )
 
         assertTrue(
           pruned.size == 4,
@@ -141,7 +168,8 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
           // Turn 2 Assistant retains its Thinking block
           pruned.lift(3).exists(_.content.size == 2),
           pruned.lift(3).exists(_.thinking == "Now thinking: 2 + 2 equals 4"),
-          pruned.lift(3).exists(_.text == "The answer is 4.")
+          pruned.lift(3).exists(_.text == "The answer is 4."),
+          retained.forall(identity)
         )
       }
     )

@@ -53,6 +53,13 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
             ),
             order = appendKey(ContentKey.Thinking(index))
           )
+      case LlmChunk.ReasoningDetailsDelta(details) =>
+        Right(
+          state.copy(
+            reasoningDetails = Some(state.reasoningDetails.getOrElse(Chunk.empty) ++ details),
+            order = appendKey(ContentKey.ReasoningDetails)
+          )
+        )
       case tool: LlmChunk.ToolCallChunk => appendTool(tool)
       case LlmChunk.FinishReason(reason) =>
         Either.cond(reason.nonEmpty, state.copy(finishReason = Some(reason)), "Empty finish reason")
@@ -99,7 +106,7 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
     yield
       if tools.nonEmpty then TurnOutput.ToolCalls(message)
       else if message.text.trim.nonEmpty then TurnOutput.FinalText(message)
-      else if message.thinking.nonEmpty then TurnOutput.ThinkingOnly(message)
+      else if message.hasReasoning then TurnOutput.ThinkingOnly(message)
       else TurnOutput.FinalText(message)
 
   /** Preserves received data for reconciliation; incomplete arguments cannot become executable. */
@@ -167,6 +174,12 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
 
   private def materialize(tools: Chunk[ContentBlock.ToolUse]): Msg =
     val content: Chunk[ContentBlock] = state.order.flatMap:
+      case ContentKey.ReasoningDetails =>
+        Chunk.fromIterable(
+          state.reasoningDetails.map(details =>
+            ContentBlock.Thinking("", Map("reasoningDetails" -> Json.Arr(details.map(_.value))))
+          )
+        )
       case ContentKey.Text(index) =>
         Chunk.fromIterable(state.textBlocks.get(index).filter(_.nonEmpty).map(ContentBlock.Text(_)))
       case ContentKey.Thinking(index) =>
@@ -189,6 +202,7 @@ object StreamAccumulator:
   private enum ContentKey:
     case Text(index: Int)
     case Thinking(index: Int)
+    case ReasoningDetails
 
   final private case class ThinkingFragments(text: String = "", signature: Option[String] = None)
 
@@ -203,6 +217,7 @@ object StreamAccumulator:
   final private case class State(
       textBlocks: Map[Int, String] = Map.empty,
       thinkingBlocks: Map[Int, ThinkingFragments] = Map.empty,
+      reasoningDetails: Option[Chunk[EncryptedReasoningDetail]] = None,
       order: Chunk[ContentKey] = Chunk.empty,
       toolCalls: Map[Int, ToolFragments] = Map.empty,
       usage: Option[ChatUsage] = None,

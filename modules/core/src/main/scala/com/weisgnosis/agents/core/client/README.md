@@ -8,6 +8,7 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [ChatCompletionsTransport](ChatCompletionsTransport.scala)
 - [ChatCompletionsRequest](ChatCompletionsRequest.scala)
 - [LlmChunk](LlmChunk.scala)
+- [EncryptedReasoningDetail](EncryptedReasoningDetail.scala)
 - [LlmClient](LlmClient.scala)
 - [StructuredOutputCapability](StructuredOutputCapability.scala)
 - [JsonBoundary](../json/JsonBoundary.scala)
@@ -39,7 +40,7 @@ Normal frames require an explicit choices array. Exactly one choice with an expl
 
 Missing/JSON-null usage counts normalize to zero. Supplied counts and indexes must be nonnegative JSON integers within Int bounds; strings, fractions, overflow, and malformed nested objects fail. Non-null provider error envelopes become ModelError with status 200, representing an error carried inside an otherwise successful streaming response. Missing/empty provider messages receive a deterministic fallback. The transport preserves actual HTTP rejection status separately.
 
-Indexed function tools, text, and reasoning_content/thinking strings are supported. Non-assistant roles, nonempty refusal deltas, unsupported tool kinds, and non-null legacy function_call payloads fail explicitly. Canonical reasoning_content takes precedence over thinking. Unknown extension fields remain ignored unless they contain duplicate keys; this does not establish support for audio, richer reasoning details or other provider payloads. Their integration remains pending.
+Indexed function tools, text, and reasoning_content/thinking strings are supported. Non-assistant roles, nonempty refusal deltas, unsupported tool kinds, and non-null legacy function_call payloads fail explicitly. Canonical reasoning_content takes precedence over thinking. Unknown extension fields remain ignored unless they contain duplicate keys; this does not establish support for audio or other provider payloads. The selected encrypted reasoning profile below is explicit; text/summary detail variants remain unsupported.
 
 The wire baseline uses [streamed function-call deltas](https://developers.openai.com/api/docs/guides/function-calling). Single-choice limits and strict validation are runtime policy. The accumulator enforces the completion contracts below. Indexed text/thinking/function block publication and agent HTTP integration are implemented below. The explicit Google tool-signature contract is described below; other signature formats remain separate.
 
@@ -59,7 +60,7 @@ ChatCompletionsRequest.encode returns Either[AgentError, Json.Obj] without effec
 
 History must contain complete local call/result pairs. Orphan, duplicate, unknown, and unresolved results fail before serialization; another conversation message cannot split pending calls from their observations. Grouped or separately delivered parallel results may arrive in any order, and completed later turns may reuse an ID. A grouped Tool message becomes individual protocol messages. Error, Interrupted, and Denied outputs carry explicit labels; Running and suspended observations fail.
 
-ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. Signed/detailed thinking cannot be replayed by this codec. Unsupported media, provider-hosted server calls/results, calls signed with an unsupported format, and non-text tool output fail explicitly. User-image projection is defined below; broader provider formatting remains separate.
+ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. OpenRouterEncryptedDetails instead validates and replays encrypted detail arrays from every historical assistant message; other detailed/signed thinking formats remain unsupported. Unsupported media, provider-hosted server calls/results, calls signed with an unsupported format, and non-text tool output fail explicitly. User-image projection is defined below; broader provider formatting remains separate.
 
 Validation covers nonblank models, finite temperature in [0, 2], positive optional token limits, protocol names, unique definitions/call IDs, object schemas/arguments/response formats, and duplicate JSON fields. ToolUse.input is authoritative; stale raw content is not sent. Forwarding a schema object does not validate arbitrary JSON Schema semantics. Endpoint, authentication headers, HTTP status handling, and request resource lifetime belong to ChatCompletionsTransport.
 
@@ -71,7 +72,7 @@ This is pure serialization: it does not fetch URLs, read files, decode image byt
 
 No Scala API or domain-codec shape changes. Previously rejected valid user images now serialize; text-only requests and unsupported-role rejection retain their existing behavior. Full provider media validation remains the caller/provider responsibility.
 
-Two grouped image cases retain their accepted user-image contract and user-image-verify.log evidence. Current request source/spec identities and verification are consolidated in [tool-call signatures](#tool-call-signatures).
+Two grouped image cases retain their accepted user-image contract and user-image-verify.log evidence. Current changed identities and verification are consolidated in [encrypted reasoning](#encrypted-reasoning); the unchanged request spec retains its signature-scope identity below.
 
 ## Tool-call signatures
 
@@ -83,19 +84,51 @@ GoogleExtraContent replays that metadata on its original call across all histori
 
 Migration: LlmChunk.ToolCallChunk appends defaulted thoughtSignature: Option[String]; old JSON omitting it still decodes to None, while positional extractors/Product now have five fields. encode and both make methods append a defaulted format argument, preserving ordinary source calls; method values may need adaptation and dependent binaries must be rebuilt. ReasoningModelAdapter retains its one-argument parseChunk overload and adds an explicit-format overload. No ownership, retries or provider discovery are introduced.
 
+Unchanged signature-scope identities remain below; changed implementation and test identities are in [encrypted reasoning](#encrypted-reasoning).
+
 | File | Reviewed Git blob |
 | --- | --- |
 | [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | e5da37b22364928201db3c1c0828457691e819ce |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | b9ba4d6ce8d0287adb6a2679b21985022958e7fc |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | e84f2810313707c5de6eba6b3ccb551a329f2e9d |
-| [LlmChunk.scala](LlmChunk.scala) | 9886bf157fcdee5aa5713728f1faca5d6c9de90d |
-| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 993136e5674994c3d63346d1634241e1c38374ea |
-| [StreamAccumulator.scala](StreamAccumulator.scala) | a55c65b62f1fdcdd3e43d332ea55929bad8a0167 |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | 59b41e4994ff9fd62b399944635d192119956109 |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | f03711c555b132774c057c4e0bbb181809a1b86f |
 | [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | af2751bfa6d0e9388411acc93928d6012ffed63d |
 
-- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the exact nine-file table, with no findings. Full scalafmtAll scalafmtSbt verify passed in signature-mcp-verify.log with zero compiler warnings or failures; focused tool-signature-focused.log passed 102 tests in 4.029 seconds. The reviewed source adds two decoder/assembly groups, one historical request/codec group and one real loopback ReAct group. The HTTP fixture checks late per-call signatures, denial of signed argument rewrites, execution of an unsigned rewrite and exact second-request replay. It is not live Google interoperability. Current repository totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+The signature contract retains its independent path_review/current_docs approval and signature-mcp-verify.log evidence. Its real HTTP fixture verifies per-call preservation and signed rewrite denial, not live Google interoperability.
+
+## Encrypted reasoning
+
+ReasoningReplay.OpenRouterEncryptedDetails explicitly selects response decoding and all-historical-assistant replay of reasoning_details. The [OpenRouter reasoning-details contract](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens#reasoning-details-api-shape) includes several variants; this profile supports only reasoning.encrypted. EncryptedReasoningDetail preserves each validated Json.Obj exactly. The local strict profile allows only type, data, id, format and index: type must be reasoning.encrypted; data is a required nonblank opaque string; optional id is a nonblank string or null; optional format is a nonblank string; optional index is a nonnegative Int JSON integer. Duplicate or unknown keys and other malformed values fail. Data is neither decoded nor concatenated, and format/id/index do not infer identity or ordering.
+
+ReasoningDetailsDelta retains complete objects in received order, including repeated IDs/indexes. Assembly stores one empty-text Thinking block with a reasoningDetails array at its first occurrence. Explicit [] is retained and replayed; absent/null wire fields remain absent. Unsupported replay policies reject supplied arrays, including []. Selected replay validates original history and emits the arrays on their original assistant messages, never on individual tool calls. This profile does not emit reasoning_content or enable other Thinking metadata. Existing Google per-call signatures remain separately selected.
+
+Nonempty opaque details or a nonblank Thinking signature count as reasoning for the bounded thinking-only reminder; [] alone does not. Opaque details emit no ThinkingStart, ThinkingDelta or ThinkingEnd and invent no plaintext. Raw model diagnostic frames remain unredacted. Presence of either reserved reasoning key in any Thinking block protects every sibling call's original arguments, even for [] or malformed metadata. Fixed preparation and approved rewrites must preserve them. Older protected Thinking blocks survive pruneObsoleteReasoning, and the compactor's argument-pruning pass preserves their sibling inputs/cached content. Whole-prefix summarization and trusted host history/model-input/post-reasoning callbacks remain explicit replacement boundaries; this is not indefinite storage or permission authority.
+
+Migration: exhaustive ReasoningReplay and LlmChunk matches must handle the new cases. Existing make arguments and one-/two-argument parseChunk overloads remain; an explicit three-argument decoder overload accepts both host policies. Msg gains pure hasReasoning and preservesToolArguments accessors without changing its JSON shape. A manually constructed history carrying unsupported details now fails instead of silently losing them. The checked AST codec preserves validated representation rather than generating a normalized DTO.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | ddfd6a7af17856c6c075d9674cceb7e01c14dbc5 |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | c087722e13cb05e4939bfce1c498d2fb00e395a2 |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | b513b501eff8ef8bd356afff29cca2e7335ca581 |
+| [LlmChunk.scala](LlmChunk.scala) | 6fe68b9f5882f097a3f5af13fa74981891d70ecf |
+| [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 7733a750576758c02c3b20113491a2adc9b65392 |
+| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 2a4c72cb032a09eb20344b27fbdb782153696920 |
+| [StreamAccumulator.scala](StreamAccumulator.scala) | a24bbbe9358df9525f25a2ce76ea665a468d531b |
+| [Msg.scala](../model/Msg.scala) | e95148040f9bb3499aaf43fed3a8e6ed21237672 |
+| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | fbf31dcaeb77162c6354047cb299c7773ff7e461 |
+| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | 4ce0c254250b9428990dd24e6a0e6310d41cb867 |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | ba77e7980601dca74ba4d585c6b9cd82eefb72bc |
+| [ReasoningAdapterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterSpec.scala) | 1f17e10621d99b2cd79f0382f7c4cc7255b68cf0 |
+| [StreamAccumulatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorSpec.scala) | e90bd63fa63fa74f395d557a5199093dc77f8954 |
+| [ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | fc7dda775a912ce8c4eb567ce9d90ea44df0f640 |
+| [ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | 5eac7143da4b0c03200df7b9cd92395200f4838d |
+| [EncryptedReasoningDetail.scala](EncryptedReasoningDetail.scala) | 5cedaa9500d6699b73a6a871075d1bad02d6232f |
+| [EncryptedReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/EncryptedReasoningDetailSpec.scala) | f6e5ec577c8f7da54c0e8f582321465cf693af16 |
+
+- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for these exact 17 identities, with no findings. Full scalafmtAll scalafmtSbt verify passed in encrypted-reasoning-verify.log with zero compiler warnings or failed tests. Focused encrypted-reasoning-focused-green.log passed 86 core tests in 3.266 seconds and 27 harness tests in 310 ms. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] Two checked-detail groups, extended classification/authorization/pruning tables and one real HTTP ReAct group verify ordered opaque replay, preserved sibling inputs, denial of edited input, execution with unchanged input and absence of all Thinking events. This is loopback contract evidence, not live OpenRouter interoperability.
+- [ ] Implement separately selected text/summary and other provider reasoning formats; no full reasoning-union or whole upstream formatter parity is claimed.
+
+Two thinking-only regression groups failed in opaque-thinking-red.log against unchanged StreamAccumulator a55c65b62f1fdcdd3e43d332ea55929bad8a0167 and ReActAgent 38071eed187726bcbba4d2e146c6e9245219205c: signature-only output was misclassified, and a hook replacement returned an empty reply after one iteration without the required reminder. The regression specs were e90bd63fa63fa74f395d557a5199093dc77f8954 and 1b9c509c05c631cf7c4c4a9d1dc39e71766cab3d. The same assertions passed in opaque-thinking-green.log (23 tests); the final hook table also covers encrypted details.
 
 ## Scoped HTTP completion
 
@@ -135,8 +168,8 @@ This is a typed live-client text transformation point, not the upstream event-re
 
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
 - [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the unchanged JSON-boundary identities from that scope; current capability identities are listed below. No findings remain within this scope.
-- [x] The unchanged scopes retain their recorded verification; current client identities and verification are in [tool-call signatures](#tool-call-signatures), with repository totals in the tracker.
-- [ ] Complete other provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, and exhaustive upstream mapping.
+- [x] The unchanged scopes retain their recorded verification; current changed client identities and verification are in [encrypted reasoning](#encrypted-reasoning), with repository totals in the tracker.
+- [ ] Complete other provider signatures/tool metadata, inline server response decoding, text/summary and other reasoning-detail variants, additional input-size bounds, and exhaustive upstream mapping.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
 
@@ -157,7 +190,7 @@ Final formatted source identities against `06bd2e1`:
 
 ## Text transformation increment identities
 
-Unchanged text-transformation contracts retain acceptance against `02b4654`; current client/transport identities are in [tool-call signatures](#tool-call-signatures). The current real HTTP fixture clock revision is independently approved by `path_review`; its scope and verification are in the [test contract](../../../../../../../test/scala/com/weisgnosis/agents/core/client/README.md#real-http-fixture-clocks).
+Unchanged text-transformation contracts retain acceptance against `02b4654`; current changed client/transport identities are in [encrypted reasoning](#encrypted-reasoning). The current real HTTP fixture clock revision is independently approved by `path_review`; its scope and verification are in the [test contract](../../../../../../../test/scala/com/weisgnosis/agents/core/client/README.md#real-http-fixture-clocks).
 
 | File | Git blob |
 | --- | --- |

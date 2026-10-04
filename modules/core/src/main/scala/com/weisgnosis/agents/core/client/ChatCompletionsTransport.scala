@@ -136,7 +136,7 @@ final class ChatCompletionsTransport private (
             else
               for
                 deltas <- ZIO.fromEither(
-                  ReasoningModelAdapter.parseChunk(frame.data, toolSignatureFormat)
+                  ReasoningModelAdapter.parseChunk(frame.data, toolSignatureFormat, reasoningReplay)
                 )
                 _ <- ZIO.fromEither(accumulate(accumulator, deltas))
                 transformed <- ZIO.foreach(deltas):

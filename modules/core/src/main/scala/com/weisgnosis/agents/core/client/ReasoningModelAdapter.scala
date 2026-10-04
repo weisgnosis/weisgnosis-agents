@@ -58,6 +58,7 @@ object ReasoningModelAdapter:
   final private case class Delta(
       content: Option[String] = None,
       @jsonField("reasoning_content") reasoningContent: Option[String] = None,
+      @jsonField("reasoning_details") reasoningDetails: Option[Json] = None,
       thinking: Option[String] = None,
       @jsonField("tool_calls") toolCalls: Option[Chunk[ToolDelta]] = None,
       @jsonField("function_call") legacyFunctionCall: Option[Json] = None,
@@ -104,6 +105,13 @@ object ReasoningModelAdapter:
       jsonStr: String,
       toolSignatureFormat: ToolSignatureFormat
   ): Either[AgentError, Chunk[LlmChunk]] =
+    parseChunk(jsonStr, toolSignatureFormat, ReasoningReplay.Omit)
+
+  def parseChunk(
+      jsonStr: String,
+      toolSignatureFormat: ToolSignatureFormat,
+      reasoningReplay: ReasoningReplay
+  ): Either[AgentError, Chunk[LlmChunk]] =
     for
       json <- JsonBoundary.decode(jsonStr).left.map(AgentError.DeserializationError(_))
       chunks <- json match
@@ -132,25 +140,28 @@ object ReasoningModelAdapter:
                   "Completion choices must be an explicit array"
                 )
                 value   <- obj.as[Completion]
-                decoded <- decodeCompletion(value, toolSignatureFormat)
+                decoded <- decodeCompletion(value, toolSignatureFormat, reasoningReplay)
               yield decoded).left.map(AgentError.DeserializationError(_))
         case _ => Left(AgentError.DeserializationError("Completion chunk must be an object"))
     yield chunks
 
   private def decodeCompletion(
       value: Completion,
-      toolSignatureFormat: ToolSignatureFormat
+      toolSignatureFormat: ToolSignatureFormat,
+      reasoningReplay: ReasoningReplay
   ): Either[String, Chunk[LlmChunk]] =
     for choices <- value.choices.toList match
-        case Nil if value.usage.nonEmpty              => Right(Chunk.empty)
-        case choice :: Nil if choice.index.value == 0 => decodeChoice(choice, toolSignatureFormat)
+        case Nil if value.usage.nonEmpty => Right(Chunk.empty)
+        case choice :: Nil if choice.index.value == 0 =>
+          decodeChoice(choice, toolSignatureFormat, reasoningReplay)
         case Nil => Left("An empty choices array requires a usage payload")
         case _   => Left("Exactly one completion choice with index zero is supported")
     yield choices ++ Chunk.fromIterable(value.usage.map(decodeUsage))
 
   private def decodeChoice(
       choice: Choice,
-      toolSignatureFormat: ToolSignatureFormat
+      toolSignatureFormat: ToolSignatureFormat,
+      reasoningReplay: ReasoningReplay
   ): Either[String, Chunk[LlmChunk]] =
     val delta = choice.delta
     val calls = delta.toolCalls.getOrElse(Chunk.empty)
@@ -173,7 +184,16 @@ object ReasoningModelAdapter:
           decoded  <- decodeTool(tool, toolSignatureFormat)
         yield previous :+ decoded
       )
-    yield Chunk.fromIterable(
+      details <- delta.reasoningDetails match
+        case None => Right(Chunk.empty)
+        case Some(value) =>
+          reasoningReplay match
+            case ReasoningReplay.OpenRouterEncryptedDetails =>
+              EncryptedReasoningDetail
+                .decodeArray(value)
+                .map(entries => Chunk(LlmChunk.ReasoningDetailsDelta(entries)))
+            case _ => Left("Reasoning details require an explicit replay profile")
+    yield details ++ Chunk.fromIterable(
       delta.reasoningContent
         .orElse(delta.thinking)
         .filter(_.nonEmpty)
@@ -235,8 +255,8 @@ object ReasoningModelAdapter:
 
   /**
    * Context Hygiene: Prunes obsolete reasoning tokens from older dialogue rounds.
-   * Only preserves reasoning content in the most recent assistant message (e.g. immediately
-   * preceding a tool execution turn).
+   * Unsigned plaintext is retained only on the most recent assistant message. Protected protocol
+   * reasoning remains on its original message for exact replay.
    */
   def pruneObsoleteReasoning(history: Chunk[Msg]): Chunk[Msg] =
     if history.isEmpty then history
@@ -244,6 +264,11 @@ object ReasoningModelAdapter:
       val lastAssistantIdx = history.lastIndexWhere(_.role == Role.Assistant)
       history.zipWithIndex.map { case (msg, idx) =>
         if msg.role == Role.Assistant && idx < lastAssistantIdx then
-          msg.filterContent(block => !block.isInstanceOf[ContentBlock.Thinking])
+          msg.filterContent:
+            case thought: ContentBlock.Thinking =>
+              thought.metadata.contains("thoughtSignature") || thought.metadata.contains(
+                "reasoningDetails"
+              )
+            case _ => true
         else msg
       }

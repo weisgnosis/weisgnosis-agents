@@ -1,9 +1,12 @@
 # Model client and stream verification
 
+The [encrypted-reasoning acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) records two checked-detail groups, extended assembly/pruning tables and one actual HTTP ReAct cycle. The latter preserves ordered message-level details, denies a sibling input rewrite, executes unchanged input and emits no Thinking events. These are local protocol tests, not live OpenRouter interoperability; text/summary variants remain unsupported.
+
 These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity or live-provider behavior.
 
 - [ModelTextTransformSpec](ModelTextTransformSpec.scala)
 - [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala)
+- [EncryptedReasoningDetailSpec](EncryptedReasoningDetailSpec.scala)
 - [ChatCompletionsClientSpec](ChatCompletionsClientSpec.scala)
 - [ModelStreamPublisherSpec](ModelStreamPublisherSpec.scala)
 - [HttpClientTestSupport](HttpClientTestSupport.scala)
@@ -41,7 +44,7 @@ ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadat
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
 - [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the unchanged JSON-boundary identities from that scope; current capability identities are listed below. No findings remain within this scope.
 - [x] `path_review` approved the three real HTTP fixtures at the identities below. Only those fixtures use `TestAspect.withLiveClock`; deterministic fixtures retain TestClock and suite timeouts remain 20 seconds.
-- [ ] Complete other provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, and exhaustive upstream mapping.
+- [ ] Complete other provider signatures/tool metadata, inline server response decoding, text/summary and other reasoning-detail variants, additional input-size bounds, and exhaustive upstream mapping.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
 
@@ -68,5 +71,5 @@ Real loopback client/server acquisition, use and release run with a live clock. 
 | Reviewed fixture suite | Git blob |
 | --- | --- |
 | [ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala) | `1aee5a644a169f297b38d9a93e65ed1ab9f9485e` |
-| ChatCompletionsClientSpec | Current identity: [tool-call signatures](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#tool-call-signatures). |
+| ChatCompletionsClientSpec | Current identity: [encrypted reasoning](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning). |
 | [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | `396f6d75c01bcaac54750a0d5df97c219a4b8c31` |

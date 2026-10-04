@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.agent.ReActAgent
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
-import com.weisgnosis.agents.core.model.{Msg, ToolResultState}
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorization, ToolAuthorizer, ToolDef, Toolkit}
 import zio.*
 import zio.http.*
@@ -226,6 +226,141 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
               .exists(_.asObject.flatMap(_.get("extra_content")).isEmpty),
             results.find(_.id == "signed").exists(_.state == ToolResultState.Denied),
             results.find(_.id == "unsigned").exists(_.state == ToolResultState.Success),
+            events.collect { case event: AgentEvent.AgentResultEvent =>
+              event.result.text
+            } == Chunk("answer")
+          )
+        .provide(Client.default, Server.defaultWithPort(0))
+    ) @@ TestAspect.withLiveClock,
+    test("a real encrypted reasoning tool cycle preserves ordered details and original inputs")(
+      ZIO
+        .scoped:
+          val firstDetail = Json.Obj(
+            "type"   -> Json.Str("reasoning.encrypted"),
+            "id"     -> Json.Str("first"),
+            "index"  -> Json.Num(0),
+            "format" -> Json.Str("anthropic-claude-v1"),
+            "data"   -> Json.Str(" opaque-first ")
+          )
+          val secondDetail = Json.Obj(
+            "type"  -> Json.Str("reasoning.encrypted"),
+            "id"    -> Json.Str("second"),
+            "index" -> Json.Num(0),
+            "data"  -> Json.Str("[REDACTED]")
+          )
+          val expected = Json.Arr(firstDetail, secondDetail)
+          val opening = frame(
+            Json
+              .Obj(
+                "choices" -> Json.Arr(
+                  Json.Obj(
+                    "index" -> Json.Num(0),
+                    "delta" -> Json.Obj("reasoning_details" -> Json.Arr(firstDetail))
+                  )
+                )
+              )
+              .toJson
+          )
+          val calls = frame(
+            """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"edit","function":{"name":"lookup","arguments":"{}"}},{"index":1,"id":"keep","function":{"name":"lookup","arguments":"{}"}}]}}]}"""
+          )
+          val closing = frame(
+            Json
+              .Obj(
+                "choices" -> Json.Arr(
+                  Json.Obj(
+                    "index"         -> Json.Num(0),
+                    "delta"         -> Json.Obj("reasoning_details" -> Json.Arr(secondDetail)),
+                    "finish_reason" -> Json.Str("tool_calls")
+                  )
+                )
+              )
+              .toJson
+          )
+          for
+            requests <- Ref.make(Chunk.empty[String])
+            executed <- Ref.make(Chunk.empty[Json])
+            lookup = Tool.make(ToolDef("lookup", "Look up a value", Json.Obj()))(input =>
+              executed.update(_ :+ input).as("observation")
+            )
+            authorizer = ToolAuthorizer(request =>
+              ZIO.succeed(
+                ToolAuthorization.Approved(
+                  if request.call.id == "edit" then Json.Obj("changed" -> Json.Bool(true))
+                  else request.call.input
+                )
+              )
+            )
+            port <- Server.install(Routes(Method.POST / "completion" -> handler {
+              (request: Request) =>
+                request.body.asString
+                  .orElseSucceed("")
+                  .flatMap(body => requests.modify(previous => (previous.size, previous :+ body)))
+                  .map(index =>
+                    response(
+                      ZStream.succeed(
+                        if index == 0 then opening + calls + closing + done else text + stop + done
+                      )
+                    )
+                  )
+            }))
+            http <- ZIO.service[Client]
+            client <- ChatCompletionsClient
+              .make(http, reasoningReplay = ReasoningReplay.OpenRouterEncryptedDetails)
+            agent <- ReActAgent.make(
+              client = client,
+              toolkit = Toolkit(Map("lookup" -> lookup)),
+              toolAuthorizer = authorizer,
+              llmConfig = config.copy(endpoint = s"http://127.0.0.1:$port/completion")
+            )
+            events  <- agent.streamEvents(Msg.user("lookup both")).runCollect
+            history <- agent.history
+            raw     <- requests.get
+            bodies  <- ZIO.foreach(raw)(body => ZIO.fromEither(body.fromJson[Json]))
+            inputs  <- executed.get
+            replayed = bodies
+              .drop(1)
+              .flatMap(
+                _.asObject.flatMap(_.get("messages")).flatMap(_.asArray).getOrElse(Chunk.empty)
+              )
+              .flatMap(_.asObject)
+              .filter(_.get("tool_calls").nonEmpty)
+            wireCalls = replayed.flatMap(
+              _.get("tool_calls").flatMap(_.asArray).getOrElse(Chunk.empty)
+            )
+            retained = history.flatMap(_.content.collect { case value: ContentBlock.Thinking =>
+              value
+            })
+            results = history.flatMap(_.toolResults)
+          yield assertTrue(
+            bodies.size == 2,
+            inputs == Chunk(Json.Obj()),
+            replayed.size == 1,
+            replayed.forall(_.get("reasoning_details").contains(expected)),
+            wireCalls.size == 2,
+            wireCalls.forall(
+              _.asObject
+                .flatMap(_.get("function"))
+                .flatMap(_.asObject)
+                .flatMap(_.get("arguments"))
+                .contains(Json.Str("{}"))
+            ),
+            retained.size == 1,
+            retained
+              .forall(value => value.thinking.isEmpty && value.reasoningDetails.contains(expected)),
+            history
+              .flatMap(_.toolUses)
+              .forall(call => call.input == Json.Obj() && call.metadata.isEmpty),
+            results.find(_.id == "edit").exists(_.state == ToolResultState.Denied),
+            results.find(_.id == "keep").exists(_.state == ToolResultState.Success),
+            !events.exists:
+              case _: AgentEvent.ThinkingBlockStartEvent | _: AgentEvent.ThinkingBlockDeltaEvent |
+                  _: AgentEvent.ThinkingBlockEndEvent =>
+                true
+              case _ => false,
+            events.collect { case event: AgentEvent.TextBlockDeltaEvent =>
+              event.delta
+            }.mkString == "answer",
             events.collect { case event: AgentEvent.AgentResultEvent =>
               event.result.text
             } == Chunk("answer")

@@ -490,29 +490,52 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
       )
     },
     test("a thinking-only replacement enters the normal bounded reminder path") {
-      for
-        client <- LlmClient.mock(
+      ZIO
+        .foreach(
           Chunk(
-            TurnOutput.FinalText(Msg.assistant("replace")),
-            TurnOutput.FinalText(Msg.assistant("done"))
+            ContentBlock.Thinking("reason")                                          -> 2,
+            ContentBlock.Thinking("", Map("thoughtSignature" -> Json.Str("opaque"))) -> 2,
+            ContentBlock.Thinking(
+              "",
+              Map(
+                "reasoningDetails" -> Json.Arr(
+                  Json.Obj(
+                    "type" -> Json.Str("reasoning.encrypted"),
+                    "data" -> Json.Str("opaque")
+                  )
+                )
+              )
+            )                                                                -> 2,
+            ContentBlock.Thinking("")                                        -> 1,
+            ContentBlock.Thinking("", Map("reasoningDetails" -> Json.Arr())) -> 1
           )
-        )
-        hook = PostReasoningHook((_, message) =>
-          ZIO.succeed(
-            if message.text == "replace" then
-              ReasoningDecision.Replace(Msg.assistant(Chunk(ContentBlock.Thinking("reason"))))
-            else ReasoningDecision.Keep
+        ) { case (replacement, expectedIterations) =>
+          for
+            client <- LlmClient.mock(
+              Chunk(
+                TurnOutput.FinalText(Msg.assistant("replace")),
+                TurnOutput.FinalText(Msg.assistant("done"))
+              )
+            )
+            hook = PostReasoningHook((_, message) =>
+              ZIO.succeed(
+                if message.text == "replace" then
+                  ReasoningDecision.Replace(Msg.assistant(Chunk(replacement)))
+                else ReasoningDecision.Keep
+              )
+            )
+            agent  <- ReActAgent.make(client = client, postReasoningHook = hook)
+            result <- agent.run(Msg.user("q"))
+          yield assertTrue(
+            result.reply.text == (if expectedIterations == 2 then "done" else ""),
+            result.iterationCount == expectedIterations,
+            result.history
+              .count(_.reminderKind.contains("empty_response")) == expectedIterations - 1,
+            result.history.exists(_.content.contains(replacement)),
+            result.history.forall(_.text != "replace")
           )
-        )
-        agent  <- ReActAgent.make(client = client, postReasoningHook = hook)
-        result <- agent.run(Msg.user("q"))
-      yield assertTrue(
-        result.reply.text == "done",
-        result.iterationCount == 2,
-        result.history.count(_.reminderKind.contains("empty_response")) == 1,
-        result.history.exists(_.thinking == "reason"),
-        result.history.forall(_.text != "replace")
-      )
+        }
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     },
     test("usage excludes supplied history and resets between invocations") {
       for

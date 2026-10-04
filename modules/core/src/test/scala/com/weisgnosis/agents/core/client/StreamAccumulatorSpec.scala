@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.model.ContentBlock
 import zio.json.ast.Json
 import zio.test.*
 
@@ -80,13 +81,27 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
       val acc    = accumulate(chunks)
       val output = acc.flatMap(_.feed(LlmChunk.FinishReason("stop"))).flatMap(_.toTurnOutput)
 
+      val signed = accumulate(Seq(LlmChunk.ThinkingDelta("", signature = Some("opaque"))))
+        .flatMap(_.feed(LlmChunk.FinishReason("stop")))
+        .flatMap(_.toTurnOutput)
+      val empty = accumulate(Seq(LlmChunk.ThinkingDelta("")))
+        .flatMap(_.feed(LlmChunk.FinishReason("stop")))
+        .flatMap(_.toTurnOutput)
+
       assertTrue(
         output match
           case Right(TurnOutput.ThinkingOnly(msg)) =>
             msg.thinking == "Thinking step 1... Thinking step 2..." &&
             msg.text.isEmpty &&
             msg.toolUses.isEmpty
-          case _ => false
+          case _ => false,
+        signed match
+          case Right(TurnOutput.ThinkingOnly(msg)) =>
+            msg.thinking.isEmpty && msg.text.isEmpty && msg.content.contains(
+              ContentBlock.Thinking("", Map("thoughtSignature" -> Json.Str("opaque")))
+            )
+          case _ => false,
+        empty.exists(_.isInstanceOf[TurnOutput.FinalText])
       )
     },
     test("Detects FinalText turn when plain text is produced") {

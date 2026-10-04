@@ -9,7 +9,7 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 | [event](src/main/scala/com/weisgnosis/agents/core/event/README.md) | 39 typed variants and source tagging; not all emitters are implemented |
 | [skill](src/main/scala/com/weisgnosis/agents/core/skill/README.md) | Checked preloaded catalogue, exact logical resources and explicit Meta targets; runtime loading uses ordinary authorization |
 | [tool](src/main/scala/com/weisgnosis/agents/core/tool/README.md) | Typed tools, immutable host-selected groups and pure scoped notes, attached fixed raw arguments, host-selected descriptive output schemas, immutable registry, typed completed observations, path screening |
-| [client](src/main/scala/com/weisgnosis/agents/core/client/README.md) | Client port, scripted clients, validated text/user-image/function requests, scoped HTTP completion, SSE framing, indexed assembly and explicit Google tool-signature replay |
+| [client](src/main/scala/com/weisgnosis/agents/core/client/README.md) | Client port, scripted clients, validated text/user-image/function requests, scoped HTTP completion, SSE framing, indexed assembly, explicit Google tool-signature replay and selected encrypted reasoning |
 | [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | ReAct lifecycle, run-owned group activation, preloaded skill loading and snapshot-consistent descriptions/results, interruption, thinking retries, structured output |
 
 Typed failures are defined in [AgentError.scala](src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala). Provider extensions, remaining event integrations, automatic failover, and exhaustive upstream parity remain pending.
@@ -21,6 +21,8 @@ Tool.encodeResult preserves String/Success behavior by default and permits typed
 The [incremental local execution contract](src/main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution) separates provisional text/data events from one final typed observation; both independent reviews and full verification passed. Existing completed payloads and provider limitations retain their contracts.
 
 ## Current review acceptance
+
+- [x] Both reviewers approved [encrypted reasoning](src/main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning): strict ordered opaque details, all-historical replay, bounded opaque-only reminders and message-level argument protection. The linked contract owns current identities, verification and remaining provider limits.
 
 - [x] `registry_contract` and `current_docs` approved checked [catalogue selection](src/main/scala/com/weisgnosis/agents/core/skill/README.md), with exact definitions, explicit empty selection and rejection of removed or unknown IDs. The linked contract owns source/spec identities and full verification.
 

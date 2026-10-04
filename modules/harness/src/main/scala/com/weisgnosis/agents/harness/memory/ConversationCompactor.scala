@@ -121,7 +121,9 @@ final class ConversationCompactor(
             else result
           }
           .mapToolUses { call =>
-            val hasReasoningMetadata = call.metadata.contains("thoughtSignature") || call.metadata
+            val hasReasoningMetadata = message.preservesToolArguments || call.metadata.contains(
+              "thoughtSignature"
+            ) || call.metadata
               .contains("reasoningDetails")
             if !hasReasoningMetadata && call.input.toJson.length > limit then
               call.copy(

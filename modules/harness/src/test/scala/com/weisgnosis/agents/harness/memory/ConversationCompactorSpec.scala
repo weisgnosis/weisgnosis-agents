@@ -221,7 +221,21 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
         config.copy(keepTokens = 100),
         counter
       )
-      for results <- ZIO.foreach(fields)(metadata =>
+      val origins = fields.map(metadata => metadata -> Option.empty[ContentBlock.Thinking]) ++
+        Chunk(
+          Json.Arr(),
+          Json.Arr(
+            Json.Obj(
+              "type" -> Json.Str("reasoning.encrypted"),
+              "data" -> Json.Str("opaque")
+            )
+          )
+        ).map(details =>
+          Map.empty[String, Json] -> Some(
+            ContentBlock.Thinking("", Map("reasoningDetails" -> details))
+          )
+        )
+      for results <- ZIO.foreach(origins) { case (metadata, thought) =>
           val use = ContentBlock.ToolUse(
             "large",
             "search",
@@ -232,14 +246,17 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
           pruning
             .compactIfNeeded(
               Chunk(
-                Msg.assistant(Chunk(use)),
+                Msg.assistant(Chunk.fromIterable(thought) :+ use),
                 tool("large"),
                 Msg.assistant("recent"),
                 Msg.assistant("tail")
               )
             )
-            .map(_.flatMap(_.toolUses) == Chunk(use))
-        )
+            .map(history =>
+              history.flatMap(_.toolUses) == Chunk(use) &&
+                thought.forall(value => history.exists(_.content.contains(value)))
+            )
+        }
       yield assertTrue(results.forall(identity))
     },
     test("empty and below-threshold histories do not call the summarizer") {
