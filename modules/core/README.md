@@ -64,3 +64,5 @@ The core runtime retains canonical history and scoped completion authority. Resu
 Approval covers recorded revisions and named contracts, not unreviewed working-tree changes or exhaustive parity.
 
 - [x] Both independent reviewers approved [exact deferred skill capabilities](src/main/scala/com/weisgnosis/agents/core/skill/README.md#deferred-resource-capabilities), authorized scoped resolution before activation and logical-name prompt projection.
+
+- [x] Both reviewers approved [bounded HTTP-status retries](src/main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries), preserving default single-attempt behavior, one logical invocation and joined cleanup; full verification passed.

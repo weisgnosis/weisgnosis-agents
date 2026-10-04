@@ -15,9 +15,10 @@
  */
 package com.weisgnosis.agents.core.client
 
-import com.weisgnosis.agents.core.agent.ReActAgent
+import com.weisgnosis.agents.core.agent.{ModelInputTransform, ReActAgent}
+import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
+import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorization, ToolAuthorizer, ToolDef, Toolkit}
 import zio.*
 import zio.http.*
@@ -143,6 +144,99 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
             } == Chunk("answer")
           )
         .provide(Client.default, Server.defaultWithPort(0))
+    ) @@ TestAspect.withLiveClock,
+    test(
+      "selected HTTP status retries preserve one logical model request and never replay client errors"
+    )(
+      ZIO
+        .foreach(Chunk(Status.TooManyRequests, Status.BadRequest))(status =>
+          ZIO
+            .scoped:
+              for
+                requests  <- Ref.make(Chunk.empty[(String, Option[String])])
+                projected <- Ref.make(0)
+                port <- Server.install(Routes(Method.POST / "completion" -> handler {
+                  (request: Request) =>
+                    request.body.asString
+                      .orElseSucceed("")
+                      .flatMap(body =>
+                        requests.modify(previous =>
+                          (
+                            previous.size,
+                            previous :+ (body -> request.headers.get("Authorization"))
+                          )
+                        )
+                      )
+                      .map(index =>
+                        if index == 0 then
+                          Response(status = status, body = Body.fromString("rejected"))
+                        else
+                          response(
+                            ZStream.succeed(
+                              text + stop + frame(
+                                """{"choices":[],"usage":{"prompt_tokens":3,"completion_tokens":4}}"""
+                              ) + done
+                            )
+                          )
+                      )
+                }))
+                policy <- ZIO.fromEither(CompletionRetryPolicy.make(2))
+                http   <- ZIO.service[Client]
+                client <- ChatCompletionsClient.make(http, retryPolicy = policy)
+                agent <- ReActAgent.make(
+                  client = client,
+                  llmConfig = config.copy(
+                    endpoint = s"http://127.0.0.1:$port/completion",
+                    apiKey = Some("test-key")
+                  ),
+                  modelInputTransform =
+                    ModelInputTransform((_, history) => projected.update(_ + 1).as(history))
+                )
+                seen <- Ref.make(Chunk.empty[AgentEvent])
+                exit <- agent
+                  .streamEvents(Msg.user("question"))
+                  .tap(event => seen.update(_ :+ event))
+                  .runDrain
+                  .exit
+                events      <- seen.get
+                bodies      <- requests.get
+                history     <- agent.history
+                projections <- projected.get
+                accepted = status == Status.TooManyRequests
+              yield assertTrue(
+                bodies.size == (if accepted then 2 else 1),
+                bodies.distinct.size == 1,
+                bodies.forall(_._2.contains("Bearer test-key")),
+                projections == 1,
+                history.count(_.role == Role.User) == 1,
+                history.count(_.role == Role.Assistant) == (if accepted then 1 else 0),
+                events.count(_.isInstanceOf[AgentEvent.ModelResponseChunkEvent]) == (if accepted
+                                                                                     then 3
+                                                                                     else 0),
+                events.count(_.isInstanceOf[AgentEvent.ModelRequestStartEvent]) == 1,
+                contexts(events).map(_.requestId).distinct.size == 1,
+                events.count(_.isInstanceOf[AgentEvent.ModelResponseEndEvent]) == (if accepted then
+                                                                                     1
+                                                                                   else 0),
+                events.collect { case event: AgentEvent.TextBlockDeltaEvent => event.delta } ==
+                  (if accepted then Chunk("answer") else Chunk.empty),
+                events.collect { case event: AgentEvent.AgentResultEvent => event.result.text } ==
+                  (if accepted then Chunk("answer") else Chunk.empty),
+                if accepted then
+                  exit.isSuccess && history.lastOption.exists(message =>
+                    message.text == "answer" && message.usage.contains(ChatUsage(3, 4))
+                  )
+                else
+                  exit.causeOption.exists(_.failureOption.exists {
+                    case AgentError.ModelError(400, _, _) => true
+                    case _                                => false
+                  })
+                ,
+                events.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent])
+              )
+            .provide(Client.default, Server.defaultWithPort(0))
+        )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     ) @@ TestAspect.withLiveClock,
     test("a real signed tool cycle replays only its signature and denies edits to signed input")(
       ZIO

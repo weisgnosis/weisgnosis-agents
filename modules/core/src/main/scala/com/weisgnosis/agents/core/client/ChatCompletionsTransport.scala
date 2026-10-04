@@ -35,8 +35,11 @@ final class ChatCompletionsTransport private (
     http: Client,
     limits: CompletionTransportLimits,
     reasoningReplay: ReasoningReplay,
-    toolSignatureFormat: ToolSignatureFormat
+    toolSignatureFormat: ToolSignatureFormat,
+    retryPolicy: CompletionRetryPolicy
 ):
+  import ChatCompletionsTransport.*
+
   /** Owns the request scope, closing it before success, failure, or interruption returns. */
   def complete(
       history: Chunk[Msg],
@@ -54,7 +57,7 @@ final class ChatCompletionsTransport private (
       transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String] =
         fragment => ZIO.succeed(fragment.delta)
   ): IO[AgentError, TurnOutput] =
-    ZIO.scoped:
+    ZIO.suspendSucceed:
       for
         body <- ZIO.fromEither(
           ChatCompletionsRequest.encode(
@@ -76,10 +79,58 @@ final class ChatCompletionsTransport private (
         headers = Headers("Content-Type" -> "application/json", "Accept" -> "text/event-stream") ++
           config.apiKey.fold(Headers.empty)(key => Headers("Authorization", s"Bearer $key"))
         request = Request.post(url, Body.fromString(body.toJson)).addHeaders(headers)
-        response <- Client
-          .streaming(request)
-          .provideSomeEnvironment[Scope](_.add(http))
-          .mapError(_ => AgentError.ModelError(0, "HTTP request failed"))
+        output <- retryPolicy match
+          case CompletionRetryPolicy.Disabled =>
+            exchange(request, 1, Duration.Zero, onFrame, transformText)
+          case policy: CompletionRetryPolicy.HttpStatusRetries =>
+            exchange(request, policy.maxAttempts, policy.delay, onFrame, transformText)
+      yield output
+
+  private def exchange(
+      request: Request,
+      remaining: Int,
+      delay: Duration,
+      onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
+  ): IO[AgentError, TurnOutput] =
+    ZIO.uninterruptibleMask: restore =>
+      restore(attempt(request, onFrame, transformText)).exit.flatMap:
+        case Exit.Success(output) => restore(ZIO.succeed(output))
+        case Exit.Failure(cause) =>
+          val failure = cause.map {
+            case HttpRejection(error) => error
+            case error: AgentError    => error
+          }
+          if cause.isInterrupted then ZIO.refailCause(failure)
+          else
+            // Observe cancellation after joined cleanup without discarding its failed outcome.
+            restore(ZIO.unit).exit.flatMap:
+              case Exit.Failure(interruption) => ZIO.refailCause(failure ++ interruption)
+              case Exit.Success(_) =>
+                cause match
+                  case Cause.Fail(HttpRejection(error), _)
+                      if remaining > 1 && retryableStatuses.contains(error.statusCode) =>
+                    restore(
+                      ZIO.sleep(delay) *> exchange(
+                        request,
+                        remaining - 1,
+                        delay,
+                        onFrame,
+                        transformText
+                      )
+                    )
+                  case _ => ZIO.refailCause(failure)
+
+  private def attempt(
+      request: Request,
+      onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
+  ): IO[AttemptFailure, TurnOutput] =
+    ZIO.scoped:
+      for
+        response <- ZIO.uninterruptibleMask: restore =>
+          restore(Client.streaming(request).provideSomeEnvironment[Scope](_.add(http)))
+            .mapError(_ => AgentError.ModelError(0, "HTTP request failed"))
         output <-
           if response.status.isSuccess then consume(response, onFrame, transformText)
           else reject(response)
@@ -173,22 +224,29 @@ final class ChatCompletionsTransport private (
         else ZIO.succeed((consumed + chunk.size, chunk))
       .flattenChunks
 
-  private def reject(response: Response): IO[AgentError, Nothing] =
-    response.body.asStream
-      .take(limits.errorBodyBytes.toLong)
-      .runCollect
-      .map(bytes => new String(bytes.toArray, StandardCharsets.UTF_8))
-      .mapError(_ =>
-        AgentError.ModelError(response.status.code, "Failed to read HTTP error response")
-      )
-      .flatMap(payload =>
-        ZIO.fail(
-          AgentError
-            .ModelError(response.status.code, "HTTP completion request was rejected", Some(payload))
+  private def reject(response: Response): IO[AttemptFailure, Nothing] =
+    ZIO.uninterruptibleMask: restore =>
+      restore(response.body.asStream.take(limits.errorBodyBytes.toLong).runCollect)
+        .mapError(_ =>
+          AgentError.ModelError(response.status.code, "Failed to read HTTP error response")
         )
-      )
+        .flatMap(bytes =>
+          ZIO.fail(
+            HttpRejection(
+              AgentError.ModelError(
+                response.status.code,
+                "HTTP completion request was rejected",
+                Some(new String(bytes.toArray, StandardCharsets.UTF_8))
+              )
+            )
+          )
+        )
 
 object ChatCompletionsTransport:
+  final private case class HttpRejection(error: AgentError.ModelError)
+  private type AttemptFailure = AgentError | HttpRejection
+  private val retryableStatuses = Set(429, 500, 502, 503, 504)
+
   private enum StreamState:
     case Reading(accumulator: StreamAccumulator)
     case Completed(output: TurnOutput)
@@ -197,11 +255,18 @@ object ChatCompletionsTransport:
       http: Client,
       limits: CompletionTransportLimits = CompletionTransportLimits(),
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
-      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported
+      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
+      retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled
   ): IO[AgentError, ChatCompletionsTransport] =
     ZIO.fromEither:
       Either.cond(
         limits.responseBytes > 0 && limits.errorBodyBytes > 0,
-        new ChatCompletionsTransport(http, limits, reasoningReplay, toolSignatureFormat),
+        new ChatCompletionsTransport(
+          http,
+          limits,
+          reasoningReplay,
+          toolSignatureFormat,
+          retryPolicy
+        ),
         AgentError.InvalidConfiguration("Transport byte limits must be positive")
       )

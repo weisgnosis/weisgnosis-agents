@@ -25,6 +25,12 @@ import zio.test.*
 import HttpClientTestSupport.scripted
 
 object ChatCompletionsTransportSpec extends ZIOSpecDefault:
+  private enum RetryExclusion:
+    case Acquisition, ErrorBody, ErrorBodyDefect, StreamBody, Parser, Transform, Callback
+
+  private enum RetryCleanup:
+    case Release, Defect, Cancellation, BodyCancellation
+
   private val config  = LlmConfig("test-model", endpoint = "http://localhost/completion")
   private val text    = frame("""{"choices":[{"index":0,"delta":{"content":"hello"}}]}""")
   private val stop    = frame("""{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}""")
@@ -32,6 +38,265 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
   private val success = text + stop + done
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ChatCompletionsTransport")(
+    test(
+      "retries only selected HTTP rejection statuses with bounded attempts and original failures"
+    ):
+      for
+        enabled <- ZIO.fromEither(CompletionRetryPolicy.make(3))
+        single  <- ZIO.fromEither(CompletionRetryPolicy.make(1))
+        cases = Chunk(429, 500, 502, 503, 504).map(status => (status, enabled, 3)) ++
+          Chunk(400, 401, 403, 408, 501).map(status => (status, enabled, 1)) ++
+          Chunk((429, CompletionRetryPolicy.disabled, 1), (429, single, 1))
+        statuses <- ZIO.foreach(cases): (status, policy, expected) =>
+          for
+            sent <- Ref.make(0)
+            transport <- ChatCompletionsTransport.make(
+              scripted(_ =>
+                sent
+                  .updateAndGet(_ + 1)
+                  .map(attempt =>
+                    Response(
+                      status = Status.fromInt(status),
+                      body = Body.fromString(s"attempt $attempt")
+                    )
+                  )
+              ),
+              retryPolicy = policy
+            )
+            exit  <- transport.complete(Chunk(Msg.user("q")), Chunk.empty, config).exit
+            count <- sent.get
+          yield assertTrue(
+            count == expected,
+            exit.causeOption.contains(
+              Cause.fail(
+                AgentError.ModelError(
+                  status,
+                  "HTTP completion request was rejected",
+                  Some(s"attempt $expected")
+                )
+              )
+            )
+          )
+        excluded <- ZIO.foreach(Chunk.fromArray(RetryExclusion.values)): scenario =>
+          val failure = AgentError.ModelError(429, "not an HTTP rejection")
+          val defect  = new IllegalStateException("callback failed")
+          for
+            sent <- Ref.make(0)
+            transport <- ChatCompletionsTransport.make(
+              scripted(_ =>
+                sent.update(_ + 1) *> (scenario match
+                  case RetryExclusion.Acquisition => ZIO.fail(failure)
+                  case RetryExclusion.ErrorBody =>
+                    ZIO.succeed(
+                      Response(
+                        status = Status.TooManyRequests,
+                        body = Body.fromStreamChunked(ZStream.fail(failure))
+                      )
+                    )
+                  case RetryExclusion.ErrorBodyDefect =>
+                    ZIO.succeed(
+                      Response(
+                        status = Status.TooManyRequests,
+                        body =
+                          Body.fromStreamChunked(ZStream.fail(failure).ensuring(ZIO.die(defect)))
+                      )
+                    )
+                  case RetryExclusion.StreamBody =>
+                    ZIO.succeed(streamResponse(ZStream.fail(failure)))
+                  case RetryExclusion.Parser => ZIO.succeed(response(frame("not-json") + done))
+                  case _                     => ZIO.succeed(response(success)))
+              ),
+              retryPolicy = enabled
+            )
+            exit <- transport
+              .observe(Chunk(Msg.user("q")), Chunk.empty, config)(
+                (_, _) =>
+                  scenario match
+                    case RetryExclusion.Callback => ZIO.die(defect)
+                    case _                       => ZIO.unit,
+                fragment =>
+                  scenario match
+                    case RetryExclusion.Transform =>
+                      ZIO.fail(AgentError.TextTransformationError("transform failed"))
+                    case _ => ZIO.succeed(fragment.delta)
+              )
+              .exit
+            count <- sent.get
+          yield assertTrue(count == 1, exit.isFailure) && (scenario match
+            case RetryExclusion.Callback =>
+              assertTrue(exit.causeOption.exists(_.defects == List(defect)))
+            case RetryExclusion.Transform =>
+              assertTrue(
+                exit.causeOption
+                  .contains(Cause.fail(AgentError.TextTransformationError("transform failed")))
+              )
+            case RetryExclusion.Acquisition =>
+              assertTrue(
+                exit.causeOption
+                  .contains(Cause.fail(AgentError.ModelError(0, "HTTP request failed")))
+              )
+            case RetryExclusion.ErrorBody =>
+              assertTrue(
+                exit.causeOption.contains(
+                  Cause.fail(AgentError.ModelError(429, "Failed to read HTTP error response"))
+                )
+              )
+            case RetryExclusion.ErrorBodyDefect =>
+              assertTrue(
+                exit.causeOption.contains(
+                  Cause.fail(
+                    AgentError.ModelError(429, "Failed to read HTTP error response")
+                  ) ++ Cause.die(defect)
+                )
+              )
+            case RetryExclusion.StreamBody =>
+              assertTrue(exit.causeOption.contains(Cause.fail(failure)))
+            case RetryExclusion.Parser =>
+              assertTrue(
+                exit.causeOption.exists(cause =>
+                  cause.failures.exists(_.isInstanceOf[AgentError.DeserializationError]) &&
+                    cause.failures.size == 1 && cause.defects.isEmpty && !cause.isInterrupted
+                )
+              ))
+      yield (statuses ++ excluded).foldLeft(assertTrue(true))(_ && _)
+    ,
+    test("joins rejection cleanup before retry and preserves cancellation or cleanup defects"):
+      for
+        policy <- ZIO.fromEither(CompletionRetryPolicy.make(2))
+        outcomes <- ZIO.foreach(Chunk.fromArray(RetryCleanup.values)): scenario =>
+          ZIO.scoped:
+            for
+              sent              <- Ref.make(0)
+              entered           <- Promise.make[Nothing, Unit]
+              bodyEntered       <- Promise.make[Nothing, Unit]
+              release           <- Promise.make[Nothing, Unit]
+              cancelled         <- Promise.make[Nothing, Unit]
+              closed            <- Ref.make(false)
+              secondAfterClosed <- Ref.make(false)
+              defect = new IllegalStateException("rejection cleanup failed")
+              cancellation = scenario match
+                case RetryCleanup.Cancellation =>
+                  ZIO.descriptor
+                    .zip(release.isDone)
+                    .flatMap:
+                      case (descriptor, released) =>
+                        if descriptor.interrupters.nonEmpty then cancelled.succeed(()).as(true)
+                        else ZIO.yieldNow.as(released)
+                case _ => ZIO.succeed(true)
+              cleanup = entered.succeed(()) *> cancellation.repeatUntil(
+                identity
+              ) *> release.await *>
+                closed.set(true) *> (scenario match
+                  case RetryCleanup.Release => ZIO.unit
+                  case _                    => ZIO.die(defect))
+              transport <- ChatCompletionsTransport.make(
+                scripted(_ =>
+                  sent
+                    .updateAndGet(_ + 1)
+                    .flatMap:
+                      case 1 =>
+                        scenario match
+                          case RetryCleanup.BodyCancellation =>
+                            ZIO.succeed(
+                              Response(
+                                status = Status.TooManyRequests,
+                                body = Body.fromStreamChunked(
+                                  ZStream.unwrapScoped(
+                                    ZIO.addFinalizer(cleanup) *> bodyEntered
+                                      .succeed(())
+                                      .as(ZStream.never)
+                                  )
+                                )
+                              )
+                            )
+                          case _ =>
+                            ZIO
+                              .addFinalizer(cleanup)
+                              .as(
+                                Response(
+                                  status = Status.TooManyRequests,
+                                  body = Body.fromString("busy")
+                                )
+                              )
+                      case _ => closed.get.flatMap(secondAfterClosed.set).as(response(success))
+                ),
+                retryPolicy = policy
+              )
+              checked <- (for
+                fiber <- transport.complete(Chunk(Msg.user("q")), Chunk.empty, config).forkScoped
+                _ <- scenario match
+                  case RetryCleanup.BodyCancellation =>
+                    bodyEntered.await *> ZIO.fiberId.flatMap(fiber.interruptAsFork)
+                  case _ => ZIO.unit
+                _ <- entered.await
+                _ <- scenario match
+                  case RetryCleanup.Cancellation =>
+                    ZIO.fiberId.flatMap(fiber.interruptAsFork) *> cancelled.await
+                  case _ => ZIO.unit
+                pending <- fiber.poll
+                before  <- sent.get
+                _       <- release.succeed(())
+                exit    <- fiber.await
+                count   <- sent.get
+                ordered <- secondAfterClosed.get
+                completed = exit match
+                  case Exit.Success(output) => output.message.text == "hello"
+                  case _                    => false
+              yield assertTrue(pending.isEmpty, before == 1) && (scenario match
+                case RetryCleanup.Release => assertTrue(completed, count == 2, ordered)
+                case RetryCleanup.Defect =>
+                  assertTrue(
+                    count == 1,
+                    exit.causeOption.contains(
+                      Cause.fail(
+                        AgentError
+                          .ModelError(429, "HTTP completion request was rejected", Some("busy"))
+                      ) ++ Cause.die(defect)
+                    )
+                  )
+                case RetryCleanup.Cancellation =>
+                  assertTrue(
+                    count == 1,
+                    exit.isInterrupted,
+                    exit.causeOption.exists(cause =>
+                      cause.defects == List(defect) &&
+                        cause.failures == List(
+                          AgentError
+                            .ModelError(429, "HTTP completion request was rejected", Some("busy"))
+                        )
+                    )
+                  )
+                case RetryCleanup.BodyCancellation =>
+                  assertTrue(
+                    count == 1,
+                    exit.isInterrupted,
+                    exit.causeOption
+                      .exists(cause => cause.defects == List(defect) && cause.failures.isEmpty)
+                  ))).ensuring(release.succeed(()).unit)
+            yield checked
+        delay <- ZIO.fromEither(CompletionRetryPolicy.make(2, 1.hour))
+        slept <- ZIO.scoped:
+          for
+            count  <- Ref.make(0)
+            closed <- Promise.make[Nothing, Unit]
+            transport <- ChatCompletionsTransport.make(
+              scripted(_ =>
+                count.update(_ + 1) *> ZIO
+                  .addFinalizer(closed.succeed(()).unit)
+                  .as(
+                    Response(status = Status.TooManyRequests, body = Body.fromString("busy"))
+                  )
+              ),
+              retryPolicy = delay
+            )
+            fiber <- transport.complete(Chunk(Msg.user("q")), Chunk.empty, config).forkScoped
+            _     <- closed.await
+            _     <- (ZIO.yieldNow *> TestClock.sleeps).repeatUntil(_.nonEmpty)
+            exit  <- fiber.interrupt
+            sent  <- count.get
+          yield assertTrue(exit.isInterrupted, sent == 1)
+      yield outcomes.foldLeft(slept)(_ && _)
+    ,
     test("posts validated JSON and credentials only in headers"):
       for
         captured <- Ref.make(Option.empty[(Request, String)])

@@ -6,6 +6,7 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [ModelTextTransform](ModelTextTransform.scala)
 - [ModelStreamPublisher](ModelStreamPublisher.scala)
 - [ChatCompletionsTransport](ChatCompletionsTransport.scala)
+- [CompletionRetryPolicy](CompletionRetryPolicy.scala)
 - [ChatCompletionsRequest](ChatCompletionsRequest.scala)
 - [LlmChunk](LlmChunk.scala)
 - [EncryptedReasoningDetail](EncryptedReasoningDetail.scala)
@@ -99,7 +100,7 @@ Unchanged signature-scope identities remain below; current request/spec identiti
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | e5da37b22364928201db3c1c0828457691e819ce |
+| ChatCompletionsClient.scala | Current identity: [retry acceptance](#bounded-http-status-retries). |
 
 | [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | af2751bfa6d0e9388411acc93928d6012ffed63d |
 
@@ -123,7 +124,7 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | --- | --- |
 | ReActAgent.scala | Encrypted-reasoning baseline ddfd6a7af17856c6c075d9674cceb7e01c14dbc5; current identity: [acting-stop decisions](../agent/README.md#acting-stop-decisions). |
 | ChatCompletionsRequest.scala | Current identity: [user-media projection](#user-image-projection). |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | b513b501eff8ef8bd356afff29cca2e7335ca581 |
+| ChatCompletionsTransport.scala | Current identity: [retry acceptance](#bounded-http-status-retries). |
 | [LlmChunk.scala](LlmChunk.scala) | a35e034b66a8139d05ee1c6b1622ca19871538b1 |
 | [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 35b65c607b31f46da8213f4ffcfb12a6d7439128 |
 | [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 8873f07ca50be4f4881bd6cd3ff05e4b50741b0d |
@@ -131,7 +132,7 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | [Msg.scala](../model/Msg.scala) | e95148040f9bb3499aaf43fed3a8e6ed21237672 |
 | [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | fbf31dcaeb77162c6354047cb299c7773ff7e461 |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | 4ce0c254250b9428990dd24e6a0e6310d41cb867 |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | c66a395f871f989e2e478018fb7da7e1a378bf5d |
+| ChatCompletionsClientSpec.scala | Current identity: [retry acceptance](#bounded-http-status-retries). |
 | [ReasoningAdapterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterSpec.scala) | 1f17e10621d99b2cd79f0382f7c4cc7255b68cf0 |
 | [StreamAccumulatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorSpec.scala) | e90bd63fa63fa74f395d557a5199093dc77f8954 |
 | [ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | fc7dda775a912ce8c4eb567ce9d90ea44df0f640 |
@@ -149,19 +150,42 @@ The public mixed-chunk regression in ReasoningDetailSpec 99be2c6d4da164e11fe9f94
 
 ## Scoped HTTP completion
 
-ChatCompletionsTransport.make accepts an injected zio-http Client, positive CompletionTransportLimits, a ReasoningReplay policy and an explicit ToolSignatureFormat. complete returns IO[AgentError, TurnOutput] and owns an inner request Scope. Success, failure, and cancellation close that scope before returning; cancellation stays interruption rather than a partial successful turn. The injected client layer and its connection pool belong to the host.
+ChatCompletionsTransport.make accepts an injected zio-http Client, positive CompletionTransportLimits, ReasoningReplay, ToolSignatureFormat and a default-disabled CompletionRetryPolicy. complete returns IO[AgentError, TurnOutput] and owns a separate Scope for each HTTP attempt. Success, failure, and cancellation close the attempt scope before returning or retrying; cancellation stays interruption rather than a partial successful turn. The injected client layer and its connection pool belong to the host.
 
-The transport sends POST JSON with Accept: text/event-stream and an optional Authorization bearer header. It requires an absolute HTTP(S) endpoint with a host, valid port, and no user information or fragment. Invalid limits, endpoints, credentials, or request bodies fail before dispatch. Transport failures use ModelError status zero without leaking exception text. HTTP rejection keeps the actual status and a bounded raw error payload; it does not retry automatically.
+The transport sends POST JSON with Accept: text/event-stream and an optional Authorization bearer header. It requires an absolute HTTP(S) endpoint with a host, valid port, and no user information or fragment. Invalid limits, endpoints, credentials, or request bodies fail before dispatch. Transport failures use ModelError status zero without leaking exception text. HTTP rejection keeps the actual status and a bounded raw error payload. Default behavior makes one attempt; explicit status retries are described below.
 
 A successful HTTP status also requires one text/event-stream content type. UTF-8/SSE framing feeds the strict delta decoder and accumulator. Both a compatible finish marker and [DONE] are required. EOF without [DONE], malformed protocol data, truncated completion, or invalid tool arguments cannot yield executable output. [DONE] stops consumption without waiting for connection EOF. Usage frames after finish and before [DONE] remain available.
 
-The default success-body budget is 8 MiB and the error-body prefix is 8 KiB, both configurable. The success budget counts received byte chunks before decoding, including any suffix already received in the same chunk as [DONE]; it is not a bound on the injected HTTP driver's allocation or total assembled JVM memory. Error prefixes may end inside a UTF-8 character and use replacement decoding. Request-size bounds, per-frame limits, deadlines, retry policy, TLS/proxy/pool configuration, and provider extensions are separate host or planned concerns.
+The default success-body budget is 8 MiB and the error-body prefix is 8 KiB, both configurable. The success budget counts received byte chunks before decoding, including any suffix already received in the same chunk as [DONE]; it is not a bound on the injected HTTP driver's allocation or total assembled JVM memory. Error prefixes may end inside a UTF-8 character and use replacement decoding. Request-size bounds, per-frame limits, deadlines, broader retry strategies, TLS/proxy/pool configuration, and provider extensions are separate host or planned concerns.
 
-Fourteen tests cover a real loopback POST/chunked SSE response plus deterministic driver fixtures for request headers/body, split UTF-8, parallel calls, usage, finish/[DONE] requirements, malformed data, provider/status failures, body limits, and interruption cleanup. The separate client integration suite verifies actual incremental publication, a real HTTP tool cycle, late tool identity, malformed-frame rejection, and cooperative cancellation.
+Transport tests cover a real loopback POST/chunked SSE response plus deterministic driver fixtures for request headers/body, split UTF-8, parallel calls, usage, finish/[DONE] requirements, malformed data, provider/status failures, body limits, and interruption cleanup. The separate client integration suite verifies actual incremental publication, a real HTTP tool cycle, late tool identity, malformed-frame rejection, and cooperative cancellation.
+
+## Bounded HTTP-status retries
+
+CompletionRetryPolicy.disabled preserves a single HTTP attempt. make(maxAttempts, delay = Duration.Zero) returns Either[InvalidConfiguration, CompletionRetryPolicy], requiring at least one total attempt and a finite nonnegative fixed delay. Construction performs no effects. Only actual HTTP rejection statuses 429, 500, 502, 503 and 504 are eligible; this host-selected allowlist is not inferred from a public ModelError.
+
+A private rejection tag is created only after the configured bounded error-body read succeeds. Retry is considered after that attempt's response Scope has fully closed, and only for the exact singleton tagged failure. Cleanup defects, mixed causes, interruption, acquisition/network failures, error-body read failures, successful-status SSE/provider errors, framing/validation failures and callback failures are terminal. Exhaustion exposes the final rejection's original status and bounded payload; private tags do not escape. No Retry-After handling, exponential backoff, failover or general network retry is provided.
+
+The validated request body and headers are prepared once, then each attempt acquires a fresh response Scope. The delay begins after cleanup and remains interruptible. These attempts share one logical model invocation and ModelStreamContext; they do not rerun model-input projection, create another history turn or publish rejected-response chunks. There is no retry after successful-status content has begun, so provisional model output cannot be replayed by this policy. The attempt budget counts this library's Client.streaming calls; middleware, redirects or retries inside the borrowed host client are outside that budget, and no provider billing/idempotency guarantee is implied. The host owns the injected client/pool and direct-call deadline; ReAct's outer timeout still bounds its invocation.
+
+Migration: ChatCompletionsClient.make and ChatCompletionsTransport.make append a defaulted retryPolicy parameter. Ordinary source calls retain disabled behavior; method values may need adaptation and dependent binaries must be rebuilt. No LlmConfig or message JSON field is added. This policy is distinct from ReAct thinking-only retries and native structured-output fallback.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [CompletionRetryPolicy.scala](CompletionRetryPolicy.scala) | 162be32d7454f3a7e2017a334dd07a715a11347b |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | f85eafc76fa0050ae17d752e7fc65fb99448d776 |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | be515130f81f54d46a1c605d27f54a9fdac3b1b4 |
+| [CompletionRetryPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionRetryPolicySpec.scala) | 5df81123863d6f3faa10cfd1c70206f2604baf63 |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | cb042aee28d6e082c9688481f4b08c0e1540df1d |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | fad2db089f26f5509e27f4ad6bc88d9834b6d59d |
+
+- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the six identities above, with no open findings. Full scalafmtAll scalafmtSbt verify passed in http-retry-verify.log with zero compiler warnings or failed tests. The focused http-retry-green.log run passed 26 tests in 5.408 seconds, including policy validation, two attempt-lifecycle/status groups and the actual HTTP 429/400 client table. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
+The draft retry boundary at transport 1b7ad93c4ab006fdb50fd07850181549c84c9d0c lost pending interruption after held failing cleanup: http-retry-focused.log recorded 25 passing tests and one failure in 5.561 seconds because exit.isInterrupted was false, although the original HTTP rejection and cleanup defect remained. The unchanged TransportSpec cb042aee28d6e082c9688481f4b08c0e1540df1d passes after restoring caller interruption status while retaining the cleanup outcome. This correction does not infer retry authority from public error values.
 
 ## Live client and event correlation
 
-ChatCompletionsClient.make accepts the injected HTTP client and transport options, producing LlmClient. ReAct assigns a fresh ModelStreamContext(replyId, requestId) for every model invocation. replyId belongs to the enclosing agent attempt; requestId changes on each iteration or retry. The streamTurn signature now requires this argument: custom implementations and direct callers must migrate. Scripted callbacks keep their existing factory signatures, but hand-written events are not automatically enriched.
+ChatCompletionsClient.make accepts the injected HTTP client and transport options, producing LlmClient. ReAct assigns a fresh ModelStreamContext(replyId, requestId) for every model invocation. replyId belongs to the enclosing agent attempt; requestId changes on each new runtime model invocation; HTTP-status attempts within that invocation retain it. The streamTurn signature now requires this argument: custom implementations and direct callers must migrate. Scripted callbacks keep their existing factory signatures, but hand-written events are not automatically enriched.
 
 The runtime emits ModelRequestStart before invocation and ModelResponseEnd only after a non-interrupted output and request-scope cleanup. The latter carries output/total token counts from the reply; request promptTokens remains zero because no estimate is available. Failed or interrupted requests have no successful response-end event. AgentEnd still closes the surrounding attempt. The live client publishes content events inside these model boundaries; direct streamTurn callers own their model-boundary publication.
 

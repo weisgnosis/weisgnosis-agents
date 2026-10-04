@@ -49,8 +49,9 @@ object ChatCompletionsClient:
       limits: CompletionTransportLimits = CompletionTransportLimits(),
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
       textTransform: ModelTextTransform = ModelTextTransform.identity,
-      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported
+      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
+      retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled
   ): IO[AgentError, ChatCompletionsClient] =
     ChatCompletionsTransport
-      .make(http, limits, reasoningReplay, toolSignatureFormat)
+      .make(http, limits, reasoningReplay, toolSignatureFormat, retryPolicy)
       .map(new ChatCompletionsClient(_, textTransform))

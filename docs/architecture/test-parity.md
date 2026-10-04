@@ -415,6 +415,16 @@ The existing request tables add the following bounded mappings from the same pin
 
 Audio URL text substitution in testAudioBlockWithURLSource is intentionally rejected. OpenAIConverterUtilsTest's audio/mp3 alias, opus/flac and unknown/null format fallbacks are not adopted: only exact audio/wav and audio/mpeg map to the official wav/mp3 wire formats. Syntax checks, unsupported-role rejection and whole-request failure are local strict policies. There is no audio-output, file/network acquisition or full formatter-suite parity claim. Current identities belong to the [request contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
 
+### Bounded streaming HTTP-status retries
+
+Both final reviews and full http-retry-verify.log verification passed. Bounded mappings use pinned `agentscope-extensions/agentscope-extensions-model/agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/OpenAIChatModelStreamingRetryTest.java`:
+
+- [x] streaming429ExhaustsRetriesAndReissuesEachRequest (78): the status table verifies finite total attempts, fresh Client.streaming calls and the exact final rejection/payload. Controlled transport evidence supplements the real-success fixture; it does not reproduce Java's exception wrapper.
+- [x] streaming429RetriesThenSucceeds (93): actual HTTP 429 then successful SSE produces one completed logical model result; Scala also checks body/auth stability, one projection and one request context.
+- [x] streaming400DoesNotRetry (120): the real HTTP 400 row terminates after exactly one request.
+
+JdkHttpTransport/OkHttpTransport-specific retry methods and nonStreaming429Retries are not established by the scoped zio-http streaming adapter. Fixed delay differs from Java's configured initial/max backoff; error-code strings, network failures and public ModelError values do not acquire retry authority. Current evidence belongs to the [client contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries).
+
 ### Selected tool-call signature mappings
 
 Both final reviews and full signature-mcp-verify.log verification passed for the [current client scope](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-call-signatures).
@@ -468,7 +478,7 @@ ReActAgentToolEventSpec adds six local runtime regressions for persistence, erro
 
 ## Structured HTTP and JSON boundary hardening
 
-- [x] Verify five real loopback HTTP scenarios for native schema/thinking/usage, synthetic root definitions and compressed streaming completion, HTTP-400 fallback without duplicated input, HTTP-503 failure without retry, and strict native payload failure.
+- [x] Verify five real loopback HTTP scenarios for native schema/thinking/usage, synthetic root definitions and compressed streaming completion, HTTP-400 fallback without duplicated input, default-policy HTTP-503 failure without retry, and strict native payload failure.
 - [x] Verify six structured-boundary scenarios, including duplicate metadata, captured payloads, wrapper keys, and ignored nested fields; preserve valid direct/wrapped adaptation.
 - [x] Move shared validation to core.json.JsonBoundary and add a sixth direct-AST regression without serialization overhead.
 - [ ] Complete general model-call middleware and broader legacy hook behavior.

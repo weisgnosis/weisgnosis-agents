@@ -12,6 +12,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [ModelStreamPublisherSpec](ModelStreamPublisherSpec.scala)
 - [HttpClientTestSupport](HttpClientTestSupport.scala)
 - [ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala)
+- [CompletionRetryPolicySpec](CompletionRetryPolicySpec.scala)
 - [ChatCompletionsRequestSpec](ChatCompletionsRequestSpec.scala)
 - [StructuredOutputCapabilitySpec](StructuredOutputCapabilitySpec.scala)
 - [LlmClientSpec](LlmClientSpec.scala)
@@ -33,12 +34,14 @@ ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadat
 - [x] JsonBoundarySpec verifies six complete-document/duplicate/escape/numeric/direct-AST scenarios without effects.
 - [x] Existing accumulator scenarios and two ReAct thinking-retry integration tests now handle Either and explicit successful finish markers.
 - [x] The existing two media tables cover exact inline-audio format/data alongside text/images, rejected URLs/MIME aliases and whole-request failure. Both final reviews and full inline-audio-verify.log verification passed; the linked source contract owns current request/spec identities. Image, signature and reasoning behavior retain their accepted scopes.
-- [x] Fourteen transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
+- [x] Transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
 - [x] Live-client tests verify early deltas, real HTTP tool cycles, request identity, late call identity, malformed/incomplete streams, and cancellation.
 - [x] Three publisher tests verify indexed content, interleaved calls, and atomic ending-batch validation; two event-context tests cover all sixteen correlated variants and legacy payloads.
 - [ ] Complete remaining event integration, other provider signature/metadata decoding, and exhaustive upstream scenario mapping.
 
 - [x] Both final reviews and full signature-mcp-verify.log verification passed for selected Google tool-signature decoding/assembly/replay. Two unit groups cover stable indexed opaque values, JSON round-trip, interrupted sanitization and strict malformed/conflict rejection; one request group covers all-history replay; one real loopback ReAct group covers signed denial versus unsigned approval and the next HTTP request. No live-provider interoperability is claimed.
+
+The [bounded status-retry contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries) has final FP/ZIO and invariant approval plus full http-retry-verify.log verification. Its real HTTP table checks a rejected 429 followed by success and a terminal 400, with identical request body/auth, one input projection, one model context, no rejected-response chunks, and exact successful history/usage. Two controlled groups cover exact eligible statuses/budgets, same-valued public error exclusions, held cleanup, full failure causes, cancellation during body/cleanup and an interruptible delay. The unchanged cancellation regression now passes; no broader retry or scheduling coverage is claimed.
 
 ## Current acceptance
 
@@ -71,6 +74,6 @@ Real loopback client/server acquisition, use and release run with a live clock. 
 
 | Reviewed fixture suite | Git blob |
 | --- | --- |
-| [ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala) | `1aee5a644a169f297b38d9a93e65ed1ab9f9485e` |
-| ChatCompletionsClientSpec | Current identity: [encrypted reasoning](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning). |
+| ChatCompletionsTransportSpec | Current identity: [retry acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries). |
+| ChatCompletionsClientSpec | Current identity: [retry acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries). |
 | [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | `396f6d75c01bcaac54750a0d5df97c219a4b8c31` |
