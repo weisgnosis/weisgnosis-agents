@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
-import com.weisgnosis.agents.core.agent.{AgentResult, AgentRunState, ReActAgent}
+import com.weisgnosis.agents.core.agent.{AgentResult, ReActAgent}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolEventPort
@@ -95,7 +95,7 @@ object SubagentSession:
         case Continuation.Ready =>
           restore(SubagentFactory.run(runtime, input, id, events)).tap(result =>
             continuation.set(
-              if result.state == AgentRunState.Suspended then Continuation.Suspended
+              if result.isSuspended then Continuation.Suspended
               else Continuation.Ready
             )
           )

@@ -1,5 +1,7 @@
 # weisgnosis-agents-harness
 
+Core before-acting checkpoints are accepted. Child session/tool adapters recognize the data-bearing Suspended state; ordinary sends remain blocked afterward, with no child resume API or automatic durable approval installation.
+
 Standalone context and permission components built on core.
 
 | Package | Current status |

@@ -281,7 +281,7 @@ object SubagentTools:
   ): Observation[SubagentToolResult] =
     exit match
       case Some(value @ Exit.Success(result))
-          if result.state == AgentRunState.Completed || result.state == AgentRunState.Suspended =>
+          if result.state == AgentRunState.Completed || result.isSuspended =>
         Observation.Success(project(id, value))
       case Some(value) => Observation.Error(project(id, value))
       case None        => Observation.Error(task(id, SubagentToolState.Missing))
@@ -522,9 +522,9 @@ object SubagentTools:
     val state = exit match
       case Exit.Success(result) =>
         result.state match
-          case AgentRunState.Completed   => SubagentToolState.Completed(preview(result.reply.text))
-          case AgentRunState.Suspended   => SubagentToolState.Suspended(preview(result.reply.text))
-          case AgentRunState.Interrupted => SubagentToolState.Interrupted
+          case AgentRunState.Completed    => SubagentToolState.Completed(preview(result.reply.text))
+          case AgentRunState.Suspended(_) => SubagentToolState.Suspended(preview(result.reply.text))
+          case AgentRunState.Interrupted  => SubagentToolState.Interrupted
           case AgentRunState.Stopped(reason) => SubagentToolState.Stopped(preview(reason))
       case Exit.Failure(cause) if cause.isInterrupted => SubagentToolState.Interrupted
       case Exit.Failure(cause) =>

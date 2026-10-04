@@ -20,7 +20,8 @@ import zio.Chunk
 import zio.json.*
 
 enum AgentRunState derives JsonCodec:
-  case Completed, Suspended, Interrupted
+  case Completed, Interrupted
+  case Suspended(pending: PendingActing)
   case Stopped(reason: String)
 
 /**
@@ -33,5 +34,7 @@ final case class AgentResult(
     state: AgentRunState = AgentRunState.Completed,
     usage: Option[ChatUsage] = None
 ) derives JsonCodec:
-  def isSuspended: Boolean   = state == AgentRunState.Suspended
+  def isSuspended: Boolean = state match
+    case AgentRunState.Suspended(_) => true
+    case _                          => false
   def isInterrupted: Boolean = state == AgentRunState.Interrupted

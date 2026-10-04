@@ -25,6 +25,7 @@ import zio.json.*
 enum ReasoningDecision derives JsonCodec:
   case Keep, Discard
   case Replace(message: Msg)
+  case Suspend(reason: String)
 
 /** Scoped host policy for completed reasoning; interrupted model output bypasses this hook. */
 trait PostReasoningHook:

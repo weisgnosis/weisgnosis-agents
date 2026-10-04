@@ -520,6 +520,14 @@ This increment closes one previously pending upstream method through a documente
 
 Twenty-two added local tests cover more than the one newly closed upstream mapping. Replacement cannot forge canonical or legacy usage, discard does not reset thinking retries, and all returned model observations count across fallback attempts. Synthetic residual history clears both usage representations. The legacy duplication regression failed before correction. Existing model events remain original observations, while final results/history and dispatch reflect accepted policy decisions.
 
+## Before-acting suspension: bounded mappings
+
+Pinned source: `agentscope-core/src/test/java/io/agentscope/core/legacy/hook/HookStopAgentTest.java` at `f98a685fdc4589f81e626e1686ac2c63d14a2304`. Both final reviews and `acting-resume-verify.log` passed; [exact identities and regressions](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) establish full-batch resume and checked restoration, not durable approval integration.
+
+- [x] `testPostReasoningStopReturnsToolUseMsg` (line 182) and `testStopDoesNotExecuteSubsequentTools` (line 211): return the saved assistant tool calls without beginning local execution. ReActAgentResumeSpec verifies zero execution, processing and authorization before suspension. The adaptation uses a typed suspension value, not mutable stop flags.
+- [x] `testResumeWithNoArgsAfterPostReasoningStop` (line 246): resume the saved batch before a follow-up model request. ReActAgentResumeSpec additionally verifies exact request counts, original/restored mixed batches and inline-only completion. The Java fixture asserts execution and a final reply without tool calls; it does not explicitly assert request count or exact assistant equality.
+- [ ] `testPartialToolResultsExecution` (line 541): an externally supplied call1 result suppresses tool1 while tool2 executes once. Full saved-batch resume alone does not satisfy this method; partial-result and confirmation integration remains separate.
+
 ## ToolResultEvictionMiddlewareTest: seven methods
 
 Pinned source: agentscope-harness/src/test/java/io/agentscope/harness/agent/middleware/ToolResultEvictionMiddlewareTest.java at `f98a685fdc4589f81e626e1686ac2c63d14a2304`. These mappings distinguish runtime/standalone adaptations from the upstream mutable two-view middleware contract.
@@ -545,7 +553,7 @@ The core ToolAuthorizer port provides scoped approval/denial before local dispat
 - [x] Independently review the core authorization port and fifteen local tests; verify 481 core / 45 harness tests. No two-call confirmation method is marked covered by this narrower scope.
 - [ ] Map ReActAgentHitlTest.pendingToolRecoveryPreservesModifiedArgumentsFromConfirmation after durable confirmation integration; interactive argument rewriting is shared behavioral evidence only.
 - [ ] Map deniedConfirmResultWithCustomReasonWritesReasonToContext, deniedConfirmResultWithoutReasonKeepsDefaultText, and deniedConfirmResultOnResumeEmitsToolResultEventTriple after durable confirmation handling; interactive denial events are shared behavioral evidence only.
-- [ ] Implement and map durable pause/resume, partial confirmations, persisted reply-ID recovery, and mixed-batch permission event ordering. Core approval scopes remain within one active invocation.
+- [ ] Integrate and map partial confirmations and mixed-batch permission event ordering with restored checkpoints. Full-batch core restoration retains reply identity; interactive approval scopes still remain within one active invocation.
 
 ## Interactive permission adaptation
 
@@ -957,7 +965,7 @@ Pinned upstream f98a685fdc4589f81e626e1686ac2c63d14a2304 contains the following 
 
 - [x] Verify the Scala retained-resource contract in [TaskResourceSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala): five grouped cases cover typed resources across turns, competing closure with shared cleanup defects, failed/self-interrupted initialization, caller/root shutdown during initialization, and nested running/queued/promoted cleanup before release. The unchanged-defect regressions recorded finalizers receiving success instead of initialization failure (`resource-exit-red.log`) and rival closers returning success before cleanup and losing its defect (`resource-close-red.log`). This primitive closes no additional whole upstream method.
 
-- [x] Verify bounded ordinary-run reuse in [SubagentSessionSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala): five actual-runtime scenarios cover one depth-three filtered runtime/resource lifetime with separate execution IDs; serialization and queued cancellation without history changes; live denial/Plan checks without approval transfer; promoted/queued/descendant cleanup before client release; and invalid capacity, closed ownership and failed initialization. The defensive Suspended guard is untested because core does not produce Suspended results. These supporting contracts close no additional whole upstream method; durable manager keys, per-call manager overrides and historical denial accumulation remain excluded.
+- [x] Verify bounded ordinary-run reuse in [SubagentSessionSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala): five actual-runtime scenarios cover one depth-three filtered runtime/resource lifetime with separate execution IDs; serialization and queued cancellation without history changes; live denial/Plan checks without approval transfer; promoted/queued/descendant cleanup before client release; and invalid capacity, closed ownership and failed initialization. The Suspended guard has no dedicated session integration evidence; the core resume increment changes its pattern match without adding a child resume API. These supporting contracts close no additional whole upstream method; durable manager keys, per-call manager overrides and historical denial accumulation remain excluded.
 
 - [x] Verify the session-bound tool adapter in two [SubagentToolsSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) integration scenarios: strict prompt-only sends retain one runtime with isolated task lookup; promotion, queued cancellation, joined cleanup and later reuse preserve the session contract. No session_id selection or additional whole upstream method is claimed.
 

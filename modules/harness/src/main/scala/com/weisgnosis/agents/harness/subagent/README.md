@@ -163,7 +163,7 @@ Turns are serialized, without a FIFO guarantee. Cancelling a queued turn reaches
 
 The host retains the returned TaskResource and its acquiring Scope. Closing it joins running, queued and promoted turns and further descendants before releasing registration/client resources. Promoted turns survive their individual caller Scope, not session closure. After closure, sends return Closed. Complete execution records remain inspectable through the retained registry; hosts manage retirement and retained result memory.
 
-This API supports ordinary runs only. A defensive continuation guard rejects later sends if a result is Suspended, but current ReAct execution does not produce that state, so this branch has no integration evidence. Stopped results leave this latch Ready for new work; that follows the existing Suspended-only state rule, not a new session-resumption protocol. The session itself supplies no resume API, durable restoration or policy installation; factories produced by SubagentConstruction retain their inherited restrictions across turns. Host session-ID lookup is supplied by the explicit directory below. The model-facing adapter below binds `agent_send` to a host-selected session.
+This API supports ordinary runs only. A continuation guard rejects later ordinary sends after a Suspended result. The data-bearing core suspension path and corresponding pattern-match migration are accepted; this session supplies no child resume operation. Stopped results leave this latch Ready for new work; that follows the existing Suspended-only state rule, not a new session-resumption protocol. The session itself supplies no resume API, durable restoration or policy installation; factories produced by SubagentConstruction retain their inherited restrictions across turns. Host session-ID lookup is supplied by the explicit directory below. The model-facing adapter below binds `agent_send` to a host-selected session.
 
 ## Bounded host session directory
 
@@ -304,14 +304,14 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentDeclarationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | `c899f713f720414f9c5991c7b2a060035d4e8510` |
 | [SubagentSessionDirectory.scala](SubagentSessionDirectory.scala) | `5f924361cc657e128abe057354aa260848d67035` |
 | [SubagentSessionDirectorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionDirectorySpec.scala) | `3210d1e7f1e86fd65cd54727ebe287431cac0b94` |
-| [SubagentSession.scala](SubagentSession.scala) | `f93d97164530ef3b938a52282e31533a13954eca` |
+| [SubagentSession.scala](SubagentSession.scala) | [Current checkpoint-pattern identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) |
 | [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | `01df51dd8127f5f14373eac0e013c6f2d06b6bb6` |
 | [TaskSupervisor.scala](TaskSupervisor.scala) | `3ae295da2603a952bc23b7b05d2546ed274cb600` |
 | [TaskResource.scala](TaskResource.scala) | `ff8c69ba4d8c1623388325e4b2e33bd26df45314` |
 | [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `b8c862182e0a625e7d6f83c0ac72c120f700e80b` |
 | [SubagentExecutionPolicy.scala](SubagentExecutionPolicy.scala) | `df95802fbd98e3db0d5e64fe958f812b6f470003` |
 | [SubagentExecutionPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentExecutionPolicySpec.scala) | `ccab2966d1d868250b00eed9150138e3a5df69f1` |
-| [SubagentTools.scala](SubagentTools.scala) | [Current acting-stop identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) |
+| [SubagentTools.scala](SubagentTools.scala) | [Current checkpoint-pattern identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) |
 | [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | `417dacb3a10064054d6d834e9cb29121833c5682` |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | [Current acting-stop identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) |

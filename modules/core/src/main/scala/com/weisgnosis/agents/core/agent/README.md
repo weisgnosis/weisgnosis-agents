@@ -95,7 +95,7 @@ Final-delta suppression is local to each execution occurrence, including repeate
 
 ## Current typed-result acceptance
 
-The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [scoped model failover](#scoped-model-failover); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
+The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [before-acting suspension](#before-acting-suspension-and-restoration); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
 
 - [x] `path_review` and `current_docs` approved typed local result publication within the linked tool acceptance; full repository verification passed with no warnings or failures.
 
@@ -159,21 +159,21 @@ Migration: processDecision is a concrete additive method and deciding is an opt-
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [AgentResult.scala](AgentResult.scala) | e4d2d204b1de682fd1e118900bbf2c22244dd39c |
+| [AgentResult.scala](AgentResult.scala) | [Current identity](#before-acting-suspension-and-restoration) |
 | ReActAgent.scala | Current identity: [scoped model failover](#scoped-model-failover). |
 | [AgentError.scala](../error/AgentError.scala) | 595899f138addfb459d8845f57806bb4a1d2eca6 |
 | [ToolResultProcessor.scala](../tool/ToolResultProcessor.scala) | bf23b2d700291b38545f9c0ed9f57826ac9c5158 |
 | [AgentResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentResultSpec.scala) | a94ecf5e07e816c1b53bbb2532ad251a111cc064 |
 | [AgentErrorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | d54380b0026082045e870169362ef81dfe3abd2f |
 | [ToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolResultProcessorSpec.scala) | 79dc47e7a7d411978aed8d7361e02d351bd2c894 |
-| [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | 94e74454a695e416d2af5e228654c37100f7b4d5 |
+| [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | [Current identity](#before-acting-suspension-and-restoration) |
 | [SubagentToolsSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | bc13a74044ad3d6e5bfd92efb0eda362dae71bb4 |
 | [ReActAgentActingStopSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentActingStopSpec.scala) | d6bd7f1768f9abc1e6178f758010d1677b750d1d |
 | [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | a96798914868b8698405643d4f5f15618748bf14 |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 995fcc757a7a7c374a8e83ca1757dd736d000c25 |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the acting-stop scope (unchanged identities above and runtime baseline e9f789c2de31afa312c01e04ec1d464efbcb441f), with no findings. Full scalafmtAll scalafmtSbt verify passed in acting-stop-accepted-verify.log with zero compiler warnings or failed tests. Focused acting-stop-origin-green.log passed 39 core tests in 568 ms and eight harness tests in 519 ms. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-- [ ] HITL/post-reasoning suspension, returnDirect tool flags and durable checkpoint/resume remain separate contracts.
+- [x] Accept the separate [before-acting suspension contract](#before-acting-suspension-and-restoration); partial HITL confirmations, returnDirect flags and host persistence remain separate.
 
 The cancellation-origin regression in acting-stop-origin-red.log ran unchanged expectations against draft ReActAgent 88020c23137d08e7bf58eeba232b59c8155dcc27 and InlineProcessingSpec a96798914868b8698405643d4f5f15618748bf14: eight tests passed and two failed. Cooperative interruption with a cleanup defect lacked the required recovery and complete pairing; timeout with a cleanup defect incorrectly added user-interruption recovery. The final caller-boundary exit hook checks actual caller interruption or this run's cooperative signal after joined cleanup, retains generic failure pairing and preserves the full Cause. The same expectations pass alongside unchanged timeout and sibling-defect controls.
 
@@ -197,7 +197,7 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | c55bc5688a87383169a042095a7266d57285422b |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](#before-acting-suspension-and-restoration) |
 | [LlmClient.scala](../client/LlmClient.scala) | 028232913b8bd75fc8a5a5fd6acbb97fef2b3d4e |
 | [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | 41fe7ee22d997bb6e190d89df49d72747fce9f20 |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | 80b7ff0f54208c99085192edc59cdcc417e7ac04 |
@@ -248,7 +248,8 @@ The declaration is serialized with LlmConfig but excluded from the HTTP request 
 - [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope.
 - [ ] Complete general model-call middleware and remaining legacy hook behavior.
 - [ ] Complete provider continuation and provider multimodal serialization, full event ordering, and event adapters.
-- [ ] Integrate post-reasoning suspension, durable pending work and broader harness middleware; accepted host acting-stop behavior is defined above.
+- [x] Review and verify before-acting suspension/restoration.
+- [ ] Integrate host-supplied ConfirmResult with restored checkpoints; partial results, durable host persistence and broader harness middleware remain separate.
 
 The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes verified contracts from remaining scenarios. General JSON Schema validation and exhaustive provider compatibility are not claimed.
 
@@ -260,9 +261,38 @@ The optional [ModelTextTransform](../client/ModelTextTransform.scala) on ChatCom
 
 - [x] `review_fp` and `review_harness` approved the final seven-file text-transformation increment against `02b4654` on 2026-09-29 after the fallback-provenance correction. No findings remain within this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope. Exact identities are in the [client README](../client/README.md); ReAct source was unchanged by this increment.
 
+## Before-acting suspension and restoration
+
+This contract supports ordinary before-acting checkpoints and full saved-batch execution. It does not implement partial results or durable approval workflows.
+
+`ReasoningDecision.Suspend(reason)` pauses an ordinary tool-call turn after the model and hook scopes close and before inline-result processing or local execution. The returned `AgentResult` carries the complete assistant, canonical history, iteration and accumulated usage. `AgentRunState.Suspended(PendingActing)` adds data for the reason, original model context, assistant position, admitted tool definitions, group snapshot and response format; it contains no tool implementations, credentials, fibers or approval promises. Structured execution and non-tool-call suspension are rejected before the assistant is committed.
+
+`resume()` consumes the live pending batch once under the run lock, using a fresh owned scope and timeout. It processes that saved batch before another model request or post-reasoning hook, preserving the original context and occurrence identities. After checking the saved history, the runtime changes only its ReasoningStopRequested generation tag to ToolCalls; assistant content, signatures and other metadata remain intact. Inline provider results remain inline and bypass local dispatch. Local calls retain ordinary authorization and cancellation reconciliation. Resuming the final permitted iteration may finish its saved tools but makes no further model request; the limit check precedes integer increment. A fresh run rejects pending work; `resetHistory` explicitly discards history and pending state.
+
+`restore(result)` accepts a checkpoint only into an empty agent. It validates the final assistant, complete preceding tool history and iteration count against the receiving host budget, then rebuilds the admitted snapshot from trusted host tool bindings and group configuration and checks exact tool definitions. Equality is a compatibility check, not authorization. The host owns checkpoint authentication, storage, exclusive claims and side-effect idempotency; restoring data does not acquire those capabilities. Partial external results and harness `ConfirmResult` resumption are separate work. Suspended child sessions continue to reject ordinary sends; no child resume tool or session API is added.
+
+Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspended` becomes a data-bearing case. Exhaustive matches and persisted codecs must account for these shapes; dependent binaries must be rebuilt. The old payload-free Suspended wire value is incompatible: hosts must migrate valid checkpoint data, never fabricate a missing checkpoint. Existing keep/replace/discard behavior remains separately accepted below.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the eight identities below, with no remaining findings. Full `scalafmtAll scalafmtSbt verify` passed in `acting-resume-verify.log`, with zero compiler warnings or failures; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). One checkpoint group and five runtime groups establish the bounded contracts, including actual original/restored execution and cancellation.
+
+| File | Git blob |
+| --- | --- |
+| [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
+| [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
+| [ReActAgent.scala](ReActAgent.scala) | bc1de112fac249971bc907b41a0c80a1ef046988 |
+| [PendingActing.scala](PendingActing.scala) | 1d2b4fd36589175893e177e0928d928e1686fd8e |
+| [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | 5d6947f4c2b8baf97fa483acfeed0294eaeafc70 |
+| [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | f2c9b42cd43d49c7d5a4259771cd6f94006bb170 |
+| [SubagentSession.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentSession.scala) | a592c82bbb5720be9a9c9ca39635fb7e89990692 |
+| [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | 00499f82e283cc106944c67c4dd5fdc8ed38c298 |
+
+Regression evidence: `acting-resume-focused.log` reproduced extraction-induced masked acting at runtime `eb8ce2db4c836637d7e65e5c255dc78ec24783a9` with spec `88e8b60711a27a8b5d6cd302218c38a8258692ad` (six passed, four timed out); restoring interruptibility before the shared acting phase passed unchanged expectations in `acting-resume-green.log`. `acting-resume-bounds-red.log` reproduced acceptance beyond the host budget and Int.MaxValue overflow at runtime `279b921866d4a8143a55a77cc3077933cfd4b253` with spec `1a5e0f8e51f1c04715bb3a41671970994830a365` (four passed, one failed): iteration became negative and one unexpected model request occurred. Host-budget validation and the pre-increment limit check passed the unchanged regression in `acting-resume-bounds-green.log`; final tables also verify thinking-only rejection and inline metadata preservation.
+
+- [ ] Integrate partial results and authenticated durable approval resumption separately.
+
 ## Post-reasoning policy and invocation usage
 
-ReActAgent.make and Builder.postReasoningHook accept a PostReasoningHook, defaulting to Keep. The suspended callback receives ModelStreamContext and the completed model message, and returns ZIO[Scope, AgentError.ReasoningHookError, ReasoningDecision]. The closed decision algebra is Keep, Replace(message), or Discard. The dedicated error channel prevents host-policy failures from triggering Auto's provider-rejection fallback; external errors require explicit mapping.
+ReActAgent.make and Builder.postReasoningHook accept a PostReasoningHook, defaulting to Keep. The suspended callback receives ModelStreamContext and the completed model message, and returns ZIO[Scope, AgentError.ReasoningHookError, ReasoningDecision]. The accepted keep/replace/discard contract is described here; the additional Suspend(reason) path is [defined above](#before-acting-suspension-and-restoration). The dedicated error channel prevents host-policy failures from triggering Auto's provider-rejection fallback; external errors require explicit mapping.
 
 The model request scope closes and its successful ModelResponseEnd is published before policy evaluation. The hook owns a separate nested scope inside the engine-attempt timeout and cooperative cancellation race. Its scope closes before any accepted assistant message is persisted or tools dispatch. Interrupted model output bypasses the hook and retains normal reconciliation. Existing model block events and model-end metrics describe the original observation; replacement/discard does not rewrite already published events. Committed history, final AgentResult, and dispatched tools follow the accepted decision.
 
@@ -276,11 +306,11 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 ## Current post-reasoning identities
 
-Unchanged post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. Current ReActAgent identity belongs to [scoped model failover](#scoped-model-failover); unchanged error contracts remain separate.
+Baseline post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. The current hook and runtime identities belong to [before-acting suspension](#before-acting-suspension-and-restoration); unchanged error contracts remain separate.
 
 | File | Git blob |
 | --- | --- |
-| [PostReasoningHook.scala](PostReasoningHook.scala) | 9817ce08dfefcbf69792204c8169914406e31fb9 |
+| [PostReasoningHook.scala](PostReasoningHook.scala) | [Current identity](#before-acting-suspension-and-restoration) |
 | [StructuredOutput.scala](StructuredOutput.scala) | 5d6d81c944530f8ff7094733abfc21885729e456 |
 | [PostReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PostReasoningHookSpec.scala) | 0a024cbdaf20b5a7d3be015b30a60c07118310ab |
 | [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current identity](../client/README.md#encrypted-reasoning) |
@@ -321,7 +351,7 @@ Appending the optional make argument preserves ordinary callers; positional Buil
 
 ## Current history-preparation identities
 
-Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [scoped model failover](#scoped-model-failover); unchanged components follow:
+Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [before-acting suspension](#before-acting-suspension-and-restoration); unchanged components follow:
 
 | File | Git blob |
 | --- | --- |
@@ -410,7 +440,7 @@ Migration: the optional constructor/builder dependency is additive, but position
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-The current ReActAgent identity is recorded under [scoped model failover](#scoped-model-failover); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
+The current ReActAgent identity is recorded under [before-acting suspension](#before-acting-suspension-and-restoration); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
 
 ## Current completion-observer identities
 

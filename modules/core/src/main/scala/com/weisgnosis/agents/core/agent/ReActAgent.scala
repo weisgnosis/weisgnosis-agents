@@ -51,6 +51,7 @@ final class ReActAgent private (
     val client: LlmClient,
     val llmConfig: LlmConfig,
     private val stateRef: Ref[Chunk[Msg]],
+    private val pendingRef: Ref[Option[AgentResult]],
     private val interruptedPromiseRef: Ref[Promise[Nothing, Unit]],
     val agentId: String,
     private val runLock: Semaphore,
@@ -74,7 +75,80 @@ final class ReActAgent private (
   def getAgentId: String  = agentId
 
   def history: UIO[Chunk[Msg]] = stateRef.get
-  def resetHistory: UIO[Unit]  = runLock.withPermit(stateRef.set(Chunk.empty))
+
+  /** Explicitly discards both conversation history and any unexecuted suspended batch. */
+  def resetHistory: UIO[Unit] =
+    runLock.withPermit(ZIO.uninterruptible(pendingRef.set(None) *> stateRef.set(Chunk.empty)))
+
+  /** Installs a checked data checkpoint on an empty agent using this host's executable bindings. */
+  def restore(result: AgentResult): IO[AgentError, Unit] =
+    runLock.withPermit:
+      ZIO.uninterruptibleMask: restore =>
+        for
+          history <- stateRef.get
+          pending <- pendingRef.get
+          _ <- ZIO
+            .fail(AgentError.InvalidConfiguration("Restoration requires an empty agent"))
+            .unless(history.isEmpty && pending.isEmpty)
+          checkpoint <- ZIO.fromEither(validateCheckpoint(result))
+          _          <- restore(restoredRunTools(checkpoint))
+          _          <- stateRef.set(result.history) *> pendingRef.set(Some(result))
+        yield ()
+
+  /** Continues the saved acting phase before requesting any further model output. */
+  def resume(): ZIO[Scope, AgentError, AgentResult] =
+    runLock.withPermit:
+      for
+        result <- pendingRef.get.someOrFail(
+          AgentError.InvalidConfiguration("No suspended batch is available")
+        )
+        checkpoint <- ZIO.fromEither(validateCheckpoint(result))
+        history    <- stateRef.get
+        _ <- ZIO
+          .fail(AgentError.InvalidConfiguration("Suspended history has changed"))
+          .unless(history == result.history)
+        runTools <- restoredRunTools(checkpoint)
+        resumed <- observeInvocation(complete =>
+          ZIO.scoped:
+            for
+              hub   <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+              usage <- Ref.make(result.usage)
+              value <- runWithHub(
+                RunEntry.Resume(result, checkpoint),
+                hub,
+                runTools,
+                usage,
+                complete,
+                llmConfig.copy(responseFormat = checkpoint.responseFormat)
+              )(value => ZIO.succeed((value, ())))
+            yield value._1
+        )
+      yield resumed
+
+  private def requireFreshRun: IO[AgentError.InvalidConfiguration, Unit] =
+    pendingRef.get.flatMap(pending =>
+      ZIO
+        .fail(
+          AgentError.InvalidConfiguration(
+            "Resume or discard the suspended batch before starting a new run"
+          )
+        )
+        .when(pending.nonEmpty)
+        .unit
+    )
+
+  private def validateCheckpoint(
+      result: AgentResult
+  ): Either[AgentError.InvalidConfiguration, PendingActing] =
+    PendingActing
+      .validate(result)
+      .flatMap(pending =>
+        Either.cond(
+          result.iterationCount <= config.maxIterations,
+          pending,
+          AgentError.InvalidConfiguration("Suspended iteration exceeds the host iteration limit")
+        )
+      )
 
   /** Signals an interruption to the active ReAct loop. */
   def interrupt: UIO[Unit] =
@@ -108,7 +182,7 @@ final class ReActAgent private (
   /** Full run returning complete AgentResult. */
   def run(messages: Chunk[Msg]): ZIO[Scope, AgentError, AgentResult] =
     runLock.withPermit(
-      observeInvocation(complete =>
+      requireFreshRun *> observeInvocation(complete =>
         ZIO.scoped(for
           hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
           result <- runOrdinaryWithHub(messages, hub, complete)
@@ -134,7 +208,7 @@ final class ReActAgent private (
         .unit
 
     runLock.withPermit(
-      observeInvocation(complete =>
+      requireFreshRun *> observeInvocation(complete =>
         ZIO.scoped:
           for
             hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
@@ -161,7 +235,7 @@ final class ReActAgent private (
       mode: StructuredMode = StructuredMode.Auto
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
     runLock.withPermit(
-      observeInvocation(complete =>
+      requireFreshRun *> observeInvocation(complete =>
         ZIO.scoped(for
           hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
           result <- runStructuredWithHub[A](messages, schema, mode, hub, complete)
@@ -196,7 +270,15 @@ final class ReActAgent private (
             .flatMap(captured => ZIO.fromEither(prepareStructured[A](result, captured)))
 
         def nativeAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
-          runWithHub(messages, hub, runTools, usageRef, complete, nativeConfig, Some(capturedRef))(
+          runWithHub(
+            RunEntry.Fresh(messages),
+            hub,
+            runTools,
+            usageRef,
+            complete,
+            nativeConfig,
+            Some(capturedRef)
+          )(
             prepare
           )
 
@@ -207,7 +289,7 @@ final class ReActAgent private (
             .fromEither(runTools.withControl(syntheticTool))
             .flatMap(active =>
               runWithHub(
-                input,
+                RunEntry.Fresh(input),
                 hub,
                 active,
                 usageRef,
@@ -359,7 +441,9 @@ final class ReActAgent private (
           for
             exit <- restore(
               runLock.withPermit(
-                observeInvocation(complete => ZIO.scoped(runEffect(hub, complete)))
+                requireFreshRun *> observeInvocation(complete =>
+                  ZIO.scoped(runEffect(hub, complete))
+                )
               )
             ).exit
             _ <- drain
@@ -400,10 +484,12 @@ final class ReActAgent private (
         .register(tool)
         .flatMap(_ => controls.register(tool).map(updated => copy(controls = updated)))
 
-  private def makeRunTools: IO[AgentError, RunTools] =
-    if toolGroups.isEmpty && skills.isEmpty then ZIO.succeed(RunTools(toolkit, None))
+  private def makeRunTools: IO[AgentError, RunTools] = makeRunTools(toolGroups)
+
+  private def makeRunTools(groups: Option[ToolGroups]): IO[AgentError, RunTools] =
+    if groups.isEmpty && skills.isEmpty then ZIO.succeed(RunTools(toolkit, None))
     else
-      val initial = toolGroups.getOrElse(ToolGroups.empty)
+      val initial = groups.getOrElse(ToolGroups.empty)
       Ref
         .make(initial)
         .flatMap: activation =>
@@ -418,6 +504,48 @@ final class ReActAgent private (
                 if skills.isEmpty then Right(withReset)
                 else withReset.withControl(loadSkill(activation))
             yield withSkills
+
+  /** Serialized definitions constrain restoration; executable tools always come from the host. */
+  private def restoredRunTools(pending: PendingActing): IO[AgentError, RunTools] =
+    def declarations(groups: Chunk[ToolGroup]): Chunk[ToolGroup] =
+      groups
+        .map(group =>
+          if group.scope == ToolGroupScope.Meta then
+            group.copy(activation = ToolGroupActivation.Inactive)
+          else group
+        )
+        .sortBy(_.name)
+
+    val configured =
+      if toolGroups.nonEmpty || !skills.isEmpty then Some(toolGroups.getOrElse(ToolGroups.empty))
+      else None
+    for
+      groups <- ZIO.fromEither((configured, pending.toolGroups) match
+        case (None, None) => Right(None)
+        case (Some(current), Some(saved)) if declarations(current.groups) == declarations(saved) =>
+          current
+            .replaceMetaActive(saved.collect {
+              case group
+                  if group.scope == ToolGroupScope.Meta && group.activation == ToolGroupActivation.Active =>
+                group.name
+            }.toSet)
+            .map(Some(_))
+        case _ =>
+          Left(
+            AgentError.InvalidConfiguration(
+              "Suspended tool groups do not match the host configuration"
+            )
+          ))
+      runTools <- makeRunTools(groups)
+      snapshot <- runTools.snapshot
+      _ <- ZIO
+        .fail(
+          AgentError.InvalidConfiguration(
+            "Suspended tool definitions do not match the host bindings"
+          )
+        )
+        .unless(snapshot.definitions == pending.admittedTools)
+    yield runTools
 
   final private case class SkillRequest(skillId: String, path: String)
 
@@ -545,12 +673,18 @@ final class ReActAgent private (
       complete: AgentResult => IO[AgentError, Unit]
   ): ZIO[Scope, AgentError, AgentResult] =
     makeRunTools.zip(Ref.make[Option[ChatUsage]](None)).flatMap { case (runTools, usage) =>
-      runWithHub(messages, hub, runTools, usage, complete)(result => ZIO.succeed((result, ())))
+      runWithHub(RunEntry.Fresh(messages), hub, runTools, usage, complete)(result =>
+        ZIO.succeed((result, ()))
+      )
         .map(_._1)
     }
 
+  private enum RunEntry:
+    case Fresh(messages: Chunk[Msg])
+    case Resume(result: AgentResult, pending: PendingActing)
+
   private def runWithHub[A](
-      newMessages: Chunk[Msg],
+      entry: RunEntry,
       eventHub: Hub[AgentEvent],
       runTools: RunTools,
       usageRef: Ref[Option[ChatUsage]],
@@ -561,40 +695,79 @@ final class ReActAgent private (
       prepareResult: AgentResult => IO[AgentError, (AgentResult, A)]
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
     for
-      p       <- Promise.make[Nothing, Unit]
-      _       <- interruptedPromiseRef.set(p)
-      replyId <- Random.nextUUID.map(_.toString)
+      _ <- entry match
+        case RunEntry.Fresh(_) => requireFreshRun
+        case _                 => ZIO.unit
+      p <- Promise.make[Nothing, Unit]
+      _ <- interruptedPromiseRef.set(p)
+      replyId <- entry match
+        case RunEntry.Fresh(_)           => Random.nextUUID.map(_.toString)
+        case RunEntry.Resume(_, pending) => ZIO.succeed(pending.context.replyId)
       systemMsgOpt =
         if config.systemPrompt.nonEmpty then Some(Msg.system(config.systemPrompt)) else None
-      _ <- stateRef.update { current =>
-        val withSystem = systemMsgOpt match
-          case Some(sysMsg)
-              if current.isEmpty || current.headOption.forall(_.role != Role.System) =>
-            sysMsg +: current
-          case _ =>
-            current
-        withSystem ++ newMessages
-      }
-      progressRef <- Ref.make[RunProgress](RunProgress.Ready)
+      _ <- entry match
+        case RunEntry.Resume(_, _) => ZIO.unit
+        case RunEntry.Fresh(newMessages) =>
+          stateRef.update { current =>
+            val withSystem = systemMsgOpt match
+              case Some(sysMsg)
+                  if current.isEmpty || current.headOption.forall(_.role != Role.System) =>
+                sysMsg +: current
+              case _ => current
+            withSystem ++ newMessages
+          }
+      progressRef <- Ref.make[RunProgress](entry match
+        case RunEntry.Resume(_, pending) =>
+          RunProgress.PersistedAssistant(pending.assistantPosition)
+        case _ => RunProgress.Ready)
       result <- ZIO
         .acquireReleaseWith(
           eventHub.publish(AgentEvent.AgentStartEvent(agentId, replyId, agentId))
         )(_ => eventHub.publish(AgentEvent.AgentEndEvent(replyId)).unit) { _ =>
           ZIO.uninterruptibleMask { restore =>
-            val prepare = loop(
-              1,
-              0,
-              runTools,
-              eventHub,
-              replyId,
-              requestConfig,
-              structuredResponse,
-              progressRef,
-              usageRef
-            ).flatMap(result => usageRef.get.map(usage => result.copy(usage = usage)))
+            val execute = entry match
+              case RunEntry.Fresh(_) =>
+                loop(
+                  0,
+                  0,
+                  runTools,
+                  eventHub,
+                  replyId,
+                  requestConfig,
+                  structuredResponse,
+                  progressRef,
+                  usageRef
+                )
+              case RunEntry.Resume(result, pending) =>
+                runTools.snapshot.flatMap(active =>
+                  actBatch(
+                    result.reply,
+                    pending.assistantPosition,
+                    result.iterationCount,
+                    runTools,
+                    active,
+                    eventHub,
+                    pending.context,
+                    requestConfig,
+                    None,
+                    progressRef,
+                    usageRef
+                  )
+                )
+            val prepare = execute
+              .flatMap(result => usageRef.get.map(usage => result.copy(usage = usage)))
               .flatMap(prepareResult)
               .onInterrupt(reconcileDanglingToolCalls(stateRef, progressRef).unit)
             for
+              _ <- entry match
+                case RunEntry.Resume(_, pending) =>
+                  pendingRef.set(None) *> stateRef.update(_.zipWithIndex.map {
+                    case (message, position) =>
+                      if position == pending.assistantPosition && message.generationReason == GenerateReason.ReasoningStopRequested
+                      then message.withGenerateReason(GenerateReason.ToolCalls)
+                      else message
+                  })
+                case _ => ZIO.unit
               completed <- restore(
                 raceWithSignal(prepare, ZIO.sleep(config.timeout)).flatMap:
                   case Left(_) =>
@@ -681,7 +854,7 @@ final class ReActAgent private (
       yield value)
 
   private def loop(
-      iteration: Int,
+      completedIterations: Int,
       emptyThinkingRetries: Int,
       runTools: RunTools,
       eventHub: Hub[AgentEvent],
@@ -691,10 +864,10 @@ final class ReActAgent private (
       progressRef: Ref[RunProgress],
       usageRef: Ref[Option[ChatUsage]]
   ): ZIO[Scope, AgentError, AgentResult] =
-    if iteration > config.maxIterations then
+    if completedIterations >= config.maxIterations then
       for
         _ <- eventHub.publish(
-          AgentEvent.ExceedMaxItersEvent(replyId, config.maxIterations, iteration - 1)
+          AgentEvent.ExceedMaxItersEvent(replyId, config.maxIterations, completedIterations)
         )
         maxIterMsg <- ZIO.succeed(
           Msg.assistant(
@@ -709,8 +882,13 @@ final class ReActAgent private (
         )
         _            <- persistAssistant(maxIterMsg, progressRef)
         finalHistory <- stateRef.get
-      yield AgentResult(reply = maxIterMsg, history = finalHistory, iterationCount = iteration - 1)
+      yield AgentResult(
+        reply = maxIterMsg,
+        history = finalHistory,
+        iterationCount = completedIterations
+      )
     else
+      val iteration = completedIterations + 1
       runTools.snapshot.flatMap: activeToolkit =>
         ZIO
           .uninterruptibleMask { restore =>
@@ -754,7 +932,7 @@ final class ReActAgent private (
                       )
                       nextTurn <- restore(
                         loop(
-                          iteration + 1,
+                          iteration,
                           emptyThinkingRetries + 1,
                           runTools,
                           eventHub,
@@ -788,70 +966,23 @@ final class ReActAgent private (
                     )
 
                 case TurnOutput.ToolCalls(assistantMsg) =>
-                  for
-                    assistantPosition <- persistAssistant(assistantMsg, progressRef)
-                    allCalls = assistantMsg.toolUses
-                    inline = partitionToolResults(
-                      allCalls,
-                      assistantMsg.toolResults,
-                      _.isServerTool,
-                      (call, result) => call.id == result.id
-                    )
-                    pendingCalls = inline.pending
-                    allSafe = config.streamParallelTools && pendingCalls
-                      .forall(c => activeToolkit.resolve(c.call.name).forall(_.isConcurrencySafe))
-                    argumentPolicy =
-                      if assistantMsg.preservesToolArguments then ArgumentPolicy.Preserve
-                      else ArgumentPolicy.AllowRewrite
-                    execute = (call: IndexedToolCall) =>
-                      executeAndRecord(
-                        call,
-                        assistantPosition,
+                  persistAssistant(assistantMsg, progressRef).flatMap(position =>
+                    restore(
+                      actBatch(
+                        assistantMsg,
+                        position,
+                        iteration,
+                        runTools,
                         activeToolkit,
-                        stateRef,
                         eventHub,
                         context,
-                        argumentPolicy
+                        requestConfig,
+                        structuredResponse,
+                        progressRef,
+                        usageRef
                       )
-                    localPhase =
-                      if allSafe then ZIO.foreachPar(pendingCalls)(execute)
-                      else ZIO.foreach(pendingCalls)(execute)
-                    phase = ZIO
-                      .foreach(inline.completed) { case (call, indexed) =>
-                        processInlineResult(call, indexed, assistantPosition, context, eventHub)
-                      }
-                      .zipWith(localPhase)(_ ++ _)
-                      .onExit:
-                        case Exit.Failure(cause) if !cause.isInterruptedOnly =>
-                          finalizeFailedToolPhase(assistantPosition)
-                        case _ => ZIO.unit
-                    outcome <- raceWithInterrupt(phase)
-                    turnRes <- outcome match
-                      case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
-                      case Right(decisions) =>
-                        val captured = structuredResponse.fold[UIO[Option[Json]]](ZIO.none)(_.get)
-                        decisions.flatten.sortBy(_.ordinal).headOption match
-                          case Some(stop) =>
-                            stoppedToolTurn(assistantPosition, iteration, stop.reason, eventHub)
-                          case None =>
-                            captured.flatMap:
-                              case value if pendingCalls.isEmpty || value.nonEmpty =>
-                                completedToolTurn(assistantPosition, iteration)
-                              case _ =>
-                                restore(
-                                  loop(
-                                    iteration + 1,
-                                    0,
-                                    runTools,
-                                    eventHub,
-                                    replyId,
-                                    requestConfig,
-                                    structuredResponse,
-                                    progressRef,
-                                    usageRef
-                                  )
-                                )
-                  yield turnRes
+                    )
+                  )
 
                 case TurnOutput.Interrupted(partial) =>
                   persistAssistant(partial, progressRef) *> handleInterrupt(
@@ -881,10 +1012,10 @@ final class ReActAgent private (
                 case Right((rawOutput, context)) =>
                   raceWithInterrupt(ZIO.scoped(applyReasoningHook(rawOutput, context))).flatMap:
                     case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
-                    case Right(None) =>
+                    case Right(ReasoningOutcome.Discard) =>
                       restore(
                         loop(
-                          iteration + 1,
+                          iteration,
                           emptyThinkingRetries,
                           runTools,
                           eventHub,
@@ -895,7 +1026,29 @@ final class ReActAgent private (
                           usageRef
                         )
                       )
-                    case Right(Some(turnOutput)) => acceptTurn(turnOutput, context)
+                    case Right(ReasoningOutcome.Accept(turnOutput)) =>
+                      acceptTurn(turnOutput, context)
+                    case Right(ReasoningOutcome.Suspend(message, reason)) =>
+                      structuredResponse match
+                        case Some(_) =>
+                          ZIO.fail(
+                            AgentError.ReasoningHookError(
+                              "Structured runs cannot suspend before acting"
+                            )
+                          )
+                        case None =>
+                          suspendActing(
+                            message,
+                            reason,
+                            context,
+                            iteration,
+                            runTools,
+                            activeToolkit,
+                            requestConfig,
+                            eventHub,
+                            progressRef,
+                            usageRef
+                          )
 
             for
               _        <- progressRef.set(RunProgress.Ready)
@@ -912,6 +1065,89 @@ final class ReActAgent private (
             yield result
           }
           .onInterrupt(reconcileDanglingToolCalls(stateRef, progressRef).unit)
+
+  /** Executes one already-persisted batch for both fresh reasoning and explicit resumption. */
+  private def actBatch(
+      assistantMsg: Msg,
+      position: Int,
+      iteration: Int,
+      runTools: RunTools,
+      activeToolkit: Toolkit,
+      eventHub: Hub[AgentEvent],
+      context: ModelStreamContext,
+      requestConfig: LlmConfig,
+      structuredResponse: Option[Ref[Option[Json]]],
+      progressRef: Ref[RunProgress],
+      usageRef: Ref[Option[ChatUsage]]
+  ): ZIO[Scope, AgentError, AgentResult] =
+    ZIO.uninterruptibleMask: restore =>
+      def raceWithInterrupt[R, E, A](effect: ZIO[R, E, A]): ZIO[R, E, Either[Unit, A]] =
+        interruptedPromiseRef.get.flatMap(signal => restore(raceWithSignal(effect, signal.await)))
+
+      for
+        assistantPosition <- ZIO.succeed(position)
+        allCalls = assistantMsg.toolUses
+        inline = partitionToolResults(
+          allCalls,
+          assistantMsg.toolResults,
+          _.isServerTool,
+          (call, result) => call.id == result.id
+        )
+        pendingCalls = inline.pending
+        allSafe = config.streamParallelTools && pendingCalls
+          .forall(c => activeToolkit.resolve(c.call.name).forall(_.isConcurrencySafe))
+        argumentPolicy =
+          if assistantMsg.preservesToolArguments then ArgumentPolicy.Preserve
+          else ArgumentPolicy.AllowRewrite
+        execute = (call: IndexedToolCall) =>
+          executeAndRecord(
+            call,
+            assistantPosition,
+            activeToolkit,
+            stateRef,
+            eventHub,
+            context,
+            argumentPolicy
+          )
+        localPhase =
+          if allSafe then ZIO.foreachPar(pendingCalls)(execute)
+          else ZIO.foreach(pendingCalls)(execute)
+        phase = ZIO
+          .foreach(inline.completed) { case (call, indexed) =>
+            processInlineResult(call, indexed, assistantPosition, context, eventHub)
+          }
+          .zipWith(localPhase)(_ ++ _)
+          .onExit:
+            case Exit.Failure(cause) if !cause.isInterruptedOnly =>
+              finalizeFailedToolPhase(assistantPosition)
+            case _ => ZIO.unit
+        outcome <- raceWithInterrupt(phase)
+        turnRes <- outcome match
+          case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
+          case Right(decisions) =>
+            val captured = structuredResponse.fold[UIO[Option[Json]]](ZIO.none)(_.get)
+            decisions.flatten.sortBy(_.ordinal).headOption match
+              case Some(stop) =>
+                stoppedToolTurn(assistantPosition, iteration, stop.reason, eventHub)
+              case None =>
+                captured.flatMap:
+                  case value if pendingCalls.isEmpty || value.nonEmpty =>
+                    completedToolTurn(assistantPosition, iteration)
+                  case _ =>
+                    restore(
+                      loop(
+                        iteration,
+                        0,
+                        runTools,
+                        eventHub,
+                        context.replyId,
+                        requestConfig,
+                        structuredResponse,
+                        progressRef,
+                        usageRef
+                      )
+                    )
+      yield turnRes
 
   /** Each selected model owns its projection, request identity and joined request scope. */
   private def modelTurn(
@@ -1010,16 +1246,31 @@ final class ReActAgent private (
             .withContent(system.content :+ ContentBlock.Text(prompt))
             .map(updated => before ++ Chunk(updated) ++ remaining.drop(1))
 
+  private enum ReasoningOutcome:
+    case Accept(output: TurnOutput)
+    case Discard
+    case Suspend(message: Msg, reason: String)
+
   private def applyReasoningHook(
       output: TurnOutput,
       context: ModelStreamContext
-  ): ZIO[Scope, AgentError, Option[TurnOutput]] =
+  ): ZIO[Scope, AgentError, ReasoningOutcome] =
     output match
-      case _: TurnOutput.Interrupted => ZIO.some(output)
+      case _: TurnOutput.Interrupted => ZIO.succeed(ReasoningOutcome.Accept(output))
       case _ =>
         postReasoningHook(context, output.message).flatMap:
-          case ReasoningDecision.Keep    => ZIO.some(output)
-          case ReasoningDecision.Discard => ZIO.none
+          case ReasoningDecision.Keep    => ZIO.succeed(ReasoningOutcome.Accept(output))
+          case ReasoningDecision.Discard => ZIO.succeed(ReasoningOutcome.Discard)
+          case ReasoningDecision.Suspend(reason) =>
+            output match
+              case TurnOutput.ToolCalls(message) if reason.trim.nonEmpty =>
+                ZIO.succeed(ReasoningOutcome.Suspend(message, reason))
+              case _ =>
+                ZIO.fail(
+                  AgentError.ReasoningHookError(
+                    "Suspension requires tool calls and a nonblank reason"
+                  )
+                )
           case ReasoningDecision.Replace(replacement) =>
             if replacement.role != Role.Assistant then
               ZIO.fail(
@@ -1039,7 +1290,47 @@ final class ReActAgent private (
                 else if accepted.text.trim.isEmpty && accepted.hasReasoning then
                   TurnOutput.ThinkingOnly(accepted)
                 else TurnOutput.FinalText(accepted)
-              ZIO.some(classified)
+              ZIO.succeed(ReasoningOutcome.Accept(classified))
+
+  private def suspendActing(
+      message: Msg,
+      reason: String,
+      context: ModelStreamContext,
+      iteration: Int,
+      runTools: RunTools,
+      admitted: Toolkit,
+      requestConfig: LlmConfig,
+      eventHub: Hub[AgentEvent],
+      progressRef: Ref[RunProgress],
+      usageRef: Ref[Option[ChatUsage]]
+  ): IO[AgentError, AgentResult] =
+    for
+      history <- stateRef.get
+      groups  <- ZIO.foreach(runTools.activation)(_.get.map(_.groups))
+      usage   <- usageRef.get
+      reply = message.withGenerateReason(GenerateReason.ReasoningStopRequested)
+      pending = PendingActing(
+        reason,
+        context,
+        history.size,
+        admitted.definitions,
+        groups,
+        requestConfig.responseFormat
+      )
+      result = AgentResult(
+        reply,
+        history :+ reply,
+        iteration,
+        AgentRunState.Suspended(pending),
+        usage
+      )
+      _ <- ZIO.fromEither(validateCheckpoint(result))
+      _ <- persistAssistant(reply, progressRef)
+      _ <- pendingRef.set(Some(result))
+      _ <- eventHub.publish(
+        AgentEvent.RequestStopEvent(reason, GenerateReason.ReasoningStopRequested)
+      )
+    yield result
 
   final private case class IndexedToolCall(call: ContentBlock.ToolUse, ordinal: Int)
 
@@ -1449,7 +1740,7 @@ final class ReActAgent private (
               )
               (recovery, history ++ synthesized :+ recovery)
             }
-            .tap(message => progressRef.set(RunProgress.Recovered(message)))
+            .tap(message => pendingRef.set(None) *> progressRef.set(RunProgress.Recovered(message)))
       }
     )
 
@@ -1476,6 +1767,7 @@ object ReActAgent:
       library = SkillLibrary.from(skills)
       _ <- ZIO.fromEither(library.catalog.validateGroups(toolGroups.getOrElse(ToolGroups.empty)))
       stateRef              <- Ref.make(initialHistory)
+      pendingRef            <- Ref.make(Option.empty[AgentResult])
       agentId               <- Random.nextUUID.map(_.toString)
       p                     <- Promise.make[Nothing, Unit]
       interruptedPromiseRef <- Ref.make(p)
@@ -1486,6 +1778,7 @@ object ReActAgent:
       client,
       llmConfig,
       stateRef,
+      pendingRef,
       interruptedPromiseRef,
       agentId,
       runLock,

@@ -1,5 +1,7 @@
 # Low-level contracts
 
+The [before-acting contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) stores one AgentResult plus data-only PendingActing. Resume claims the saved batch before execution, retains occurrence/context identity and checks the receiving host iteration budget before further reasoning. Restore rebuilds executable bindings from the host; serialized ToolDefs do not grant execution authority.
+
 Current source declarations are authoritative. This document records API contracts rather than maintaining a second implementation.
 
 ## MCP protocol and client boundaries
@@ -362,7 +364,7 @@ Ancestor Allow/Ask and approval state are not copied. Parent Build removes only 
 
 `session.send(input: Msg)` returns `ZIO[Scope, AgentError, SubagentTaskSubmission]`. Each accepted send has a separate execution ID in `session.executions`, a bounded registry supporting inspection, waiting/promotion, cancellation and completed-record removal. Waiting and completed records count toward capacity. Turns serialize without a FIFO guarantee and reuse runtime history, the final static tool boundary, injected authorizer and child lineage; live parent denial/plan providers remain effective when the host installed them. Cancelling a queued turn leaves history unchanged. Session closure joins active, queued and promoted work and descendants before releasing the retained client/resources.
 
-The public fresh-child registry API is unchanged. Execution IDs identify turns, not reusable session credentials; the host retains the session capability. The session API supplies no manager lookup keys, declaration selection, historical denial accumulation; policy-aware factories supply the installed restrictions, and the explicit tool adapter below exposes its existing capability. A defensive Suspended latch rejects ordinary continuation if a run reports suspension, but core currently produces no such result: this branch has no integration-test evidence and supplies no resume API. Five [actual-runtime session scenarios](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) establish the bounded ordinary-run contract.
+The public fresh-child registry API is unchanged. Execution IDs identify turns, not reusable session credentials; the host retains the session capability. The session API supplies no manager lookup keys, declaration selection, historical denial accumulation; policy-aware factories supply the installed restrictions, and the explicit tool adapter below exposes its existing capability. A Suspended latch rejects ordinary continuation after a suspended result. The core checkpoint increment does not add a child resume API or dedicated session integration evidence. Five [actual-runtime session scenarios](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) establish the bounded ordinary-run contract.
 
 ## Model-facing task tools
 
