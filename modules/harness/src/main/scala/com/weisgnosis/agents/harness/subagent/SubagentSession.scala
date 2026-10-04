@@ -15,14 +15,21 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
-import com.weisgnosis.agents.core.agent.{AgentResult, ReActAgent}
+import com.weisgnosis.agents.core.agent.{AgentResult, SuppliedToolResult}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolEventPort
 import zio.*
 
 /** One host-held child runtime; the returned TaskResource owns its lifetime and descendants. */
-final class SubagentSession private (val executions: SubagentTaskRegistry):
+final class SubagentSession private (
+    val executions: SubagentTaskRegistry,
+    submitResume: (Chunk[SuppliedToolResult], Option[ToolEventPort]) => ZIO[
+      Scope,
+      AgentError,
+      SubagentTaskSubmission
+    ]
+):
   /** Each accepted send receives a distinct retained execution ID; waiting sends count toward capacity. */
   def send(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] = executions.submit(input)
 
@@ -32,9 +39,21 @@ final class SubagentSession private (val executions: SubagentTaskRegistry):
   ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
     executions.submit(input, events)
 
+  /**
+   * Resumes the checkpoint present when this execution acquires the session permit. Host-supplied
+   * observations are checked by the runtime; installed authorization remains authoritative. This
+   * is not a checkpoint claim or replay guard: the host must sequence confirmation delivery.
+   */
+  def resume(
+      results: Chunk[SuppliedToolResult] = Chunk.empty,
+      events: Option[ToolEventPort] = None
+  ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
+    submitResume(results, events)
+
 object SubagentSession:
-  private enum Continuation:
-    case Ready, Suspended
+  private enum Command:
+    case Send(input: Msg)
+    case Resume(results: Chunk[SuppliedToolResult])
 
   def open(
       parent: SubagentSpawner[AgentResult],
@@ -67,35 +86,17 @@ object SubagentSession:
       maxTracked: Int
   ): ZIO[Scope, AgentError, SubagentSession] =
     for
-      runtime      <- factory.build(child)
-      turn         <- Semaphore.make(1)
-      continuation <- Ref.make(Continuation.Ready)
-      executions <- SubagentTaskRegistry.openWith(
-        (input, id, events) =>
-          supervisor.attach(turn.withPermit(runTurn(runtime, continuation, input, id, events))),
+      runtime <- factory.build(child)
+      turn    <- Semaphore.make(1)
+      executions <- SubagentTaskRegistry.openInput[Command](
+        Command.Send(_),
+        (command, id, events) =>
+          supervisor.attach(turn.withPermit(command match
+            case Command.Send(input)     => SubagentFactory.run(runtime, input, id, events)
+            case Command.Resume(results) => SubagentFactory.resume(runtime, results, id, events))),
         maxTracked
       )
-    yield new SubagentSession(executions)
-
-  private def runTurn(
-      runtime: ReActAgent,
-      continuation: Ref[Continuation],
-      input: Msg,
-      id: SubagentTaskId,
-      events: Option[ToolEventPort]
-  ): ZIO[Scope, AgentError, AgentResult] =
-    ZIO.uninterruptibleMask: restore =>
-      continuation.get.flatMap:
-        case Continuation.Suspended =>
-          ZIO.fail(
-            AgentError.InvalidConfiguration(
-              "The child session is suspended; ordinary sends cannot resume it"
-            )
-          )
-        case Continuation.Ready =>
-          restore(SubagentFactory.run(runtime, input, id, events)).tap(result =>
-            continuation.set(
-              if result.isSuspended then Continuation.Suspended
-              else Continuation.Ready
-            )
-          )
+    yield new SubagentSession(
+      executions,
+      (results, events) => executions.submitInput(Command.Resume(results), events)
+    )

@@ -163,7 +163,29 @@ Turns are serialized, without a FIFO guarantee. Cancelling a queued turn reaches
 
 The host retains the returned TaskResource and its acquiring Scope. Closing it joins running, queued and promoted turns and further descendants before releasing registration/client resources. Promoted turns survive their individual caller Scope, not session closure. After closure, sends return Closed. Complete execution records remain inspectable through the retained registry; hosts manage retirement and retained result memory.
 
-This API supports ordinary runs only. A continuation guard rejects later ordinary sends after a Suspended result. The data-bearing core suspension path and corresponding pattern-match migration are accepted; this session supplies no child resume operation. Stopped results leave this latch Ready for new work; that follows the existing Suspended-only state rule, not a new session-resumption protocol. The session itself supplies no resume API, durable restoration or policy installation; factories produced by SubagentConstruction retain their inherited restrictions across turns. Host session-ID lookup is supplied by the explicit directory below. The model-facing adapter below binds `agent_send` to a host-selected session.
+This API supports ordinary runs and explicit [host-only resume](#host-only-session-resume). Factories produced by SubagentConstruction retain inherited restrictions across turns. The directory below supplies host session-ID lookup; model-facing adapters expose send/task/cancel only.
+
+## Host-only session resume
+
+`session.resume(results = Chunk.empty, events = None)` submits an immutable resume command through the same bounded registry, caller lease and supervisor as `send`. Every accepted command receives a fresh execution ID; running and queued commands occupy retained capacity. The session permit serializes execution without FIFO ordering. The checkpoint is selected when the command acquires that permit, not when submitted: hosts must sequence confirmation delivery. This API supplies no checkpoint compare-and-swap, replay guard or durable ownership.
+
+Core pending state is the sole continuation authority. Ordinary sends reject while it exists. Invalid supplied results and absence of a checkpoint fail the retained execution without changing history or consuming pending state; after a valid claim, interruption consumes that attempt, joins cleanup and reconciles unfinished local calls. Later fresh sends remain available after completion, Stop or interrupted recovery. Closed sessions reject resume admission just as they reject sends.
+
+Resume retains the original checkpoint context, reply ID, iteration and usage, and uses the installed authorizer and trusted tool bindings. A host can supply checked external observations or install a live confirmation adapter through its factory; resume itself grants no approval. An optional event port is captured for this execution only. The shared core forwarding path prefixes events with the new task ID while preserving their original context and joins terminal delivery and cleanup. Public stream-consumer cancellation still abandons later output.
+
+Migration: `resume` is additive; existing send, registry and model-facing tool signatures are unchanged. There is no model-facing resume tool, automatic policy installation or restoration into a new child resource. The core package-visible `resumeForwarding` shares the existing owned forwarding lifecycle; the registry's generic command entry point remains package-private.
+
+| Reviewed source | Git blob |
+| --- | --- |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | `7bda9e60a45d6f12934869a94f0abaed90da8320` |
+| [SubagentFactory.scala](SubagentFactory.scala) | `013920f0ad1ab6c082e3362bb40f83064d11af51` |
+| [SubagentSession.scala](SubagentSession.scala) | `77eb1e7498b49703daa5133b1969e341c3d5f84c` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `a0e302022db3f9666d0c5c3beab326ec5a424516` |
+| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | `2059a164af26056c23ed18c9a67920d107d6a6ac` |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no open findings. Two new grouped session tests cover actual partial confirmations and supplied completion, repeated IDs, invalid/no-pending/closed outcomes, queued cancellation, held cleanup defects, original-context terminal forwarding and fresh-send reuse. Focused `child-resume-final-focused.log` passed nine core tests in 633 ms and fifteen harness tests in 603 ms.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed in `child-resume-verify.log`, with zero compiler warnings or failures. Current totals and environment are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [ ] Define and review explicit host-supplied checkpoint restoration into a new child resource; durable storage, authentication and exclusive claims remain host responsibilities.
 
 ## Bounded host session directory
 
@@ -297,7 +319,7 @@ Migration: this is an additive toolkit factory. `forCatalog` still spawns fresh 
 
 ## Verification and acceptance
 
-SubagentFactory forwards Deferred through its existing live parent-denial wrapper without granting approval. The [partial-confirmation scope](../permission/README.md#partial-checkpoint-confirmations) owns the current factory identity and final approval. Suspended sessions still reject ordinary sends; no child resume API is added.
+SubagentFactory forwards Deferred through its existing live parent-denial wrapper without granting approval. The [partial-confirmation scope](../permission/README.md#partial-checkpoint-confirmations) retains its authorization contract; [host-only session resume](#host-only-session-resume) owns the current factory identity. Suspended sessions reject ordinary sends and require explicit host resume.
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The unchanged lineage and static boundary retain their recorded approvals; the supervisor's current resource extension is reviewed below.
 
@@ -318,8 +340,8 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentDeclarationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | [Current topP scope identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-nucleus-sampling) |
 | [SubagentSessionDirectory.scala](SubagentSessionDirectory.scala) | `5f924361cc657e128abe057354aa260848d67035` |
 | [SubagentSessionDirectorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionDirectorySpec.scala) | `3210d1e7f1e86fd65cd54727ebe287431cac0b94` |
-| [SubagentSession.scala](SubagentSession.scala) | [Current checkpoint-pattern identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) |
-| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | `01df51dd8127f5f14373eac0e013c6f2d06b6bb6` |
+| [SubagentSession.scala](SubagentSession.scala) | [Current host-resume identity](#host-only-session-resume) |
+| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current host-resume identity](#host-only-session-resume) |
 | [TaskSupervisor.scala](TaskSupervisor.scala) | `3ae295da2603a952bc23b7b05d2546ed274cb600` |
 | [TaskResource.scala](TaskResource.scala) | `ff8c69ba4d8c1623388325e4b2e33bd26df45314` |
 | [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `b8c862182e0a625e7d6f83c0ac72c120f700e80b` |
@@ -329,17 +351,17 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | `1af49c26a4586eab5d95bceacb5091cb089781d5` |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | [Current acting-stop identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `658a8eec60e2158073a2255a7b1b424ed0d7cf88` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current host-resume identity](#host-only-session-resume) |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
 | [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `6670f66d25c04131fa7f5e50e982b0775142acc7` |
 | [SubagentConstruction.scala](SubagentConstruction.scala) | `381703a6f1f92239110db9ce5bbec5d208047c52` |
 | [SubagentConstructionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) | `1ece182d43038473274d5bfa5c4bb2c9c5c664c2` |
-| [SubagentFactory.scala](SubagentFactory.scala) | [Current reviewed identity](../permission/README.md#partial-checkpoint-confirmations) |
+| [SubagentFactory.scala](SubagentFactory.scala) | [Current host-resume identity](#host-only-session-resume) |
 | [SubagentFactorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentFactorySpec.scala) | `e7c0567f3b7cd873cb5f6ff39042a99152464e87` |
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
 
-Inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and automatic event delivery after promotion remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
+Inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and automatic event delivery after promotion remain outside this accepted scope. The host-resume tests cover ordinary-send rejection while suspended.
 
 - [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
 - [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.

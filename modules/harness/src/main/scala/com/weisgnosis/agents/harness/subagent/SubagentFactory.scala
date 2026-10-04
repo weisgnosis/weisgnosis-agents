@@ -15,7 +15,13 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
-import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ModelInputTransform, ReActAgent}
+import com.weisgnosis.agents.core.agent.{
+  AgentConfig,
+  AgentResult,
+  ModelInputTransform,
+  ReActAgent,
+  SuppliedToolResult
+}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
@@ -138,6 +144,15 @@ object SubagentFactory:
   ): ZIO[Scope, AgentError, AgentResult] = events match
     case None              => runtime.run(input)
     case Some(destination) => runtime.runForwarding(input, destination, id.value.toString)
+
+  private[subagent] def resume(
+      runtime: ReActAgent,
+      results: Chunk[SuppliedToolResult],
+      id: SubagentTaskId,
+      events: Option[ToolEventPort]
+  ): ZIO[Scope, AgentError, AgentResult] = events match
+    case None              => runtime.resume(results)
+    case Some(destination) => runtime.resumeForwarding(results, destination, id.value.toString)
 
   def make(
       config: AgentConfig,

@@ -51,7 +51,7 @@ Migration: the appended defaulted fields preserve ordinary omitted-argument cons
 | Reviewed file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5bbd26b08badd4655233de44bc37d2b8aa055066 |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | b93825f7cb540cdbe8bb950d88f43254d6c62441 |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current host-resume identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume) |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
 | [LlmClient.scala](LlmClient.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | f1fc743eab486530a80f640121c9645525a3357e |

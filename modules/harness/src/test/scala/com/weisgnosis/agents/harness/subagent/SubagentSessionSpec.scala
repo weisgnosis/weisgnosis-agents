@@ -15,13 +15,32 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
-import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult}
+import com.weisgnosis.agents.core.agent.{
+  AgentConfig,
+  AgentResult,
+  AgentRunState,
+  PendingActing,
+  ReActAgent,
+  SuppliedToolResult
+}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
-import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorizer, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.model.{ContentBlock, GenerateReason, Msg, Role, ToolResultState}
+import com.weisgnosis.agents.core.tool.{
+  Tool,
+  ToolAuthorization,
+  ToolAuthorizer,
+  ToolDef,
+  ToolExecutionResult,
+  ToolInvocation,
+  Toolkit
+}
 import com.weisgnosis.agents.harness.permission.{
   InteractivePermissionAuthorizer,
+  ConfirmedBatchAuthorizer,
+  ConfirmedToolCall,
+  ConfirmResult,
   PermissionBehavior,
   PermissionEngine,
   PermissionRequests,
@@ -33,6 +52,9 @@ import zio.json.ast.Json
 import zio.test.*
 
 object SubagentSessionSpec extends ZIOSpecDefault:
+  private enum ResumeCompletion:
+    case Confirmed, Supplied
+
   private def owner: ZIO[Scope, Nothing, Scope.Closeable] =
     ZIO.acquireRelease(Scope.make)(_.close(Exit.unit))
 
@@ -83,6 +105,249 @@ object SubagentSessionSpec extends ZIOSpecDefault:
     submitted(session.send(Msg.user(text))).flatMap(result(session, _))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentSessionSpec")(
+    test("host resume retains partial checkpoints and reuses installed confirmation authority"):
+      ZIO
+        .foreach(Chunk(ResumeCompletion.Confirmed, ResumeCompletion.Supplied)): completion =>
+          ZIO.scoped:
+            for
+              supervisor <- TaskSupervisor.open[AgentResult]
+              root       <- SubagentSpawner.root(supervisor)
+              requests   <- Ref.make(0)
+              executed   <- Ref.make(Chunk.empty[Json])
+              installed <- Ref.make[ToolAuthorizer](
+                ToolAuthorizer(_ =>
+                  ZIO.succeed(ToolAuthorization.Deferred("Host confirmation required"))
+                )
+              )
+              lookup = Tool.make(ToolDef("lookup", "Record approved input", Json.Obj()))(input =>
+                executed.update(_ :+ input).as("local")
+              )
+              configured <- factory(
+                _ => ZIO.succeed(Toolkit(Map("lookup" -> lookup))),
+                _ =>
+                  ZIO.succeed(
+                    LlmClient.mockEffectful((_, _, _) =>
+                      requests
+                        .updateAndGet(_ + 1)
+                        .map(count =>
+                          if count == 1 then
+                            TurnOutput.ToolCalls(
+                              Msg.assistant(
+                                Chunk(
+                                  ContentBlock
+                                    .ToolUse("same", "lookup", Json.Obj("value" -> Json.Num(0))),
+                                  ContentBlock
+                                    .ToolUse("same", "lookup", Json.Obj("value" -> Json.Num(1)))
+                                )
+                              )
+                            )
+                          else TurnOutput.FinalText(Msg.assistant("done"))
+                        )
+                    )
+                  ),
+                ToolAuthorizer(request => installed.get.flatMap(_.authorize(request)))
+              )
+              resource <- accepted(SubagentSession.open(root, configured))
+              session = resource.value
+              first        <- submitted(session.send(Msg.user("work")))
+              pending      <- result(session, first)
+              deniedSend   <- submitted(session.send(Msg.user("cannot replace pending")))
+              rejectedSend <- session.executions.await(deniedSend)
+              invalid <- submitted(
+                session.resume(Chunk(SuppliedToolResult(9, ToolExecutionResult("invalid"))))
+              )
+              invalidExit <- session.executions.await(invalid)
+              partialAuthorizer <- ConfirmedBatchAuthorizer.makePartial(
+                pending,
+                Chunk(ConfirmedToolCall(0, ConfirmResult(true))),
+                ZIO.succeed(PermissionEngine())
+              )
+              _               <- installed.set(partialAuthorizer)
+              partial         <- submitted(session.resume())
+              remaining       <- result(session, partial)
+              beforeModel     <- requests.get
+              beforeExecution <- executed.get
+              supplied = completion match
+                case ResumeCompletion.Confirmed => Chunk.empty[SuppliedToolResult]
+                case ResumeCompletion.Supplied =>
+                  Chunk(SuppliedToolResult(1, ToolExecutionResult("external")))
+              augmented <- ZIO.fromEither(PendingActing.withResults(remaining, supplied))
+              confirmations = completion match
+                case ResumeCompletion.Confirmed => Chunk(ConfirmedToolCall(1, ConfirmResult(true)))
+                case ResumeCompletion.Supplied  => Chunk.empty[ConfirmedToolCall]
+              finalAuthorizer <- ConfirmedBatchAuthorizer
+                .make(augmented, confirmations, ZIO.succeed(PermissionEngine()))
+              _           <- installed.set(finalAuthorizer)
+              resumed     <- submitted(session.resume(supplied))
+              completed   <- result(session, resumed)
+              next        <- run(session, "next")
+              readyResume <- submitted(session.resume())
+              readyExit   <- session.executions.await(readyResume)
+              count       <- requests.get
+              inputs      <- executed.get
+              _           <- resource.close
+              closed      <- session.resume()
+            yield assertTrue(
+              pending.isSuspended,
+              rejectedSend.exists(
+                _.causeOption
+                  .exists(_.failures.exists(_.isInstanceOf[AgentError.InvalidConfiguration]))
+              ),
+              invalidExit.exists(
+                _.causeOption
+                  .exists(_.failures.exists(_.isInstanceOf[AgentError.InvalidConfiguration]))
+              ),
+              remaining.isSuspended,
+              PendingActing.pendingCalls(remaining).map(_.map(_.callOrdinal)) == Right(Chunk(1)),
+              beforeModel == 1,
+              beforeExecution == Chunk(Json.Obj("value" -> Json.Num(0))),
+              completed.reply.text == "done" && !completed.isSuspended,
+              completed.history
+                .filter(_.role == Role.Assistant)
+                .headOption
+                .contains(
+                  pending.reply.withGenerateReason(GenerateReason.ToolCalls)
+                ),
+              completed.history.flatMap(_.toolResults).map(_.text) ==
+                Chunk(
+                  "local",
+                  if completion == ResumeCompletion.Confirmed then "local" else "external"
+                ),
+              inputs == (if completion == ResumeCompletion.Confirmed then
+                           Chunk(Json.Obj("value" -> Json.Num(0)), Json.Obj("value" -> Json.Num(1)))
+                         else beforeExecution),
+              next.history.filter(_.role == Role.User).map(_.text) == Chunk("work", "next"),
+              count == 3,
+              Chunk(first, deniedSend, invalid, partial, resumed, readyResume).distinct.size == 6,
+              readyExit.exists(
+                _.causeOption
+                  .exists(_.failures.exists(_.isInstanceOf[AgentError.InvalidConfiguration]))
+              ),
+              closed == SubagentTaskSubmission.Closed
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test(
+      "resumed cancellation joins cleanup and forwarded terminal events without poisoning the session"
+    ):
+      for
+        supervisor    <- TaskSupervisor.open[AgentResult]
+        root          <- SubagentSpawner.root(supervisor)
+        requests      <- Ref.make(0)
+        authorization <- Ref.make[ToolAuthorization](ToolAuthorization.Deferred("Wait"))
+        entered       <- Promise.make[Nothing, Unit]
+        cleaning      <- Promise.make[Nothing, Unit]
+        release       <- Promise.make[Nothing, Unit]
+        cleaned       <- Ref.make(false)
+        resumedId     <- Promise.make[Nothing, SubagentTaskId]
+        defect = new IllegalStateException("resumed cleanup marker")
+        lookup = Tool.make(ToolDef("lookup", "Held resumed execution", Json.Obj()))(_ =>
+          (entered.succeed(()) *> ZIO.never)
+            .ensuring(cleaning.succeed(()) *> release.await *> cleaned.set(true) *> ZIO.die(defect))
+        )
+        configured <- factory(
+          _ => ZIO.succeed(Toolkit(Map("lookup" -> lookup))),
+          _ =>
+            ZIO.succeed(
+              LlmClient.mockEffectful((_, _, _) =>
+                requests
+                  .updateAndGet(_ + 1)
+                  .map(count =>
+                    if count == 1 then
+                      TurnOutput.ToolCalls(
+                        Msg.assistant(Chunk(ContentBlock.ToolUse("held", "lookup", Json.Obj())))
+                      )
+                    else TurnOutput.FinalText(Msg.assistant("done"))
+                  )
+              )
+            ),
+          ToolAuthorizer(_ => authorization.get)
+        )
+        resource <- accepted(SubagentSession.open(root, configured))
+        session = resource.value
+        pending <- run(session, "work")
+        _       <- authorization.set(ToolAuthorization.Approved(Json.Obj()))
+        relay = new Tool[Any, Json, String]:
+          def definition: ToolDef = ToolDef("resume_child", "Host resume fixture", Json.Obj())
+          def decodeInput(raw: Json): Either[String, Json] = Right(raw)
+          def encodeOutput(output: String): String         = output
+          def execute(input: Json): IO[AgentError, String] =
+            executeWithContext(input, ToolInvocation.Detached)
+          override def executeWithContext(
+              input: Json,
+              invocation: ToolInvocation
+          ): IO[AgentError, String] =
+            invocation match
+              case ToolInvocation.Detached =>
+                ZIO.fail(AgentError.InvalidConfiguration("Active observer required"))
+              case ToolInvocation.Active(_, _, _, destination) =>
+                ZIO.scoped:
+                  for
+                    id <- submitted(session.resume(events = Some(destination)))
+                    _  <- resumedId.succeed(id)
+                    _  <- session.executions.await(id)
+                  yield "joined"
+        observer <- ReActAgent.make(
+          toolkit = Toolkit(Map("resume_child" -> relay)),
+          client = LlmClient.mockEffectful((history, _, _) =>
+            ZIO.succeed(
+              if history.lastOption.exists(_.role == Role.User) then
+                TurnOutput.ToolCalls(
+                  Msg.assistant(Chunk(ContentBlock.ToolUse("observe", "resume_child", Json.Obj())))
+                )
+              else TurnOutput.FinalText(Msg.assistant("observed"))
+            )
+          )
+        )
+        assertion <- ZIO.scoped:
+          (for
+            observing      <- observer.streamEvents(Msg.user("observe")).runCollect.forkScoped
+            id             <- resumedId.await
+            _              <- entered.await
+            queued         <- submitted(session.resume())
+            cancelledQueue <- session.executions.cancel(queued)
+            stopping       <- session.executions.cancel(id).forkScoped
+            _              <- cleaning.await
+            waiting        <- stopping.poll
+            _              <- release.succeed(())
+            exit           <- stopping.join
+            events         <- observing.join
+            after          <- run(session, "fresh")
+            released       <- cleaned.get
+            count          <- requests.get
+            childStarts = events.collect:
+              case event: AgentEvent.AgentStartEvent if event.source.contains(id.value.toString) =>
+                event
+            childEnds = events.collect:
+              case event: AgentEvent.AgentEndEvent if event.source.contains(id.value.toString) =>
+                event
+            pendingContext = pending.state match
+              case AgentRunState.Suspended(checkpoint) => Some(checkpoint.context)
+              case _                                   => None
+          yield assertTrue(
+            pending.isSuspended,
+            cancelledQueue.exists(_.isInterrupted),
+            waiting.isEmpty,
+            exit.exists(value =>
+              value.isInterrupted && value.causeOption.exists(_.defects == List(defect))
+            ),
+            released,
+            childStarts.size == 1 && childEnds.size == 1,
+            pendingContext.exists(_.replyId.nonEmpty),
+            childStarts.headOption.map(_.replyId) == pendingContext.map(_.replyId),
+            childEnds.headOption.map(_.replyId) == pendingContext.map(_.replyId),
+            events.indexWhere(event => childEnds.contains(event)) < events.lastIndexWhere(
+              _.isInstanceOf[AgentEvent.AgentEndEvent]
+            ),
+            after.history.flatMap(_.toolResults).map(_.state) == Chunk(ToolResultState.Error),
+            after.history.exists(
+              _.generationReason == GenerateReason.Interrupted
+            ),
+            after.reply.text == "done",
+            count == 2
+          )).ensuring(release.succeed(()).unit)
+      yield assertion
+    ,
     test(
       "reused depth-three children keep one filtered runtime and resource lifetime with separate execution IDs"
     ) {

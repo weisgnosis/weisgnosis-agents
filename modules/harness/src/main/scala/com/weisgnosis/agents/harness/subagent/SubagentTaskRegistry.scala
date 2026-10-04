@@ -137,6 +137,17 @@ object SubagentTaskRegistry:
       ],
       maxTracked: Int
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
+    openInput[Msg](identity, launchTask, maxTracked)
+
+  private[subagent] def openInput[Input](
+      fromMessage: Msg => Input,
+      launchTask: (Input, SubagentTaskId, Option[ToolEventPort]) => ZIO[
+        Scope,
+        AgentError,
+        TaskAdmission[AgentResult]
+      ],
+      maxTracked: Int
+  ): ZIO[Scope, AgentError, Live[Input]] =
     ZIO.uninterruptible:
       for
         _ <- ZIO
@@ -144,12 +155,13 @@ object SubagentTaskRegistry:
           .when(maxTracked <= 0)
         gate  <- Semaphore.make(1)
         state <- Ref.make[State](State.Open(Chunk.empty))
-        registry = new Live(launchTask, maxTracked, gate, state)
+        registry = new Live(fromMessage, launchTask, maxTracked, gate, state)
         _ <- ZIO.addFinalizer(registry.close)
       yield registry
 
-  final private class Live(
-      launchTask: (Msg, SubagentTaskId, Option[ToolEventPort]) => ZIO[
+  final private[subagent] class Live[Input] private[SubagentTaskRegistry] (
+      fromMessage: Msg => Input,
+      launchTask: (Input, SubagentTaskId, Option[ToolEventPort]) => ZIO[
         Scope,
         AgentError,
         TaskAdmission[AgentResult]
@@ -165,6 +177,12 @@ object SubagentTaskRegistry:
         input: Msg,
         events: Option[ToolEventPort]
     ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
+      submitInput(fromMessage(input), events)
+
+    private[subagent] def submitInput(
+        input: Input,
+        events: Option[ToolEventPort]
+    ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       ZIO.uninterruptibleMask: restore =>
         Scope.make.flatMap: lease =>
           // Register the caller lease outside admission: a closed caller may synchronously join cleanup.
@@ -176,7 +194,7 @@ object SubagentTaskRegistry:
               case failed @ Exit.Failure(_) => lease.close(failed)
 
     private def launch(
-        input: Msg,
+        input: Input,
         events: Option[ToolEventPort]
     ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       state.get.flatMap:

@@ -230,23 +230,49 @@ final class ReActAgent private (
       destination: ToolEventPort,
       source: String
   ): ZIO[Scope, AgentError, AgentResult] =
+    runLock.withPermit(
+      requireFreshRun *> forwardInvocation(destination, source)((hub, complete) =>
+        runOrdinaryWithHub(messages, hub, complete)
+      )
+    )
+
+  private[agents] def resumeForwarding(
+      results: Chunk[SuppliedToolResult],
+      destination: ToolEventPort,
+      source: String
+  ): ZIO[Scope, AgentError, AgentResult] =
+    runLock.withPermit:
+      prepareResume(results).flatMap(prepared =>
+        forwardInvocation(destination, source)((hub, complete) =>
+          runResumeWithHub(prepared, hub, complete)
+        )
+      )
+
+  private def forwardInvocation(
+      destination: ToolEventPort,
+      source: String
+  )(
+      invoke: (Hub[AgentEvent], AgentResult => IO[AgentError, Unit]) => ZIO[
+        Scope,
+        AgentError,
+        AgentResult
+      ]
+  ): ZIO[Scope, AgentError, AgentResult] =
     def forward(event: AgentEvent): UIO[Unit] =
       destination
         .publish(event.withSource(event.source.fold(source)(nested => s"$source/$nested")))
         .unit
 
-    runLock.withPermit(
-      requireFreshRun *> observeInvocation(complete =>
-        ZIO.scoped:
-          for
-            hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-            subscription <- hub.subscribe
-            drain        <- AgentEventForwarder.start(subscription, forward)
-            result <- ZIO
-              .scoped(runOrdinaryWithHub(messages, hub, complete))
-              .ensuring(drain)
-          yield result
-      )
+    observeInvocation(complete =>
+      ZIO.scoped:
+        for
+          hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+          subscription <- hub.subscribe
+          drain        <- AgentEventForwarder.start(subscription, forward)
+          result <- ZIO
+            .scoped(invoke(hub, complete))
+            .ensuring(drain)
+        yield result
     )
 
   private[agents] def runForwarding(
