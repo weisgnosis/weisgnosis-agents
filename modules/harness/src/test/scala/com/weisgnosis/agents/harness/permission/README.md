@@ -1,5 +1,7 @@
 # Permission verification
 
+The [checkpoint-event scope](../../../../../../../main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) is accepted. It extends existing ordinal/restore/input tables and adds one joined phase-drain group; generic event correlation does not establish human-source or durable-delivery authority.
+
 [CheckpointPermissionAuthorizerSpec](CheckpointPermissionAuthorizerSpec.scala) adds two policy/lifecycle groups and [CheckpointPermissionIntegrationSpec](CheckpointPermissionIntegrationSpec.scala) adds one actual Ask/Allow table. They verify returned original-input pending data, host-fixed preparation, restored confirmation without repeated reasoning and no approval/stop events for Allow. [Final acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/permission/README.md#nonblocking-checkpoint-policy) records both reviews, exact identities and verification.
 
 Partial-confirmation tests have final independent approval and full verification. The [current contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) covers checked ordinal-position ledgers, successive restored subsets, preserved inline/completed processing, saved activation and Stop state, structured rejection and joined cancellation.

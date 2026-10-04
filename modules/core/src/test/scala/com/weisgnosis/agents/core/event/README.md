@@ -1,5 +1,7 @@
 # Agent event verification
 
+Generic PermissionAskEvent and PermissionDecisionEvent runtime integration is accepted in the [checkpoint contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events). Ask follows successful batch cleanup and precedes RequestStop; a recorded resumed authorization decision precedes tool Start. UUID correlation is data, not evidence of a human response; event codecs are unchanged.
+
 The existing RequestStop codec is unchanged. [Acting-stop runtime tests](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) exercise host authority and publication after completed observations; the event payload alone grants no stop, cancellation or resume authority. Both independent reviews and full verification passed for this bounded integration.
 
 These suites verify payload codecs and selected runtime boundaries. They do not establish exhaustive event integration or Java wire compatibility.

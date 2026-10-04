@@ -1,7 +1,7 @@
 /*
  * Copyright 2024-2026 WeisGnosis (https://weisgnosis.com)
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -29,6 +29,8 @@ import zio.test.*
 object PartialConfirmationSpec extends ZIOSpecDefault:
   private enum FinalDecision:
     case Approve, Deny
+  private enum PhaseExit:
+    case Complete, Defect, Interrupt
   private val config: AgentConfig        = AgentConfig(toolExecution = ToolExecution.Sequential)
   private def input(value: String): Json = Json.Obj("value" -> Json.Str(value))
   private def call(value: String): ContentBlock.ToolUse =
@@ -143,8 +145,13 @@ object PartialConfirmationSpec extends ZIOSpecDefault:
               postReasoningHook = hook,
               toolAuthorizer = partialAuth
             )
-            _              <- partial.restore(saved)
-            second         <- partial.resume()
+            _             <- partial.restore(saved)
+            secondUpdates <- partial.streamResumeWithResult().runCollect
+            second <- ZIO
+              .fromOption(secondUpdates.collect { case AgentRunUpdate.Result(result) =>
+                result
+              }.headOption)
+              .orElseFail(AgentError.InvalidConfiguration("Missing second checkpoint"))
             secondSaved    <- decoded(second)
             secondChoices  <- ZIO.fromEither(PendingActing.pendingCalls(secondSaved))
             before         <- executions.get
@@ -174,16 +181,57 @@ object PartialConfirmationSpec extends ZIOSpecDefault:
               toolAuthorizer = finalAuth
             )
             _            <- finalHost.restore(secondSaved)
-            result       <- finalHost.resume()
+            finalUpdates <- finalHost.streamResumeWithResult().runCollect
+            result <- ZIO
+              .fromOption(finalUpdates.collect { case AgentRunUpdate.Result(result) =>
+                result
+              }.headOption)
+              .orElseFail(AgentError.InvalidConfiguration("Missing final result"))
             done         <- executions.get
             observations <- processed.get
             requests     <- calls.get
             hookCount    <- hooks.get
-            events = updates.collect { case AgentRunUpdate.Event(event) => event }
+            events        = updates.collect { case AgentRunUpdate.Event(event) => event }
+            asks          = events.collect { case event: AgentEvent.PermissionAskEvent => event }
+            resumedEvents = secondUpdates.collect { case AgentRunUpdate.Event(event) => event }
+            finalEvents   = finalUpdates.collect { case AgentRunUpdate.Event(event) => event }
+            repeatedAsks = resumedEvents.collect { case event: AgentEvent.PermissionAskEvent =>
+              event
+            }
+            decisions = resumedEvents.collect { case event: AgentEvent.PermissionDecisionEvent =>
+              event
+            }
+            finalDecisions = finalEvents.collect { case event: AgentEvent.PermissionDecisionEvent =>
+              event
+            }
           yield assertTrue(
             first.isSuspended,
             second.isSuspended,
             first.reply.generationReason == GenerateReason.PermissionAsking,
+            asks.map(_.input) == Chunk(input("first"), activate.input, input("last")),
+            asks.map(_.requestId).distinct.size == 3,
+            events.lastIndexWhere(_.isInstanceOf[AgentEvent.ToolResultEndEvent]) < events
+              .indexWhere(_.isInstanceOf[AgentEvent.PermissionAskEvent]),
+            events.lastIndexWhere(_.isInstanceOf[AgentEvent.PermissionAskEvent]) < events
+              .indexWhere(_.isInstanceOf[AgentEvent.RequestStopEvent]),
+            repeatedAsks == asks.drop(1),
+            decisions.map(_.requestId) == asks.take(1).map(_.requestId),
+            decisions.forall(_.allowed),
+            finalDecisions.map(_.requestId) == asks.drop(1).map(_.requestId),
+            finalDecisions.map(_.allowed) == Chunk(true, decision == FinalDecision.Approve),
+            resumedEvents.indexWhere(
+              _.isInstanceOf[AgentEvent.PermissionDecisionEvent]
+            ) < resumedEvents.indexWhere(_.isInstanceOf[AgentEvent.ToolResultStartEvent]),
+            asks.drop(1).zip(Chunk("activate", "same")).forall { case (ask, callId) =>
+              finalEvents.indexWhere {
+                case event: AgentEvent.PermissionDecisionEvent => event.requestId == ask.requestId
+                case _                                         => false
+              } <
+                finalEvents.indexWhere {
+                  case event: AgentEvent.ToolResultStartEvent => event.callId == callId
+                  case _                                      => false
+                }
+            },
             events.collect { case event: AgentEvent.ToolResultStartEvent =>
               event.callId
             }.toSet == Set("deactivate", "remote"),
@@ -270,6 +318,146 @@ object PartialConfirmationSpec extends ZIOSpecDefault:
         observations.size == 2,
         result.history.flatMap(_.toolResults).size == 2
       )
+    ,
+    test(
+      "asks follow drained denied results and cannot escape failed cleanup or create supplied-result decisions"
+    ):
+      ZIO
+        .foreach(Chunk.fromArray(PhaseExit.values)): phaseExit =>
+          ZIO.scoped:
+            for
+              cleaning            <- Promise.make[Nothing, Unit]
+              release             <- Promise.make[Nothing, Unit]
+              deferred            <- Promise.make[Nothing, Unit]
+              cancellationReached <- Promise.make[Nothing, Unit]
+              delivered           <- Ref.make(Chunk.empty[AgentRunUpdate[AgentResult]])
+              requests            <- Ref.make(0)
+              executions          <- Ref.make(0)
+              defect = new IllegalStateException("processor cleanup")
+              tools  = toolkit(_ => executions.update(_ + 1).as("unexpected"))
+              client = LlmClient.mockEffectful((_, _, _) =>
+                requests
+                  .getAndUpdate(_ + 1)
+                  .map:
+                    case 0 =>
+                      TurnOutput.ToolCalls(
+                        Msg.assistant(Chunk(call("deny").copy(id = "denied"), call("ask")))
+                      )
+                    case _ => TurnOutput.FinalText(Msg.assistant("done"))
+              )
+              awaitCancellation = ZIO.descriptor
+                .zip(release.isDone)
+                .flatMap:
+                  case (descriptor, released) =>
+                    if descriptor.interrupters.nonEmpty then
+                      cancellationReached.succeed(()).as(true)
+                    else ZIO.yieldNow.as(released)
+                .repeatUntil(identity)
+                .unit
+              processor = ToolResultProcessor(result =>
+                ZIO
+                  .addFinalizer(
+                    cleaning.succeed(()) *> awaitCancellation *> release.await *>
+                      (if phaseExit == PhaseExit.Defect then ZIO.die(defect) else ZIO.unit)
+                  )
+                  .as(ToolResultPayload.fromResult(result))
+              )
+              agent <- ReActAgent.make(
+                config = config.copy(toolExecution = ToolExecution.Parallel),
+                client = client,
+                toolkit = tools,
+                toolResultProcessor = processor,
+                toolAuthorizer = ToolAuthorizer(request =>
+                  if request.callOrdinal.contains(0) then
+                    ZIO.succeed(ToolAuthorization.Denied("policy denied"))
+                  else deferred.succeed(()).as(ToolAuthorization.Deferred("approval"))
+                )
+              )
+              checked <- (for
+                fiber <- agent
+                  .streamWithResult(Msg.user("q"))
+                  .tap(update => delivered.update(_ :+ update))
+                  .runCollect
+                  .forkScoped
+                _      <- cleaning.await *> deferred.await
+                before <- delivered.get
+                _ <- ZIO.when(phaseExit == PhaseExit.Interrupt)(
+                  agent.interrupt *> cancellationReached.await
+                )
+                waiting <- fiber.poll
+                _       <- release.succeed(())
+                exit    <- fiber.await
+                updates <- delivered.get
+                events = updates.collect { case AgentRunUpdate.Event(event) => event }
+                completion <- phaseExit match
+                  case PhaseExit.Complete =>
+                    for
+                      pending <- ZIO
+                        .fromOption(updates.collect { case AgentRunUpdate.Result(result) =>
+                          result
+                        }.headOption)
+                        .orElseFail(AgentError.InvalidConfiguration("Missing pending result"))
+                      saved    <- decoded(pending)
+                      restored <- ReActAgent.make(client = client, toolkit = tools)
+                      _        <- restored.restore(saved)
+                      resumed <- restored
+                        .streamResumeWithResult(
+                          Chunk(SuppliedToolResult(1, ToolExecutionResult("supplied")))
+                        )
+                        .runCollect
+                      resumedEvents = resumed.collect { case AgentRunUpdate.Event(event) => event }
+                    yield assertTrue(
+                      exit.isSuccess,
+                      events.count(_.isInstanceOf[AgentEvent.PermissionAskEvent]) == 1,
+                      events.indexWhere(_.isInstanceOf[AgentEvent.ToolResultStartEvent]) < events
+                        .indexWhere(_.isInstanceOf[AgentEvent.ToolResultDeltaEvent]),
+                      events.indexWhere(_.isInstanceOf[AgentEvent.ToolResultDeltaEvent]) < events
+                        .indexWhere(_.isInstanceOf[AgentEvent.ToolResultEndEvent]),
+                      events.indexWhere(_.isInstanceOf[AgentEvent.ToolResultEndEvent]) < events
+                        .indexWhere(_.isInstanceOf[AgentEvent.PermissionAskEvent]),
+                      events.indexWhere(_.isInstanceOf[AgentEvent.PermissionAskEvent]) < events
+                        .indexWhere(_.isInstanceOf[AgentEvent.RequestStopEvent]),
+                      !resumedEvents.exists(_.isInstanceOf[AgentEvent.PermissionDecisionEvent]),
+                      !resumedEvents.exists(_.isInstanceOf[AgentEvent.PermissionAskEvent]),
+                      resumed.exists {
+                        case AgentRunUpdate.Result(result) => result.reply.text == "done"
+                        case _                             => false
+                      }
+                    )
+                  case PhaseExit.Defect =>
+                    ZIO.succeed(
+                      assertTrue(
+                        exit.causeOption.exists(_.defects.contains(defect)),
+                        !events.exists(_.isInstanceOf[AgentEvent.PermissionAskEvent]),
+                        !events.exists(_.isInstanceOf[AgentEvent.RequestStopEvent])
+                      )
+                    )
+                  case PhaseExit.Interrupt =>
+                    ZIO.succeed(
+                      assertTrue(
+                        exit.isSuccess,
+                        updates.exists {
+                          case AgentRunUpdate.Result(result) =>
+                            result.reply.generationReason == GenerateReason.Interrupted
+                          case _ => false
+                        },
+                        !events.exists(_.isInstanceOf[AgentEvent.PermissionAskEvent]),
+                        !events.exists(_.isInstanceOf[AgentEvent.RequestStopEvent])
+                      )
+                    )
+                count    <- requests.get
+                executed <- executions.get
+              yield completion && assertTrue(
+                waiting.isEmpty,
+                !before.exists {
+                  case AgentRunUpdate.Event(_: AgentEvent.PermissionAskEvent) => true
+                  case _                                                      => false
+                },
+                executed == 0,
+                count == (if phaseExit == PhaseExit.Complete then 2 else 1)
+              )).ensuring(release.succeed(()).unit)
+            yield checked
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
     test(
       "cancellation of restored approval preserves completed observations and reconciles only remaining calls"

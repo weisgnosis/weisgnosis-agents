@@ -28,7 +28,7 @@ Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a 
 
 | Reviewed group/skill baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
 The table records the group/skill baseline. The current runtime identity is in [scoped model failover](#scoped-model-failover), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
@@ -58,7 +58,7 @@ Migration: configured skill listings move from the loader description to transie
 
 | Reviewed request-projection baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2eb319710008d11433978458c47a01d1c9eac110` |
 
 The [catalogue contract](../skill/README.md#deferred-resource-capabilities) owns current catalogue/library identities and combined verification. Existing execution, forwarding, group and permission contracts retain their scoped evidence below. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals and next work.
@@ -73,7 +73,7 @@ The protected loader retains ordinary authorization and sequential dispatch. An 
 
 | Reviewed deferred-read baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
 
 Current ReActAgent identity and execution approval are in [scoped model failover](#scoped-model-failover); the groups spec above is unchanged.
@@ -113,7 +113,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 8e28a12574d17faab954663516b2fb9529de34e5 |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | e8270b178be3f6d4dd90868be6555025bac07939 |
 
@@ -134,7 +134,7 @@ The unchanged [ReActAgentForwardingSpec](../../../../../../../test/scala/com/wei
 | Reviewed forwarding baseline | Git blob |
 | --- | --- |
 | [AgentEventForwarder.scala](AgentEventForwarder.scala) | `9198abc9f0b13f1cb1e347df0a73c57c50f6e2d1` |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [AgentEventForwarderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) | `2c0bbde7e0e5eb94f8c3f963ead3f1ed4eed37ab` |
 | [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | `9c602ab087cb78362035043bf07181b0aa108f89` |
 
@@ -200,7 +200,7 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [LlmClient.scala](../client/LlmClient.scala) | 028232913b8bd75fc8a5a5fd6acbb97fef2b3d4e |
 | [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | 41fe7ee22d997bb6e190d89df49d72747fce9f20 |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | 80b7ff0f54208c99085192edc59cdcc417e7ac04 |
@@ -269,6 +269,8 @@ The optional [ModelTextTransform](../client/ModelTextTransform.scala) on ChatCom
 
 ## Before-acting suspension and restoration
 
+The [checkpoint event integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) is accepted: deferred occurrence records retain authorization UUIDs and prepared-input snapshots, while the original assistant remains canonical.
+
 This contract supports ordinary before-acting checkpoints and saved-batch execution. [Supplied results](#supplied-results-for-suspended-batches) let the host report completed local occurrences; partial human confirmations extend this contract under the [reviewed extension](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations); durable host workflows remain separate.
 
 `ReasoningDecision.Suspend(reason)` pauses an ordinary tool-call turn after the model and hook scopes close and before inline-result processing or local execution. The returned `AgentResult` carries the complete assistant, canonical history, iteration and accumulated usage. `AgentRunState.Suspended(PendingActing)` adds data for the reason, original model context, assistant position, admitted tool definitions, group snapshot and response format; it contains no tool implementations, credentials, fibers or approval promises. Structured execution and non-tool-call suspension are rejected before the assistant is committed.
@@ -285,9 +287,9 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
-| [PendingActing.scala](PendingActing.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
-| [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [SubagentSession.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentSession.scala) | a592c82bbb5720be9a9c9ca39635fb7e89990692 |
 | [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | 00499f82e283cc106944c67c4dd5fdc8ed38c298 |
@@ -305,14 +307,14 @@ Regression evidence: `acting-resume-focused.log` reproduced extraction-induced m
 
 New inline and supplied observations pass through the existing result processor; AwaitingApproval restoration does not replay completed processing. The admitted batch still drains before selecting the earliest original-ordinal Stop; otherwise a batch containing local calls continues to the next model request even when all their results were supplied. Cancellation joins processing cleanup, preserves every persisted supplied/local result and synthesizes Error only for unfinished local ordinals. One interrupted recovery remains the owner-cancellation contract. The runtime ledger is invocation-owned and serialized for partial checkpoints; it is not a durable exactly-once service.
 
-Migration: PendingActing appends default-empty suppliedResults, preserving old missing-field decoding; the partial extension appends a default BeforeActing stage and requires the eight-field positional shape and rebuilt dependent binaries. No-argument resume remains available. ConfirmedBatchAuthorizer requires confirmations only for local ordinals without supplied results; partial confirmations are described in the [partial extension](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations).
+Migration: PendingActing appends default-empty suppliedResults, preserving old missing-field decoding; the partial extension appends a default BeforeActing stage and the event-correlation extension appends default-empty permissionRequests for a nine-field positional shape; dependent binaries must be rebuilt. No-argument resume remains available. ConfirmedBatchAuthorizer requires confirmations only for local ordinals without supplied results; partial confirmations are described in the [partial extension](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations).
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the seven identities below, with no remaining findings. Focused `supplied-results-green.log` passed 46 core tests in 601 ms and four harness tests in 451 ms. Full `scalafmtAll scalafmtSbt verify` passed in `supplied-results-verify.log`, with zero compiler warnings or failures; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). One pure validation group and three runtime groups cover the new contract; the existing confirmation group verifies supplied ordinals are excluded from confirmation coverage.
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [PendingActing.scala](PendingActing.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
 | [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
 | [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | 544ba0673471232ce7fa0b45fc88e002a887b917 |

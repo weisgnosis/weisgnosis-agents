@@ -30,6 +30,10 @@ final case class PendingToolCall(callOrdinal: Int, call: ContentBlock.ToolUse) d
 
 final case class PendingActingStop(callOrdinal: Int, reason: String) derives JsonCodec
 
+/** Correlation data for a deferred occurrence, never evidence of human approval. */
+final case class PendingPermissionRequest(callOrdinal: Int, requestId: String, input: Json)
+    derives JsonCodec
+
 enum PendingActingStage derives JsonCodec:
   case BeforeActing
   case AwaitingApproval(
@@ -47,7 +51,8 @@ final case class PendingActing(
     toolGroups: Option[Chunk[ToolGroup]],
     responseFormat: Option[Json],
     suppliedResults: Chunk[SuppliedToolResult] = Chunk.empty,
-    stage: PendingActingStage = PendingActingStage.BeforeActing
+    stage: PendingActingStage = PendingActingStage.BeforeActing,
+    permissionRequests: Chunk[PendingPermissionRequest] = Chunk.empty
 ) derives JsonCodec
 
 object PendingActing:
@@ -119,7 +124,11 @@ object PendingActing:
           )
           _ <- pending.stage match
             case PendingActingStage.BeforeActing =>
-              Either.cond(pending.assistantPosition == result.history.size - 1, (), invalid)
+              Either.cond(
+                pending.assistantPosition == result.history.size - 1 && pending.permissionRequests.isEmpty,
+                (),
+                invalid
+              )
             case PendingActingStage.AwaitingApproval(_, _, stop) =>
               val tailPositions = (pending.assistantPosition + 1 until result.history.size).toSet
               val validStop = stop.forall(value =>
@@ -155,6 +164,23 @@ object PendingActing:
           _ <- pending.suppliedResults.foldLeft[Either[AgentError.InvalidConfiguration, Unit]](
             Right(())
           )((checked, supplied) => checked.flatMap(_ => SuppliedToolResult.validate(supplied)))
+          _ <- Either.cond(
+            pending.permissionRequests.isEmpty ||
+              (pending.permissionRequests
+                .map(_.callOrdinal)
+                .distinct
+                .size == pending.permissionRequests.size &&
+                pending.permissionRequests.map(_.callOrdinal).toSet == (localOrdinals -- done) &&
+                pending.permissionRequests
+                  .map(_.requestId)
+                  .distinct
+                  .size == pending.permissionRequests.size &&
+                pending.permissionRequests.forall(request =>
+                  request.requestId.trim.nonEmpty && JsonBoundary.validate(request.input).isRight
+                )),
+            (),
+            AgentError.InvalidConfiguration("Invalid deferred permission requests")
+          )
           _ <- Either.cond(
             suppliedOrdinals.distinct.size == suppliedOrdinals.size &&
               suppliedOrdinals.toSet.subsetOf(localOrdinals -- done),

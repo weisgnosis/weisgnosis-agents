@@ -43,8 +43,8 @@ Migration: ToolAuthorizationRequest appends optional callOrdinal, defaulting to 
 | [ConfirmedBatchAuthorizer.scala](ConfirmedBatchAuthorizer.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
 | [ConfirmResult.scala](ConfirmResult.scala) | dbae0b1f7588ec27e2aa5755f77a4a200541fb38 |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current supplied-result identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#supplied-results-for-suspended-batches) |
-| [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
-| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
+| [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
 | [ToolHistory.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/model/ToolHistory.scala) | 29b2733e5d9d9ce9906e8d6d05eeb8ea3314af33 |
 | [ToolHistorySpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | 36b9751869fc81a8ed6c708e874ac54339cbd5e1 |
 | [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
@@ -62,22 +62,22 @@ After all admitted execution and processor scopes join, ordinary deferred batche
 
 Deferred calls produce no Tool observation or result Start/Delta/End events. A blank deferral reason becomes Denied. Completed results remain in history; the assistant carries PermissionAsking while suspended. Resume preserves original context and iteration, clears only the runtime suspension tag, and executes only unresolved occurrences before another model request. A saved processor Stop is selected by original ordinal and takes effect only after every deferred call resolves. Cancellation joins cleanup, preserves completed results and reconciles only unfinished calls with one interrupted recovery. Structured modes reject deferral and finalize unfinished calls without publishing a checkpoint or selecting Auto fallback.
 
-Migration: ToolAuthorization gains the codec case Deferred(reason), requiring exhaustive matches to handle it. PendingActing appends stage with default BeforeActing; old missing-field checkpoints retain that meaning, while positional patterns use the eight-field shape and binaries must be rebuilt. AwaitingApproval is data, not authentication or execution authority. SubagentFactory forwards Deferred through existing live parent-denial checks; child sessions still have no resume API. InteractivePermissionAuthorizer remains the active-invocation Promise adapter. The nonblocking policy adapter below is accepted; storage, authentication, exclusive claims and idempotency remain host responsibilities.
+Migration: ToolAuthorization gains the codec case Deferred(reason), requiring exhaustive matches to handle it. PendingActing appends stage with default BeforeActing; old missing-field checkpoints retain that meaning. The event-correlation extension below appends default-empty permissionRequests and requires nine-field positional patterns and rebuilt binaries. AwaitingApproval is data, not authentication or execution authority. SubagentFactory forwards Deferred through existing live parent-denial checks; child sessions still have no resume API. InteractivePermissionAuthorizer remains the active-invocation Promise adapter. The nonblocking policy adapter below is accepted; storage, authentication, exclusive claims and idempotency remain host responsibilities.
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the ten formatted identities below, with no remaining findings. Full `scalafmtAll scalafmtSbt verify` passed in `partial-confirmations-final-verify.log` with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Focused tests passed 31 core cases in 823 ms and eight harness cases in 508 ms. Five new groups cover ledger validation, structured rejection, successive restored approvals, saved Stop and joined cancellation.
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | 69b46eea0d9b8eefc10f69d51ba47644ab2a4dd3 |
-| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | ea7fb6ec3bede42248e91a2c45094ad361a377ba |
+| [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
 | [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | 54976c39acecd0e10106fad2ebd3c15408a71272 |
 | [ConfirmedBatchAuthorizer.scala](ConfirmedBatchAuthorizer.scala) | 89d5a44f35184fcfa15480de22325697b07a4e09 |
 | [SubagentFactory.scala](../subagent/SubagentFactory.scala) | f34c4395ef80ac1207ac32398477a1a410fb5942 |
-| [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | 1a08cbd3ac2f75b49a0d6124f5b3082e352fa191 |
+| [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
 | [ReActAgentResumeSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | aaebc39619a824bc3616aec5c12da9cee88e617a |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | ed6082180649b7eeab8ce5bf2b6f61d45f0f8b28 |
 | [ToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | 1d5cdf458c1fc66d266c54af94d5ba3c59ab915d |
-| [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | 65b55ac709c733e7f3b67560884ab9cfd2376d9f |
+| [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
 
 ## Nonblocking checkpoint policy
 
@@ -85,7 +85,7 @@ Migration: ToolAuthorization gains the codec case Deferred(reason), requiring ex
 
 The policy read after both gate finalizers is the decision point; later policy changes are not atomic revocation. The runtime finishes admitted work and returns the existing partial checkpoint. Hosts obtain request data with `PendingActing.pendingCalls`, then install a checked ConfirmedBatchAuthorizer on the receiving runtime and restore/resume. Pending calls retain original model arguments: framework-fixed arguments are prepared again by the receiving host bindings before authorization. A host that previews effective arguments must use those bindings rather than treating the checkpoint as prepared input or authorization.
 
-This additive adapter leaves InteractivePermissionAuthorizer's active-invocation Promise workflow unchanged. No existing constructor or codec changes. Host authentication, storage, exclusive claims and side-effect idempotency remain external. Explicit checkpoint approval-event correlation is next; RequireUserConfirm/UserConfirmResult envelopes are not implemented by this adapter.
+This additive adapter leaves InteractivePermissionAuthorizer's active-invocation Promise workflow unchanged. No existing constructor or codec changes. Host authentication, storage, exclusive claims and side-effect idempotency remain external. Runtime checkpoint event correlation is accepted below; RequireUserConfirm/UserConfirmResult envelopes are not implemented by this adapter.
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the three exact identities below, with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `checkpoint-permission-verify.log` with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals. Focused `checkpoint-permission-focused.log` passed 11 tests in 653 ms. Two unit groups cover precedence, lazy effects, admitted metadata, live policy after cleanup and joined cancellation; one runtime table covers Ask/Allow, returned pending data, fixed inputs and actual confirmed restoration without repeated reasoning.
 
@@ -93,7 +93,27 @@ This additive adapter leaves InteractivePermissionAuthorizer's active-invocation
 | --- | --- |
 | [CheckpointPermissionAuthorizer.scala](CheckpointPermissionAuthorizer.scala) | 74e612c981d9ae9c5b4c99bbbb782429741923a3 |
 | [CheckpointPermissionAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/CheckpointPermissionAuthorizerSpec.scala) | be8386e54d5d31fa880928d0604fe7ea168d69fe |
-| [CheckpointPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/CheckpointPermissionIntegrationSpec.scala) | 929f0d7a3ee029b190dabf4614bbb78b4fbf5a05 |
+| [CheckpointPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/CheckpointPermissionIntegrationSpec.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
+
+## Checkpoint permission events
+
+The runtime stores `PendingPermissionRequest(callOrdinal, requestId, input)` records for deferred local occurrences. Each record retains the authorization UUID and framework-prepared input; original assistant arguments remain unchanged until approval. Re-deferral keeps that UUID, refreshes the prepared-input snapshot and publishes another Ask. Nonempty records must cover every unfinished local ordinal exactly once, including supplied results not yet persisted, with unique nonblank IDs and valid unique-key JSON. BeforeActing requires no records; legacy AwaitingApproval checkpoints may retain an empty collection.
+
+After all admitted execution and processor scopes join successfully, the runtime commits the partial checkpoint, emits PermissionAskEvent values in original-ordinal order, then RequestStopEvent(PermissionAsking). Completed denied results precede those asks. Failure or cancellation of the acting phase prevents this suspension publication. Events correlate through the recorded requestId; generic PermissionAsk/PermissionDecision payloads have no replyId, callId or human-source assertion. Hosts can map records to checked pending ordinals and the checkpoint's saved model context.
+
+On resume, a recorded request's final Approved or Denied authorization emits PermissionDecisionEvent before its ToolResultStart. Core fixed-argument and signature checks run before that decision. Supplied results, preparation failures and legacy empty records create no fabricated decision. Correlation is not proof of user approval, execution or persistence; the installed host authorizer remains authoritative. Structured deferral still fails without a checkpoint or Ask. Existing stream early-consumer limits and host authentication/storage/exclusive-claim responsibilities remain unchanged.
+
+Migration: PendingActing appends default-empty permissionRequests, making nine positional fields. Missing-field JSON preserves existing empty-record behavior; rebuild dependent binaries and update positional patterns. PermissionAskEvent and PermissionDecisionEvent wire shapes are unchanged. This integration uses generic runtime decisions, not Java RequireUserConfirm/UserConfirmResult envelopes.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the five identities below, with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `permission-events-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals. Focused `permission-events-green.log` passed 25 core tests in 597 ms and ten harness tests in 716 ms. Existing tables cover repeated IDs and successive restored asks/decisions, fixed prepared input and malformed records; one new phase-drain group covers ordered denial publication, cleanup failure/cancellation suppression and supplied-result bypass.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | cf59776b34d79293210819f55cb23055863fc63b |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | a70afba10ecc3d0216f52e03ffcda394fe75528d |
+| [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | a07fafeb90d522e455e13b2d4d9586ff2158af98 |
+| [CheckpointPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/CheckpointPermissionIntegrationSpec.scala) | 29353c8d20160b5bf0360fb5c7422d75ec4ada5a |
+| [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | 01d1a8d08b858e0afc55345ded89bb27683ca04a |
 
 ## Implementation
 
@@ -116,7 +136,8 @@ See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harne
 - [x] Install checked complete-batch confirmation on restored core checkpoints.
 - [x] Independently review and verify partial confirmations.
 - [x] Independently review and verify nonblocking policy admission below.
-- [ ] Integrate explicit checkpoint approval-event correlation; durable delivery and broader event parity remain separate.
+- [x] Independently review and verify generic checkpoint permission-event correlation.
+- [ ] Durable delivery and broader event parity remain separate.
 
 The unchanged runtime integration suite retains `review_fp` and `review_harness` approval against `5eb4bdc`. The table below retains the active-invocation authorization and composition scope. Complete-batch checkpoint confirmation has its own current identities above; neither scope establishes exhaustive upstream parity or post-decision revocation.
 

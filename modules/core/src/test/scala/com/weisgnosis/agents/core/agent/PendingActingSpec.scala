@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
-import com.weisgnosis.agents.core.tool.ToolDef
+import com.weisgnosis.agents.core.tool.{ToolDef, ToolExecutionResult}
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -120,6 +120,10 @@ object PendingActingSpec extends ZIOSpecDefault:
       def firstObservation(message: Msg): AgentResult =
         result.copy(history = result.history.take(2) ++ Chunk(message, failed))
       val duplicate = Json.Obj("key" -> Json.Num(1), "key" -> Json.Num(2))
+      val permission =
+        PendingPermissionRequest(0, "approval", Json.Obj("prepared" -> Json.Str("input")))
+      def requests(values: Chunk[PendingPermissionRequest]): AgentResult =
+        result.copy(state = AgentRunState.Suspended(pending.copy(permissionRequests = values)))
       val malformed = Msg.tool(
         name = Some("read"),
         content = Chunk(
@@ -148,6 +152,26 @@ object PendingActingSpec extends ZIOSpecDefault:
         result.copy(reply = Msg.assistant("different")),
         stopped(0),
         stopped(4)
+      ) ++ Chunk(
+        requests(Chunk(permission, permission)),
+        requests(Chunk(permission.copy(callOrdinal = 1))),
+        requests(Chunk(permission.copy(callOrdinal = 2))),
+        requests(Chunk(permission.copy(callOrdinal = -1))),
+        requests(Chunk(permission.copy(requestId = " "))),
+        requests(Chunk(permission.copy(input = duplicate))),
+        result.copy(
+          history = result.history.take(2),
+          state = AgentRunState.Suspended(
+            pending.copy(
+              stage = PendingActingStage.AwaitingApproval(Chunk.empty, None, None),
+              permissionRequests = Chunk(
+                permission,
+                permission.copy(callOrdinal = 2),
+                permission.copy(callOrdinal = 3, requestId = "other")
+              )
+            )
+          )
+        )
       ) ++ Chunk(ToolResultState.Running, ToolResultState.Interrupted).map(state =>
         firstObservation(Msg.tool("same", "read", "nonterminal", state))
       )
@@ -158,6 +182,18 @@ object PendingActingSpec extends ZIOSpecDefault:
         result.toJson.fromJson[AgentResult] == Right(result),
         PendingActing.validate(result) == Right(pending),
         PendingActing.pendingCalls(result) == Right(Chunk(PendingToolCall(0, call))),
+        requests(Chunk(permission)).toJson.fromJson[AgentResult] == Right(
+          requests(Chunk(permission))
+        ),
+        PendingActing.pendingCalls(requests(Chunk(permission))) == Right(
+          Chunk(PendingToolCall(0, call))
+        ),
+        PendingActing
+          .withResults(
+            requests(Chunk(permission)),
+            Chunk(SuppliedToolResult(0, ToolExecutionResult("external")))
+          )
+          .isRight,
         PendingActing.pendingCalls(stopped(1)) == Right(Chunk(PendingToolCall(0, call)))
       ) && rejected
   )

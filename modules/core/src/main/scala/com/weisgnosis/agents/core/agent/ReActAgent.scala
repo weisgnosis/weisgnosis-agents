@@ -1199,7 +1199,8 @@ final class ReActAgent private (
             eventHub,
             context,
             argumentPolicy,
-            progressRef
+            progressRef,
+            continuation.flatMap(_.permissionRequests.find(_.callOrdinal == call.ordinal))
           )
         localPhase =
           if allSafe then ZIO.foreachPar(pendingCalls)(execute)
@@ -1237,10 +1238,10 @@ final class ReActAgent private (
           case Right(decisions) =>
             val stop = (decisions.collect { case ActingOutcome.Observed(Some(value)) => value } ++
               Chunk.fromIterable(savedStop)).sortBy(_.ordinal).headOption
-            decisions
+            val deferredRequests = decisions
               .collect { case value: ActingOutcome.Deferred => value }
-              .sortBy(_.callOrdinal)
-              .headOption match
+              .sortBy(_.request.callOrdinal)
+            deferredRequests.headOption match
               case Some(_) if structuredResponse.nonEmpty =>
                 finalizeFailedToolPhase(progressRef) *>
                   ZIO.fail(
@@ -1256,7 +1257,8 @@ final class ReActAgent private (
                     position,
                     activeToolkit.definitions,
                     originalGroups,
-                    requestConfig.responseFormat
+                    requestConfig.responseFormat,
+                    permissionRequests = deferredRequests.map(_.request)
                   ),
                   iteration,
                   runTools,
@@ -1330,6 +1332,13 @@ final class ReActAgent private (
       result = AgentResult(reply, updated, iteration, AgentRunState.Suspended(checkpoint), usage)
       _ <- ZIO.fromEither(validateCheckpoint(result))
       _ <- stateRef.set(updated) *> pendingRef.set(Some(result))
+      _ <- ZIO.foreachDiscard(checkpoint.permissionRequests)(request =>
+        ZIO.foreachDiscard(reply.toolUses.lift(request.callOrdinal))(call =>
+          eventHub.publish(
+            AgentEvent.PermissionAskEvent(request.requestId, call.name, request.input)
+          )
+        )
+      )
       _ <- eventHub.publish(
         AgentEvent.RequestStopEvent(pending.reason, GenerateReason.PermissionAsking)
       )
@@ -1558,7 +1567,7 @@ final class ReActAgent private (
 
   private enum ActingOutcome:
     case Observed(stop: Option[ActingStop])
-    case Deferred(callOrdinal: Int, reason: String)
+    case Deferred(request: PendingPermissionRequest, reason: String)
 
   final private case class ProcessedResult(result: ContentBlock.ToolResult, stop: Option[String])
 
@@ -1714,6 +1723,7 @@ final class ReActAgent private (
   private def authorizeTool(
       call: ContentBlock.ToolUse,
       callOrdinal: Int,
+      requestId: String,
       preparedInput: Json,
       context: ModelStreamContext,
       toolkit: Toolkit,
@@ -1725,9 +1735,8 @@ final class ReActAgent private (
           ToolAuthorization.Denied("Cannot modify arguments carrying provider reasoning metadata")
         )
       else
-        for
-          requestId <- Random.nextUUID.map(_.toString)
-          result <- ZIO.scoped(
+        ZIO
+          .scoped(
             ZIO.suspendSucceed:
               val admittedAccess = toolkit
                 .resolve(call.name)
@@ -1745,24 +1754,26 @@ final class ReActAgent private (
                 admittedAccess
               )
           )
-        yield result match
-          case ToolAuthorization.Approved(input) =>
-            JsonBoundary.validate(input) match
-              case Left(error) => ToolAuthorization.Denied(s"Invalid approved input: $error")
-              case Right(_) if changesReasoningInput(call, input, argumentPolicy) =>
-                ToolAuthorization.Denied(
-                  "Cannot modify arguments carrying provider reasoning metadata"
-                )
-              case Right(_) =>
-                toolkit
-                  .validateApprovedInput(call.name, input)
-                  .fold(
-                    error => ToolAuthorization.Denied(s"Invalid approved input: ${error.message}"),
-                    _ => result
-                  )
-          case ToolAuthorization.Deferred(reason) if reason.trim.isEmpty =>
-            ToolAuthorization.Denied("Deferred authorization requires a nonblank reason")
-          case _ => result
+          .map: result =>
+            result match
+              case ToolAuthorization.Approved(input) =>
+                JsonBoundary.validate(input) match
+                  case Left(error) => ToolAuthorization.Denied(s"Invalid approved input: $error")
+                  case Right(_) if changesReasoningInput(call, input, argumentPolicy) =>
+                    ToolAuthorization.Denied(
+                      "Cannot modify arguments carrying provider reasoning metadata"
+                    )
+                  case Right(_) =>
+                    toolkit
+                      .validateApprovedInput(call.name, input)
+                      .fold(
+                        error =>
+                          ToolAuthorization.Denied(s"Invalid approved input: ${error.message}"),
+                        _ => result
+                      )
+              case ToolAuthorization.Deferred(reason) if reason.trim.isEmpty =>
+                ToolAuthorization.Denied("Deferred authorization requires a nonblank reason")
+              case _ => result
     decision.foldCauseZIO(
       cause =>
         if cause.isInterrupted then ZIO.refailCause(cause).orDie
@@ -1802,7 +1813,8 @@ final class ReActAgent private (
       eventHub: Hub[AgentEvent],
       context: ModelStreamContext,
       argumentPolicy: ArgumentPolicy,
-      progressRef: Ref[RunProgress]
+      progressRef: Ref[RunProgress],
+      savedRequest: Option[PendingPermissionRequest]
   ): UIO[ActingOutcome] =
     ZIO.uninterruptibleMask: restore =>
       val call = indexed.call
@@ -1810,10 +1822,13 @@ final class ReActAgent private (
         AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))
       )
       def observe(
-          authorization: Either[AgentError.InvalidMessage, ToolAuthorization]
+          authorization: Either[
+            AgentError.InvalidMessage,
+            (PendingPermissionRequest, ToolAuthorization)
+          ]
       ): UIO[Either[ActingOutcome, Toolkit.ObservedResult]] = authorization match
-        case Right(ToolAuthorization.Deferred(reason)) =>
-          ZIO.left(ActingOutcome.Deferred(indexed.ordinal, reason))
+        case Right((request, ToolAuthorization.Deferred(reason))) =>
+          ZIO.left(ActingOutcome.Deferred(request, reason))
         case Left(error) =>
           start.as(
             Right(
@@ -1823,7 +1838,7 @@ final class ReActAgent private (
               )
             )
           )
-        case Right(ToolAuthorization.Denied(reason)) =>
+        case Right((_, ToolAuthorization.Denied(reason))) =>
           start.as(
             Right(
               Toolkit.ObservedResult(
@@ -1832,7 +1847,7 @@ final class ReActAgent private (
               )
             )
           )
-        case Right(ToolAuthorization.Approved(input)) =>
+        case Right((_, ToolAuthorization.Approved(input))) =>
           val approved = withToolInput(call, input)
           start *> stateRef.update(_.zipWithIndex.map { case (message, position) =>
             if position == assistantPosition then
@@ -1861,10 +1876,44 @@ final class ReActAgent private (
       for
         authorization <- ZIO
           .fromEither(toolkit.prepareInput(call.name, call.input))
-          .flatMap(input =>
-            restore(authorizeTool(call, indexed.ordinal, input, context, toolkit, argumentPolicy))
-          )
+          .flatMap: input =>
+            for
+              requestId <- savedRequest match
+                case Some(request) => ZIO.succeed(request.requestId)
+                case None          => Random.nextUUID.map(_.toString)
+              request = PendingPermissionRequest(indexed.ordinal, requestId, input)
+              decision <- restore(
+                authorizeTool(
+                  call,
+                  indexed.ordinal,
+                  requestId,
+                  input,
+                  context,
+                  toolkit,
+                  argumentPolicy
+                )
+              )
+            yield (request, decision)
           .either
+        _ <- savedRequest match
+          case Some(request) =>
+            authorization match
+              case Right((_, ToolAuthorization.Approved(_))) =>
+                eventHub
+                  .publish(AgentEvent.PermissionDecisionEvent(request.requestId, allowed = true))
+                  .unit
+              case Right((_, ToolAuthorization.Denied(reason))) =>
+                eventHub
+                  .publish(
+                    AgentEvent.PermissionDecisionEvent(
+                      request.requestId,
+                      allowed = false,
+                      reason = Some(reason)
+                    )
+                  )
+                  .unit
+              case _ => ZIO.unit
+          case None => ZIO.unit
         observation <- observe(authorization)
         outcome <- observation match
           case Left(deferred) => ZIO.succeed(deferred)

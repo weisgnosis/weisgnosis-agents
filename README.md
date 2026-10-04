@@ -1,6 +1,6 @@
 # weisgnosis-agents
 
-Ordinary before-acting suspension, explicit resume and resumed event streams with checked supplied results and data-only checkpoint restoration are implemented and independently reviewed; see the [runtime contract](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). Complete/partial checkpoint confirmations and nonblocking policy admission are accepted. Host checkpoint authentication, storage and exclusive claims remain external.
+Ordinary before-acting suspension, explicit resume and resumed event streams with checked supplied results and data-only checkpoint restoration are implemented and independently reviewed; see the [runtime contract](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). Complete/partial checkpoint confirmations and nonblocking policy admission are accepted; generic checkpoint event correlation is accepted. Host checkpoint authentication, storage and exclusive claims remain external.
 
 Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The project ports selected agent mechanics from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java) under Apache-2.0.
 

@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+The [checkpoint-event scope](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) is accepted. It extends existing ordinal/restore/input tables and adds one joined phase-drain group; generic event correlation does not establish human-source or durable-delivery authority.
+
 Partial-confirmation tests have final independent approval and full verification. The [current contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) covers checked ordinal-position ledgers, successive restored subsets, preserved inline/completed processing, saved activation and Stop state, structured rejection and joined cancellation.
 
 The resumed-stream extension in [AgentRunUpdateSpec](AgentRunUpdateSpec.scala) is accepted: two grouped tables cover lazy validation/claim, supplied-event correlation and terminal delivery, exact mixed observer failure, and joined early/cancelled consumption. It reuses the ordinary stream path; [current identities and verification](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#result-bearing-streams) are recorded with the runtime contract.

@@ -117,6 +117,8 @@ object CheckpointPermissionIntegrationSpec extends ZIOSpecDefault:
             candidate = Json.Obj("query" -> Json.Str("original"), "tenant" -> Json.Str("host"))
             events    = updates.collect { case AgentRunUpdate.Event(event) => event }
           yield assertTrue(
+            events.collect { case event: AgentEvent.PermissionAskEvent => event.input } ==
+              (if admission == Admission.Ask then Chunk(candidate) else Chunk.empty),
             first.isSuspended == (admission == Admission.Ask),
             beforeRequests == (if admission == Admission.Ask then 1 else 2),
             before.map(_._1) == (if admission == Admission.Ask then Chunk("read")

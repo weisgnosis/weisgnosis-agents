@@ -540,6 +540,10 @@ Pinned `agentscope-core/src/test/java/io/agentscope/core/agent/ReActAgentHitlTes
 - [x] `askingToolPausesFirstCallAndExecutesOnConfirmedSecondCall` (291): CheckpointPermissionIntegrationSpec checks policy-driven PermissionAsking, returned original-ordinal pending data, serialized restoration and confirmed execution with only one follow-up model request. Immutable PendingActing data replaces mutable ASKING flags and confirmation-message injection; both final reviews and full verification passed.
 - [x] `allowingToolBypassesHitlEntirely` (815): the same Allow row checks no PermissionAsk/RequestStop events and successful End events for allowed tools, alongside a denied sibling. This is a bounded behavioral adaptation; native Java approval envelopes are absent. Both final reviews and full verification passed; exact identities are in the [policy contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#nonblocking-checkpoint-policy).
 
+- [x] `askingToolEmitsRequireUserConfirmAndRequestStopEvents` (337): PartialConfirmationSpec checks ordinal-ordered generic Ask records before PermissionAsking RequestStop. Request UUIDs map to pending original ordinals; this does not reproduce the Java bundled ToolUse envelope. Both final reviews and full verification passed; the [event contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) records exact identities.
+- [x] `confirmedResumeEmitsUserConfirmResultEventCorrelatedToRequireEvent` (360): the restored multi-step table checks matching request UUIDs and resolved decisions before each tool Start. These are runtime authorization decisions, not assertions of human confirmation; Java replyId fields are not added to the generic event payload. Both final reviews and full verification passed; the [event contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) records exact identities.
+- [x] `mixedBatchEmitsToolResultEventsForAutoDeniedToolsBeforeConfirmationRequest` (465): the joined phase table checks Denied Start/Delta/End before Ask and RequestStop, with no asks on failed cleanup or cancellation. Supplied observations fabricate no authorization decision. Both final reviews and full verification passed; the [event contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) records exact identities.
+
 ## ToolResultEvictionMiddlewareTest: seven methods
 
 Pinned source: agentscope-harness/src/test/java/io/agentscope/harness/agent/middleware/ToolResultEvictionMiddlewareTest.java at `f98a685fdc4589f81e626e1686ac2c63d14a2304`. These mappings distinguish runtime/standalone adaptations from the upstream mutable two-view middleware contract.
@@ -566,7 +570,7 @@ The core ToolAuthorizer port provides scoped approval/denial before local dispat
 - [x] Map ReActAgentHitlTest.pendingToolRecoveryPreservesModifiedArgumentsFromConfirmation through the bounded restored-batch evidence above; host persistence remains external.
 - [x] Map the three denial history/event methods through the direct restored-stream evidence above; host persistence remains external.
 - [x] Complete final acceptance of the partial-confirmation mappings above.
-- [ ] Integrate mixed-batch permission-envelope ordering separately. Full-batch core restoration retains reply identity; interactive approval scopes still remain within one active invocation.
+- [x] Accept the bounded generic mixed-batch event correlation above; Java human-envelope compatibility remains an intentional difference. Full-batch core restoration retains reply identity; interactive approval scopes still remain within one active invocation.
 
 ## Interactive permission adaptation
 
