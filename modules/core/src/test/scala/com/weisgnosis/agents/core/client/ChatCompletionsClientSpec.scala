@@ -582,7 +582,11 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
                   client = client,
                   toolkit = Toolkit(Map("lookup" -> lookup)),
                   toolAuthorizer = authorizer,
-                  llmConfig = config.copy(endpoint = s"http://127.0.0.1:$port/completion")
+                  // The provider ignores this preference; both calls still require authorization.
+                  llmConfig = config.copy(
+                    endpoint = s"http://127.0.0.1:$port/completion",
+                    parallelToolCalls = Some(ToolCallParallelism.Disabled)
+                  )
                 )
                 events  <- agent.streamEvents(Msg.user("lookup both")).runCollect
                 history <- agent.history
@@ -605,6 +609,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
                 results = history.flatMap(_.toolResults)
               yield assertTrue(
                 bodies.size == 2,
+                bodies.forall(_.asObject.exists(_.get("parallel_tool_calls").contains(Json.Bool(false)))),
                 inputs == Chunk(Json.Obj()),
                 replayed.size == 1,
                 replayed.forall(_.get("reasoning_details").contains(expected)),

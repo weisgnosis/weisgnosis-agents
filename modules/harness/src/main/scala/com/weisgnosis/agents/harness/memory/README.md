@@ -12,6 +12,8 @@ Older text output is pruned while retaining non-text blocks and execution metada
 
 Prior summaries enter summarization once but never raw-memory flushing. A replacement summary is coalesced with an initial retained user turn, with validated provenance for later flushing. System messages are preserved. Typed hook/summarizer failures propagate, cancellation remains cancellation, and completed external flush/offload effects cannot be rolled back.
 
+Retained-user provenance and numeric argument previews use [exact JSON boundaries](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output). Conversion errors fail preparation before a candidate is returned; message/block metadata decodes directly without numeric text conversion. The reviewed regression preserves provenance through later extraction exactly once. This does not change protected arguments, pruning limits, hook ownership or flush ordering.
+
 ## Implementation
 
 - [ConversationCompactor](ConversationCompactor.scala)
@@ -45,7 +47,7 @@ Previous implementation/hardening approvals remain in Git through `52da827`. Cur
 
 | Source | Blob identity |
 | --- | --- |
-| [ConversationCompactorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) |
+| [ConversationCompactorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) |
 | [ConversationCompactorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorIntegrationSpec.scala) | 09c7ace7c4c4180baaf754774afa0e08a3be39fc |
 
 ## Daily-memory extraction
@@ -66,10 +68,10 @@ Current daily-memory Git-normalized source identities; prior compactor implement
 
 | Source | Blob identity |
 | --- | --- |
-| [ConversationCompactor.scala](ConversationCompactor.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) |
+| [ConversationCompactor.scala](ConversationCompactor.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) |
 | [DailyMemoryStore.scala](DailyMemoryStore.scala) | 204a494090531403e1a7b2f3108787770a9bd5a0 |
 | [MemoryExtractorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryExtractorSpec.scala) | 2db567e78995479fd0c733f1346db8720d5df566 |
-| [MemoryFlushManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerSpec.scala) | 79446b9c488527138681526e79d777895f0d3bca |
+| [MemoryFlushManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerSpec.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) |
 | [MemoryFlushManagerIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerIntegrationSpec.scala) | f97c09f6e95790fbac180608591f1d22bd3b6b2c |
 
 ## Scoped local daily store
@@ -245,7 +247,7 @@ registerTicket is a required synchronous handoff callback returning IO[Completio
 
 Compaction preservation is separate. Install manager.flush as the compactor's awaited flush callback, and transcript offload as appropriate, before deleting a prefix. Enqueueing the old prefix on this coalescing scheduler is not a preservation guarantee because newer work could replace it. The integration tests establish local daily-store reopen and awaited-prefix extraction; they do not prove semantic memory fidelity, exactly-once facts, crash durability, automatic receipt monitoring or maintenance scheduling.
 
-The previous MemoryFlushManager.scala identity is preserved in `1c8e3ee`; the completion-triggered flush identity is preserved in 005bacf, and the current identity is in the configuration table below.
+The previous MemoryFlushManager.scala identity is preserved in `1c8e3ee`; the completion-triggered flush identity is preserved in 005bacf, and the current identity is in the linked exact-output acceptance.
 
 ## Current completion-triggered flush identities
 
@@ -414,7 +416,7 @@ Final formatted ten-file increment against 005bacf; this table owns current iden
 | [MemoryConfig.scala](MemoryConfig.scala) | 43fc031c469ef8275619d8af97213722f677c624 |
 | [MemoryConsolidator.scala](MemoryConsolidator.scala) | 9bda529fc30cd8f7999d5e86e63a5a5f84f876a8 |
 | [MemoryMaintenance.scala](MemoryMaintenance.scala) | 55ef865e4cf556e932a2b94f9c0ea0bf5a3ce827 |
-| [MemoryFlushManager.scala](MemoryFlushManager.scala) | 5d005f143881d4393c843ff5439f4e4c366c2f17 |
+| [MemoryFlushManager.scala](MemoryFlushManager.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) |
 | [MemoryTokenBudgetSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTokenBudgetSpec.scala) | 2b43e152c7ea5a14289e0cbbdca2790c43a0e182 |
 | [ConsolidationPromptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConsolidationPromptSpec.scala) | 4863fa628c7e10b034db9c6e187cd87042ecfebf |
 | [MemoryConfigSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConfigSpec.scala) | 4cfce91bf016eaaa72c6b5f73c6c84c664c050e2 |

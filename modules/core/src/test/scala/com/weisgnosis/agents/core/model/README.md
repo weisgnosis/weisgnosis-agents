@@ -15,6 +15,8 @@ These ZIO Test suites verify all 119 pinned upstream message methods with explic
 - [RoleContentValidationSpec](RoleContentValidationSpec.scala)
 - [ToolUseSpec](ToolUseSpec.scala)
 
+[ExactJsonSpec](../json/ExactJsonSpec.scala) verifies nested numeric message and Thinking/ToolUse/ToolResult metadata through exact checkpoint/event serialization and decoding. Existing MsgSerdeSpec and ContentBlockCodecSpec retain malformed/legacy controls. The [current acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) records the changed production identities; these paired model suites are unchanged.
+
 ## Current evidence
 
 - [x] MsgConstructionSpec rejects unchecked constructor/apply/copy/Mirror reconstruction, verifies validated updates and structural equality, and checks ordered interruptible tool mapping.

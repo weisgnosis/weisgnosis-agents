@@ -249,11 +249,9 @@ object ContentBlock:
       DeriveJsonEncoder.gen[Thinking],
       summon[JsonDecoder[Json]].mapOrFail(json =>
         for
-          obj   <- json.asObject.toRight("Thinking must be a JSON object")
-          value <- JsonFields.optional[String](obj, "thinking").map(_.getOrElse(""))
-          metadata <- JsonFields
-            .optional[Map[String, Json]](obj, "metadata")
-            .map(_.getOrElse(Map.empty))
+          obj      <- json.asObject.toRight("Thinking must be a JSON object")
+          value    <- JsonFields.optional[String](obj, "thinking").map(_.getOrElse(""))
+          metadata <- JsonFields.metadata(obj)
         yield Thinking(value, metadata)
       )
     )
@@ -261,14 +259,12 @@ object ContentBlock:
       DeriveJsonEncoder.gen[ToolUse],
       summon[JsonDecoder[Json]].mapOrFail(json =>
         for
-          obj     <- json.asObject.toRight("ToolUse must be a JSON object")
-          id      <- obj.get("id").toRight("Missing 'id' in ToolUse").flatMap(_.as[String])
-          name    <- obj.get("name").toRight("Missing 'name' in ToolUse").flatMap(_.as[String])
-          input   <- JsonFields.optional[Json](obj, "input").map(_.getOrElse(Json.Obj()))
-          content <- JsonFields.optional[String](obj, "content")
-          metadata <- JsonFields
-            .optional[Map[String, Json]](obj, "metadata")
-            .map(_.getOrElse(Map.empty))
+          obj      <- json.asObject.toRight("ToolUse must be a JSON object")
+          id       <- obj.get("id").toRight("Missing 'id' in ToolUse").flatMap(_.as[String])
+          name     <- obj.get("name").toRight("Missing 'name' in ToolUse").flatMap(_.as[String])
+          input    <- JsonFields.optional[Json](obj, "input").map(_.getOrElse(Json.Obj()))
+          content  <- JsonFields.optional[String](obj, "content")
+          metadata <- JsonFields.metadata(obj)
           state <- JsonFields
             .optional[ToolCallState](obj, "state")
             .map(_.getOrElse(ToolCallState.Pending))
@@ -294,9 +290,7 @@ object ContentBlock:
           state <- JsonFields
             .optional[ToolResultState](obj, "state")
             .map(_.getOrElse(ToolResultState.Success))
-          metadata <- JsonFields
-            .optional[Map[String, Json]](obj, "metadata")
-            .map(_.getOrElse(Map.empty))
+          metadata <- JsonFields.metadata(obj)
         yield ToolResult(id, name, output, state, metadata)
       )
     )

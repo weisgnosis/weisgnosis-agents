@@ -21,6 +21,8 @@ Msg.chatUsage prefers the direct usage field, then decodes legacy `_chat_usage` 
 
 Base64 sources encode `media_type`, accept legacy `mediaType`, and reject ambiguous input containing both. This changes the previous camel-case encoder output; consumers should accept the canonical field. User messages accept text, data, image, audio, and video; system messages accept text only. Typed factories enforce these restrictions, and dynamic construction/updates and JSON decoding validate them. Msg has no unchecked public constructor, apply, copy, or Product reconstruction.
 
+Metadata objects decode directly to immutable maps, preserving numeric AST leaves. Missing/null, malformed nonobject and duplicate-key behavior are unchanged. Use [ExactJson.encode](../json/README.md#exact-domain-and-tool-output) when serializing these domain values at an owned host boundary; derived .toJson output is not globally replaced.
+
 ## Typed generation metadata
 
 GenerateReason represents the 12 protocol reasons. Msg.generationReason is a pure defaulting classification: absent, malformed, or unknown metadata yields ModelStop without modifying the message. Msg.generateReason and its String setter remain the raw extension API; `empty_response` remains readable there and classifies as ModelStop. This compatibility projection must not be used as runtime completion authority.
@@ -55,13 +57,15 @@ MediaSource.Url carries an optional descriptive mimeType encoded as mime_type. M
 
 MediaSource.Url and Base64 share the same tagged encoding through concrete and base types, with strict unique discriminators and no AST encoding fallback. Concrete decoders retain legacy untagged input; nested media sources require a tag. Base64 emits media_type and accepts mediaType only when the canonical field is absent; supplying both fails. Concrete source JSON now includes type, so consumers must allow this added field.
 
+Msg, ContentBlock and JsonFields have current numeric-decoding approval in the [exact output acceptance](../json/README.md#exact-domain-and-tool-output). Other model contracts retain their stated scopes.
+
 ## Current acceptance and remaining work
 
 - [x] `review_fp` and `review_harness` approved strict decoding/usage/role contracts at `906cc4a`, generation metadata at `9c47bf5`, message construction/update closure at `a701612`, and content/tool-call protocol contracts at `8b96ce3`.
 - [x] Both reviewers approved the final four-file Data/media increment against `8b96ce3` on 2026-09-29, with no unresolved findings in this scope.
 - [x] All 119 pinned upstream message methods have local evidence or explicitly reviewed Pure FP adaptations in the [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md). This is method coverage with stated differences, not Java API/wire equivalence.
 - [x] `sbt scalafmtAll scalafmtSbt verify` passed 284 core and 40 harness tests with zero compiler warnings.
-- [ ] Integrate protocol stop/tool states with runtime phase suspension, permissions, and durable resumption. Metadata classification alone does not implement these behaviors.
+- [x] Integrate runtime phase suspension and checkpoint authorization under the [agent contracts](../agent/README.md); metadata classification alone grants no authority. Host authentication, durable storage and idempotency remain separate.
 - [ ] Complete broader core/event/harness parity and host integration tracked outside the message-method slice.
 
 Current main-source identities are listed below; the review scopes above distinguish unchanged accepted contracts from the latest increment. Changed behavior requires renewed review. Test evidence is indexed in the [test README](../../../../../../../test/scala/com/weisgnosis/agents/core/model/README.md).
@@ -69,9 +73,9 @@ Current main-source identities are listed below; the review scopes above disting
 | Current source | Git blob |
 | --- | --- |
 | [ChatUsage.scala](ChatUsage.scala) | 90aaea1c5674391b69d05a25b64a6953c8e6813c |
-| [ContentBlock.scala](ContentBlock.scala) | 9aad1167836c0e9d25a3384e0f3cb1ea59ef03e9 |
+| [ContentBlock.scala](ContentBlock.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [GenerateReason.scala](GenerateReason.scala) | e4e6dd03a73941b19557f413be343fa4643dcf33 |
-| [JsonFields.scala](JsonFields.scala) | 92bba6f226762fa2324c3211310fad6bf1c879e2 |
+| [JsonFields.scala](JsonFields.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [MediaSource.scala](MediaSource.scala) | [Current identity](../client/README.md#user-image-projection) |
 | [Role.scala](Role.scala) | 1fd28896fe37d9b7da11ceb30c922b10b7f6cca6 |
 | [ToolCallState.scala](ToolCallState.scala) | d6f3636a99cff6c696e3617eef95c4bfd72d33b8 |

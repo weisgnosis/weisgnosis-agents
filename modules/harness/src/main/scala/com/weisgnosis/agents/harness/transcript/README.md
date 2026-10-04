@@ -20,7 +20,7 @@ recordedAt is sampled before candidate allocation and commit; it is an observati
 
 Synthetic structured completion uses exact JSON rendering for its closing assistant text, preserving agreement with the typed value and structured metadata. Local transcript rows and bounded tool-input previews use the same renderer. Preview length is measured on that exact text, with the existing UTF-16 and surrogate-pair boundaries. Complete numeric inputs survive actual store closure and reopening.
 
-Public transcript store APIs, file format, trust checks, lease ownership and atomic replacement remain unchanged. The internal TranscriptLog.encode now returns a typed Either; conversion/rendering finishes under the existing append lease before any file write. Empty/all-duplicate appends still skip encoding and writing. This scope does not repair compactor retained-user strings, generic tool-output codecs or external host-derived checkpoint/event serialization.
+Public transcript store APIs, file format, trust checks, lease ownership and atomic replacement remain unchanged. The internal TranscriptLog.encode now returns a typed Either; conversion/rendering finishes under the existing append lease before any file write. Empty/all-duplicate appends still skip encoding and writing. The separate [domain/tool integration](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) covers compactor provenance/previews, checked factory output and opt-in host checkpoint/event encoding; direct dependency codecs remain outside these guarantees.
 
 | Reviewed file | Git blob |
 | --- | --- |

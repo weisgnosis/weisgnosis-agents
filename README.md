@@ -1,5 +1,7 @@
 # weisgnosis-agents
 
+Development is paused. The latest preliminary WIP snapshot is not fully verified; see the [resume checkpoint](docs/architecture/tracker.md#pause-and-resume-checkpoint) before continuing or treating the current tree as accepted.
+
 Ordinary before-acting suspension, explicit resume and resumed event streams with checked supplied results and data-only checkpoint restoration are implemented and independently reviewed; see the [runtime contract](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). Complete/partial checkpoint confirmations and nonblocking policy admission are accepted; generic checkpoint event correlation is accepted. Host checkpoint authentication, storage and exclusive claims remain external.
 
 Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The project ports selected agent mechanics from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java) under Apache-2.0.
@@ -68,7 +70,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 [Apache-2.0](LICENSE).
 
-ChatCompletions/MCP, structured closing text and local transcript outputs use exact numeric rendering. Compactor retained-user provenance, generic tool outputs and host-derived checkpoint/event serialization remain exposed. The [JSON contract](modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md) records the scope.
+ChatCompletions/MCP, structured closing text and local transcript outputs use exact numeric rendering. Compactor provenance/previews and checked factory tool outputs also preserve numeric values. Hosts can opt into ExactJson.encode for checkpoint/event serialization; external dependency codecs and legacy direct tool encoding are not globally replaced. The [JSON contract](modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md) records the scope.
 
 ## Current acceptance
 
@@ -107,7 +109,7 @@ Approval applies to the recorded scope and revisions, not exhaustive upstream pa
 
 ## Integration boundaries
 
-Tool.encodeResult supports typed completed Success/Error observations while retaining existing String tools. Runtime call identity and control metadata remain protected. ToolExecutionResult constructor/copy/unapply/JSON now use payload/state; its String constructors and output text projection remain. See the [tool migration](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#typed-execution-observations). Media survives history/events, but the current ChatCompletions request codec still rejects non-text tool output.
+Tool.encodeResultChecked preserves custom typed projections and gives Tool.fromFunction exact JSON runtime output after joined cleanup. Runtime call identity and control metadata remain protected. ToolExecutionResult constructor/copy/unapply/JSON now use payload/state; its String constructors and output text projection remain. See the [tool migration](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#typed-execution-observations). Media survives history/events, but the current ChatCompletions request codec still rejects non-text tool output.
 
 Local execution supports an optional scoped ToolAuthorizer with runtime-owned call identity, approved-input persistence and fail-closed denial observations. The default allows calls; InteractivePermissionAuthorizer installs harness policy and in-memory confirmation. CheckpointPermissionAuthorizer maps policy Ask/Passthrough to deferred checkpoint work without a waiting Promise. Durable resumption requires host persistence, authentication, checkpoints and idempotency.
 

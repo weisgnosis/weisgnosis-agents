@@ -1,5 +1,7 @@
 # Conversation compaction verification
 
+Existing compactor/flush groups now verify exact nested numeric retained-user provenance through a later extraction, pruning head/tail text and extraction argument previews. The [current exact-output acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) records the reproduced failures, final identities and scoped verification.
+
 - [ConversationCompactorSpec](ConversationCompactorSpec.scala): pair-safe cutoff tests, including same-ID/name local crossing and completed-prefix controls beside unresolved provider calls, plus summary/flush/tail routing, repeated compaction, user provenance, pruning, unchanged below-trigger history, and typed/interrupted hooks.
 - [ConversationCompactorIntegrationSpec](ConversationCompactorIntegrationSpec.scala): 12 tests for canonical history installation, shrinking-history recovery, failure policy, preparation/downstream cancellation, mixed cleanup causes, and separate-agent isolation.
 - [TokenCounterSpec](TokenCounterSpec.scala): deterministic additive estimation.

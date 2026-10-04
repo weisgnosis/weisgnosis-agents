@@ -1,5 +1,7 @@
 # weisgnosis-agents-harness
 
+Compactor provenance and memory argument previews preserve numeric JSON through the [reviewed exact-output boundary](../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output); storage and lifecycle ownership are unchanged.
+
 [Local transcript numeric integrity](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) preserves exact nested inputs and bounded previews through reopening; the checked encoder completes before the existing leased write.
 
 Local artifact: `com.weisgnosis:weisgnosis-agents-harness_3:0.1.0-SNAPSHOT`. Binary/source JAR and POM generation, dependency boundaries and isolated-consumer evidence are defined in the [build contract](../../project/README.md#local-artifact-packaging); no external publication is claimed.

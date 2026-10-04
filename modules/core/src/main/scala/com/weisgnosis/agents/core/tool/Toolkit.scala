@@ -118,15 +118,16 @@ final case class Toolkit(tools: Map[String, Tool[Any, ?, ?]] = Map.empty):
           case Exit.Success(output) =>
             ZIO
               .suspendSucceed:
-                val result = tool.encodeResult(output)
-                val checked = result.state match
-                  case ToolResultState.Success | ToolResultState.Error => result
-                  case other =>
-                    ToolExecutionResult(
-                      s"Tool '${tool.definition.name}' returned unsupported execution state '$other'; only Success and Error are allowed.",
-                      ToolResultState.Error
-                    )
-                ZIO.succeed(checked)
+                ZIO
+                  .fromEither(tool.encodeResultChecked(output))
+                  .map: result =>
+                    result.state match
+                      case ToolResultState.Success | ToolResultState.Error => result
+                      case other =>
+                        ToolExecutionResult(
+                          s"Tool '${tool.definition.name}' returned unsupported execution state '$other'; only Success and Error are allowed.",
+                          ToolResultState.Error
+                        )
               .catchAllCause(cause => normalizeFailure(tool, cause))
         disposition <- progress.get
       yield Toolkit.ObservedResult(result, disposition)

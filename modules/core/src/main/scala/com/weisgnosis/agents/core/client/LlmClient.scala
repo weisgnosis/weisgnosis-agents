@@ -28,6 +28,10 @@ enum ToolChoice derives JsonCodec:
   case Auto, None, Required
   case Specific(name: String)
 
+/** Provider generation preference; local scheduling and authorization remain runtime-owned. */
+enum ToolCallParallelism derives JsonCodec:
+  case Enabled, Disabled
+
 final case class LlmConfig(
     model: String,
     endpoint: String = "https://api.openai.com/v1/chat/completions",
@@ -40,7 +44,8 @@ final case class LlmConfig(
     toolChoice: Option[ToolChoice] = None,
     frequencyPenalty: Option[Double] = None,
     presencePenalty: Option[Double] = None,
-    seed: Option[Long] = None
+    seed: Option[Long] = None,
+    parallelToolCalls: Option[ToolCallParallelism] = None
 ) derives JsonCodec
 
 /**

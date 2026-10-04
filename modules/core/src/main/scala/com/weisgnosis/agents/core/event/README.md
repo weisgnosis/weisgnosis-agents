@@ -1,5 +1,7 @@
 # Typed agent event payloads
 
+WIP pause: The current WIP adds a local metadata codec for four tool-result event payloads. Its regression failed before the correction; the latest correction has not yet been compiled, tested or independently approved.
+
 Generic PermissionAskEvent and PermissionDecisionEvent runtime integration is accepted in the [checkpoint contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events). Ask follows successful batch cleanup and precedes RequestStop; a recorded resumed authorization decision precedes tool Start. UUID correlation is data, not evidence of a human response; event codecs are unchanged.
 
 AgentEvent defines 39 immutable payload variants with JSON codecs and withSource tagging. Available runtime components publish through ZIO Hub, but class/codec support does not imply every event is emitted. Serialization never allocates IDs or reads the clock.

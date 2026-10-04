@@ -378,11 +378,9 @@ object Msg:
           else Right(Chunk.fromIterable(parsed.collect { case Right(b) => b }))
         case Some(other) =>
           Left(s"Invalid content field in Msg: expected array, got: $other")
-      id   <- JsonFields.optional[String](obj, "id")
-      name <- JsonFields.optional[String](obj, "name")
-      metadata <- JsonFields
-        .optional[Map[String, Json]](obj, "metadata")
-        .map(_.getOrElse(Map.empty))
+      id        <- JsonFields.optional[String](obj, "id")
+      name      <- JsonFields.optional[String](obj, "name")
+      metadata  <- JsonFields.metadata(obj)
       timestamp <- JsonFields.optional[String](obj, "timestamp")
       usage     <- JsonFields.optional[ChatUsage](obj, "usage")
       result    <- create(role, content, id, name, metadata, timestamp, usage).left.map(_.message)

@@ -1,5 +1,7 @@
 # Model client port and stream assembly
 
+WIP pause: The current WIP adds optional typed parallel_tool_calls steering and a thirteenth LlmConfig field. Behavioral verification and final FP/ZIO review are pending; accepted migration entries below describe the preceding reviewed scope.
+
 LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and returns TurnOutput. Implementations must acquire request resources in that scope. The package provides scripted clients, LlmConfig, SSE framing, strict completion-delta decoding, reasoning-history adaptation, and StreamAccumulator. ChatCompletionsTransport provides a separate scoped HTTP completion operation. ChatCompletionsClient connects it to ReAct with incremental correlated events.
 
 - [ChatCompletionsClient](ChatCompletionsClient.scala)
@@ -41,7 +43,7 @@ LlmConfig.seed and ModelRequestSettings.seed are Option[Long], defaulting to Non
 
 Each selected target supplies its own seed to request projection. The projected value replaces it, with None explicitly clearing it. Retries reuse the serialized body, and native/synthetic requests retain their projected settings. Seed changes no model identity, endpoint, tools, permissions or response format. Migration: LlmConfig has twelve positional/Product fields and ModelRequestSettings has six; defaulted appended fields preserve ordinary omitted-argument construction and legacy configuration JSON. Adapt positional patterns/method values and rebuild dependent binaries.
 
-The HTTP request body and historical tool-argument strings use the pure [exact JSON renderer](../json/README.md). Checked AST validation still precedes rendering. This avoids the dependency's decimal corruption at a minimum-Long unscaled coefficient, including nested values and nonzero scales. It is limited to explicitly integrated output boundaries: structured closing text and local transcript output have their own [reviewed integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output). Compactor provenance, generic tool outputs and external derived-codec serialization remain exposed.
+The HTTP request body and historical tool-argument strings use the pure [exact JSON renderer](../json/README.md). Checked AST validation still precedes rendering. This avoids the dependency's decimal corruption at a minimum-Long unscaled coefficient, including nested values and nonzero scales. It is limited to explicitly integrated output boundaries: structured closing text and local transcript output have their own [reviewed integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output). [Exact domain/tool output](../json/README.md#exact-domain-and-tool-output) covers compactor provenance/previews and checked factory execution; hosts can opt into ExactJson.encode. External dependency serialization and legacy direct tool encoding remain outside that guarantee.
 
 | Reviewed core file | Git blob |
 | --- | --- |
@@ -240,14 +242,14 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 35b65c607b31f46da8213f4ffcfb12a6d7439128 |
 | [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 8873f07ca50be4f4881bd6cd3ff05e4b50741b0d |
 | [StreamAccumulator.scala](StreamAccumulator.scala) | 1a01caa33dd0bfbefac53cf4697c6168d73c2a79 |
-| [Msg.scala](../model/Msg.scala) | e95148040f9bb3499aaf43fed3a8e6ed21237672 |
+| [Msg.scala](../model/Msg.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | fbf31dcaeb77162c6354047cb299c7773ff7e461 |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | 4ce0c254250b9428990dd24e6a0e6310d41cb867 |
 | ChatCompletionsClientSpec.scala | Current identity: [ordering acceptance](#runtime-event-ordering). |
 | [ReasoningAdapterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterSpec.scala) | 1f17e10621d99b2cd79f0382f7c4cc7255b68cf0 |
 | [StreamAccumulatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorSpec.scala) | e90bd63fa63fa74f395d557a5199093dc77f8954 |
-| [ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | fc7dda775a912ce8c4eb567ce9d90ea44df0f640 |
-| [ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | 5eac7143da4b0c03200df7b9cd92395200f4838d |
+| [ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
+| [ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [EncryptedReasoningDetail.scala](EncryptedReasoningDetail.scala) | 49a0287e2476b00943ff69f480f4ebca2ee46c37 |
 | [EncryptedReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/EncryptedReasoningDetailSpec.scala) | f6e5ec577c8f7da54c0e8f582321465cf693af16 |
 | [ReasoningDetail.scala](ReasoningDetail.scala) | 3cb2bbf21dbc02fe65b21435e962ca061eecff63 |

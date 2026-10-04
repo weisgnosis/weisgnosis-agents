@@ -102,6 +102,10 @@ object ChatCompletionsRequest:
           ) ++
           Chunk.fromIterable(config.responseFormat.map(value => "response_format" -> value)) ++
           Chunk.fromIterable(config.seed.map(value => "seed" -> Json.Num(value))) ++
+          Chunk.fromIterable(config.parallelToolCalls.map:
+            case ToolCallParallelism.Enabled => "parallel_tool_calls" -> Json.Bool(true)
+            case ToolCallParallelism.Disabled => "parallel_tool_calls" -> Json.Bool(false)
+          ) ++
           Chunk.fromIterable(choice.map(value => "tool_choice" -> value)) ++
           (if definitions.isEmpty then Chunk.empty else Chunk("tools" -> Json.Arr(definitions)))
       )

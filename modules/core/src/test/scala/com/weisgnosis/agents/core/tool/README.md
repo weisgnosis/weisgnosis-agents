@@ -8,7 +8,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala regressions. T
 | --- | --- |
 | [PathSafetySpec](PathSafetySpec.scala) | Sensitive paths, traversal, and advisory command fragments |
 | [ToolExecutionUpdateSpec](ToolExecutionUpdateSpec.scala) | Three groups cover legacy delegation and fixed-wrapper streams, provisional/unique final output and invalid sequences, cleanup failure, full mixed causes and held cancellation cleanup. Final independent reviews and full verification passed. |
-| [ToolExecutionSpec](ToolExecutionSpec.scala) | Typed decoding, payload projection/codecs, completed-state admission and cancellation cleanup |
+| [ToolExecutionSpec](ToolExecutionSpec.scala) | Typed decoding, checked factory numeric output and fixed-wrapper forwarding, duplicate-output failure, payload projection/codecs, completed-state admission and cancellation cleanup |
 | [ToolInvocationSpec](ToolInvocationSpec.scala) | Approved occurrence context, legacy/denied dispatch, concurrent lease closure and actual ReAct cancellation |
 | [ToolGroupsSpec](ToolGroupsSpec.scala) | Sorted/empty active and Meta-only notes, atomic checked activation, Meta/External replacement, OR membership/orphaning, exact policy-preserving selection and actual ReAct dispatch |
 | [ToolFixedArgumentsSpec](ToolFixedArgumentsSpec.scala) | Checked full originals, stable order/idempotence, fixed consistency, empty scalar compatibility, typed wrapper forwarding and filtered/merged/custom Toolkit dispatch |
@@ -29,6 +29,8 @@ The [admitted-access contract](../../../../../../../main/scala/com/weisgnosis/ag
 - [x] Standalone dispatch remains Detached and legacy handlers still execute. Denials invoke neither handler. Concurrent publication/closure accounts for accepted events, and cancellation waits for held tool cleanup, retains its defect and closes the port.
 - [x] `path_review` and `current_docs` approved the exact [source/spec identities](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#invocation-event-capability); focused tests and full verification passed. This additive contract has no reproduced pre-existing behavioral defect claim.
 - [x] Separate [harness integration evidence](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/README.md) covers child attribution, forwarding and promotion.
+
+The [exact output acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) records current ToolExecutionSpec and checked runtime encoding identities. Existing cancellation assertions remain unchanged; no numeric guarantee is added to legacy direct encodeOutput calls.
 
 ## Typed observation evidence
 

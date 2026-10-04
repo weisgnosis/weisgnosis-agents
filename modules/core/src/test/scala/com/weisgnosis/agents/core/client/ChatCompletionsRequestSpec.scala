@@ -499,6 +499,23 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
                 result.exists(_.get("tools") == value.get("tools"))
             )
         },
+        Chunk(
+          None -> None,
+          Some(ToolCallParallelism.Enabled) -> Some(Json.Bool(true)),
+          Some(ToolCallParallelism.Disabled) -> Some(Json.Bool(false))
+        ).forall { case (parallelism, expected) =>
+          val configured = config.copy(parallelToolCalls = parallelism)
+          configured.toJson.fromJson[LlmConfig] == Right(configured) &&
+          Chunk(Chunk.empty[ToolDef], Chunk(definition)).forall(tools =>
+            ChatCompletionsRequest.encode(Chunk(Msg.user("search")), tools, configured).exists(value =>
+              value.get("parallel_tool_calls") == expected &&
+              ChatCompletionsRequest.encode(Chunk(Msg.user("search")), tools, config)
+                .exists(_.get("tools") == value.get("tools"))
+            )
+          )
+        },
+        """{"model":"test-model","parallelToolCalls":null}""".fromJson[LlmConfig] == Right(config),
+        """{"model":"test-model","parallelToolCalls":"other"}""".fromJson[LlmConfig].isLeft,
         Chunk(None, Some(ToolChoice.Auto), Some(ToolChoice.None)).forall(choice =>
           ChatCompletionsRequest
             .encode(Chunk(Msg.user("search")), Chunk.empty, config.copy(toolChoice = choice))

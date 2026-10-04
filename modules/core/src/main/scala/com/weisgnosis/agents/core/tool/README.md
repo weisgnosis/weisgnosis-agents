@@ -61,7 +61,7 @@ ToolDef.returnMode is a host-selected Continue (default) or Direct policy, not m
 
 ## Incremental execution
 
-`Tool.streamWithContext(input, invocation)` produces `ToolExecutionUpdate.Progress(payload)` followed by exactly one `Completed(out)`. The default delegates to executeWithContext once; existing implementations need no new abstract method. Fixed-argument wrappers retain the stream override and existing input policy. Toolkit consumes the stream inside an owned scope; missing completion, any update after completion, stream failure or cleanup failure prevents that value becoming a successful final observation. Only EOF and successful cleanup admit encodeResult, whose existing Success/Error restriction remains.
+`Tool.streamWithContext(input, invocation)` produces `ToolExecutionUpdate.Progress(payload)` followed by exactly one `Completed(out)`. The default delegates to executeWithContext once; existing implementations need no new abstract method. Fixed-argument wrappers retain the stream override and existing input policy. Toolkit consumes the stream inside an owned scope; missing completion, any update after completion, stream failure or cleanup failure prevents that value becoming a successful final observation. Only EOF and successful cleanup admit encodeResultChecked, whose existing Success/Error restriction remains.
 
 Progress contains provisional content and metadata, not call IDs or execution state. The runtime supplies identity/context and strips reserved control metadata. Nonempty output blocks publish ordered text/data deltas; metadata-only updates publish nothing. Progress never enters canonical history, result processors or later model input. Exactly one authoritative final result is persisted and processed. After any nonempty progress for that invocation occurrence, the final aggregate payload is not replayed as deltas; ToolResultEnd still carries final text/state/metadata. Complete typed final content remains in history/result, so provisional deltas are not a reconstruction of the final payload. Empty progress and ordinary tools retain aggregate final publication. Repeated call IDs do not share suppression state; inline provider results retain their separate path.
 
@@ -73,8 +73,8 @@ Migration: streamWithContext is a defaulted source-compatible method, but depend
 
 | Current incremental execution file | Git blob |
 | --- | --- |
-| [Tool.scala](Tool.scala) | `d4adead5f19a6b775cf00dbb7f3bc2da66fbb00e` |
-| [Toolkit.scala](Toolkit.scala) | `3e39b82cbd07002785baeece555391e4c6a80669` |
+| [Tool.scala](Tool.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
+| [Toolkit.scala](Toolkit.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [ToolExecutionUpdate.scala](ToolExecutionUpdate.scala) | `36f338a5d77db0660a283be80b709fb67ec10391` |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](../agent/README.md#acting-stop-decisions) |
 | [ToolExecutionUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionUpdateSpec.scala) | `7db9194fc19f472c34ecd1a552403692f28bc32a` |
@@ -89,6 +89,8 @@ ReAct supplies the original call ID, name and accepted state, then applies the p
 Migration: String `ToolExecutionResult(...)` constructors and the `output` text projection remain available. The projection joins Text blocks with newlines and omits other block types. The canonical constructor, generated copy/unapply and derived JSON shape now use `payload` and explicit `state`; persisted legacy output/state JSON requires host migration. There is no manual compatibility codec. Existing Tool implementations inherit encodeResult without an abstract-method migration.
 
 Interrupted compound causes are refailed with `orDie`: interruption and cleanup defects survive, while typed Throwable leaves become defects to retain the UIO contract. Ordinary non-interrupted failures and defects remain Error observations.
+
+The additive encodeResultChecked returns Either[AgentError, ToolExecutionResult]. Its default preserves custom encodeResult projections; fromFunction uses ExactJson and fixed wrappers forward it. Toolkit normalizes encoding failures/defects after joined cleanup without swallowing interruption. Legacy direct encodeOutput and encodeResult calls are unchanged. There is no new abstract-method requirement; rebuild dependent binaries. [Exact output acceptance](../json/README.md#exact-domain-and-tool-output) owns current Tool/Toolkit/ToolExecutionSpec identities and the numeric regression.
 
 ## Invocation event capability
 
@@ -133,7 +135,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 | Typed-result source/test | Reviewed Git blob |
 | --- | --- |
 | [ToolExecutionResult.scala](ToolExecutionResult.scala) | 1c3e999a1363e6a042a0c83186006fda2060992f |
-| [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | a85af9fa35a0848944627973bda1413e4ca4e881 |
+| [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 703c7abec55bb3b4ea5d429ecefa76c9f1557b16 |
 
 The table records unchanged typed-result components. Current Tool and Toolkit identities are recorded under [incremental execution](#incremental-execution); current ReActAgent identity is in [acting-stop decisions](../agent/README.md#acting-stop-decisions); separate invocation and [direct event forwarding](../agent/README.md#direct-event-forwarding) contracts retain their scoped evidence. Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
@@ -172,7 +174,7 @@ Custom authorizers compile without implementing the overload. To consume or forw
 
 ReActAgent.make and Builder.toolAuthorizer accept a ToolAuthorizer, defaulting explicitly to allow for compatibility. Installing a host authorizer is necessary to enforce permission policy. ToolAuthorizationRequest contains a fresh approval UUID, the originating ModelStreamContext, the call with framework-fixed arguments prepared before authorization, and an optional original tool-use ordinal. ReAct supplies that ordinal independently of repeated call IDs; legacy construction and missing JSON fields default to None. Four-field positional patterns need updating and dependent binaries must be rebuilt. The [complete-batch adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) is accepted. ToolAuthorization exposes Approved(input), Denied(reason), or Deferred(reason); the partial-confirmation extension has final independent acceptance. Exhaustive matches and decision-codec consumers must handle Deferred; identity, name, metadata, and execution authority are not replaceable decision fields. Requests and decisions have derived codecs, but serialization alone grants no execution authority.
 
-The runtime persists the assistant message before authorization and captures its exact history position. Every pending local call passes preparation and authorization checks, including provider-marked calls without matched inline observations; rejected preparation or signed changes do not invoke the authorizer. Matched provider inline results bypass local authorization. Each callback owns an interruptible scope; cleanup finishes before result Start and local execution. The request scope does not extend across the tool operation. Hosts must not reenter mutating agent operations while the run lock is held.
+The runtime persists the assistant message before authorization and captures its exact history position. Every pending local call passes preparation and authorization checks; unresolved provider-owned calls bypass local dispatch and authorization, and rejected preparation or signed changes do not invoke the authorizer. Matched provider inline results bypass local authorization. Each callback owns an interruptible scope; cleanup finishes before result Start and local execution. The request scope does not extend across the tool operation. Hosts must not reenter mutating agent operations while the run lock is held.
 
 Approved JSON must have unique keys at every depth and retain all attached fixed values. A changed input is denied if either thoughtSignature or reasoningDetails metadata is present on the call or any Thinking block in its originating assistant message, including empty arrays, malformed or opaque values. Otherwise the runtime rewrites only that call's original occurrence, clears cached content, and stores its original input under agentscope_original_tool_input. Identity, other metadata, and protocol state remain unchanged. The next model request and concurrent history readers see the approved arguments before the tool executes. This provenance key records the runtime rewrite; arbitrary preexisting metadata is not authenticated evidence. No JSON Schema validation is added.
 

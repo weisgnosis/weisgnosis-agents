@@ -6,6 +6,8 @@ The reference is the clean local `agentscope-java` checkout at commit `f98a685fd
 
 ## Typed completed tool observations
 
+The [exact-output regression scope](../../modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) preserves nested numeric provenance, tool observations and opt-in checkpoint/event JSON, including direct metadata decoding. These reproduce dependency-boundary defects; they do not close additional upstream methods or promise all custom codecs are repaired.
+
 The current core prerequisite exposes Tool.encodeResult, payload/state ToolExecutionResult and runtime-protected result publication. Existing String tools retain Success by default; only Success/Error may be projected by tools. ToolExecutionSpec covers payload/codecs, unsupported states and cancellation cleanup; the agent integration checks ordered typed history/events and protected metadata. These are local extension contracts, not completion of the upstream MCP adapter or tool matrix. ChatCompletions still rejects non-text tool output.
 
 The unchanged Toolkit blob `79be10c316f676da5d96977419e5be4caf02886f` lost a cleanup defect when a tool joined its actually interrupted owned child: `tool-inner-cancellation-red.log` records the failed defect-preservation assertion. The external-cancellation baseline passed. Re-failing the compound cause preserves interruption and defects while mapping typed Throwable leaves to defects for the UIO boundary.

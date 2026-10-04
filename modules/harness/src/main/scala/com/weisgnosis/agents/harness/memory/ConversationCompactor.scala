@@ -17,6 +17,7 @@ package com.weisgnosis.agents.harness.memory
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.agent.HistoryPreparer
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolHistory}
 import zio.*
 import zio.json.*
@@ -125,13 +126,15 @@ final class ConversationCompactor(
               "thoughtSignature"
             ) || call.metadata
               .contains("reasoningDetails")
-            if !hasReasoningMetadata && call.input.toJson.length > limit then
-              call.copy(
-                input =
-                  Json.Obj("_pruned_arguments" -> Json.Str(preview(call.input.toJson, limit))),
-                content = None
-              )
-            else call
+            if hasReasoningMetadata then call
+            else
+              val input = JsonBoundary.render(call.input)
+              if input.length > limit then
+                call.copy(
+                  input = Json.Obj("_pruned_arguments" -> Json.Str(preview(input, limit))),
+                  content = None
+                )
+              else call
           }
     }
 
@@ -148,12 +151,17 @@ final class ConversationCompactor(
               merged <- previous.withContent(previous.content ++ message.content)
               metadata <-
                 if ConversationCompactor.isSummary(previous) then
-                  ConversationCompactor.retainedUsers(previous).map { retained =>
-                    (message.metadata ++ previous.metadata).updated(
-                      ConversationCompactor.RetainedUsersKey,
-                      Json.Str((retained :+ message).toJson)
+                  for
+                    retained <- ConversationCompactor.retainedUsers(previous)
+                    json <- (retained :+ message).toJsonAST.left.map(reason =>
+                      AgentError.HistoryPreparationError(
+                        s"Cannot encode retained compaction users: $reason"
+                      )
                     )
-                  }
+                  yield (message.metadata ++ previous.metadata).updated(
+                    ConversationCompactor.RetainedUsersKey,
+                    Json.Str(JsonBoundary.render(json))
+                  )
                 else Right(message.metadata ++ previous.metadata)
             yield result.dropRight(1) :+ merged.withMetadata(metadata)
           case _ => Right(result :+ message)

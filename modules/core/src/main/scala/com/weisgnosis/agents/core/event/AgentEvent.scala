@@ -553,6 +553,14 @@ object AgentEvent:
 
   // Isolate payload derivation so the root never selects a public leaf codec that delegates back to it.
   private object PayloadCodecs:
+    // Map's default AST decoder re-encodes numbers; preserve metadata leaves directly.
+    private given metadata: JsonCodec[Map[String, Json]] = JsonCodec(
+      JsonEncoder.map[String, Json],
+      summon[JsonDecoder[Json]].mapOrFail:
+        case Json.Obj(fields) => Right(fields.toMap)
+        case _ => Left("Expected a metadata object")
+    )
+
     given agentResultEvent: JsonCodec[AgentResultEvent] = DeriveJsonCodec.gen[AgentResultEvent]
     given dataBlockStartEvent: JsonCodec[DataBlockStartEvent] =
       DeriveJsonCodec.gen[DataBlockStartEvent]

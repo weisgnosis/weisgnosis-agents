@@ -20,6 +20,13 @@ import zio.json.ast.Json
 
 /** Optional wire fields may be absent, but supplied malformed values must never be discarded. */
 private[model] object JsonFields:
+  /** Preserve numeric leaves without the dependency Map decoder's AST-to-text conversion. */
+  def metadata(obj: Json.Obj): Either[String, Map[String, Json]] =
+    obj.get("metadata") match
+      case None | Some(Json.Null) => Right(Map.empty)
+      case Some(Json.Obj(fields)) => Right(fields.toMap)
+      case Some(_)                => Left("Invalid 'metadata' field: expected an object")
+
   def optional[A: JsonDecoder](obj: Json.Obj, name: String): Either[String, Option[A]] =
     obj.get(name) match
       case None | Some(Json.Null) => Right(None)

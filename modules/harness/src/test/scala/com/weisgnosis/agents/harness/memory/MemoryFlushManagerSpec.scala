@@ -225,10 +225,15 @@ object MemoryFlushManagerSpec extends ZIOSpecDefault:
     test("internal and nonvisible blocks are excluded while tool text has exact preview bounds") {
       val input  = "x" * 600
       val output = "y" * 1100
+      val numeric = Json.Obj(
+        "values" -> Json.Arr(Json.Num(Long.MinValue), Json.Num(BigDecimal("-9223372036854775.808")))
+      )
+      val numericText = """{"values":[-9223372036854775808,-9223372036854775.808]}"""
       val messages = Chunk(
         Msg.system("system secret"),
         Msg.user("<session_context>internal context"),
         Msg.assistant(Chunk(ContentBlock.Thinking("thinking secret"))),
+        Msg.assistant(Chunk(ContentBlock.ToolUse("numeric", "read", numeric))),
         Msg.assistant(Chunk(ContentBlock.ToolUse("id", "read", Json.Str(input)))),
         Msg.tool("id", "read", output)
       )
@@ -244,7 +249,7 @@ object MemoryFlushManagerSpec extends ZIOSpecDefault:
       yield assertTrue(
         observed.lastOption.exists(message =>
           message.text.endsWith(
-            s"[ASSISTANT]: [tool_call: read(\"${"x" * 499}...)]\n[TOOL]: [tool_result: read] ${"y" * 1000}...(truncated)"
+            s"[ASSISTANT]: [tool_call: read($numericText)]\n[ASSISTANT]: [tool_call: read(\"${"x" * 499}...)]\n[TOOL]: [tool_result: read] ${"y" * 1000}...(truncated)"
           ) &&
             !message.text.contains("system secret") && !message.text.contains(
               "internal context"

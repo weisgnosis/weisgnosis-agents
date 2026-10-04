@@ -104,6 +104,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
             llmConfig = primaryConfig.copy(
               topP = Some(0.8),
               toolChoice = Some(ToolChoice.None),
+              parallelToolCalls = Some(ToolCallParallelism.Disabled),
               frequencyPenalty = Some(0.5),
               presencePenalty = Some(-0.5),
               seed = Some(2147483648L)
@@ -120,6 +121,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   presencePenalty = Some(0.3),
                   seed = Some(Long.MaxValue),
                   toolChoice = Some(ToolChoice.Specific("lookup")),
+                  parallelToolCalls = Some(ToolCallParallelism.Enabled),
                   responseFormat = Some(Json.Obj("unused" -> Json.Bool(true)))
                 )
               )
@@ -315,6 +317,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                      .flatMap(_.asNumber)
                      .exists(_.value.compareTo(java.math.BigDecimal.valueOf(Long.MinValue)) == 0)
                  else fields.get("seed").isEmpty) &&
+                fields.get("parallel_tool_calls").contains(Json.Bool(model == "target")) &&
                 fields.get("messages").exists(_.toJson.contains(s"request for $model"))
             )
           },

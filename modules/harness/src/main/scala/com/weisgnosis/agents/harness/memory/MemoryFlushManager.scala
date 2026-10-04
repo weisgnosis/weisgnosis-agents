@@ -16,10 +16,10 @@
 package com.weisgnosis.agents.harness.memory
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
 import java.time.{ZoneId, ZoneOffset}
 import zio.*
-import zio.json.*
 import zio.json.ast.Json
 
 /** Serializes read/extract/append operations for one daily-memory owner. */
@@ -119,7 +119,8 @@ object MemoryFlushManager:
     case ContentBlock.Text(text) => Option.when(!text.isBlank)(text)
     case call: ContentBlock.ToolUse =>
       val arguments =
-        if call.input == Json.Obj() then "" else s"(${preview(call.input.toJson, 500, "...")})"
+        if call.input == Json.Obj() then ""
+        else s"(${preview(JsonBoundary.render(call.input), 500, "...")})"
       Some(s"[tool_call: ${call.name}$arguments]")
     case result: ContentBlock.ToolResult =>
       val name = result.name.fold("")(value => s": $value")

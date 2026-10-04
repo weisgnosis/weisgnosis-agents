@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.core.tool
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.json.ExactJson
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -57,6 +58,10 @@ trait Tool[-R, In, Out]:
   /** Completed observations may supply typed content and Success or Error state. */
   def encodeResult(out: Out): ToolExecutionResult = ToolExecutionResult(encodeOutput(out))
 
+  /** Checked observation encoding; legacy custom projections retain their existing behavior. */
+  def encodeResultChecked(out: Out): Either[AgentError, ToolExecutionResult] =
+    Right(encodeResult(out))
+
 object Tool:
 
   /** Bind once; preparation applies only at raw decoding/dispatch, never to trusted typed execution. */
@@ -87,7 +92,9 @@ object Tool:
         def decodeInput(raw: Json): Either[String, In] =
           fixed.prepare(raw).left.map(_.message).flatMap(tool.decodeInput)
         def encodeOutput(out: Out): String                       = tool.encodeOutput(out)
-        override def encodeResult(out: Out): ToolExecutionResult = tool.encodeResult(out))
+        override def encodeResult(out: Out): ToolExecutionResult = tool.encodeResult(out)
+        override def encodeResultChecked(out: Out): Either[AgentError, ToolExecutionResult] =
+          tool.encodeResultChecked(out))
 
   def fromFunction[In: JsonDecoder, Out: JsonEncoder](
       name: String,
@@ -102,6 +109,8 @@ object Tool:
       def execute(input: In): ZIO[Any, Throwable, Out] = run(input)
       def decodeInput(raw: Json): Either[String, In]   = raw.as[In]
       def encodeOutput(out: Out): String               = out.toJson
+      override def encodeResultChecked(out: Out): Either[AgentError, ToolExecutionResult] =
+        ExactJson.encode(out).map(encoded => ToolExecutionResult(encoded))
 
   def make(
       defn: ToolDef

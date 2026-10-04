@@ -416,7 +416,16 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
       )
     },
     test("coalesced retained users reach the next memory flush exactly once") {
-      val important = Msg.user("important retained fact").withId(Some("user-id"))
+      val important = Msg
+        .user("important retained fact")
+        .withId(Some("user-id"))
+        .withMetadata(
+          "numeric",
+          Json.Obj(
+            "values" -> Json
+              .Arr(Json.Num(Long.MinValue), Json.Num(BigDecimal("-9223372036854775.808")))
+          )
+        )
       for
         flushed <- Ref.make(Chunk.empty[Chunk[Msg]])
         compactor = new ConversationCompactor(
@@ -428,9 +437,13 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
         first <- compactor.compactIfNeeded(
           Chunk(Msg.assistant("old"), important, Msg.assistant("tail"))
         )
+        expanded = ConversationCompactor.expandCoalescedUsers(first)
         _ <- compactor.compactIfNeeded(first ++ Chunk(Msg.assistant("new"), Msg.assistant("last")))
         observed <- flushed.get
-      yield assertTrue(observed.flatten.count(_ == important) == 1)
+      yield assertTrue(
+        expanded.exists(_.count(_ == important) == 1),
+        observed.flatten.count(_ == important) == 1
+      )
     },
     test("coalesced user provenance survives serialization and rejects inconsistent content") {
       val user = Msg.user("retained user")
@@ -458,8 +471,20 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
     },
     test("older outputs and arguments are pruned but the protected tail is unchanged") {
       val long = "x" * 3000
+      val numeric = Json.Obj(
+        "values" -> Json
+          .Arr(Json.Num(Long.MinValue), Json.Num(BigDecimal("-9223372036854775.808"))),
+        "padding" -> Json.Str(long)
+      )
+      val numericText =
+        """{"values":[-9223372036854775808,-9223372036854775.808],"padding":"""" + long + "\"}"
       val history = Chunk(
-        Msg.assistant(Chunk(ContentBlock.ToolUse("a", "write_file", Json.Str(long)))),
+        Msg.assistant(
+          Chunk(
+            ContentBlock.ToolUse("a", "write_file", Json.Str(long)),
+            ContentBlock.ToolUse("numeric", "write_file", numeric)
+          )
+        ),
         Msg.tool("a", "search", long),
         Msg.assistant("recent"),
         Msg.tool("recent", "search", long)
@@ -472,6 +497,15 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
       for result <- pruning.compactIfNeeded(history)
       yield assertTrue(
         result.headOption.exists(_.toolUses.exists(_.input != Json.Str(long))),
+        result.headOption.exists(
+          _.toolUses.exists(call =>
+            call.id == "numeric" && call.input == Json.Obj(
+              "_pruned_arguments" -> Json.Str(
+                numericText.take(1000) + "\n... pruned ...\n" + numericText.takeRight(1000)
+              )
+            )
+          )
+        ),
         result.drop(1).headOption.exists(_.toolResults.exists(_.text.contains("pruned"))),
         result.lastOption == history.lastOption
       )

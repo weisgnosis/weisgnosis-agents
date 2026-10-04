@@ -131,7 +131,7 @@ BeforeActing checkpoints may preserve a provider-only pause, with no local pendi
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | f3382b5f930c7810c3193d9a027df04382b9707b |
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | 349c047eebb15bcfb2b4c2113714047384780597 |
 | [ToolHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | 2ff6291ca75b49770c0a337da5488608f8fa040e |
-| [ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | 76675758a9bcebc50f66c05b5b3d7c281d78f5b3 |
+| [ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these seven identities, with no remaining findings. Focused checks passed 33 tests in 795 ms (`provider-ownership-focused.log`); full `scalafmtAll scalafmtSbt verify` passed in `provider-ownership-final-verify.log` with zero compiler warnings or failures. Current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] `provider-ownership-behavior-red.log` recorded 17 passing and four failing tests against production revision `eca5c4d`, with regression specs `6c2a92f81637503ce70b3c4a928c46637d974cbe` (authorizer), `349c047eebb15bcfb2b4c2113714047384780597` (checkpoint) and `2ff6291ca75b49770c0a337da5488608f8fa040e` (history): provider sentinel execution occurred, mixed history contained an extra local result, cancellation retained provider Success alongside local Error, and local-history/checkpoint ownership assertions failed. The corrected regression assertions remain unchanged; the authorizer fixture only received a title correction. A separate stale compactor fixture was replaced with genuine crossing/noncrossing local-pair cases, rather than treating a Tool-role observation as provider completion. The initial compile-only run is not defect evidence.
@@ -472,7 +472,7 @@ Unchanged identities from the seven-file scope against `2b99226`; commit `cc8fa7
 
 | File | Git blob |
 | --- | --- |
-| [Msg.scala](../model/Msg.scala) | d8c616052015b59c18b69cd52bfa66840edfcae6 |
+| [Msg.scala](../model/Msg.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [ToolResultProcessor.scala](../tool/ToolResultProcessor.scala) | [Current identity](#acting-stop-decisions) |
 | [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | [Current identity](#acting-stop-decisions) |
 | [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 9c76a00f1c3309520ed0823ff91e8c6ac49b3be8 |

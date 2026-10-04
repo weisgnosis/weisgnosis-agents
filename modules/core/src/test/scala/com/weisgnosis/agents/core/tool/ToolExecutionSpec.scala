@@ -91,11 +91,30 @@ object ToolExecutionSpec extends ZIOSpecDefault:
     },
     test("Successful tool execution with typed argument decoding") {
       val validArgs = Json.Obj("a" -> Json.Num(15), "b" -> Json.Num(27))
-
-      for res <- toolkit.executeSafe("add", validArgs)
+      val numeric = Json.Obj(
+        "values" -> Json.Arr(Json.Num(Long.MinValue), Json.Num(BigDecimal("-9223372036854775.808")))
+      )
+      val numericTool =
+        Tool.fromFunction[Json, Json]("numeric", "Exact numeric output")(_ => ZIO.succeed(numeric))
+      val duplicateTool = Tool.fromFunction[Json, Json]("duplicate", "Ambiguous output")(_ =>
+        ZIO.succeed(Json.Obj("same" -> Json.Num(1), "same" -> Json.Num(2)))
+      )
+      for
+        res     <- toolkit.executeSafe("add", validArgs)
+        exact   <- Toolkit(Map("numeric" -> numericTool)).executeSafe("numeric", Json.Obj())
+        fixed   <- ZIO.fromEither(ToolFixedArguments.make(Json.Obj("tenant" -> Json.Str("host"))))
+        wrapped <- ZIO.fromEither(Tool.withFixedArguments(numericTool, fixed))
+        wrappedExact <- Toolkit(Map("numeric" -> wrapped)).executeSafe("numeric", Json.Obj())
+        invalid <- Toolkit(Map("duplicate" -> duplicateTool)).executeSafe("duplicate", Json.Obj())
       yield assertTrue(
         res.state == ToolResultState.Success,
-        res.output == "42"
+        res.output == "42",
+        exact.state == ToolResultState.Success,
+        exact.output == """{"values":[-9223372036854775808,-9223372036854775.808]}""",
+        exact.output.fromJson[Json] == Right(numeric),
+        wrappedExact == exact,
+        invalid.state == ToolResultState.Error,
+        invalid.output.contains("Duplicate JSON object fields")
       )
     },
     test("Malformed arguments yield ToolResultState.Error without throwing") {
