@@ -32,7 +32,7 @@ enum ReasoningReplay derives JsonCodec:
 enum ToolSignatureFormat derives JsonCodec:
   case Unsupported, GoogleExtraContent
 
-/** Pure serialization of text, user images, and function calls; media sources are never fetched. */
+/** Pure serialization of text, user images/inline audio, and function calls; media sources are never fetched. */
 object ChatCompletionsRequest:
   private val namePattern = "[A-Za-z0-9_-]{1,64}".r
 
@@ -173,8 +173,29 @@ object ChatCompletionsRequest:
               "image_url" -> Json.Obj("url" -> Json.Str(url))
             )
           )
-        case _ => Left(AgentError.InvalidMessage("User content supports only text and images"))
+        case ContentBlock.Audio(source, _, _) => inputAudio(source)
+        case _ =>
+          Left(
+            AgentError.InvalidMessage("User content supports only text, images, and inline audio")
+          )
       .map(parts => Json.Arr(parts))
+
+  private def inputAudio(source: MediaSource): Either[AgentError, Json] = source match
+    case MediaSource.Url(_) =>
+      Left(
+        AgentError.InvalidMessage("Audio requires inline base64 data; audio URLs are unsupported")
+      )
+    case MediaSource.Base64(mediaType, data) =>
+      for
+        format <- mediaType match
+          case "audio/wav"  => Right("wav")
+          case "audio/mpeg" => Right("mp3")
+          case _ => Left(AgentError.InvalidMessage("Inline audio requires audio/wav or audio/mpeg"))
+        _ <- message(validBase64(data), "Inline audio data must be nonempty standard base64")
+      yield Json.Obj(
+        "type"        -> Json.Str("input_audio"),
+        "input_audio" -> Json.Obj("data" -> Json.Str(data), "format" -> Json.Str(format))
+      )
 
   private def imageUrl(source: MediaSource): Either[AgentError, String] = source match
     case MediaSource.Url(value) =>
@@ -201,7 +222,7 @@ object ChatCompletionsRequest:
         _ <- message(validBase64(data), "Inline image data must be nonempty standard base64")
       yield s"data:$mediaType;base64,$data"
 
-  /** Syntax validation only: no image decoding, animation inspection, or size-limit claim. */
+  /** Syntax validation only: no media decoding, animation inspection, or size-limit claim. */
   private def validBase64(value: String): Boolean =
     val firstPadding = value.indexOf('=')
     val contentEnd   = if firstPadding < 0 then value.length else firstPadding

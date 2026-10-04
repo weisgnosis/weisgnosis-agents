@@ -22,7 +22,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [StreamAccumulatorCompletionSpec](StreamAccumulatorCompletionSpec.scala)
 - [StreamAccumulatorSpec](StreamAccumulatorSpec.scala)
 
-ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadata does not change the encoded provider request. The [output-schema acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records that scoped evidence; the current request/spec identities are in [tool-call signatures](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#tool-call-signatures).
+ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadata does not change the encoded provider request. The [output-schema acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records that scoped evidence; the current request/spec identities are in [user-media projection](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
 
 ## Current evidence
 
@@ -32,7 +32,7 @@ ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadat
 - [x] Thirteen StreamAccumulatorCompletionSpec regressions cover required finish markers, malformed/non-object/trailing tool arguments, interrupted sanitization, raw content, deferred/stable identity, duplicate IDs, interleaved indexes, signed blocks, usage snapshots, and post-finish rejection.
 - [x] JsonBoundarySpec verifies six complete-document/duplicate/escape/numeric/direct-AST scenarios without effects.
 - [x] Existing accumulator scenarios and two ReAct thinking-retry integration tests now handle Either and explicit successful finish markers.
-- [x] Final user-image reviews and full verification are recorded in the linked source contract; two grouped tables add exact image/text wire ordering and whole-request rejection of malformed sources and unsupported media roles.
+- [x] The existing two media tables cover exact inline-audio format/data alongside text/images, rejected URLs/MIME aliases and whole-request failure. Both final reviews and full inline-audio-verify.log verification passed; the linked source contract owns current request/spec identities. Image, signature and reasoning behavior retain their accepted scopes.
 - [x] Fourteen transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
 - [x] Live-client tests verify early deltas, real HTTP tool cycles, request identity, late call identity, malformed/incomplete streams, and cancellation.
 - [x] Three publisher tests verify indexed content, interleaved calls, and atomic ending-batch validation; two event-context tests cover all sixteen correlated variants and legacy payloads.

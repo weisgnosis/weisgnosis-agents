@@ -83,10 +83,14 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         )
       )
     },
-    test("projects ordered user images and text while preserving the text-only wire shape") {
+    test("projects ordered user media and text while preserving the text-only wire shape") {
       def imagePart(url: String): Json = Json.Obj(
         "type"      -> Json.Str("image_url"),
         "image_url" -> Json.Obj("url" -> Json.Str(url))
+      )
+      def audioPart(data: String, format: String): Json = Json.Obj(
+        "type"        -> Json.Str("input_audio"),
+        "input_audio" -> Json.Obj("data" -> Json.Str(data), "format" -> Json.Str(format))
       )
       def textPart(text: String): Json =
         Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str(text))
@@ -102,21 +106,36 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
           ContentBlock
             .Image(MediaSource.Url(url), id = Some("private-image"), name = Some("private-name")),
           ContentBlock.Text("after"),
-          ContentBlock.Image.base64("image/png", "AQ==")
+          ContentBlock.Image.base64("image/png", "AQ=="),
+          ContentBlock.Audio(
+            MediaSource.Base64("audio/wav", "AQID"),
+            id = Some("private-audio"),
+            name = Some("private-name")
+          ),
+          ContentBlock.Text("between audio"),
+          ContentBlock.Audio.base64("audio/mpeg", "AQI=")
         ) -> Json.Arr(
           textPart("before"),
           imagePart(url),
           textPart("after"),
-          imagePart("data:image/png;base64,AQ==")
+          imagePart("data:image/png;base64,AQ=="),
+          audioPart("AQID", "wav"),
+          textPart("between audio"),
+          audioPart("AQI=", "mp3")
         )
       ) ++ Chunk(
         "image/png"  -> "AQID",
         "image/jpeg" -> "AQI=",
         "image/webp" -> "AQ==",
         "image/gif"  -> "/+8="
-      ).map: (mediaType, data) =>
+      ).map((mediaType, data) =>
         Chunk[Msg.UserBlock](ContentBlock.Image.base64(mediaType, data)) ->
           Json.Arr(imagePart(s"data:$mediaType;base64,$data"))
+      ) ++ Chunk("audio/wav" -> "wav", "audio/mpeg" -> "mp3").map((mediaType, format) =>
+        Chunk[Msg.UserBlock](ContentBlock.Audio.base64(mediaType, "AQ==")) -> Json.Arr(
+          audioPart("AQ==", format)
+        )
+      )
       assertTrue(cases.forall { case (content, expected) =>
         messages(ChatCompletionsRequest.encode(Chunk(Msg.user(content)), Chunk.empty, config))
           .contains(
@@ -130,7 +149,7 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
           )
       })
     },
-    test("rejects malformed image sources and unsupported media roles without dropping blocks") {
+    test("rejects malformed media sources and unsupported roles without dropping blocks") {
       val invalidUrls = Chunk(
         "",
         " ",
@@ -157,11 +176,34 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         invalidData.map(data => ContentBlock.Image.base64("image/png", data)) ++
         invalidTypes.map(mediaType => ContentBlock.Image.base64(mediaType, "AQ=="))
       val media = ContentBlock.Image.url("https://example.test/image.png")
+      val audio = ContentBlock.Audio.base64("audio/wav", "AQ==")
+      val audioFailures = invalidData.map(data => ContentBlock.Audio.base64("audio/wav", data)) ++
+        Chunk(
+          "",
+          "audio/mp3",
+          "audio/ogg",
+          "audio/flac",
+          "audio/wav;codec=pcm",
+          "Audio/Wav",
+          "text/plain"
+        )
+          .map(mediaType => ContentBlock.Audio.base64(mediaType, "AQ==")) ++
+        Chunk(
+          "https://example.test/audio.wav",
+          "file:///private/audio.wav",
+          "C:\\private\\audio.wav",
+          ""
+        )
+          .map(ContentBlock.Audio.url)
       val invalidMessages = sourceFailures.map(image =>
         Msg.user(Chunk[Msg.UserBlock](ContentBlock.Text("must not survive alone"), image))
+      ) ++ audioFailures.map(value =>
+        Msg.user(Chunk[Msg.UserBlock](ContentBlock.Text("must not survive alone"), value))
       ) ++ Chunk(
         Msg.assistant(Chunk(media)),
         Msg.tool(Chunk(ContentBlock.ToolResult("call", output = Chunk(media)))),
+        Msg.assistant(Chunk(audio)),
+        Msg.tool(Chunk(ContentBlock.ToolResult("call", output = Chunk(audio)))),
         Msg.user(
           Chunk[Msg.UserBlock](
             ContentBlock.Text("text"),
@@ -169,7 +211,7 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
           )
         ),
         Msg.user(Chunk(ContentBlock.Video.url("https://example.test/video.mp4"))),
-        Msg.user(Chunk(ContentBlock.Audio.base64("audio/wav", "AQ==")))
+        Msg.user(Chunk(ContentBlock.Audio.base64("audio/opus", "AQ==")))
       )
       assertTrue(
         invalidMessages.forall(msg =>

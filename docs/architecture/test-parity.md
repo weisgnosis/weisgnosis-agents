@@ -406,6 +406,15 @@ Both final reviews and full verification passed. ChatCompletionsRequestSpec supp
 
 Source: pinned agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/formatter/OpenAIMessageConverterTest.java. These are pure provider-wire adaptations, not a mutable converter API or complete formatter-suite parity. The stricter Scala boundary rejects malformed URLs/Base64 and unsupported roles instead of fetching resources, guessing a media type or substituting text. No image decoding, animation/size validation or live-provider interoperability is claimed. Exact identities and evidence are in the [request contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
 
+### User inline-audio request projection
+
+The existing request tables add the following bounded mappings from the same pinned OpenAIMessageConverterTest.java. Both final reviews and full inline-audio-verify.log verification passed.
+
+- [x] testAudioBlockWithValidBase64Source (line 180): user role, ordered text/audio parts and exact Base64 data are projected as input_audio. Scala additionally asserts exact wav/mp3 format values and mixed image/audio ordering.
+- [x] testBase64AudioBlockConversion (line 292): an audio-only user message becomes a nonempty multipart array with literal data. Neither the Java fixture nor these tables validate audio bytes.
+
+Audio URL text substitution in testAudioBlockWithURLSource is intentionally rejected. OpenAIConverterUtilsTest's audio/mp3 alias, opus/flac and unknown/null format fallbacks are not adopted: only exact audio/wav and audio/mpeg map to the official wav/mp3 wire formats. Syntax checks, unsupported-role rejection and whole-request failure are local strict policies. There is no audio-output, file/network acquisition or full formatter-suite parity claim. Current identities belong to the [request contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
+
 ### Selected tool-call signature mappings
 
 Both final reviews and full signature-mcp-verify.log verification passed for the [current client scope](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-call-signatures).
