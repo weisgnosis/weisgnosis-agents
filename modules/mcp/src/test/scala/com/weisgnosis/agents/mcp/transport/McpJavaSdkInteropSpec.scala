@@ -22,7 +22,7 @@ import com.weisgnosis.agents.mcp.client.{McpClient, McpClientManager}
 import com.weisgnosis.agents.mcp.protocol.*
 import com.weisgnosis.agents.mcp.tool.McpTool
 import io.modelcontextprotocol.json.McpJsonMapper
-import io.modelcontextprotocol.server.McpServer
+import io.modelcontextprotocol.server.{McpAsyncServer, McpServer}
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider
 import io.modelcontextprotocol.spec.McpSchema
 import java.nio.file.{Files, Path}
@@ -34,12 +34,29 @@ import zio.*
 import zio.http.*
 import zio.json.ast.Json
 import zio.test.*
+import zio.stream.ZStream
 
 object McpJavaSdkInteropSpec extends ZIOSpecDefault:
-  final private case class Server(tomcat: Tomcat, directory: Path, endpoint: String)
-  final private case class Exchange(method: Method, session: Option[String], status: Option[Status])
+  private enum ProviderOwner:
+    case Startup, Servlet
+  final private case class Server(
+      tomcat: Tomcat,
+      directory: Path,
+      endpoint: String,
+      sdk: McpAsyncServer
+  )
+  final private case class Exchange(
+      method: Method,
+      session: Option[String],
+      status: Option[Status],
+      lastEventId: Option[String] = None
+  )
 
-  private def recording(http: Client, exchanges: Ref[Chunk[Exchange]]): Client =
+  private def recording(
+      http: Client,
+      exchanges: Ref[Chunk[Exchange]],
+      getCleanup: UIO[Unit] = ZIO.unit
+  ): Client =
     http.copy(driver = new ZClient.Driver[Any, Scope, Throwable]:
       def request(
           version: Version,
@@ -51,11 +68,13 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
           proxy: Option[Proxy]
       )(using Trace): ZIO[Scope, Throwable, Response] =
         val session = headers.get("Mcp-Session-Id")
-        exchanges.update(_ :+ Exchange(method, session, None)) *>
+        val cursor  = headers.get("Last-Event-ID")
+        ZIO.when(method == Method.GET)(ZIO.addFinalizer(getCleanup)) *>
+          exchanges.update(_ :+ Exchange(method, session, None, cursor)) *>
           http.driver
             .request(version, method, url, headers, body, sslConfig, proxy)
             .tap(response =>
-              exchanges.update(_ :+ Exchange(method, session, Some(response.status)))
+              exchanges.update(_ :+ Exchange(method, session, Some(response.status), cursor))
             )
 
       def socket[Env1 <: Any](
@@ -112,70 +131,81 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
           .provideSomeEnvironment[Scope](_.add(http))
       yield response.status
 
-  private def server: ZIO[Scope, Throwable, Server] =
+  private def server(keepAlive: Option[java.time.Duration]): ZIO[Scope, Throwable, Server] =
     for
       directory <- temporaryDirectory
+      owner     <- Ref.make(ProviderOwner.Startup)
+      mapper    <- ZIO.attemptBlocking(McpJsonMapper.createDefault())
+      provider <- ZIO.acquireRelease(ZIO.attemptBlocking:
+        val builder = HttpServletStreamableServerTransportProvider
+          .builder()
+          .jsonMapper(mapper)
+          .mcpEndpoint("/mcp")
+        keepAlive.fold(builder)(builder.keepAliveInterval).build())(provider =>
+        owner.get.flatMap:
+          case ProviderOwner.Servlet => ZIO.unit
+          case ProviderOwner.Startup =>
+            // Keepalive starts during construction. Failed startup has no exposed sessions;
+            // repeated shutdown after a failed servlet initialization safely disposes it again.
+            ZIO.attemptBlocking(provider.closeGracefully().block()).unit.orDie
+      )
       tomcat <- ZIO.acquireRelease(ZIO.attemptBlocking(new Tomcat()))(tomcat =>
         ZIO
           .attemptBlocking(tomcat.stop())
           .orDie
           .ensuring(ZIO.attemptBlocking(tomcat.destroy()).orDie)
       )
-      endpoint <- ZIO.attemptBlocking:
-        val mapper = McpJsonMapper.createDefault()
-        val provider = HttpServletStreamableServerTransportProvider
-          .builder()
-          .jsonMapper(mapper)
-          .mcpEndpoint("/mcp")
-          .build()
-        val schema = """{"type":"object","properties":{}}"""
-        val greeting = McpSchema.Tool
-          .builder()
-          .name("greet")
-          .description("Return a deterministic greeting")
-          .inputSchema(mapper, schema)
-          .build()
-        val rejection = McpSchema.Tool
-          .builder()
-          .name("reject")
-          .description("Return a tool execution error")
-          .inputSchema(mapper, schema)
-          .build()
-        val success = Mono.just(
-          McpSchema.CallToolResult
+      hosted <- ZIO
+        .attemptBlocking:
+          val schema = """{"type":"object","properties":{}}"""
+          val greeting = McpSchema.Tool
             .builder()
-            .addTextContent("Hello from Java SDK")
-            .isError(false)
+            .name("greet")
+            .description("Return a deterministic greeting")
+            .inputSchema(mapper, schema)
             .build()
-        )
-        val failure = Mono.just(
-          McpSchema.CallToolResult
+          val rejection = McpSchema.Tool
             .builder()
-            .addTextContent("Rejected by the tool")
-            .isError(true)
+            .name("reject")
+            .description("Return a tool execution error")
+            .inputSchema(mapper, schema)
             .build()
-        )
-        val _ = McpServer
-          .async(provider)
-          .jsonMapper(mapper)
-          .serverInfo("java-sdk-peer", "0.17.2")
-          .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
-          .toolCall(greeting, (_, _) => success)
-          .toolCall(rejection, (_, _) => failure)
-          .build()
-        tomcat.setBaseDir(directory.toString)
-        tomcat.setPort(0)
-        val connector = tomcat.getConnector()
-        val _         = connector.setProperty("address", "127.0.0.1")
-        val context   = tomcat.addContext("", directory.toString)
-        val servlet   = Tomcat.addServlet(context, "mcp", provider)
-        servlet.setAsyncSupported(true)
-        context.addServletMappingDecoded("/mcp", "mcp")
-        // The servlet's destroy closes the provider. No sessions or keepalive scheduler exist
-        // before startup, so Tomcat is the only provider cleanup owner, including failed startup.
-        tomcat.start()
-        s"http://127.0.0.1:${connector.getLocalPort()}/mcp"
-    yield Server(tomcat, directory, endpoint)
+          val success = Mono.just(
+            McpSchema.CallToolResult
+              .builder()
+              .addTextContent("Hello from Java SDK")
+              .isError(false)
+              .build()
+          )
+          val failure = Mono.just(
+            McpSchema.CallToolResult
+              .builder()
+              .addTextContent("Rejected by the tool")
+              .isError(true)
+              .build()
+          )
+          val sdk = McpServer
+            .async(provider)
+            .jsonMapper(mapper)
+            .serverInfo("java-sdk-peer", "0.17.2")
+            .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
+            .toolCall(greeting, (_, _) => success)
+            .toolCall(rejection, (_, _) => failure)
+            .build()
+          tomcat.setBaseDir(directory.toString)
+          tomcat.setPort(0)
+          val connector = tomcat.getConnector()
+          val _         = connector.setProperty("address", "127.0.0.1")
+          val context   = tomcat.addContext("", directory.toString)
+          val servlet   = Tomcat.addServlet(context, "mcp", provider)
+          servlet.setAsyncSupported(true)
+          servlet.setLoadOnStartup(1)
+          context.addServletMappingDecoded("/mcp", "mcp")
+          tomcat.start()
+          Server(tomcat, directory, s"http://127.0.0.1:${connector.getLocalPort()}/mcp", sdk)
+        .tap(_ => owner.set(ProviderOwner.Servlet))
+        .uninterruptible
+    yield hosted
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpJavaSdkInteropSpec")(
     test(
@@ -184,7 +214,7 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
       for
         observed <- ZIO.scoped:
           for
-            peer      <- server
+            peer      <- server(None)
             http      <- ZIO.service[Client]
             exchanges <- Ref.make(Chunk.empty[Exchange])
             recorded = recording(http, exchanges)
@@ -270,7 +300,7 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
       for
         observed <- ZIO.scoped:
           for
-            peer           <- server
+            peer           <- server(None)
             http           <- ZIO.service[Client]
             exchanges      <- Ref.make(Chunk.empty[Exchange])
             acquisitions   <- Ref.make(0)
@@ -385,6 +415,88 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
               )).ensuring(release.succeed(()).unit)
             )
           yield (peer, result)
+        (peer, result) = observed
+        state  <- ZIO.attemptBlocking(peer.tomcat.getServer().getState())
+        exists <- ZIO.attemptBlocking(Files.exists(peer.directory))
+      yield result && assertTrue(state == LifecycleState.DESTROYED, !exists)
+    ,
+    test(
+      "cancelled SDK listeners join local cleanup and permit manual same-session listening again"
+    ):
+      for
+        observed <- ZIO.scoped:
+          for
+            peer       <- server(Some(java.time.Duration.ofMillis(100)))
+            http       <- ZIO.service[Client]
+            exchanges  <- Ref.make(Chunk.empty[Exchange])
+            closedGets <- Ref.make(0)
+            messages   <- ZIO.acquireRelease(Queue.unbounded[McpMessage])(_.shutdown)
+            transport <- McpStreamableHttpTransport.open(
+              recording(http, exchanges, closedGets.update(_ + 1)),
+              peer.endpoint
+            )
+            tapped = new McpTransport:
+              def send(message: McpMessage): ZIO[Scope, AgentError, Unit] = transport.send(message)
+              override def send(
+                  message: McpMessage,
+                  onIssued: UIO[Unit]
+              ): ZIO[Scope, AgentError, Unit] =
+                transport.send(message, onIssued)
+              def incoming: ZStream[Any, AgentError, McpMessage] =
+                transport.incoming.tap(message => messages.offer(message).unit)
+            client      <- McpClient.open(tapped, McpImplementation("scala-listener-interop", "1"))
+            initialized <- exchanges.get
+            session <- ZIO
+              .fromOption(initialized.flatMap(_.session).headOption)
+              .orElseFail(AgentError.McpError("SDK listener session was not observed"))
+            rounds <- ZIO.foreach(Chunk(0, 1)): index =>
+              ZIO.scoped:
+                for
+                  // The prior GET is joined, then its round's POST reply crosses the same FIFO
+                  // incoming consumer. Draining here removes every prior ping and notification.
+                  _        <- messages.takeAll
+                  listener <- transport.listen.forkScoped
+                  _ <- messages.take.repeatUntil:
+                    case McpMessage.Request(_, "ping", _) => true
+                    case _                                => false
+                  _ <- ZIO
+                    .attemptBlocking(
+                      peer.sdk.notifyToolsListChanged().block(java.time.Duration.ofSeconds(5))
+                    )
+                    .unit
+                  notification <- messages.take.repeatUntil:
+                    case McpMessage.Notification("notifications/tools/list_changed", _) => true
+                    case _                                                              => false
+                  running   <- listener.poll
+                  cancelled <- listener.interrupt
+                  closed    <- closedGets.get
+                  greeting  <- client.callTool("greet", Some(Json.Obj()))
+                yield assertTrue(
+                  notification == McpMessage.Notification("notifications/tools/list_changed"),
+                  running.isEmpty,
+                  cancelled.isInterruptedOnly,
+                  closed == index + 1,
+                  greeting.outcome == McpCallOutcome.Success,
+                  greeting.content.map(_.block) == Chunk(
+                    McpContentBlock.Text("Hello from Java SDK")
+                  )
+                )
+            recorded <- exchanges.get
+            gets = recorded.filter(_.method == Method.GET)
+            _          <- client.close
+            terminated <- transport.terminateSession
+          yield (
+            peer,
+            rounds.foldLeft(assertTrue(true))(_ && _) && assertTrue(
+              gets == Chunk(
+                Exchange(Method.GET, Some(session), None),
+                Exchange(Method.GET, Some(session), Some(Status.Ok)),
+                Exchange(Method.GET, Some(session), None),
+                Exchange(Method.GET, Some(session), Some(Status.Ok))
+              ),
+              terminated == McpHttpTermination.Deleted
+            )
+          )
         (peer, result) = observed
         state  <- ZIO.attemptBlocking(peer.tomcat.getServer().getState())
         exists <- ZIO.attemptBlocking(Files.exists(peer.directory))

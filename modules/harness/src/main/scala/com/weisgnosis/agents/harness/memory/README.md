@@ -387,6 +387,10 @@ Unchanged target/coordinator identities retain their reviewed scope. Current bat
 
 - [x] `review_docs` approved batch/coordinator documentation against `b86fd14`: eight identities, 22 new cases, explicit ordering, cutoff preparation and partial-progress contracts. Full verification passed 555 core / 434 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Remote integration remains unfinished; current discovery acceptance is linked above.
 
+## Memory model selection
+
+Hosts already select the primary or a dedicated memory model through [MemoryExtractor.fromClient](MemoryExtractor.scala), then inject that extractor into flush and consolidation/maintenance construction. The adapter preserves the selected client/settings while removing tools and response formatting; [MemoryExtractorSpec](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryExtractorSpec.scala) verifies the actual forwarded request and scoped cleanup. This deliberately replaces Java MemoryConfig.model plus HarnessAgent's override-or-primary assembly with explicit capabilities. MemoryConfig remains serializable policy data and contains no live client. String-ID model registry resolution is unimplemented and would require a separate host contract; no new selection API or whole upstream method acceptance is claimed.
+
 ## Immutable memory configuration
 
 [MemoryConfig](MemoryConfig.scala) composes optional flush/custom consolidation prompts, a validated token budget, MemoryTriggerPolicy, daily retention and transcript retention. None selects the existing default prompt; Some(text), including an empty flush string, is literal customization. Defaults retain 4,000 tokens, Always flush, 30-minute maintenance, 90 calendar-day archival and 180 fixed-day transcript expiry. Copies are independent immutable values. Derived JSON codecs represent Scala configuration, not upstream wire compatibility.
@@ -416,7 +420,7 @@ Final formatted ten-file increment against 005bacf; this table owns current iden
 | [MemoryConfigSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConfigSpec.scala) | 4cfce91bf016eaaa72c6b5f73c6c84c664c050e2 |
 | [MemoryConfigIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConfigIntegrationSpec.scala) | 1fcd6e5da103fcd01bff6a1d3ae163386e35f869 |
 
-- [x] `review_fp` and `review_harness` approved the final ten-file memory-configuration increment against `005bacf` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 451 harness tests, including 17 new cases, with zero compiler warnings. No findings remain within immutable policy values, strict budgets, total prompt rendering, configuration factories and the six explicit upstream method adaptations. Java builder/null/printf compatibility, model selection and automatic gate/queue installation are excluded.
+- [x] `review_fp` and `review_harness` approved the final ten-file memory-configuration increment against `005bacf` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 451 harness tests, including 17 new cases, with zero compiler warnings. No findings remain within immutable policy values, strict budgets, total prompt rendering, configuration factories and the six explicit upstream method adaptations. Java builder/null/printf compatibility, live model fields, string-ID model registry resolution and automatic gate/queue installation are excluded.
 
 - [x] `review_docs` approved corrected memory-configuration documentation against `005bacf`: ten identities, 17 new cases, preserved defaults, literal template semantics and all ten configuration-method classifications with explicit differences. Full verification passed 555 core / 451 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain in this scope.
 
