@@ -10,6 +10,31 @@ AgentEvent defines 39 immutable payload variants with JSON codecs and withSource
 
 AllToolsDeniedEvent has [runtime integration](../agent/README.md#all-tools-denied-observation) after successful complete-local-batch cleanup and Deferred/Stop resolution. Its original-ordinal payload is observational: it neither stops execution nor proves a human decision. Codecs remain unchanged.
 
+## Optional final-answer filter
+
+[FinalAnswerFilter.make](FinalAnswerFilter.scala) returns an Either containing a reusable ZPipeline, with fresh immutable state per subscription. For an existing agent:
+
+```scala
+for
+  filter <- ZIO.fromEither(FinalAnswerFilter.make())
+  events <- agent.streamEvents(Msg.user("question")).via(filter).runCollect
+yield events
+```
+
+The host explicitly applies this presentation filter; default runtime delivery is unchanged. Correlated TextBlock Start/Delta/End events are buffered by exact optional source and ModelStreamContext until ModelResponseEnd. A matching ToolCallStart discards buffered text and suppresses subsequent text in that round; a tool-free round flushes text immediately before its matching model End. Concurrent requests and nested sources remain independent. A repeated start replaces only that request's buffer. Events without a matching active request pass through. AgentEnd clears abandoned buffers for its source/reply; EOF or failure never flushes unfinished text.
+
+Positive limits default to 4,096 buffered text events, 1,048,576 UTF-16 code units and 64 active requests across the whole subscription. Character accounting includes both delta strings and completed fullText, even when they repeat content. Suppression releases buffered event/character counts but retains the active-request slot. Matching model completion or AgentEnd removes the request; a repeated start resets its buffer while retaining one slot. Invalid limits return InvalidConfiguration; exceeding a limit fails the pipeline with InvalidMessage. Upstream causes remain intact and cancellation joins upstream cleanup; the filter creates no worker or execution owner.
+
+Thinking, raw diagnostic frames, tool/result events and AgentResult pass unchanged. Canonical history and subsequent model requests retain intermediate text. This is not secret redaction or an authoritative final-result selector: a tool-free reasoning round can still be followed by further runtime work. The additive pipeline has no wire codec, installs no middleware automatically and changes no event/runtime API.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [FinalAnswerFilter.scala](FinalAnswerFilter.scala) | `9040027e6836ab3694c3a389c3f55de0589ef0e1` |
+| [FinalAnswerFilterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/FinalAnswerFilterSpec.scala) | `b34b9d40430e14a5b4362beb5fed9197f1dc91b7` |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this pair and removal of the redundant primitive-stream suite, with no findings. Three grouped tests cover isolation/global limits and reset behavior, an actual HTTP tool cycle retaining history/diagnostics/results, and exact failure causes plus joined held cancellation. Existing all-variant serde and actual runtime/forwarding suites retain source-tagging and delivery coverage. Focused `final-answer-filter-final-focused.log` passed three tests in 3.389 seconds.
+- [x] Full formatting, `verify` and `packageArtifacts` passed in `final-answer-filter-verify.log`, with zero compiler warnings or failures. Packaged consumer execution also exercised the new filter; [build acceptance](../../../../../../../../../../project/README.md#local-artifact-packaging) records artifact boundaries, and the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
+
 ## Codec and metadata contracts
 
 All 39 concrete/base codecs encode the same object with exactly one lowercase event discriminator. Concrete decoders also read legacy untagged payloads; a supplied tag must match. Base decoding requires a unique valid tag. Missing required fields, malformed tags, and duplicate discriminators fail. Immutable source updates preserve every other field.

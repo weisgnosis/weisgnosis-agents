@@ -364,6 +364,16 @@ These pinned `agentscope-core/src/test/java/io/agentscope/core/event/AgentEventS
 - [x] `exceedMaxIters` -> ReActAgentEmissionSpec verifies the implemented limit event before AgentResult and AgentEnd, with the same attempt replyId and completed iteration count; the upstream declaration itself remains disabled.
 - [x] `streamBoundaries` (309): ReActAgentEventSpec checks the first AgentStart, one correlated boundary pair and last AgentEnd on fully drained success/buffering/failure/self-interruption/cooperative-interruption/timeout paths. Early consumer termination joins cleanup but is excluded from tail-delivery guarantees.
 
+### FinalAnswerFilterMiddleware
+
+Pinned `agentscope-core/src/test/java/io/agentscope/core/middleware/FinalAnswerFilterMiddlewareTest.java` has four executable methods. [FinalAnswerFilterSpec](../../modules/core/src/test/scala/com/weisgnosis/agents/core/event/FinalAnswerFilterSpec.scala) supplies bounded adaptations through an opt-in subscription-local pipeline rather than a Java middleware chain. Exact source plus full request context replaces reply-only mutable state; global limits and abandoned-request cleanup are explicit Scala contracts. [Acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/event/README.md#optional-final-answer-filter) records both reviews and verification.
+
+- [x] `finalRoundEmitsBufferedTextBeforeModelCallEnd`: exact correlated text Start/Delta/End flush before the matching model End.
+- [x] `intermediateRoundSuppressesTextWhenToolCallIsObserved`: buffered and later text suppress after a matching ToolCallStart; other request/source text remains independent.
+- [x] `nonTextEventsAreForwarded`: exact Thinking, raw frame, tool-call and result passthrough; this is not secret redaction.
+- [x] `stateIsolatedAcrossSubscriptions`: reuse of the same pipeline starts fresh state; no suppressed state leaks into a later subscription.
+- [x] `ReActAgentMiddlewareIntegrationTest.finalAnswerFilterSuppressesIntermediateReactRoundText` (247): the actual HTTP two-request cycle emits only final text with both model Ends, one tool execution and unchanged intermediate history/next request. This closes the bounded filtering behavior, not Java middleware registration or general chain parity.
+
 ### Implemented payloads and remaining runtime contracts
 
 The eight payload classes below are implemented and verified independently of their runtime integrations. AgentEvent now has 39 Scala variants; the separate upstream identifier enum retains its 31 names. Existing lowercase event payloads remain canonical.

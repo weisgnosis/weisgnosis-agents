@@ -10,7 +10,7 @@ These suites verify payload codecs and selected runtime boundaries. They do not 
 - [AgentEventSerdeSpec](AgentEventSerdeSpec.scala): all 39 concrete/base variants, strict tags, legacy leaf payloads, repeated source updates, and metadata preservation.
 - [AgentEventPayloadSpec](AgentEventPayloadSpec.scala): eight added payload contracts through seven tests, including nested Msg/content validation and optional stop/denied-call defaults.
 - [AgentEventTypeSpec](AgentEventTypeSpec.scala): 31 canonical protocol identifiers, 11 aliases, and nine upstream identifier methods.
-- [AgentEventStreamingSpec](AgentEventStreamingSpec.scala): selected Hub/ZStream behavior.
+- [FinalAnswerFilterSpec](FinalAnswerFilterSpec.scala): three grouped contracts for bounded correlated presentation filtering, a real HTTP ReAct cycle and full-cause/joined-cancellation preservation; [current acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md#optional-final-answer-filter) records exact identities. Primitive Hub/ZStream checks are omitted; all-variant serde and real runtime suites cover source tagging and delivery.
 
 ## Current acceptance
 
@@ -20,9 +20,10 @@ These suites verify payload codecs and selected runtime boundaries. They do not 
 - [x] ReActAgentEmissionSpec verifies correlated iteration-limit publication and inline provider metadata/text/data order with occurrence-sensitive cancellation handling.
 - [x] StructuredCompletionSpec verifies finalized result publication after history commit and before AgentEnd; see the reviewed [agent scope](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).
 - [x] Verify reply/request correlation in actual live model streams.
-- [ ] Complete remaining runtime event ordering, provider multimodal projection, post-reasoning/HITL stop and durable resume integration, and richer source attribution.
+- [x] Verify bounded current runtime ordering, checkpoint Ask/Decision and optional final-answer presentation filtering.
+- [ ] Define model data-block production, remaining provider output-media projection, richer source attribution and host durable checkpoint integration.
 
-The [current event contracts and reviewed source identities](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md) distinguish previously accepted identifiers/codecs from the latest payload increment. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) records ten deprecated legacy methods as explicit exclusions and retains six ordering requirements as pending work; the seventh disabled upstream ordering declaration now has an implemented Scala limit-event regression. Decoding an event does not establish runtime authority or publication.
+The [current event contracts and reviewed source identities](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md) distinguish previously accepted identifiers/codecs from the latest payload increment. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) records ten deprecated legacy methods as explicit exclusions and records six bounded adaptations of disabled ordering declarations; model data-block production remains pending. Decoding an event does not establish runtime authority or publication.
 
 - [x] `review_fp` and `review_harness` independently approved the deprecated-envelope scope decision against `e110321` on 2026-09-29 after inspecting all ten upstream methods. Approval covers applicability classification, not legacy API or wire implementation.
 
