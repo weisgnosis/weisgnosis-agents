@@ -78,7 +78,7 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
           history,
           "selected-model",
           tools,
-          ModelRequestSettings(0.7, Some(100), Some(0.9))
+          ModelRequestSettings(0.7, Some(100), Some(0.9), Some(0.5), Some(0.3))
         )
       for
         calls <- Ref.make(Chunk.empty[String])
@@ -95,7 +95,7 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
             .as(
               ModelInputProjection(
                 input.history :+ Msg.user("first"),
-                ModelRequestSettings(0, Some(11), Some(0.4))
+                ModelRequestSettings(0, Some(11), Some(0.4), Some(-2), Some(2))
               )
             )
         second = ModelInputTransform.withRequest(first): (ctx, input) =>
@@ -104,7 +104,12 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
             .as(
               ModelInputProjection(
                 input.history :+ Msg.user("second"),
-                input.settings.copy(maxTokens = None, topP = None)
+                input.settings.copy(
+                  maxTokens = None,
+                  topP = None,
+                  frequencyPenalty = None,
+                  presencePenalty = None
+                )
               )
             )
         standalone = second(context, history)
@@ -124,7 +129,7 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
           context -> request.copy(history = legacy),
           context -> request.copy(
             history = legacy :+ Msg.user("first"),
-            settings = ModelRequestSettings(0, Some(11), Some(0.4))
+            settings = ModelRequestSettings(0, Some(11), Some(0.4), Some(-2), Some(2))
           )
         ),
         result == ModelInputProjection(
@@ -156,6 +161,20 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
         ModelInputProjection(history, settings.copy(maxTokens = Some(0)))  -> false,
         ModelInputProjection(history, settings.copy(maxTokens = Some(-1))) -> false,
         ModelInputProjection(Chunk(Msg.user("removed system")), settings)  -> false
+      ) ++ Chunk(
+        -2.0                    -> true,
+        0.0                     -> true,
+        2.0                     -> true,
+        Double.NaN              -> false,
+        Double.PositiveInfinity -> false,
+        Double.NegativeInfinity -> false,
+        -2.1                    -> false,
+        2.1                     -> false
+      ).flatMap((value, valid) =>
+        Chunk(
+          ModelInputProjection(history, settings.copy(frequencyPenalty = Some(value))) -> valid,
+          ModelInputProjection(history, settings.copy(presencePenalty = Some(value)))  -> valid
+        )
       )
       ZIO
         .foreach(cases): (candidate, valid) =>

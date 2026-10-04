@@ -61,6 +61,11 @@ object ChatCompletionsRequest:
         "topP must be finite and between 0 and 1"
       )
       _ <- configuration(
+        config.frequencyPenalty.forall(value => value.isFinite && value >= -2 && value <= 2) &&
+          config.presencePenalty.forall(value => value.isFinite && value >= -2 && value <= 2),
+        "Penalties must be finite and between -2 and 2"
+      )
+      _ <- configuration(
         config.responseFormat.forall(_.isInstanceOf[Json.Obj]),
         "Response format must be an object"
       )
@@ -89,6 +94,12 @@ object ChatCompletionsRequest:
         ) ++
           Chunk.fromIterable(config.maxTokens.map(value => "max_tokens" -> Json.Num(value))) ++
           Chunk.fromIterable(config.topP.map(value => "top_p" -> Json.Num(value))) ++
+          Chunk.fromIterable(
+            config.frequencyPenalty.map(value => "frequency_penalty" -> Json.Num(value))
+          ) ++
+          Chunk.fromIterable(
+            config.presencePenalty.map(value => "presence_penalty" -> Json.Num(value))
+          ) ++
           Chunk.fromIterable(config.responseFormat.map(value => "response_format" -> value)) ++
           Chunk.fromIterable(choice.map(value => "tool_choice" -> value)) ++
           (if definitions.isEmpty then Chunk.empty else Chunk("tools" -> Json.Arr(definitions)))

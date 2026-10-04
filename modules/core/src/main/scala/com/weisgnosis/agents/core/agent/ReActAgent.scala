@@ -1429,7 +1429,9 @@ final class ReActAgent private (
           ModelRequestSettings(
             target.config.temperature,
             target.config.maxTokens,
-            target.config.topP
+            target.config.topP,
+            target.config.frequencyPenalty,
+            target.config.presencePenalty
           )
         )
         candidate <- ZIO.scoped(
@@ -1440,7 +1442,9 @@ final class ReActAgent private (
         projectedConfig = target.config.copy(
           temperature = validated.settings.temperature,
           maxTokens = validated.settings.maxTokens,
-          topP = validated.settings.topP
+          topP = validated.settings.topP,
+          frequencyPenalty = validated.settings.frequencyPenalty,
+          presencePenalty = validated.settings.presencePenalty
         )
         _ <- eventHub.publish(
           AgentEvent.ModelRequestStartEvent(target.config.model, 0, context = Some(context))

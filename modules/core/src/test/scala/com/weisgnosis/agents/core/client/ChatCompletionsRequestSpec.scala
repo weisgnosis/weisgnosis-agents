@@ -386,7 +386,9 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
           temperature = 0.25,
           maxTokens = Some(512),
           responseFormat = Some(format),
-          topP = Some(0.9)
+          topP = Some(0.9),
+          frequencyPenalty = Some(0.5),
+          presencePenalty = Some(0.3)
         )
       )
       assertTrue(
@@ -397,6 +399,8 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             value.get("temperature").contains(Json.Num(0.25)) &&
             value.get("max_tokens").contains(Json.Num(512)) &&
             value.get("top_p").contains(Json.Num(0.9)) &&
+            value.get("frequency_penalty").contains(Json.Num(0.5)) &&
+            value.get("presence_penalty").contains(Json.Num(0.3)) &&
             value.get("response_format").contains(format) && value.get("tools").isEmpty
         ),
         Chunk(None, Some(0.0), Some(1.0)).forall(topP =>
@@ -404,12 +408,31 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             .encode(Chunk(Msg.user("question")), Chunk.empty, config.copy(topP = topP))
             .exists(_.get("top_p") == topP.map(Json.Num(_)))
         ),
+        Chunk(None, Some(-2.0), Some(0.0), Some(2.0)).forall(penalty =>
+          ChatCompletionsRequest
+            .encode(
+              Chunk(Msg.user("question")),
+              Chunk.empty,
+              config.copy(frequencyPenalty = penalty, presencePenalty = penalty)
+            )
+            .exists(value =>
+              value.get("frequency_penalty") == penalty.map(Json.Num(_)) &&
+                value.get("presence_penalty") == penalty.map(Json.Num(_))
+            )
+        ),
         """{"model":"test-model"}""".fromJson[LlmConfig] == Right(LlmConfig("test-model")),
         """{"model":"test-model","topP":null}""".fromJson[LlmConfig] == Right(
           LlmConfig("test-model")
         ),
-        config.copy(topP = Some(0.9)).toJson.fromJson[LlmConfig] == Right(
-          config.copy(topP = Some(0.9))
+        """{"model":"test-model","frequencyPenalty":null,"presencePenalty":null}"""
+          .fromJson[LlmConfig] == Right(
+          LlmConfig("test-model")
+        ),
+        config
+          .copy(topP = Some(0.9), frequencyPenalty = Some(-0.5), presencePenalty = Some(0))
+          .toJson
+          .fromJson[LlmConfig] == Right(
+          config.copy(topP = Some(0.9), frequencyPenalty = Some(-0.5), presencePenalty = Some(0))
         )
       )
     },
@@ -704,6 +727,12 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         config.copy(topP = Some(1.1)),
         config.copy(maxTokens = Some(0)),
         config.copy(responseFormat = Some(Json.Str("invalid")))
+      ) ++ Chunk(Double.NaN, Double.PositiveInfinity, Double.NegativeInfinity, -2.1, 2.1).flatMap(
+        value =>
+          Chunk(
+            config.copy(frequencyPenalty = Some(value)),
+            config.copy(presencePenalty = Some(value))
+          )
       )
       assertTrue(
         invalid.forall(value =>

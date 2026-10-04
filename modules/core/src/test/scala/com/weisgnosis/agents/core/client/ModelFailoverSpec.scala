@@ -101,7 +101,12 @@ object ModelFailoverSpec extends ZIOSpecDefault:
           toolkit <- ZIO.fromEither(Toolkit.empty.register(selectedTool))
           agent <- ReActAgent.make(
             client = primary,
-            llmConfig = primaryConfig.copy(topP = Some(0.8), toolChoice = Some(ToolChoice.None)),
+            llmConfig = primaryConfig.copy(
+              topP = Some(0.8),
+              toolChoice = Some(ToolChoice.None),
+              frequencyPenalty = Some(0.5),
+              presencePenalty = Some(-0.5)
+            ),
             toolkit = toolkit,
             fallback = Some(
               ModelTarget(
@@ -110,13 +115,15 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   temperature = 1.1,
                   maxTokens = Some(77),
                   topP = Some(0.6),
+                  frequencyPenalty = Some(-0.3),
+                  presencePenalty = Some(0.3),
                   toolChoice = Some(ToolChoice.Specific("lookup")),
                   responseFormat = Some(Json.Obj("unused" -> Json.Bool(true)))
                 )
               )
             ),
-            modelInputTransform =
-              ModelInputTransform.withRequest(ModelInputTransform.identity)((context, request) =>
+            modelInputTransform = ModelInputTransform.withRequest(ModelInputTransform.identity)(
+              (context, request) =>
                 projections
                   .update(_ :+ (context, request))
                   .as(
@@ -128,11 +135,13 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                       ModelRequestSettings(
                         if request.model == "primary" then 0.2 else 0.4,
                         Some(42),
-                        if request.model == "primary" then None else Some(0.3)
+                        if request.model == "primary" then None else Some(0.3),
+                        frequencyPenalty = if request.model == "primary" then None else Some(-2),
+                        presencePenalty = if request.model == "primary" then Some(0) else None
                       )
                     )
                   )
-              )
+            )
           )
           events       <- agent.streamEvents(Msg.user("question")).runCollect
           history      <- agent.history
@@ -172,7 +181,12 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                       ZIO.succeed(
                         ModelInputProjection(
                           request.history,
-                          ModelRequestSettings(0.3, Some(23))
+                          ModelRequestSettings(
+                            0.3,
+                            Some(23),
+                            frequencyPenalty = Some(0.2),
+                            presencePenalty = Some(-0.2)
+                          )
                         )
                       )
                     ),
@@ -214,7 +228,9 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                     fields.get("response_format") == expectedFormat &&
                       fields.get("tool_choice").contains(Json.Str("none")) &&
                       fields.get("temperature").contains(Json.Num(0.3)) &&
-                      fields.get("max_tokens").contains(Json.Num(23))
+                      fields.get("max_tokens").contains(Json.Num(23)) &&
+                      fields.get("frequency_penalty").contains(Json.Num(0.2)) &&
+                      fields.get("presence_penalty").contains(Json.Num(-0.2))
                   )
                 )
               )
@@ -233,8 +249,9 @@ object ModelFailoverSpec extends ZIOSpecDefault:
           projected.map(_._2.model) == starts.map(_.model),
           projected.forall { case (_, request) =>
             request.tools == toolkit.definitions && request.settings ==
-              (if request.model == "primary" then ModelRequestSettings(0.7, None, Some(0.8))
-               else ModelRequestSettings(1.1, Some(77), Some(0.6)))
+              (if request.model == "primary" then
+                 ModelRequestSettings(0.7, None, Some(0.8), Some(0.5), Some(-0.5))
+               else ModelRequestSettings(1.1, Some(77), Some(0.6), Some(-0.3), Some(0.3)))
           },
           requests.forall { case (model, value) =>
             value.asObject.exists(fields =>
@@ -257,6 +274,18 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   ) &&
                 (fields.get("top_p") == (if model == "primary" then None
                                          else Some(Json.Num(0.3)))) &&
+                (if model == "primary" then fields.get("frequency_penalty").isEmpty
+                 else
+                   fields
+                     .get("frequency_penalty")
+                     .flatMap(_.asNumber)
+                     .exists(_.value.compareTo(java.math.BigDecimal.valueOf(-2L)) == 0)) &&
+                (if model == "primary" then
+                   fields
+                     .get("presence_penalty")
+                     .flatMap(_.asNumber)
+                     .exists(_.value.compareTo(java.math.BigDecimal.ZERO) == 0)
+                 else fields.get("presence_penalty").isEmpty) &&
                 fields.get("messages").exists(_.toJson.contains(s"request for $model"))
             )
           },

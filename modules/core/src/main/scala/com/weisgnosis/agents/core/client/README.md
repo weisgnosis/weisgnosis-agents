@@ -35,21 +35,43 @@ ReActAgentEventSpec checks AgentStart first and the matching AgentEnd last for f
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no findings. Existing groups were strengthened; no production behavior or test-group count changed. Focused `event-order-focused.log` passed seventeen tests in 7.747 seconds.
 - [x] Formatting and full verification passed in `event-order-verify.log`, with zero compiler warnings or failures. Current totals and environment belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
+## Optional frequency and presence penalties
+
+LlmConfig and ModelRequestSettings carry optional frequencyPenalty and presencePenalty, both defaulting to None. ChatCompletions emits frequency_penalty and presence_penalty only for supplied values, including explicit zero. Each value must be finite and in the inclusive range [-2, 2]; validation rejects invalid values without clamping or changing the selected endpoint. LlmConfig JSON uses camelCase fields; missing or explicit-null values decode as None. The derived configuration codec represents data, while request encoding and runtime projection enforce these bounds.
+
+Each primary/fallback target supplies its own initial settings to the scoped projection. Projection replaces the optional values, so None clears a configured penalty. Validation occurs after projection cleanup and before request events or custom-client dispatch, including invalid original settings through legacy transforms. Structured native/synthetic requests retain the projected values; transport retries reuse the encoded request. Tools, choice, response format and client authority remain unchanged. No penalty fields are added to subagent declaration YAML.
+
+Migration: LlmConfig now has eleven positional/Product fields and ModelRequestSettings has five. Appended defaulted fields preserve ordinary omitted-argument construction and legacy configuration JSON. Positional patterns and constructor method values may need adaptation; rebuild dependent binaries. Custom clients remain responsible for interpreting these model settings.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | `3f04f2a5ab80aaa9282e1940ab04b4b2b6bf59f1` |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | `84258725c54acacb8df0f5660bfd1f06513863a9` |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `6ed9e4d311cd7386b6dc591fd2c00d83ef372755` |
+| [LlmClient.scala](LlmClient.scala) | `a8b55256fdac3e43cd60ded6260c7a8b15622735` |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | `3408da4c699a8b52ed2e4a9a7278612cf107f605` |
+| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | `38a956d56d49bfd0a1c41b046f04646c2519eb93` |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `b66d5cf928514796784e0f13ffed55b01e16d4dc` |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | `88686418dd7441324d06e7e66fe4025620e681f6` |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these eight identities, with no findings. Existing tables cover omission, zero, endpoints, nonfinite/out-of-range values, codec defaults, projection override/clearing and validation before custom dispatch, per-target selection, retry reuse and structured requests. No new test groups were added. Focused `penalties-numeric-focused.log` passed 37 tests in 1.186 seconds.
+- [x] Formatting and full verification passed in `penalties-verify.log`, with zero compiler warnings or failures. Current aggregate evidence and environment are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) keeps seed and broader generation-option behavior separate.
+
 ## Host-selected tool choice
 
 LlmConfig.toolChoice defaults to Option.None, which omits tool_choice. Explicit ToolChoice.Auto, None and Required encode as auto, none and required; Specific(name) encodes the function-selection object. Auto and None are omitted when no tools are advertised. Required needs a nonempty visible definition set; Specific requires a syntactically valid exact name in that set. Validation rejects hidden, missing or invalid targets before HTTP acquisition. Definitions remain unchanged. The absent default intentionally differs from Java's null-to-auto helper behavior.
 
 This is provider steering, not permission or completion authority. A provider may still return a call despite none; runtime visibility, ordinary authorization and structured capture remain authoritative. Request projection cannot change the choice. Each selected primary/fallback target retains its own configured choice; retries reuse the same encoded body, and native/synthetic requests retain the choice without overriding it to force capture. The host must select hints compatible with its structured-output mode; hints that prevent capture remain subject to the existing iteration and timeout bounds. Provider compliance is not guaranteed. Custom LlmClient implementations interpret this configuration themselves; the validation/encoding contract belongs to ChatCompletions.
 
-Migration: LlmConfig appends defaulted toolChoice and now has nine positional/Product fields. Existing omitted-argument construction and old missing/JSON-null toolChoice decode as None; explicit enum cases round-trip through the domain codec. Constructor method values may need adaptation and dependent binaries must be rebuilt. Domain toolChoice JSON is distinct from provider tool_choice encoding.
+Migration: LlmConfig has a defaulted toolChoice; its current positional/Product shape is recorded in the [settings migration](#optional-frequency-and-presence-penalties). Existing omitted-argument construction and old missing/JSON-null toolChoice decode as None; explicit enum cases round-trip through the domain codec. Constructor method values may need adaptation and dependent binaries must be rebuilt. Domain toolChoice JSON is distinct from provider tool_choice encoding.
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | 0e228ff6251a40f0290a9d92c7df0d1197a419b2 |
-| [LlmClient.scala](LlmClient.scala) | 4e878986d565dcf9d0b81633e4450907c5d7becf |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
+| [LlmClient.scala](LlmClient.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current ordering identity](#runtime-event-ordering) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | c736be71f7b46b529826e2646516cb5387113ac3 |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | feeff471a558467c595111b2c7cb74c75e10354f |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Existing tables cover all choices, empty definitions, exact visibility rejection and codec defaults. The extended real HTTP cycle verifies that a returned call despite none still passes through host authorization, Specific cannot bypass host denial, and hidden Specific performs no HTTP/authorization. Controlled failover/structured requests retain each target's own choice. Focused tool-choice-focused.log passed 31 tests in 7.402 seconds; no new groups were added.
 - [x] Full scalafmtAll scalafmtSbt verify passed in tool-choice-verify.log with zero compiler warnings or failures. Current aggregate evidence is in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -60,18 +82,18 @@ LlmConfig.topP is optional, defaulting to None. ChatCompletions emits top_p only
 
 ModelRequestSettings carries the selected target's topP into the scoped request projection. Its output replaces that target's setting: None explicitly clears it. Validation runs after projection cleanup and before request events or custom-client dispatch; primary and fallback start from their own configurations, and transport retries reuse the encoded request. SubagentDeclaration.topP instead treats None as inheritance and Some as a child override. Its checked YAML profile accepts top_p or topP, rejects simultaneous key presence even when either value is null, and treats omitted/plain-null as inheritance; quoted numeric scalars parse, while quoted null and malformed/nonfinite/out-of-range values fail. It grants no execution authority.
 
-Migration: the appended defaulted fields preserve ordinary omitted-argument construction and legacy JSON. Positional patterns/Product arities are three for ModelRequestSettings and nine for SubagentDeclaration; LlmConfig follows the [current migration](#host-selected-tool-choice); constructor method values may need adaptation and dependent binaries must be rebuilt. Declaration validation and request validation remain explicit boundaries rather than validation performed by the derived data codecs.
+Migration: the appended defaulted fields preserve ordinary omitted-argument construction and legacy JSON. SubagentDeclaration retains nine positional/Product fields; ModelRequestSettings and LlmConfig follow the [current settings migration](#optional-frequency-and-presence-penalties); constructor method values may need adaptation and dependent binaries must be rebuilt. Declaration validation and request validation remain explicit boundaries rather than validation performed by the derived data codecs.
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5bbd26b08badd4655233de44bc37d2b8aa055066 |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current host-resume identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
-| [LlmClient.scala](LlmClient.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
-| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | f1fc743eab486530a80f640121c9645525a3357e |
-| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 0d4f7af173a519abc65ece2feadc6f7f19efc053 |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
+| [LlmClient.scala](LlmClient.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
+| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
 | [SubagentDeclaration.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclaration.scala) | bf55c6a99b8c35bfaa28bd15eb8fba2617ad9faa |
 | [SubagentDeclarationParser.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParser.scala) | 2033e68dc48552d838cf7f96b7a53d9e1a2df45c |
 | [SubagentDeclarationParserSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | 3143e211c09c6a1f58b9eaaa4afd0e88868bbfa1 |
@@ -142,8 +164,8 @@ Existing tables verify six inline MIME mappings, four image URL hints on a misle
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current topP scope identity](README.md#optional-nucleus-sampling) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current topP scope identity](README.md#optional-nucleus-sampling) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
 | [MediaSource.scala](../model/MediaSource.scala) | a443433df837fc8d4eb4b714664b90b2a7bcef3c |
 | [MediaSourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/MediaSourceSpec.scala) | ac9619600ec48fe7f0c5713ae7f34c8f8c0f6ad6 |
 

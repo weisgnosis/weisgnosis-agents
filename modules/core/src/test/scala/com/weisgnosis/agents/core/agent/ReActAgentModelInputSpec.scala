@@ -106,12 +106,16 @@ object ReActAgentModelInputSpec extends ZIOSpecDefault:
         ModelRequestSettings(0.7, Some(0)),
         ModelRequestSettings(0.7, Some(-1)),
         ModelRequestSettings(0.7, None, Some(Double.NaN)),
-        ModelRequestSettings(0.7, None, Some(1.1))
+        ModelRequestSettings(0.7, None, Some(1.1)),
+        validSettings.copy(frequencyPenalty = Some(Double.NaN)),
+        validSettings.copy(presencePenalty = Some(2.1))
       ).map(ModelInputProjection(canonical, _))
       val cases = invalid.map(projection => (LlmConfig("custom"), Some(projection))) ++ Chunk(
         (LlmConfig("custom", temperature = Double.NaN), None),
         (LlmConfig("custom", maxTokens = Some(0)), None),
-        (LlmConfig("custom", topP = Some(-0.1)), None)
+        (LlmConfig("custom", topP = Some(-0.1)), None),
+        (LlmConfig("custom", frequencyPenalty = Some(-2.1)), None),
+        (LlmConfig("custom", presencePenalty = Some(Double.PositiveInfinity)), None)
       )
       ZIO
         .foreach(cases): (config, candidate) =>

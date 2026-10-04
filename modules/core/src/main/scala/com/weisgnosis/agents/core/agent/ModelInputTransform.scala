@@ -25,7 +25,9 @@ import zio.*
 final case class ModelRequestSettings(
     temperature: Double,
     maxTokens: Option[Int],
-    topP: Option[Double] = None
+    topP: Option[Double] = None,
+    frequencyPenalty: Option[Double] = None,
+    presencePenalty: Option[Double] = None
 )
 
 final case class ModelRequestInput(
@@ -118,6 +120,16 @@ object ModelInputTransform:
         candidate.settings.maxTokens.forall(_ > 0),
         (),
         AgentError.ModelInputError("Projected maximum tokens must be positive")
+      )
+      _ <- Either.cond(
+        candidate.settings.frequencyPenalty.forall(value =>
+          value.isFinite && value >= -2 && value <= 2
+        ) &&
+          candidate.settings.presencePenalty.forall(value =>
+            value.isFinite && value >= -2 && value <= 2
+          ),
+        (),
+        AgentError.ModelInputError("Projected penalties must be finite and between -2 and 2")
       )
     yield candidate
 
