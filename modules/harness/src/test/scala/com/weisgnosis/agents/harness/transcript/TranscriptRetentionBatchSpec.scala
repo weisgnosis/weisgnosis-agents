@@ -57,16 +57,88 @@ object TranscriptRetentionBatchSpec extends ZIOSpecDefault:
         count == 0
       )
     },
-    test("KeepAll bypasses the clock and every target") {
+    test("KeepAll bypasses the clock, discovery and every target") {
       for
+        discoveries <- Ref.make(0)
         selected <- target("unused")(_ => ZIO.fail(AgentError.MemoryStorageError("must not run")))
         batch <- TranscriptRetentionBatch.make(Chunk(selected), TranscriptRetentionPolicy.KeepAll)
+        discovered <- TranscriptRetentionBatch.fromDiscovery(
+          discoveries.update(_ + 1) *> ZIO.fail(AgentError.MemoryStorageError("must not discover")),
+          TranscriptRetentionPolicy.KeepAll
+        )
         underlying <- ZIO.clock
         result <- batch.run.withClock(
           clock(underlying, ZIO.die(new IllegalStateException("clock must not run")))
         )
-      yield assertTrue(result == TranscriptBatchResult.Disabled)
+        discoveryResult <- discovered.run.withClock(
+          clock(underlying, ZIO.die(new IllegalStateException("clock must not run")))
+        )
+        count <- discoveries.get
+      yield assertTrue(
+        result == TranscriptBatchResult.Disabled,
+        discoveryResult == TranscriptBatchResult.Disabled,
+        count == 0
+      )
     },
+    test(
+      "discovery refreshes checked snapshots and cancellation joins selection before any pruning"
+    ):
+      val defect = new IllegalStateException("discovery cleanup failed")
+      for
+        _     <- TestClock.setTime(now)
+        calls <- Ref.make(Chunk.empty[String])
+        reads <- Ref.make(0)
+        first <- target("first")(_ => calls.update(_ :+ "first").as(TranscriptPruneResult.Missing))
+        second <- target("second")(_ =>
+          calls.update(_ :+ "second").as(TranscriptPruneResult.Missing)
+        )
+        selected  <- Ref.make(Chunk(first))
+        batch     <- TranscriptRetentionBatch.fromDiscovery(reads.update(_ + 1) *> selected.get)
+        cold      <- reads.get
+        prepared  <- batch.prepare
+        before    <- calls.get
+        _         <- selected.set(Chunk(second))
+        _         <- prepared.execute
+        _         <- batch.run
+        _         <- selected.set(Chunk(first, first))
+        duplicate <- batch.run.exit
+        count     <- reads.get
+        entered   <- Promise.make[Nothing, Unit]
+        cleanupEntered <- Promise.make[Nothing, Unit]
+        release        <- Promise.make[Nothing, Unit]
+        held <- TranscriptRetentionBatch.fromDiscovery(
+          ZIO.scoped(
+            ZIO.addFinalizer(cleanupEntered.succeed(()) *> release.await *> ZIO.die(defect)) *>
+              entered.succeed(()) *> ZIO.never.as(Chunk(first))
+          )
+        )
+        cancellation <- ZIO.scoped(
+          (for
+            fiber   <- held.run.forkScoped
+            _       <- entered.await
+            _       <- fiber.interruptFork
+            _       <- cleanupEntered.await
+            waiting <- fiber.poll
+            _       <- release.succeed(())
+            exit    <- fiber.await
+          yield (waiting, exit)).ensuring(release.succeed(()).unit)
+        )
+        observed <- calls.get
+      yield assertTrue(
+        cold == 0,
+        before.isEmpty,
+        count == 3,
+        observed == Chunk("first", "second"),
+        duplicate.causeOption.exists(
+          _.failures == List(
+            AgentError.InvalidConfiguration("Transcript target IDs must be unique within a batch")
+          )
+        ),
+        cancellation._1.isEmpty,
+        cancellation._2.isInterrupted,
+        cancellation._2.causeOption.exists(_.defects == List(defect))
+      )
+    ,
     test(
       "preparation samples once without pruning and every ordered target receives the same cutoff"
     ) {

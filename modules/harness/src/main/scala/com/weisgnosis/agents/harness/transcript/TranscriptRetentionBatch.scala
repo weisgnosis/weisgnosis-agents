@@ -32,9 +32,9 @@ final private[harness] class PreparedTranscriptPruning private[transcript] (
     val execute: IO[AgentError, TranscriptBatchResult]
 )
 
-/** Ordered explicit capabilities; no filesystem discovery or per-target failure suppression. */
+/** Ordered selected capabilities; each enabled preparation owns a fresh selection snapshot. */
 final class TranscriptRetentionBatch private (
-    targets: Chunk[TranscriptRetentionTarget],
+    selection: IO[AgentError, Chunk[TranscriptRetentionTarget]],
     policy: TranscriptRetentionPolicy
 ):
   def run: IO[AgentError, TranscriptBatchResult] = prepare.flatMap(_.execute)
@@ -44,24 +44,41 @@ final class TranscriptRetentionBatch private (
       case TranscriptRetentionPolicy.KeepAll => ZIO.none
       case TranscriptRetentionPolicy.PruneAfter(_) =>
         Clock.instant.flatMap(now => ZIO.fromEither(policy.cutoff(now)))
-    cutoff.map:
-      case None => new PreparedTranscriptPruning(ZIO.succeed(TranscriptBatchResult.Disabled))
+    cutoff.flatMap:
+      case None =>
+        ZIO.succeed(new PreparedTranscriptPruning(ZIO.succeed(TranscriptBatchResult.Disabled)))
       case Some(before) =>
-        new PreparedTranscriptPruning(
-          ZIO
-            .foreach(targets)(target =>
-              target.prune(before).map(TranscriptTargetResult(target.id, _))
+        selection
+          .flatMap(TranscriptRetentionBatch.checked)
+          .map(targets =>
+            new PreparedTranscriptPruning(
+              ZIO
+                .foreach(targets)(target =>
+                  target.prune(before).map(TranscriptTargetResult(target.id, _))
+                )
+                .map(TranscriptBatchResult.Evaluated(before, _))
             )
-            .map(TranscriptBatchResult.Evaluated(before, _))
-        )
+          )
 
 object TranscriptRetentionBatch:
   def make(
       targets: Chunk[TranscriptRetentionTarget],
       policy: TranscriptRetentionPolicy = TranscriptRetentionPolicy.Default
   ): IO[AgentError, TranscriptRetentionBatch] =
+    checked(targets).map(values => new TranscriptRetentionBatch(ZIO.succeed(values), policy))
+
+  /** Selection must join its resources; failures stop preparation before any target is pruned. */
+  def fromDiscovery(
+      selection: IO[AgentError, Chunk[TranscriptRetentionTarget]],
+      policy: TranscriptRetentionPolicy = TranscriptRetentionPolicy.Default
+  ): UIO[TranscriptRetentionBatch] =
+    ZIO.succeed(new TranscriptRetentionBatch(selection, policy))
+
+  private def checked(
+      targets: Chunk[TranscriptRetentionTarget]
+  ): IO[AgentError, Chunk[TranscriptRetentionTarget]] =
     if targets.map(_.id).distinct.size != targets.size then
       ZIO.fail(
         AgentError.InvalidConfiguration("Transcript target IDs must be unique within a batch")
       )
-    else ZIO.succeed(new TranscriptRetentionBatch(targets, policy))
+    else ZIO.succeed(targets)

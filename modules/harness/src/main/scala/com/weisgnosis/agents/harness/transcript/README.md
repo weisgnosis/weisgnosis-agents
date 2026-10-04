@@ -54,7 +54,7 @@ Migration: shared lease extraction preserves memory/.daily-writer.lease and exis
 - [x] Integrate opt-in background flush and combined daily-memory maintenance in the memory package.
 - [x] Add explicit transcript-retention policy below.
 - [x] Integrate explicit owned batch pruning below.
-- [ ] Implement session enumeration.
+- [x] Implement bounded host-controlled local enumeration for maintenance; see [discovery](#bounded-local-transcript-discovery).
 - [ ] Implement remote immutable segments/indexes and platform-specific ownership validation.
 
 Unchanged Git-normalized local persistence identities; the changed TranscriptFiles identity is preserved in 9ddee3a and indexed in the pruning table below:
@@ -85,7 +85,7 @@ Required observation completes before successful result publication and before c
 - [x] Integrate scoped background flush and combined daily-memory maintenance; choose the appropriate owner scheduler.
 - [x] Add explicit transcript-retention policy below.
 - [x] Integrate explicit owned batch pruning below.
-- [ ] Implement session enumeration.
+- [x] Implement bounded host-controlled local enumeration for maintenance; see [discovery](#bounded-local-transcript-discovery).
 - [ ] Implement remote immutable segments and session indexes.
 
 The previous SessionTranscriptWriter.scala identity is preserved in `0349b1a`; its current identity and acceptance are in the completion-observer table in the [core agent contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
@@ -104,7 +104,7 @@ Deletion removes only that validated payload entry. It does not recurse, enumera
 
 Successful pruning retires the persisted deduplication keys and parent chain. A later open starts an empty transcript and accepts formerly used stable keys as new observations. The host must retire the corresponding logical session rather than assume identity continuity or a retained tombstone. This is an explicit destructive storage capability for a host-selected inactive session, not automatic application session discovery or authentication.
 
-The backend still requires a host-controlled directory and ancestors. Cooperative leases and canonical checks do not protect against hostile external path replacement. This is a hardened source-level adaptation of upstream pruneOldSessions: explicit target selection, strict validation, active-owner refusal and observation-aware recency replace a broad filename scan, mtime-only decision and swallowed failures. No new named upstream pruning test is claimed. The 180-day policy is implemented below; session enumeration and remote pruning remain unfinished; owned batch maintenance is implemented below. Prior TranscriptFiles.scala is preserved in 9ddee3a.
+The backend still requires a host-controlled directory and ancestors. Cooperative leases and canonical checks do not protect against hostile external path replacement. This is a hardened source-level adaptation of upstream pruneOldSessions: explicit target selection, strict validation, active-owner refusal and observation-aware recency replace a broad filename scan, mtime-only decision and swallowed failures. No new named upstream pruning test is claimed. The 180-day policy is implemented below; bounded local discovery is available below; remote pruning remains unfinished; owned batch maintenance is implemented below. Prior TranscriptFiles.scala is preserved in 9ddee3a.
 
 ## Current pruning identities
 
@@ -149,14 +149,30 @@ Final formatted five-file increment against `f1a005e`; independent acceptance is
 
 [TranscriptRetentionTarget](TranscriptRetentionTarget.scala) pairs an exact nonblank TranscriptTargetId with a suspended prune capability. IDs are correlation values, not paths, authorization or proof of inactivity; nonblank whitespace is preserved. The local constructor delegates to the existing scoped lease-protected pruner. Custom capabilities own their effect/resource contracts. Different IDs may alias one directory; the batch does not canonicalize or deduplicate paths, so a later alias can report Missing after an earlier deletion.
 
-[TranscriptRetentionBatch](TranscriptRetentionBatch.scala) rejects duplicate exact IDs before invoking capabilities. KeepAll returns Disabled without reading Clock or invoking targets. Enabled preparation samples Clock.instant once, validates the policy cutoff, and captures sequential traversal without executing any target. Each target receives that cutoff in supplied order. An enabled empty batch reports Evaluated with an empty target list. Prepared execution is replayable, not a once-only receipt or durable plan.
+[TranscriptRetentionBatch](TranscriptRetentionBatch.scala) rejects duplicate exact IDs before invoking capabilities. KeepAll returns Disabled without reading Clock, running discovery or invoking targets. Enabled preparation samples Clock.instant once, validates the policy cutoff, resolves and checks selection, and captures sequential traversal without executing any target. Each target receives that cutoff in supplied order. An enabled empty batch reports Evaluated with an empty target list. Prepared execution is replayable, not a once-only receipt or durable plan.
 
-A typed failure, defect or cancellation stops later targets and preserves the full cause. Earlier effects remain observable; no aggregate success is returned for a partially completed batch. Local lease refusal still protects active/stale-owned transcripts, and local pruning retains all validation and generation-retirement rules. Explicit immutable selection is supplied by the host; there is no session discovery, catalog, automatic activity authorization or multi-file transaction.
+A typed failure, defect or cancellation stops later targets and preserves the full cause. Earlier effects remain observable; no aggregate success is returned for a partially completed batch. Local lease refusal still protects active/stale-owned transcripts, and local pruning retains all validation and generation-retirement rules. The host supplies explicit immutable selection or opts into cold discovery. Neither path grants automatic activity authorization or a multi-file transaction.
 
 The [memory coordinator contract and current identities](../memory/README.md#selected-transcript-maintenance) cover background integration, partial-progress reporting, all eight source identities and acceptance. Existing single-target APIs remain source-compatible.
 
-- [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.
+The unchanged coordinator and target identities remain in the [memory contract](../memory/README.md#current-batch-and-coordinator-identities); current batch identities are recorded below.
 
-- [x] `review_docs` approved batch/coordinator documentation against `b86fd14`: eight identities, 22 new cases, explicit ordering, cutoff preparation and partial-progress contracts. Full verification passed 555 core / 434 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Configuration, discovery and remote integration remain visible as unfinished work.
+## Bounded local transcript discovery
 
-Changed WorkspaceLease.scala, WorkspaceLeaseSpec.scala identities are preserved in 083617b; the [current plan-storage table](../plan/README.md#current-draft-storage-identities) records their replacements and renewed acceptance.
+[LocalTranscriptDiscovery.discover](LocalTranscriptDiscovery.scala) is a cold, read-only scan of one explicit WorkspaceTrust.HostControlled root. LocalTranscriptDiscoveryLimits defaults to 4,096 root entries and 256 selected targets; both limits must be positive. Every immediate entry counts, including ignored regular files. Selected directories are sorted by filename, and their exact filenames become target IDs. Only directories with a present regular transcript.jsonl are selected; a genuinely absent payload skips that directory. Missing roots and other filesystem failures fail the whole selection. No directories are created.
+
+Traversal is rejected before normalization. Sensitive entries and nonregular or symbolic-link entries are rejected before payload probing; selected directories and payloads must retain their canonical identity and direct parent. Enumeration closes before candidate validation. These checks rely on host-controlled ancestors and are not an atomic filesystem sandbox. Symlink/junction behavior and interruption during actual filesystem calls have not been integration-tested; joined blocking calls have no cancellation deadline.
+
+TranscriptRetentionBatch.fromDiscovery stores an injected selection effect without running it. Every enabled preparation obtains a fresh snapshot and rejects duplicate IDs; KeepAll bypasses both discovery and Clock. Existing make calls retain explicit-target behavior. MemoryMaintenanceCoordinator completes discovery, cutoff and ID validation before memory work. Discovery does not acquire writer leases, parse transcript bodies or establish that a logical session is inactive. Each target retains the existing lease and complete-body validation at pruning time, so a later failure may follow committed memory and earlier deletions. Hosts retain responsibility for session retirement and receipt handling.
+
+Migration is additive: existing batch construction and scheduler APIs are unchanged. A custom selection effect must finish its scoped cleanup before returning. Remote storage is not supplied by these local capabilities; a remote backend needs a concrete ownership, conditional publication and recovery contract rather than an inferred remote implementation of the local port.
+
+| Source | Git blob |
+| --- | --- |
+| [LocalTranscriptDiscovery.scala](LocalTranscriptDiscovery.scala) | 2f7212d2f9d53deba2265572f5fd31f148131e56 |
+| [LocalTranscriptDiscoverySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptDiscoverySpec.scala) | 58263f93ca9c38286d4b177e63ccc8eb7b24c79c |
+| [TranscriptRetentionBatch.scala](TranscriptRetentionBatch.scala) | 764cace6c8b535b1cf611129137edd86963d3bb6 |
+| [TranscriptRetentionBatchSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptRetentionBatchSpec.scala) | 7f5ecad860a161f22c8e9a8d205b5056eec11ece |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these four identities, with no findings. Focused checks passed 40 tests in 682 ms. Full `scalafmtAll scalafmtSbt verify` passed in `transcript-discovery-verify.log` with zero compiler warnings or failures; current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [ ] Remote discovery/pruning, automatic scheduling and platform-specific hostile-filesystem guarantees remain unfinished.

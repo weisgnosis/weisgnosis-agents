@@ -808,7 +808,8 @@ A test-scope ownership review finding was corrected with acquireRelease so early
 
 - [x] Exercise all four consolidation outcomes, gate suppression/failure, no-input throttle consumption, coalescing, successful-completion hooks, failed/cancelled exits and closed/full/registration failures.
 - [x] Verify local persisted commit after report failure and owner reopen.
-- [ ] Implement automatic session discovery and eight remote matrix combinations; daily cutoff, explicit batch maintenance and MemoryConfig method adaptations are implemented below.
+- [x] Implement bounded host-controlled local transcript discovery for existing maintenance; source-level adaptation and limits are recorded below.
+- [ ] Implement the eight remote matrix combinations under a concrete remote storage/ownership contract; local discovery does not establish remote parity.
 
 - [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
 
@@ -872,7 +873,14 @@ Eight new tests verify the shared 180-day default, positive day decoding, exact 
 - [x] Verify one prepared transcript cutoff, exact target ordering, complete cause preservation, independent transcript work after all returned memory outcomes and one existing Maintenance admission.
 - [x] Complete the six MemoryConfig method adaptations above in the later immutable-configuration increment; the batch increment itself adds source-contract evidence only.
 
-Selected capabilities intentionally replace broad directory scanning and swallowed per-file failures. Discovery, cross-phase atomicity and exactly-once reporting are not claimed. The canonical identities and scope are in the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).
+Selected capabilities intentionally replace broad unbounded directory scanning and swallowed per-file failures. Opt-in bounded local discovery is described below; cross-phase atomicity and exactly-once reporting are not claimed. The canonical identities and scope are in the [memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).
+
+## Bounded local transcript discovery evidence
+
+Pinned `agentscope-harness/src/main/java/io/agentscope/harness/agent/middleware/MemoryMaintenanceMiddleware.java`, `pruneOldSessions` lines 255-282, supplies source-level intent: glob session logs, compare modification timestamps and suppress per-file failures. No matching named Java test is claimed. The Scala adaptation selects sorted immediate child directories containing transcript.jsonl under explicit HostControlled trust, with entry/target bounds. Existing pruning retains cooperative writer ownership, strict body validation, observation-aware recency and propagated failures. Java layout, mtime-only deletion and swallowed failures are intentional differences.
+
+- [x] Three LocalTranscriptDiscoverySpec groups cover fresh ordered coordinator selection, structural rejection before memory, and later lease/body failure with observable earlier progress. A new batch group covers checked snapshots and joined cancellation with an exact cleanup defect; KeepAll also proves discovery and Clock are bypassed. Both reviewers approved the [four current identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#bounded-local-transcript-discovery), and full verification passed.
+- [ ] Remote enumeration/pruning, symlink/junction platform evidence and hostile-filesystem guarantees remain separate. Local capabilities do not define a remote conditional-publication or recovery protocol.
 
 ## Configuration integration evidence
 

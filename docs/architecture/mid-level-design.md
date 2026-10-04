@@ -192,9 +192,9 @@ TranscriptRetentionPolicy reuses positive RetentionDays but interprets each day 
 
 ## Ordered batch coordination
 
-TranscriptRetentionBatch holds explicit capabilities with unique exact IDs. Preparation captures one validated cutoff without invoking targets; KeepAll bypasses time and capabilities. Sequential execution preserves order and full failure causes, with no rollback of earlier effects. Prepared execution remains replayable. MemoryMaintenanceCoordinator prepares this batch before memory effects, then runs it after any returned memory outcome. Memory and transcript dates are separate clock samples.
+TranscriptRetentionBatch holds explicit capabilities or a cold discovery effect with unique exact IDs. Preparation captures one validated cutoff and checks a fresh selection without invoking targets; KeepAll bypasses time, discovery and capabilities. Sequential execution preserves order and full failure causes, with no rollback of earlier effects. Prepared execution remains replayable. MemoryMaintenanceCoordinator prepares this batch before memory effects, then runs it after any returned memory outcome. Memory and transcript dates are separate clock samples.
 
-The additive MemoryMaintenanceScheduler overload uses the same owner token, Maintenance gate and serial queue job before aggregate reporting. Install it instead of competing maintenance adapters for the same scope. Failed receipts or absent reports can follow persisted memory/deletions; hosts must inspect state and monitor receipts. Explicit selection supplies no session discovery or activity authorization.
+The additive MemoryMaintenanceScheduler overload uses the same owner token, Maintenance gate and serial queue job before aggregate reporting. Install it instead of competing maintenance adapters for the same scope. Failed receipts or absent reports can follow persisted memory/deletions; hosts must inspect state and monitor receipts. Opt-in LocalTranscriptDiscovery enumerates bounded direct children under explicit host trust and closes its scan before memory work. Selection supplies no activity authorization; body validation and lease admission still occur during pruning, which can fail after earlier commits.
 
 ## Configuration and prompt boundaries
 

@@ -126,7 +126,7 @@ MemoryMaintenanceTask is a private extraction of the existing scheduling boundar
 
 The unchanged daily-only scheduler suite also passes. See the [coordinator contract and canonical eight-file identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md#selected-transcript-maintenance).
 
-- [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Discovery, cross-phase rollback, exactly-once execution and complete configuration parity are excluded.
+- [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Cross-phase rollback, exactly-once execution and complete configuration parity are excluded. The [local discovery suite](../transcript/README.md#bounded-local-discovery-evidence) additionally proves structural selection failure before memory effects and cold selection across actual coordinator runs; transcript body/lease failures remain later pruning failures.
 
 ## Configuration verification
 
