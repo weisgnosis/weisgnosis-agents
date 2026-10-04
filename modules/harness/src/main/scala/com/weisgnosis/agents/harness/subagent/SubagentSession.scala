@@ -61,7 +61,26 @@ object SubagentSession:
       maxTracked: Int = 256
   ): ZIO[Scope, AgentError, TaskResourceAdmission[SubagentSession]] =
     validateCapacity(maxTracked) *>
-      parent.ownChild((child, supervisor) => initialize(child, supervisor, factory, maxTracked))
+      parent.ownChild((child, supervisor) =>
+        initialize(child, supervisor, factory, maxTracked, None)
+      )
+
+  /**
+   * Acquires a new host-owned runtime and restores checked pending data before publishing the
+   * session. The current factory and parent supply execution authority; no execution record is
+   * imported or started. Authentication, exclusive checkpoint claims and idempotency belong to
+   * the host. Factory acquisition still runs even though model/tool execution awaits resume.
+   */
+  def openRestored(
+      parent: SubagentSpawner[AgentResult],
+      factory: SubagentFactory,
+      checkpoint: AgentResult,
+      maxTracked: Int = 256
+  ): ZIO[Scope, AgentError, TaskResourceAdmission[SubagentSession]] =
+    validateCapacity(maxTracked) *>
+      parent.ownChild((child, supervisor) =>
+        initialize(child, supervisor, factory, maxTracked, Some(checkpoint))
+      )
 
   private[subagent] def openRetained(
       parent: SubagentSpawner[AgentResult],
@@ -70,7 +89,7 @@ object SubagentSession:
   ): IO[AgentError, TaskResourceAdmission[SubagentSession]] =
     validateCapacity(maxTracked) *>
       parent.ownChildRetained((child, supervisor) =>
-        initialize(child, supervisor, factory, maxTracked)
+        initialize(child, supervisor, factory, maxTracked, None)
       )
 
   private def validateCapacity(maxTracked: Int): IO[AgentError, Unit] =
@@ -83,10 +102,12 @@ object SubagentSession:
       child: SubagentSpawner[AgentResult],
       supervisor: TaskSupervisor[AgentResult],
       factory: SubagentFactory,
-      maxTracked: Int
+      maxTracked: Int,
+      checkpoint: Option[AgentResult]
   ): ZIO[Scope, AgentError, SubagentSession] =
     for
       runtime <- factory.build(child)
+      _       <- ZIO.foreachDiscard(checkpoint)(runtime.restore)
       turn    <- Semaphore.make(1)
       executions <- SubagentTaskRegistry.openInput[Command](
         Command.Send(_),

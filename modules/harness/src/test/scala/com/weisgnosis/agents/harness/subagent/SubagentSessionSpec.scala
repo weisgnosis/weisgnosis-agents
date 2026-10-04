@@ -48,12 +48,16 @@ import com.weisgnosis.agents.harness.permission.{
 }
 import com.weisgnosis.agents.harness.plan.{PlanMode, PlanPermissionGate, PlanToolAccess}
 import zio.*
+import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
 object SubagentSessionSpec extends ZIOSpecDefault:
   private enum ResumeCompletion:
     case Confirmed, Supplied
+
+  private enum RestoreFailure:
+    case NotSuspended, ChangedBindings
 
   private def owner: ZIO[Scope, Nothing, Scope.Closeable] =
     ZIO.acquireRelease(Scope.make)(_.close(Exit.unit))
@@ -105,6 +109,211 @@ object SubagentSessionSpec extends ZIOSpecDefault:
     submitted(session.send(Msg.user(text))).flatMap(result(session, _))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentSessionSpec")(
+    test(
+      "restored child sessions preserve completed and supplied results under the new host policy"
+    ):
+      for
+        originalOwner <- TaskSupervisor.open[AgentResult]
+        originalRoot  <- SubagentSpawner.root(originalOwner)
+        originalModel <- Ref.make(0)
+        originalCalls <- Ref.make(Chunk.empty[Json])
+        sources       <- Ref.make(Chunk.empty[String])
+        definition = ToolDef("lookup", "Read a host value", Json.Obj())
+        originalTool = Tool.make(definition)(input =>
+          originalCalls.update(_ :+ input).as("original")
+        )
+        originalFactory <- factory(
+          child => sources.update(_ :+ child.source).as(Toolkit(Map("lookup" -> originalTool))),
+          _ =>
+            ZIO.succeed(
+              LlmClient.mockEffectful((_, _, _) =>
+                originalModel
+                  .update(_ + 1)
+                  .as(
+                    TurnOutput.ToolCalls(
+                      Msg.assistant(
+                        Chunk
+                          .fromIterable(0 until 3)
+                          .map(ordinal =>
+                            ContentBlock
+                              .ToolUse("same", "lookup", Json.Obj("value" -> Json.Num(ordinal)))
+                          )
+                      )
+                    )
+                  )
+              )
+            ),
+          ToolAuthorizer(request =>
+            ZIO.succeed(
+              if request.callOrdinal.contains(0) then ToolAuthorization.Approved(request.call.input)
+              else ToolAuthorization.Deferred("Wait for host")
+            )
+          )
+        )
+        original <- accepted(SubagentSession.open(originalRoot, originalFactory))
+        pending  <- run(original.value, "work")
+        augmented <- ZIO.fromEither(
+          PendingActing.withResults(
+            pending,
+            Chunk(SuppliedToolResult(1, ToolExecutionResult("external")))
+          )
+        )
+        decoded <- ZIO
+          .fromEither(augmented.toJson.fromJson[AgentResult])
+          .mapError(AgentError.DeserializationError(_))
+        _              <- original.close
+        receivingOwner <- TaskSupervisor.open[AgentResult]
+        receivingRoot  <- SubagentSpawner.root(receivingOwner)
+        acquired       <- Ref.make(0)
+        released       <- Ref.make(0)
+        currentModel   <- Ref.make(0)
+        currentCalls   <- Ref.make(0)
+        currentTool = Tool.make(definition)(_ => currentCalls.update(_ + 1).as("must not execute"))
+        currentFactory <- factory(
+          child => sources.update(_ :+ child.source).as(Toolkit(Map("lookup" -> currentTool))),
+          _ =>
+            ZIO
+              .acquireRelease(acquired.update(_ + 1))(_ => released.update(_ + 1))
+              .as(
+                LlmClient.mockEffectful((_, _, _) =>
+                  currentModel.update(_ + 1).as(TurnOutput.FinalText(Msg.assistant("restored")))
+                )
+              )
+        )
+        restored <- accepted(
+          SubagentSession.openRestored(
+            receivingRoot,
+            currentFactory.inheritingParentDenials(
+              ZIO.succeed(
+                PermissionEngine(Chunk(PermissionRule("lookup", PermissionBehavior.Deny)))
+              )
+            ),
+            decoded
+          )
+        )
+        recordsBefore <- restored.value.executions.list
+        modelBefore   <- currentModel.get
+        callsBefore   <- currentCalls.get
+        acquisitions  <- acquired.get
+        id            <- submitted(restored.value.resume())
+        completed     <- result(restored.value, id)
+        oldCount      <- originalModel.get
+        oldInputs     <- originalCalls.get
+        newCount      <- currentModel.get
+        newCalls      <- currentCalls.get
+        lineages      <- sources.get
+        _             <- restored.close
+        closed        <- released.get
+      yield assertTrue(
+        pending.isSuspended,
+        PendingActing.pendingCalls(decoded).map(_.map(_.callOrdinal)) == Right(Chunk(2)),
+        recordsBefore.isEmpty,
+        modelBefore == 0 && callsBefore == 0,
+        acquisitions == 1,
+        oldCount == 1 && oldInputs == Chunk(Json.Obj("value" -> Json.Num(0))),
+        newCount == 1 && newCalls == 0,
+        completed.history.flatMap(_.toolResults).map(_.state) ==
+          Chunk(ToolResultState.Success, ToolResultState.Success, ToolResultState.Denied),
+        completed.history.flatMap(_.toolResults).take(2).map(_.text) == Chunk(
+          "original",
+          "external"
+        ),
+        completed.history
+          .filter(_.role == Role.Assistant)
+          .headOption
+          .contains(pending.reply.withGenerateReason(GenerateReason.ToolCalls)),
+        completed.reply.text == "restored" && !completed.isSuspended,
+        lineages.size == 2 && lineages.distinct.size == 2,
+        closed == 1
+      )
+    ,
+    test("failed restoration joins acquired resource cleanup before returning its full failure"):
+      for
+        supervisor <- TaskSupervisor.open[AgentResult]
+        root       <- SubagentSpawner.root(supervisor)
+        definition = ToolDef("lookup", "Original host definition", Json.Obj())
+        lookup     = Tool.make(definition)(_ => ZIO.succeed("unused"))
+        sourceFactory <- factory(
+          _ => ZIO.succeed(Toolkit(Map("lookup" -> lookup))),
+          _ =>
+            LlmClient.mock(
+              Chunk(
+                TurnOutput.ToolCalls(
+                  Msg.assistant(Chunk(ContentBlock.ToolUse("call", "lookup", Json.Obj())))
+                )
+              )
+            ),
+          ToolAuthorizer(_ => ZIO.succeed(ToolAuthorization.Deferred("Wait")))
+        )
+        source     <- accepted(SubagentSession.open(root, sourceFactory))
+        checkpoint <- run(source.value, "work")
+        _          <- source.close
+        assertions <- ZIO.foreach(
+          Chunk(RestoreFailure.NotSuspended, RestoreFailure.ChangedBindings)
+        ): failure =>
+          for
+            cleaning   <- Promise.make[Nothing, Unit]
+            release    <- Promise.make[Nothing, Unit]
+            cleanup    <- Ref.make(Chunk.empty[String])
+            model      <- Ref.make(0)
+            callerExit <- Ref.make(Option.empty[Exit[Nothing, Unit]])
+            defect = new IllegalStateException("restoration cleanup marker")
+            selected = failure match
+              case RestoreFailure.NotSuspended => definition
+              case RestoreFailure.ChangedBindings =>
+                definition.copy(description = "Changed binding")
+            candidate = failure match
+              case RestoreFailure.NotSuspended => checkpoint.copy(state = AgentRunState.Completed)
+              case RestoreFailure.ChangedBindings => checkpoint
+            targetFactory <- factory(
+              _ =>
+                ZIO
+                  .acquireRelease(ZIO.unit)(_ => cleanup.update(_ :+ "registration"))
+                  .as(Toolkit(Map("lookup" -> Tool.make(selected)(_ => ZIO.succeed("unused"))))),
+              _ =>
+                ZIO
+                  .acquireRelease(ZIO.unit)(_ =>
+                    cleaning.succeed(()) *> release.await *> cleanup.update(_ :+ "client") *> ZIO
+                      .die(defect)
+                  )
+                  .as(
+                    LlmClient.mockEffectful((_, _, _) =>
+                      model.update(_ + 1).as(TurnOutput.FinalText(Msg.assistant("must not run")))
+                    )
+                  )
+            )
+            assertion <- ZIO.scoped:
+              (for
+                caller <- ZIO.acquireRelease(Scope.make)(scope =>
+                  scope.close(Exit.unit).exit.flatMap(exit => callerExit.set(Some(exit)))
+                )
+                opening <- caller
+                  .extend(SubagentSession.openRestored(root, targetFactory, candidate))
+                  .exit
+                  .forkScoped
+                _       <- cleaning.await
+                waiting <- opening.poll
+                before  <- cleanup.get
+                _       <- release.succeed(())
+                exit    <- opening.join
+                after   <- cleanup.get
+                calls   <- model.get
+              yield assertTrue(
+                waiting.isEmpty,
+                before.isEmpty,
+                after == Chunk("client", "registration"),
+                calls == 0,
+                exit.causeOption.exists(cause =>
+                  cause.failures.exists(_.isInstanceOf[AgentError.InvalidConfiguration]) &&
+                    cause.defects == List(defect)
+                )
+              )).ensuring(release.succeed(()).unit)
+            replayed <- callerExit.get
+          yield assertion && assertTrue(
+            replayed.exists(_.causeOption.contains(Cause.die(defect)))
+          )
+      yield assertions.foldLeft(assertTrue(true))(_ && _)
+    ,
     test("host resume retains partial checkpoints and reuses installed confirmation authority"):
       ZIO
         .foreach(Chunk(ResumeCompletion.Confirmed, ResumeCompletion.Supplied)): completion =>

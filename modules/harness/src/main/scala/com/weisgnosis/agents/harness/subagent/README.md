@@ -173,19 +173,35 @@ Core pending state is the sole continuation authority. Ordinary sends reject whi
 
 Resume retains the original checkpoint context, reply ID, iteration and usage, and uses the installed authorizer and trusted tool bindings. A host can supply checked external observations or install a live confirmation adapter through its factory; resume itself grants no approval. An optional event port is captured for this execution only. The shared core forwarding path prefixes events with the new task ID while preserving their original context and joins terminal delivery and cleanup. Public stream-consumer cancellation still abandons later output.
 
-Migration: `resume` is additive; existing send, registry and model-facing tool signatures are unchanged. There is no model-facing resume tool, automatic policy installation or restoration into a new child resource. The core package-visible `resumeForwarding` shares the existing owned forwarding lifecycle; the registry's generic command entry point remains package-private.
+Migration: `resume` is additive; existing send, registry and model-facing tool signatures are unchanged. There is no model-facing resume tool or automatic policy installation; [host checkpoint import](#host-checkpoint-import) acquires a separate child resource. The core package-visible `resumeForwarding` shares the existing owned forwarding lifecycle; the registry's generic command entry point remains package-private.
 
 | Reviewed source | Git blob |
 | --- | --- |
 | [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | `7bda9e60a45d6f12934869a94f0abaed90da8320` |
 | [SubagentFactory.scala](SubagentFactory.scala) | `013920f0ad1ab6c082e3362bb40f83064d11af51` |
-| [SubagentSession.scala](SubagentSession.scala) | `77eb1e7498b49703daa5133b1969e341c3d5f84c` |
+| [SubagentSession.scala](SubagentSession.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `a0e302022db3f9666d0c5c3beab326ec5a424516` |
-| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | `2059a164af26056c23ed18c9a67920d107d6a6ac` |
+| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no open findings. Two new grouped session tests cover actual partial confirmations and supplied completion, repeated IDs, invalid/no-pending/closed outcomes, queued cancellation, held cleanup defects, original-context terminal forwarding and fresh-send reuse. Focused `child-resume-final-focused.log` passed nine core tests in 633 ms and fifteen harness tests in 603 ms.
 - [x] Full `scalafmtAll scalafmtSbt verify` passed in `child-resume-verify.log`, with zero compiler warnings or failures. Current totals and environment are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-- [ ] Define and review explicit host-supplied checkpoint restoration into a new child resource; durable storage, authentication and exclusive claims remain host responsibilities.
+- [x] Independently review [host checkpoint import](#host-checkpoint-import) into a new child resource; its verification gate is recorded below.
+
+## Host checkpoint import
+
+`SubagentSession.openRestored(parent, factory, checkpoint, maxTracked = 256)` acquires a new caller-owned child resource and imports a host-supplied suspended AgentResult. Capacity validation and existing descendant/closed admission precede factory initialization. The current factory acquires its registrations and client under the child owner, then core `restore` checks the suspended state, history/occurrence ledger, host iteration budget and exact rebuilt tool definitions before the session registry is published. Acquisition can perform host effects; importing the checkpoint starts no model/tool execution and creates no execution record. The new child has fresh lineage and resources; the checkpoint does not restore old task IDs or owners.
+
+The resulting session uses ordinary host `resume`, preserving completed and supplied observations and the original checkpoint context. Only unresolved local calls reach the current bindings and installed authorization, including current inherited parent denials. Tool-definition equality checks compatibility, not approval. A failed import joins acquired cleanup before returning its full typed/defect cause; the caller lease retains its existing joined-close replay contract. Closing the original session or importing the same data elsewhere is not an exclusive claim.
+
+Migration: `openRestored` is additive; `open`, retained catalog construction and existing model-facing adapters retain their behavior. The host owns checkpoint authentication, storage, exclusive delivery and side-effect idempotency. This is a scoped import API, not a durable database, automatic session-key restoration or model-facing control.
+
+| Reviewed source | Git blob |
+| --- | --- |
+| [SubagentSession.scala](SubagentSession.scala) | `3f3ef7a63508f40dd896376fc04dcf13b10d12f2` |
+| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | `bb529004fb95d37ad6b852eddefc1311b4072963` |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no open findings. Two new grouped tests cover JSON-restored partial/supplied observations with current parent denial, fresh lineage, empty records and no execution before resume; invalid state/changed bindings, held cleanup, initialization cause and exact caller-close defect replay. Focused `child-restore-final-focused.log` passed fifteen tests in 885 ms.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed in `child-restore-verify.log`, with zero compiler warnings or failures. Current totals and environment belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 ## Bounded host session directory
 
@@ -340,8 +356,8 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentDeclarationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | [Current topP scope identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-nucleus-sampling) |
 | [SubagentSessionDirectory.scala](SubagentSessionDirectory.scala) | `5f924361cc657e128abe057354aa260848d67035` |
 | [SubagentSessionDirectorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionDirectorySpec.scala) | `3210d1e7f1e86fd65cd54727ebe287431cac0b94` |
-| [SubagentSession.scala](SubagentSession.scala) | [Current host-resume identity](#host-only-session-resume) |
-| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current host-resume identity](#host-only-session-resume) |
+| [SubagentSession.scala](SubagentSession.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
+| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
 | [TaskSupervisor.scala](TaskSupervisor.scala) | `3ae295da2603a952bc23b7b05d2546ed274cb600` |
 | [TaskResource.scala](TaskResource.scala) | `ff8c69ba4d8c1623388325e4b2e33bd26df45314` |
 | [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `b8c862182e0a625e7d6f83c0ac72c120f700e80b` |
