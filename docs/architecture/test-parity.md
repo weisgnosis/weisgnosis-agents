@@ -680,6 +680,12 @@ The 21 new Scala tests verify atomic content/progress, conflict preservation, de
 
 - [x] `review_fp` and `review_harness` approved the final nine-file persistence increment against `e4bd6b0` on 2026-09-29. No findings remain within cooperative local ownership, strict journal validation, recovery before API operations, conditional content/progress publication, and persisted generation tracking. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 209 harness tests, including 34 new persistence tests, with zero compiler warnings. Acceptance covers constructed interrupted-publication states on the tested Windows filesystem; live crash/fault-injection, fsync durability, remote storage, and hostile mutation are excluded.
 
+## Explicit timestamp-watermark migration adaptation
+
+Pinned MemoryConsolidator.readWatermarkFromFile parses stripped timestamp text and writeWatermark writes Instant.toString. The explicit local migration accepts that canonical representation but deliberately replaces it with empty fingerprint acknowledgements. It does not retain timestamp-based skip authority, infer already-consolidated daily inputs or silently recover a pending journal. Ordinary repository reads remain strict.
+
+- [x] Three grouped LocalMemoryWatermarkMigrationSpec contracts establish content preservation and actual subsequent consolidation, strict no-op/rejection behavior and journal/lease exclusion. Both reviewers approved the [two current identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#explicit-watermark-migration), and full verification passed. Existing local filesystem mappings remain scoped as before; `watermark_roundTripThroughFilesystem` and `watermark_doesNotCreateLocalFile` remain unchecked because this feature supplies no injected remote authority.
+
 ## Transcript observation applicability
 
 Pinned SessionTranscriptWriterTest has four methods; MemoryFlushManagerOffloadTest has the three delegates listed above. The first Scala increment provides process-local observation evidence. LocalTranscriptStore now adds strict versioned JSONL persistence; Java wire/layout equivalence is not claimed.
@@ -821,7 +827,7 @@ Pinned MemoryMaintenanceMiddleware.expireDailyFiles archives old daily files bef
 - [x] Reproduce and fix unpaired-UTF-16 digest aliasing; reuse the strict fingerprint boundary in consolidation.
 - [x] Exercise stable partial states after archive publication and checkpoint advancement; verify same-content recreation and old-revision conflicts.
 - [x] Wire explicit daily retention policy into one owned maintenance job, with consolidation-first hardening and 21 new scenarios. This adds source-contract adaptations, not a named upstream retention test mapping.
-- [ ] Implement automatic session pruning, remote retention and timestamp migration separately.
+- [ ] Complete automatic scheduling and remote retention; bounded local discovery is accepted and explicit timestamp migration is reviewed separately below.
 
 No live crash or mid-operation I/O fault injection is claimed. Archive copy publication can precede failed checkpoint advancement, and a successfully advanced checkpoint can precede incomplete source removal. Surviving daily content then remains pending; reporting failure does not imply rollback.
 

@@ -59,6 +59,10 @@ Current persistence review status and exact identities are maintained in the sou
 
 DailyMemoryLeaseSpec now exercises the extracted WorkspaceLease through the existing memory adapter. MemoryTestSupport is harness-internal for shared scoped filesystem fixtures; no test behavior changed. Current extraction identity and approval are recorded in the transcript persistence README.
 
+## Explicit watermark migration evidence
+
+[LocalMemoryWatermarkMigrationSpec](LocalMemoryWatermarkMigrationSpec.scala) has three grouped contracts. The first preserves curated/daily content, proves both older and newer inputs remain pending and unarchivable, then runs the actual consolidator and reopens its acknowledged checkpoint. The second checks absent/current byte preservation and strict rejection of unknown/noncanonical formats. The third rejects every present journal before recovery, preserves all payloads, checks owner exclusion and subsequent admission, and rejects untrusted storage. This does not test mid-publication cancellation, process crashes or remote storage. Current identities and acceptance belong to the [migration contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md#explicit-watermark-migration).
+
 ## Lifecycle trigger verification
 
 - [MemoryIntervalSpec](MemoryIntervalSpec.scala): three exact-duration, invalid-bound and strict numeric-codec cases.

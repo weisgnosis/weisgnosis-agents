@@ -18,9 +18,13 @@ package com.weisgnosis.agents.harness.memory
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.harness.eviction.WorkspaceTrust
 import java.nio.file.Path
-import java.time.LocalDate
+import java.time.{Instant, LocalDate}
 import zio.*
 import zio.json.*
+
+enum WatermarkMigration derives JsonCodec:
+  case Missing, AlreadyCurrent
+  case Migrated(previous: Instant)
 
 /**
  * Cooperative, scoped ownership with roll-forward recovery of consolidation commits.
@@ -44,6 +48,63 @@ object LocalMemoryRepository:
       backend = new Backend(files, lease)
       _ <- backend.owned(ZIO.unit)
     yield backend.repository
+
+  /**
+   * Explicitly replaces a legacy timestamp with empty content acknowledgements. Curated and daily
+   * data remain untouched; every daily input must be reconsidered. A pending journal blocks this
+   * operation instead of being recovered. Failure or interruption can follow checkpoint publication.
+   */
+  def migrateLegacyWatermark(
+      workspace: Path,
+      trust: WorkspaceTrust
+  ): IO[AgentError, WatermarkMigration] =
+    ZIO.scoped:
+      for
+        files <- MemoryFiles.open(workspace, trust)
+        lease <- DailyMemoryLease.open(files.directory)
+        result <- lease.protect:
+          for
+            _       <- files.validateLocation
+            journal <- files.read(MemoryFile.Journal)
+            _ <- ZIO
+              .fail(
+                AgentError.MemoryStorageError("A consolidation journal blocks watermark migration")
+              )
+              .when(journal.nonEmpty)
+            stored <- files.read(MemoryFile.Checkpoint)
+            outcome <- stored match
+              case None => ZIO.succeed(WatermarkMigration.Missing)
+              case Some(text) =>
+                MemoryJournal
+                  .checkpoint(text)
+                  .as(WatermarkMigration.AlreadyCurrent)
+                  .catchAll(_ => migrateTimestamp(files, text))
+          yield outcome
+      yield result
+
+  private def migrateTimestamp(
+      files: MemoryFiles,
+      text: String
+  ): IO[AgentError, WatermarkMigration] =
+    val invalid = AgentError.MemoryStorageError("Unrecognized legacy consolidation watermark")
+    for
+      previous    <- ZIO.attempt(Instant.parse(text.strip)).mapError(_ => invalid)
+      _           <- ZIO.fail(invalid).unless(previous.toString == text.strip)
+      transaction <- Random.nextUUID.map(_.toString)
+      checkpoint = MemoryCheckpoint(1, BigInt(1), transaction, Map.empty)
+      _ <- files.write(MemoryFile.Checkpoint, checkpoint.toJson)
+      stored <- files
+        .read(MemoryFile.Checkpoint)
+        .someOrFail(
+          AgentError.MemoryStorageError("Migrated consolidation checkpoint is missing")
+        )
+      verified <- MemoryJournal.checkpoint(stored)
+      _ <- ZIO
+        .fail(
+          AgentError.MemoryStorageError("Watermark migration verification failed")
+        )
+        .unless(verified == checkpoint)
+    yield WatermarkMigration.Migrated(previous)
 
   final private class Backend(files: MemoryFiles, lease: DailyMemoryLease):
     def owned[A](operation: IO[AgentError, A]): IO[AgentError, A] =

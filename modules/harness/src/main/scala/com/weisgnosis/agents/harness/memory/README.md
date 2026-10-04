@@ -60,7 +60,7 @@ One Clock instant and explicit zone (UTC default) bind the context lookup, entry
 
 - [x] `review_fp` and `review_harness` approved the seven-file daily-memory extraction increment against `738b216` on 2026-09-29. No findings remain within the injected-store capability, scoped client extraction, provenance/date handling, one-manager serialization, and compactor integration. Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new tests. Filesystem persistence, cross-manager/process guarantees, consolidation, watermarks, and transcript offloading are excluded.
 - [x] Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new daily-memory tests and all 39 compactor regressions.
-- [ ] Add remote memory storage, transcript offloading, watermark migration, and scheduling.
+- [ ] Add remote memory storage, remote transcript offloading and automatic scheduling; explicit local watermark migration is described below.
 
 Current daily-memory Git-normalized source identities; prior compactor implementation identity is preserved in `738b216`:
 
@@ -108,7 +108,7 @@ The output budget is enforced against counter.count(Msg.assistant(strippedOutput
 MemoryExtractor.fromClient also serves consolidation, preserving scoped text-only requests and rejecting tool observations. A MemoryFlushManager receives only the repository's daily writer; MemoryConsolidator receives only its curated writer. Hosts are trusted capability owners. Separate consolidator instances can extract concurrently, but only one can commit against a given revision.
 
 The recoverable local implementation is described below; its journal and shared ownership gate supply the missing protocol around separate atomic file replacements.
-- [ ] Complete the two remote filesystem mappings, timestamp-watermark migration, and transcript/scheduling integration. The earlier process-local increment did not establish filesystem equivalence.
+- [ ] Complete the two remote filesystem mappings and broader transcript/scheduling integration. Explicit local watermark migration is described below. The earlier process-local increment did not establish filesystem equivalence.
 
 - [x] `review_fp` and `review_harness` approved the final six-file consolidation increment against `46c6174` on 2026-09-29. Twenty-one new tests and full formatting/fatal-warning verification passed 530 core / 175 harness tests. No findings remain within process-local atomic content/progress commits, separate writer capabilities, scoped extraction, configured-counter budget enforcement, and conflict handling. Filesystem transactions, persistent watermarks, crash recovery, and the five upstream filesystem mappings remain outside this scope.
 
@@ -131,11 +131,28 @@ A conditional commit first compares the current snapshot. Conflict publishes no 
 
 Journal publication commits the candidate to roll-forward recovery. An error or cancellation after publication can have uncertain acknowledgement: a later operation may complete the candidate. Inspect the recovered snapshot before deciding whether a new extraction is needed; do not automatically replay model output. API users honoring the shared lease observe coherent content/progress. Uncoordinated raw file readers can observe intermediate files. There is no fsync/power-loss durability, raw multi-file atomicity, exactly-once extraction, automatic stale-lease removal, or hostile-filesystem guarantee. The existing operator procedure for abandoned leases still applies before reopening.
 
-Migration: .consolidation_state is the upstream path, but its versioned JSON contents deliberately replace timestamp-only watermarks. Legacy timestamp content is rejected by consolidation without reset or overwrite; no timestamp migration or remote filesystem adapter is implemented. Daily-only open remains source compatible but participates in recovery and therefore may publish an already journaled curated transaction. The former LocalDailyMemoryStore and MemoryRepository identities are preserved in e4bd6b0.
+Migration: .consolidation_state is the upstream path, but its versioned JSON contents deliberately replace timestamp-only watermarks. Normal consolidation still rejects legacy timestamp content without reset or overwrite. The explicit local migration below converts canonical timestamps conservatively; no remote filesystem adapter is implemented. Daily-only open remains source compatible but participates in recovery and therefore may publish an already journaled curated transaction. The former LocalDailyMemoryStore and MemoryRepository identities are preserved in e4bd6b0.
 
 - [x] `review_fp` and `review_harness` approved the final nine-file persistence increment against `e4bd6b0` on 2026-09-29. No findings remain within cooperative local ownership, strict journal validation, recovery before API operations, conditional content/progress publication, and persisted generation tracking. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 209 harness tests, including 34 new persistence tests, with zero compiler warnings. Acceptance covers constructed interrupted-publication states on the tested Windows filesystem; live crash/fault-injection, fsync durability, remote storage, and hostile mutation are excluded.
 - [x] `review_docs` approved the final persistence documentation against `e4bd6b0`, including nine current identities, 34 new cases, three local upstream adaptations, two pending remote scenarios, migration, and durability limits. All 59 Markdown files passed local link/script checks; git diff --check passed.
 - [ ] Add remote storage/migration, remote transcript persistence, and scheduling; verify cross-process and dynamic path behavior on each supported platform.
+
+## Explicit watermark migration
+
+LocalMemoryRepository.migrateLegacyWatermark(workspace, trust) is an explicit scoped operation returning WatermarkMigration.Missing, AlreadyCurrent or Migrated(previous). It requires HostControlled trust and the existing exclusive memory lease. Any present consolidation journal, including an empty or malformed file, blocks migration before checkpoint interpretation; this path never runs journal recovery. Resolve pending recovery separately rather than treating migration as a repair command.
+
+An absent checkpoint is not created. A valid current checkpoint is left byte-for-byte unchanged. Opening the local files and lease may create the memory directory and transient ownership file even for Missing or AlreadyCurrent; these outcomes do not write checkpoint, curated or daily payloads. Otherwise, only an Instant whose canonical toString equals the stripped legacy text is accepted; unknown JSON, quoted timestamps and noncanonical offset forms fail without rewriting. Migration atomically replaces only .consolidation_state with a version-1, generation-1 checkpoint, a fresh transaction UUID and empty content acknowledgements, then reads and validates it. Curated and daily content are untouched. Every daily input must be reconsidered by normal consolidation, including dates before the old timestamp; migration does not make any input eligible for acknowledged-only archival.
+
+The API is additive; normal open/snapshot validation stays strict and never migrates implicitly. No model is invoked by migration. Failure or cancellation can follow checkpoint publication, so inspect storage before retrying; a successful repeat returns AlreadyCurrent. Existing cooperative ownership, path checks and durability limits apply. This is a conservative local format conversion, not timestamp-authority preservation, remote storage or a new whole-method upstream parity claim.
+
+| Source | Git blob |
+| --- | --- |
+| [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | 2fe3f34cf680f653f6c57fdef188e0a1804b3e50 |
+| [LocalMemoryWatermarkMigrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalMemoryWatermarkMigrationSpec.scala) | 1ea5632f33688c97c783c82b36cad6278d7b88c4 |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no findings. Focused checks passed 44 tests in 719 ms. Full `scalafmtAll scalafmtSbt verify` passed in `watermark-migration-verify.log` with zero compiler warnings or failures; aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
+## Unchanged persistence identities
 
 Unchanged Git-normalized persistence identities (earlier changes remain in e4bd6b0; the four files changed for retention are preserved in b2ab23e and indexed in the retention table below):
 
@@ -296,7 +313,7 @@ Final formatted seven-file increment against `b2ab23e`; independent acceptance i
 | Source | Git blob |
 | --- | --- |
 | [DailyMemoryRetention.scala](DailyMemoryRetention.scala) | b679d771b1aee3100d223816cde76c043927caec |
-| [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | 942d66ce70e4251b5430e779ab4515bd4894df0c |
+| [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | Current identity: [explicit watermark migration](#explicit-watermark-migration) |
 | [MemoryFiles.scala](MemoryFiles.scala) | 1b1bf9a91f118c1b99d2f891ad6c2a58b41b831d |
 | [MemoryJournal.scala](MemoryJournal.scala) | cc8f693e7fda49876f11ff07e842716ead0828d6 |
 | [MemoryRepository.scala](MemoryRepository.scala) | 8a209e9cbba1d7b3e3692eac81b494655624f24c |

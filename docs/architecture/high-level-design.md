@@ -60,7 +60,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] One host-selected compatible fallback model has independent approval and full verification, with fresh target request identity and joined cleanup.
 - [ ] Broader provider/event integrations and durable resumption remain unfinished.
 - [ ] Agent middleware and durable HITL integration.
-- [ ] Remote memory storage and timestamp-watermark migration, remote transcript persistence, and memory scheduling.
+- [x] Accept explicit local timestamp-watermark migration that preserves content and reconsiders all daily inputs; both reviews and full verification passed.
+- [ ] Remote memory storage, remote transcript persistence and automatic memory scheduling.
 - [x] Scoped local task ownership, cancellation and default same-execution promotion; checked host synchronous waits join timeout cancellation without promotion.
 - [x] Runtime-owned lineage and descendant depth limits before callback/model construction.
 - [x] Configured child factories, bounded execution registries, host-held reusable sessions, bounded host session membership and fixed-capability spawn/send controls and directory-bound send/task/cancel; accepted scope is recorded in the [subagent contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md).
