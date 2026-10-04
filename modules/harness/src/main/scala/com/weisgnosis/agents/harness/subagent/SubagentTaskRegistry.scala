@@ -32,6 +32,12 @@ enum SubagentTaskState:
 
 final case class SubagentTaskSnapshot(id: SubagentTaskId, state: SubagentTaskState)
 
+/** A retained, fully joined outcome; delivery does not transfer execution ownership. */
+final case class SubagentTaskDelivery(id: SubagentTaskId, exit: Exit[AgentError, AgentResult])
+
+enum SubagentDeliveryAcknowledgement:
+  case Acknowledged, AlreadyAcknowledged, Running, Missing
+
 enum SubagentTaskSubmission:
   case Accepted(id: SubagentTaskId)
   case Capacity, Closed, IdentityCollision
@@ -60,8 +66,41 @@ trait SubagentTaskRegistry:
   def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]]
   def forgetCompleted(id: SubagentTaskId): UIO[SubagentTaskRemoval]
 
+  /**
+   * Completed foreground and promoted tasks awaiting host acknowledgement, in submission order.
+   * Membership and acknowledgement are captured once, then completion is polled independently.
+   * Concurrent acknowledgement or forgetting may leave a stale delivery in this snapshot. Hosts
+   * own delivery; this is not an exclusive claim, durable record or event-stream replay.
+   */
+  def pendingDeliveries: IO[AgentError.InvalidConfiguration, Chunk[SubagentTaskDelivery]] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration(
+        "This task registry does not support delivery acknowledgement"
+      )
+    )
+
+  /**
+   * Acknowledgement retains the outcome and capacity; forgetCompleted explicitly discards both.
+   * Cancellation may lose the acknowledgement receipt; retry reports AlreadyAcknowledged.
+   */
+  def acknowledge(
+      @unused id: SubagentTaskId
+  ): IO[AgentError.InvalidConfiguration, SubagentDeliveryAcknowledgement] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration(
+        "This task registry does not support delivery acknowledgement"
+      )
+    )
+
 object SubagentTaskRegistry:
-  final private case class Entry(id: SubagentTaskId, task: SupervisedTask[AgentResult])
+  private enum DeliveryState:
+    case Pending, Acknowledged
+
+  final private case class Entry(
+      id: SubagentTaskId,
+      task: SupervisedTask[AgentResult],
+      delivery: DeliveryState = DeliveryState.Pending
+  )
 
   private enum State:
     case Open(values: Chunk[Entry])
@@ -74,6 +113,14 @@ object SubagentTaskRegistry:
     def remove(id: SubagentTaskId): State = this match
       case Open(values)   => Open(values.filterNot(_.id == id))
       case Closed(values) => Closed(values.filterNot(_.id == id))
+
+    def acknowledge(id: SubagentTaskId): State =
+      val updated = entries.map(entry =>
+        if entry.id == id then entry.copy(delivery = DeliveryState.Acknowledged) else entry
+      )
+      this match
+        case Open(_)   => Open(updated)
+        case Closed(_) => Closed(updated)
 
   def open(
       parent: SubagentSpawner[AgentResult],
@@ -167,6 +214,27 @@ object SubagentTaskRegistry:
 
     def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] =
       lookup(id).flatMap(ZIO.foreach(_)(_.task.cancel))
+
+    override def pendingDeliveries: UIO[Chunk[SubagentTaskDelivery]] =
+      state.get.flatMap(current =>
+        ZIO
+          .foreach(current.entries.filter(_.delivery == DeliveryState.Pending))(entry =>
+            entry.task.poll.map(_.map(SubagentTaskDelivery(entry.id, _)))
+          )
+          .map(_.flatten)
+      )
+
+    override def acknowledge(id: SubagentTaskId): UIO[SubagentDeliveryAcknowledgement] =
+      gate.withPermit:
+        lookup(id).flatMap:
+          case None => ZIO.succeed(SubagentDeliveryAcknowledgement.Missing)
+          case Some(entry) if entry.delivery == DeliveryState.Acknowledged =>
+            ZIO.succeed(SubagentDeliveryAcknowledgement.AlreadyAcknowledged)
+          case Some(entry) =>
+            entry.task.poll.flatMap:
+              case None => ZIO.succeed(SubagentDeliveryAcknowledgement.Running)
+              case Some(_) =>
+                state.update(_.acknowledge(id)).as(SubagentDeliveryAcknowledgement.Acknowledged)
 
     def forgetCompleted(id: SubagentTaskId): UIO[SubagentTaskRemoval] =
       gate.withPermit:

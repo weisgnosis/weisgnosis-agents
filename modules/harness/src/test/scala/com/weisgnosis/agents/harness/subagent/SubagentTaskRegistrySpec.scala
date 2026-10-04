@@ -66,6 +66,145 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
       case SubagentTaskSnapshot(_, SubagentTaskState.Running)         => None
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentTaskRegistrySpec")(
+    test(
+      "delivery snapshots preserve submission order and acknowledgement retains polling and capacity"
+    ):
+      ZIO.scoped:
+        for
+          supervisor <- TaskSupervisor.open[AgentResult]
+          release    <- Promise.make[Nothing, Unit]
+          result = AgentResult(Msg.assistant("done"), Chunk.empty, 1)
+          observed <- (for
+            registry <- SubagentTaskRegistry.openWith(
+              (message, _, _) =>
+                supervisor.attach(
+                  (if message.text == "first" then release.await else ZIO.unit).as(result)
+                ),
+              2
+            )
+            first     <- accepted(registry.submit(Msg.user("first")))
+            second    <- accepted(registry.submit(Msg.user("second")))
+            _         <- registry.await(second)
+            early     <- registry.pendingDeliveries
+            active    <- registry.acknowledge(first)
+            _         <- release.succeed(())
+            firstExit <- registry.await(first)
+            before    <- registry.pendingDeliveries
+            ack       <- registry.acknowledge(first)
+            repeated  <- registry.acknowledge(first)
+            after     <- registry.pendingDeliveries
+            retained  <- registry.await(first)
+            snapshot  <- registry.inspect(first)
+            full      <- registry.submit(input)
+            forgotten <- registry.forgetCompleted(second)
+            empty     <- registry.pendingDeliveries
+            missing   <- registry.acknowledge(second)
+          yield assertTrue(
+            early == Chunk(SubagentTaskDelivery(second, Exit.succeed(result))),
+            active == SubagentDeliveryAcknowledgement.Running,
+            before.map(_.id) == Chunk(first, second),
+            ack == SubagentDeliveryAcknowledgement.Acknowledged,
+            repeated == SubagentDeliveryAcknowledgement.AlreadyAcknowledged,
+            after == early,
+            retained == firstExit && retained.contains(Exit.succeed(result)),
+            completed(snapshot) == retained,
+            full == SubagentTaskSubmission.Capacity,
+            forgotten == SubagentTaskRemoval.Removed,
+            empty.isEmpty,
+            missing == SubagentDeliveryAcknowledgement.Missing
+          )).ensuring(release.succeed(()).unit)
+        yield observed
+    ,
+    test(
+      "promoted delivery waits for cleanup and failed or cancelled host delivery leaves the full outcome pending"
+    ):
+      ZIO.scoped:
+        for
+          supervisor       <- TaskSupervisor.open[AgentResult]
+          host             <- owner
+          caller           <- owner
+          entered          <- Promise.make[Nothing, Unit]
+          finish           <- Promise.make[Nothing, Unit]
+          cleaning         <- Promise.make[Nothing, Unit]
+          release          <- Promise.make[Nothing, Unit]
+          deliveryStarted  <- Promise.make[Nothing, Unit]
+          deliveryCleaning <- Promise.make[Nothing, Unit]
+          deliveryRelease  <- Promise.make[Nothing, Unit]
+          failure         = AgentError.InvalidConfiguration("child failed")
+          defect          = new IllegalStateException("child cleanup failed")
+          deliveryFailure = AgentError.InvalidConfiguration("host delivery failed")
+          deliveryDefect  = new IllegalStateException("host delivery cleanup failed")
+          observed <- (for
+            registry <- host.extend(
+              SubagentTaskRegistry.openWith(
+                (_, _, _) =>
+                  supervisor.attach(
+                    ZIO.addFinalizer(cleaning.succeed(()) *> release.await *> ZIO.die(defect)) *>
+                      entered.succeed(()) *> finish.await *> ZIO.fail(failure)
+                  ),
+                1
+              )
+            )
+            id       <- caller.extend(accepted(registry.submit(input)))
+            _        <- entered.await
+            waiting  <- registry.awaitOrPromote(id).forkScoped
+            _        <- TestClock.adjust(30.seconds)
+            promoted <- waiting.join
+            _        <- caller.close(Exit.unit)
+            _        <- finish.succeed(()) *> cleaning.await
+            early    <- registry.pendingDeliveries
+            active   <- registry.acknowledge(id)
+            _        <- release.succeed(())
+            terminal <- registry.await(id)
+            pending  <- registry.pendingDeliveries
+            failed <- (registry.pendingDeliveries *> ZIO.fail(deliveryFailure) *> registry
+              .acknowledge(id)).exit
+            stillPending <- registry.pendingDeliveries
+            delivering <- ZIO
+              .scoped(
+                ZIO.addFinalizer(
+                  deliveryCleaning.succeed(()) *> deliveryRelease.await *> ZIO.die(deliveryDefect)
+                ) *>
+                  registry.pendingDeliveries *> deliveryStarted.succeed(()) *> ZIO.never *> registry
+                    .acknowledge(id)
+              )
+              .forkScoped
+            _                 <- deliveryStarted.await
+            cancelling        <- delivering.interrupt.forkScoped
+            _                 <- deliveryCleaning.await
+            joined            <- cancelling.poll
+            _                 <- deliveryRelease.succeed(())
+            cancelled         <- cancelling.join
+            afterCancellation <- registry.pendingDeliveries
+            _                 <- host.close(Exit.unit)
+            afterClose        <- registry.pendingDeliveries
+            retained          <- registry.await(id)
+            ack               <- registry.acknowledge(id)
+            empty             <- registry.pendingDeliveries
+          yield assertTrue(
+            promoted.contains(TaskWait.Promoted),
+            early.isEmpty,
+            active == SubagentDeliveryAcknowledgement.Running,
+            terminal.exists(
+              _.causeOption.exists(cause =>
+                cause.failures == List(failure) && cause.defects == List(defect)
+              )
+            ),
+            pending.map(_.exit) == Chunk.fromIterable(terminal),
+            failed.causeOption.exists(_.failures == List(deliveryFailure)),
+            stillPending == pending,
+            joined.isEmpty,
+            cancelled.isInterrupted,
+            cancelled.causeOption.exists(_.defects == List(deliveryDefect)),
+            afterCancellation == pending && afterClose == pending,
+            retained == terminal,
+            ack == SubagentDeliveryAcknowledgement.Acknowledged,
+            empty.isEmpty
+          )).ensuring(
+            finish.succeed(()).unit *> release.succeed(()).unit *> deliveryRelease.succeed(()).unit
+          )
+        yield observed
+    ,
     test("concurrent admission bounds retained results and executes fresh configured children") {
       for
         supervisor <- TaskSupervisor.open[AgentResult]

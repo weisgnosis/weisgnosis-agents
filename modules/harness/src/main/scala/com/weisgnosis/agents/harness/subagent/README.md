@@ -193,6 +193,16 @@ Capacity counts every retained record, including completed results. `forgetCompl
 
 Each submission owns a private caller cancellation lease. Admission records the task before attaching that lease's finalizer to the caller Scope, outside the admission permit. An already closed caller can therefore join its child cleanup without hiding the retained record or blocking unrelated capacity checks. Closing a normal caller cancels and joins attached work; promoted work survives caller closure. Closing the registry first closes admission, then cancels registered tasks in parallel and joins cleanup, including promoted tasks, even if the underlying supervisor outlives the registry. Public `open(parent, factory)` creates fresh children; the session uses a package-private launcher to retain its runtime. Neither registry provides remote ownership or durable restart recovery.
 
+## Completion delivery inbox
+
+SubagentTaskRegistry.pendingDeliveries returns SubagentTaskDelivery(id, exit) for unacknowledged, fully joined foreground and promoted tasks in submission order. It captures membership and acknowledgement once, then polls completion independently without holding admission. Running tasks and tasks still cleaning up are excluded. The complete Exit retains successful AgentResult values, typed failures, defects and interruption. This is a snapshot, not a claim: concurrent acknowledgement or forgetting can leave a stale returned delivery, and multiple consumers may receive duplicates.
+
+acknowledge(id) returns Acknowledged, AlreadyAcknowledged, Running or Missing under the existing gate. It retains the task result and capacity; only forgetCompleted discards the record and its delivery. Cancellation may lose an acknowledgement receipt, so retry can report AlreadyAcknowledged. Reading and acknowledging retained terminal work remain available after registry closure. Failed or cancelled host delivery does not implicitly acknowledge anything.
+
+The host owns transport, authentication, retries, deduplication and the decision to acknowledge. No new worker, Hub, execution owner, automatic push or event-stream replay is installed. Retention bounds record count, not payload bytes. Migration is additive: custom registries inherit typed InvalidConfiguration failures for both operations until explicitly implemented; no fake empty inbox is returned. These live outcomes have no new durable codec or exactly-once guarantee.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current registry/spec identities in the acceptance table, with no findings. Focused `task-delivery-focused.log` passed 27 tests in 1.788 seconds. Full `scalafmtAll scalafmtSbt verify` passed in `task-delivery-verify.log` with zero compiler warnings or failures; current totals and verification settings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
 ## Model-facing task controls
 
 [SubagentTools.make](SubagentTools.scala) returns an immutable opt-in Toolkit with `agent_spawn`, `agent_task` and `agent_cancel` bound to one registry. `SubagentTools.forSession(session)` instead supplies `agent_send`, `agent_task` and `agent_cancel` bound to that session's execution registry. Both invocation tools accept exactly one string field, `prompt`. Inspection and cancellation accept exactly one string field, `task_id`, using canonical hyphenated UUID syntax. Missing, duplicate, extra or wrong-type fields are rejected. Model input cannot select another factory, parent, depth, timeout or session. Only inspection is marked read-only; trusted host plan classifications still control eligibility.
@@ -265,7 +275,7 @@ Close the returned resource to close the aggregate, or end its acquiring caller/
 - [x] Three catalog groups verify validation before acquisition, stable names/history and isolated sessions with unchanged depth; partial compound-failure/caller/owner rollback; and concurrent removal/aggregate closure with exact cleanup causes. One additional TaskResourceSpec group verifies retention past a short caller scope, later use, single physical cleanup, exact repeated cause replay and closed admission.
 - [x] `subagent-session-catalog-red.log` recorded two passing groups and one failure against catalog `d2a1708ca1c4e1d79cf2bb8d59663e133abea425` and spawner `a2cfbbec9191e80a8be5bbbed1f56e5c4782b6ef`: resource and caller closure expected `Die(defect)` but received `Then(Die(defect), Both(Die(defect), Die(defect)))`, despite each client finalizer running once. The unchanged catalog spec below passes after removing duplicate automatic ownership edges; no Cause filtering or deduplication is used.
 - [x] Named session tools are independently reviewed below.
-- [ ] Define dynamic labels, durable keys/restoration and post-promotion delivery separately.
+- [ ] Define dynamic labels, durable keys/restoration and post-promotion event delivery separately; terminal outcomes have the completion inbox above.
 
 | Reviewed file | Git blob |
 | --- | --- |
@@ -317,9 +327,9 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | `417dacb3a10064054d6d834e9cb29121833c5682` |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | [Current acting-stop identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `b63432a7c6d16a0bc7bdd06a473b74631ced147a` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `658a8eec60e2158073a2255a7b1b424ed0d7cf88` |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `6db27b3d881222658521e11970b1def3d597f61c` |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `6670f66d25c04131fa7f5e50e982b0775142acc7` |
 | [SubagentConstruction.scala](SubagentConstruction.scala) | `381703a6f1f92239110db9ce5bbec5d208047c52` |
 | [SubagentConstructionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) | `1ece182d43038473274d5bfa5c4bb2c9c5c664c2` |
 | [SubagentFactory.scala](SubagentFactory.scala) | [Current reviewed identity](../permission/README.md#partial-checkpoint-confirmations) |
@@ -327,7 +337,7 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
 
-Inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and delivery after promotion remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
+Inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and automatic event delivery after promotion remain outside this accepted scope. The defensive suspended-state guard has no current runtime integration coverage.
 
 - [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
 - [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
