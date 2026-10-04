@@ -51,7 +51,7 @@ Installed controls retain ordinary authorization, static boundaries and host-sel
 - [x] Verify a host-installed live parent/child gate through configured child execution without transferring approval authority.
 - [x] The explicit construction path retains live ancestor restrictions across nested and reused children; supported parent controls are verified under trusted Plan classifications. Raw host factories/spawners still require deliberate policy composition.
 
-Next repository task: real expired-server and actual Netty body-truncation MCP interoperability; see the [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work).
+The [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) records the next repository task.
 
 - [x] Retain `review_docs` acceptance of the unchanged static-shell contracts against `2d4094b`; current source identities and limitations are recorded in the associated sections.
 

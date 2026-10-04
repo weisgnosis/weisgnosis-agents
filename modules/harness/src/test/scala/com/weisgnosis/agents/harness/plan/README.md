@@ -18,7 +18,7 @@ These tests execute no shell and establish no path/process isolation. The [curre
 - [x] Verify opt-in child-local tool/context installation with retained live ancestor restrictions.
 - [ ] Integrate authenticated host UI routing and durable approval restoration.
 
-Next repository task is real expired-server and actual Netty truncation interoperability; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) records scope.
+The [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) records the next repository task.
 
 ## Admission verification
 

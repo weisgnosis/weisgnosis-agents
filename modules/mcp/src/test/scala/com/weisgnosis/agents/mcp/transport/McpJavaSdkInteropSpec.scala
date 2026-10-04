@@ -16,8 +16,11 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.model.ToolResultState
+import com.weisgnosis.agents.core.tool.{ToolDef, Toolkit}
 import com.weisgnosis.agents.mcp.client.McpClient
 import com.weisgnosis.agents.mcp.protocol.*
+import com.weisgnosis.agents.mcp.tool.McpTool
 import io.modelcontextprotocol.json.McpJsonMapper
 import io.modelcontextprotocol.server.McpServer
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider
@@ -28,12 +31,40 @@ import org.apache.catalina.startup.Tomcat
 import reactor.core.publisher.Mono
 import scala.jdk.CollectionConverters.*
 import zio.*
-import zio.http.Client
+import zio.http.*
 import zio.json.ast.Json
 import zio.test.*
 
 object McpJavaSdkInteropSpec extends ZIOSpecDefault:
   final private case class Server(tomcat: Tomcat, directory: Path, endpoint: String)
+  final private case class Exchange(method: Method, session: Option[String], status: Option[Status])
+
+  private def recording(http: Client, exchanges: Ref[Chunk[Exchange]]): Client =
+    http.copy(driver = new ZClient.Driver[Any, Scope, Throwable]:
+      def request(
+          version: Version,
+          method: Method,
+          url: URL,
+          headers: Headers,
+          body: Body,
+          sslConfig: Option[ClientSSLConfig],
+          proxy: Option[Proxy]
+      )(using Trace): ZIO[Scope, Throwable, Response] =
+        val session = headers.get("Mcp-Session-Id")
+        exchanges.update(_ :+ Exchange(method, session, None)) *>
+          http.driver
+            .request(version, method, url, headers, body, sslConfig, proxy)
+            .tap(response =>
+              exchanges.update(_ :+ Exchange(method, session, Some(response.status)))
+            )
+
+      def socket[Env1 <: Any](
+          version: Version,
+          url: URL,
+          headers: Headers,
+          app: WebSocketApp[Env1]
+      )(using Trace, Scope =:= Scope): ZIO[Env1 & Scope, Throwable, Response] =
+        http.driver.socket(version, url, headers, app))
 
   private def temporaryDirectory: ZIO[Scope, Throwable, Path] =
     ZIO
@@ -127,20 +158,68 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
     yield Server(tomcat, directory, endpoint)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpJavaSdkInteropSpec")(
-    test("unchanged Java SDK HTTP server initializes, executes, distinguishes errors, and closes"):
+    test(
+      "unchanged Java SDK executes, distinguishes errors, and permits explicit expired-session replacement"
+    ):
       for
         observed <- ZIO.scoped:
           for
-            peer       <- server
-            http       <- ZIO.service[Client]
-            transport  <- McpStreamableHttpTransport.open(http, peer.endpoint)
-            client     <- McpClient.open(transport, McpImplementation("scala-interop", "1"))
-            page       <- client.listToolsPage()
-            greeting   <- client.callTool("greet", Some(Json.Obj()))
-            rejected   <- client.callTool("reject", Some(Json.Obj()))
-            unknown    <- client.callTool("missing", Some(Json.Obj())).exit
-            _          <- client.close
-            terminated <- transport.terminateSession
+            peer      <- server
+            http      <- ZIO.service[Client]
+            exchanges <- Ref.make(Chunk.empty[Exchange])
+            recorded = recording(http, exchanges)
+            transport <- McpStreamableHttpTransport.open(recorded, peer.endpoint)
+            client    <- McpClient.open(transport, McpImplementation("scala-interop", "1"))
+            page      <- client.listToolsPage()
+            remote <- ZIO
+              .fromOption(page.tools.find(_.name == "greet"))
+              .orElseFail(AgentError.McpError("SDK greeting was not discovered"))
+            old <- ZIO.fromEither(
+              Toolkit(
+                McpTool.bind(
+                  client,
+                  remote.name,
+                  ToolDef("greeting", "Host-selected greeting", remote.inputSchema)
+                )
+              )
+            )
+            greeting     <- client.callTool("greet", Some(Json.Obj()))
+            rejected     <- client.callTool("reject", Some(Json.Obj()))
+            unknown      <- client.callTool("missing", Some(Json.Obj())).exit
+            beforeExpiry <- exchanges.get
+            oldSession <- ZIO
+              .fromOption(beforeExpiry.flatMap(_.session).headOption)
+              .orElseFail(AgentError.McpError("SDK session header was not observed"))
+            url <- ZIO.fromEither(URL.decode(peer.endpoint))
+            deleted <- ZIO.scoped:
+              Client
+                .streaming(
+                  Request
+                    .delete(url)
+                    .addHeaders(
+                      Headers(
+                        "Mcp-Session-Id"       -> oldSession,
+                        "MCP-Protocol-Version" -> McpInitialization.protocolVersion
+                      )
+                    )
+                )
+                .provideSomeEnvironment[Scope](_.add(http))
+                .map(_.status)
+            expired        <- client.callTool("greet", Some(Json.Obj())).exit
+            afterExpiry    <- exchanges.get
+            _              <- client.close
+            freshTransport <- McpStreamableHttpTransport.open(recorded, peer.endpoint)
+            freshClient   <- McpClient.open(freshTransport, McpImplementation("scala-interop", "1"))
+            freshPage     <- freshClient.listToolsPage()
+            freshGreeting <- freshClient.callTool("greet", Some(Json.Obj()))
+            beforeStale   <- exchanges.get
+            freshSession <- ZIO
+              .fromOption(beforeStale.drop(afterExpiry.size).flatMap(_.session).headOption)
+              .orElseFail(AgentError.McpError("Replacement SDK session header was not observed"))
+            stale      <- old.executeSafe("greeting", Json.Obj())
+            afterStale <- exchanges.get
+            _          <- freshClient.close
+            terminated <- freshTransport.terminateSession
           yield (
             peer,
             assertTrue(
@@ -160,6 +239,19 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
                     AgentError.McpErrorData.Present(Json.Str("Tool not found: missing"))
                   )
                 ),
+              deleted == Status.Ok,
+              expired == Exit.fail(AgentError.McpSessionExpired()),
+              afterExpiry.drop(beforeExpiry.size) == Chunk(
+                Exchange(Method.POST, Some(oldSession), None),
+                Exchange(Method.POST, Some(oldSession), Some(Status.NotFound))
+              ),
+              freshClient.initialization == client.initialization,
+              freshPage.tools == page.tools,
+              freshGreeting == greeting,
+              freshSession != oldSession,
+              beforeStale.drop(afterExpiry.size).flatMap(_.session).forall(_ == freshSession),
+              stale.state == ToolResultState.Error,
+              afterStale == beforeStale,
               terminated == McpHttpTermination.Deleted
             )
           )

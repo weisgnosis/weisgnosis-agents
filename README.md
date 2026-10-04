@@ -4,7 +4,7 @@ Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The pro
 
 This repository is in development. The [implementation tracker](docs/architecture/tracker.md) distinguishes available components from pending integration; this is not a completed production distribution.
 
-Implementation is active. Core provides scoped ReAct execution, checked tool policies, run-owned groups, preloaded skills and exact deferred-resource capabilities. The harness adds bounded local loading, reusable child sessions, ordered child events and opt-in child Plan tools/context with independent review. MCP provides owned stdio/HTTP clients, bounded cursor recovery and explicit host replacement after typed expiry. The [tracker](docs/architecture/tracker.md#current-acceptance) and linked package contracts record exact acceptance and remaining limits. Next is real expired-server and actual Netty body-truncation interoperability.
+Implementation is active. Core provides scoped ReAct execution, checked tool policies, run-owned groups, preloaded skills and exact deferred-resource capabilities. The harness adds bounded local loading, reusable child sessions, ordered child events and opt-in child Plan tools/context with independent review. MCP provides owned stdio/HTTP clients, bounded cursor recovery and explicit host replacement after typed expiry. The [tracker](docs/architecture/tracker.md#current-acceptance) and linked package contracts record exact acceptance and remaining limits. Next is a typed host policy for bounded synchronous subagent waiting without promotion.
 
 ## Implemented components
 
