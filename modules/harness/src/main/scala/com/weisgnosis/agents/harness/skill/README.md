@@ -1,4 +1,4 @@
-# Inline and selected local skills
+# Inline skills and local repositories
 
 [SkillMarkdownParser.parse](SkillMarkdownParser.scala) reads a bounded inline SKILL.md profile into core SkillDefinition. The required name and description fields must be nonblank YAML strings. Name becomes the exact ID; string values follow YAML semantics and the body is preserved exactly. Additional fields become ordered JSON metadata, excluding name/description. Resources and activation targets are empty: parsing acquires no capability and does not create group names or install a skill. Hosts can pass the result through checked SkillCatalog.make and explicitly configure any resources/targets.
 
@@ -8,13 +8,13 @@ Required name/description reject numeric, boolean, null and collection values; q
 
 SkillMarkdownLimits defaults to 128,000 document characters and 16,000 header characters, measured as UTF-16 units. maxMetadataDepth defaults to 10 and counts nested metadata collections, excluding the outer header mapping; scalar values add no collection depth. All three limits must be positive. The document includes delimiters/body; the header excludes delimiter lines and includes the newline before the closing delimiter. Validation precedes YAML reader creation. These bounds intentionally differ from upstream's 16,384-code-point header limit. The limits have a derived codec; parse always validates decoded values.
 
-Migration: SkillMarkdownLimits appends the defaulted third field maxMetadataDepth; old JSON without it uses 10. SkillDefinition appends default-empty metadata as its sixth field. Positional patterns/Product arity and encoded data change; rebuild dependent binaries. The subagent declaration parser is unchanged. Markdown generation, repository discovery, source-derived IDs and skill capability registration remain unfinished; selected local loading is defined below.
+Migration: SkillMarkdownLimits appends the defaulted third field maxMetadataDepth; old JSON without it uses 10. SkillDefinition appends default-empty metadata as its sixth field. Positional patterns/Product arity and encoded data change; rebuild dependent binaries. The subagent declaration parser is unchanged. Markdown generation, source-derived IDs and skill capability registration remain unfinished; selected local loading and bounded repository discovery are defined below.
 
 ## Verification and acceptance
 
 - [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for ordered inert metadata, bounded parsing and preservation, with no findings.
 - [x] Full `scalafmtAll scalafmtSbt verify` passed in `skill-metadata-verify.log`: 600 core / 687 harness / 79 MCP tests (1,366 total), compile task 1 second and test task 14 seconds, with zero compiler warnings or failures. Five parser groups include two new metadata groups; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals.
-- [ ] Next: bounded host-owned repository discovery. Capability registration remains separate.
+- [x] Bounded repository discovery is independently reviewed and verified below; capability registration remains separate.
 
 | Reviewed file | Reviewed Git blob |
 | --- | --- |
@@ -37,7 +37,30 @@ LocalSkill keeps its call signature; its nested parser limits and returned Skill
 
 | Reviewed file | Reviewed Git blob |
 | --- | --- |
-| [LocalSkill.scala](LocalSkill.scala) | `3c6e81e5b9a8102a555b4c3e31e68c18d206ee70` |
+| [LocalSkill.scala](LocalSkill.scala), current helper visibility reviewed below | `d260589839585de3588c3a14ccb2a69f31200330` |
 | [LocalSkillSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillSpec.scala) | `cd0a1531f8de85150a98b70c234b13865b3a1404` |
 
 Tests cover real selected reads and resource release. Symlink rejection is source-reviewed; platform symlink/junction integration coverage remains unverified.
+
+## Local repository discovery
+
+[LocalSkillRepository.load](LocalSkillRepository.scala) returns a checked SkillCatalog from immediate child directories of one explicit HostControlled root. The effect is cold, read-only and creates no directories. Untrusted roots and invalid repository or nested LocalSkillLimits fail before I/O. LocalSkillRepositoryLimits defaults to maxEntries = 4096, maxSkills = 256 and default LocalSkillLimits; both repository limits must be positive. Every immediate entry counts before filtering, including ordinary files and directories without a skill document.
+
+The scoped directory scan closes before candidate inspection and document loading. Entries are processed in filename order; the returned catalogue exposes definitions in declared-ID order. Ordinary non-directory entries are ignored, but every symbolic-link entry is rejected. Candidate directories undergo lexical and canonical sensitive-path checks before probing exact SKILL.md; their canonical path must equal the enumerated entry and have the repository root as its direct parent. Only NoSuchFileException from the document attribute probe means absence and skips that directory. Other probe failures and nonregular or symlink documents fail the whole load. A missing root also fails.
+
+Selected documents use LocalSkill's byte/parser limits, strict UTF-8 and joined scoped reads. Declared IDs, bodies and inert metadata survive unchanged; duplicate IDs or any malformed selected document fail the entire result. Resources and activation targets remain empty. There is no recursive discovery, resource fallback, origin/source ID generation, cache, save/delete operation, automatic installation or SkillHook integration. Host-controlled ancestor and filesystem-race assumptions remain unchanged: these are advisory checks, not an atomic sandbox or a cancellation deadline. Platform symlink/junction integration is still unverified.
+
+Migration: this API is additive. LocalSkill.load remains unchanged; only its validate and canonicalDirectory helpers become private[skill] for checked reuse.
+
+- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants at the identities below, with no findings. The focused `local-skill-repository-test.log` run passed six repository/local-loader groups in 336 ms with zero compiler warnings.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed in `local-skill-repository-verify.log`: 600 core / 690 harness / 79 MCP tests (1,369 total), compile task 1 second and test task 11 seconds, with zero compiler warnings or failures.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [LocalSkillRepository.scala](LocalSkillRepository.scala) | `1821baaabe33e1c11c0e19a41df31e4ac59e508d` |
+| [LocalSkillRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillRepositorySpec.scala) | `3c65134d5e4e1641f03b68e08136509c28636707` |
+| [LocalSkill.scala](LocalSkill.scala), package-visible helper reuse | `d260589839585de3588c3a14ccb2a69f31200330` |
+
+The LocalSkillSpec identity above remains unchanged; LocalSkill's public behavior and signature are unchanged.
+
+- [ ] Next: general I/O recovery/session reinitialization, as ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, lazy resources, caches and SkillHook remain unfinished.

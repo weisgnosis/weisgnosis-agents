@@ -74,7 +74,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Typed workspace-relative directory selection with explicit stricter normalization.
 - [x] Checked preloaded skills, selected local loading and explicitly narrowed child catalogue/group snapshots.
 - [x] Both reviewers approved bounded inert skill metadata, and full verification passed.
-- [ ] Implement repository discovery and full child Plan tool/prompt installation separately.
+- [x] Both reviewers approved bounded immediate local skill discovery; full verification passed.
+- [ ] Other repository variants and full child Plan tool/prompt installation remain separate.
 - [x] Checked common MCP request, notification, success and error envelopes.
 - [x] Pure 2025-06-18 initialization payloads with exact-version checks and capability projection.
 - [x] Checked 2025-06-18 discovery pages and tool-call requests, preserving schema/extension data without assigning local authority to remote hints.

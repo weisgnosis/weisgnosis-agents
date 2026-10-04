@@ -1,6 +1,6 @@
 # Architecture implementation tracker
 
-Last synchronized: 2026-10-01. Implementation is active. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
+Last synchronized: 2026-10-04. Implementation is active. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
 
 ## Current acceptance
 
@@ -22,7 +22,7 @@ Last synchronized: 2026-10-01. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 600 core / 687 harness / 79 MCP tests (1,366 total), zero compiler warnings or failures. Evidence: `skill-metadata-verify.log`; compile task 1 second, test task 14 seconds.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 600 core / 690 harness / 79 MCP tests (1,369 total), zero compiler warnings or failures. Evidence: `local-skill-repository-verify.log`; compile task 1 second, test task 11 seconds.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -99,7 +99,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Explicit child catalogue/group snapshots, monotone skill selection and required runtime-control validation against the final static tool boundary passed both independent reviews and full verification. The [child contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#child-skill-snapshots) records all six identities and bounded scope.
 - [x] Declaration skills selection and bounded Markdown/YAML parsing use the same checked child catalogue, including explicit empty selection and legacy missing-field defaults. Both reviewers approved the [four current identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#inline-declaration-parsing), and full verification passed.
 - [x] `registry_contract` and `current_docs` approved bounded additional skill metadata, checked catalogue validation and local preservation at the six identities in the [catalogue](../../modules/core/src/main/scala/com/weisgnosis/agents/core/skill/README.md) and [parser/local contracts](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/skill/README.md). Full verification passed. Required fields retain sole authority; ordered extras do not install capabilities.
-- [ ] Next: repository skill discovery. General I/O recovery and durable integration remain unfinished.
+- [x] `registry_contract` and `current_docs` approved bounded host-controlled [local skill repository discovery](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/skill/README.md#local-repository-discovery): all-entry and selected-count limits, scoped enumeration, checked paths, declared identities and whole-load failure. The package records the three exact source/spec identities and verification; broader repository variants remain separate.
+- [ ] Next: general I/O recovery and session reinitialization. Other skill repository variants, lazy resources, source IDs, caches, writes and SkillHook integration remain unfinished.
 - [x] Implement and independently review scoped HTTP POST and explicit GET requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [ ] Complete separately specified general I/O recovery, session reinitialization and broader server interoperability.
 - [ ] Define durable host reuse/recovery and post-promotion event delivery separately, with explicit lifetime and retention contracts.

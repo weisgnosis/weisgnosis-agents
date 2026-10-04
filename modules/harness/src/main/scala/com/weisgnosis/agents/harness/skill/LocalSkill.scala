@@ -60,7 +60,7 @@ object LocalSkill:
         )
       yield skill.copy(resources = loaded.toMap)
 
-  private def validate(
+  private[skill] def validate(
       resources: Set[String],
       limits: LocalSkillLimits
   ): Either[AgentError, Unit] =
@@ -81,7 +81,7 @@ object LocalSkill:
       .split("/", -1)
       .forall(segment => !segment.isBlank && segment != "." && segment != "..")
 
-  private def canonicalDirectory(directory: Path): IO[AgentError, Path] =
+  private[skill] def canonicalDirectory(directory: Path): IO[AgentError, Path] =
     for
       _ <- deny("Parent traversal is not permitted").when(
         (0 until directory.getNameCount).exists(index => directory.getName(index).toString == "..")
