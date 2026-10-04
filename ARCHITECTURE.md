@@ -4,7 +4,7 @@
 
 The runtime owns state, cancellation, permission decisions, and completion. Model output is input to a deterministic state machine, never authority to bypass invariants. Pure transformations use immutable domain values. Randomness, clocks, filesystem access, network operations, and resource lifetimes belong inside ZIO effects.
 
-ReActAgent retains in-memory history through private Ref values and serializes runs per instance. Data-only before-acting suspension and explicit resume/restoration are implemented and independently reviewed. Durable workflow replay, database transactions, authentication, and execution idempotency belong to the host.
+ReActAgent retains in-memory history through private Ref values and serializes runs per instance. Data-only before-acting suspension, checked supplied results and explicit resume/restoration are implemented and independently reviewed. Durable workflow replay, database transactions, authentication, and execution idempotency belong to the host.
 
 ## Module boundaries
 

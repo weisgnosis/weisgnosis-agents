@@ -1,6 +1,6 @@
 # weisgnosis-agents
 
-Ordinary before-acting suspension, explicit full-batch resume and data-only checkpoint restoration are implemented and independently reviewed; see the [runtime contract](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). The harness complete-batch confirmation adapter is accepted. Host checkpoint authentication/storage and partial approval resumption remain separate.
+Ordinary before-acting suspension, explicit resume with checked supplied results and data-only checkpoint restoration are implemented and independently reviewed; see the [runtime contract](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). The harness complete-batch confirmation adapter is accepted. Host checkpoint authentication/storage and partial approval resumption remain separate.
 
 Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The project ports selected agent mechanics from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java) under Apache-2.0.
 

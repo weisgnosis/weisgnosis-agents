@@ -30,29 +30,59 @@ final case class PendingActing(
     assistantPosition: Int,
     admittedTools: Chunk[ToolDef],
     toolGroups: Option[Chunk[ToolGroup]],
-    responseFormat: Option[Json]
+    responseFormat: Option[Json],
+    suppliedResults: Chunk[SuppliedToolResult] = Chunk.empty
 ) derives JsonCodec
 
 object PendingActing:
+  /** Adds checked external observations without changing the saved assistant or its history. */
+  def withResults(
+      checkpoint: AgentResult,
+      results: Chunk[SuppliedToolResult]
+  ): Either[AgentError.InvalidConfiguration, AgentResult] =
+    for
+      pending <- validate(checkpoint)
+      candidate = checkpoint.copy(state =
+        AgentRunState.Suspended(
+          pending.copy(suppliedResults = pending.suppliedResults ++ results)
+        )
+      )
+      _ <- validate(candidate)
+    yield candidate
+
   private[agents] def validate(
       result: AgentResult
   ): Either[AgentError.InvalidConfiguration, PendingActing] =
     val invalid = AgentError.InvalidConfiguration("Invalid before-acting checkpoint")
     result.state match
       case AgentRunState.Suspended(pending) =>
-        val prefix   = result.history.take(pending.assistantPosition)
-        val analysis = ToolHistory.inspect(result.history)
-        Either.cond(
-          pending.reason.trim.nonEmpty &&
-            pending.context.replyId.trim.nonEmpty && pending.context.requestId.trim.nonEmpty &&
-            result.iterationCount > 0 && pending.assistantPosition >= 0 &&
-            pending.assistantPosition == result.history.size - 1 &&
-            result.history.lastOption.contains(result.reply) &&
-            result.reply.role == Role.Assistant && result.reply.toolUses.nonEmpty &&
-            ToolHistory.inspect(prefix).isComplete && analysis.unmatched.isEmpty &&
-            analysis.pending.forall(_.position == pending.assistantPosition) &&
-            pending.admittedTools.map(_.name).distinct.size == pending.admittedTools.size,
-          pending,
-          invalid
-        )
+        val prefix           = result.history.take(pending.assistantPosition)
+        val analysis         = ToolHistory.inspect(result.history)
+        val suppliedOrdinals = pending.suppliedResults.map(_.callOrdinal)
+        for
+          _ <- pending.suppliedResults.foldLeft[Either[AgentError.InvalidConfiguration, Unit]](
+            Right(())
+          )((checked, supplied) => checked.flatMap(_ => SuppliedToolResult.validate(supplied)))
+          _ <- Either.cond(
+            suppliedOrdinals.distinct.size == suppliedOrdinals.size &&
+              suppliedOrdinals.toSet.subsetOf(analysis.pending.map(_.ordinal).toSet),
+            (),
+            AgentError.InvalidConfiguration(
+              "Supplied results must identify distinct pending local occurrences"
+            )
+          )
+          _ <- Either.cond(
+            pending.reason.trim.nonEmpty &&
+              pending.context.replyId.trim.nonEmpty && pending.context.requestId.trim.nonEmpty &&
+              result.iterationCount > 0 && pending.assistantPosition >= 0 &&
+              pending.assistantPosition == result.history.size - 1 &&
+              result.history.lastOption.contains(result.reply) &&
+              result.reply.role == Role.Assistant && result.reply.toolUses.nonEmpty &&
+              ToolHistory.inspect(prefix).isComplete && analysis.unmatched.isEmpty &&
+              analysis.pending.forall(_.position == pending.assistantPosition) &&
+              pending.admittedTools.map(_.name).distinct.size == pending.admittedTools.size,
+            (),
+            invalid
+          )
+        yield pending
       case _ => Left(invalid)

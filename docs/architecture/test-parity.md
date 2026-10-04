@@ -526,7 +526,7 @@ Pinned source: `agentscope-core/src/test/java/io/agentscope/core/legacy/hook/Hoo
 
 - [x] `testPostReasoningStopReturnsToolUseMsg` (line 182) and `testStopDoesNotExecuteSubsequentTools` (line 211): return the saved assistant tool calls without beginning local execution. ReActAgentResumeSpec verifies zero execution, processing and authorization before suspension. The adaptation uses a typed suspension value, not mutable stop flags.
 - [x] `testResumeWithNoArgsAfterPostReasoningStop` (line 246): resume the saved batch before a follow-up model request. ReActAgentResumeSpec additionally verifies exact request counts, original/restored mixed batches and inline-only completion. The Java fixture asserts execution and a final reply without tool calls; it does not explicitly assert request count or exact assistant equality.
-- [ ] `testPartialToolResultsExecution` (line 541): an externally supplied call1 result suppresses tool1 while tool2 executes once. Full saved-batch resume alone does not satisfy this method; partial-result and confirmation integration remains separate.
+- [x] `testPartialToolResultsExecution` (line 541): ReActAgentSuppliedResultSpec verifies live/restored partial and all-supplied batches, unchanged original calls, no local execution or authorization for supplied occurrences, and one follow-up model request. Checked original-ordinal observations replace Java Tool-message injection; completed inline results remain separate. Human partial confirmations are excluded. The [seven-file acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#supplied-results-for-suspended-batches) records exact identities and full verification.
 
 ## Restored checkpoint confirmations: bounded mappings
 

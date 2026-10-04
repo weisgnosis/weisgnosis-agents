@@ -292,11 +292,22 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
             request.copy(call = call.copy(name = "other"))
           )
         )(authorizer.authorize(_))
-        untouched <- reads.get
-        allowed   <- authorizer.authorize(request)
+        supplied <- ZIO.fromEither(
+          PendingActing.withResults(
+            saved,
+            Chunk(SuppliedToolResult(0, ToolExecutionResult("already executed")))
+          )
+        )
+        suppliedOnly <- ConfirmedBatchAuthorizer.make(supplied, Chunk.empty, policy)
+        extra        <- ConfirmedBatchAuthorizer.make(supplied, valid, policy).exit
+        replay       <- suppliedOnly.authorize(request)
+        untouched    <- reads.get
+        allowed      <- authorizer.authorize(request)
       yield assertTrue(
         invalid.forall(_.isFailure),
         invalidState.isFailure,
+        extra.isFailure,
+        replay.isInstanceOf[ToolAuthorization.Denied],
         untouched == 0,
         rejected.forall(_.isInstanceOf[ToolAuthorization.Denied]),
         allowed == ToolAuthorization.Approved(original)

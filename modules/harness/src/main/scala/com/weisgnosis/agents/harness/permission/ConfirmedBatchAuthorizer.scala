@@ -98,8 +98,12 @@ object ConfirmedBatchAuthorizer:
     ZIO.fromEither:
       for
         pending <- PendingActing.validate(checkpoint)
-        occurrences = ToolHistory.inspect(checkpoint.history).pending
-        ordinals    = confirmations.map(_.callOrdinal)
+        supplied = pending.suppliedResults.map(_.callOrdinal).toSet
+        occurrences = ToolHistory
+          .inspect(checkpoint.history)
+          .pending
+          .filterNot(value => supplied.contains(value.ordinal))
+        ordinals = confirmations.map(_.callOrdinal)
         _ <- Either.cond(
           ordinals.distinct.size == ordinals.size &&
             ordinals.toSet == occurrences.map(_.ordinal).toSet,

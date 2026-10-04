@@ -95,7 +95,7 @@ Final-delta suppression is local to each execution occurrence, including repeate
 
 ## Current typed-result acceptance
 
-The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [before-acting suspension](#before-acting-suspension-and-restoration); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
+The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [supplied results](#supplied-results-for-suspended-batches); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
 
 - [x] `path_review` and `current_docs` approved typed local result publication within the linked tool acceptance; full repository verification passed with no warnings or failures.
 
@@ -250,7 +250,8 @@ The declaration is serialized with LlmConfig but excluded from the HTTP request 
 - [ ] Complete provider continuation and provider multimodal serialization, full event ordering, and event adapters.
 - [x] Review and verify before-acting suspension/restoration.
 - [x] Integrate the host-selected [complete-batch ConfirmResult adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) with restored checkpoints.
-- [ ] Integrate checked external partial results; partial human approvals, durable host persistence and broader harness middleware remain separate.
+- [x] Integrate checked external partial results with an original-ordinal completion ledger.
+- [ ] Expose resumed event streams through the shared run/stream lifecycle; partial human approvals, durable host persistence and broader harness middleware remain separate.
 
 The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes verified contracts from remaining scenarios. General JSON Schema validation and exhaustive provider compatibility are not claimed.
 
@@ -264,13 +265,13 @@ The optional [ModelTextTransform](../client/ModelTextTransform.scala) on ChatCom
 
 ## Before-acting suspension and restoration
 
-This contract supports ordinary before-acting checkpoints and full saved-batch execution. It does not implement partial results or durable approval workflows.
+This contract supports ordinary before-acting checkpoints and saved-batch execution. [Supplied results](#supplied-results-for-suspended-batches) let the host report completed local occurrences; partial human confirmations and durable approval workflows remain separate.
 
 `ReasoningDecision.Suspend(reason)` pauses an ordinary tool-call turn after the model and hook scopes close and before inline-result processing or local execution. The returned `AgentResult` carries the complete assistant, canonical history, iteration and accumulated usage. `AgentRunState.Suspended(PendingActing)` adds data for the reason, original model context, assistant position, admitted tool definitions, group snapshot and response format; it contains no tool implementations, credentials, fibers or approval promises. Structured execution and non-tool-call suspension are rejected before the assistant is committed.
 
 `resume()` consumes the live pending batch once under the run lock, using a fresh owned scope and timeout. It processes that saved batch before another model request or post-reasoning hook, preserving the original context and occurrence identities. After checking the saved history, the runtime changes only its ReasoningStopRequested generation tag to ToolCalls; assistant content, signatures and other metadata remain intact. Inline provider results remain inline and bypass local dispatch. Local calls retain ordinary authorization and cancellation reconciliation. Resuming the final permitted iteration may finish its saved tools but makes no further model request; the limit check precedes integer increment. A fresh run rejects pending work; `resetHistory` explicitly discards history and pending state.
 
-`restore(result)` accepts a checkpoint only into an empty agent. It validates the final assistant, complete preceding tool history and iteration count against the receiving host budget, then rebuilds the admitted snapshot from trusted host tool bindings and group configuration and checks exact tool definitions. Equality is a compatibility check, not authorization. The host owns checkpoint authentication, storage, exclusive claims and side-effect idempotency; restoring data does not acquire those capabilities. The harness [complete-batch ConfirmResult adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) supports explicit restored authorization; partial external results remain separate work. Suspended child sessions continue to reject ordinary sends; no child resume tool or session API is added.
+`restore(result)` accepts a checkpoint only into an empty agent. It validates the final assistant, complete preceding tool history and iteration count against the receiving host budget, then rebuilds the admitted snapshot from trusted host tool bindings and group configuration and checks exact tool definitions. Equality is a compatibility check, not authorization. The host owns checkpoint authentication, storage, exclusive claims and side-effect idempotency; restoring data does not acquire those capabilities. The harness [complete-batch ConfirmResult adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) supports explicit restored authorization; checked external results are described below; partial human confirmations remain separate work. Suspended child sessions continue to reject ordinary sends; no child resume tool or session API is added.
 
 Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspended` becomes a data-bearing case. Exhaustive matches and persisted codecs must account for these shapes; dependent binaries must be rebuilt. The old payload-free Suspended wire value is incompatible: hosts must migrate valid checkpoint data, never fabricate a missing checkpoint. Existing keep/replace/discard behavior remains separately accepted below.
 
@@ -280,8 +281,8 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
-| [ReActAgent.scala](ReActAgent.scala) | [Current confirmed-batch identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) |
-| [PendingActing.scala](PendingActing.scala) | [Current confirmed-batch identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](#supplied-results-for-suspended-batches) |
+| [PendingActing.scala](PendingActing.scala) | [Current identity](#supplied-results-for-suspended-batches) |
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | 5d6947f4c2b8baf97fa483acfeed0294eaeafc70 |
 | [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | f2c9b42cd43d49c7d5a4259771cd6f94006bb170 |
 | [SubagentSession.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentSession.scala) | a592c82bbb5720be9a9c9ca39635fb7e89990692 |
@@ -289,7 +290,32 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 
 Regression evidence: `acting-resume-focused.log` reproduced extraction-induced masked acting at runtime `eb8ce2db4c836637d7e65e5c255dc78ec24783a9` with spec `88e8b60711a27a8b5d6cd302218c38a8258692ad` (six passed, four timed out); restoring interruptibility before the shared acting phase passed unchanged expectations in `acting-resume-green.log`. `acting-resume-bounds-red.log` reproduced acceptance beyond the host budget and Int.MaxValue overflow at runtime `279b921866d4a8143a55a77cc3077933cfd4b253` with spec `1a5e0f8e51f1c04715bb3a41671970994830a365` (four passed, one failed): iteration became negative and one unexpected model request occurred. Host-budget validation and the pre-increment limit check passed the unchanged regression in `acting-resume-bounds-green.log`; final tables also verify thinking-only rejection and inline metadata preservation.
 
-- [ ] Integrate partial results and authenticated durable approval resumption separately.
+- [x] Integrate [supplied external results](#supplied-results-for-suspended-batches).
+- [ ] Integrate partial human confirmations and authenticated durable host persistence separately.
+
+## Supplied results for suspended batches
+
+`SuppliedToolResult(callOrdinal, result)` carries a host-provided ToolExecutionResult for an original assistant tool-use occurrence. Checked `PendingActing.withResults(checkpoint, results)` augments checkpoint data without changing its history or assistant. Only distinct unresolved local ordinals and Success/Error states are accepted; inline-completed, unknown, repeated or unfinished/Denied observations and ambiguous JSON reject the whole augmentation.
+
+`resume(results)` adds these observations to a live checkpoint; hosts can alternatively augment, serialize and restore a checkpoint before calling `resume()`. Validation occurs before consuming pending state. Resume persists every supplied raw observation and records completed original ordinals before any interruptible result processor or local execution. Runtime-owned call identity/state and protected metadata remain authoritative. Supplied occurrences bypass local authorization and dispatch; only unsupplied local calls execute normally. This represents trusted host-reported execution, not permission approval.
+
+Inline and supplied observations pass through the existing result processor. The admitted batch still drains before selecting the earliest original-ordinal Stop; otherwise a batch containing local calls continues to the next model request even when all their results were supplied. Cancellation joins processing cleanup, preserves every persisted supplied/local result and synthesizes Error only for unfinished local ordinals. One interrupted recovery remains the owner-cancellation contract. The runtime ledger is invocation-owned, not a durable exactly-once service.
+
+Migration: PendingActing appends default-empty suppliedResults, preserving old missing-field decoding; positional patterns and dependent binaries must follow the new seven-field shape. No-argument resume remains available. ConfirmedBatchAuthorizer requires confirmations only for local ordinals without supplied results; partial human confirmations remain separate.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the seven identities below, with no remaining findings. Focused `supplied-results-green.log` passed 46 core tests in 601 ms and four harness tests in 451 ms. Full `scalafmtAll scalafmtSbt verify` passed in `supplied-results-verify.log`, with zero compiler warnings or failures; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). One pure validation group and three runtime groups cover the new contract; the existing confirmation group verifies supplied ordinals are excluded from confirmation coverage.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [PendingActing.scala](PendingActing.scala) | c2a2589c40b611f1d63ad9b294073d82fc49278e |
+| [ReActAgent.scala](ReActAgent.scala) | 563dcf6d95158a127e6c8302dfc0fb8e0f5a7796 |
+| [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
+| [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
+| [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | 544ba0673471232ce7fa0b45fc88e002a887b917 |
+| [ConfirmedBatchAuthorizer.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizer.scala) | 0cd496a11133b1ec093392c4bb9d19153bec7c8d |
+| [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | d21210cd749e36703536e4a5dd370f607816ac68 |
+
+- [ ] Integrate partial human confirmations and host-managed side-effect idempotency separately.
 
 ## Post-reasoning policy and invocation usage
 
@@ -344,7 +370,7 @@ An equal candidate preserves the existing permissive supplied-history API withou
 
 The harness ConversationCompactor.preparer installs compaction through this port and maps summarizer/hook errors to the distinct preparation error. Such errors cannot masquerade as native-format ModelError rejection and trigger Auto fallback. Typed failure leaves canonical input history unchanged. Defects propagate; cancellation closes preparation resources and appends the current attempt's recovery. External flush/offload effects already completed cannot be rolled back.
 
-Recovery ownership is attempt-local: Ready before preparation, PersistedAssistant(position) after accepted assistant or interrupted partial output, and Recovered(message) after reconciliation. History and progress writes use a narrow interruption mask. The persisted position is valid only during the append-only active tool phase and is cleared before another rewrite. Nested cancellation finalizers reuse the exact recovery value; a later run, including empty-input continuation, owns a fresh recovery. Unaccepted hook output and supplied historical calls never become the current reconciliation target. Invocation usage remains independent of rewritten history and shared across Auto attempts.
+Recovery ownership is attempt-local: Ready before preparation, PersistedAssistant(position, completedOrdinals) after accepted assistant or interrupted partial output, and Recovered(message) after reconciliation. Persisting each raw local or supplied observation and marking its original ordinal share a narrow interruption mask. Cancellation and failed-phase reconciliation use this ledger rather than reconstructing completion from result order or repeated IDs. The persisted position is valid only during the append-only active tool phase and is cleared before another rewrite. Nested cancellation finalizers reuse the exact recovery value; a later run, including empty-input continuation, owns a fresh recovery. Unaccepted hook output and supplied historical calls never become the current reconciliation target. Invocation usage remains independent of rewritten history and shared across Auto attempts.
 
 Appending the optional make argument preserves ordinary callers; positional Builder matches must follow the current Builder constructor, including historyPreparer. Adding HistoryPreparationError requires exhaustive AgentError matches to handle the new leaf. Preparer values are runtime dependencies, not serialized configuration. Core remains independent of harness implementations.
 
@@ -352,7 +378,7 @@ Appending the optional make argument preserves ordinary callers; positional Buil
 
 ## Current history-preparation identities
 
-Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [before-acting suspension](#before-acting-suspension-and-restoration); unchanged components follow:
+Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [supplied results](#supplied-results-for-suspended-batches); unchanged components follow:
 
 | File | Git blob |
 | --- | --- |
@@ -441,7 +467,7 @@ Migration: the optional constructor/builder dependency is additive, but position
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-The current ReActAgent identity is recorded under [before-acting suspension](#before-acting-suspension-and-restoration); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
+The current ReActAgent identity is recorded under [supplied results](#supplied-results-for-suspended-batches); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
 
 ## Current completion-observer identities
 
