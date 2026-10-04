@@ -30,7 +30,7 @@ Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a 
 
 | Reviewed group/skill baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
 The table records the group/skill baseline. The current runtime identity is in [scoped model failover](#scoped-model-failover), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
@@ -60,7 +60,7 @@ Migration: configured skill listings move from the loader description to transie
 
 | Reviewed request-projection baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2eb319710008d11433978458c47a01d1c9eac110` |
 
 The [catalogue contract](../skill/README.md#deferred-resource-capabilities) owns current catalogue/library identities and combined verification. Existing execution, forwarding, group and permission contracts retain their scoped evidence below. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals and next work.
@@ -75,7 +75,7 @@ The protected loader retains ordinary authorization and sequential dispatch. An 
 
 | Reviewed deferred-read baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
 
 Current ReActAgent identity and execution approval are in [scoped model failover](#scoped-model-failover); the groups spec above is unchanged.
@@ -109,7 +109,7 @@ Mixed Success/Error, inline/provider batches and incomplete deferred batches do 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current provider-ownership fixture](#provider-owned-pending-calls) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this pair, including unchanged Direct behavior through the shared completed-ledger helper. Two grouped cases cover fresh/restored batches, priority and exclusion tables, structured runs, held cleanup and cancellation. Focused checks passed 19 tests in 678 ms (`all-denied-final-focused.log`), including the three existing Direct groups; full `scalafmtAll scalafmtSbt verify` passed in `all-denied-verify.log` with zero compiler warnings or failures. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
@@ -125,7 +125,7 @@ BeforeActing checkpoints may preserve a provider-only pause, with no local pendi
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [PendingActing.scala](PendingActing.scala) | bdcdb1e276a1dcbb1a86dc321c4ecdf39bdbeb4c |
 | [ToolHistory.scala](../model/ToolHistory.scala) | ba82c0b9d409c0eb444b2212c603532efa83235f |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | f3382b5f930c7810c3193d9a027df04382b9707b |
@@ -146,7 +146,7 @@ Migration: ToolDef appends the defaulted returnMode field. Old JSON without it d
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [ToolDef.scala](../tool/ToolDef.scala) | 8848c5c6698a13c05e4dc6fe9a8ec51710ec0708 |
 | [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | e9de09814ad62b90d3592fdf8d205de7d5bfd935 |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | 67e4f5c680d919c0f4a4cc1858b5c4d4d2769219 |
@@ -175,7 +175,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 8e28a12574d17faab954663516b2fb9529de34e5 |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | e8270b178be3f6d4dd90868be6555025bac07939 |
 
@@ -196,7 +196,7 @@ The unchanged [ReActAgentForwardingSpec](../../../../../../../test/scala/com/wei
 | Reviewed forwarding baseline | Git blob |
 | --- | --- |
 | [AgentEventForwarder.scala](AgentEventForwarder.scala) | `9198abc9f0b13f1cb1e347df0a73c57c50f6e2d1` |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [AgentEventForwarderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) | `2c0bbde7e0e5eb94f8c3f963ead3f1ed4eed37ab` |
 | [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | `9c602ab087cb78362035043bf07181b0aa108f89` |
 
@@ -262,7 +262,7 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [LlmClient.scala](../client/LlmClient.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
 | [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | 41fe7ee22d997bb6e190d89df49d72747fce9f20 |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
@@ -349,7 +349,7 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
@@ -376,7 +376,7 @@ Migration: PendingActing appends default-empty suppliedResults, preserving old m
 | File | Reviewed Git blob |
 | --- | --- |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
 | [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
 | [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | 544ba0673471232ce7fa0b45fc88e002a887b917 |
@@ -502,7 +502,7 @@ Migration: the default projectRequest method preserves existing ModelInputTransf
 | File | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](ModelInputTransform.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](../client/README.md#optional-frequency-and-presence-penalties) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
@@ -539,7 +539,7 @@ Four unchanged identities from the eight-file scope against `0349b1a`; changed o
 | --- | --- |
 | [ReActAgentCompletionInterruptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionInterruptSpec.scala) | c26004f7c289c66638e725857bc2225acb7e1a03 |
 | [ReActAgentCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionSpec.scala) | 2b6f5f8edad11ad0023c15c5905d9d69136e908f |
-| [SessionTranscriptWriter.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) | da27d3446e30ee7f77f4eaaac2d424200ac17383 |
+| [SessionTranscriptWriter.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [TranscriptCompletionSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/transcript/TranscriptCompletionSpec.scala) | 5a6a1a89ff46ae70df874db6b7826154a84065b5 |
 
 - [x] `review_docs` approved completion-observer documentation against `0349b1a`, including exact identities, late cancellation, early-stream error visibility, explicit anonymous policy, compactor offload and remaining lifecycle work. Required verification, local Markdown links, script checks and git diff --check passed for this reviewed scope.

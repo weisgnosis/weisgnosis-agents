@@ -46,7 +46,7 @@ object TranscriptLogSpec extends ZIOSpecDefault:
       )
     },
     test("encoder emits one physical line per entry and round trips its own state") {
-      val encoded = TranscriptState.restore(Chunk(entry)).map(TranscriptLog.encode)
+      val encoded = TranscriptState.restore(Chunk(entry)).flatMap(TranscriptLog.encode)
       assertTrue(
         encoded == Right(row + "\n"),
         encoded.flatMap(TranscriptLog.decode).map(_.entries) == Right(Chunk(entry))

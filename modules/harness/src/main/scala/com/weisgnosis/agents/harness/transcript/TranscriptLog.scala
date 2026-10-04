@@ -25,10 +25,15 @@ import zio.json.ast.Json
 private[transcript] object TranscriptLog:
   final private case class Row(version: Int, entry: TranscriptEntry) derives JsonCodec
 
-  def encode(state: TranscriptState): String =
+  def encode(state: TranscriptState): Either[AgentError.MemoryStorageError, String] =
     state.entries
-      .map(entry => Row(1, entry).toJson)
-      .mkString("", "\n", if state.entries.isEmpty then "" else "\n")
+      .foldLeft[Either[AgentError.MemoryStorageError, Chunk[String]]](Right(Chunk.empty)):
+        case (result, entry) =>
+          for
+            rows <- result
+            json <- Row(1, entry).toJsonAST.left.map(AgentError.MemoryStorageError.apply)
+          yield rows :+ JsonBoundary.render(json)
+      .map(_.mkString("", "\n", if state.entries.isEmpty then "" else "\n"))
 
   def decode(text: String): Either[AgentError, TranscriptState] =
     if text.isEmpty then Right(TranscriptState.empty)

@@ -251,18 +251,25 @@ object LocalTranscriptStoreSpec extends ZIOSpecDefault:
         remains <- ZIO.attemptBlocking(Files.isDirectory(invalid.resolve("transcript.jsonl")))
       yield assertTrue(blocked.isLeft, token == "previous-owner", rejected.isLeft, remains)
     },
-    test("unicode input and output previews persist without splitting surrogate pairs") {
+    test("numeric input and Unicode previews persist exactly across reopening") {
       val message =
         Msg.tool(Chunk(ContentBlock.ToolResult.text("t", "tool", "x" + "\ud83d\ude00" * 500)))
       val call =
         Msg.assistant(Chunk(ContentBlock.ToolUse("t", "tool", Json.Str("\ud83d\ude00" * 250))))
+      val numericInput = Json.Obj(
+        "nested" -> Json.Arr(
+          Json.Num(Long.MinValue),
+          Json.Obj("scaled" -> Json.Num(BigDecimal("-9223372036854775.808")))
+        )
+      )
+      val numericCall = Msg.assistant(Chunk(ContentBlock.ToolUse("numeric", "tool", numericInput)))
       for
         root <- temporaryDirectory
         recorded <- ZIO.scoped(
           LocalTranscriptStore
             .open(root, WorkspaceTrust.HostControlled)
             .flatMap(store =>
-              new SessionTranscriptWriter(store).appendMessages(Chunk(call, message))
+              new SessionTranscriptWriter(store).appendMessages(Chunk(call, message, numericCall))
             )
         )
         reopened <- ZIO.scoped(
@@ -279,6 +286,11 @@ object LocalTranscriptStoreSpec extends ZIOSpecDefault:
             TranscriptPreview.Truncated("x" + "\ud83d\ude00" * 499, 1001),
             Chunk(TranscriptBlockType.Text),
             com.weisgnosis.agents.core.model.ToolResultState.Success
+          ),
+          TranscriptPayload.ToolUse(
+            "numeric",
+            "tool",
+            TranscriptPreview.Complete(numericInput)
           )
         )
       )

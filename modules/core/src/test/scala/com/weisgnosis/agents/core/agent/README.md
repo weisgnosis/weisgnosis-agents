@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+The existing mixed synthetic-completion case now verifies exact minimum-Long closing text, equality with typed/metadata values, closing history identity and unchanged one-request usage/local-call pairing. [Owned numeric-output acceptance](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) records the reproduced mismatch and current runtime/spec identities.
+
 [Runtime ordering acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#runtime-event-ordering) records exact current lifecycle-spec identities and bounded text/thinking/tool-cycle adaptations. Fully drained invocations begin with AgentStart and end with correlated AgentEnd; early consumers abandon later output.
 
 The [host-resume integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume) exercises the shared internal resume-forwarding path with retained checkpoint reply identity, a fresh execution source, held cleanup defects and ordered terminal delivery.

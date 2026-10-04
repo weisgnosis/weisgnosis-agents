@@ -212,7 +212,14 @@ object SessionTranscriptWriterSpec extends ZIOSpecDefault:
     test("tool input keeps 500 characters complete and previews 501 characters") {
       val complete  = Json.Str("x" * 498)
       val oversized = Json.Str("x" * 499)
-      val observations = Chunk(complete, oversized)
+      val numeric = Json.Obj(
+        "values" -> Json
+          .Arr(Json.Num(Long.MinValue), Json.Num(BigDecimal("-9223372036854775.808"))),
+        "padding" -> Json.Str("x" * 500)
+      )
+      val numericText = """{"values":[-9223372036854775808,-9223372036854775.808],"padding":"""" +
+        "x" * 500 + "\"}"
+      val observations = Chunk(complete, oversized, numeric)
         .flatMap(input =>
           SessionTranscriptWriter.project(
             Msg.assistant(Chunk(ContentBlock.ToolUse("t", "tool", input)))
@@ -226,6 +233,11 @@ object SessionTranscriptWriterSpec extends ZIOSpecDefault:
             "t",
             "tool",
             TranscriptPreview.Truncated(oversized.toJson.take(500), 501)
+          ),
+          TranscriptPayload.ToolUse(
+            "t",
+            "tool",
+            TranscriptPreview.Truncated(numericText.take(500), numericText.length)
           )
         )
       )

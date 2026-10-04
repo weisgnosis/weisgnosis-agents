@@ -408,7 +408,7 @@ final class ReActAgent private (
               name = Some(config.name),
               content = rawResult.reply.content.collect { case thinking: ContentBlock.Thinking =>
                 thinking
-              } :+ ContentBlock.Text(json.toJson),
+              } :+ ContentBlock.Text(JsonBoundary.render(json)),
               metadata =
                 rawResult.reply.metadata.updated(StructuredOutput.MetadataStructuredOutput, json),
               usage = rawResult.reply.usage

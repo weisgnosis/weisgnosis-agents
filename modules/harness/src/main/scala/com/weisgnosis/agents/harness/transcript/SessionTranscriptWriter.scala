@@ -17,6 +17,7 @@ package com.weisgnosis.agents.harness.transcript
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.agent.TurnCompletionObserver
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
 import zio.*
 import zio.json.*
@@ -75,7 +76,7 @@ object SessionTranscriptWriter:
           )
         else Chunk.empty
       val useEntries = uses.zipWithIndex.map: (call, occurrence) =>
-        val input = call.input.toJson
+        val input = JsonBoundary.render(call.input)
         val preview =
           if input.length > InputPreviewChars then
             TranscriptPreview.Truncated(prefix(input, InputPreviewChars), input.length)

@@ -190,7 +190,7 @@ object StructuredOutputSpec extends ZIOSpecDefault:
                       ContentBlock.ToolUse(
                         "structured",
                         StructuredOutput.ToolName,
-                        Json.Obj("response" -> Json.Num(7))
+                        Json.Obj("response" -> Json.Num(Long.MinValue))
                       )
                     ),
                     usage = Some(ChatUsage(inputTokens = 4, outputTokens = 3)),
@@ -200,7 +200,7 @@ object StructuredOutputSpec extends ZIOSpecDefault:
               )
           }
           agent <- ReActAgent.make(client = model)
-          result <- agent.runStructured[Int](
+          result <- agent.runStructured[Long](
             Chunk(Msg.user("number")),
             Json.Obj("type" -> Json.Str("integer")),
             StructuredMode.SyntheticTool
@@ -208,7 +208,11 @@ object StructuredOutputSpec extends ZIOSpecDefault:
           count <- requests.get
         yield assertTrue(
           count == 1,
-          result._2 == 7,
+          result._2 == Long.MinValue,
+          result._1.reply.text == "-9223372036854775808",
+          result._1.reply.text.fromJson[Long] == Right(result._2),
+          result._1.reply.getStructuredData[Long] == Right(result._2),
+          result._1.history.lastOption.contains(result._1.reply),
           result._1.history.flatMap(_.toolUses).map(_.id) == Chunk("ordinary"),
           result._1.history.flatMap(_.toolResults).map(_.id) == Chunk("ordinary"),
           result._1.usage.exists(_.totalTokens == 7)

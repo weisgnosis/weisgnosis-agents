@@ -39,7 +39,10 @@ object LocalTranscriptStore:
               candidates <- ZIO.foreach(drafts)(draft => Random.nextUUID.map(id => draft -> id))
               after      <- ZIO.fromEither(before.append(candidates, instant))
               appended = after.entries.drop(before.entries.size)
-              _ <- files.write(TranscriptLog.encode(after)).unless(appended.isEmpty)
+              _ <- ZIO
+                .fromEither(TranscriptLog.encode(after))
+                .flatMap(files.write)
+                .unless(appended.isEmpty)
             yield appended
       _ <- store.entries
     yield store

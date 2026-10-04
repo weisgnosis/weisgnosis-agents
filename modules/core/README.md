@@ -10,7 +10,7 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 
 | Package | Available |
 | --- | --- |
-| [json](src/main/scala/com/weisgnosis/agents/core/json/README.md) | Shared internal complete-document/AST validation and exact decimal rendering at integrated output boundaries |
+| [json](src/main/scala/com/weisgnosis/agents/core/json/README.md) | Shared internal complete-document/AST validation and exact decimal rendering for integrated requests and structured completion output |
 | [model](src/main/scala/com/weisgnosis/agents/core/model/README.md) | Msg, content, roles, usage, codecs |
 | [event](src/main/scala/com/weisgnosis/agents/core/event/README.md) | 39 typed variants, source tagging, [optional final-answer filtering](src/main/scala/com/weisgnosis/agents/core/event/README.md#optional-final-answer-filter) and [reviewed bounded lifecycle ordering](src/main/scala/com/weisgnosis/agents/core/client/README.md#runtime-event-ordering); model data-block production remains unimplemented |
 | [skill](src/main/scala/com/weisgnosis/agents/core/skill/README.md) | Checked preloaded catalogue, exact logical resources and explicit Meta targets; runtime loading uses ordinary authorization |

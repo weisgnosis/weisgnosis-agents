@@ -729,6 +729,9 @@ Pinned MemoryConsolidator.readWatermarkFromFile parses stripped timestamp text a
 
 ## Transcript observation applicability
 
+- [x] Existing structured/transcript regression rows preserve exact nested numeric values in synthetic text, local JSONL rows and preview lengths after reopening. The [owned-output acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) records the reproduced failures and final verification; this closes no additional Java method.
+
+
 Pinned SessionTranscriptWriterTest has four methods; MemoryFlushManagerOffloadTest has the three delegates listed above. The first Scala increment provides process-local observation evidence. LocalTranscriptStore now adds strict versioned JSONL persistence; Java wire/layout equivalence is not claimed.
 
 - [x] `deriveEntries_emitsStructuredToolUseAndResult_withPairing`: exact assistant text, call IDs/names/input, result text/state/types, and structural occurrence keys. UUID entry identity replaces concatenated Java IDs explicitly.

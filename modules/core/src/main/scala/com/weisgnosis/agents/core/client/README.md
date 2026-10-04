@@ -41,12 +41,12 @@ LlmConfig.seed and ModelRequestSettings.seed are Option[Long], defaulting to Non
 
 Each selected target supplies its own seed to request projection. The projected value replaces it, with None explicitly clearing it. Retries reuse the serialized body, and native/synthetic requests retain their projected settings. Seed changes no model identity, endpoint, tools, permissions or response format. Migration: LlmConfig has twelve positional/Product fields and ModelRequestSettings has six; defaulted appended fields preserve ordinary omitted-argument construction and legacy configuration JSON. Adapt positional patterns/method values and rebuild dependent binaries.
 
-The HTTP request body and historical tool-argument strings use the pure [exact JSON renderer](../json/README.md). Checked AST validation still precedes rendering. This avoids the dependency's decimal corruption at a minimum-Long unscaled coefficient, including nested values and nonzero scales. It is limited to explicitly integrated output boundaries: external derived-codec serialization remains exposed, as do structured closing text and transcript/provenance paths pending their own correction.
+The HTTP request body and historical tool-argument strings use the pure [exact JSON renderer](../json/README.md). Checked AST validation still precedes rendering. This avoids the dependency's decimal corruption at a minimum-Long unscaled coefficient, including nested values and nonzero scales. It is limited to explicitly integrated output boundaries: structured closing text and local transcript output have their own [reviewed integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output). Compactor provenance, generic tool outputs and external derived-codec serialization remain exposed.
 
 | Reviewed core file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | `2ced976db41ee9b4e36332767eccd3ca10211942` |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | `b3cc1d60cfd50473bd5a4f8c3c0e33b87c3c6a25` |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `b6c6b3089f7ef242376e1dc9db9866d607fffa91` |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `1a3164bbca698268544f783f8f72ea8d2861ced8` |
 | [LlmClient.scala](LlmClient.scala) | `473e36399db1aa56fa1d33b7229c3ee3b6d194ad` |
@@ -70,7 +70,7 @@ Migration: Current LlmConfig and ModelRequestSettings arities are recorded in th
 | Reviewed file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 | [LlmClient.scala](LlmClient.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
@@ -111,7 +111,7 @@ Migration: the appended defaulted fields preserve ordinary omitted-argument cons
 | Reviewed file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 | [LlmClient.scala](LlmClient.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |

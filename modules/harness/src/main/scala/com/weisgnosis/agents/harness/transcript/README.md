@@ -4,7 +4,7 @@
 
 ## Projection and data contract
 
-Projection combines nonblank text/thinking in block order, then emits tool uses and tool results in per-kind order. Media-only and empty messages receive observable placeholders. Tool input JSON is complete through 500 UTF-16 characters; larger input carries a typed truncated preview and original character count. Preview boundaries never split a surrogate pair, so a prefix may be one UTF-16 unit shorter than the limit. Joined tool output follows the same rule at 1,000 characters. Result state and output block types are retained. Complete and truncated variants are distinct ADT cases; no truncated JSON is represented as complete arguments.
+Projection combines nonblank text/thinking in block order, then emits tool uses and tool results in per-kind order. Media-only and empty messages receive observable placeholders. Tool input JSON uses exact decimal rendering and is complete through 500 UTF-16 characters; larger input carries a typed truncated preview and original character count. Preview boundaries never split a surrogate pair, so a prefix may be one UTF-16 unit shorter than the limit. Joined tool output follows the same rule at 1,000 characters. Result state and output block types are retained. Complete and truncated variants are distinct ADT cases; no truncated JSON is represented as complete arguments.
 
 [TranscriptEntry](TranscriptEntry.scala) contains a storage-generated UUID, optional parent UUID, recordedAt, optional structural key, and payload. Keys distinguish message/use/result and per-kind occurrence; arbitrary message ID delimiters and repeated call IDs cannot collide structurally. IDs absent or blank in Msg produce anonymous drafts and append on every invocation. Stable keys retain the first observation even if later content changes through eviction or compaction. Use a separate store capability per transcript/session; sharing a capability intentionally shares its deduplication domain.
 
@@ -15,6 +15,27 @@ These are lossy observations, not restorable canonical Msg values. Metadata, med
 TranscriptStore.inMemory allocates recording time and candidate UUIDs in ZIO before a pure Ref.modify transition. Within that transition, each accepted row updates the stable-key set, selects the latest accepted parent, and appends. Duplicate rows neither append nor change the parent. A UUID collision rejects the entire proposed batch and preserves previous state. Independent concurrent writers on one store therefore publish whole batches into one linked sequence. Empty and all-duplicate batches return no committed entries.
 
 recordedAt is sampled before candidate allocation and commit; it is an observation timestamp, not a monotonic ordering authority. Follow the stored sequence and parent links. Cancellation/failure after commit may have an uncertain acknowledgement; do not infer rollback from an interrupted caller. Anonymous retries are not idempotent. TranscriptStore.inMemory is process-local: no files, segments, indexes, remote mirrors, crash durability, or automatic runtime scheduling are provided. LocalTranscriptStore, described below, validates persisted input and preserves the same atomic deduplication/linkage contract.
+
+## Exact owned numeric output
+
+Synthetic structured completion uses exact JSON rendering for its closing assistant text, preserving agreement with the typed value and structured metadata. Local transcript rows and bounded tool-input previews use the same renderer. Preview length is measured on that exact text, with the existing UTF-16 and surrogate-pair boundaries. Complete numeric inputs survive actual store closure and reopening.
+
+Public transcript store APIs, file format, trust checks, lease ownership and atomic replacement remain unchanged. The internal TranscriptLog.encode now returns a typed Either; conversion/rendering finishes under the existing append lease before any file write. Empty/all-duplicate appends still skip encoding and writing. This scope does not repair compactor retained-user strings, generic tool-output codecs or external host-derived checkpoint/event serialization.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | `2f0661bccccd07554c776a069c1a7a7a8d39ed3b` |
+| [StructuredOutputSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/StructuredOutputSpec.scala) | `412794e93602a061639795f9bb1ac8ec3fef597d` |
+| [LocalTranscriptStore.scala](LocalTranscriptStore.scala) | `21a05fc889fc7a1e33c57953ad1a5749041e4b7d` |
+| [SessionTranscriptWriter.scala](SessionTranscriptWriter.scala) | `a0578e096d12e39920db0524d1896fbd815c6b06` |
+| [TranscriptLog.scala](TranscriptLog.scala) | `6afc4383af9349d75896b8cd8e3176c57944fcd3` |
+| [LocalTranscriptStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptStoreSpec.scala) | `4d0fc2a79d6deff29a587de30c96acead7cdfd4b` |
+| [SessionTranscriptWriterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriterSpec.scala) | `34789a3976438638aa26fa80ec933afcddd25265` |
+| [TranscriptLogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptLogSpec.scala) | `1999df3399829e8f811bced218faab9b6bba4247` |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these eight identities, with no findings. Existing structured, preview, codec and reopen groups were extended; no new groups were added.
+- [x] `structured-numeric-red.log` recorded 14 passes/one failure against ReActAgent `b3cc1d60cfd50473bd5a4f8c3c0e33b87c3c6a25`: synthetic closing text disagreed with the correct minimum-Long typed value. `owned-numeric-red.log` then recorded 23 transcript passes/two failures against TranscriptLog `5566ad5cd64653e2b0f23c8cdc93b7ba8f28e398` and SessionTranscriptWriter `da27d3446e30ee7f77f4eaaac2d424200ac17383`: reopened nested values and numeric preview text/length were corrupted. The corrected structured section passed 15 tests in 471 ms.
+- [x] Full formatting and verification passed in `owned-numeric-verify.log` with zero compiler warnings or failures. Current totals/environment belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). These are reproduced numeric-integrity regressions, not new upstream whole-method mappings.
 
 ## Verification and acceptance
 
@@ -30,7 +51,7 @@ Current Git-normalized identities:
 | Source | Blob identity |
 | --- | --- |
 | [TranscriptEntry.scala](TranscriptEntry.scala) | ce02c2fa3a1cb38c6153e9745474fe21ab7ecc5a |
-| [SessionTranscriptWriterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriterSpec.scala) | e7ee7663adae6b2382bf07acc68335b533662b5d |
+| [SessionTranscriptWriterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriterSpec.scala) | [Current numeric-integrity identity](#exact-owned-numeric-output) |
 | [TranscriptEntrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptEntrySpec.scala) | 4bbae7448ce93a6cc3763e1b5dd44acf74eecb05 |
 | [TranscriptStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptStoreSpec.scala) | 9e582e4d6b8e76ddbfb943b24424dd86b4f4ad4a |
 
@@ -42,7 +63,7 @@ The internal [WorkspaceLease](../storage/WorkspaceLease.scala) shares the tested
 
 Every read and append validates the canonical directory, reads all current rows after admission, strictly decodes them, and restores the complete identity/key/parent chain. An append uses the same [TranscriptState](TranscriptState.scala) validation and pure batch transition as the in-memory backend. Invalid stable keys, mismatched key/payload kinds, invalid preview length claims, ambiguous complete input JSON, duplicate persisted IDs/keys, and broken parents fail without publishing a candidate. Recording timestamps need not increase. Empty and all-duplicate batches preserve the payload file. The backend rewrites the complete log through a scoped temporary file and ATOMIC_MOVE, with no incremental-write or non-atomic fallback; work and memory scale with the complete log size per append.
 
-[TranscriptLog](TranscriptLog.scala) stores one private version-1 envelope per physical JSONL row. Empty files are valid; the final newline is optional and LF/CRLF are supported. Interior blank rows, malformed/truncated rows, duplicate JSON keys, trailing documents, unknown fields, unsupported versions, and decoder coercions fail closed. Canonical DTO shape validation allows object-field ordering and numeric formatting differences, but optional values must use omitted fields rather than explicit JSON null. The complete log is validated before replacement. Decoding never skips a bad row or resets corrupt input to empty state. Versioned disk envelopes are separate from public derived DTO codecs.
+[TranscriptLog](TranscriptLog.scala) stores one private version-1 envelope per physical JSONL row. Empty files are valid; the final newline is optional and LF/CRLF are supported. Interior blank rows, malformed/truncated rows, duplicate JSON keys, trailing documents, unknown fields, unsupported versions, and decoder coercions fail closed. Canonical DTO shape validation allows object-field ordering and numeric formatting differences, but optional values must use omitted fields rather than explicit JSON null. The internal encode method returns Either[MemoryStorageError, String]: every typed row converts to a checked JSON AST and then exact numeric text before files.write. Encoding failure cannot fall back to lossy text or publish a partial log. The complete log is validated before replacement. Decoding never skips a bad row or resets corrupt input to empty state. Versioned disk envelopes are separate from public derived DTO codecs.
 
 Atomic replacement protects cooperative readers from partial file contents and preserves hard-linked source files by replacing the directory entry. It does not provide fsync/power-loss durability, exactly-once anonymous replay, hostile mutation protection, or an identity guarantee against uncoordinated directory replacement. Cancellation may be delivered after publication. Failed temporary cleanup is logged; abandoned temporary files can remain after process termination. Cross-process contention and dynamic symlink/junction behavior need platform-specific validation.
 
@@ -62,14 +83,14 @@ Unchanged Git-normalized local persistence identities; the changed TranscriptFil
 | Source | Blob identity |
 | --- | --- |
 | [DailyMemoryLease.scala](../memory/DailyMemoryLease.scala) | 7c1cddd14656f11e33228ecef785e75a9f60b4a4 |
-| [LocalTranscriptStore.scala](LocalTranscriptStore.scala) | 3352dc8a5b68bb455d9f484584ca86a8d675f6eb |
-| [TranscriptLog.scala](TranscriptLog.scala) | 5566ad5cd64653e2b0f23c8cdc93b7ba8f28e398 |
+| [LocalTranscriptStore.scala](LocalTranscriptStore.scala) | [Current numeric-integrity identity](#exact-owned-numeric-output) |
+| [TranscriptLog.scala](TranscriptLog.scala) | [Current numeric-integrity identity](#exact-owned-numeric-output) |
 | [TranscriptState.scala](TranscriptState.scala) | e202ba895f83df0990d2c78e2e69118fae0cf131 |
 | [TranscriptStore.scala](TranscriptStore.scala) | d5978648ebdd370635c91bd7bef45d270796b764 |
 | [MemoryTestSupport.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTestSupport.scala) | d891b7e44834d27897845c544c9050114adb2630 |
-| [LocalTranscriptStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptStoreSpec.scala) | 04159733e59d6a00f82c940428cb0e58f1745dd8 |
+| [LocalTranscriptStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptStoreSpec.scala) | [Current numeric-integrity identity](#exact-owned-numeric-output) |
 | [TranscriptFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptFilesSpec.scala) | fd5db63a28bc71b56bd645e1fd7db32c72301db4 |
-| [TranscriptLogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptLogSpec.scala) | 1ddd6fb146a2819f3b9afa217936293597d72b79 |
+| [TranscriptLogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptLogSpec.scala) | [Current numeric-integrity identity](#exact-owned-numeric-output) |
 | [TranscriptStateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptStateSpec.scala) | f3be77abf723e891e8a103d8482120fe40f0dd8f |
 
 ## Terminal canonical snapshot recording

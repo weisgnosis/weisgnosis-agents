@@ -177,7 +177,7 @@ Migration: `resume` is additive; existing send, registry and model-facing tool s
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current runtime identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-seed-and-exact-request-rendering) |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current numeric-integrity identity](../transcript/README.md#exact-owned-numeric-output) |
 | [SubagentFactory.scala](SubagentFactory.scala) | `013920f0ad1ab6c082e3362bb40f83064d11af51` |
 | [SubagentSession.scala](SubagentSession.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `a0e302022db3f9666d0c5c3beab326ec5a424516` |

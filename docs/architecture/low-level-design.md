@@ -222,6 +222,8 @@ Both scheduling adapters delegate to one private suspended MemoryMaintenanceTask
 
 ## Transcript pruning operation
 
+TranscriptLog encoding converts typed rows to JSON ASTs and exact numeric text before the leased write; typed encoding failure prevents publication. Transcript input previews measure that same exact text. Synthetic structured closing text likewise agrees with the validated typed/metadata value. Current identities and reproduced regression evidence are in [owned numeric output](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output).
+
 TranscriptFiles.pruneBefore branches on existingFile rather than the read API's empty-string fallback, preserving Missing versus empty-log semantics. Under WorkspaceLease.protect it reads modification time and content, applies TranscriptLog.decode/TranscriptState restoration, folds all recordedAt values into the metadata timestamp, and checks strict isBefore. Only then can Files.delete remove the already validated fixed payload. Retained/Pruned results expose effective activity, with Pruned also exposing entry count. Final lease release remains scoped and cannot delete a competing token. Admitted cancellation may follow completed deletion; this is not an atomic undo contract.
 
 ## Transcript cutoff arithmetic

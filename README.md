@@ -68,7 +68,7 @@ All repository documentation, comments, identifiers, commit messages, and PR des
 
 [Apache-2.0](LICENSE).
 
-Known numeric-serialization exposure remains outside the corrected ChatCompletions/MCP boundaries: structured closing text, transcript/provenance strings and host-derived checkpoint/event serialization still need separate correction. The [JSON contract](modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md) records the scope.
+ChatCompletions/MCP, structured closing text and local transcript outputs use exact numeric rendering. Compactor retained-user provenance, generic tool outputs and host-derived checkpoint/event serialization remain exposed. The [JSON contract](modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md) records the scope.
 
 ## Current acceptance
 
