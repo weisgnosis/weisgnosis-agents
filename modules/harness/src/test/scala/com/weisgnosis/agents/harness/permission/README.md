@@ -1,5 +1,7 @@
 # Permission verification
 
+Partial-confirmation tests have final independent approval and full verification. The [current contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) covers checked ordinal-position ledgers, successive restored subsets, preserved inline/completed processing, saved activation and Stop state, structured rejection and joined cancellation.
+
 ConfirmedBatchAuthorizerSpec covers four grouped authorization contracts that exercise restored repeated-ID batches, modified/fixed/signed input and live policy/gate denial, complete-set and request identity rejection, and cancellation with joined failing gate cleanup. The existing rejection group also proves supplied ordinals require no confirmation, extra confirmations reject and replay attempts cannot reach policy. An additional accepted resumed-stream table verifies custom/default denial history, exact ordered Start/Delta/End context and no dispatch with one follow-up model request. Exact final scope and verification are recorded in the [batch contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations).
 
 - [PermissionGateSpec](PermissionGateSpec.scala): priority combinations, restricted arguments, defaults, suspended callbacks, separately scoped sequential composition and failure/cancellation cleanup.

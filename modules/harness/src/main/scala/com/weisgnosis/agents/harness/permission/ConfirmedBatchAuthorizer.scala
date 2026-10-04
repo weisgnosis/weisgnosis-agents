@@ -18,7 +18,7 @@ package com.weisgnosis.agents.harness.permission
 import com.weisgnosis.agents.core.agent.{AgentResult, PendingActing}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
-import com.weisgnosis.agents.core.model.{ContentBlock, ToolHistory}
+import com.weisgnosis.agents.core.model.ContentBlock
 import com.weisgnosis.agents.core.tool.{
   AdmittedToolAccess,
   ToolAuthorization,
@@ -28,12 +28,12 @@ import com.weisgnosis.agents.core.tool.{
 import zio.*
 
 /**
- * Complete confirmations for one saved acting batch. Authentication, persistence and replay
+ * Checked confirmations for one saved acting batch. Authentication, persistence and replay
  * exclusion belong to the host; this value neither consumes confirmations nor mutates policy.
  */
 final class ConfirmedBatchAuthorizer private (
     context: ModelStreamContext,
-    decisions: Map[Int, (ContentBlock.ToolUse, ConfirmResult)],
+    decisions: Map[Int, (ContentBlock.ToolUse, Option[ConfirmResult])],
     val ruleUpdates: Chunk[PermissionRule],
     currentPolicy: UIO[PermissionEngine],
     toolGate: PermissionGate,
@@ -52,42 +52,48 @@ final class ConfirmedBatchAuthorizer private (
         case Some((original, confirmation))
             if request.context == context && request.call.id == original.id &&
               request.call.name == original.name =>
-          if !confirmation.confirmed then
-            ZIO.succeed(
-              ToolAuthorization.Denied(confirmation.reason.getOrElse("Tool execution declined"))
-            )
-          else
-            // The runtime has already prepared fixed arguments; omitted edits retain that input.
-            val input = confirmation.modifiedInput.getOrElse(request.call.input)
-            for
-              tool <- ZIO.scoped(
-                ZIO.suspendSucceed(toolGate.evaluate(request.call.name, input, admittedAccess))
-              )
-              interceptor <- ZIO.scoped(
-                ZIO.suspendSucceed(
-                  interceptorGate.evaluate(request.call.name, input, admittedAccess)
+          confirmation match
+            case None => ZIO.succeed(ToolAuthorization.Deferred("Awaiting host confirmation"))
+            case Some(confirmed) =>
+              if !confirmed.confirmed then
+                ZIO.succeed(
+                  ToolAuthorization.Denied(confirmed.reason.getOrElse("Tool execution declined"))
                 )
-              )
-              policy <- currentPolicy
-              updated = policy.copy(rules = policy.rules ++ ruleUpdates)
-            yield
-              if updated.evaluate(
-                  request.call.name,
-                  input,
-                  tool,
-                  interceptor
-                ) == PermissionBehavior.Deny
-              then
-                ToolAuthorization.Denied(
-                  "Confirmed input is denied by current policy or a permission gate"
-                )
-              else ToolAuthorization.Approved(input)
+              else
+                // The runtime has already prepared fixed arguments; omitted edits retain that input.
+                val input = confirmed.modifiedInput.getOrElse(request.call.input)
+                for
+                  tool <- ZIO.scoped(
+                    ZIO.suspendSucceed(toolGate.evaluate(request.call.name, input, admittedAccess))
+                  )
+                  interceptor <- ZIO.scoped(
+                    ZIO.suspendSucceed(
+                      interceptorGate.evaluate(request.call.name, input, admittedAccess)
+                    )
+                  )
+                  policy <- currentPolicy
+                  updated = policy.copy(rules = policy.rules ++ ruleUpdates)
+                yield
+                  if updated.evaluate(
+                      request.call.name,
+                      input,
+                      tool,
+                      interceptor
+                    ) == PermissionBehavior.Deny
+                  then
+                    ToolAuthorization.Denied(
+                      "Confirmed input is denied by current policy or a permission gate"
+                    )
+                  else ToolAuthorization.Approved(input)
         case _ =>
           ZIO.succeed(
             ToolAuthorization.Denied("Authorization request does not match the confirmed batch")
           )
 
 object ConfirmedBatchAuthorizer:
+  private enum Coverage:
+    case Complete, Partial
+
   def make(
       checkpoint: AgentResult,
       confirmations: Chunk[ConfirmedToolCall],
@@ -95,29 +101,46 @@ object ConfirmedBatchAuthorizer:
       toolGate: PermissionGate = PermissionGate.abstain,
       interceptorGate: PermissionGate = PermissionGate.abstain
   ): IO[AgentError.InvalidConfiguration, ConfirmedBatchAuthorizer] =
+    checked(checkpoint, confirmations, currentPolicy, toolGate, interceptorGate, Coverage.Complete)
+
+  /** Missing decisions defer only matching unresolved occurrences; completed calls cannot be replayed. */
+  def makePartial(
+      checkpoint: AgentResult,
+      confirmations: Chunk[ConfirmedToolCall],
+      currentPolicy: UIO[PermissionEngine],
+      toolGate: PermissionGate = PermissionGate.abstain,
+      interceptorGate: PermissionGate = PermissionGate.abstain
+  ): IO[AgentError.InvalidConfiguration, ConfirmedBatchAuthorizer] =
+    checked(checkpoint, confirmations, currentPolicy, toolGate, interceptorGate, Coverage.Partial)
+
+  private def checked(
+      checkpoint: AgentResult,
+      confirmations: Chunk[ConfirmedToolCall],
+      currentPolicy: UIO[PermissionEngine],
+      toolGate: PermissionGate,
+      interceptorGate: PermissionGate,
+      coverage: Coverage
+  ): IO[AgentError.InvalidConfiguration, ConfirmedBatchAuthorizer] =
     ZIO.fromEither:
       for
-        pending <- PendingActing.validate(checkpoint)
-        supplied = pending.suppliedResults.map(_.callOrdinal).toSet
-        occurrences = ToolHistory
-          .inspect(checkpoint.history)
-          .pending
-          .filterNot(value => supplied.contains(value.ordinal))
+        pending     <- PendingActing.validate(checkpoint)
+        occurrences <- PendingActing.unresolved(checkpoint)
         ordinals = confirmations.map(_.callOrdinal)
+        expected = occurrences.map(_.ordinal).toSet
+        covered = coverage match
+          case Coverage.Complete => ordinals.toSet == expected
+          case Coverage.Partial  => ordinals.toSet.subsetOf(expected)
         _ <- Either.cond(
-          ordinals.distinct.size == ordinals.size &&
-            ordinals.toSet == occurrences.map(_.ordinal).toSet,
+          ordinals.distinct.size == ordinals.size && covered,
           (),
           AgentError.InvalidConfiguration(
-            "Confirmations must cover every pending local tool occurrence exactly once"
+            "Confirmations do not match the required unresolved tool occurrences"
           )
         )
         byOrdinal = confirmations.map(value => value.callOrdinal -> value.confirmation).toMap
         decisions = occurrences
-          .flatMap(occurrence =>
-            byOrdinal
-              .get(occurrence.ordinal)
-              .map(confirmation => occurrence.ordinal -> (occurrence.call, confirmation))
+          .map(occurrence =>
+            occurrence.ordinal -> (occurrence.call, byOrdinal.get(occurrence.ordinal))
           )
           .toMap
         updates = confirmations

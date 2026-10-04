@@ -116,7 +116,8 @@ final class ReActAgent private (
   final private case class PreparedResume(
       result: AgentResult,
       checkpoint: PendingActing,
-      tools: RunTools
+      tools: RunTools,
+      admitted: Toolkit
   )
 
   /** Validates under the caller's run lock without claiming or publishing the checkpoint. */
@@ -132,7 +133,7 @@ final class ReActAgent private (
         .fail(AgentError.InvalidConfiguration("Suspended history has changed"))
         .unless(history == result.history)
       tools <- restoredRunTools(checkpoint)
-    yield PreparedResume(result, checkpoint, tools)
+    yield PreparedResume(result, checkpoint, tools._1, tools._2)
 
   private def runResumeWithHub(
       prepared: PreparedResume,
@@ -143,7 +144,7 @@ final class ReActAgent private (
       .make(prepared.result.usage)
       .flatMap(usage =>
         runWithHub(
-          RunEntry.Resume(prepared.result, prepared.checkpoint),
+          RunEntry.Resume(prepared.result, prepared.checkpoint, prepared.admitted),
           hub,
           prepared.tools,
           usage,
@@ -552,7 +553,7 @@ final class ReActAgent private (
             yield withSkills
 
   /** Serialized definitions constrain restoration; executable tools always come from the host. */
-  private def restoredRunTools(pending: PendingActing): IO[AgentError, RunTools] =
+  private def restoredRunTools(pending: PendingActing): IO[AgentError, (RunTools, Toolkit)] =
     def declarations(groups: Chunk[ToolGroup]): Chunk[ToolGroup] =
       groups
         .map(group =>
@@ -565,12 +566,15 @@ final class ReActAgent private (
     val configured =
       if toolGroups.nonEmpty || !skills.isEmpty then Some(toolGroups.getOrElse(ToolGroups.empty))
       else None
-    for
-      groups <- ZIO.fromEither((configured, pending.toolGroups) match
+    def restoreGroups(
+        saved: Option[Chunk[ToolGroup]]
+    ): Either[AgentError.InvalidConfiguration, Option[ToolGroups]] =
+      (configured, saved) match
         case (None, None) => Right(None)
-        case (Some(current), Some(saved)) if declarations(current.groups) == declarations(saved) =>
+        case (Some(current), Some(values))
+            if declarations(current.groups) == declarations(values) =>
           current
-            .replaceMetaActive(saved.collect {
+            .replaceMetaActive(values.collect {
               case group
                   if group.scope == ToolGroupScope.Meta && group.activation == ToolGroupActivation.Active =>
                 group.name
@@ -581,17 +585,30 @@ final class ReActAgent private (
             AgentError.InvalidConfiguration(
               "Suspended tool groups do not match the host configuration"
             )
-          ))
-      runTools <- makeRunTools(groups)
-      snapshot <- runTools.snapshot
+          )
+
+    val latest = pending.stage match
+      case PendingActingStage.BeforeActing                   => pending.toolGroups
+      case PendingActingStage.AwaitingApproval(_, groups, _) => groups
+    for
+      admittedGroups <- ZIO.fromEither(restoreGroups(pending.toolGroups))
+      latestGroups   <- ZIO.fromEither(restoreGroups(latest))
+      runTools       <- makeRunTools(admittedGroups)
+      admitted       <- runTools.snapshot
       _ <- ZIO
         .fail(
           AgentError.InvalidConfiguration(
             "Suspended tool definitions do not match the host bindings"
           )
         )
-        .unless(snapshot.definitions == pending.admittedTools)
-    yield runTools
+        .unless(admitted.definitions == pending.admittedTools)
+      // Frozen admitted controls and later snapshots share this one activation authority.
+      _ <- (runTools.activation, latestGroups) match
+        case (Some(current), Some(groups)) => current.set(groups)
+        case (None, None)                  => ZIO.unit
+        case _ =>
+          ZIO.fail(AgentError.InvalidConfiguration("Suspended group activation is inconsistent"))
+    yield (runTools, admitted)
 
   final private case class SkillRequest(skillId: String, path: String)
 
@@ -727,7 +744,7 @@ final class ReActAgent private (
 
   private enum RunEntry:
     case Fresh(messages: Chunk[Msg])
-    case Resume(result: AgentResult, pending: PendingActing)
+    case Resume(result: AgentResult, pending: PendingActing, admitted: Toolkit)
 
   private def runWithHub[A](
       entry: RunEntry,
@@ -747,12 +764,12 @@ final class ReActAgent private (
       p <- Promise.make[Nothing, Unit]
       _ <- interruptedPromiseRef.set(p)
       replyId <- entry match
-        case RunEntry.Fresh(_)           => Random.nextUUID.map(_.toString)
-        case RunEntry.Resume(_, pending) => ZIO.succeed(pending.context.replyId)
+        case RunEntry.Fresh(_)              => Random.nextUUID.map(_.toString)
+        case RunEntry.Resume(_, pending, _) => ZIO.succeed(pending.context.replyId)
       systemMsgOpt =
         if config.systemPrompt.nonEmpty then Some(Msg.system(config.systemPrompt)) else None
       _ <- entry match
-        case RunEntry.Resume(_, _) => ZIO.unit
+        case RunEntry.Resume(_, _, _) => ZIO.unit
         case RunEntry.Fresh(newMessages) =>
           stateRef.update { current =>
             val withSystem = systemMsgOpt match
@@ -763,11 +780,17 @@ final class ReActAgent private (
             withSystem ++ newMessages
           }
       supplied = entry match
-        case RunEntry.Resume(result, pending) => suppliedRecords(result, pending)
-        case _                                => Chunk.empty[RecordedToolResult]
+        case RunEntry.Resume(result, pending, _) => suppliedRecords(result, pending)
+        case _                                   => Chunk.empty[RecordedToolResult]
       progressRef <- Ref.make[RunProgress](entry match
-        case RunEntry.Resume(_, pending) =>
-          RunProgress.PersistedAssistant(pending.assistantPosition, Set.empty)
+        case RunEntry.Resume(_, pending, _) =>
+          RunProgress.PersistedAssistant(
+            pending.assistantPosition,
+            PendingActing
+              .completed(pending)
+              .map(value => value.callOrdinal -> value.historyPosition)
+              .toMap
+          )
         case _ => RunProgress.Ready)
       result <- ZIO
         .acquireReleaseWith(
@@ -787,22 +810,21 @@ final class ReActAgent private (
                   progressRef,
                   usageRef
                 )
-              case RunEntry.Resume(result, pending) =>
-                runTools.snapshot.flatMap(active =>
-                  actBatch(
-                    result.reply,
-                    pending.assistantPosition,
-                    result.iterationCount,
-                    runTools,
-                    active,
-                    eventHub,
-                    pending.context,
-                    requestConfig,
-                    None,
-                    progressRef,
-                    usageRef,
-                    supplied
-                  )
+              case RunEntry.Resume(result, pending, admitted) =>
+                actBatch(
+                  result.reply,
+                  pending.assistantPosition,
+                  result.iterationCount,
+                  runTools,
+                  admitted,
+                  eventHub,
+                  pending.context,
+                  requestConfig,
+                  None,
+                  progressRef,
+                  usageRef,
+                  supplied,
+                  Some(pending)
                 )
             val prepare = execute
               .flatMap(result => usageRef.get.map(usage => result.copy(usage = usage)))
@@ -810,16 +832,16 @@ final class ReActAgent private (
               .onInterrupt(reconcileDanglingToolCalls(stateRef, progressRef).unit)
             for
               _ <- entry match
-                case RunEntry.Resume(_, pending) =>
+                case RunEntry.Resume(_, pending, _) =>
                   pendingRef.set(None) *> stateRef.update(history =>
                     history.zipWithIndex.map { case (message, position) =>
-                      if position == pending.assistantPosition && message.generationReason == GenerateReason.ReasoningStopRequested
+                      if position == pending.assistantPosition && (message.generationReason == GenerateReason.ReasoningStopRequested || message.generationReason == GenerateReason.PermissionAsking)
                       then message.withGenerateReason(GenerateReason.ToolCalls)
                       else message
                     } ++ supplied.map(_.message)
                   ) *> markCompleted(
                     progressRef,
-                    supplied.map(_.call.ordinal).toSet
+                    supplied.map(value => value.call.ordinal -> value.position).toMap
                   )
                 case _ => ZIO.unit
               completed <- restore(
@@ -1133,23 +1155,36 @@ final class ReActAgent private (
       structuredResponse: Option[Ref[Option[Json]]],
       progressRef: Ref[RunProgress],
       usageRef: Ref[Option[ChatUsage]],
-      supplied: Chunk[RecordedToolResult] = Chunk.empty
+      supplied: Chunk[RecordedToolResult] = Chunk.empty,
+      continuation: Option[PendingActing] = None
   ): ZIO[Scope, AgentError, AgentResult] =
     ZIO.uninterruptibleMask: restore =>
       def raceWithInterrupt[R, E, A](effect: ZIO[R, E, A]): ZIO[R, E, Either[Unit, A]] =
         interruptedPromiseRef.get.flatMap(signal => restore(raceWithSignal(effect, signal.await)))
 
       for
-        assistantPosition <- ZIO.succeed(position)
-        allCalls = assistantMsg.toolUses
+        originalGroups <- continuation match
+          case Some(pending) => ZIO.succeed(pending.toolGroups)
+          case None          => ZIO.foreach(runTools.activation)(_.get.map(_.groups))
+        completed <- progressRef.get.map {
+          case RunProgress.PersistedAssistant(_, positions) => positions.keySet
+          case _                                            => Set.empty[Int]
+        }
         inline = partitionToolResults(
-          allCalls,
+          assistantMsg.toolUses,
           assistantMsg.toolResults,
           _.isServerTool,
           (call, result) => call.id == result.id
         )
-        suppliedOrdinals = supplied.map(_.call.ordinal).toSet
-        pendingCalls     = inline.pending.filterNot(call => suppliedOrdinals.contains(call.ordinal))
+        stage = continuation.fold[PendingActingStage](PendingActingStage.BeforeActing)(_.stage)
+        inlineToProcess = stage match
+          case PendingActingStage.BeforeActing        => inline.completed
+          case _: PendingActingStage.AwaitingApproval => Chunk.empty
+        savedStop = stage match
+          case PendingActingStage.BeforeActing => None
+          case PendingActingStage.AwaitingApproval(_, _, stop) =>
+            stop.map(value => ActingStop(value.callOrdinal, value.reason))
+        pendingCalls = inline.pending.filterNot(call => completed.contains(call.ordinal))
         allSafe = config.streamParallelTools && pendingCalls
           .forall(c => activeToolkit.resolve(c.call.name).forall(_.isConcurrencySafe))
         argumentPolicy =
@@ -1158,7 +1193,7 @@ final class ReActAgent private (
         execute = (call: IndexedToolCall) =>
           executeAndRecord(
             call,
-            assistantPosition,
+            position,
             activeToolkit,
             stateRef,
             eventHub,
@@ -1170,8 +1205,10 @@ final class ReActAgent private (
           if allSafe then ZIO.foreachPar(pendingCalls)(execute)
           else ZIO.foreach(pendingCalls)(execute)
         phase = ZIO
-          .foreach(inline.completed) { case (call, indexed) =>
-            processInlineResult(call, indexed, assistantPosition, context, eventHub)
+          .foreach(inlineToProcess) { case (call, indexed) =>
+            processInlineResult(call, indexed, position, context, eventHub).map(
+              ActingOutcome.Observed(_)
+            )
           }
           .zipWith(
             ZIO.foreach(supplied)(recorded =>
@@ -1186,7 +1223,7 @@ final class ReActAgent private (
                 context,
                 eventHub,
                 Toolkit.ProgressDisposition.NoProgress
-              )
+              ).map(ActingOutcome.Observed(_))
             )
           )(_ ++ _)
           .zipWith(localPhase)(_ ++ _)
@@ -1198,29 +1235,105 @@ final class ReActAgent private (
         turnRes <- outcome match
           case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
           case Right(decisions) =>
-            val captured = structuredResponse.fold[UIO[Option[Json]]](ZIO.none)(_.get)
-            decisions.flatten.sortBy(_.ordinal).headOption match
-              case Some(stop) =>
-                stoppedToolTurn(assistantPosition, iteration, stop.reason, eventHub)
-              case None =>
-                captured.flatMap:
-                  case value if inline.pending.isEmpty || value.nonEmpty =>
-                    completedToolTurn(assistantPosition, iteration)
-                  case _ =>
-                    restore(
-                      loop(
-                        iteration,
-                        0,
-                        runTools,
-                        eventHub,
-                        context.replyId,
-                        requestConfig,
-                        structuredResponse,
-                        progressRef,
-                        usageRef
-                      )
+            val stop = (decisions.collect { case ActingOutcome.Observed(Some(value)) => value } ++
+              Chunk.fromIterable(savedStop)).sortBy(_.ordinal).headOption
+            decisions
+              .collect { case value: ActingOutcome.Deferred => value }
+              .sortBy(_.callOrdinal)
+              .headOption match
+              case Some(_) if structuredResponse.nonEmpty =>
+                finalizeFailedToolPhase(progressRef) *>
+                  ZIO.fail(
+                    AgentError.InvalidConfiguration(
+                      "Structured runs cannot defer tool authorization"
                     )
+                  )
+              case Some(deferred) =>
+                restore(ZIO.unit) *> suspendAfterActing(
+                  PendingActing(
+                    deferred.reason,
+                    context,
+                    position,
+                    activeToolkit.definitions,
+                    originalGroups,
+                    requestConfig.responseFormat
+                  ),
+                  iteration,
+                  runTools,
+                  eventHub,
+                  progressRef,
+                  usageRef,
+                  stop
+                )
+              case None =>
+                stop match
+                  case Some(value) => stoppedToolTurn(position, iteration, value.reason, eventHub)
+                  case None =>
+                    structuredResponse
+                      .fold[UIO[Option[Json]]](ZIO.none)(_.get)
+                      .flatMap:
+                        case value if inline.pending.isEmpty || value.nonEmpty =>
+                          completedToolTurn(position, iteration)
+                        case _ =>
+                          restore(
+                            loop(
+                              iteration,
+                              0,
+                              runTools,
+                              eventHub,
+                              context.replyId,
+                              requestConfig,
+                              structuredResponse,
+                              progressRef,
+                              usageRef
+                            )
+                          )
       yield turnRes
+
+  /** Commits a partial checkpoint only after all admitted work and processor scopes have joined. */
+  private def suspendAfterActing(
+      pending: PendingActing,
+      iteration: Int,
+      runTools: RunTools,
+      eventHub: Hub[AgentEvent],
+      progressRef: Ref[RunProgress],
+      usageRef: Ref[Option[ChatUsage]],
+      stop: Option[ActingStop]
+  ): IO[AgentError, AgentResult] =
+    for
+      history <- stateRef.get
+      positions <- progressRef.get.flatMap {
+        case RunProgress.PersistedAssistant(position, completed)
+            if position == pending.assistantPosition =>
+          ZIO.succeed(completed)
+        case _ =>
+          ZIO.fail(AgentError.InvalidConfiguration("The acting completion ledger is unavailable"))
+      }
+      groups <- ZIO.foreach(runTools.activation)(_.get.map(_.groups))
+      usage  <- usageRef.get
+      assistant <- ZIO
+        .fromOption(history.lift(pending.assistantPosition))
+        .orElseFail(AgentError.InvalidConfiguration("The suspended assistant is missing"))
+      reply = assistant.withGenerateReason(GenerateReason.PermissionAsking)
+      updated = history.zipWithIndex.map { case (message, index) =>
+        if index == pending.assistantPosition then reply else message
+      }
+      checkpoint = pending.copy(stage =
+        PendingActingStage.AwaitingApproval(
+          Chunk.fromIterable(positions.toList.sortBy(_._1).map { case (ordinal, position) =>
+            CompletedToolCall(ordinal, position)
+          }),
+          groups,
+          stop.map(value => PendingActingStop(value.ordinal, value.reason))
+        )
+      )
+      result = AgentResult(reply, updated, iteration, AgentRunState.Suspended(checkpoint), usage)
+      _ <- ZIO.fromEither(validateCheckpoint(result))
+      _ <- stateRef.set(updated) *> pendingRef.set(Some(result))
+      _ <- eventHub.publish(
+        AgentEvent.RequestStopEvent(pending.reason, GenerateReason.PermissionAsking)
+      )
+    yield result
 
   /** Each selected model owns its projection, request identity and joined request scope. */
   private def modelTurn(
@@ -1443,6 +1556,10 @@ final class ReActAgent private (
 
   final private case class ActingStop(ordinal: Int, reason: String)
 
+  private enum ActingOutcome:
+    case Observed(stop: Option[ActingStop])
+    case Deferred(callOrdinal: Int, reason: String)
+
   final private case class ProcessedResult(result: ContentBlock.ToolResult, stop: Option[String])
 
   final private case class ToolResultPartition(
@@ -1643,6 +1760,8 @@ final class ReActAgent private (
                     error => ToolAuthorization.Denied(s"Invalid approved input: ${error.message}"),
                     _ => result
                   )
+          case ToolAuthorization.Deferred(reason) if reason.trim.isEmpty =>
+            ToolAuthorization.Denied("Deferred authorization requires a nonblank reason")
           case _ => result
     decision.foldCauseZIO(
       cause =>
@@ -1684,9 +1803,61 @@ final class ReActAgent private (
       context: ModelStreamContext,
       argumentPolicy: ArgumentPolicy,
       progressRef: Ref[RunProgress]
-  ): UIO[Option[ActingStop]] =
+  ): UIO[ActingOutcome] =
     ZIO.uninterruptibleMask: restore =>
       val call = indexed.call
+      val start = eventHub.publish(
+        AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))
+      )
+      def observe(
+          authorization: Either[AgentError.InvalidMessage, ToolAuthorization]
+      ): UIO[Either[ActingOutcome, Toolkit.ObservedResult]] = authorization match
+        case Right(ToolAuthorization.Deferred(reason)) =>
+          ZIO.left(ActingOutcome.Deferred(indexed.ordinal, reason))
+        case Left(error) =>
+          start.as(
+            Right(
+              Toolkit.ObservedResult(
+                ToolExecutionResult(error.message, ToolResultState.Error),
+                Toolkit.ProgressDisposition.NoProgress
+              )
+            )
+          )
+        case Right(ToolAuthorization.Denied(reason)) =>
+          start.as(
+            Right(
+              Toolkit.ObservedResult(
+                ToolExecutionResult(reason, ToolResultState.Denied),
+                Toolkit.ProgressDisposition.NoProgress
+              )
+            )
+          )
+        case Right(ToolAuthorization.Approved(input)) =>
+          val approved = withToolInput(call, input)
+          start *> stateRef.update(_.zipWithIndex.map { case (message, position) =>
+            if position == assistantPosition then
+              message.mapToolUseAt(indexed.ordinal)(_ => approved)
+            else message
+          }) *> restore(
+            ZIO.scoped(
+              ToolEventPort
+                .open(eventHub)
+                .flatMap(events =>
+                  toolkit.executeObserved(
+                    call.name,
+                    input,
+                    ToolInvocation.Active(context, approved, indexed.ordinal, events)
+                  )(payload =>
+                    publishResultPayload(
+                      call,
+                      payload.applyTo(ContentBlock.ToolResult(call.id, Some(call.name))),
+                      context,
+                      eventHub
+                    )
+                  )
+                )
+            )
+          ).map(Right(_))
       for
         authorization <- ZIO
           .fromEither(toolkit.prepareInput(call.name, call.input))
@@ -1694,66 +1865,27 @@ final class ReActAgent private (
             restore(authorizeTool(call, indexed.ordinal, input, context, toolkit, argumentPolicy))
           )
           .either
-        _ <- eventHub.publish(
-          AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))
-        )
-        observed <- authorization match
-          case Left(error) =>
-            ZIO.succeed(
-              Toolkit.ObservedResult(
-                ToolExecutionResult(error.message, ToolResultState.Error),
-                Toolkit.ProgressDisposition.NoProgress
-              )
+        observation <- observe(authorization)
+        outcome <- observation match
+          case Left(deferred) => ZIO.succeed(deferred)
+          case Right(observed) =>
+            val resultBlock = observed.result.payload.applyTo(
+              ContentBlock.ToolResult(call.id, Some(call.name), state = observed.result.state)
             )
-          case Right(ToolAuthorization.Denied(reason)) =>
-            ZIO.succeed(
-              Toolkit.ObservedResult(
-                ToolExecutionResult(reason, ToolResultState.Denied),
-                Toolkit.ProgressDisposition.NoProgress
+            val toolMsg = Msg.tool(name = Some(call.name), content = Chunk(resultBlock))
+            for
+              position <- stateRef.modify(history => (history.size, history :+ toolMsg))
+              _        <- markCompleted(progressRef, Map(indexed.ordinal -> position))
+              stop <- restore(
+                processRecordedResult(
+                  RecordedToolResult(indexed, resultBlock, position),
+                  context,
+                  eventHub,
+                  observed.progress
+                )
               )
-            )
-          case Right(ToolAuthorization.Approved(input)) =>
-            val approved = withToolInput(call, input)
-            stateRef.update(_.zipWithIndex.map { case (message, position) =>
-              if position == assistantPosition then
-                message.mapToolUseAt(indexed.ordinal)(_ => approved)
-              else message
-            }) *> restore(
-              ZIO.scoped(
-                ToolEventPort
-                  .open(eventHub)
-                  .flatMap(events =>
-                    toolkit.executeObserved(
-                      call.name,
-                      input,
-                      ToolInvocation.Active(context, approved, indexed.ordinal, events)
-                    )(payload =>
-                      publishResultPayload(
-                        call,
-                        payload.applyTo(ContentBlock.ToolResult(call.id, Some(call.name))),
-                        context,
-                        eventHub
-                      )
-                    )
-                  )
-              )
-            )
-        res = observed.result
-        resultBlock = res.payload.applyTo(
-          ContentBlock.ToolResult(call.id, Some(call.name), state = res.state)
-        )
-        toolMsg = Msg.tool(name = Some(call.name), content = Chunk(resultBlock))
-        position <- stateRef.modify(history => (history.size, history :+ toolMsg))
-        _        <- markCompleted(progressRef, Set(indexed.ordinal))
-        stop <- restore(
-          processRecordedResult(
-            RecordedToolResult(indexed, resultBlock, position),
-            context,
-            eventHub,
-            observed.progress
-          )
-        )
-      yield stop
+            yield ActingOutcome.Observed(stop)
+      yield outcome
 
   private def processRecordedResult(
       recorded: RecordedToolResult,
@@ -1795,27 +1927,27 @@ final class ReActAgent private (
 
   private enum RunProgress:
     case Ready
-    case PersistedAssistant(position: Int, completed: Set[Int])
+    case PersistedAssistant(position: Int, completed: Map[Int, Int])
     case Recovered(message: Msg)
 
   private def persistAssistant(message: Msg, progressRef: Ref[RunProgress]): UIO[Int] =
     ZIO.uninterruptible(
       stateRef
         .modify(history => (history.size, history :+ message))
-        .tap(position => progressRef.set(RunProgress.PersistedAssistant(position, Set.empty)))
+        .tap(position => progressRef.set(RunProgress.PersistedAssistant(position, Map.empty)))
     )
 
   /** Updated under the same interruption mask as each persisted observation. */
-  private def markCompleted(progressRef: Ref[RunProgress], ordinals: Set[Int]): UIO[Unit] =
+  private def markCompleted(progressRef: Ref[RunProgress], positions: Map[Int, Int]): UIO[Unit] =
     progressRef.update:
       case RunProgress.PersistedAssistant(position, completed) =>
-        RunProgress.PersistedAssistant(position, completed ++ ordinals)
+        RunProgress.PersistedAssistant(position, completed ++ positions)
       case other => other
 
   private def pendingLocalCalls(
       history: Chunk[Msg],
       position: Int,
-      completed: Set[Int]
+      completed: Map[Int, Int]
   ): Chunk[IndexedToolCall] =
     history
       .lift(position)
@@ -1847,7 +1979,12 @@ final class ReActAgent private (
                     )
                   )
                 )
-              (pending.map(_.ordinal).toSet, history ++ observations)
+              (
+                pending.zipWithIndex.map { case (call, offset) =>
+                  call.ordinal -> (history.size + offset)
+                }.toMap,
+                history ++ observations
+              )
             }
             .flatMap(markCompleted(progressRef, _))
         case _ => ZIO.unit

@@ -28,7 +28,7 @@ Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a 
 
 | Reviewed group/skill baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | `0fbbe1a282f1740efcb96b05d3d4befb39f44f4c` |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
 The table records the group/skill baseline. The current runtime identity is in [scoped model failover](#scoped-model-failover), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
@@ -58,7 +58,7 @@ Migration: configured skill listings move from the loader description to transie
 
 | Reviewed request-projection baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | `cffd9d7af5559f1307a67c0e9a1dba19bce2f3b6` |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2eb319710008d11433978458c47a01d1c9eac110` |
 
 The [catalogue contract](../skill/README.md#deferred-resource-capabilities) owns current catalogue/library identities and combined verification. Existing execution, forwarding, group and permission contracts retain their scoped evidence below. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals and next work.
@@ -73,7 +73,7 @@ The protected loader retains ordinary authorization and sequential dispatch. An 
 
 | Reviewed deferred-read baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | `0e180b72941467786c27a3bf458780e33143e418` |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
 
 Current ReActAgent identity and execution approval are in [scoped model failover](#scoped-model-failover); the groups spec above is unchanged.
@@ -113,7 +113,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | 8198d0593e3afe0bbae2087cf0289b5a77300c60 |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 8e28a12574d17faab954663516b2fb9529de34e5 |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | e8270b178be3f6d4dd90868be6555025bac07939 |
 
@@ -134,7 +134,7 @@ The unchanged [ReActAgentForwardingSpec](../../../../../../../test/scala/com/wei
 | Reviewed forwarding baseline | Git blob |
 | --- | --- |
 | [AgentEventForwarder.scala](AgentEventForwarder.scala) | `9198abc9f0b13f1cb1e347df0a73c57c50f6e2d1` |
-| [ReActAgent.scala](ReActAgent.scala) | `550e9a661a0b2f4fcc1084afc5f4f9f72dd38b5b` |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [AgentEventForwarderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) | `2c0bbde7e0e5eb94f8c3f963ead3f1ed4eed37ab` |
 | [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | `9c602ab087cb78362035043bf07181b0aa108f89` |
 
@@ -200,7 +200,7 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](#before-acting-suspension-and-restoration) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [LlmClient.scala](../client/LlmClient.scala) | 028232913b8bd75fc8a5a5fd6acbb97fef2b3d4e |
 | [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | 41fe7ee22d997bb6e190d89df49d72747fce9f20 |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | 80b7ff0f54208c99085192edc59cdcc417e7ac04 |
@@ -255,7 +255,7 @@ The declaration is serialized with LlmConfig but excluded from the HTTP request 
 - [x] Integrate the host-selected [complete-batch ConfirmResult adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) with restored checkpoints.
 - [x] Integrate checked external partial results with an original-ordinal completion ledger.
 - [x] Expose resumed result/event streams through the shared run/stream lifecycle.
-- [ ] Integrate partial human confirmations; durable host persistence and broader harness middleware remain separate.
+- [x] Independently review and verify [partial confirmations](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations); host persistence and broader middleware remain separate.
 
 The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes verified contracts from remaining scenarios. General JSON Schema validation and exhaustive provider compatibility are not claimed.
 
@@ -269,13 +269,13 @@ The optional [ModelTextTransform](../client/ModelTextTransform.scala) on ChatCom
 
 ## Before-acting suspension and restoration
 
-This contract supports ordinary before-acting checkpoints and saved-batch execution. [Supplied results](#supplied-results-for-suspended-batches) let the host report completed local occurrences; partial human confirmations and durable approval workflows remain separate.
+This contract supports ordinary before-acting checkpoints and saved-batch execution. [Supplied results](#supplied-results-for-suspended-batches) let the host report completed local occurrences; partial human confirmations extend this contract under the [reviewed extension](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations); durable host workflows remain separate.
 
 `ReasoningDecision.Suspend(reason)` pauses an ordinary tool-call turn after the model and hook scopes close and before inline-result processing or local execution. The returned `AgentResult` carries the complete assistant, canonical history, iteration and accumulated usage. `AgentRunState.Suspended(PendingActing)` adds data for the reason, original model context, assistant position, admitted tool definitions, group snapshot and response format; it contains no tool implementations, credentials, fibers or approval promises. Structured execution and non-tool-call suspension are rejected before the assistant is committed.
 
-`resume()` consumes the live pending batch once under the run lock, using a fresh owned scope and timeout. It processes that saved batch before another model request or post-reasoning hook, preserving the original context and occurrence identities. After checking the saved history, the runtime changes only its ReasoningStopRequested generation tag to ToolCalls; assistant content, signatures and other metadata remain intact. Inline provider results remain inline and bypass local dispatch. Local calls retain ordinary authorization and cancellation reconciliation. Resuming the final permitted iteration may finish its saved tools but makes no further model request; the limit check precedes integer increment. A fresh run rejects pending work; `resetHistory` explicitly discards history and pending state.
+`resume()` consumes the live pending batch once under the run lock, using a fresh owned scope and timeout. It processes that saved batch before another model request or post-reasoning hook, preserving the original context and occurrence identities. After checking the saved history, the runtime changes only its ReasoningStopRequested or PermissionAsking generation tag to ToolCalls; assistant content, signatures and other metadata remain intact. Inline provider results remain inline and bypass local dispatch. Local calls retain ordinary authorization and cancellation reconciliation. Resuming the final permitted iteration may finish its saved tools but makes no further model request; the limit check precedes integer increment. A fresh run rejects pending work; `resetHistory` explicitly discards history and pending state.
 
-`restore(result)` accepts a checkpoint only into an empty agent. It validates the final assistant, complete preceding tool history and iteration count against the receiving host budget, then rebuilds the admitted snapshot from trusted host tool bindings and group configuration and checks exact tool definitions. Equality is a compatibility check, not authorization. The host owns checkpoint authentication, storage, exclusive claims and side-effect idempotency; restoring data does not acquire those capabilities. The harness [complete-batch ConfirmResult adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) supports explicit restored authorization; checked external results are described below; partial human confirmations remain separate work. Suspended child sessions continue to reject ordinary sends; no child resume tool or session API is added.
+`restore(result)` accepts a checkpoint only into an empty agent. It validates the saved assistant, complete preceding tool history and iteration count against the receiving host budget, then rebuilds the admitted snapshot from trusted host tool bindings and group configuration and checks exact tool definitions. Equality is a compatibility check, not authorization. The host owns checkpoint authentication, storage, exclusive claims and side-effect idempotency; restoring data does not acquire those capabilities. The harness [complete-batch ConfirmResult adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) supports explicit restored authorization; checked external results are described below; the [partial extension](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) has final independent acceptance. Suspended child sessions continue to reject ordinary sends; no child resume tool or session API is added.
 
 Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspended` becomes a data-bearing case. Exhaustive matches and persisted codecs must account for these shapes; dependent binaries must be rebuilt. The old payload-free Suspended wire value is incompatible: hosts must migrate valid checkpoint data, never fabricate a missing checkpoint. Existing keep/replace/discard behavior remains separately accepted below.
 
@@ -285,17 +285,17 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](#supplied-results-for-suspended-batches) |
-| [PendingActing.scala](PendingActing.scala) | [Current identity](#supplied-results-for-suspended-batches) |
-| [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | 5d6947f4c2b8baf97fa483acfeed0294eaeafc70 |
-| [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | f2c9b42cd43d49c7d5a4259771cd6f94006bb170 |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [PendingActing.scala](PendingActing.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [SubagentSession.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentSession.scala) | a592c82bbb5720be9a9c9ca39635fb7e89990692 |
 | [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | 00499f82e283cc106944c67c4dd5fdc8ed38c298 |
 
 Regression evidence: `acting-resume-focused.log` reproduced extraction-induced masked acting at runtime `eb8ce2db4c836637d7e65e5c255dc78ec24783a9` with spec `88e8b60711a27a8b5d6cd302218c38a8258692ad` (six passed, four timed out); restoring interruptibility before the shared acting phase passed unchanged expectations in `acting-resume-green.log`. `acting-resume-bounds-red.log` reproduced acceptance beyond the host budget and Int.MaxValue overflow at runtime `279b921866d4a8143a55a77cc3077933cfd4b253` with spec `1a5e0f8e51f1c04715bb3a41671970994830a365` (four passed, one failed): iteration became negative and one unexpected model request occurred. Host-budget validation and the pre-increment limit check passed the unchanged regression in `acting-resume-bounds-green.log`; final tables also verify thinking-only rejection and inline metadata preservation.
 
 - [x] Integrate [supplied external results](#supplied-results-for-suspended-batches).
-- [ ] Integrate partial human confirmations and authenticated durable host persistence separately.
+- [x] Complete [partial-confirmation acceptance](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations); authenticated durable persistence remains host-owned.
 
 ## Supplied results for suspended batches
 
@@ -303,23 +303,23 @@ Regression evidence: `acting-resume-focused.log` reproduced extraction-induced m
 
 `resume(results)` adds these observations to a live checkpoint; hosts can alternatively augment, serialize and restore a checkpoint before calling `resume()`. Validation occurs before consuming pending state. Resume persists every supplied raw observation and records completed original ordinals before any interruptible result processor or local execution. Runtime-owned call identity/state and protected metadata remain authoritative. Supplied occurrences bypass local authorization and dispatch; only unsupplied local calls execute normally. This represents trusted host-reported execution, not permission approval.
 
-Inline and supplied observations pass through the existing result processor. The admitted batch still drains before selecting the earliest original-ordinal Stop; otherwise a batch containing local calls continues to the next model request even when all their results were supplied. Cancellation joins processing cleanup, preserves every persisted supplied/local result and synthesizes Error only for unfinished local ordinals. One interrupted recovery remains the owner-cancellation contract. The runtime ledger is invocation-owned, not a durable exactly-once service.
+New inline and supplied observations pass through the existing result processor; AwaitingApproval restoration does not replay completed processing. The admitted batch still drains before selecting the earliest original-ordinal Stop; otherwise a batch containing local calls continues to the next model request even when all their results were supplied. Cancellation joins processing cleanup, preserves every persisted supplied/local result and synthesizes Error only for unfinished local ordinals. One interrupted recovery remains the owner-cancellation contract. The runtime ledger is invocation-owned and serialized for partial checkpoints; it is not a durable exactly-once service.
 
-Migration: PendingActing appends default-empty suppliedResults, preserving old missing-field decoding; positional patterns and dependent binaries must follow the new seven-field shape. No-argument resume remains available. ConfirmedBatchAuthorizer requires confirmations only for local ordinals without supplied results; partial human confirmations remain separate.
+Migration: PendingActing appends default-empty suppliedResults, preserving old missing-field decoding; the partial extension appends a default BeforeActing stage and requires the eight-field positional shape and rebuilt dependent binaries. No-argument resume remains available. ConfirmedBatchAuthorizer requires confirmations only for local ordinals without supplied results; partial confirmations are described in the [partial extension](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations).
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the seven identities below, with no remaining findings. Focused `supplied-results-green.log` passed 46 core tests in 601 ms and four harness tests in 451 ms. Full `scalafmtAll scalafmtSbt verify` passed in `supplied-results-verify.log`, with zero compiler warnings or failures; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). One pure validation group and three runtime groups cover the new contract; the existing confirmation group verifies supplied ordinals are excluded from confirmation coverage.
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [PendingActing.scala](PendingActing.scala) | c2a2589c40b611f1d63ad9b294073d82fc49278e |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](#result-bearing-streams) |
+| [PendingActing.scala](PendingActing.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
 | [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
 | [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | 544ba0673471232ce7fa0b45fc88e002a887b917 |
-| [ConfirmedBatchAuthorizer.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizer.scala) | 0cd496a11133b1ec093392c4bb9d19153bec7c8d |
+| [ConfirmedBatchAuthorizer.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizer.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current identity](#result-bearing-streams) |
 
-- [ ] Integrate partial human confirmations and host-managed side-effect idempotency separately.
+- [x] Complete [partial-confirmation acceptance](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations); side-effect idempotency remains host-owned.
 
 ## Post-reasoning policy and invocation usage
 
@@ -374,7 +374,7 @@ An equal candidate preserves the existing permissive supplied-history API withou
 
 The harness ConversationCompactor.preparer installs compaction through this port and maps summarizer/hook errors to the distinct preparation error. Such errors cannot masquerade as native-format ModelError rejection and trigger Auto fallback. Typed failure leaves canonical input history unchanged. Defects propagate; cancellation closes preparation resources and appends the current attempt's recovery. External flush/offload effects already completed cannot be rolled back.
 
-Recovery ownership is attempt-local: Ready before preparation, PersistedAssistant(position, completedOrdinals) after accepted assistant or interrupted partial output, and Recovered(message) after reconciliation. Persisting each raw local or supplied observation and marking its original ordinal share a narrow interruption mask. Cancellation and failed-phase reconciliation use this ledger rather than reconstructing completion from result order or repeated IDs. The persisted position is valid only during the append-only active tool phase and is cleared before another rewrite. Nested cancellation finalizers reuse the exact recovery value; a later run, including empty-input continuation, owns a fresh recovery. Unaccepted hook output and supplied historical calls never become the current reconciliation target. Invocation usage remains independent of rewritten history and shared across Auto attempts.
+Recovery ownership is attempt-local: Ready before preparation, PersistedAssistant(position, completedOrdinalPositions) after accepted assistant or interrupted partial output, and Recovered(message) after reconciliation. Persisting each raw local or supplied observation and marking its original ordinal share a narrow interruption mask. Cancellation and failed-phase reconciliation use this ledger rather than reconstructing completion from result order or repeated IDs. The persisted position is valid only during the append-only active tool phase and is cleared before another rewrite. Nested cancellation finalizers reuse the exact recovery value; a later run, including empty-input continuation, owns a fresh recovery. Unaccepted hook output and supplied historical calls never become the current reconciliation target. Invocation usage remains independent of rewritten history and shared across Auto attempts.
 
 Appending the optional make argument preserves ordinary callers; positional Builder matches must follow the current Builder constructor, including historyPreparer. Adding HistoryPreparationError requires exhaustive AgentError matches to handle the new leaf. Preparer values are runtime dependencies, not serialized configuration. Core remains independent of harness implementations.
 

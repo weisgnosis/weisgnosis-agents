@@ -110,7 +110,7 @@ LocalDailyMemoryStore delegates to this repository. Its capability cannot propos
 
 ## 8. Planned durable HITL integration
 
-Middleware checks permission before execution. Interactive hosts route authenticated confirmations to Promise waiters. Durable hosts persist partial history and pending approvals before ending an activity, then resume pending execution from ConfirmResult without re-prompting the model. Tool execution checkpoints and idempotency belong to the host.
+ToolAuthorizer returns Approved, Denied or Deferred before local execution. Interactive hosts route authenticated confirmations to Promise waiters. The accepted partial-confirmation extension checkpoints completed ordinal-to-history positions after joined acting cleanup and exposes only unresolved calls. Restored execution preserves original admission and latest group activation without replaying completed processors. Hosts own checkpoint storage, authentication, exclusive claims and side-effect idempotency.
 
 ## 9. Subagent execution and remaining integration
 

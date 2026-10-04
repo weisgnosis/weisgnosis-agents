@@ -129,6 +129,7 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
         (call, ToolAuthorization.Approved(originalInput), ToolResultState.Denied, 1),
         (call, ToolAuthorization.Approved(conflict), ToolResultState.Denied, 1),
         (call, ToolAuthorization.Denied("declined"), ToolResultState.Denied, 1),
+        (call, ToolAuthorization.Deferred(" "), ToolResultState.Denied, 1),
         (
           call.withThoughtSignature("signature"),
           ToolAuthorization.Approved(candidate),

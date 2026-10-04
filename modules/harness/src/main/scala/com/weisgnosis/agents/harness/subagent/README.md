@@ -285,6 +285,8 @@ Migration: this is an additive toolkit factory. `forCatalog` still spawns fresh 
 
 ## Verification and acceptance
 
+SubagentFactory forwards Deferred through its existing live parent-denial wrapper without granting approval. The [partial-confirmation scope](../permission/README.md#partial-checkpoint-confirmations) owns the current factory identity and final approval. Suspended sessions still reject ordinary sends; no child resume API is added.
+
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/README.md) maps current contract evidence and bounded upstream adaptations. The unchanged lineage and static boundary retain their recorded approvals; the supervisor's current resource extension is reviewed below.
 
 `path_review` and `current_docs` independently approved policy-aware construction and its scoped dependencies. Scoped forwarding retains its approval for the factory and registry. The host execution policy section records current tool approval; the named-session routing contract retains its separately reviewed scope. Both reviewers also approved the session catalog and retained ownership changes to supervisor, spawner, session and private directory indexing at the exact identities below, with no unresolved findings. Public caller-leased ownership and public directory closure semantics remain unchanged; TaskResource changes only its ownership comment, with TaskResourceOwner code unchanged. Current factory/construction identities have the separate [child skill snapshot acceptance](#child-skill-snapshots), retaining their admitted-access contracts; static boundaries retain their existing scoped acceptance; inherited plan admission is recorded at the [plan admission identities](../plan/README.md#current-admission-identities). Current full verification is recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -320,7 +322,7 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `6db27b3d881222658521e11970b1def3d597f61c` |
 | [SubagentConstruction.scala](SubagentConstruction.scala) | `381703a6f1f92239110db9ce5bbec5d208047c52` |
 | [SubagentConstructionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) | `1ece182d43038473274d5bfa5c4bb2c9c5c664c2` |
-| [SubagentFactory.scala](SubagentFactory.scala) | `a8b2cc2a812262d538273d51edac5f907dba50d0` |
+| [SubagentFactory.scala](SubagentFactory.scala) | [Current reviewed identity](../permission/README.md#partial-checkpoint-confirmations) |
 | [SubagentFactorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentFactorySpec.scala) | `e7c0567f3b7cd873cb5f6ff39042a99152464e87` |
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |

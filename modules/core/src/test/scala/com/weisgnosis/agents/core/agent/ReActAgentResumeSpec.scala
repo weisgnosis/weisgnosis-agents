@@ -415,6 +415,61 @@ object ReActAgentResumeSpec extends ZIOSpecDefault:
         .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
     test(
+      "structured authorization deferral preserves completed siblings and fails without a checkpoint or fallback"
+    ):
+      ZIO
+        .foreach(Chunk.fromArray(StructuredMode.values)): mode =>
+          for
+            requests <- Ref.make(0)
+            executed <- Ref.make(Chunk.empty[String])
+            client = LlmClient.mockEffectful((_, _, _) =>
+              requests
+                .update(_ + 1)
+                .as(TurnOutput.ToolCalls(Msg.assistant(Chunk(call("one"), call("two")))))
+            )
+            agent <- ReActAgent.make(
+              config = AgentConfig(toolExecution = ToolExecution.Sequential),
+              client = client,
+              toolkit = Toolkit(
+                Map(
+                  "one" -> tool("one", executed.update(_ :+ "one").as("completed")),
+                  "two" -> tool("two", executed.update(_ :+ "two").as("unexpected"))
+                )
+              ),
+              toolAuthorizer = ToolAuthorizer(request =>
+                ZIO.succeed(
+                  if request.callOrdinal.contains(0) then
+                    ToolAuthorization.Approved(request.call.input)
+                  else ToolAuthorization.Deferred("approval")
+                )
+              )
+            )
+            exit <- agent
+              .runStructured[Int](
+                Chunk(Msg.user("q")),
+                Json.Obj("type" -> Json.Str("integer")),
+                mode
+              )
+              .exit
+            history <- agent.history
+            resume  <- agent.resume().exit
+            count   <- requests.get
+            done    <- executed.get
+          yield assertTrue(
+            exit.causeOption
+              .exists(_.failures.exists(_.isInstanceOf[AgentError.InvalidConfiguration])),
+            resume.isFailure,
+            count == 1,
+            done == Chunk("one"),
+            history
+              .flatMap(_.toolResults)
+              .filter(_.state == ToolResultState.Success)
+              .map(_.text) == Chunk("completed"),
+            history.flatMap(_.toolResults).count(_.state == ToolResultState.Error) == 1
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test(
       "cancelling resumed execution consumes its checkpoint and joins cleanup before reconciliation"
     ):
       ZIO.scoped:

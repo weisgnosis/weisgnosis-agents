@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.event.ModelStreamContext
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.*
 import zio.json.*
@@ -70,4 +70,94 @@ object PendingActingSpec extends ZIOSpecDefault:
         PendingActing.validate(completeInline) == Right(pending),
         invalid.forall(PendingActing.validate(_).isLeft)
       )
+    ,
+    test("partial checkpoints bind completed results by ordinal and validate the entire tool tail"):
+      val call   = ContentBlock.ToolUse("same", "read", Json.Obj())
+      val inline = call.withServerTool(true)
+      val reply = Msg.assistant(
+        Chunk(
+          call,
+          inline,
+          ContentBlock.ToolResult.text("same", "read", "inline"),
+          call,
+          call
+        )
+      )
+      val denied = Msg.tool("same", "read", "declined", ToolResultState.Denied)
+      val failed = Msg.tool("same", "read", "failed", ToolResultState.Error)
+      val ledger = Chunk(CompletedToolCall(2, 2), CompletedToolCall(3, 3))
+      val pending = PendingActing(
+        "remaining approval",
+        ModelStreamContext("reply", "request"),
+        1,
+        Chunk(ToolDef("read", "Read", Json.Obj())),
+        None,
+        None,
+        stage = PendingActingStage.AwaitingApproval(ledger, None, Some(PendingActingStop(2, "")))
+      )
+      val result = AgentResult(
+        reply,
+        Chunk(Msg.user("review"), reply, denied, failed),
+        1,
+        AgentRunState.Suspended(pending)
+      )
+      def completed(values: Chunk[CompletedToolCall]): AgentResult = result.copy(state =
+        AgentRunState.Suspended(
+          pending.copy(stage = PendingActingStage.AwaitingApproval(values, None, None))
+        )
+      )
+      def stopped(ordinal: Int): AgentResult = result.copy(state =
+        AgentRunState.Suspended(
+          pending.copy(stage =
+            PendingActingStage.AwaitingApproval(
+              ledger,
+              None,
+              Some(PendingActingStop(ordinal, "stop"))
+            )
+          )
+        )
+      )
+      def firstObservation(message: Msg): AgentResult =
+        result.copy(history = result.history.take(2) ++ Chunk(message, failed))
+      val duplicate = Json.Obj("key" -> Json.Num(1), "key" -> Json.Num(2))
+      val malformed = Msg.tool(
+        name = Some("read"),
+        content = Chunk(
+          ContentBlock.ToolResult(
+            "same",
+            Some("read"),
+            Chunk(ContentBlock.Custom("data", duplicate))
+          )
+        )
+      )
+      val invalid = Chunk(
+        completed(Chunk(CompletedToolCall(2, 2), CompletedToolCall(2, 3))),
+        completed(Chunk(CompletedToolCall(2, 2), CompletedToolCall(3, 2))),
+        completed(Chunk(CompletedToolCall(1, 2), CompletedToolCall(3, 3))),
+        completed(Chunk(CompletedToolCall(4, 2), CompletedToolCall(3, 3))),
+        completed(Chunk(CompletedToolCall(-1, 2), CompletedToolCall(3, 3))),
+        completed(Chunk(CompletedToolCall(2, 4), CompletedToolCall(3, 3))),
+        completed(ledger.take(1)),
+        firstObservation(Msg.tool("other", "read", "unmatched")),
+        firstObservation(Msg.tool("same", "other", "wrong name")),
+        firstObservation(Msg.user("wrong role")),
+        firstObservation(
+          Msg.tool(name = Some("read"), content = Chunk(ContentBlock.Text("not a result")))
+        ),
+        firstObservation(malformed),
+        result.copy(reply = Msg.assistant("different")),
+        stopped(0),
+        stopped(4)
+      ) ++ Chunk(ToolResultState.Running, ToolResultState.Interrupted).map(state =>
+        firstObservation(Msg.tool("same", "read", "nonterminal", state))
+      )
+      val rejected = invalid.foldLeft(assertTrue(true))((checked, candidate) =>
+        checked && assertTrue(PendingActing.pendingCalls(candidate).isLeft)
+      )
+      assertTrue(
+        result.toJson.fromJson[AgentResult] == Right(result),
+        PendingActing.validate(result) == Right(pending),
+        PendingActing.pendingCalls(result) == Right(Chunk(PendingToolCall(0, call))),
+        PendingActing.pendingCalls(stopped(1)) == Right(Chunk(PendingToolCall(0, call)))
+      ) && rejected
   )

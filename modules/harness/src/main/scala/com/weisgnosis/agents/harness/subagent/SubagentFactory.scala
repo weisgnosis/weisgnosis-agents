@@ -275,4 +275,5 @@ object SubagentFactory:
                     case true =>
                       ToolAuthorization.Denied("Approved input is denied by parent policy")
                     case false => approved
-                case denied: ToolAuthorization.Denied => ZIO.succeed(denied)
+                case denied: ToolAuthorization.Denied     => ZIO.succeed(denied)
+                case deferred: ToolAuthorization.Deferred => ZIO.succeed(deferred)

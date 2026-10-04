@@ -34,6 +34,7 @@ final case class ToolAuthorizationRequest(
 enum ToolAuthorization derives JsonCodec:
   case Approved(input: Json)
   case Denied(reason: String)
+  case Deferred(reason: String)
 
 /** Transient access metadata from the admitted host tool, never from request JSON. */
 enum AdmittedToolAccess:

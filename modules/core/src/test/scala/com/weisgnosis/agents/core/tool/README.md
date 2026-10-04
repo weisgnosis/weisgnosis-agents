@@ -21,7 +21,7 @@ The descriptive output-schema contract and exact reviewed identities are in the 
 
 The [host-selected group contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#host-selected-tool-groups) owns current group identities and verification. Actual model calls see only selected definitions; a model-invented inactive call cannot dispatch, while active and ungrouped tools execute. Removal tests explicitly show reactivation after last-membership loss, not revocation.
 
-The [admitted-access contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#admitted-tool-access) owns current authorizer identities and approval. Its existing compatibility group verifies default overload delegation without changing request JSON; harness tests establish actual Plan integration. Runtime integration lives in the [agent suites](../agent/README.md). See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for remaining mappings.
+The [admitted-access contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#admitted-tool-access) owns current authorizer identities and approval. Its decision-codec group now covers Deferred under the accepted partial-confirmation scope. The existing compatibility group verifies default overload delegation without changing request JSON; harness tests establish actual Plan integration. Runtime integration lives in the [agent suites](../agent/README.md). See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for remaining mappings.
 
 ## Invocation capability evidence
 

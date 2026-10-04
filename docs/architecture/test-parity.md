@@ -535,7 +535,7 @@ Pinned `agentscope-core/src/test/java/io/agentscope/core/agent/ReActAgentHitlTes
 - [x] `pendingToolRecoveryPreservesModifiedArgumentsFromConfirmation` (640): ConfirmedBatchAuthorizerSpec verifies actual modified input and exact persisted call inputs after restored sequential/parallel execution, without re-requesting saved tool calls. Complete original-ordinal confirmations and explicit host restoration replace Java confirmation messages and recovery flags; partial approvals are excluded.
 - [x] `deniedConfirmResultWithCustomReasonWritesReasonToContext` (838) and `deniedConfirmResultWithoutReasonKeepsDefaultText` (909): ConfirmedBatchAuthorizerSpec restores a checkpoint and directly checks Denied history with exact custom/default text, no local execution and one follow-up model request. The established local default is "Tool execution declined", intentionally different from Java's "Permission denied by user".
 - [x] `deniedConfirmResultOnResumeEmitsToolResultEventTriple` (870): the same resumed-stream table asserts exact Start/Delta/End order, original model context, call identity, denial text and Denied state. The [three-file stream acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#result-bearing-streams) records final reviews and full verification. Explicit core restore and streamResumeEvents replace Java confirmation-message injection; approval envelope events are not claimed.
-- [ ] `confirmResultsMayCoverSomeAskingToolCalls` (511): partial confirmation remains outside the complete-batch adapter.
+- [x] `confirmResultsMayCoverSomeAskingToolCalls` (511) and `pendingToolRecoveryReasksForUnconfirmedAskingTools` (675): PartialConfirmationSpec exercises successive restored subsets with only unresolved original ordinals exposed and no fabricated observation for deferred calls. Its exact Tool-message counts, repeated-ID execution and single final model continuation strengthen those assertions. Typed Suspended/AwaitingApproval data replaces Java mutable ASKING flags and recovery configuration. Both final independent reviews and full verification passed; no mutable ASKING-state or permission-envelope parity is claimed.
 
 ## ToolResultEvictionMiddlewareTest: seven methods
 
@@ -562,7 +562,8 @@ The core ToolAuthorizer port provides scoped approval/denial before local dispat
 - [x] Independently review the core authorization port and fifteen local tests; verify 481 core / 45 harness tests. No two-call confirmation method is marked covered by this narrower scope.
 - [x] Map ReActAgentHitlTest.pendingToolRecoveryPreservesModifiedArgumentsFromConfirmation through the bounded restored-batch evidence above; host persistence remains external.
 - [x] Map the three denial history/event methods through the direct restored-stream evidence above; host persistence remains external.
-- [ ] Integrate and map partial confirmations and mixed-batch permission event ordering with restored checkpoints. Full-batch core restoration retains reply identity; interactive approval scopes still remain within one active invocation.
+- [x] Complete final acceptance of the partial-confirmation mappings above.
+- [ ] Integrate mixed-batch permission-envelope ordering separately. Full-batch core restoration retains reply identity; interactive approval scopes still remain within one active invocation.
 
 ## Interactive permission adaptation
 
@@ -573,7 +574,7 @@ The opt-in harness adapter adds sixteen tests and runs within one active invocat
 - [x] Retain the Scala default decline text, "Tool execution declined". Upstream expects "Permission denied by user"; this is an explicit text difference.
 - [x] Recheck both gates against modified arguments and latest policy, merge parallel rule additions, isolate repeated call IDs, and clean cancelled waiters.
 - [x] The separate restored checkpoint adapter and resumed-stream tests establish bounded mappings for the three denial history/event methods above; this interactive adapter still operates within one invocation.
-- [ ] Complete partial human confirmations, automatic denied-batch ordering before approval notices, authenticated transport, durable host persistence and exhaustive permission mode/rule parity. Core checkpoint restoration already retains the saved reply context.
+- [ ] Implement automatic denied-batch ordering before approval notices, authenticated transport, durable host persistence and exhaustive permission mode/rule parity. Core checkpoint restoration already retains the saved reply context.
 
 The adapter publishes a narrow ToolAuthorizationRequest callback, not upstream approval event envelopes. Confirmed policy updates are independent of later core validation/execution; tests explicitly retain rules after a signed-input denial. External gate changes and post-decision revocation are not transactional guarantees.
 

@@ -1,6 +1,6 @@
 # High-level architecture
 
-Ordinary before-acting suspension, checked supplied results and checkpoint restoration are [accepted](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). Checkpoint data describes an execution boundary; host authentication, storage and exclusive execution claims remain external.
+Ordinary before-acting suspension, checked supplied results and checkpoint restoration are [accepted](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). Partial-confirmation checkpoints are independently reviewed. Checkpoint data describes an execution boundary; host authentication, storage and exclusive execution claims remain external.
 
 ## Mission and authority
 

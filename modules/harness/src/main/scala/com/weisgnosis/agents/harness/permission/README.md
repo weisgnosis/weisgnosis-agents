@@ -34,25 +34,50 @@ ConfirmedBatchAuthorizer supplies checked complete-batch authorization for resto
 
 The adapter installs on a host-created runtime before restoring and resuming the checkpoint. Core streamResumeEvents delivers resumed events through the shared invocation owner; its actual table checks custom/default denial history and the original-context Start/Delta/End sequence. The [stream acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#result-bearing-streams) owns the current runtime/test identities and verification. It supplies only ordinary ToolAuthorization decisions; core retains history, fixed-argument checks, signature protection and scoped execution authority. Identity binds the saved model context, original assistant ordinal, call ID and name. Other requests fail closed without policy or gate effects, including later tool calls produced after this batch; this authorizer is not a general interactive fallback. Positive confirmations evaluate separately scoped gates on the modified input, or the runtime-prepared input when no replacement is supplied, including trusted admitted-access evidence. The current host policy is sampled only after both gates and their finalizers finish; that snapshot is the policy decision point. Later changes do not retroactively revoke returned approvals, and gate state is not transactional with that snapshot. A confirmation cannot override Deny on that candidate. Positive confirmations contribute immutable ruleUpdates in ordinal order; declined confirmations skip policy/gate effects and contribute no rules. The adapter overlays those updates on each sampled policy without mutating shared policy state. The host decides whether and how to persist those updates. Checkpoint authentication, storage, exclusive claims and side-effect idempotency remain host responsibilities.
 
-Migration: ToolAuthorizationRequest appends optional callOrdinal, defaulting to None for old construction and missing JSON fields. Its case-class arity changes, so positional patterns and dependent binaries need updating. Decoded ordinal data is not trusted runtime authority. The checked adapter requires the matching runtime occurrence; existing interactive authorizers remain separately supported. Partial confirmations and partial-result resumption are not part of this batch contract.
+Migration: ToolAuthorizationRequest appends optional callOrdinal, defaulting to None for old construction and missing JSON fields. Its case-class arity changes, so positional patterns and dependent binaries need updating. Decoded ordinal data is not trusted runtime authority. The checked adapter requires the matching runtime occurrence; existing interactive authorizers remain separately supported. The partial extension below retains this complete factory; supplied-result resumption has its own core contract.
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the nine identities below, with no remaining findings. Full `scalafmtAll scalafmtSbt verify` passed in `confirmed-batch-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals. Focused `confirmed-batch-green.log` passed 36 harness tests in 636 ms and 26 core tests in 434 ms.
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ConfirmedBatchAuthorizer.scala](ConfirmedBatchAuthorizer.scala) | [Current supplied-result identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#supplied-results-for-suspended-batches) |
+| [ConfirmedBatchAuthorizer.scala](ConfirmedBatchAuthorizer.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
 | [ConfirmResult.scala](ConfirmResult.scala) | dbae0b1f7588ec27e2aa5755f77a4a200541fb38 |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current supplied-result identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#supplied-results-for-suspended-batches) |
-| [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | [Current supplied-result identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#supplied-results-for-suspended-batches) |
-| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current supplied-result identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#supplied-results-for-suspended-batches) |
+| [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
 | [ToolHistory.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/model/ToolHistory.scala) | 29b2733e5d9d9ce9906e8d6d05eeb8ea3314af33 |
 | [ToolHistorySpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | 36b9751869fc81a8ed6c708e874ac54339cbd5e1 |
-| [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | 6a5d051a2c2fd07e5e22d4ab97f3db5e770e6501 |
-| [ToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | b101c62056f31891f1c164fa0f79032066656453 |
+| [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
+| [ToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
 
 Regression: `confirmed-batch-policy-red.log` reproduced stale-policy admission at authorizer `a212e408899e1833ae3c70174a2250028217f83e` with spec `2a97e9f98f87774d4ad2cfd3e66ba28cd4c065a4` (three passed, one failed, 579 ms): a Deny installed while a gate waited still allowed execution and changed history. Sampling policy after both gate scopes fixed the unchanged regression in `confirmed-batch-green.log`.
 
-- [ ] Integrate partial confirmations and host persistence separately.
+- [x] Independently review and verify the partial extension below; host persistence remains external.
+
+## Partial checkpoint confirmations
+
+`ConfirmedBatchAuthorizer.makePartial` accepts a checked subset of the unresolved original call ordinals. `make` retains complete-coverage validation. Duplicate, unknown, inline-completed, already-recorded and host-supplied ordinals reject either factory. A matching unresolved call without a confirmation returns `ToolAuthorization.Deferred("Awaiting host confirmation")` without reading policy or running gates. Positive and negative decisions retain the policy, fixed-input and signature checks described above. `PendingActing.pendingCalls` provides checked original-ordinal choices; repeated call IDs are not completion identities.
+
+After all admitted execution and processor scopes join, ordinary deferred batches return `Suspended` with `PendingActingStage.AwaitingApproval(completed, latestToolGroups, stop)`. CompletedToolCall records map original call ordinals bijectively to the Tool-message tail after the saved assistant. Restore checks exact identity/state and the complete prefix, reconstructs executable tools from host bindings, and preserves original admission separately from latest group activation. Saved control tools and future model requests share that latest activation. Completed local/supplied observations and inline processors are not replayed. New supplied results remain supported for unresolved ordinals.
+
+Deferred calls produce no Tool observation or result Start/Delta/End events. A blank deferral reason becomes Denied. Completed results remain in history; the assistant carries PermissionAsking while suspended. Resume preserves original context and iteration, clears only the runtime suspension tag, and executes only unresolved occurrences before another model request. A saved processor Stop is selected by original ordinal and takes effect only after every deferred call resolves. Cancellation joins cleanup, preserves completed results and reconciles only unfinished calls with one interrupted recovery. Structured modes reject deferral and finalize unfinished calls without publishing a checkpoint or selecting Auto fallback.
+
+Migration: ToolAuthorization gains the codec case Deferred(reason), requiring exhaustive matches to handle it. PendingActing appends stage with default BeforeActing; old missing-field checkpoints retain that meaning, while positional patterns use the eight-field shape and binaries must be rebuilt. AwaitingApproval is data, not authentication or execution authority. SubagentFactory forwards Deferred through existing live parent-denial checks; child sessions still have no resume API. InteractivePermissionAuthorizer remains the active-invocation Promise adapter. A policy-Ask-to-Deferred adapter and host request-data integration are the next bounded work; storage, authentication, exclusive claims and idempotency remain host responsibilities.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the ten formatted identities below, with no remaining findings. Full `scalafmtAll scalafmtSbt verify` passed in `partial-confirmations-final-verify.log` with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Focused tests passed 31 core cases in 823 ms and eight harness cases in 508 ms. Five new groups cover ledger validation, structured rejection, successive restored approvals, saved Stop and joined cancellation.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | 69b46eea0d9b8eefc10f69d51ba47644ab2a4dd3 |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | ea7fb6ec3bede42248e91a2c45094ad361a377ba |
+| [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | 54976c39acecd0e10106fad2ebd3c15408a71272 |
+| [ConfirmedBatchAuthorizer.scala](ConfirmedBatchAuthorizer.scala) | 89d5a44f35184fcfa15480de22325697b07a4e09 |
+| [SubagentFactory.scala](../subagent/SubagentFactory.scala) | f34c4395ef80ac1207ac32398477a1a410fb5942 |
+| [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | 1a08cbd3ac2f75b49a0d6124f5b3082e352fa191 |
+| [ReActAgentResumeSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | aaebc39619a824bc3616aec5c12da9cee88e617a |
+| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | ed6082180649b7eeab8ce5bf2b6f61d45f0f8b28 |
+| [ToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | 1d5cdf458c1fc66d266c54af94d5ba3c59ab915d |
+| [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | 65b55ac709c733e7f3b67560884ab9cfd2376d9f |
 
 ## Implementation
 
@@ -64,7 +89,7 @@ Regression: `confirmed-batch-policy-red.log` reproduced stale-policy admission a
 - [PermissionBehavior](PermissionBehavior.scala)
 - [ConfirmResult and pending/outcome values](ConfirmResult.scala)
 
-See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/README.md) and [parity audit](../../../../../../../../../../docs/architecture/test-parity.md). Complete-batch checkpoint confirmation is defined above. Authenticated transport, checkpoint/idempotency storage, partial human confirmations, post-decision revocation and complete upstream permission mode/batch-event parity remain separate.
+See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/README.md) and [parity audit](../../../../../../../../../../docs/architecture/test-parity.md). Complete-batch checkpoint confirmation is defined above. Authenticated transport, checkpoint/idempotency storage, post-decision revocation and complete upstream permission mode/batch-event parity remain separate.
 
 ## Current review acceptance
 
@@ -72,7 +97,8 @@ See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harne
 - [x] Full `scalafmtAll scalafmtSbt verify` passed with zero compiler warnings or failures (`plan-admission-verify.log`); the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current totals.
 - [x] The reviewed [SubagentConstruction](../subagent/README.md) path uses composition for inherited child policy. Raw authorizer views remain host-controlled and are not revoked.
 - [x] Install checked complete-batch confirmation on restored core checkpoints.
-- [ ] Implement partial human confirmations, authenticated durable delivery and remaining upstream permission mode/batch-event integration.
+- [x] Independently review and verify partial confirmations.
+- [ ] Integrate nonblocking policy Ask decisions and host request data; durable delivery and broader event parity remain separate.
 
 The unchanged runtime integration suite retains `review_fp` and `review_harness` approval against `5eb4bdc`. The table below retains the active-invocation authorization and composition scope. Complete-batch checkpoint confirmation has its own current identities above; neither scope establishes exhaustive upstream parity or post-decision revocation.
 

@@ -1,6 +1,6 @@
 # weisgnosis-agents-harness
 
-Core before-acting checkpoints are accepted. The [complete-batch confirmation adapter](src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) is accepted; host persistence and partial confirmations remain separate. Child session/tool adapters recognize the data-bearing Suspended state; ordinary sends remain blocked afterward, with no child resume API or automatic durable approval installation.
+Core before-acting checkpoints are accepted. The [complete-batch confirmation adapter](src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) is accepted; partial confirmations are accepted, while host persistence remains external. Child session/tool adapters recognize the data-bearing Suspended state; ordinary sends remain blocked afterward, with no child resume API or automatic durable approval installation.
 
 Standalone context and permission components built on core.
 
