@@ -40,6 +40,7 @@ enum SubagentToolRejection derives JsonCodec:
 enum SubagentToolResult derives JsonCodec:
   case Task(taskId: String, state: SubagentToolState)
   case Rejected(reason: SubagentToolRejection)
+  case TimedOut(message: SubagentToolText)
 
 /** Routed observations retain the selected membership without exposing a session capability. */
 enum SubagentSessionToolResult derives JsonCodec:
@@ -63,52 +64,71 @@ object SubagentTools:
     case Spawn
         extends Invocation(
           "agent_spawn",
-          "Run the configured child. After 30 seconds, return its retained task ID without restarting it."
+          "Run the configured child."
         )
     case Send
         extends Invocation(
           "agent_send",
-          "Send a prompt to the bound child session. After 30 seconds, return its retained task ID without restarting it."
+          "Send a prompt to the bound child session."
         )
 
   def make(registry: SubagentTaskRegistry): Toolkit =
-    controls(registry, Invocation.Spawn)
+    make(registry, SubagentExecutionPolicy.PromoteAfter30Seconds)
+
+  def make(registry: SubagentTaskRegistry, policy: SubagentExecutionPolicy): Toolkit =
+    controls(registry, Invocation.Spawn, policy)
 
   /** Reuse one host-selected session; task inspection and cancellation share its execution registry. */
   def forSession(session: SubagentSession): Toolkit =
-    controls(session.executions, Invocation.Send)
+    forSession(session, SubagentExecutionPolicy.PromoteAfter30Seconds)
+
+  def forSession(session: SubagentSession, policy: SubagentExecutionPolicy): Toolkit =
+    controls(session.executions, Invocation.Send, policy)
 
   /** Select fresh children only from this fixed host catalog; task operations keep that selection. */
   def forCatalog(catalog: SubagentCatalog): Toolkit =
-    namedControls(catalog.entries, name => ZIO.succeed(catalog.lookup(name)), Invocation.Spawn)
+    forCatalog(catalog, SubagentExecutionPolicy.PromoteAfter30Seconds)
+
+  def forCatalog(catalog: SubagentCatalog, policy: SubagentExecutionPolicy): Toolkit =
+    namedControls(
+      catalog.entries,
+      name => ZIO.succeed(catalog.lookup(name)),
+      Invocation.Spawn,
+      policy
+    )
 
   /** Send to live named sessions installed by the host; removed names are never recreated. */
   def forSessionCatalog(catalog: SubagentSessionCatalog): Toolkit =
+    forSessionCatalog(catalog, SubagentExecutionPolicy.PromoteAfter30Seconds)
+
+  def forSessionCatalog(catalog: SubagentSessionCatalog, policy: SubagentExecutionPolicy): Toolkit =
     namedControls(
       catalog.entries,
       name => catalog.lookup(name).map(_.map(_._2.executions)),
-      Invocation.Send
+      Invocation.Send,
+      policy
     )
 
   private def namedControls(
       entries: Chunk[SubagentEntry],
       lookup: String => UIO[Option[SubagentTaskRegistry]],
-      invocation: Invocation
+      invocation: Invocation,
+      policy: SubagentExecutionPolicy
   ): Toolkit =
     val description = invocation match
       case Invocation.Spawn =>
-        "Run the selected configured child. After 30 seconds, return its retained task ID."
+        "Run the selected configured child."
       case Invocation.Send =>
-        "Send a prompt to the selected child session. After 30 seconds, return its retained task ID."
+        "Send a prompt to the selected child session."
     val invoke = catalogTool[String](
       entries,
       lookup,
       invocation.name,
-      description,
+      description + " " + waitDescription(policy),
       "prompt",
       Access.Control,
       Right(_)
-    )(submit)
+    )((registry, prompt, events) => submit(registry, prompt, events, policy))
     val inspect = catalogTool[SubagentTaskId](
       entries,
       lookup,
@@ -131,14 +151,17 @@ object SubagentTools:
 
   /** Route only to ready memberships in this host-selected directory; no creation authority. */
   def forDirectory(directory: SubagentSessionDirectory): Toolkit =
+    forDirectory(directory, SubagentExecutionPolicy.PromoteAfter30Seconds)
+
+  def forDirectory(directory: SubagentSessionDirectory, policy: SubagentExecutionPolicy): Toolkit =
     val send = routedTool[String](
       directory,
       "agent_send",
-      "Send a prompt to a registered child session. After 30 seconds, return its retained task ID.",
+      "Send a prompt to a registered child session. " + waitDescription(policy),
       "prompt",
       Access.Control,
       Right(_)
-    )(submit)
+    )((registry, prompt, events) => submit(registry, prompt, events, policy))
     val inspect = routedTool[SubagentTaskId](
       directory,
       "agent_task",
@@ -168,11 +191,28 @@ object SubagentTools:
   final private case class RoutedInput[A](sessionId: SubagentSessionId, value: A)
   final private case class CatalogInput[A](agentId: String, value: A)
 
-  private def controls(registry: SubagentTaskRegistry, invocation: Invocation): Toolkit =
+  private def waitDescription(policy: SubagentExecutionPolicy): String = policy match
+    case SubagentExecutionPolicy.PromoteAfter30Seconds =>
+      "After 30 seconds, return its retained task ID without restarting it."
+    case SubagentExecutionPolicy.Synchronous(timeout) =>
+      s"Wait up to ${timeout.duration} without background promotion. On timeout, cancel and join cleanup before returning an error; cleanup may exceed the wait budget."
+
+  private def controls(
+      registry: SubagentTaskRegistry,
+      invocation: Invocation,
+      policy: SubagentExecutionPolicy
+  ): Toolkit =
     val invoke = tool[String, SubagentToolResult](
-      definition(invocation.name, invocation.description, Chunk("prompt"), Access.Control),
+      definition(
+        invocation.name,
+        invocation.description + " " + waitDescription(policy),
+        Chunk("prompt"),
+        Access.Control
+      ),
       stringField("prompt")
-    )((prompt, events) => submit(registry, prompt, events).flatMap(respond(invocation.name, _)))
+    )((prompt, events) =>
+      submit(registry, prompt, events, policy).flatMap(respond(invocation.name, _))
+    )
     val inspect = tool[SubagentTaskId, SubagentToolResult](
       definition(
         "agent_task",
@@ -196,39 +236,101 @@ object SubagentTools:
   private def submit(
       registry: SubagentTaskRegistry,
       prompt: String,
-      events: Option[ToolEventPort]
+      events: Option[ToolEventPort],
+      policy: SubagentExecutionPolicy
   ): IO[AgentError, Observation[SubagentToolResult]] =
     ZIO.scoped:
-      registry
-        .submit(Msg.user(prompt), events)
-        .flatMap:
-          case SubagentTaskSubmission.Accepted(id) =>
-            registry
-              .awaitOrPromote(id)
-              .map:
-                case Some(TaskWait.Promoted) =>
-                  Observation.Success(task(id, SubagentToolState.Promoted))
-                case Some(TaskWait.Completed(exit)) =>
-                  exit match
-                    case Exit.Failure(_) => Observation.Error(project(id, exit))
-                    case Exit.Success(result) if result.state == AgentRunState.Interrupted =>
-                      Observation.Error(project(id, exit))
-                    case Exit.Success(_) => Observation.Success(project(id, exit))
-                case None => Observation.Error(task(id, SubagentToolState.Missing))
-          case SubagentTaskSubmission.Capacity =>
-            ZIO.succeed(
-              Observation.Error(SubagentToolResult.Rejected(SubagentToolRejection.Capacity))
-            )
-          case SubagentTaskSubmission.Closed =>
-            ZIO.succeed(
-              Observation.Error(SubagentToolResult.Rejected(SubagentToolRejection.Closed))
-            )
-          case SubagentTaskSubmission.IdentityCollision =>
-            ZIO.succeed(
-              Observation.Error(
-                SubagentToolResult.Rejected(SubagentToolRejection.IdentityCollision)
+      policy match
+        case SubagentExecutionPolicy.PromoteAfter30Seconds =>
+          registry
+            .submit(Msg.user(prompt), events)
+            .flatMap(admission =>
+              observeAdmission(
+                admission,
+                id =>
+                  registry
+                    .awaitOrPromote(id)
+                    .map:
+                      case Some(TaskWait.Promoted) =>
+                        Observation.Success(task(id, SubagentToolState.Promoted))
+                      case Some(TaskWait.Completed(exit)) => completed(id, Some(exit))
+                      case None                           => completed(id, None)
               )
             )
+        case SubagentExecutionPolicy.Synchronous(timeout) =>
+          submitSynchronous(registry, Msg.user(prompt), events, timeout)
+
+  private def observeAdmission(
+      admission: SubagentTaskSubmission,
+      await: SubagentTaskId => IO[AgentError, Observation[SubagentToolResult]]
+  ): IO[AgentError, Observation[SubagentToolResult]] = admission match
+    case SubagentTaskSubmission.Accepted(id) => await(id)
+    case SubagentTaskSubmission.Capacity =>
+      ZIO.succeed(Observation.Error(SubagentToolResult.Rejected(SubagentToolRejection.Capacity)))
+    case SubagentTaskSubmission.Closed =>
+      ZIO.succeed(Observation.Error(SubagentToolResult.Rejected(SubagentToolRejection.Closed)))
+    case SubagentTaskSubmission.IdentityCollision =>
+      ZIO.succeed(
+        Observation.Error(SubagentToolResult.Rejected(SubagentToolRejection.IdentityCollision))
+      )
+
+  private def completed(
+      id: SubagentTaskId,
+      exit: Option[Exit[AgentError, AgentResult]]
+  ): Observation[SubagentToolResult] =
+    exit match
+      case Some(value @ Exit.Success(result)) if result.state != AgentRunState.Interrupted =>
+        Observation.Success(project(id, value))
+      case Some(value) => Observation.Error(project(id, value))
+      case None        => Observation.Error(task(id, SubagentToolState.Missing))
+
+  private def submitSynchronous(
+      registry: SubagentTaskRegistry,
+      input: Msg,
+      events: Option[ToolEventPort],
+      timeout: SubagentSyncTimeout
+  ): ZIO[Scope, AgentError, Observation[SubagentToolResult]] =
+    ZIO.uninterruptibleMask: restore =>
+      restore(registry.submit(input, events)).exit.flatMap:
+        case Exit.Failure(cause) => ZIO.refailCause(cause)
+        case Exit.Success(admission) =>
+          observeAdmission(
+            admission,
+            id =>
+              restore(registry.await(id).timeout(timeout.duration)).exit.flatMap:
+                case Exit.Success(Some(exit)) =>
+                  restore(ZIO.unit).exit.flatMap:
+                    case Exit.Success(_)     => ZIO.succeed(completed(id, exit))
+                    case Exit.Failure(cause) => ZIO.refailCause(cause ++ childFailure(exit))
+                case Exit.Success(None) =>
+                  registry
+                    .cancel(id)
+                    .flatMap: exit =>
+                      restore(ZIO.unit).exit.flatMap:
+                        case Exit.Success(_)     => ZIO.succeed(timedOut(exit))
+                        case Exit.Failure(cause) => ZIO.refailCause(cause ++ childFailure(exit))
+                case Exit.Failure(cause) =>
+                  registry.cancel(id).flatMap(exit => ZIO.refailCause(cause ++ childFailure(exit)))
+          )
+
+  private def childFailure(exit: Option[Exit[AgentError, AgentResult]]): Cause[AgentError] =
+    exit.flatMap(_.causeOption).getOrElse(Cause.empty)
+
+  private def timedOut(
+      exit: Option[Exit[AgentError, AgentResult]]
+  ): Observation[SubagentToolResult] =
+    val detail = exit match
+      case None                  => "The retained task is no longer available."
+      case Some(Exit.Success(_)) => "The child completed while timeout cancellation was joining."
+      case Some(Exit.Failure(cause)) if cause.isInterruptedOnly =>
+        "Child cancellation and owned cleanup completed."
+      case Some(Exit.Failure(cause)) =>
+        val failure = cause.failureOption.fold("")(error => s" Child failure: ${error.message}")
+        val defect =
+          if cause.defects.nonEmpty then " Child cleanup or execution reported an internal defect."
+          else ""
+        "Child cleanup completed with failures." + failure + defect
+    Observation.Error(SubagentToolResult.TimedOut(preview("Synchronous wait timed out. " + detail)))
 
   private def inspectTask(
       registry: SubagentTaskRegistry,

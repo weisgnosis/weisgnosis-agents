@@ -28,6 +28,32 @@ import zio.test.*
 object SubagentToolsSpec extends ZIOSpecDefault:
   private val input: Json = Json.Obj("prompt" -> Json.Str("child work"))
 
+  private enum SynchronousCase:
+    case TimeoutClean, TimeoutDefect, CallerCancellation, CallerAtAdmission
+
+  private enum AdmissionPhase:
+    case Before, After
+
+  private def heldAdmission(
+      registry: SubagentTaskRegistry,
+      entered: Promise[Nothing, Unit],
+      release: Promise[Nothing, Unit],
+      phase: AdmissionPhase
+  ): SubagentTaskRegistry = new SubagentTaskRegistry:
+    def submit(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] = phase match
+      case AdmissionPhase.Before => entered.succeed(()) *> release.await *> registry.submit(input)
+      case AdmissionPhase.After =>
+        ZIO.uninterruptible(
+          registry.submit(input).flatMap(value => entered.succeed(()) *> release.await.as(value))
+        )
+    def inspect(id: SubagentTaskId): UIO[Option[SubagentTaskSnapshot]]        = registry.inspect(id)
+    def list: UIO[Chunk[SubagentTaskSnapshot]]                                = registry.list
+    def await(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] = registry.await(id)
+    def awaitOrPromote(id: SubagentTaskId): UIO[Option[TaskWait[AgentResult]]] =
+      registry.awaitOrPromote(id)
+    def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] = registry.cancel(id)
+    def forgetCompleted(id: SubagentTaskId): UIO[SubagentTaskRemoval] = registry.forgetCompleted(id)
+
   private def factory(
       register: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, Toolkit],
       client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient] = _ =>
@@ -82,6 +108,163 @@ object SubagentToolsSpec extends ZIOSpecDefault:
           ZIO.fail(AgentError.InvalidConfiguration(s"Expected task observation: $other"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentToolsSpec")(
+    test("host synchronous execution joins timeout and caller cancellation without promotion"):
+      for
+        budget <- ZIO.fromEither(SubagentSyncTimeout.fromDuration(1.second))
+        policy = SubagentExecutionPolicy.Synchronous(budget)
+        fast      <- factory(_ => ZIO.succeed(Toolkit.empty))
+        immediate <- registry(fast)
+        retained  <- session(fast, 1)
+        spawned   <- SubagentTools.make(immediate, policy).executeSafe("agent_spawn", input)
+        sent <- SubagentTools.forSession(retained.value, policy).executeSafe("agent_send", input)
+        spawnResult <- observation(spawned.output)
+        sendResult  <- observation(sent.output)
+        early <- ZIO.scoped:
+          for
+            tasks   <- registry(fast)
+            entered <- Promise.make[Nothing, Unit]
+            release <- Promise.make[Nothing, Unit]
+            checked <- (for
+              running <- SubagentTools
+                .make(
+                  heldAdmission(tasks, entered, release, AdmissionPhase.Before),
+                  policy
+                )
+                .executeSafe("agent_spawn", input)
+                .forkScoped
+              _         <- entered.await
+              stopping  <- running.interrupt.forkScoped
+              exit      <- stopping.join
+              snapshots <- tasks.list
+            yield assertTrue(exit.isInterruptedOnly, snapshots.isEmpty))
+              .ensuring(release.succeed(()).unit)
+          yield checked
+        checks <- ZIO.foreach(Chunk.fromIterable(SynchronousCase.values)): scenario =>
+          ZIO.scoped:
+            val defect = new IllegalStateException("synchronous child cleanup")
+            for
+              entered          <- Promise.make[Nothing, Unit]
+              cleaning         <- Promise.make[Nothing, Unit]
+              release          <- Promise.make[Nothing, Unit]
+              admitted         <- Promise.make[Nothing, Unit]
+              releaseAdmission <- Promise.make[Nothing, Unit]
+              calls            <- Ref.make(0)
+              cleanups         <- Ref.make(0)
+              configured <- factory(
+                _ =>
+                  ZIO
+                    .acquireRelease(ZIO.unit)(_ =>
+                      cleaning.succeed(()) *> release.await *> cleanups.update(_ + 1) *>
+                        (scenario match
+                          case SynchronousCase.TimeoutClean => ZIO.unit
+                          case _                            => ZIO.die(defect))
+                    )
+                    .as(Toolkit.empty),
+                _ =>
+                  ZIO.succeed(
+                    LlmClient.mockEffectful((_, _, _) =>
+                      calls.update(_ + 1) *> entered.succeed(()) *> ZIO.never
+                    )
+                  )
+              )
+              tasks <- registry(configured)
+              selected = scenario match
+                case SynchronousCase.CallerAtAdmission =>
+                  heldAdmission(tasks, admitted, releaseAdmission, AdmissionPhase.After)
+                case _ => tasks
+              tools = SubagentTools.make(selected, policy)
+              checked <- (for
+                running <- tools.executeSafe("agent_spawn", input).forkScoped
+                _       <- entered.await
+                _ <- scenario match
+                  case SynchronousCase.CallerAtAdmission => admitted.await
+                  case _                                 => ZIO.unit
+                _ <- scenario match
+                  case SynchronousCase.CallerCancellation | SynchronousCase.CallerAtAdmission =>
+                    ZIO.unit
+                  case _ => TestClock.adjust(1.second)
+                result <- (scenario match
+                  case SynchronousCase.CallerCancellation | SynchronousCase.CallerAtAdmission =>
+                    running.interrupt
+                  case _ => running.await
+                ).forkScoped
+                _ <- scenario match
+                  case SynchronousCase.CallerAtAdmission =>
+                    (ZIO.yieldNow *> result.status)
+                      .repeatUntil(_.isSuspended) *> releaseAdmission.succeed(()).unit
+                  case _ => ZIO.unit
+                _         <- cleaning.await
+                pending   <- result.poll
+                before    <- cleanups.get
+                _         <- release.succeed(())
+                exit      <- result.join
+                snapshots <- tasks.list
+                count     <- calls.get
+                closed    <- cleanups.get
+                outcome = scenario match
+                  case SynchronousCase.CallerCancellation | SynchronousCase.CallerAtAdmission =>
+                    assertTrue(
+                      exit.isInterrupted,
+                      exit.causeOption.exists(_.defects == List(defect))
+                    )
+                  case _ =>
+                    val observed = exit match
+                      case Exit.Success(value) => Some(value)
+                      case Exit.Failure(_)     => None
+                    val decoded = observed.map(value =>
+                      value.output.dropWhile(_ != '{').fromJson[SubagentToolResult]
+                    )
+                    assertTrue(
+                      observed.exists(_.state == ToolResultState.Error),
+                      decoded.exists(_.exists {
+                        case SubagentToolResult.TimedOut(message) =>
+                          message.text.contains("Synchronous wait timed out") &&
+                          (scenario match
+                            case SynchronousCase.TimeoutClean =>
+                              message.text.contains("owned cleanup completed")
+                            case _ => message.text.contains("internal defect"))
+                        case _ => false
+                      }),
+                      observed.exists(value =>
+                        !value.output.contains("taskId") && !value.output.contains("Promoted")
+                      )
+                    )
+              yield assertTrue(
+                pending.isEmpty,
+                before == 0,
+                closed == 1,
+                count == 1,
+                snapshots.size == 1,
+                snapshots.forall(_.state match
+                  case SubagentTaskState.Completed(Exit.Failure(cause)) =>
+                    cause.isInterrupted && cause.failures.isEmpty &&
+                    cause.defects == (scenario match
+                      case SynchronousCase.TimeoutClean => List.empty
+                      case _                            => List(defect))
+                  case _ => false),
+                tools.definitions
+                  .find(_.name == "agent_spawn")
+                  .exists(definition =>
+                    definition.description.contains("without background promotion") &&
+                      definition.parametersSchema == SubagentTools
+                        .make(tasks)
+                        .definitions
+                        .find(_.name == "agent_spawn")
+                        .map(_.parametersSchema)
+                        .getOrElse(Json.Null)
+                  )
+              ) && outcome).ensuring(releaseAdmission.succeed(()).unit *> release.succeed(()).unit)
+            yield checked
+      yield checks.foldLeft(
+        early &&
+          assertTrue(
+            spawned.state == ToolResultState.Success,
+            sent.state == ToolResultState.Success,
+            spawnResult._2 == SubagentToolState.Completed(SubagentToolText("done", 0)),
+            sendResult._2 == SubagentToolState.Completed(SubagentToolText("done", 0))
+          )
+      )(_ && _)
+    ,
     test("session controls reuse one child across sends and reject model-selected session routing") {
       for
         builds <- Ref.make(0)
@@ -469,4 +652,4 @@ object SubagentToolsSpec extends ZIOSpecDefault:
         }
       )
     }
-  )
+  ) @@ TestAspect.timeout(20.seconds)
