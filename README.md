@@ -1,6 +1,6 @@
 # weisgnosis-agents
 
-Ordinary before-acting suspension, explicit resume and resumed event streams with checked supplied results and data-only checkpoint restoration are implemented and independently reviewed; see the [runtime contract](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). The complete-batch confirmation adapter is accepted; partial-confirmation extension is accepted. Host checkpoint authentication, storage and exclusive claims remain external.
+Ordinary before-acting suspension, explicit resume and resumed event streams with checked supplied results and data-only checkpoint restoration are implemented and independently reviewed; see the [runtime contract](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). Complete/partial checkpoint confirmations and nonblocking policy admission are accepted. Host checkpoint authentication, storage and exclusive claims remain external.
 
 Pure functional agent runtime components for Scala 3.9.0 and ZIO 2.1.26. The project ports selected agent mechanics from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java) under Apache-2.0.
 
@@ -107,7 +107,7 @@ Approval applies to the recorded scope and revisions, not exhaustive upstream pa
 
 Tool.encodeResult supports typed completed Success/Error observations while retaining existing String tools. Runtime call identity and control metadata remain protected. ToolExecutionResult constructor/copy/unapply/JSON now use payload/state; its String constructors and output text projection remain. See the [tool migration](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#typed-execution-observations). Media survives history/events, but the current ChatCompletions request codec still rejects non-text tool output.
 
-Local execution supports an optional scoped ToolAuthorizer with runtime-owned call identity, approved-input persistence and fail-closed denial observations. The default allows calls; InteractivePermissionAuthorizer installs harness policy and in-memory confirmation. Durable resumption requires host persistence, authentication, checkpoints and idempotency.
+Local execution supports an optional scoped ToolAuthorizer with runtime-owned call identity, approved-input persistence and fail-closed denial observations. The default allows calls; InteractivePermissionAuthorizer installs harness policy and in-memory confirmation. CheckpointPermissionAuthorizer maps policy Ask/Passthrough to deferred checkpoint work without a waiting Promise. Durable resumption requires host persistence, authentication, checkpoints and idempotency.
 
 [Memory maintenance](modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md) supports validated configuration, scoped consolidation, acknowledged daily archival and explicitly selected transcript pruning under one owned job. Remote storage and session discovery remain pending; local backends require host-controlled filesystem ancestors.
 

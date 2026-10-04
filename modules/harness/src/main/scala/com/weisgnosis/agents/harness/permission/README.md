@@ -62,7 +62,7 @@ After all admitted execution and processor scopes join, ordinary deferred batche
 
 Deferred calls produce no Tool observation or result Start/Delta/End events. A blank deferral reason becomes Denied. Completed results remain in history; the assistant carries PermissionAsking while suspended. Resume preserves original context and iteration, clears only the runtime suspension tag, and executes only unresolved occurrences before another model request. A saved processor Stop is selected by original ordinal and takes effect only after every deferred call resolves. Cancellation joins cleanup, preserves completed results and reconciles only unfinished calls with one interrupted recovery. Structured modes reject deferral and finalize unfinished calls without publishing a checkpoint or selecting Auto fallback.
 
-Migration: ToolAuthorization gains the codec case Deferred(reason), requiring exhaustive matches to handle it. PendingActing appends stage with default BeforeActing; old missing-field checkpoints retain that meaning, while positional patterns use the eight-field shape and binaries must be rebuilt. AwaitingApproval is data, not authentication or execution authority. SubagentFactory forwards Deferred through existing live parent-denial checks; child sessions still have no resume API. InteractivePermissionAuthorizer remains the active-invocation Promise adapter. A policy-Ask-to-Deferred adapter and host request-data integration are the next bounded work; storage, authentication, exclusive claims and idempotency remain host responsibilities.
+Migration: ToolAuthorization gains the codec case Deferred(reason), requiring exhaustive matches to handle it. PendingActing appends stage with default BeforeActing; old missing-field checkpoints retain that meaning, while positional patterns use the eight-field shape and binaries must be rebuilt. AwaitingApproval is data, not authentication or execution authority. SubagentFactory forwards Deferred through existing live parent-denial checks; child sessions still have no resume API. InteractivePermissionAuthorizer remains the active-invocation Promise adapter. The nonblocking policy adapter below is accepted; storage, authentication, exclusive claims and idempotency remain host responsibilities.
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the ten formatted identities below, with no remaining findings. Full `scalafmtAll scalafmtSbt verify` passed in `partial-confirmations-final-verify.log` with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Focused tests passed 31 core cases in 823 ms and eight harness cases in 508 ms. Five new groups cover ledger validation, structured rejection, successive restored approvals, saved Stop and joined cancellation.
 
@@ -79,9 +79,26 @@ Migration: ToolAuthorization gains the codec case Deferred(reason), requiring ex
 | [ToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | 1d5cdf458c1fc66d266c54af94d5ba3c59ab915d |
 | [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | 65b55ac709c733e7f3b67560884ab9cfd2376d9f |
 
+## Nonblocking checkpoint policy
+
+`CheckpointPermissionAuthorizer(currentPolicy, toolGate, interceptorGate)` is an opt-in ToolAuthorizer. Construction is pure. Each authorization evaluates the tool and interceptor gates in separate joined scopes, then samples the host-owned policy and delegates to `PermissionEngine.authorize`. Allow returns the prepared input, Deny retains the policy denial reason, and Ask or Passthrough returns Deferred without creating a Promise, registering a request, mutating policy or publishing approval envelopes. Gate failures, defects and interruption retain their causes; core applies its established fail-closed/cancellation boundary. Trusted admitted-access metadata reaches both gates.
+
+The policy read after both gate finalizers is the decision point; later policy changes are not atomic revocation. The runtime finishes admitted work and returns the existing partial checkpoint. Hosts obtain request data with `PendingActing.pendingCalls`, then install a checked ConfirmedBatchAuthorizer on the receiving runtime and restore/resume. Pending calls retain original model arguments: framework-fixed arguments are prepared again by the receiving host bindings before authorization. A host that previews effective arguments must use those bindings rather than treating the checkpoint as prepared input or authorization.
+
+This additive adapter leaves InteractivePermissionAuthorizer's active-invocation Promise workflow unchanged. No existing constructor or codec changes. Host authentication, storage, exclusive claims and side-effect idempotency remain external. Explicit checkpoint approval-event correlation is next; RequireUserConfirm/UserConfirmResult envelopes are not implemented by this adapter.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the three exact identities below, with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `checkpoint-permission-verify.log` with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals. Focused `checkpoint-permission-focused.log` passed 11 tests in 653 ms. Two unit groups cover precedence, lazy effects, admitted metadata, live policy after cleanup and joined cancellation; one runtime table covers Ask/Allow, returned pending data, fixed inputs and actual confirmed restoration without repeated reasoning.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [CheckpointPermissionAuthorizer.scala](CheckpointPermissionAuthorizer.scala) | 74e612c981d9ae9c5b4c99bbbb782429741923a3 |
+| [CheckpointPermissionAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/CheckpointPermissionAuthorizerSpec.scala) | be8386e54d5d31fa880928d0604fe7ea168d69fe |
+| [CheckpointPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/CheckpointPermissionIntegrationSpec.scala) | 929f0d7a3ee029b190dabf4614bbb78b4fbf5a05 |
+
 ## Implementation
 
 - [InteractivePermissionAuthorizer](InteractivePermissionAuthorizer.scala)
+- [CheckpointPermissionAuthorizer](CheckpointPermissionAuthorizer.scala)
 - [PermissionGate](PermissionGate.scala)
 - [PermissionEngine](PermissionEngine.scala)
 - [PermissionRule](PermissionRule.scala)
@@ -98,7 +115,8 @@ See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harne
 - [x] The reviewed [SubagentConstruction](../subagent/README.md) path uses composition for inherited child policy. Raw authorizer views remain host-controlled and are not revoked.
 - [x] Install checked complete-batch confirmation on restored core checkpoints.
 - [x] Independently review and verify partial confirmations.
-- [ ] Integrate nonblocking policy Ask decisions and host request data; durable delivery and broader event parity remain separate.
+- [x] Independently review and verify nonblocking policy admission below.
+- [ ] Integrate explicit checkpoint approval-event correlation; durable delivery and broader event parity remain separate.
 
 The unchanged runtime integration suite retains `review_fp` and `review_harness` approval against `5eb4bdc`. The table below retains the active-invocation authorization and composition scope. Complete-batch checkpoint confirmation has its own current identities above; neither scope establishes exhaustive upstream parity or post-decision revocation.
 
