@@ -1393,7 +1393,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
               )
             )                                                                   -> None,
             stream(ZStream.fromChannel(zio.stream.ZChannel.refailCause(cause))) -> Some(cause),
-            Response.status(Status.NotFound)                                    -> None
+            Response.status(Status.NotFound) -> Some(Cause.fail(AgentError.McpSessionExpired()))
           )
         ) { case (response, expected) =>
           ZIO.scoped:
@@ -1422,8 +1422,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
         }
         .map(_.foldLeft(assertTrue(true))(_ && _))
       val independentFailures = ZIO.scoped:
-        val failure =
-          AgentError.McpError("MCP HTTP session expired (404); open a fresh initialized client")
+        val failure = AgentError.McpSessionExpired()
         for
           entered           <- Promise.make[Nothing, Unit]
           interruptObserved <- Promise.make[Nothing, Unit]
@@ -1637,6 +1636,52 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
           first <- expired.listToolsPage().exit
           later <- expired.listToolsPage().exit
           count <- calls.get
+          stateless <- McpStreamableHttpTransport
+            .open(
+              scripted(_ => ZIO.succeed(Response.status(Status.NotFound))),
+              endpoint
+            )
+            .flatMap(_.send(McpMessage.Request(McpRequestId.Number(20), "tools/list")))
+            .exit
+          expiredContinuations <- ZIO.foreach(
+            Chunk(Exit.unit, Exit.die(new IllegalStateException("expired response cleanup")))
+          ) { cleanup =>
+            ZIO.scoped:
+              for
+                requests <- Ref.make(Chunk.empty[Method])
+                transport <- McpStreamableHttpTransport.open(
+                  scripted(request =>
+                    requests.update(_ :+ request.method) *>
+                      (if request.method == Method.GET then
+                         ZIO.addFinalizer(cleanup).as(Response.status(Status.NotFound))
+                       else
+                         decode(request).flatMap:
+                           case McpMessage.Request(id, "initialize", _) =>
+                             json(McpMessage.Success(id, initialization))
+                               .map(_.addHeader("Mcp-Session-Id", "continuing"))
+                           case _ => ZIO.succeed(stream(rawEvents("id: cursor\n\n"))))
+                  ),
+                  endpoint,
+                  continuation = McpHttpContinuation.OnPrematureEof(2)
+                )
+                _ <- transport.send(McpMessage.Request(McpRequestId.Number(1), "initialize"))
+                result <- transport
+                  .send(McpMessage.Request(McpRequestId.Number(2), "tools/list"))
+                  .exit
+                repeated <- transport
+                  .send(McpMessage.Request(McpRequestId.Number(3), "tools/list"))
+                  .exit
+                sent <- requests.get
+              yield assertTrue(
+                result.causeOption.contains(
+                  Cause.fail(AgentError.McpSessionExpired()) ++ cleanup.causeOption.getOrElse(
+                    Cause.empty
+                  )
+                ),
+                repeated.causeOption.contains(Cause.fail(AgentError.McpSessionExpired())),
+                sent == Chunk(Method.POST, Method.POST, Method.GET)
+              )
+          }
           badNotification <- McpStreamableHttpTransport
             .open(
               scripted(request =>
@@ -1692,15 +1737,18 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
           badSessions.forall(_.isFailure),
           byteLimits.forall(_.isFailure),
           invalidResponses.forall(_.isFailure),
-          first.isFailure,
-          later.isFailure,
+          first.causeOption.contains(Cause.fail(AgentError.McpSessionExpired())),
+          later.causeOption.contains(Cause.fail(AgentError.McpSessionExpired())),
+          stateless.causeOption.contains(
+            Cause.fail(AgentError.McpError("MCP HTTP request rejected with status 404"))
+          ),
           count == 1,
           badNotification.isFailure,
           duplicateInitialization.isFailure,
           afterDuplicate.isSuccess,
           cancelledQueue.isInterrupted,
           admittedResult.isSuccess
-        )
+        ) && expiredContinuations.foldLeft(assertTrue(true))(_ && _)
     },
     test(
       "SSE completion and cancellation join cleanup; cancellation notification requires response headers"

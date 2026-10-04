@@ -18,9 +18,20 @@ Selected bindings can also attach core fixed arguments, prepared before runtime 
 
 This scope includes checked shallow defaults and root properties/required exclusion through selected bindings. Core/harness provide selected skill loading, child snapshots and opt-in Plan admission as separate host-installed capabilities. Remaining ambient metadata propagation, broader schema rewriting/evaluation, discovery caches and notification invalidation are unfinished. It does not make discovery an atomic server snapshot or broaden the selected 2025-06-18 protocol support. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded adaptations and intentional differences.
 
-- [x] Implement bounded registration, immutable Toolkit publication and joined removal/closure with five grouped contract tests, including grouped installation.
-- [x] Obtain independent FP/ZIO approval from `path_review` and invariant approval from `current_docs` for the final source/test identities below, with no unresolved findings.
+- [x] Implement bounded registration, immutable Toolkit publication and joined removal/closure with six grouped contract tests, including grouped installation and explicit host recovery.
+- [x] Obtain independent FP/ZIO and invariant approvals for the current manager implementation and recovery spec; the scoped review identities are recorded below.
 - [x] Pass formatting and full fatal-warning verification recorded below.
+
+## Explicit host recovery after session expiry
+
+A direct client/transport failure containing AgentError.McpSessionExpired identifies HTTP 404 for a previously captured session, without exposing its token. It does not mean the failed remote operation was never executed; its outcome may be unknown. The transport terminates the old session path without replaying the failed call. Toolkit/ReAct may normalize the leaf into an Error observation, so hosts must not assume every model-facing tool caller receives a typed expiry value.
+
+A host can await manager.remove(name), then register the name with a fresh transport/client acquisition. Removal joins the old client's owned work and resource cleanup. Fresh acquisition repeats initialization, bounded discovery and the host selector; remote definitions and selected aliases/schema/groups can change. Old Toolkit/installation snapshots retain their old clients and never retarget to the replacement. The host must obtain and explicitly install a new snapshot.
+
+This sequence uses existing APIs and is not an atomic replace operation. Hosts serialize same-name maintenance; another registration can win between remove and register. Acquisition or selection failure leaves no replacement registration and does not restore the old one. There is no automatic failed-call replay, reconnect worker, session migration or durable recovery.
+
+- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved recovery integration invariants at McpClientManagerSpec blob `c1b2c2a7dcea3363f414127a34c22214064ead6a`. The controlled peer uses actual McpClient initialization and discovery, held old-resource cleanup, changed selected descriptions and explicit call counters; it is not a real expired-HTTP-server refresh test.
+- [x] Full `mcp-session-expiry-verify.log` verification passed with zero compiler warnings or failures; the [error contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) records totals/timing. No new manager recovery API or production manager ownership change is claimed.
 
 ## Grouped installation
 
@@ -32,12 +43,12 @@ The host passes both installation fields to ReActAgent. The existing `toolkit` v
 
 Custom managers inherit an ungrouped installation from their existing toolkit and a typed unsupported grouped-registration result that does not acquire a client. Existing registration calls remain ungrouped. The appended defaulted make parameter preserves ordinary source calls; dependent binaries require rebuilding.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the two identities below, with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `mcp-groups-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals; compile task 6 seconds and test task 20 seconds, including test compilation.
+- [x] `path_review` and `current_docs` approved the unchanged manager implementation and grouped-installation contracts. The current spec additionally has `registry_contract`/`current_docs` approval for [explicit host recovery](#explicit-host-recovery-after-session-expiry); full `mcp-session-expiry-verify.log` verification passed. Current identities are below; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns repository totals.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
 | [McpClientManager.scala](McpClientManager.scala) | `7e940e964c3c99755d510aaddf27a9d3f8adef1c` |
-| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `c3e0580c997e5e078850710f2f14083bab4b63c6` |
+| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `c1b2c2a7dcea3363f414127a34c22214064ead6a` |
 
 - [ ] Complete ambient metadata, discovery caching and durable activation separately.
 
@@ -106,7 +117,7 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 - [x] Regressions failed against unchanged connection blob `1217d4467307297381bed0e01804ca898a85c8d5`: terminal cause duplication and a ping sent after terminal failure. `mcp-terminal-dispatch-red.log` records the assertion failures. Closed-parent startup ordering was corrected by inspection and covered by a contract test; no reproduced startup failure is claimed.
 - [x] `path_review` independently approved FP/ZIO correctness and `current_docs` independently approved invariants for the final connection/port/spec identities below, with no unresolved findings.
 - [x] `path_review` approved final FP/ZIO correctness and `current_docs` approved final invariants for the client, builder overload, remote error codec and associated tests at the identities below, with no findings. Six client groups and actual stdio initialization/list/call integration pass. Both reviewers also approved bounded discovery at the recorded final identities, with no findings.
-- [x] Current manager/spec identities and both independent approvals are consolidated in [grouped installation](#grouped-installation). Five grouped tests cover atomic publication, host authority, retained capacity, joined cleanup, coherent memberships, stale snapshots and actual ReAct activation.
+- [x] Current manager/spec identities and both independent approvals are consolidated in [grouped installation](#grouped-installation). Six grouped tests cover host recovery, atomic publication, host authority, retained capacity, joined cleanup, coherent memberships, stale snapshots and actual ReAct activation.
 - [x] The compound-cause regression failed against unchanged manager blob `9b4a5780f0904dced3a41267bf2d3647799123cb`: initializer defects `[a,b]` plus resource cleanup defect `c` incorrectly produced `[a,b,a,b,c]`. `mcp-manager-cause-red.log` records three passing groups and that one assertion failure. The corrected test checks the exact composed Cause and `[a,b,c]`; initialization and resource-cleanup provenance remain separate.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current cancellation extension, transport publication boundaries and paired evidence at the identities below and in the [transport acceptance](../transport/README.md#verification-and-acceptance), with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `mcp-cancellation-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
 
@@ -114,8 +125,8 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 | --- | --- |
 | [McpRequests.scala](McpRequests.scala) | `f964211613befaa8c229ad7ee883f68ab4b74131` |
 | [McpRequestsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) | `11c2b93a9f4eb7f48ae949e11774c8a1c40a7405` |
-| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | `bae41021a96e04f4aac45f9112775e63f5a7aad3` |
-| [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | `3ac85212d13dc997172525b23b340ad37b12f07f` |
+| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | [Current error acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) |
+| [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | [Current error acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) |
 | [McpConnection.scala](McpConnection.scala) | `1539cd9ad9e9d09d0cd996facad89b361280dbd9` |
 | [McpTransport.scala](../transport/McpTransport.scala) | `477e8e6e7f2c2e4caded85f6a447230731729184` |
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `b39c5f1b6f8d0559b7a7adecda0f9374e2a66a9c` |

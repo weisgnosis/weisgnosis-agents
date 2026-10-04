@@ -16,7 +16,9 @@ The complete-cause fixture uses a direct ZChannel and verifies the unframed base
 
 ## Acceptance and remaining tests
 
-- [x] `registry_contract` and `current_docs` approved the current HTTP source/spec. Two body-I/O groups and extended exclusions cover exact no-cause IOException from SSE bodies, bounded cursor/session-preserving GETs, acquisition exclusion, wrappers/subclasses and complete cleanup causes. Controlled-driver retries do not establish real Netty truncation interoperability. Full `mcp-body-io-verify.log` verification passed; the source contract owns exact identities and totals.
+- [x] `registry_contract` and `current_docs` approved typed expiry for captured-session POST/continuation/listener 404, with stateless rejection and DELETE AlreadyExpired kept distinct. Full `mcp-session-expiry-verify.log` verification passed; current hashes and evidence are in the source contract.
+
+- [x] `registry_contract` and `current_docs` approved the current HTTP source/spec. Two body-I/O groups and extended exclusions cover exact no-cause IOException from SSE bodies, bounded cursor/session-preserving GETs, acquisition exclusion, wrappers/subclasses and complete cleanup causes. Controlled-driver retries do not establish real Netty truncation interoperability. Full `mcp-session-expiry-verify.log` verification passed; the source contract owns exact identities and totals.
 
 - [x] Both reviewers approved the independent SDK fixture and test-only build at the [exact accepted identities](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md#independent-server-interoperability). SDK cancellation handling and suppressed shutdown failures remain explicit limitations.
 - [x] `path_review` and `current_docs` approved the existing HTTP POST and explicit GET contracts without remaining findings. The linked transport acceptance records exact hashes, full verification and the reproduced POST and GET regressions; inspected lifecycle races are distinguished from reproduced failures.
@@ -24,7 +26,7 @@ The complete-cause fixture uses a direct ZChannel and verifies the unframed base
 - [x] `path_review` and `child_factory` independently approved final framing source/test identities with no findings.
 - [x] The stdio ownership baseline and build configuration retain `path_review` and `registry_contract` approval; the issuance extension has renewed `path_review` and `current_docs` approval; `path_review` and `current_docs` approved final spec/peer identities with initialized-client coverage and no findings.
 - [x] Thirty-one groups pass against strict bytes, actual local JVM processes and a loopback HTTP server.
-- [x] Both reviewers approved the current HTTP source/spec including explicit termination, bounded continuation and captured-session isolation; port/stdio issuance boundaries retain their approval. Full `mcp-body-io-verify.log` repository verification passed; exact identities and evidence are in the [transport acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance).
+- [x] Both reviewers approved the current HTTP source/spec including explicit termination, bounded continuation and captured-session isolation; port/stdio issuance boundaries retain their approval. Full `mcp-session-expiry-verify.log` repository verification passed; exact identities and evidence are in the [transport acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance).
 - [x] The real peer enforces initialize/initialized/ready ordering before discovery and invocation. Controlled-port client tests cover joined deadlines.
 - [x] Manager integration has separate [client tests](../client/README.md); manual Toolkit binding retains its own tests.
 - [ ] Session reinitialization, other I/O recovery and broader server/platform interoperability require separate contracts and evidence.

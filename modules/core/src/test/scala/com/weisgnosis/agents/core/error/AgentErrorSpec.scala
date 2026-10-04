@@ -21,15 +21,21 @@ import zio.test.*
 
 object AgentErrorSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment, Any] = suite("AgentErrorSpec")(
-    test("remote protocol error codecs distinguish missing data from explicit JSON null") {
+    test("MCP error codecs retain fixed expiry diagnostics and explicit remote data presence") {
       val values = List(
         AgentError.McpErrorData.Absent,
         AgentError.McpErrorData.Present(Json.Null),
         AgentError.McpErrorData.Present(Json.Obj("detail" -> Json.Str("rejected")))
       )
-      assertTrue(values.forall: data =>
-        val error = AgentError.McpRemoteError(-32602, "Invalid arguments", data)
-        error.toJson.fromJson[AgentError.McpRemoteError] == Right(error))
+      val expired = AgentError.McpSessionExpired()
+      assertTrue(
+        expired.toJson == "{}",
+        expired.toJson.fromJson[AgentError.McpSessionExpired] == Right(expired),
+        expired.getMessage == "MCP HTTP session expired (404); open a fresh initialized client",
+        values.forall: data =>
+          val error = AgentError.McpRemoteError(-32602, "Invalid arguments", data)
+          error.toJson.fromJson[AgentError.McpRemoteError] == Right(error)
+      )
     },
     test("spawn depth errors retain typed diagnostics and their individual JSON codec") {
       val error = AgentError.SpawnDepthExceeded(3)

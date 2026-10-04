@@ -34,6 +34,10 @@ object AgentError:
   /** Local MCP connection or request-ownership failure; remote protocol errors remain reply data. */
   final case class McpError(message: String) extends AgentError derives JsonCodec
 
+  /** A captured HTTP session expired; the host may acquire a fresh client without replaying requests. */
+  final case class McpSessionExpired() extends AgentError derives JsonCodec:
+    def message: String = "MCP HTTP session expired (404); open a fresh initialized client"
+
   /** Explicit presence in the domain codec; this tagged representation is not JSON-RPC wire JSON. */
   enum McpErrorData derives JsonCodec:
     case Absent

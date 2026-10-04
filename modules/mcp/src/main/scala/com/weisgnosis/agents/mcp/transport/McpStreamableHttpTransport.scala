@@ -482,10 +482,7 @@ object McpStreamableHttpTransport:
               for
                 _ <-
                   if response.status.code == 404 && session.nonEmpty then
-                    ZIO.fail(
-                      AgentError
-                        .McpError("MCP HTTP session expired (404); open a fresh initialized client")
-                    )
+                    ZIO.fail(AgentError.McpSessionExpired())
                   else
                     ZIO
                       .fail(
@@ -789,10 +786,7 @@ object McpStreamableHttpTransport:
       val accepted = message match
         case _: McpMessage.Request => response.status.isSuccess
         case _                     => response.status.code == 202
-      if response.status.code == 404 && session.nonEmpty then
-        fatal(
-          AgentError.McpError("MCP HTTP session expired (404); open a fresh initialized client")
-        )
+      if response.status.code == 404 && session.nonEmpty then fatal(AgentError.McpSessionExpired())
       else if accepted then ZIO.unit
       else
         ZIO.fail(

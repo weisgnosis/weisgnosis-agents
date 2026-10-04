@@ -76,7 +76,8 @@ object McpClientManagerSpec extends ZIOSpecDefault:
       released: UIO[Unit] = ZIO.unit,
       listed: IO[AgentError, Unit] = ZIO.unit,
       call: McpMessage.Request => ZIO[Scope, AgentError, String] = request =>
-        ZIO.succeed(request.params.flatMap(_.get("name")).flatMap(_.asString).getOrElse("missing"))
+        ZIO.succeed(request.params.flatMap(_.get("name")).flatMap(_.asString).getOrElse("missing")),
+      initialized: UIO[Unit] = ZIO.unit
   ): ZIO[Scope, AgentError, McpClient] =
     for
       _     <- ZIO.acquireRelease(ZIO.unit)(_ => released)
@@ -87,7 +88,7 @@ object McpClientManagerSpec extends ZIOSpecDefault:
           case request @ McpMessage.Request(id, method, _) =>
             val result = method match
               case "initialize" =>
-                ZIO.succeed(
+                initialized.as(
                   Json.Obj(
                     "protocolVersion" -> Json.Str(McpInitialization.protocolVersion),
                     "serverInfo" -> Json
@@ -532,6 +533,74 @@ object McpClientManagerSpec extends ZIOSpecDefault:
           current.output == "replacement",
           externalCall.isFailure
         )
+    },
+    test(
+      "explicit replacement after expiry joins old cleanup and initializes fresh tools without replay"
+    ) {
+      ZIO.scoped:
+        for
+          manager         <- McpClientManager.make(maxClients = 1, maxTools = 1)
+          acquisitions    <- Ref.make(0)
+          initializations <- Ref.make(0)
+          discoveries     <- Ref.make(0)
+          calls           <- Ref.make(Chunk.empty[String])
+          cleaning        <- Promise.make[Nothing, Unit]
+          release         <- Promise.make[Nothing, Unit]
+          acquire = acquisitions
+            .getAndUpdate(_ + 1)
+            .flatMap: index =>
+              val remote = if index == 0 then "old" else "fresh"
+              peer(
+                Chunk(remote),
+                released =
+                  if index == 0 then cleaning.succeed(()).unit *> release.await else ZIO.unit,
+                listed = discoveries.update(_ + 1),
+                call = _ =>
+                  calls.update(_ :+ remote) *>
+                    (if index == 0 then ZIO.fail(AgentError.McpSessionExpired())
+                     else ZIO.succeed("fresh result")),
+                initialized = initializations.update(_ + 1)
+              )
+          selection = (remote: McpToolDefinition) =>
+            Right(Some(McpToolBinding(ToolDef("selected", remote.name, schema))))
+          _       <- manager.registerBindings("peer", acquire, 1, selection)
+          old     <- manager.toolkit
+          expired <- old.executeSafe("selected", Json.Obj())
+          replacing <- (manager
+            .remove("peer") *> manager.registerBindings("peer", acquire, 1, selection)).forkScoped
+          observed <- (for
+            _               <- cleaning.await
+            pending         <- replacing.poll
+            before          <- acquisitions.get
+            hidden          <- manager.toolkit
+            _               <- release.succeed(())
+            _               <- replacing.join
+            current         <- manager.toolkit
+            beforeFreshCall <- calls.get
+            stale           <- old.executeSafe("selected", Json.Obj())
+            fresh           <- current.executeSafe("selected", Json.Obj())
+            acquired        <- acquisitions.get
+            initialized     <- initializations.get
+            discovered      <- discoveries.get
+            dispatched      <- calls.get
+          yield assertTrue(
+            expired.state == ToolResultState.Error,
+            expired.output.contains(AgentError.McpSessionExpired().message),
+            pending.isEmpty,
+            before == 1,
+            hidden.isEmpty,
+            old.definitions.map(_.description) == Chunk("old"),
+            current.definitions.map(_.description) == Chunk("fresh"),
+            beforeFreshCall == Chunk("old"),
+            stale.state == ToolResultState.Error,
+            fresh.state == ToolResultState.Success,
+            fresh.output == "fresh result",
+            acquired == 2,
+            initialized == 2,
+            discovered == 2,
+            dispatched == Chunk("old", "fresh")
+          )).ensuring(release.succeed(()).unit)
+        yield observed
     },
     test(
       "removal and owner closure share defects, close clients concurrently and reject later acquisition"
