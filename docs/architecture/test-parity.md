@@ -415,6 +415,15 @@ The existing request tables add the following bounded mappings from the same pin
 
 Audio URL text substitution in testAudioBlockWithURLSource is intentionally rejected. OpenAIConverterUtilsTest's audio/mp3 alias, opus/flac and unknown/null format fallbacks are not adopted: only exact audio/wav and audio/mpeg map to the official wav/mp3 wire formats. Syntax checks, unsupported-role rejection and whole-request failure are local strict policies. There is no audio-output, file/network acquisition or full formatter-suite parity claim. Current identities belong to the [request contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
 
+### User inline Data projection
+
+The existing request tables provide bounded adaptations from pinned `agentscope-extensions/agentscope-extensions-model/agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/formatter/OpenAIDataBlockConverterTest.java`:
+
+- [x] `testDataBlockBase64Image` (90): explicit inline image Data becomes an image_url data URL; Scala verifies all four accepted image MIME types and exact mixed-part ordering.
+- [x] `testDataBlockBase64Audio` (126): explicit inline audio Data becomes input_audio. The Java fixture uses audio/mp3; Scala deliberately retains its existing exact audio/wav and audio/mpeg mapping instead of adopting that alias.
+
+Both reviewers approved the [current request pair](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection), and full inline-data-verify.log verification passed. Existing positive/negative tables also verify identity omission and whole-request rejection. URL extension/MIME inference, video, placeholder fallback and silent dropping are not adopted; no new provider protocol or media decoding is claimed.
+
 ### Bounded streaming HTTP-status retries
 
 Both final reviews and full http-retry-verify.log verification passed. Bounded mappings use pinned `agentscope-extensions/agentscope-extensions-model/agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/OpenAIChatModelStreamingRetryTest.java`:

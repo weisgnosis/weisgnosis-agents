@@ -32,7 +32,7 @@ The host owns durable transactions, replay, tenant authentication, and execution
 
 ## Available components
 
-Core provides pure domain models and codecs, 39 event variants, typed tools, effectful path screening, SSE framing/assembly, scripted clients, and the ReAct state machine. ReAct supports bounded retries/iterations, timeout and interruption reconciliation, inline provider tools, and native/synthetic structured output. ChatCompletionsClient integrates scoped text/user-image/inline-audio/function HTTP completion with correlated incremental events.
+Core provides pure domain models and codecs, 39 event variants, typed tools, effectful path screening, SSE framing/assembly, scripted clients, and the ReAct state machine. ReAct supports bounded retries/iterations, timeout and interruption reconciliation, inline provider tools, and native/synthetic structured output. ChatCompletionsClient integrates scoped text/user-media/function HTTP completion with correlated incremental events and explicit inline image/audio Data projection.
 
 Harness provides pair-safe compaction, summary replacement and user provenance, token estimation, daily-memory extraction with scoped local storage, atomic in-memory consolidation, and recoverable local consolidation, offload effects, immediate eviction, permission decisions, interactive Promise coordination, and serializable approval values.
 

@@ -35,6 +35,9 @@ enum ToolSignatureFormat derives JsonCodec:
 /** Pure serialization of text, user images/inline audio, and function calls; media sources are never fetched. */
 object ChatCompletionsRequest:
   private val namePattern = "[A-Za-z0-9_-]{1,64}".r
+  private val imageMediaTypes: Set[String] =
+    Set("image/png", "image/jpeg", "image/webp", "image/gif")
+  private val audioFormats: Map[String, String] = Map("audio/wav" -> "wav", "audio/mpeg" -> "mp3")
 
   def encode(
       history: Chunk[Msg],
@@ -166,19 +169,29 @@ object ChatCompletionsRequest:
       traverse(msg.content):
         case ContentBlock.Text(text) =>
           Right(Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str(text)))
-        case ContentBlock.Image(source, _, _) =>
-          imageUrl(source).map(url =>
-            Json.Obj(
-              "type"      -> Json.Str("image_url"),
-              "image_url" -> Json.Obj("url" -> Json.Str(url))
-            )
-          )
+        case ContentBlock.Image(source, _, _) => inputImage(source)
         case ContentBlock.Audio(source, _, _) => inputAudio(source)
+        case ContentBlock.Data(source, _, _)  => inlineData(source)
         case _ =>
           Left(
             AgentError.InvalidMessage("User content supports only text, images, and inline audio")
           )
       .map(parts => Json.Arr(parts))
+
+  private def inputImage(source: MediaSource): Either[AgentError, Json] =
+    imageUrl(source).map(url =>
+      Json.Obj(
+        "type"      -> Json.Str("image_url"),
+        "image_url" -> Json.Obj("url" -> Json.Str(url))
+      )
+    )
+
+  private def inlineData(source: MediaSource): Either[AgentError, Json] = source match
+    case MediaSource.Base64(mediaType, _) if imageMediaTypes.contains(mediaType) =>
+      inputImage(source)
+    case MediaSource.Base64(mediaType, _) if audioFormats.contains(mediaType) => inputAudio(source)
+    case _ =>
+      Left(AgentError.InvalidMessage("Data blocks require supported inline image or audio media"))
 
   private def inputAudio(source: MediaSource): Either[AgentError, Json] = source match
     case MediaSource.Url(_) =>
@@ -187,10 +200,11 @@ object ChatCompletionsRequest:
       )
     case MediaSource.Base64(mediaType, data) =>
       for
-        format <- mediaType match
-          case "audio/wav"  => Right("wav")
-          case "audio/mpeg" => Right("mp3")
-          case _ => Left(AgentError.InvalidMessage("Inline audio requires audio/wav or audio/mpeg"))
+        format <- audioFormats
+          .get(mediaType)
+          .toRight(
+            AgentError.InvalidMessage("Inline audio requires audio/wav or audio/mpeg")
+          )
         _ <- message(validBase64(data), "Inline audio data must be nonempty standard base64")
       yield Json.Obj(
         "type"        -> Json.Str("input_audio"),
@@ -216,7 +230,7 @@ object ChatCompletionsRequest:
     case MediaSource.Base64(mediaType, data) =>
       for
         _ <- message(
-          Set("image/png", "image/jpeg", "image/webp", "image/gif").contains(mediaType),
+          imageMediaTypes.contains(mediaType),
           "Inline images require an explicit PNG, JPEG, WEBP, or GIF media type"
         )
         _ <- message(validBase64(data), "Inline image data must be nonempty standard base64")
