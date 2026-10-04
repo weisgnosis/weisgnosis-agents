@@ -7,6 +7,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala regressions. T
 | Suite | Contract |
 | --- | --- |
 | [PathSafetySpec](PathSafetySpec.scala) | Sensitive paths, traversal, and advisory command fragments |
+| [ToolExecutionUpdateSpec](ToolExecutionUpdateSpec.scala) | Three groups cover legacy delegation and fixed-wrapper streams, provisional/unique final output and invalid sequences, cleanup failure, full mixed causes and held cancellation cleanup. Final independent reviews and full verification passed. |
 | [ToolExecutionSpec](ToolExecutionSpec.scala) | Typed decoding, payload projection/codecs, completed-state admission and cancellation cleanup |
 | [ToolInvocationSpec](ToolInvocationSpec.scala) | Approved occurrence context, legacy/denied dispatch, concurrent lease closure and actual ReAct cancellation |
 | [ToolGroupsSpec](ToolGroupsSpec.scala) | Sorted/empty active and Meta-only notes, atomic checked activation, Meta/External replacement, OR membership/orphaning, exact policy-preserving selection and actual ReAct dispatch |
@@ -46,3 +47,5 @@ This is an advisory fragment detector. Quoted dangerous text can be flagged; a f
 - [x] Independent review and required repository checks accepted the unchanged command-screening scope; exact source/test identities remain in the source contract.
 
 Run `sbt "core / testOnly com.weisgnosis.agents.core.tool.PathSafetySpec"` for focused verification, or `sbt verify` for the repository. Current source contracts, reviewed file identities and scoped acceptance are in the [tool README](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md). Existing processor/authorization acceptance is unaffected.
+
+- [x] Both independent reviewers approved the [incremental contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution), and full tool-stream-verify.log verification passed. The unchanged external-cancellation regression reproduced the draft consumer defect and passes after the channel-pull correction.

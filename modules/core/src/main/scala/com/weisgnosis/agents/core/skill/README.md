@@ -27,7 +27,7 @@ Full `scalafmtAll scalafmtSbt verify` passed in `skill-system-prompt-verify.log`
 | [SkillCatalog.scala](SkillCatalog.scala) | `5f3635463c6b195aa4adf62ede42429ecc9df2a4` |
 | [SkillCatalogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/skill/SkillCatalogSpec.scala) | `ae298bce6828be805c1536d5a333ea7d09c31aad` |
 
-The [runtime adapter](../agent/README.md#deferred-skill-reads) performs ordinary authorization and invocation-owned group activation; its current source/spec acceptance is recorded under deferred skill reads.
+The [runtime adapter](../agent/README.md#deferred-skill-reads) performs ordinary authorization and invocation-owned group activation; its skill-specific evidence is recorded under deferred skill reads, with the current ReActAgent identity in [incremental execution](../tool/README.md#incremental-execution).
 
 - [x] The opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission) verifies actual runtime loader admission with ordinary permission and confirmation policy.
 - [x] Both reviewers approved pure group reminders and runtime description/result integration; current catalogue identities are recorded under deferred resource capabilities; earlier verification remains scoped to its reviewed baseline.

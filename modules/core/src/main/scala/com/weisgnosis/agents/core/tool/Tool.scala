@@ -19,6 +19,7 @@ import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
+import zio.stream.{ZChannel, ZStream}
 import scala.annotation.unused
 
 /**
@@ -36,6 +37,19 @@ trait Tool[-R, In, Out]:
   /** Runtime invocation capabilities are explicit; existing tools retain their ordinary execution. */
   def executeWithContext(input: In, @unused invocation: ToolInvocation): ZIO[R, Throwable, Out] =
     execute(input)
+
+  /** Provisional updates precede exactly one completion; consumers must join EOF and cleanup. */
+  def streamWithContext(
+      input: In,
+      invocation: ToolInvocation
+  ): ZStream[R, Throwable, ToolExecutionUpdate[Out]] =
+    ZStream.fromChannel(
+      ZChannel
+        .fromZIO(ZIO.suspendSucceed(executeWithContext(input, invocation)))
+        .flatMap(output =>
+          ZChannel.write(Chunk[ToolExecutionUpdate[Out]](ToolExecutionUpdate.Completed(output)))
+        )
+    )
 
   def decodeInput(raw: Json): Either[String, In]
   def encodeOutput(out: Out): String
@@ -65,6 +79,11 @@ object Tool:
             invocation: ToolInvocation
         ): ZIO[R, Throwable, Out] =
           tool.executeWithContext(input, invocation)
+        override def streamWithContext(
+            input: In,
+            invocation: ToolInvocation
+        ): ZStream[R, Throwable, ToolExecutionUpdate[Out]] =
+          tool.streamWithContext(input, invocation)
         def decodeInput(raw: Json): Either[String, In] =
           fixed.prepare(raw).left.map(_.message).flatMap(tool.decodeInput)
         def encodeOutput(out: Out): String                       = tool.encodeOutput(out)

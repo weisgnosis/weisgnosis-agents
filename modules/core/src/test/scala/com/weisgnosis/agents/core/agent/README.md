@@ -26,6 +26,10 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [StructuredOutputCapabilityRoutingSpec](StructuredOutputCapabilityRoutingSpec.scala)
 - [StructuredOutputSpec](StructuredOutputSpec.scala)
 
+## Incremental local results
+
+Two added ReActAgentToolEventSpec groups verify actual provisional text/image delivery before completion, persisted assistant calls without provisional Tool history, reserved-metadata filtering, final model input after cleanup and occurrence-local suppression across parallel repeated IDs. The legacy sibling still publishes its aggregate. The existing cancellation group now uses a streaming unfinished sibling. Processor and inline-provider suites retain their separate contracts. Both independent reviewers approved the scope, and full tool-stream-verify.log verification passed; exact identities are under the [runtime contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#incremental-local-tool-results).
+
 ## Run-owned group verification
 
 [ReActAgentToolGroupsSpec](ReActAgentToolGroupsSpec.scala) uses ten integration groups, including three preloaded-skill contracts: sequential load union and exact content with next-request/fresh-run isolation; strict input/authorization/configuration and hidden-control collisions; native fallback and content-only Auto routing. The other groups cover next-request activation with one admitted batch snapshot and fixed policies; exact invalid/denied reset outcomes with Meta-only discovery and External isolation; fresh ordinary/streamed invocations and joined cancellation; native fallback after a successful reset with synthetic controls retained after deactivation; empty-host Auto routing and complete-base collision rejection. Reset flags exercise sequential dispatch even under Parallel configuration. Existing assertions verify descriptions match the admitted request snapshot, transition active/inactive notes across turns, and return notes from the same successful reset result while excluding External names/descriptions.

@@ -1068,30 +1068,14 @@ final class ReActAgent private (
       call: ContentBlock.ToolUse,
       result: ContentBlock.ToolResult,
       context: ModelStreamContext,
-      eventHub: Hub[AgentEvent]
+      eventHub: Hub[AgentEvent],
+      progress: Toolkit.ProgressDisposition = Toolkit.ProgressDisposition.NoProgress
   ): UIO[Unit] =
     for
-      _ <- ZIO.foreachDiscard(result.output):
-        case ContentBlock.Text(text) =>
-          eventHub.publish(
-            AgentEvent.ToolResultDeltaEvent(
-              call.id,
-              text,
-              metadata = result.metadata,
-              context = Some(context)
-            )
-          )
-        case data =>
-          eventHub.publish(
-            AgentEvent.ToolResultDataDeltaEvent(
-              context.replyId,
-              call.id,
-              call.name,
-              data,
-              result.metadata,
-              context = Some(context)
-            )
-          )
+      _ <- progress match
+        case Toolkit.ProgressDisposition.NoProgress =>
+          publishResultPayload(call, result, context, eventHub)
+        case Toolkit.ProgressDisposition.ProgressPublished => ZIO.unit
       _ <- eventHub.publish(
         AgentEvent.ToolResultEndEvent(
           call.id,
@@ -1103,6 +1087,34 @@ final class ReActAgent private (
         )
       )
     yield ()
+
+  private def publishResultPayload(
+      call: ContentBlock.ToolUse,
+      result: ContentBlock.ToolResult,
+      context: ModelStreamContext,
+      eventHub: Hub[AgentEvent]
+  ): UIO[Unit] =
+    ZIO.foreachDiscard(result.output):
+      case ContentBlock.Text(text) =>
+        eventHub.publish(
+          AgentEvent.ToolResultDeltaEvent(
+            call.id,
+            text,
+            metadata = result.metadata,
+            context = Some(context)
+          )
+        )
+      case data =>
+        eventHub.publish(
+          AgentEvent.ToolResultDataDeltaEvent(
+            context.replyId,
+            call.id,
+            call.name,
+            data,
+            result.metadata,
+            context = Some(context)
+          )
+        )
 
   private def authorizeTool(
       call: ContentBlock.ToolUse,
@@ -1191,11 +1203,21 @@ final class ReActAgent private (
         _ <- eventHub.publish(
           AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))
         )
-        res <- authorization match
+        observed <- authorization match
           case Left(error) =>
-            ZIO.succeed(ToolExecutionResult(error.message, ToolResultState.Error))
+            ZIO.succeed(
+              Toolkit.ObservedResult(
+                ToolExecutionResult(error.message, ToolResultState.Error),
+                Toolkit.ProgressDisposition.NoProgress
+              )
+            )
           case Right(ToolAuthorization.Denied(reason)) =>
-            ZIO.succeed(ToolExecutionResult(reason, ToolResultState.Denied))
+            ZIO.succeed(
+              Toolkit.ObservedResult(
+                ToolExecutionResult(reason, ToolResultState.Denied),
+                Toolkit.ProgressDisposition.NoProgress
+              )
+            )
           case Right(ToolAuthorization.Approved(input)) =>
             val approved = withToolInput(call, input)
             stateRef.update(_.zipWithIndex.map { case (message, position) =>
@@ -1207,14 +1229,22 @@ final class ReActAgent private (
                 ToolEventPort
                   .open(eventHub)
                   .flatMap(events =>
-                    toolkit.executeSafe(
+                    toolkit.executeObserved(
                       call.name,
                       input,
                       ToolInvocation.Active(context, approved, indexed.ordinal, events)
+                    )(payload =>
+                      publishResultPayload(
+                        call,
+                        payload.applyTo(ContentBlock.ToolResult(call.id, Some(call.name))),
+                        context,
+                        eventHub
+                      )
                     )
                   )
               )
             )
+        res = observed.result
         resultBlock = res.payload.applyTo(
           ContentBlock.ToolResult(call.id, Some(call.name), state = res.state)
         )
@@ -1224,7 +1254,7 @@ final class ReActAgent private (
         _ <- stateRef.update(_.zipWithIndex.map { case (message, index) =>
           if index == position then toolMsg.mapToolResults(_ => completed) else message
         })
-        _ <- publishCompletedResult(call, completed, context, eventHub)
+        _ <- publishCompletedResult(call, completed, context, eventHub, observed.progress)
       yield ()
 
   private def handleInterrupt(

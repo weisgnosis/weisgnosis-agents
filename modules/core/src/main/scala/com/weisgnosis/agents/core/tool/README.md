@@ -31,14 +31,12 @@ ReAct prepares before authorization. Invalid preparation becomes Error without c
 
 Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and Toolkit checks are additive. Existing raw scalar tools retain their decoding contract. MCP model-overridable defaults remain separate; manager installation of framework-fixed arguments has a separate [MCP contract](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Unchanged component identities are below; current ReActAgent identity is in [deferred skill reads](../agent/README.md#deferred-skill-reads). Scoped verification passed in `tool-fixed-arguments-verify.log`; current full-repository evidence and totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Unchanged component identities are below; current Tool/Toolkit/ReActAgent identities are in [incremental execution](#incremental-execution). Scoped verification passed in `tool-fixed-arguments-verify.log`; current full-repository evidence and totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 | Source/test | Reviewed Git blob |
 | --- | --- |
 | [ToolFixedArguments.scala](ToolFixedArguments.scala) | `5b0a707baa22e1407fe4d87dd7a13fcc48fed3dc` |
 | [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | `367654171296e5aabdc3e0d448822c2eb583a336` |
-| [Tool.scala](Tool.scala) | `2f425468675fa3d8a7f5b34232e7c545b3c49958` |
-| [Toolkit.scala](Toolkit.scala) | `6b0cc64124fc8d5411388918b6284a4b0dcac3af` |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | `449a33d7484c16940b00ef2c936bc2c50486f917` |
 
 ## Descriptive output schemas
@@ -57,11 +55,32 @@ The derived domain codec reads an absent or explicit-null outputSchema as None a
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | `2d00729523014e9c29ca576bcf11fe90a720d379` |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `af9528e389c6de56042421fbf8bdbf7639d775f5` |
 
+## Incremental execution
+
+`Tool.streamWithContext(input, invocation)` produces `ToolExecutionUpdate.Progress(payload)` followed by exactly one `Completed(out)`. The default delegates to executeWithContext once; existing implementations need no new abstract method. Fixed-argument wrappers retain the stream override and existing input policy. Toolkit consumes the stream inside an owned scope; missing completion, any update after completion, stream failure or cleanup failure prevents that value becoming a successful final observation. Only EOF and successful cleanup admit encodeResult, whose existing Success/Error restriction remains.
+
+Progress contains provisional content and metadata, not call IDs or execution state. The runtime supplies identity/context and strips reserved control metadata. Nonempty output blocks publish ordered text/data deltas; metadata-only updates publish nothing. Progress never enters canonical history, result processors or later model input. Exactly one authoritative final result is persisted and processed. After any nonempty progress for that invocation occurrence, the final aggregate payload is not replayed as deltas; ToolResultEnd still carries final text/state/metadata. Complete typed final content remains in history/result, so provisional deltas are not a reconstruction of the final payload. Empty progress and ordinary tools retain aggregate final publication. Repeated call IDs do not share suppression state; inline provider results retain their separate path.
+
+Migration: streamWithContext is a defaulted source-compatible method, but dependent binaries should be rebuilt. ToolExecutionUpdate has no wire codec; no event schema, public callback setter, mutable emitter or hook fanout is added. Existing executeSafe remains a final-result operation and discards progress. Caller cancellation joins stream-owned cleanup and must preserve its complete cause; errors without interruption remain Error observations. Consumers cancelling an event stream still abandon later output.
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the six identities below, with no findings. Focused `tool-stream-focused-green.log` passed 32 tests in 841 ms, including the unchanged legacy external-cancellation regression.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed in `tool-stream-verify.log`, with zero compiler warnings or test failures. Current repository totals and task timings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] `tool-stream-legacy-cancel-red.log` records 31 passing tests and one failure in 848 ms against uncommitted draft Tool `d4adead5f19a6b775cf00dbb7f3bc2da66fbb00e` and Toolkit `caffe50fd4de998be892d0a65add4e8f200f9885`: the unchanged ToolExecutionSpec external-cancellation assertion lost its held cleanup defect. This is a new-feature draft defect, not a defect in the committed baseline. The corrected Toolkit consumer uses a scoped public channel pull and immutable chunk fold, preserving the complete Cause before final normalization. The default Tool bridge is unchanged; no producer fiber or output journal is added. Custom streams remain responsible for their own internal effect/combinator semantics.
+
+| Current incremental execution file | Git blob |
+| --- | --- |
+| [Tool.scala](Tool.scala) | `d4adead5f19a6b775cf00dbb7f3bc2da66fbb00e` |
+| [Toolkit.scala](Toolkit.scala) | `3e39b82cbd07002785baeece555391e4c6a80669` |
+| [ToolExecutionUpdate.scala](ToolExecutionUpdate.scala) | `36f338a5d77db0660a283be80b709fb67ec10391` |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | `38071eed187726bcbba4d2e146c6e9245219205c` |
+| [ToolExecutionUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionUpdateSpec.scala) | `7db9194fc19f472c34ecd1a552403692f28bc32a` |
+| [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) | `6122a20ac472555626805e32c0d7ffba4beff702` |
+
 ## Typed execution observations
 
 `Tool.encodeResult(out)` defaults to the existing `encodeOutput(out)` as a successful text observation. Implementations may override it to return `ToolExecutionResult(payload, state)`, where `ToolResultPayload` retains ordered content blocks and metadata. Toolkit accepts only Success or Error from this projection; Running, Interrupted and Denied become descriptive Error observations. Authorization denials are produced separately by the runtime, and actual interruption remains cancellation.
 
-ReAct supplies the original call ID, name and accepted state, then applies the payload through `ToolResultPayload.applyTo`. Tool-provided metadata cannot set serverTool, agentscope_server_tool or agentscope_suspended. Typed local content survives history persistence, result processing and ordered text/data events. The current ChatCompletions request codec still rejects non-text tool output; this extension does not add provider multimodal support or incremental tool execution.
+ReAct supplies the original call ID, name and accepted state, then applies the payload through `ToolResultPayload.applyTo`. Tool-provided metadata cannot set serverTool, agentscope_server_tool or agentscope_suspended. Typed local content survives history persistence, result processing and ordered text/data events. The current ChatCompletions request codec still rejects non-text tool output; provider multimodal support remains separate; incremental local execution has its separate contract above.
 
 Migration: String `ToolExecutionResult(...)` constructors and the `output` text projection remain available. The projection joins Text blocks with newlines and omits other block types. The canonical constructor, generated copy/unapply and derived JSON shape now use `payload` and explicit `state`; persisted legacy output/state JSON requires host migration. There is no manual compatibility codec. Existing Tool implementations inherit encodeResult without an abstract-method migration.
 
@@ -75,7 +94,7 @@ ReAct creates `Active(context, call, callOrdinal, events)` only for approved loc
 
 `ToolEventPort` exposes publication only. Its scoped lease closes after execution cleanup and before result processing. Publication and closure are serialized: Published means enqueued on the runtime's unbounded hub, not consumed; retained ports return Closed after revocation. Cancellation joins cleanup and preserves interruption and cleanup defects. The lease does not own a child task, provide replay/backpressure, or forward child events automatically. Trusted contextual tools remain responsible for the events they publish; the port does not authenticate arbitrary event payloads.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this capability, with no unresolved findings. Unchanged capability identities are below; current Tool/Toolkit identities are in [fixed raw arguments](#fixed-raw-arguments), and current ReActAgent identity is in [deferred skill reads](../agent/README.md#deferred-skill-reads). Three grouped tests cover approved occurrences, legacy/detached/denied execution, concurrent revocation and actual ReAct cancellation. Formatting, fatal-warning compilation and full verification passed in `tool-invocation-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this capability, with no unresolved findings. Unchanged capability identities are below; current Tool/Toolkit/ReActAgent identities are in [incremental execution](#incremental-execution). Three grouped tests cover approved occurrences, legacy/detached/denied execution, concurrent revocation and actual ReAct cancellation. Formatting, fatal-warning compilation and full verification passed in `tool-invocation-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] The separately reviewed [harness integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#scoped-child-event-forwarding) uses this capability for owned child execution and promotion. Its acceptance and bounded parity mappings remain distinct from this core contract.
 
 | Reviewed file | Git blob |
@@ -91,6 +110,7 @@ ReAct creates `Active(context, call, callOrdinal, events)` only for approved loc
 - [ToolResultProcessor](ToolResultProcessor.scala)
 - [ToolAuthorizer](ToolAuthorizer.scala)
 - [ToolExecutionResult](ToolExecutionResult.scala)
+- [ToolExecutionUpdate](ToolExecutionUpdate.scala)
 - [Toolkit](Toolkit.scala)
 
 See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md) for integration boundaries and invariant definitions.
@@ -102,7 +122,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 ## Current review acceptance
 
 - [x] Independent FP/ZIO and invariant reviewer `path_review` approved the advisory command-screening fix and regressions: source blob `3d7a102d03c47719271ad2e4ba791af81247170e`, test blob `981212ee32c51cf92d12d844f4fe5a7403f70b78`. All eight focused tests pass.
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed execution payloads, state admission, runtime control protection and compound-cause preservation. Both approved this scope with no findings; unchanged component identities are below, and current Tool/Toolkit identities are in [fixed raw arguments](#fixed-raw-arguments), and current ReActAgent identity is in [deferred skill reads](../agent/README.md#deferred-skill-reads).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed execution payloads, state admission, runtime control protection and compound-cause preservation. Both approved this scope with no findings; unchanged component identities are below, and current Tool/Toolkit/ReActAgent identities are in [incremental execution](#incremental-execution).
 - [x] Full formatting, fatal-warning compilation and verification passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
 - [x] Existing processor contracts below retain their scoped acceptance and unchanged implementations. Authorization acceptance is scoped by [fixed raw arguments](#fixed-raw-arguments) and [admitted tool access](#admitted-tool-access).
 
@@ -112,7 +132,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 | [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | a85af9fa35a0848944627973bda1413e4ca4e881 |
 | [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 703c7abec55bb3b4ea5d429ecefa76c9f1557b16 |
 
-The table records unchanged typed-result components. Current Tool and Toolkit identities are recorded under [fixed raw arguments](#fixed-raw-arguments), and ReActAgent under [deferred skill reads](../agent/README.md#deferred-skill-reads); separate invocation and [direct event forwarding](../agent/README.md#direct-event-forwarding) contracts retain their scoped evidence. Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
+The table records unchanged typed-result components. Current Tool, Toolkit and ReActAgent identities are recorded under [incremental execution](#incremental-execution); separate invocation and [direct event forwarding](../agent/README.md#direct-event-forwarding) contracts retain their scoped evidence. Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
 
 Platform-specific symlink/junction behavior and hostile filesystem races remain outside the verified guarantees. Current command-screening evidence is recorded in the [test README](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions).
 
@@ -120,11 +140,11 @@ Platform-specific symlink/junction behavior and hostile filesystem races remain 
 
 ReActAgent.make and Builder.toolResultProcessor accept a ToolResultProcessor, defaulting to identity. Its suspended process callback returns ZIO[Scope, AgentError, ToolResultPayload]. The payload contains output blocks and metadata only. applyTo preserves the original call ID, name, state, and serverTool/agentscope_server_tool/agentscope_suspended control keys. Composition applies each payload safely before passing the observation onward; host processors cannot change execution authority through these fields.
 
-After local execution finishes, the runtime atomically appends the complete raw observation and captures its history position. It then runs processing interruptibly in a separate scope. Typed processing failures restore the original payload; defects propagate. Scope cleanup finishes before a short masked section replaces that exact observation and publishes its text/data deltas and End. Parallel calls own distinct append positions, including calls that reuse IDs; completion may arrive in a different order. Processing assumes history remains append-only during the acting phase under the run lock.
+After local execution finishes, the runtime atomically appends the complete raw observation and captures its history position. It then runs processing interruptibly in a separate scope. Typed processing failures restore the original payload; defects propagate. Scope cleanup finishes before a short masked section replaces that exact observation and publishes End, plus aggregate text/data deltas only when that execution emitted no nonempty progress. Parallel calls own distinct append positions, including calls that reuse IDs; completion may arrive in a different order. Processing assumes history remains append-only during the acting phase under the run lock.
 
 Cancellation during processing keeps the completed raw result and reconciles only unfinished executions. It does not rerun the tool or publish a false ToolResultEnd. A subsequent model request sees the committed processed payload; observers may see the raw result while processing is pending. Processor side effects already performed before failure/cancellation are not rolled back. Callbacks must not reenter a mutating agent operation that requires the held run lock.
 
-Tool execution can return completed typed payloads. A processor can replace their output blocks and metadata before publication; incremental execution remains separate. Empty processed output emits only End after the original Start. Matched inline provider results use this processor after raw assistant persistence, retaining their exact result ordinal. Their Start, ordered text/data deltas, and End are published only after processing and scope cleanup. Inline processing bypasses local authorization/execution and creates no Role.Tool message. Supplied history uses the separate opt-in ToolResultEvictor.preparer adapter.
+Tool execution can return completed typed payloads. A processor can replace their output blocks and metadata before publication; the provisional execution path has the separate contract above. Empty processed output emits only End after the original Start. Matched inline provider results use this processor after raw assistant persistence, retaining their exact result ordinal. Their Start, ordered text/data deltas, and End are published only after processing and scope cleanup. Inline processing bypasses local authorization/execution and creates no Role.Tool message. Supplied history uses the separate opt-in ToolResultEvictor.preparer adapter.
 
 Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. Processor values are runtime dependencies, not serialized agent configuration.
 

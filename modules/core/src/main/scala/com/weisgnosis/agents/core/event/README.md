@@ -10,7 +10,7 @@ AgentEvent defines 39 immutable payload variants with JSON codecs and withSource
 
 All 39 concrete/base codecs encode the same object with exactly one lowercase event discriminator. Concrete decoders also read legacy untagged payloads; a supplied tag must match. Base decoding requires a unique valid tag. Missing required fields, malformed tags, and duplicate discriminators fail. Immutable source updates preserve every other field.
 
-ToolResultStartEvent, ToolResultDeltaEvent, ToolResultEndEvent, and ToolResultDataDeltaEvent retain immutable metadata independently of source. Empty metadata is the default. Inline provider text/data events now preserve complete result metadata in output order; processed completed local output blocks retain metadata; provider multimodal projection and incremental execution remain pending. Isolated private payload derivation and a suspended root codec prevent encoder cycles; there is no silent AST encoding fallback.
+ToolResultStartEvent, ToolResultDeltaEvent, ToolResultEndEvent, and ToolResultDataDeltaEvent retain immutable metadata independently of source. Empty metadata is the default. Inline provider text/data events now preserve complete result metadata in output order; processed completed local output blocks retain metadata; provider multimodal projection remains pending; incremental local execution has separate accepted runtime evidence below. Isolated private payload derivation and a suspended root codec prevent encoder cycles; there is no silent AST encoding fallback.
 
 ## Additional payloads
 
@@ -40,7 +40,7 @@ Existing lowercase event objects remain canonical. Concrete event encoding inclu
 - [x] AgentEventPayloadSpec adds seven payload tests, including toolResultDataDeltaEventMetadataRoundTrip, nested validation, immutable fields, and optional-value normalization.
 - [x] `sbt scalafmtAll scalafmtSbt verify` passed 291 core and 40 harness tests with zero compiler warnings.
 - [x] Correlated iteration-limit publication and inline provider text/data/metadata delivery are verified in ReActAgentEmissionSpec and reviewed in the [agent scope](../agent/README.md).
-- [ ] Implement remaining runtime publication/order, model data-block assembly, and provider multimodal projection with incremental execution.
+- [ ] Implement remaining runtime publication/order, model data-block assembly, and provider multimodal projection.
 - [ ] Implement phase-stop authority, durable pending-work resumption, and permission-driven denied-call publication.
 - [x] Classify all ten deprecated coarse-event methods as excluded API/wire compatibility, without claiming their assertions pass.
 - [x] Implement request/reply correlation for live model and content events.
@@ -64,9 +64,11 @@ The deprecated v1 Event/EventType/EventSource envelope is outside this core API.
 
 Sixteen text/thinking/function/model/result event variants now carry optional ModelStreamContext(replyId, requestId). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
 
-ModelStreamContextSpec verifies all sixteen contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); typed completed local blocks and metadata are supported; complete uppercase envelopes, provider multimodal projection, and incremental execution remain pending.
+ModelStreamContextSpec verifies all sixteen contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); typed completed local blocks and metadata are supported; complete uppercase envelopes and provider multimodal projection remain pending; incremental local execution has separate accepted runtime evidence below.
 
 Existing model/client correlation acceptance remains in the [client contracts](../client/README.md). Event codecs and context shapes are unchanged by typed local results.
 
 - [x] `path_review` and `current_docs` approved typed completed local publication through Tool.encodeResult and ToolResultProcessor, including ordered data events and protected metadata. The [tool acceptance](../tool/README.md#current-review-acceptance) records the exact runtime/spec identities and current full verification.
-- [ ] Provider multimodal projection, incremental execution and exhaustive upstream event ordering remain separate work.
+- [ ] Provider multimodal projection and exhaustive upstream event ordering remain separate work.
+
+- [x] Both reviewers approved and full verification passed for [incremental local execution](../tool/README.md#incremental-execution): provisional text/data use existing event types, with runtime correlation and protected metadata; final End remains authoritative and event codecs are unchanged.

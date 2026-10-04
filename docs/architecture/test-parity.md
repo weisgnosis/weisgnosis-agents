@@ -371,7 +371,7 @@ The eight payload classes below are implemented and verified independently of th
 | AgentResult | result: Msg | Runtime publishes after preparation and history commit, before AgentEnd; pre-commit failures publish no finalized result |
 | DataBlockStart / End | replyId, blockId | Stable block correlation and provider assembly |
 | DataBlockDelta | replyId, blockId, delta: String | Delta is text; it is not a ContentBlock |
-| ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Inline provider and completed typed local output blocks are published with full metadata; incremental execution and provider multimodal serialization remain pending |
+| ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Inline provider and completed typed local output blocks are published with full metadata; provisional local payloads are published with protected metadata; provider multimodal serialization remains pending |
 | ExceedMaxIters | replyId, maxIters, currentIter | Runtime guard verified with correlated replyId and completed iteration count |
 | RequestStop | reason, available typed GenerateReason; default MiddlewareStopRequested | Cooperative phase stop and durable pending-work resumption |
 | AllToolsDenied | Chunk[ToolUse], empty by default | Permission/HITL integration and middleware stop decision |
@@ -399,7 +399,8 @@ The pinned core ToolCallsAccumulatorTest and ReasoningContextTest were inspected
 - [x] Six ChatCompletionsClientSpec scenarios verify incremental publication, real HTTP tool cycles, request/reply correlation, late tool identity, incomplete/malformed input, and cancellation.
 - [x] Three ModelStreamPublisherSpec scenarios verify indexed text/thinking, interleaved tool deltas, and validated complete ending batches; two ModelStreamContextSpec scenarios cover all sixteen affected event variants and legacy payloads.
 - [x] Verify completed local tool results with request provenance, persistence before publication, and per-call start/delta/end ordering.
-- [ ] Complete incremental/structured tool output, richer provider content, and method-level formatter/transport mapping.
+- [x] Independently review and verify provisional local updates with exactly one authoritative final result and scoped cancellation.
+- [ ] Complete richer provider content and method-level formatter/transport mapping.
 
 The disabled upstream ordering sketches remain unchecked: they put MODEL_CALL_END before buffered content and close thinking before text starts. The implemented live contract publishes provisional deltas during the request and closes blocks only after validated completion. ModelResponseEnd follows scope cleanup. This is an explicit runtime adaptation, not exact ordering parity.
 
@@ -945,6 +946,15 @@ The fourteen Plan inventory methods now have bounded adaptations; full Java API/
 - [x] [SubagentForwardingSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) provides bounded adaptations of `HarnessAgentSubagentStreamEventsTest.streamEvents_childEventsForwardedWithSource`, `streamEvents_childAgentStartAndEndEmittedWithSource`, `streamEvents_eventOrdering_childBetweenParentStartAndEnd` and `streamEvents_parentEventsHaveNullSource`. Actual fixed/catalog nested execution retains parent source=None and ordered child bookends, with runtime task UUIDs replacing declaration-name paths. Both reviewers approved the [exact identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#verification-and-acceptance), and full verification passed.
 - [x] Additional Scala groups verify same-execution completion after promotion and distinct fixed/directory session-send leases, with retained cleanup causes during cancellation/removal.
 - [ ] Complete the applicability mapping for `streamEvents_childEventsForwardedWithSource_underAsyncToolMiddleware`: explicit scoped capabilities replace Reactor-context propagation, but that middleware is not implemented. Remote forwarding, durable replay and post-promotion delivery remain separate.
+
+## Incremental local tool output
+
+- [x] Both independent reviewers approved the [typed stream contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution) at its six exact identities, and full tool-stream-verify.log verification passed. The unchanged external-cancellation regression reproduced a new-draft consumer defect; the scoped channel-pull correction preserves the complete cause.
+- [x] Bounded `ToolEmitterIntegrationTest.testToolEmitterWithHook` adaptation: provisional content reaches existing runtime events with call identity while an independently typed final value becomes model history only after EOF and cleanup. Immutable scoped streams replace mutable emitter injection and Hook APIs.
+- [x] Bounded `ToolEmitterIntegrationTest.testToolWithoutEmitter` adaptation: the default stream executes the legacy contextual method once and retains ordinary final publication without provisional output.
+- [x] Bounded `ToolEmitterIntegrationTest.testMultipleToolsWithEmitters` adaptation: actual parallel calls retain their own deltas and final values; repeated IDs do not share final-delta suppression. The Scala runtime test uses two streaming tools plus an ordinary sibling rather than sequential Java callback collection.
+- [ ] `ReActAgentToolkitConcurrencyTest.concurrentCallsDoNotCrossTalkChunkCallbacks` remains open: one-agent parallel occurrences do not prove isolation between separate concurrent event destinations sharing a Toolkit.
+- [ ] Public callback/Hook fanout and callback-failure isolation in `testReActAgentPreservesUserChunkCallback`, `testInternalChunkCallbackFailureDoesNotBlockUserCallback`, `testUserChunkCallbackFailureDoesNotInterruptToolExecution` and `testInternalChunkCallbackFailureDoesNotInterruptToolExecution` are outside the typed-stream API; whole emitter-suite parity is not claimed.
 
 ## MCP protocol and connection boundaries
 

@@ -18,6 +18,8 @@ ReActAgent retains in-memory history and serializes runs. Resources are scoped p
 
 Tool.encodeResult preserves String/Success behavior by default and permits typed Success/Error observations. ToolExecutionResult now stores payload/state; String constructors and its text projection remain available, while generated copy/unapply and JSON shape change. Runtime call identity/control metadata remain protected. See the [migration and limits](src/main/scala/com/weisgnosis/agents/core/tool/README.md#typed-execution-observations); the current HTTP request codec still rejects non-text tool output.
 
+The [incremental local execution contract](src/main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution) separates provisional text/data events from one final typed observation; both independent reviews and full verification passed. Existing completed payloads and provider limitations retain their contracts.
+
 ## Current review acceptance
 
 - [x] `registry_contract` and `current_docs` approved checked [catalogue selection](src/main/scala/com/weisgnosis/agents/core/skill/README.md), with exact definitions, explicit empty selection and rejection of removed or unknown IDs. The linked contract owns source/spec identities and full verification.

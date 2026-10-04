@@ -31,7 +31,7 @@ Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a 
 | [ReActAgent.scala](ReActAgent.scala) | `0fbbe1a282f1740efcb96b05d3d4befb39f44f4c` |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
-The table records the group/skill baseline. Current runtime and groups-spec identities are recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
+The table records the group/skill baseline. The current runtime identity is in [incremental execution](../tool/README.md#incremental-execution), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
 
 ## Preloaded skills
 
@@ -43,7 +43,7 @@ The loader is read-only and concurrency-unsafe, uses ordinary authorization and 
 
 Reset descriptions and result notes include the catalogue's pure group-binding reminders beside the corresponding Meta snapshot. Rendering starts from immutable raw definitions each time, so repeated requests, fresh runs and structured fallback do not accumulate reminders. Notes are advisory: successful reset-to-empty still deactivates all Meta groups and returns their current inactive notes. Empty/no-target catalogues preserve previous note text. No active-skill state or automatic group registration is introduced.
 
-- [x] Both reviewers approved the preloaded-skill runtime contracts; [current runtime identities](#deferred-skill-reads) and full verification cover union, exact content, error/denial isolation, hidden collisions, construction validation, fresh runs, fallback and content-only Auto routing.
+- [x] Both reviewers approved the preloaded-skill runtime contracts; [scoped runtime evidence](#deferred-skill-reads) and full verification cover union, exact content, error/denial isolation, hidden collisions, construction validation, fresh runs, fallback and content-only Auto routing.
 - [x] Actual skill-loader admission is verified through the opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission), including policy/confirmation and denial of mutating tools. The read-only flag alone grants no permission.
 
 ## Request-only skill catalogue
@@ -71,20 +71,31 @@ The protected loader retains ordinary authorization and sequential dispatch. An 
 
 - [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for the current identities below, with no findings; full verification passed. The earlier request-projection table records its preloaded baseline. Combined ten-file verification is recorded in the [capability acceptance](../skill/README.md#deferred-resource-capabilities).
 
-| Current runtime file | Git blob |
+| Reviewed deferred-read baseline | Git blob |
 | --- | --- |
 | [ReActAgent.scala](ReActAgent.scala) | `0e180b72941467786c27a3bf458780e33143e418` |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
+
+Current ReActAgent identity and execution approval are in [incremental execution](../tool/README.md#incremental-execution); the groups spec above is unchanged.
 
 ## Fixed-argument authorization
 
 Attached [fixed raw arguments](../tool/README.md#fixed-raw-arguments) are prepared before local authorization, without changing the persisted original call while approval is pending. Malformed preparation yields Error without callback execution; signed-input changes and approved fixed-field alterations yield Denied. Nonfixed rewrites remain allowed. Approved history, invocation context and execution share the final prepared input, retaining original model-input provenance. Inline provider results still bypass local dispatch. Cancellation joins authorizer cleanup and retains the complete interruption/cleanup cause.
 
-Current Tool/Toolkit identities and scoped verification belong to the linked tool acceptance; the current ReActAgent identity is in [deferred skill reads](#deferred-skill-reads); the result/event contracts below remain separate bounded scopes.
+Current Tool/Toolkit identities and scoped verification belong to the linked tool acceptance; the current ReActAgent identity is in [incremental execution](../tool/README.md#incremental-execution); the result/event contracts below remain separate bounded scopes.
+
+## Incremental local tool results
+
+The [incremental execution contract](../tool/README.md#incremental-execution) publishes provisional text/data only after assistant-call persistence and ordinary authorization. Runtime call identity, state and control metadata remain authoritative. No provisional Tool message is stored, and the next model request receives only the final processed observation after stream EOF and cleanup. The invocation event lease closes before final result processing.
+
+Final-delta suppression is local to each execution occurrence, including repeated model IDs. Provisional content does not replace the final result: ToolResultEnd carries its final text/state/metadata, while full typed final content remains in canonical history. Ordinary tools and metadata-only progress retain aggregate publication. A cancelled unfinished stream follows existing reconciliation; completed siblings survive. Inline server results bypass local execution unchanged.
+
+- [x] `path_review` and `current_docs` approved the final six-file scope at the [current identities](../tool/README.md#incremental-execution).
+- [x] Full `tool-stream-verify.log` verification passed with zero compiler warnings or test failures; the linked tool contract records current totals and evidence. Two added ToolEventSpec groups cover visible provisional text/image before completion, persisted-call and model-history boundaries, protected metadata, cleanup before the next model request, and parallel repeated IDs with two streams plus a legacy sibling. The existing cancellation fixture now includes an unfinished streaming tool. Cross-agent callback-destination isolation is not established by these tests.
 
 ## Current typed-result acceptance
 
-The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [deferred skill reads](#deferred-skill-reads); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
+The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [incremental execution](../tool/README.md#incremental-execution); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
 
 - [x] `path_review` and `current_docs` approved typed local result publication within the linked tool acceptance; full repository verification passed with no warnings or failures.
 
@@ -103,7 +114,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 | [AgentRunUpdate.scala](AgentRunUpdate.scala) | `e441b9614dba3364da17b6b4780c3a6fae002396` |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | `20b296b5e3c6430eab21f3124b8fd49bd1acc6a0` |
 
-The stream table records its reviewed baseline. Current ReActAgent identity and verification are recorded under [deferred skill reads](#deferred-skill-reads). The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
+The stream table records its reviewed baseline. Current ReActAgent identity and verification are recorded under [incremental execution](../tool/README.md#incremental-execution). The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
 
 ## Direct event forwarding
 
@@ -148,9 +159,9 @@ ReAct allocates a fresh requestId under the current attempt replyId and passes M
 
 ## Completed tool observations
 
-All four result-event variants now retain the originating ModelStreamContext. Local execution publishes Start, executes interruptibly, then records the completed observation before publishing its text Delta and End under the existing interruption mask. Empty text remains an explicit empty delta. Normalized failures remain Error observations and continue the loop. Each parallel call keeps its own ordered events; completion order may differ from call order. Later turns reusing a call ID remain distinguishable through requestId.
+All four result-event variants now retain the originating ModelStreamContext. Local execution publishes Start and may publish provisional text/data while running interruptibly. After EOF and cleanup, it records and processes the final observation, publishes aggregate deltas only if no nonempty progress was emitted, and publishes the final End under the existing interruption mask. Empty text remains an explicit empty delta. Normalized failures remain Error observations and continue the loop. Each parallel call keeps its own ordered events; completion order may differ from call order. Later turns reusing a call ID remain distinguishable through requestId.
 
-Inline provider results share the completed-output publisher, preserve text/data ordering and metadata, and remain inside the assistant message without separate Tool messages. Local tools may produce completed typed payloads through Tool.encodeResult. Toolkit admits only Success/Error projections; ReAct owns call identity, authorization denial and protected control metadata. An optional ToolResultProcessor rewrites payload blocks and metadata before completed publication. Partial tool execution remains pending; the current ChatCompletions request codec rejects non-text output. Cancellation preserves completed results/events and reconciles unfinished history; it does not publish a false ToolResultEnd for interrupted work. AgentEnd still terminates the attempt.
+Inline provider results share the completed-output publisher, preserve text/data ordering and metadata, and remain inside the assistant message without separate Tool messages. Local tools may produce completed typed payloads through Tool.encodeResult. Toolkit admits only Success/Error projections; ReAct owns call identity, authorization denial and protected control metadata. An optional ToolResultProcessor rewrites payload blocks and metadata before completed publication. Provisional updates have the separate incremental contract above; the current ChatCompletions request codec rejects non-text output. Cancellation preserves completed results/events and reconciles unfinished history; it does not publish a false ToolResultEnd for interrupted work. AgentEnd still terminates the attempt.
 
 ## Strict structured JSON
 
@@ -178,7 +189,7 @@ The declaration is serialized with LlmConfig but excluded from the HTTP request 
 - [x] The accepted runtime baseline through `06bd2e1` includes lifecycle cleanup, finalized result ordering, occurrence-based reconciliation, correlated model/tool events, strict structured JSON, and loopback HTTP completion. Git preserves the earlier reviewer approvals and exact identities.
 - [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope.
 - [ ] Complete general model-call middleware and remaining legacy hook behavior.
-- [ ] Complete provider continuation, incremental execution and provider multimodal serialization, full event ordering, and event adapters.
+- [ ] Complete provider continuation and provider multimodal serialization, full event ordering, and event adapters.
 - [ ] Integrate phase stopping, durable pending work, and harness middleware.
 
 The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes verified contracts from remaining scenarios. General JSON Schema validation and exhaustive provider compatibility are not claimed.
@@ -207,7 +218,7 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 ## Current post-reasoning identities
 
-Unchanged post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. Current ReActAgent identity belongs to [deferred skill reads](#deferred-skill-reads); unchanged error contracts remain separate.
+Unchanged post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. Current ReActAgent identity belongs to [incremental execution](../tool/README.md#incremental-execution); unchanged error contracts remain separate.
 
 | File | Git blob |
 | --- | --- |
@@ -220,11 +231,11 @@ Unchanged post-reasoning identities from the scope against `2a400e0`; commit `88
 
 ReActAgent.make and Builder.toolResultProcessor accept a ToolResultProcessor, defaulting to identity. Its suspended process callback returns ZIO[Scope, AgentError, ToolResultPayload]. The payload contains output blocks and metadata only. applyTo preserves the original call ID, name, state, and serverTool/agentscope_server_tool/agentscope_suspended control keys. Composition applies each payload safely before passing the observation onward; host processors cannot change execution authority through these fields.
 
-After local execution finishes, the runtime atomically appends the complete raw observation and captures its history position. It then runs processing interruptibly in a separate scope. Typed processing failures restore the original payload; defects propagate. Scope cleanup finishes before a short masked section replaces that exact observation and publishes its text/data deltas and End. Parallel calls own distinct append positions, including calls that reuse IDs; completion may arrive in a different order. Processing assumes history remains append-only during the acting phase under the run lock.
+After local execution finishes, the runtime atomically appends the complete raw observation and captures its history position. It then runs processing interruptibly in a separate scope. Typed processing failures restore the original payload; defects propagate. Scope cleanup finishes before a short masked section replaces that exact observation and publishes End, plus aggregate text/data deltas only when that execution emitted no nonempty progress. Parallel calls own distinct append positions, including calls that reuse IDs; completion may arrive in a different order. Processing assumes history remains append-only during the acting phase under the run lock.
 
 Cancellation during processing keeps the completed raw result and reconciles only unfinished executions. It does not rerun the tool or publish a false ToolResultEnd. A subsequent model request sees the committed processed payload; observers may see the raw result while processing is pending. Processor side effects already performed before failure/cancellation are not rolled back. Callbacks must not reenter a mutating agent operation that requires the held run lock.
 
-Tool execution can return completed typed payloads. A processor can replace their output blocks and metadata for the existing typed result publisher; incremental tool execution remains pending. Empty processed output emits only End after the original Start. Matched inline provider results also use this processor. Supplied history uses the separate opt-in ToolResultEvictor.preparer adapter.
+Tool execution can return completed typed payloads. A processor can replace their output blocks and metadata for the existing typed result publisher; incremental local execution has the separate contract above. Empty processed output emits only End after the original Start. Matched inline provider results also use this processor. Supplied history uses the separate opt-in ToolResultEvictor.preparer adapter.
 
 Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. Processor values are runtime dependencies, not serialized agent configuration.
 
@@ -252,7 +263,7 @@ Appending the optional make argument preserves ordinary callers; positional Buil
 
 ## Current history-preparation identities
 
-Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [deferred skill reads](#deferred-skill-reads); unchanged components follow:
+Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [incremental execution](../tool/README.md#incremental-execution); unchanged components follow:
 
 | File | Git blob |
 | --- | --- |
@@ -341,7 +352,7 @@ Migration: the optional constructor/builder dependency is additive, but position
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-The current ReActAgent identity is recorded under [deferred skill reads](#deferred-skill-reads); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
+The current ReActAgent identity is recorded under [incremental execution](../tool/README.md#incremental-execution); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
 
 ## Current completion-observer identities
 

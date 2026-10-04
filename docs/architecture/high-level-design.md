@@ -48,6 +48,8 @@ LocalDailyMemoryStore.open provides a scoped daily-only backend for a host-contr
 
 MemoryConsolidator validates replacement memory against a 1–4,000 token budget using the supplied counter before committing. Its store snapshot revision covers curated and daily state, so stale output conflicts instead of overwriting newer memory. MemoryRepository.inMemory atomically updates curated content and acknowledged daily inputs; LocalMemoryRepository gives cooperating API users coherent content/progress visibility through an exclusive lease and roll-forward journal. Raw filesystem readers can observe intermediate files; no fsync or power-loss durability is claimed.
 
+- [x] Independently review and verify provisional local tool events with runtime-owned correlation, one final result after EOF/cleanup, occurrence-local final-delta suppression and joined cancellation. Provider projection remains separate.
+
 ## Planned platform
 
 - [x] Both reviewers approved opt-in bounded eager text-tree resource discovery; full verification passed and automatic runtime filesystem fallback remains separate.

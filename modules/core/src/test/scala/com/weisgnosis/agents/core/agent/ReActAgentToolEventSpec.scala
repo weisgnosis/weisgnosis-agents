@@ -18,10 +18,11 @@ package com.weisgnosis.agents.core.agent
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.AgentEvent
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.model.{ContentBlock, MediaSource, Msg, Role, ToolResultState}
+import com.weisgnosis.agents.core.tool.*
 import zio.*
 import zio.json.ast.Json
+import zio.stream.ZStream
 import zio.test.*
 
 object ReActAgentToolEventSpec extends ZIOSpecDefault:
@@ -33,7 +34,164 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
       else TurnOutput.ToolCalls(Msg.assistant(calls))
     )
 
+  private def streamingTool(
+      name: String,
+      result: ToolExecutionResult,
+      updates: ZStream[Any, Throwable, ToolExecutionUpdate[ToolExecutionResult]]
+  ): Tool[Any, Json, ToolExecutionResult] = new Tool[Any, Json, ToolExecutionResult]:
+    def definition: ToolDef = ToolDef(name, "Stream provisional output", Json.Obj())
+    def decodeInput(raw: Json): Either[String, Json]   = Right(raw)
+    def execute(input: Json): UIO[ToolExecutionResult] = ZIO.succeed(result)
+    override def streamWithContext(
+        input: Json,
+        invocation: ToolInvocation
+    ): ZStream[Any, Throwable, ToolExecutionUpdate[ToolExecutionResult]] = updates
+    def encodeOutput(out: ToolExecutionResult): String                       = out.output
+    override def encodeResult(out: ToolExecutionResult): ToolExecutionResult = out
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ReActAgent tool events")(
+    test(
+      "provisional payload is visible before completion but only the final observation reaches the model"
+    ):
+      ZIO.scoped:
+        val image    = ContentBlock.Image(MediaSource.Base64("image/png", "aW1hZ2U="))
+        val metadata = Map("phase" -> Json.Str("progress"))
+        val progress = ToolResultPayload(
+          Chunk(ContentBlock.Text("working"), image),
+          metadata.updated("serverTool", Json.Bool(true))
+        )
+        val result = ToolExecutionResult(
+          ToolResultPayload(Chunk(ContentBlock.Text("final")), Map("phase" -> Json.Str("final"))),
+          ToolResultState.Success
+        )
+        for
+          release       <- Promise.make[Nothing, Unit]
+          closed        <- Ref.make(false)
+          snapshots     <- Ref.make(Chunk.empty[Msg])
+          received      <- Ref.make(Chunk.empty[Msg])
+          closedAtModel <- Ref.make(false)
+          updates = ZStream
+            .acquireReleaseWith(ZIO.unit)(_ => closed.set(true))
+            .flatMap(_ =>
+              ZStream.succeed(ToolExecutionUpdate.Progress(progress)) ++
+                ZStream.fromZIO(release.await.as(ToolExecutionUpdate.Completed(result)))
+            )
+          client = LlmClient.mockEffectful((history, _, _) =>
+            if history.exists(_.role == Role.Tool) then
+              received.set(history) *> closed.get
+                .flatMap(closedAtModel.set)
+                .as(TurnOutput.FinalText(Msg.assistant("done")))
+            else ZIO.succeed(TurnOutput.ToolCalls(Msg.assistant(Chunk(call))))
+          )
+          agent <- ReActAgent.make(
+            client = client,
+            toolkit = Toolkit(Map("lookup" -> streamingTool("lookup", result, updates)))
+          )
+          events <- agent
+            .streamEvents(Msg.user("q"))
+            .tap {
+              case _: AgentEvent.ToolResultDataDeltaEvent =>
+                agent.history.flatMap(snapshots.set) *> release.succeed(()).unit
+              case _ => ZIO.unit
+            }
+            .runCollect
+            .ensuring(release.succeed(()))
+          during   <- snapshots.get
+          after    <- received.get
+          released <- closedAtModel.get
+          deltas = events.collect { case event: AgentEvent.ToolResultDeltaEvent => event }
+          data   = events.collect { case event: AgentEvent.ToolResultDataDeltaEvent => event }
+          ends   = events.collect { case event: AgentEvent.ToolResultEndEvent => event }
+        yield assertTrue(
+          during.flatMap(_.toolUses) == Chunk(call),
+          during.flatMap(_.toolResults).isEmpty,
+          after.flatMap(_.toolResults).map(_.text) == Chunk("final"),
+          after.flatMap(_.toolResults).forall(_.metadata == result.payload.metadata),
+          released,
+          deltas.map(_.delta) == Chunk("working"),
+          data.map(_.data) == Chunk(image),
+          deltas.forall(_.metadata == metadata),
+          data.forall(event =>
+            event.toolCallId == call.id && event.toolCallName == call.name && event.metadata == metadata
+          ),
+          ends.map(_.output) == Chunk("final"),
+          ends.forall(event =>
+            event.state == ToolResultState.Success && event.metadata == result.payload.metadata
+          ),
+          (deltas.flatMap(_.context) ++ data.flatMap(_.context) ++ ends.flatMap(
+            _.context
+          )).distinct.size == 1,
+          events.indexWhere(_.isInstanceOf[AgentEvent.ToolResultStartEvent]) < events.indexWhere(
+            _.isInstanceOf[AgentEvent.ToolResultDeltaEvent]
+          )
+        )
+    ,
+    test(
+      "parallel repeated IDs isolate progress and preserve aggregate output for an ordinary sibling"
+    ):
+      ZIO.scoped:
+        for
+          release <- Promise.make[Nothing, Unit]
+          result   = ToolExecutionResult("stream final")
+          progress = ToolResultPayload(Chunk(ContentBlock.Text("provisional")))
+          streaming = streamingTool(
+            "streaming",
+            result,
+            ZStream.succeed(ToolExecutionUpdate.Progress(progress)) ++
+              ZStream.fromZIO(release.await.as(ToolExecutionUpdate.Completed(result)))
+          )
+          otherResult = ToolExecutionResult("other final")
+          other = streamingTool(
+            "other",
+            otherResult,
+            ZStream.fromZIO(release.await).drain ++
+              ZStream(
+                ToolExecutionUpdate.Progress(
+                  ToolResultPayload(Chunk(ContentBlock.Text("other progress")))
+                ),
+                ToolExecutionUpdate.Completed(otherResult)
+              )
+          )
+          ordinary = Tool.make(ToolDef("ordinary", "Ordinary output", Json.Obj()))(_ =>
+            release.await.as("ordinary final")
+          )
+          agent <- ReActAgent.make(
+            client = model(
+              Chunk(
+                call.copy(name = "streaming"),
+                call.copy(name = "other"),
+                call.copy(name = "ordinary")
+              )
+            ),
+            toolkit =
+              Toolkit(Map("streaming" -> streaming, "other" -> other, "ordinary" -> ordinary))
+          )
+          events <- agent
+            .streamEvents(Msg.user("q"))
+            .tap {
+              case event: AgentEvent.ToolResultDeltaEvent if event.delta == "provisional" =>
+                release.succeed(()).unit
+              case _ => ZIO.unit
+            }
+            .runCollect
+            .ensuring(release.succeed(()))
+          history <- agent.history
+          deltas = events.collect { case event: AgentEvent.ToolResultDeltaEvent => event.delta }
+          ends   = events.collect { case event: AgentEvent.ToolResultEndEvent => event }
+        yield assertTrue(
+          deltas.headOption.contains("provisional"),
+          deltas.toSet == Set("provisional", "other progress", "ordinary final"),
+          deltas.size == 3,
+          ends.map(_.name).toSet == Set("streaming", "other", "ordinary"),
+          ends.forall(event => event.callId == "call" && event.state == ToolResultState.Success),
+          history.flatMap(_.toolResults).map(_.text).toSet == Set(
+            "stream final",
+            "other final",
+            "ordinary final"
+          ),
+          history.flatMap(_.toolResults).size == 3
+        )
+    ,
     test("commits local observations before delivering output and completion"):
       val lookup =
         Tool.make(ToolDef("lookup", "lookup", Json.Obj()))(_ => ZIO.succeed("observation"))
@@ -163,8 +321,13 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
         for
           waiting <- Promise.make[Nothing, Unit]
           completed = Tool.make(ToolDef("fast", "fast", Json.Obj()))(_ => ZIO.succeed("kept"))
-          pending = Tool.make(ToolDef("slow", "slow", Json.Obj()))(_ =>
-            waiting.succeed(()) *> ZIO.never
+          pending = streamingTool(
+            "slow",
+            ToolExecutionResult("unreachable"),
+            ZStream.succeed(
+              ToolExecutionUpdate.Progress(ToolResultPayload(Chunk(ContentBlock.Text("pending"))))
+            ) ++
+              ZStream.fromZIO(waiting.succeed(()) *> ZIO.never)
           )
           agent <- ReActAgent.make(
             client =
