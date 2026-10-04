@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.harness.skill
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.skill.SkillDefinition
+import com.weisgnosis.agents.core.skill.{SkillDefinition, SkillResourceReader}
 import com.weisgnosis.agents.core.tool.PathSafety
 import com.weisgnosis.agents.harness.eviction.WorkspaceTrust
 import java.nio.ByteBuffer
@@ -40,6 +40,22 @@ final case class LocalSkillLimits(
  * finish before their resource closes; cancellation has no deadline or hostile-filesystem guarantee.
  */
 object LocalSkill:
+  /** Bind one host-selected path without reading it; every invocation rechecks and closes the file. */
+  def resourceReader(
+      directory: Path,
+      trust: WorkspaceTrust,
+      resource: String,
+      limits: LocalSkillLimits = LocalSkillLimits()
+  ): SkillResourceReader = SkillResourceReader:
+    trust match
+      case WorkspaceTrust.Untrusted => deny("Untrusted skill directories are unsupported")
+      case WorkspaceTrust.HostControlled =>
+        for
+          _    <- ZIO.fromEither(validate(Set(resource), limits))
+          root <- canonicalDirectory(directory)
+          text <- read(root, resource, limits.maxResourceBytes)
+        yield text
+
   def load(
       directory: Path,
       trust: WorkspaceTrust,

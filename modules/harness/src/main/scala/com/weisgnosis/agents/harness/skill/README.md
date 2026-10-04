@@ -37,10 +37,21 @@ LocalSkill keeps its call signature; its nested parser limits and returned Skill
 
 | Reviewed file | Reviewed Git blob |
 | --- | --- |
-| [LocalSkill.scala](LocalSkill.scala), current helper visibility reviewed below | `d260589839585de3588c3a14ccb2a69f31200330` |
+| [LocalSkill.scala](LocalSkill.scala), reviewed eager baseline | `d260589839585de3588c3a14ccb2a69f31200330` |
 | [LocalSkillSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillSpec.scala) | `cd0a1531f8de85150a98b70c234b13865b3a1404` |
 
 Tests cover real selected reads and resource release. Symlink rejection is source-reviewed; platform symlink/junction integration coverage remains unverified.
+
+## Explicit local resource reader
+
+LocalSkill.resourceReader binds one host-selected directory, logical resource and limits without I/O. Each read revalidates explicit WorkspaceTrust, portable path, lexical/canonical sensitive checks, file shape and strict UTF-8/byte bounds through the existing scoped reader. The host binds that reader to an exact SkillResourceKey in core SkillLibrary; model input cannot choose a physical path. Read results are fresh, uncached text. Existing advisory race/platform and joined-blocking cancellation limits remain unchanged.
+
+- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for the current LocalSkill source/spec below, with no findings; full verification passed. Existing eager behavior and repository discovery are unchanged. Combined ten-file `skill-library-final-verify.log` evidence is in the [core capability acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/skill/README.md#deferred-resource-capabilities).
+
+| Current local reader file | Git blob |
+| --- | --- |
+| [LocalSkill.scala](LocalSkill.scala) | `acf28d1b119bc47fa04372df48f7804431803057` |
+| [LocalSkillSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillSpec.scala) | `8c7f6e551f67393de01d873a06f950b099fc9282` |
 
 ## Local repository discovery
 
@@ -65,6 +76,6 @@ Full `scalafmtAll scalafmtSbt verify` passed in `skill-resource-tree-verify.log`
 | [LocalSkillRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillRepositorySpec.scala) | `cbe387f0f7025055f51799ef429c74f1c0fc5b58` |
 | [LocalSkill.scala](LocalSkill.scala), package-visible helper reuse | `d260589839585de3588c3a14ccb2a69f31200330` |
 
-The LocalSkillSpec identity above remains unchanged; LocalSkill's public behavior and signature are unchanged.
+The repository table retains its reviewed helper baseline; current LocalSkill source/spec identities are in the explicit reader section. Existing load behavior and signature are unchanged.
 
-- [ ] Next: preflight/design bounded host-selected lazy resource resolution, as ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, lazy resources and caches remain unfinished.
+- [ ] Next: fresh-child Plan tools/context installation, as ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, automatic lazy-resource discovery and caches remain unfinished.

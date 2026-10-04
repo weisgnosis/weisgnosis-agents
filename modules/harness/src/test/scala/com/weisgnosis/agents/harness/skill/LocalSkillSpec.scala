@@ -16,7 +16,12 @@
 package com.weisgnosis.agents.harness.skill
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
+import com.weisgnosis.agents.core.skill.{
+  SkillCatalog,
+  SkillDefinition,
+  SkillLibrary,
+  SkillResourceKey
+}
 import com.weisgnosis.agents.harness.eviction.WorkspaceTrust
 import com.weisgnosis.agents.harness.memory.MemoryTestSupport.temporaryDirectory
 import java.nio.charset.StandardCharsets
@@ -33,12 +38,79 @@ object LocalSkillSpec extends ZIOSpecDefault:
   private def write(path: Path, text: String): Task[Unit] =
     ZIO.attemptBlocking(Files.writeString(path, text, StandardCharsets.UTF_8)).unit
 
-  private def denied(value: Either[AgentError, SkillDefinition]): Boolean =
+  private def denied[A](value: Either[AgentError, A]): Boolean =
     value.left.exists:
       case _: AgentError.PermissionDenied => true
       case _                              => false
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("LocalSkillSpec")(
+    test(
+      "bound local readers defer access and recheck exact files without caching or metadata lookup"
+    ):
+      for
+        root <- temporaryDirectory
+        directory = root.resolve("lazy")
+        reader = LocalSkill.resourceReader(
+          directory,
+          WorkspaceTrust.HostControlled,
+          "references/data.txt",
+          LocalSkillLimits(maxResourceBytes = 4)
+        )
+        catalog <- ZIO.fromEither(
+          SkillCatalog.make(Chunk(SkillDefinition("guide", "Guide", "Fixed body")))
+        )
+        library <- ZIO.fromEither(
+          SkillLibrary.make(catalog, Map(SkillResourceKey("guide", "logical.txt") -> reader))
+        )
+        _         <- ZIO.attemptBlocking(Files.createDirectory(directory))
+        nested    <- ZIO.attemptBlocking(Files.createDirectory(directory.resolve("references")))
+        _         <- write(directory.resolve("SKILL.md"), "Not parsed during a resource read")
+        _         <- write(nested.resolve("data.txt"), "one")
+        first     <- library.resolve("guide", "logical.txt")
+        _         <- write(nested.resolve("data.txt"), "éé")
+        second    <- library.resolve("guide", "logical.txt")
+        _         <- write(nested.resolve("data.txt"), "12345")
+        oversized <- library.resolve("guide", "logical.txt").either
+        _ <- ZIO.attemptBlocking(
+          Files.write(nested.resolve("data.txt"), Array(0xc3.toByte, 0x28.toByte))
+        )
+        malformed <- library.resolve("guide", "logical.txt").either
+        _         <- ZIO.attemptBlocking(Files.delete(nested.resolve("data.txt")))
+        missing   <- library.resolve("guide", "logical.txt").either
+        untrusted <- LocalSkill
+          .resourceReader(root.resolve("absent"), WorkspaceTrust.Untrusted, "data.txt")
+          .read
+          .either
+        traversal <- LocalSkill
+          .resourceReader(root.resolve("absent"), WorkspaceTrust.HostControlled, "../data.txt")
+          .read
+          .either
+        invalid <- LocalSkill
+          .resourceReader(
+            root.resolve("absent"),
+            WorkspaceTrust.HostControlled,
+            "data.txt",
+            LocalSkillLimits(maxResourceBytes = 0)
+          )
+          .read
+          .either
+        sensitive <- LocalSkill
+          .resourceReader(directory, WorkspaceTrust.HostControlled, "references/.env")
+          .read
+          .either
+      yield assertTrue(
+        first.content == "one",
+        second.content == "éé",
+        catalog.definitions.forall(_.resources.isEmpty),
+        oversized.left.exists(_.message.contains("byte limit exceeded")),
+        malformed.left.exists(_.message.contains("decode UTF-8")),
+        missing.isLeft,
+        denied(untrusted),
+        traversal.left.exists(_.message.contains("portable relative identifiers")),
+        invalid.left.exists(_.message.contains("limits must be positive")),
+        denied(sensitive)
+      )
+    ,
     test(
       "suspended selected loading preserves declared identity and text without implicit discovery"
     ) {

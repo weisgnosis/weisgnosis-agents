@@ -9,3 +9,7 @@ The [source contract](../../../../../../../main/scala/com/weisgnosis/agents/core
 - [x] `registry_contract` and `current_docs` approved metadata validation, recursive duplicate/reserved-key rejection, codec defaults and selection preservation. The linked contract records exact current identities and full verification.
 
 - [x] `registry_contract` and `current_docs` approved the pure systemPrompt projection group: selected IDs, sorted logical resource names, JSON escaping, empty catalogue and exclusion of bodies, resource contents, metadata and activation targets. The source contract records exact identities and `skill-system-prompt-verify.log`; runtime integration is tested separately.
+
+## Deferred resource verification
+
+[SkillLibrarySpec](SkillLibrarySpec.scala) adds two groups: checked cold exact-key capability binding, preloaded/deferred separation and monotone selection; and scoped resolution with cleanup-before-return, exact mixed failure/defect and held joined cancellation. Repeated reads return fresh values and prompt projection exposes only selected logical names. The [source contract](../../../../../../../main/scala/com/weisgnosis/agents/core/skill/README.md#deferred-resource-capabilities) owns final acceptance and current identities.

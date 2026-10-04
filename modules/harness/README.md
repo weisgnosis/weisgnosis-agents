@@ -4,7 +4,7 @@ Standalone context and permission components built on core.
 
 | Package | Current status |
 | --- | --- |
-| [skill](src/main/scala/com/weisgnosis/agents/harness/skill/README.md) | Bounded inline SKILL.md parsing and selected local UTF-8 resources with explicit host trust; ordered inert metadata; checked bounded immediate repository discovery; independently reviewed opt-in eager text trees; other repository variants remain pending |
+| [skill](src/main/scala/com/weisgnosis/agents/harness/skill/README.md) | Bounded inline SKILL.md parsing and selected local UTF-8 resources with explicit host trust; ordered inert metadata; checked bounded immediate repository discovery; independently reviewed opt-in eager text trees; reviewed cold bound local readers; other repository variants remain pending |
 | [memory](src/main/scala/com/weisgnosis/agents/harness/memory/README.md) | Pair-safe compaction, summary/user provenance, token estimation and daily extraction/local storage and atomic in-memory and recoverable local consolidation |
 | [transcript](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md) | Typed observation projection, atomic in-memory linkage, and strict scoped local persistence; remote segments pending |
 | [storage](src/main/scala/com/weisgnosis/agents/harness/storage/README.md) | Internal cooperative scoped ownership shared by memory and transcripts |

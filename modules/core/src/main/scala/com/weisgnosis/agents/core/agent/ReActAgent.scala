@@ -25,7 +25,7 @@ import com.weisgnosis.agents.core.client.{
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
-import com.weisgnosis.agents.core.skill.SkillCatalog
+import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillLibrary}
 import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.core.json.JsonBoundary
 import zio.*
@@ -59,8 +59,10 @@ final class ReActAgent private (
     val modelInputTransform: ModelInputTransform,
     val completionObserver: TurnCompletionObserver,
     val toolGroups: Option[ToolGroups],
-    val skills: SkillCatalog
+    private val skillLibrary: SkillLibrary
 ):
+
+  val skills: SkillCatalog = skillLibrary.catalog
 
   def name: String        = config.name
   def description: String = config.description
@@ -413,7 +415,7 @@ final class ReActAgent private (
 
   final private case class SkillRequest(skillId: String, path: String)
 
-  /** Reads only preloaded text; group visibility is the invocation's existing atomic state. */
+  /** Resolves selected library resources before updating the invocation's atomic group state. */
   private def loadSkill(activation: Ref[ToolGroups]): Tool[Any, SkillRequest, String] =
     new Tool[Any, SkillRequest, String]:
       def definition: ToolDef = ToolDef(
@@ -448,8 +450,8 @@ final class ReActAgent private (
             case _ => Left("Expected exactly skillId and path fields")
 
       def execute(request: SkillRequest): IO[AgentError, String] =
-        ZIO
-          .fromEither(skills.load(request.skillId, request.path))
+        skillLibrary
+          .resolve(request.skillId, request.path)
           .flatMap: resource =>
             activation
               .modify(current =>
@@ -937,7 +939,7 @@ final class ReActAgent private (
 
   /** Runtime-owned request enrichment follows validation of the host's projected history. */
   private def withSkillPrompt(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =
-    val prompt = skills.systemPrompt
+    val prompt = skillLibrary.systemPrompt
     if prompt.isEmpty then Right(history)
     else
       val (before, remaining) = history.span(_.role != Role.System)
@@ -1343,14 +1345,15 @@ object ReActAgent:
       modelInputTransform: ModelInputTransform = ModelInputTransform.identity,
       completionObserver: TurnCompletionObserver = TurnCompletionObserver.ignore,
       toolGroups: Option[ToolGroups] = None,
-      skills: SkillCatalog = SkillCatalog.empty
+      skills: SkillCatalog | SkillLibrary = SkillCatalog.empty
   ): IO[AgentError, ReActAgent] =
     for
-      _        <- ZIO.fromEither(config.validated)
-      _        <- ZIO.fromEither(skills.validateGroups(toolGroups.getOrElse(ToolGroups.empty)))
-      stateRef <- Ref.make(initialHistory)
-      agentId  <- Random.nextUUID.map(_.toString)
-      p        <- Promise.make[Nothing, Unit]
+      _ <- ZIO.fromEither(config.validated)
+      library = SkillLibrary.from(skills)
+      _ <- ZIO.fromEither(library.catalog.validateGroups(toolGroups.getOrElse(ToolGroups.empty)))
+      stateRef              <- Ref.make(initialHistory)
+      agentId               <- Random.nextUUID.map(_.toString)
+      p                     <- Promise.make[Nothing, Unit]
       interruptedPromiseRef <- Ref.make(p)
       runLock               <- Semaphore.make(1)
     yield new ReActAgent(
@@ -1369,7 +1372,7 @@ object ReActAgent:
       modelInputTransform,
       completionObserver,
       toolGroups,
-      skills
+      library
     )
 
   def builder(): Builder = Builder()
@@ -1387,7 +1390,7 @@ object ReActAgent:
       private val _modelInputTransform: ModelInputTransform = ModelInputTransform.identity,
       private val _completionObserver: TurnCompletionObserver = TurnCompletionObserver.ignore,
       private val _toolGroups: Option[ToolGroups] = None,
-      private val _skills: SkillCatalog = SkillCatalog.empty
+      private val _skills: SkillCatalog | SkillLibrary = SkillCatalog.empty
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -1399,11 +1402,11 @@ object ReActAgent:
     def toolExecution(te: ToolExecution): Builder = copy(_config = _config.copy(toolExecution = te))
     def toolkit(tk: Toolkit): Builder             = copy(_toolkit = tk)
     def toolGroups(groups: ToolGroups): Builder   = copy(_toolGroups = Some(groups))
-    def skills(catalog: SkillCatalog): Builder    = copy(_skills = catalog)
-    def model(c: LlmClient): Builder              = copy(_client = Some(c))
-    def client(c: LlmClient): Builder             = copy(_client = Some(c))
-    def llmConfig(c: LlmConfig): Builder          = copy(_llmConfig = c)
-    def initialHistory(h: Chunk[Msg]): Builder    = copy(_initialHistory = h)
+    def skills(catalog: SkillCatalog | SkillLibrary): Builder = copy(_skills = catalog)
+    def model(c: LlmClient): Builder                          = copy(_client = Some(c))
+    def client(c: LlmClient): Builder                         = copy(_client = Some(c))
+    def llmConfig(c: LlmConfig): Builder                      = copy(_llmConfig = c)
+    def initialHistory(h: Chunk[Msg]): Builder                = copy(_initialHistory = h)
 
     def postReasoningHook(hook: PostReasoningHook): Builder = copy(_postReasoningHook = hook)
 

@@ -18,7 +18,7 @@ package com.weisgnosis.agents.harness.subagent
 import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.skill.SkillCatalog
+import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillLibrary}
 import com.weisgnosis.agents.core.tool.{Toolkit, ToolGroups}
 import com.weisgnosis.agents.harness.permission.{InteractivePermissionAuthorizer, PermissionEngine}
 import com.weisgnosis.agents.harness.plan.{
@@ -58,7 +58,7 @@ final class SubagentConstruction private (
     boundary: SubagentToolBoundary,
     parentDenials: Chunk[UIO[PermissionEngine]],
     parentMode: UIO[PlanMode],
-    skills: SkillCatalog,
+    skills: SkillLibrary,
     toolGroups: Option[ToolGroups]
 ):
   /**
@@ -79,7 +79,7 @@ final class SubagentConstruction private (
     val selected = skillSelection match
       case SubagentSkillSelection.AllAvailable => Right(skills)
       case SubagentSkillSelection.Only(ids)    => skills.select(ids)
-    selected.flatMap: catalog =>
+    selected.flatMap: library =>
       SubagentFactory.configured(
         config,
         model,
@@ -96,7 +96,7 @@ final class SubagentConstruction private (
               effectiveBoundary,
               denials :+ permissions.authorizer.policy,
               mode,
-              catalog,
+              library,
               toolGroups
             )
             additions <- ZIO.suspendSucceed(register(descendants, permissions))
@@ -109,7 +109,7 @@ final class SubagentConstruction private (
           yield (additions, authorizer),
         client,
         parentDenials,
-        catalog,
+        library,
         toolGroups
       )
 
@@ -124,7 +124,14 @@ object SubagentConstruction:
       boundary: SubagentToolBoundary,
       parentPolicy: UIO[PermissionEngine],
       parentMode: UIO[PlanMode],
-      skills: SkillCatalog = SkillCatalog.empty,
+      skills: SkillCatalog | SkillLibrary = SkillCatalog.empty,
       toolGroups: Option[ToolGroups] = None
   ): SubagentConstruction =
-    new SubagentConstruction(spawner, boundary, Chunk(parentPolicy), parentMode, skills, toolGroups)
+    new SubagentConstruction(
+      spawner,
+      boundary,
+      Chunk(parentPolicy),
+      parentMode,
+      SkillLibrary.from(skills),
+      toolGroups
+    )

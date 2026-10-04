@@ -19,7 +19,7 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
-import com.weisgnosis.agents.core.skill.SkillCatalog
+import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillLibrary}
 import com.weisgnosis.agents.core.tool.{
   AdmittedToolAccess,
   ToolAuthorization,
@@ -47,7 +47,7 @@ final class SubagentFactory private (
     ) => ZIO[Scope, AgentError, (Toolkit, ToolAuthorizer)],
     client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
     parentDenials: Chunk[UIO[PermissionEngine]],
-    skills: SkillCatalog,
+    skills: SkillLibrary,
     toolGroups: Option[ToolGroups]
 ):
   def narrowed(child: SubagentToolBoundary): SubagentFactory =
@@ -85,12 +85,16 @@ final class SubagentFactory private (
   /** The caller must retain this Scope for the returned runtime's resource lifetime. */
   def build(child: SubagentSpawner[AgentResult]): ZIO[Scope, AgentError, ReActAgent] =
     for
-      _ <- ZIO.fromEither(SubagentFactory.validateRuntimeControls(boundary, skills, toolGroups))
+      _ <- ZIO.fromEither(
+        SubagentFactory.validateRuntimeControls(boundary, skills.catalog, toolGroups)
+      )
       prepared <- ZIO.suspendSucceed(prepare(child, boundary, parentDenials))
       (additions, authorizer) = prepared
       toolkit <- ZIO.fromEither(boundary.assemble(inherited, additions))
-      _       <- ZIO.fromEither(SubagentFactory.checkControlCollisions(toolkit, skills, toolGroups))
-      llm     <- ZIO.suspendSucceed(client(child))
+      _ <- ZIO.fromEither(
+        SubagentFactory.checkControlCollisions(toolkit, skills.catalog, toolGroups)
+      )
+      llm <- ZIO.suspendSucceed(client(child))
       runtime <- ReActAgent.make(
         config = config,
         toolkit = toolkit,
@@ -137,7 +141,7 @@ object SubagentFactory:
       register: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, Toolkit],
       client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
       authorizer: ToolAuthorizer,
-      skills: SkillCatalog = SkillCatalog.empty,
+      skills: SkillCatalog | SkillLibrary = SkillCatalog.empty,
       toolGroups: Option[ToolGroups] = None
   ): Either[AgentError, SubagentFactory] =
     configured(
@@ -164,12 +168,13 @@ object SubagentFactory:
       ) => ZIO[Scope, AgentError, (Toolkit, ToolAuthorizer)],
       client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
       parentDenials: Chunk[UIO[PermissionEngine]],
-      skills: SkillCatalog = SkillCatalog.empty,
+      skills: SkillCatalog | SkillLibrary = SkillCatalog.empty,
       toolGroups: Option[ToolGroups] = None
   ): Either[AgentError, SubagentFactory] =
     for
       valid <- config.validated
-      _     <- validateRuntimeControls(boundary, skills, toolGroups)
+      library = SkillLibrary.from(skills)
+      _ <- validateRuntimeControls(boundary, library.catalog, toolGroups)
     yield new SubagentFactory(
       valid,
       model,
@@ -178,7 +183,7 @@ object SubagentFactory:
       prepare,
       client,
       parentDenials,
-      skills,
+      library,
       toolGroups
     )
 

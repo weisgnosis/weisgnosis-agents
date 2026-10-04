@@ -58,3 +58,5 @@ Tool.encodeResult preserves String/Success behavior by default and permits typed
 The core runtime retains canonical history and scoped completion authority. Result processing, authorization, history preparation, request projection and completion observers are explicit ports; hosts install harness adapters. Durable replay and authenticated resumption are not core runtime guarantees. Deprecated upstream v1 event envelopes remain excluded; typed events are authoritative.
 
 Approval covers recorded revisions and named contracts, not unreviewed working-tree changes or exhaustive parity.
+
+- [x] Both independent reviewers approved [exact deferred skill capabilities](src/main/scala/com/weisgnosis/agents/core/skill/README.md#deferred-resource-capabilities), authorized scoped resolution before activation and logical-name prompt projection.

@@ -19,7 +19,13 @@ import com.weisgnosis.agents.core.client.*
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role, ToolResultState}
-import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
+import com.weisgnosis.agents.core.skill.{
+  SkillCatalog,
+  SkillDefinition,
+  SkillLibrary,
+  SkillResourceKey,
+  SkillResourceReader
+}
 import com.weisgnosis.agents.core.tool.*
 import zio.*
 import zio.json.*
@@ -137,6 +143,145 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
     yield result
 
   def spec: Spec[TestEnvironment, Any] = suite("ReActAgentToolGroupsSpec")(
+    test(
+      "deferred skill reads follow authorization and successful cleanup before group activation"
+    ):
+      ZIO.scoped:
+        val failure = AgentError.InvalidConfiguration("deferred read failed")
+        val defect  = new IllegalStateException("deferred cleanup failed")
+        for
+          configured <- groups
+          defaults   <- ZIO.fromEither(configured.replaceMetaActive(Set.empty))
+          catalog <- ZIO.fromEither(
+            SkillCatalog.make(
+              Chunk(
+                SkillDefinition("selected", "Selected", "Instructions", activateGroups = Set("a"))
+              )
+            )
+          )
+          order <- Ref.make(Chunk.empty[String])
+          library <- ZIO.fromEither(
+            SkillLibrary.make(
+              catalog,
+              Map(
+                SkillResourceKey("selected", "denied") -> SkillResourceReader(
+                  order.update(_ :+ "unexpected").as("Denied text")
+                ),
+                SkillResourceKey("selected", "failure") -> SkillResourceReader(
+                  ZIO.acquireRelease(order.update(_ :+ "read failure"))(_ =>
+                    order.update(_ :+ "close failure")
+                  ) *> ZIO.fail(failure)
+                ),
+                SkillResourceKey("selected", "cleanup") -> SkillResourceReader(
+                  ZIO
+                    .acquireRelease(order.update(_ :+ "read cleanup"))(_ =>
+                      order.update(_ :+ "close cleanup") *> ZIO.die(defect)
+                    )
+                    .as("Not activated")
+                ),
+                SkillResourceKey("selected", "success") -> SkillResourceReader(
+                  ZIO
+                    .acquireRelease(order.update(_ :+ "read success"))(_ =>
+                      order.update(_ :+ "close success")
+                    )
+                    .as("Loaded text")
+                )
+              )
+            )
+          )
+          executed <- Ref.make(Chunk.empty[(String, Json)])
+          base     <- toolkit(executed)
+          requests <- Ref.make(Chunk.empty[Request])
+          model = recording(requests)((index, _) =>
+            ZIO.succeed(
+              Chunk("denied", "failure", "cleanup", "success")
+                .lift(index)
+                .fold(finish)(path => calls(call(path, loadSkill, resource("selected", path))))
+            )
+          )
+          agent <- ReActAgent.make(
+            client = model,
+            toolkit = base,
+            toolGroups = Some(defaults),
+            skills = library,
+            toolAuthorizer = ToolAuthorizer(request =>
+              order
+                .update(_ :+ s"authorize ${request.call.id}")
+                .as(
+                  if request.call.id == "denied" then ToolAuthorization.Denied("No read")
+                  else ToolAuthorization.Approved(request.call.input)
+                )
+            )
+          )
+          result   <- agent.run(Msg.user("load"))
+          observed <- requests.get
+          events   <- order.get
+          started  <- Promise.make[Nothing, Unit]
+          cleaning <- Promise.make[Nothing, Unit]
+          release  <- Promise.make[Nothing, Unit]
+          cancelLibrary <- ZIO.fromEither(
+            SkillLibrary.make(
+              catalog,
+              Map(
+                SkillResourceKey("selected", "cancel") -> SkillResourceReader(
+                  ZIO.acquireRelease(ZIO.unit)(_ =>
+                    cleaning.succeed(()) *> release.await *> ZIO.die(defect)
+                  ) *>
+                    started.succeed(()) *> ZIO.never
+                )
+              )
+            )
+          )
+          cancelRequests <- Ref.make(Chunk.empty[Request])
+          cancelAgent <- ReActAgent.make(
+            client = recording(cancelRequests)((_, _) =>
+              ZIO.succeed(calls(call("cancel", loadSkill, resource("selected", "cancel"))))
+            ),
+            toolkit = base,
+            toolGroups = Some(defaults),
+            skills = cancelLibrary
+          )
+          cancellation <- (for
+            running       <- cancelAgent.run(Msg.user("cancel read")).forkScoped
+            _             <- started.await
+            stopping      <- running.interrupt.forkScoped
+            _             <- cleaning.await
+            pending       <- stopping.poll
+            _             <- release.succeed(())
+            cancelled     <- stopping.join
+            cancelHistory <- cancelAgent.history
+            sent          <- cancelRequests.get
+          yield assertTrue(
+            pending.isEmpty,
+            cancelled.isInterrupted,
+            cancelled.causeOption.exists(_.defects == List(defect)),
+            sent.size == 1,
+            cancelHistory.flatMap(_.toolResults).map(_.state) == Chunk(ToolResultState.Error)
+          )).ensuring(release.succeed(()).unit)
+        yield assertTrue(
+          result.history.flatMap(_.toolResults).map(_.state) == Chunk(
+            ToolResultState.Denied,
+            ToolResultState.Error,
+            ToolResultState.Error,
+            ToolResultState.Success
+          ),
+          result.history.flatMap(_.toolResults).lastOption.exists(_.outputText == "Loaded text"),
+          observed.map(_.tools.exists(_.name == "a")) == Chunk(false, false, false, false, true),
+          observed.forall(_.history.exists(_.text.contains(library.systemPrompt))),
+          events == Chunk(
+            "authorize denied",
+            "authorize failure",
+            "read failure",
+            "close failure",
+            "authorize cleanup",
+            "read cleanup",
+            "close cleanup",
+            "authorize success",
+            "read success",
+            "close success"
+          )
+        ) && cancellation
+    ,
     test("skill catalogue enriches validated model views without changing canonical history"):
       val system = Msg.system(
         Chunk(ContentBlock.Text("First block"), ContentBlock.Text("Second block")),

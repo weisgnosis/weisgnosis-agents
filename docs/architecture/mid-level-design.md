@@ -14,7 +14,8 @@ The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Selected skill catalogue text enriches model requests after validated host projection, preserving canonical history and activation.
 - [x] Both reviewers approved bounded eager text-tree resource discovery; documents-only defaults and runtime authority remain unchanged, and full verification passed.
-- [ ] Next: preflight/design bounded host-selected lazy resource resolution; no lazy API is accepted. Durable integration remains unfinished.
+- [x] `registry_contract` and `current_docs` approved exact host-bound deferred readers, scoped runtime resolution and monotone child selection; full verification passed. Current ten-file identities are recorded in the core skill/runtime and harness skill/subagent contracts.
+- [ ] Next: install child-owned Plan tools and request-only context through declared/general-purpose factories; retain live ancestor restrictions and independent review. Durable integration remains unfinished.
 - [x] MCP grouped registration provides coherent Ready-only toolkit/membership snapshots; the host explicitly installs both fields into ReAct.
 - [x] Preloaded skill resources activate explicit Meta groups through ordinary authorized runtime loading, with no filesystem or repository capability.
 - [ ] Full child Plan tool/prompt installation and ambient metadata propagation, caching and schema evaluation remain separate integrations; real expiry/truncation interoperability remains unverified.

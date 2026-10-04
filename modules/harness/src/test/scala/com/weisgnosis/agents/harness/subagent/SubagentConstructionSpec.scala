@@ -19,7 +19,13 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ToolExecution
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
-import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
+import com.weisgnosis.agents.core.skill.{
+  SkillCatalog,
+  SkillDefinition,
+  SkillLibrary,
+  SkillResourceKey,
+  SkillResourceReader
+}
 import com.weisgnosis.agents.core.tool.{
   Tool,
   ToolDef,
@@ -153,11 +159,11 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
       "nested skill catalogues narrow content while activation preserves filtered fixed-policy tools"
     ) {
       val loader = SkillCatalog.LoadToolName
-      def load(id: String, skill: String): ContentBlock.ToolUse =
+      def load(id: String, skill: String, path: String): ContentBlock.ToolUse =
         ContentBlock.ToolUse(
           id,
           loader,
-          Json.Obj("skillId" -> Json.Str(skill), "path" -> Json.Str("SKILL.md"))
+          Json.Obj("skillId" -> Json.Str(skill), "path" -> Json.Str(path))
         )
       for
         supervisor <- TaskSupervisor.open[AgentResult]
@@ -169,6 +175,19 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
               SkillDefinition("second", "Second", "Second text"),
               SkillDefinition("omitted", "Omitted", "Hidden text")
             )
+          )
+        )
+        reads <- Ref.make(Chunk.empty[String])
+        library <- ZIO.fromEither(
+          SkillLibrary.make(
+            catalog,
+            Chunk("first", "second", "omitted")
+              .map(id =>
+                SkillResourceKey(id, "guide.txt") -> SkillResourceReader(
+                  reads.update(_ :+ id).as(s"Lazy $id")
+                )
+              )
+              .toMap
           )
         )
         groups <- ZIO.fromEither(
@@ -208,7 +227,7 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
           SubagentToolBoundary(denied = Set("filtered")),
           ZIO.succeed(PermissionEngine()),
           ZIO.succeed(PlanMode.Plan),
-          catalog,
+          library,
           Some(groups)
         )
         initialize = permissions(allow, Map.empty).map(
@@ -265,8 +284,8 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
                             TurnOutput.ToolCalls(
                               Msg.assistant(
                                 Chunk(
-                                  load("excluded", "second"),
-                                  load("loaded", "first"),
+                                  load("excluded", "second", "guide.txt"),
+                                  load("loaded", "first", "guide.txt"),
                                   ContentBlock.ToolUse("too-soon", "probe", Json.Obj())
                                 )
                               )
@@ -317,7 +336,7 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
                       TurnOutput.ToolCalls(
                         Msg.assistant(
                           Chunk(
-                            load("child-load", "second"),
+                            load("child-load", "second", "guide.txt"),
                             ContentBlock.ToolUse("delegate", "delegate", Json.Obj())
                           )
                         )
@@ -340,6 +359,7 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
         actual        <- executed.get
         grandchildren <- results.get
         rejected      <- widening.get
+        resourceReads <- reads.get
         grandDefinitions = observed.collect { case ("grandchild", definitions) => definitions }
       yield assertTrue(
         unknown.isLeft,
@@ -374,6 +394,13 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
         ),
         actual == Chunk.fill(2)(Json.Obj("tenant" -> Json.Str("host"))),
         rejected == Chunk(true, true),
+        resourceReads == Chunk("second", "first", "first"),
+        grandchildren.forall(
+          _.history
+            .flatMap(_.toolResults)
+            .find(_.id == "loaded")
+            .exists(_.outputText == "Lazy first")
+        ),
         groups.activeNames.isEmpty,
         catalog.definitions.map(_.id) == Chunk("first", "omitted", "second")
       )

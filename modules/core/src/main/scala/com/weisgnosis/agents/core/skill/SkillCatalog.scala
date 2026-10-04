@@ -39,7 +39,9 @@ final class SkillCatalog private (entries: Map[String, SkillDefinition]):
   def isEmpty: Boolean = entries.isEmpty
 
   /** Request-only discovery text; omits bodies, metadata and activation targets. */
-  def systemPrompt: String =
+  def systemPrompt: String = renderSystemPrompt(Map.empty)
+
+  private[skill] def renderSystemPrompt(additional: Map[String, Set[String]]): String =
     if isEmpty then ""
     else
       val visible = definitions.map: skill =>
@@ -47,7 +49,9 @@ final class SkillCatalog private (entries: Map[String, SkillDefinition]):
           "id"          -> Json.Str(skill.id),
           "description" -> Json.Str(skill.description),
           "resources" -> Json.Arr(
-            (Chunk("SKILL.md") ++ Chunk.fromIterable(skill.resources.keys.toList.sorted))
+            (Chunk("SKILL.md") ++ Chunk.fromIterable(
+              (skill.resources.keySet ++ additional.getOrElse(skill.id, Set.empty)).toList.sorted
+            ))
               .map(Json.Str(_))
           )
         )
@@ -169,7 +173,7 @@ object SkillCatalog:
       )
       .map(entries => new SkillCatalog(entries))
 
-  private def validPath(path: String): Boolean =
+  private[skill] def validPath(path: String): Boolean =
     path.trim.nonEmpty && !path.exists(character =>
       character == '\\' || character == ':' || Character.isISOControl(character)
     ) &&
