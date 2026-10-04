@@ -20,7 +20,7 @@ import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.AgentEvent
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
-import com.weisgnosis.agents.core.tool.{ToolAuthorizer, Toolkit}
+import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorizer, ToolDef, ToolInvocation, Toolkit}
 import zio.*
 import zio.json.ast.Json
 import zio.test.*
@@ -140,6 +140,114 @@ object SubagentForwardingSpec extends ZIOSpecDefault:
         childToolEnds.size == 1
       )
     },
+    test("parent cancellation delivers the child's final lifecycle event to a retained observer"):
+      for
+        supervisor  <- TaskSupervisor.open[AgentResult]
+        root        <- SubagentSpawner.root(supervisor)
+        entered     <- Promise.make[Nothing, Unit]
+        cleaning    <- Promise.make[Nothing, Unit]
+        release     <- Promise.make[Nothing, Unit]
+        cleaned     <- Ref.make(false)
+        parentFiber <- Promise.make[Nothing, Fiber.Runtime[AgentError, AgentResult]]
+        requests    <- Ref.make(0)
+        observed    <- Ref.make(Chunk.empty[AgentEvent])
+        child <- configured(
+          "cancelled-child",
+          _ => ZIO.succeed(Toolkit.empty),
+          ZIO.succeed(
+            LlmClient.mockEffectful((_, _, _) =>
+              ZIO.acquireRelease(entered.succeed(()))(_ =>
+                cleaning.succeed(()) *> release.await *> cleaned.set(true)
+              ) *> ZIO.never
+            )
+          )
+        )
+        registry <- SubagentTaskRegistry.open(root, child)
+        parent <- ReActAgent.make(
+          client = model("parent", Some(invoke("agent_spawn", "child work")), requests),
+          toolkit = SubagentTools.make(registry)
+        )
+        relay = new Tool[Any, Json, String]:
+          def definition: ToolDef =
+            ToolDef("observe_parent", "Retain parent event delivery", Json.Obj())
+          def decodeInput(raw: Json): Either[String, Json] = Right(raw)
+          def encodeOutput(output: String): String         = output
+          def execute(input: Json): IO[AgentError, String] =
+            executeWithContext(input, ToolInvocation.Detached)
+          override def executeWithContext(
+              input: Json,
+              invocation: ToolInvocation
+          ): IO[AgentError, String] =
+            invocation match
+              case ToolInvocation.Detached =>
+                ZIO.fail(
+                  AgentError.InvalidConfiguration("The observer requires an active invocation")
+                )
+              case ToolInvocation.Active(_, _, _, destination) =>
+                ZIO.scoped:
+                  for
+                    fiber <- parent
+                      .runForwarding(Msg.user(input.toString), destination, "parent")
+                      .forkScoped
+                    _ <- parentFiber.succeed(fiber)
+                    // Retain this observer independently of the interrupted parent execution.
+                    _ <- fiber.await
+                  yield "parent joined"
+        observer <- ReActAgent.make(
+          client = model("observer complete", Some(invoke("observe_parent", "work")), requests),
+          toolkit = Toolkit(Map("observe_parent" -> relay))
+        )
+        assertion <- ZIO.scoped:
+          (for
+            collecting <- observer
+              .streamEvents(Msg.user("observe"))
+              .tap(event => observed.update(_ :+ event))
+              .runCollect
+              .forkScoped
+            _       <- entered.await
+            running <- parentFiber.await
+            task <- registry.list.flatMap:
+              case Chunk(value) => ZIO.succeed(value.id)
+              case _ => ZIO.fail(AgentError.InvalidConfiguration("Expected one running child"))
+            stopping        <- running.interrupt.forkScoped
+            _               <- cleaning.await
+            pending         <- stopping.poll
+            before          <- observed.get
+            _               <- release.succeed(())
+            cancelled       <- stopping.join
+            events          <- collecting.join
+            terminal        <- registry.await(task)
+            finishedCleanup <- cleaned.get
+            childSource = s"parent/${task.value}"
+            starts = events.collect:
+              case event: AgentEvent.AgentStartEvent if event.source.contains(childSource) => event
+            ends = events.collect:
+              case event: AgentEvent.AgentEndEvent if event.source.contains(childSource) => event
+            nestedEnds = events.collect:
+              case event: AgentEvent.AgentEndEvent
+                  if event.source.exists(source => source == childSource || source == "parent") =>
+                event.source
+          yield assertTrue(
+            pending.isEmpty,
+            !before.exists {
+              case event: AgentEvent.AgentEndEvent => event.source.contains(childSource)
+              case _                               => false
+            },
+            cancelled.isInterrupted,
+            terminal.exists(_.isInterrupted),
+            finishedCleanup,
+            starts.size == 1 && ends.size == 1,
+            starts.headOption.exists(start =>
+              start.replyId.nonEmpty && ends.headOption.exists(_.replyId == start.replyId)
+            ),
+            nestedEnds == Chunk(Some(childSource), Some("parent")),
+            events.lastOption.exists {
+              case event: AgentEvent.AgentEndEvent => event.source.isEmpty
+              case _                               => false
+            }
+          )).ensuring(release.succeed(()).unit)
+      yield assertion
+    ,
     test("promotion closes the parent invocation lease while the retained child finishes once") {
       for
         supervisor  <- TaskSupervisor.open[AgentResult]
