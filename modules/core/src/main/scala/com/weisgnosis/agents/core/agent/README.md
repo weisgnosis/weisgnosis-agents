@@ -95,11 +95,13 @@ Final-delta suppression is local to each execution occurrence, including repeate
 
 ## Current typed-result acceptance
 
-The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [supplied results](#supplied-results-for-suspended-batches); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
+The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [result-bearing streams](#result-bearing-streams); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
 
 - [x] `path_review` and `current_docs` approved typed local result publication within the linked tool acceptance; full repository verification passed with no warnings or failures.
 
 ## Result-bearing streams
+
+The additive `streamResumeWithResult(results = Chunk.empty)` and `streamResumeEvents(results = Chunk.empty)` APIs resume the same saved execution through the shared stream lifecycle. They are lazy: checkpoint validation and claim occur only when consumed, under the same run lock as direct resume. Both use the existing stream owner, single event forwarder and terminal delivery path; event-only projection does not execute another run. Supplied-result validation failure leaves the checkpoint available and starts no completion observation. Successful resumed delivery preserves saved tool context and ends with exactly one Result after AgentEnd and joined cleanup. Fully consumed failures preserve the complete Cause; early consumers join owned cleanup but abandon later output.
 
 `streamWithResult(messages)` emits [AgentRunUpdate](AgentRunUpdate.scala).Event values followed by exactly one Result containing the complete AgentResult after successful invocation and scoped cleanup. `streamStructuredWithResult[A](messages, schema, mode = Auto)` retains the same result together with the validated decoded A. Single-message overloads are available. Event-only APIs project Event values from the same execution; there is no second model call or result reconstruction.
 
@@ -107,14 +109,15 @@ All events precede Result, including the terminal AgentEnd. Result preserves his
 
 Early consumers cancel and join owned execution but abandon later output, including later completion-observer errors. Existing unbounded delivery buffers provide neither backpressure nor replay. This additive execution envelope has no wire codec and changes no AgentEvent payload or constructor. The separately reviewed [invocation event capability](../tool/README.md#invocation-event-capability) grants scoped publication to approved local tools; harness child forwarding has separate acceptance, while delivery after promotion remains pending.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the exact identities below, with no remaining findings. Three grouped tests verify full ordinary/structured values, cooperative Interrupted state, terminal ordering, mixed causes and joined early/external cancellation. Required formatting, fatal-warning compilation and full verification passed: `agent-run-update-verify.log`; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the three changed identities below, with no remaining findings. Full `scalafmtAll scalafmtSbt verify` passed in `resumed-streams-verify.log`, with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Focused `resumed-streams-green.log` passed 35 core tests in 733 ms and five harness tests in 420 ms. Two new core groups verify lazy resume, supplied-result correlation, full observer failure causes and joined early/cancelled consumers; one harness table verifies custom/default denial text, ordered original-context events and no local execution.
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [AgentRunUpdate.scala](AgentRunUpdate.scala) | `e441b9614dba3364da17b6b4780c3a6fae002396` |
-| [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | `20b296b5e3c6430eab21f3124b8fd49bd1acc6a0` |
+| [ReActAgent.scala](ReActAgent.scala) | 8198d0593e3afe0bbae2087cf0289b5a77300c60 |
+| [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 8e28a12574d17faab954663516b2fb9529de34e5 |
+| [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | e8270b178be3f6d4dd90868be6555025bac07939 |
 
-The stream table records its reviewed baseline. Current ReActAgent identity and verification are recorded under [scoped model failover](#scoped-model-failover). The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
+[AgentRunUpdate.scala](AgentRunUpdate.scala) retains its accepted identity `e441b9614dba3364da17b6b4780c3a6fae002396`; its ADT and codec policy are unchanged. Existing ordinary/structured scenarios retain full-value, cooperative interruption and terminal ordering coverage. The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
 
 ## Direct event forwarding
 
@@ -251,7 +254,8 @@ The declaration is serialized with LlmConfig but excluded from the HTTP request 
 - [x] Review and verify before-acting suspension/restoration.
 - [x] Integrate the host-selected [complete-batch ConfirmResult adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) with restored checkpoints.
 - [x] Integrate checked external partial results with an original-ordinal completion ledger.
-- [ ] Expose resumed event streams through the shared run/stream lifecycle; partial human approvals, durable host persistence and broader harness middleware remain separate.
+- [x] Expose resumed result/event streams through the shared run/stream lifecycle.
+- [ ] Integrate partial human confirmations; durable host persistence and broader harness middleware remain separate.
 
 The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes verified contracts from remaining scenarios. General JSON Schema validation and exhaustive provider compatibility are not claimed.
 
@@ -308,12 +312,12 @@ Migration: PendingActing appends default-empty suppliedResults, preserving old m
 | File | Reviewed Git blob |
 | --- | --- |
 | [PendingActing.scala](PendingActing.scala) | c2a2589c40b611f1d63ad9b294073d82fc49278e |
-| [ReActAgent.scala](ReActAgent.scala) | 563dcf6d95158a127e6c8302dfc0fb8e0f5a7796 |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](#result-bearing-streams) |
 | [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
 | [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
 | [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | 544ba0673471232ce7fa0b45fc88e002a887b917 |
 | [ConfirmedBatchAuthorizer.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizer.scala) | 0cd496a11133b1ec093392c4bb9d19153bec7c8d |
-| [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | d21210cd749e36703536e4a5dd370f607816ac68 |
+| [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current identity](#result-bearing-streams) |
 
 - [ ] Integrate partial human confirmations and host-managed side-effect idempotency separately.
 
@@ -378,7 +382,7 @@ Appending the optional make argument preserves ordinary callers; positional Buil
 
 ## Current history-preparation identities
 
-Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [supplied results](#supplied-results-for-suspended-batches); unchanged components follow:
+Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [result-bearing streams](#result-bearing-streams); unchanged components follow:
 
 | File | Git blob |
 | --- | --- |
@@ -467,7 +471,7 @@ Migration: the optional constructor/builder dependency is additive, but position
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-The current ReActAgent identity is recorded under [supplied results](#supplied-results-for-suspended-batches); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
+The current ReActAgent identity is recorded under [result-bearing streams](#result-bearing-streams); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
 
 ## Current completion-observer identities
 

@@ -533,8 +533,8 @@ Pinned source: `agentscope-core/src/test/java/io/agentscope/core/legacy/hook/Hoo
 Pinned `agentscope-core/src/test/java/io/agentscope/core/agent/ReActAgentHitlTest.java` supplies the following bounded mappings. Both final reviews and `confirmed-batch-verify.log` passed; exact identities and the stale-policy regression are in the [batch contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations).
 
 - [x] `pendingToolRecoveryPreservesModifiedArgumentsFromConfirmation` (640): ConfirmedBatchAuthorizerSpec verifies actual modified input and exact persisted call inputs after restored sequential/parallel execution, without re-requesting saved tool calls. Complete original-ordinal confirmations and explicit host restoration replace Java confirmation messages and recovery flags; partial approvals are excluded.
-- [ ] `deniedConfirmResultWithCustomReasonWritesReasonToContext` (838) and `deniedConfirmResultWithoutReasonKeepsDefaultText` (909): preserve explicit denial text and the local default. The established local default is "Tool execution declined", intentionally different from Java's "Permission denied by user".
-- [ ] `deniedConfirmResultOnResumeEmitsToolResultEventTriple` (870): requires resumed Start/Delta/End identity, order and denial text; existing interactive-invocation evidence alone does not close this method.
+- [x] `deniedConfirmResultWithCustomReasonWritesReasonToContext` (838) and `deniedConfirmResultWithoutReasonKeepsDefaultText` (909): ConfirmedBatchAuthorizerSpec restores a checkpoint and directly checks Denied history with exact custom/default text, no local execution and one follow-up model request. The established local default is "Tool execution declined", intentionally different from Java's "Permission denied by user".
+- [x] `deniedConfirmResultOnResumeEmitsToolResultEventTriple` (870): the same resumed-stream table asserts exact Start/Delta/End order, original model context, call identity, denial text and Denied state. The [three-file stream acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#result-bearing-streams) records final reviews and full verification. Explicit core restore and streamResumeEvents replace Java confirmation-message injection; approval envelope events are not claimed.
 - [ ] `confirmResultsMayCoverSomeAskingToolCalls` (511): partial confirmation remains outside the complete-batch adapter.
 
 ## ToolResultEvictionMiddlewareTest: seven methods
@@ -561,7 +561,7 @@ The core ToolAuthorizer port provides scoped approval/denial before local dispat
 
 - [x] Independently review the core authorization port and fifteen local tests; verify 481 core / 45 harness tests. No two-call confirmation method is marked covered by this narrower scope.
 - [x] Map ReActAgentHitlTest.pendingToolRecoveryPreservesModifiedArgumentsFromConfirmation through the bounded restored-batch evidence above; host persistence remains external.
-- [ ] Map deniedConfirmResultWithCustomReasonWritesReasonToContext, deniedConfirmResultWithoutReasonKeepsDefaultText, and deniedConfirmResultOnResumeEmitsToolResultEventTriple after durable confirmation handling; interactive denial events are shared behavioral evidence only.
+- [x] Map the three denial history/event methods through the direct restored-stream evidence above; host persistence remains external.
 - [ ] Integrate and map partial confirmations and mixed-batch permission event ordering with restored checkpoints. Full-batch core restoration retains reply identity; interactive approval scopes still remain within one active invocation.
 
 ## Interactive permission adaptation
@@ -572,8 +572,8 @@ The opt-in harness adapter adds sixteen tests and runs within one active invocat
 - [x] Preserve custom denial reasons and emit exact correlated Start/Delta/End ordering with matching identity/text/state; no denied tool executes.
 - [x] Retain the Scala default decline text, "Tool execution declined". Upstream expects "Permission denied by user"; this is an explicit text difference.
 - [x] Recheck both gates against modified arguments and latest policy, merge parallel rule additions, isolate repeated call IDs, and clean cancelled waiters.
-- [ ] Complete deniedConfirmResultWithCustomReasonWritesReasonToContext, deniedConfirmResultWithoutReasonKeepsDefaultText, and deniedConfirmResultOnResumeEmitsToolResultEventTriple: their two-call pause/resume protocol is not implemented by this active-invocation adapter.
-- [ ] Complete durable partial confirmations, persisted reply-ID recovery, automatic denied-batch ordering before approval notices, authenticated transport, and exhaustive permission mode/rule parity.
+- [x] The separate restored checkpoint adapter and resumed-stream tests establish bounded mappings for the three denial history/event methods above; this interactive adapter still operates within one invocation.
+- [ ] Complete partial human confirmations, automatic denied-batch ordering before approval notices, authenticated transport, durable host persistence and exhaustive permission mode/rule parity. Core checkpoint restoration already retains the saved reply context.
 
 The adapter publishes a narrow ToolAuthorizationRequest callback, not upstream approval event envelopes. Confirmed policy updates are independent of later core validation/execution; tests explicitly retain rules after a signed-input denial. External gate changes and post-decision revocation are not transactional guarantees.
 

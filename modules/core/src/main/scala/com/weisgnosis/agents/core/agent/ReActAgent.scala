@@ -103,32 +103,54 @@ final class ReActAgent private (
   def resume(results: Chunk[SuppliedToolResult]): ZIO[Scope, AgentError, AgentResult] =
     runLock.withPermit:
       for
-        saved <- pendingRef.get.someOrFail(
-          AgentError.InvalidConfiguration("No suspended batch is available")
-        )
-        result     <- ZIO.fromEither(PendingActing.withResults(saved, results))
-        checkpoint <- ZIO.fromEither(validateCheckpoint(result))
-        history    <- stateRef.get
-        _ <- ZIO
-          .fail(AgentError.InvalidConfiguration("Suspended history has changed"))
-          .unless(history == result.history)
-        runTools <- restoredRunTools(checkpoint)
+        prepared <- prepareResume(results)
         resumed <- observeInvocation(complete =>
           ZIO.scoped:
             for
               hub   <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-              usage <- Ref.make(result.usage)
-              value <- runWithHub(
-                RunEntry.Resume(result, checkpoint),
-                hub,
-                runTools,
-                usage,
-                complete,
-                llmConfig.copy(responseFormat = checkpoint.responseFormat)
-              )(value => ZIO.succeed((value, ())))
-            yield value._1
+              value <- runResumeWithHub(prepared, hub, complete)
+            yield value
         )
       yield resumed
+
+  final private case class PreparedResume(
+      result: AgentResult,
+      checkpoint: PendingActing,
+      tools: RunTools
+  )
+
+  /** Validates under the caller's run lock without claiming or publishing the checkpoint. */
+  private def prepareResume(results: Chunk[SuppliedToolResult]): IO[AgentError, PreparedResume] =
+    for
+      saved <- pendingRef.get.someOrFail(
+        AgentError.InvalidConfiguration("No suspended batch is available")
+      )
+      result     <- ZIO.fromEither(PendingActing.withResults(saved, results))
+      checkpoint <- ZIO.fromEither(validateCheckpoint(result))
+      history    <- stateRef.get
+      _ <- ZIO
+        .fail(AgentError.InvalidConfiguration("Suspended history has changed"))
+        .unless(history == result.history)
+      tools <- restoredRunTools(checkpoint)
+    yield PreparedResume(result, checkpoint, tools)
+
+  private def runResumeWithHub(
+      prepared: PreparedResume,
+      hub: Hub[AgentEvent],
+      complete: AgentResult => IO[AgentError, Unit]
+  ): ZIO[Scope, AgentError, AgentResult] =
+    Ref
+      .make(prepared.result.usage)
+      .flatMap(usage =>
+        runWithHub(
+          RunEntry.Resume(prepared.result, prepared.checkpoint),
+          hub,
+          prepared.tools,
+          usage,
+          complete,
+          llmConfig.copy(responseFormat = prepared.checkpoint.responseFormat)
+        )(value => ZIO.succeed((value, ()))).map(_._1)
+      )
 
   private def requireFreshRun: IO[AgentError.InvalidConfiguration, Unit] =
     pendingRef.get.flatMap(pending =>
@@ -389,10 +411,29 @@ final class ReActAgent private (
   def streamWithResult(
       messages: Chunk[Msg]
   ): ZStream[Scope, AgentError, AgentRunUpdate[AgentResult]] =
-    streamRun((hub, complete) => runOrdinaryWithHub(messages, hub, complete))
+    streamRun(hub =>
+      requireFreshRun *> observeInvocation(complete =>
+        ZIO.scoped(runOrdinaryWithHub(messages, hub, complete))
+      )
+    )
 
   def streamWithResult(message: Msg): ZStream[Scope, AgentError, AgentRunUpdate[AgentResult]] =
     streamWithResult(Chunk(message))
+
+  /** Lazily resumes one checkpoint with the same delivery and cleanup contract as streamWithResult. */
+  def streamResumeWithResult(
+      results: Chunk[SuppliedToolResult] = Chunk.empty
+  ): ZStream[Scope, AgentError, AgentRunUpdate[AgentResult]] =
+    streamRun(hub =>
+      prepareResume(results).flatMap(prepared =>
+        observeInvocation(complete => ZIO.scoped(runResumeWithHub(prepared, hub, complete)))
+      )
+    )
+
+  def streamResumeEvents(
+      results: Chunk[SuppliedToolResult] = Chunk.empty
+  ): ZStream[Scope, AgentError, AgentEvent] =
+    streamResumeWithResult(results).collect { case AgentRunUpdate.Event(event) => event }
 
   /** The terminal value retains both the complete result and its validated structured value. */
   def streamStructuredWithResult[A: JsonCodec](
@@ -400,7 +441,11 @@ final class ReActAgent private (
       schema: Json,
       mode: StructuredMode = StructuredMode.Auto
   ): ZStream[Scope, AgentError, AgentRunUpdate[(AgentResult, A)]] =
-    streamRun((hub, complete) => runStructuredWithHub[A](messages, schema, mode, hub, complete))
+    streamRun(hub =>
+      requireFreshRun *> observeInvocation(complete =>
+        ZIO.scoped(runStructuredWithHub[A](messages, schema, mode, hub, complete))
+      )
+    )
 
   def streamStructuredWithResult[A: JsonCodec](
       message: Msg,
@@ -429,7 +474,7 @@ final class ReActAgent private (
     streamStructuredEvents[A](Chunk(message), schema, StructuredMode.Auto)
 
   private def streamRun[A](
-      runEffect: (Hub[AgentEvent], AgentResult => IO[AgentError, Unit]) => ZIO[Scope, AgentError, A]
+      runEffect: Hub[AgentEvent] => ZIO[Scope, AgentError, A]
   ): ZStream[Scope, AgentError, AgentRunUpdate[A]] =
     ZStream.unwrapScoped {
       for
@@ -445,11 +490,7 @@ final class ReActAgent private (
         _ <- ZIO.uninterruptibleMask { restore =>
           for
             exit <- restore(
-              runLock.withPermit(
-                requireFreshRun *> observeInvocation(complete =>
-                  ZIO.scoped(runEffect(hub, complete))
-                )
-              )
+              runLock.withPermit(runEffect(hub))
             ).exit
             _ <- drain
             _ <- exit match

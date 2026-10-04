@@ -19,7 +19,7 @@ import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.AgentEvent
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role}
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolExecutionResult, Toolkit}
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -36,6 +36,8 @@ object AgentRunUpdateSpec extends ZIOSpecDefault:
     case Decode, Observe
   private enum Consumer:
     case Early, Cancelled
+  private enum Resumed:
+    case Complete, ObserverFailure
 
   private def events[A](updates: Chunk[AgentRunUpdate[A]]): Chunk[AgentEvent] =
     updates.collect { case AgentRunUpdate.Event(event) => event }
@@ -206,6 +208,162 @@ object AgentRunUpdateSpec extends ZIOSpecDefault:
       ) &&
         failures.foldLeft(assertTrue(true))(_ && _)
     },
+    test(
+      "resumed streams claim lazily and deliver supplied events before terminal results or complete observer failures"
+    ):
+      ZIO
+        .foreach(Chunk.fromArray(Resumed.values)): mode =>
+          val cause = Cause.fail(AgentError.CompletionObservationError("resume observer failed")) ++
+            Cause.die(new IllegalStateException("observer defect"))
+          for
+            calls        <- Ref.make(0)
+            observations <- Ref.make(0)
+            closed       <- Ref.make(0)
+            seen         <- Ref.make(Chunk.empty[AgentRunUpdate[AgentResult]])
+            client = LlmClient.mockEffectful((_, _, _) =>
+              calls
+                .getAndUpdate(_ + 1)
+                .map:
+                  case 0 =>
+                    TurnOutput.ToolCalls(
+                      Msg.assistant(Chunk(ContentBlock.ToolUse("saved", "read", Json.Obj())))
+                    )
+                  case _ => TurnOutput.FinalText(Msg.assistant("done"))
+            )
+            agent <- ReActAgent.make(
+              client = client,
+              postReasoningHook = PostReasoningHook((_, message) =>
+                ZIO.succeed(
+                  if message.toolUses.nonEmpty then ReasoningDecision.Suspend("review")
+                  else ReasoningDecision.Keep
+                )
+              ),
+              completionObserver = TurnCompletionObserver(value =>
+                ZIO.addFinalizer(closed.update(_ + 1)) *> observations.update(_ + 1) *>
+                  (if mode == Resumed.ObserverFailure && (value.outcome match
+                       case Exit.Success(result) => !result.isSuspended
+                       case Exit.Failure(_)      => false)
+                   then ZIO.refailCause(cause)
+                   else ZIO.unit)
+              )
+            )
+            saved <- agent.run(Msg.user("q"))
+            context <- ZIO
+              .fromOption(saved.state match
+                case AgentRunState.Suspended(pending) => Some(pending.context)
+                case _                                => None)
+              .orElseFail(AgentError.InvalidConfiguration("Missing checkpoint"))
+            stream = agent.streamResumeWithResult(
+              Chunk(SuppliedToolResult(0, ToolExecutionResult("external")))
+            )
+            untouched <- agent.history
+            invalid <- agent
+              .streamResumeWithResult(Chunk(SuppliedToolResult(3, ToolExecutionResult("wrong"))))
+              .runCollect
+              .exit
+            before   <- observations.get
+            exit     <- stream.tap(update => seen.update(_ :+ update)).runCollect.exit
+            updates  <- seen.get
+            observed <- observations.get
+            cleaned  <- closed.get
+            count    <- calls.get
+            published = events(updates)
+            toolEvents = published.filter(event =>
+              event.isInstanceOf[AgentEvent.ToolResultStartEvent] ||
+                event.isInstanceOf[AgentEvent.ToolResultDeltaEvent] || event
+                  .isInstanceOf[AgentEvent.ToolResultEndEvent]
+            )
+          yield assertTrue(
+            untouched == saved.history,
+            invalid.isFailure,
+            before == 1,
+            observed == 2,
+            cleaned == 2,
+            count == 2,
+            toolEvents == Chunk(
+              AgentEvent.ToolResultStartEvent("saved", "read", context = Some(context)),
+              AgentEvent.ToolResultDeltaEvent("saved", "external", context = Some(context)),
+              AgentEvent.ToolResultEndEvent(
+                "saved",
+                "read",
+                "external",
+                com.weisgnosis.agents.core.model.ToolResultState.Success,
+                context = Some(context)
+              )
+            ),
+            published.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent]),
+            mode match
+              case Resumed.Complete =>
+                exit.isSuccess && results(updates).size == 1 &&
+                results(updates).forall(_.reply.text == "done") && updates.lastOption.exists {
+                  case AgentRunUpdate.Result(_) => true
+                  case _                        => false
+                }
+              case Resumed.ObserverFailure =>
+                exit.causeOption.contains(cause) && results(updates).isEmpty
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test("early and cancelled resume consumers join tool cleanup and consume the checkpoint once"):
+      ZIO
+        .foreach(Chunk.fromArray(Consumer.values)): mode =>
+          ZIO.scoped:
+            for
+              entered  <- Promise.make[Nothing, Unit]
+              cleaning <- Promise.make[Nothing, Unit]
+              release  <- Promise.make[Nothing, Unit]
+              calls    <- Ref.make(0)
+              observed <- Ref.make(0)
+              seen     <- Ref.make(Chunk.empty[AgentRunUpdate[AgentResult]])
+              client = LlmClient.mockEffectful((_, _, _) =>
+                calls
+                  .update(_ + 1)
+                  .as(
+                    TurnOutput.ToolCalls(
+                      Msg.assistant(Chunk(ContentBlock.ToolUse("saved", "read", Json.Obj())))
+                    )
+                  )
+              )
+              tool = Tool.make(ToolDef("read", "Read", Json.Obj()))(_ =>
+                (entered.succeed(()) *> ZIO.never).ensuring(cleaning.succeed(()) *> release.await)
+              )
+              agent <- ReActAgent.make(
+                client = client,
+                toolkit = Toolkit(Map("read" -> tool)),
+                postReasoningHook =
+                  PostReasoningHook((_, _) => ZIO.succeed(ReasoningDecision.Suspend("review"))),
+                completionObserver = TurnCompletionObserver(_ => observed.update(_ + 1))
+              )
+              _ <- agent.run(Msg.user("q"))
+              stream = agent
+                .streamResumeWithResult()
+                .tap(update => seen.update(_ :+ update) *> entered.await)
+              selected = if mode == Consumer.Early then stream.take(1) else stream
+              checked <- (for
+                fiber <- selected.runCollect.forkScoped
+                _     <- entered.await
+                _     <- ZIO.fiberId.flatMap(fiber.interruptAsFork).when(mode == Consumer.Cancelled)
+                _     <- cleaning.await
+                pending  <- fiber.poll
+                _        <- release.succeed(())
+                exit     <- fiber.await
+                updates  <- seen.get
+                history  <- agent.history
+                repeated <- agent.resume().exit
+                count    <- calls.get
+                notices  <- observed.get
+              yield assertTrue(
+                pending.isEmpty,
+                results(updates).isEmpty,
+                repeated.isFailure,
+                count == 1,
+                notices == 2,
+                history.count(_.generateReason.contains("interrupted")) == 1,
+                if mode == Consumer.Early then exit.isSuccess else exit.isInterrupted
+              )).ensuring(release.succeed(()).unit)
+            yield checked
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("early completion and caller cancellation join owned cleanup without inventing a result") {
       ZIO
         .foreach(Chunk(Consumer.Early, Consumer.Cancelled))(mode =>

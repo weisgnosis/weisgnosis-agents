@@ -1,6 +1,6 @@
 # weisgnosis-agents-core
 
-The [before-acting suspension contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) is accepted: ordinary saved-batch resume with checked host-supplied results and checked data restoration use fresh host bindings and owned invocation scopes. This does not implement host persistence or partial confirmations.
+The [before-acting suspension contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) is accepted: ordinary saved-batch resume and resumed streams with checked host-supplied results and checked data restoration use fresh host bindings and owned invocation scopes. This does not implement host persistence or partial confirmations.
 
 Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle management.
 

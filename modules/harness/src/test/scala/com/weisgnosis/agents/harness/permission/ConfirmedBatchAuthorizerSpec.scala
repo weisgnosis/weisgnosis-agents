@@ -18,6 +18,7 @@ package com.weisgnosis.agents.harness.permission
 import com.weisgnosis.agents.core.agent.*
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.event.AgentEvent
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.*
 import zio.*
@@ -312,6 +313,56 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
         rejected.forall(_.isInstanceOf[ToolAuthorization.Denied]),
         allowed == ToolAuthorization.Approved(original)
       )
+    ,
+    test("resumed declines preserve custom and default reasons in ordered correlated tool events"):
+      ZIO
+        .foreach(Chunk(Some("host declined"), Option.empty[String])): reason =>
+          for
+            executions <- Ref.make(0)
+            calls      <- Ref.make(0)
+            tools = Toolkit(Map("read" -> readTool(_ => executions.update(_ + 1).as("unexpected"))))
+            saved <- checkpoint(Msg.assistant(Chunk(call)), tools)
+            value <- pending(saved)
+            authorizer <- ConfirmedBatchAuthorizer.make(
+              saved,
+              Chunk(ConfirmedToolCall(0, ConfirmResult(false, reason = reason))),
+              ZIO.succeed(PermissionEngine())
+            )
+            client = LlmClient.mockEffectful((_, _, _) =>
+              calls.update(_ + 1).as(TurnOutput.FinalText(Msg.assistant("done")))
+            )
+            restored <- ReActAgent
+              .make(client = client, toolkit = tools, toolAuthorizer = authorizer)
+            _        <- restored.restore(saved)
+            events   <- restored.streamResumeEvents().runCollect
+            history  <- restored.history
+            count    <- calls.get
+            executed <- executions.get
+            text = reason.getOrElse("Tool execution declined")
+            observed = events.filter(event =>
+              event.isInstanceOf[AgentEvent.ToolResultStartEvent] ||
+                event.isInstanceOf[AgentEvent.ToolResultDeltaEvent] || event
+                  .isInstanceOf[AgentEvent.ToolResultEndEvent]
+            )
+          yield assertTrue(
+            count == 1,
+            executed == 0,
+            observed == Chunk(
+              AgentEvent.ToolResultStartEvent("same", "read", context = Some(value.context)),
+              AgentEvent.ToolResultDeltaEvent("same", text, context = Some(value.context)),
+              AgentEvent.ToolResultEndEvent(
+                "same",
+                "read",
+                text,
+                ToolResultState.Denied,
+                context = Some(value.context)
+              )
+            ),
+            history.flatMap(_.toolResults).map(result => result.state -> result.text) == Chunk(
+              ToolResultState.Denied -> text
+            )
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
     test(
       "resumed gate cancellation joins cleanup and preserves interruption plus defects without execution"
