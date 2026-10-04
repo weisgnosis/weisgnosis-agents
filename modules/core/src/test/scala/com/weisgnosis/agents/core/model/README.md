@@ -20,7 +20,7 @@ These ZIO Test suites verify all 119 pinned upstream message methods with explic
 - [x] MsgConstructionSpec rejects unchecked constructor/apply/copy/Mirror reconstruction, verifies validated updates and structural equality, and checks ordered interruptible tool mapping.
 - [x] MsgFactorySpec adapts all 26 message factory/builder scenarios; GenerateReasonSpec covers all nine generation-reason methods.
 - [x] ContentBlockCodecSpec checks all ten leaf/base representations and nested discriminators. ToolUseSpec plus ContentBlockSerdeSpec cover all 17 upstream ToolUse methods and canonical/legacy server markers.
-- [x] DataBlockSpec covers all seven upstream DataBlock methods plus seeded lazy allocation/reuse; MediaSourceSpec covers both concrete/base codecs, aliases, and nested invalid input.
+- [x] DataBlockSpec covers all seven upstream DataBlock methods plus seeded lazy allocation/reuse; MediaSourceSpec covers concrete/base codecs, aliases, nested invalid input and canonical optional URL MIME hints, including absent/null omission and duplicate/nonstring rejection.
 - [x] `review_fp` and `review_harness` approved the final four-file Data/media increment against `8b96ce3` on 2026-09-29; no findings remain in that scope. Earlier accepted scopes and current source hashes are in the [model README](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md).
 - [x] Full formatting, fatal-warning compilation, and verification passed 284 core and 40 harness tests.
 - [ ] Complete remaining runtime state/HITL integration and broader core parity.
@@ -32,7 +32,7 @@ Exact reviewed test additions for the latest Data/media increment:
 | Test | Git blob |
 | --- | --- |
 | [DataBlockSpec.scala](DataBlockSpec.scala) | 4211585b28ce57e12e825152133443199a35da9e |
-| [MediaSourceSpec.scala](MediaSourceSpec.scala) | 0081a1db68dc2ce65a709af6260ac845d01aa0e4 |
+| [MediaSourceSpec.scala](MediaSourceSpec.scala) | [Current identity](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection) |
 
 ## Strict structured JSON
 

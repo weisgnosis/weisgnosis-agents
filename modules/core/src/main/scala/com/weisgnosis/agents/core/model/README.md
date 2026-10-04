@@ -51,7 +51,9 @@ Data construction and decoding retain optional identity. Data.identified returns
 
 Data requires a MediaSource argument. Missing source arguments and Option values do not type-check; missing/JSON-null sources fail concrete and polymorphic decoding. This is the Scala/JSON adaptation of upstream constructor rejection, not a runtime guarantee for direct Java null references. Such references are prohibited by the engineering standard.
 
-MediaSource.Url and Base64 now share the same tagged encoding through concrete and base types, with strict unique discriminators and no AST encoding fallback. Concrete decoders retain legacy untagged input; nested media sources require a tag. Base64 emits media_type and accepts mediaType only when the canonical field is absent; supplying both fails. Concrete source JSON now includes type, so consumers must allow this added field.
+MediaSource.Url carries an optional descriptive mimeType encoded as mime_type. Missing or JSON-null hints decode to None; None is omitted and duplicate/nonstring canonical hints fail. MIME support is checked by the selected consumer, not by this data constructor. Url patterns/Product now have two fields; defaulted calls remain valid, but MediaSource.url method-value arity and dependent binaries require migration. The [current request contract](../client/README.md#user-image-projection) owns all four reviewed identities and verification.
+
+MediaSource.Url and Base64 share the same tagged encoding through concrete and base types, with strict unique discriminators and no AST encoding fallback. Concrete decoders retain legacy untagged input; nested media sources require a tag. Base64 emits media_type and accepts mediaType only when the canonical field is absent; supplying both fails. Concrete source JSON now includes type, so consumers must allow this added field.
 
 ## Current acceptance and remaining work
 
@@ -70,7 +72,7 @@ Current main-source identities are listed below; the review scopes above disting
 | [ContentBlock.scala](ContentBlock.scala) | 9aad1167836c0e9d25a3384e0f3cb1ea59ef03e9 |
 | [GenerateReason.scala](GenerateReason.scala) | e4e6dd03a73941b19557f413be343fa4643dcf33 |
 | [JsonFields.scala](JsonFields.scala) | 92bba6f226762fa2324c3211310fad6bf1c879e2 |
-| [MediaSource.scala](MediaSource.scala) | 8047c1845b5ec41a22ae8c1200ce2e60964a26c6 |
+| [MediaSource.scala](MediaSource.scala) | [Current identity](../client/README.md#user-image-projection) |
 | [Role.scala](Role.scala) | 1fd28896fe37d9b7da11ceb30c922b10b7f6cca6 |
 | [ToolCallState.scala](ToolCallState.scala) | d6f3636a99cff6c696e3617eef95c4bfd72d33b8 |
 | [ToolResultState.scala](ToolResultState.scala) | e51c81870d3a88e90d69629ca33a0fc20608f775 |

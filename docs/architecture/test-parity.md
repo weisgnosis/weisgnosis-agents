@@ -422,7 +422,14 @@ The existing request tables provide bounded adaptations from pinned `agentscope-
 - [x] `testDataBlockBase64Image` (90): explicit inline image Data becomes an image_url data URL; Scala verifies all four accepted image MIME types and exact mixed-part ordering.
 - [x] `testDataBlockBase64Audio` (126): explicit inline audio Data becomes input_audio. The Java fixture uses audio/mp3; Scala deliberately retains its existing exact audio/wav and audio/mpeg mapping instead of adopting that alias.
 
-Both reviewers approved the [current request pair](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection), and full inline-data-verify.log verification passed. Existing positive/negative tables also verify identity omission and whole-request rejection. URL extension/MIME inference, video, placeholder fallback and silent dropping are not adopted; no new provider protocol or media decoding is claimed.
+The [request contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection) records current identities, both independent approvals and verification. Existing positive/negative tables also verify identity omission and whole-request rejection. URL extension/MIME inference, video, placeholder fallback and silent dropping are not adopted; no new provider protocol or media decoding is claimed.
+
+Explicit image-URL MIME hints extend that same request boundary. Pinned URLSource.java declares optional mime_type and a no-hint constructor. Existing Scala source/request tables supply these bounded mappings; both final reviews and full mime-hint-verify.log verification passed:
+
+- [x] `testDataBlockMimeTypeHint` (161): an extensionless Data URL with an explicit image hint becomes an image_url request part, preserving URL spelling and omitting the hint and local identity.
+- [x] `testResolveMimeTypeHintOverExtension` (213): bounded request-level adaptation of hint authority over a misleading .mp3 path. The Java method tests MediaUtils directly; Scala does not implement its extension inference or claim utility-API parity.
+
+Missing hints, aliases, other media, non-HTTP(S) URLs and unsupported roles reject the whole request. Explicit Image blocks retain their hint-independent behavior. No URL acquisition or byte/MIME verification is introduced.
 
 ### Bounded streaming HTTP-status retries
 

@@ -28,7 +28,10 @@ sealed trait MediaSource
 
 object MediaSource:
   @jsonHint("url")
-  final case class Url(url: String) extends MediaSource
+  final case class Url(
+      url: String,
+      @jsonField("mime_type") mimeType: Option[String] = None
+  ) extends MediaSource
 
   object Url:
     given JsonCodec[Url] = taggedCodec("url", PayloadCodecs.url)
@@ -75,6 +78,6 @@ object MediaSource:
     sourceDecoder(wireCodec.decoder, None)
   )
 
-  def url(url: String): MediaSource = Url(url)
+  def url(url: String, mimeType: Option[String] = None): MediaSource = Url(url, mimeType)
 
   def base64(mediaType: String, data: String): MediaSource = Base64(mediaType, data)

@@ -43,7 +43,33 @@ object MediaSourceSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("MediaSourceSpec")(
     test("URL source uses one representation for concrete and polymorphic codecs") {
-      contract(MediaSource.Url("https://example.com/data"), "url")
+      val plain    = MediaSource.Url("https://example.com/data")
+      val hinted   = MediaSource.Url("https://example.com/data", Some("image/jpeg"))
+      val nullHint = """{"type":"url","url":"https://example.com/data","mime_type":null}"""
+      val invalidHints = Chunk(
+        """{"type":"url","url":"x","mime_type":1}""",
+        """{"type":"url","url":"x","mime_type":"image/png","mime_type":"image/jpeg"}"""
+      )
+      contract(plain, "url") && contract(hinted, "url") && assertTrue(
+        plain.toJson
+          .fromJson[Json]
+          .contains(
+            Json.Obj("type" -> Json.Str("url"), "url" -> Json.Str("https://example.com/data"))
+          ),
+        hinted.toJson
+          .fromJson[Json]
+          .exists(
+            _.asObject.exists(
+              _.get("mime_type").contains(Json.Str("image/jpeg"))
+            )
+          ),
+        nullHint.fromJson[MediaSource.Url].contains(plain),
+        nullHint.fromJson[MediaSource].contains(plain),
+        MediaSource.url("https://example.com/data", Some("image/jpeg")) == hinted,
+        invalidHints.forall(value =>
+          value.fromJson[MediaSource.Url].isLeft && value.fromJson[MediaSource].isLeft
+        )
+      )
     },
     test("Base64 source uses one canonical representation with legacy mediaType decoding") {
       val source = MediaSource.Base64("application/pdf", "encoded")

@@ -124,6 +124,11 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             MediaSource.Base64("audio/wav", "AQ=="),
             Some("private-audio-data"),
             Some("private-name")
+          ),
+          ContentBlock.Data(
+            MediaSource.Url("https://example.test/opaque", Some("image/jpeg")),
+            Some("private-url-data"),
+            Some("private-name")
           )
         ) -> Json.Arr(
           textPart("before"),
@@ -135,7 +140,8 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
           audioPart("AQI=", "mp3"),
           imagePart("data:image/jpeg;base64,AQID"),
           textPart("between data"),
-          audioPart("AQ==", "wav")
+          audioPart("AQ==", "wav"),
+          imagePart("https://example.test/opaque")
         )
       ) ++ Chunk(
         "image/png"  -> "AQID",
@@ -147,6 +153,14 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
           ContentBlock.Image.base64(mediaType, data),
           ContentBlock.Data.base64(mediaType, data)
         ).map(block => Chunk(block) -> Json.Arr(imagePart(s"data:$mediaType;base64,$data")))
+      ) ++ Chunk("image/png", "image/jpeg", "image/webp", "image/gif").map(mimeType =>
+        Chunk[Msg.UserBlock](
+          ContentBlock.Data(MediaSource.Url("https://example.test/file.mp3", Some(mimeType)))
+        ) -> Json.Arr(imagePart("https://example.test/file.mp3"))
+      ) ++ Chunk(
+        Chunk[Msg.UserBlock](
+          ContentBlock.Image(MediaSource.Url(url, Some("application/octet-stream")))
+        ) -> Json.Arr(imagePart(url))
       ) ++ Chunk("audio/wav" -> "wav", "audio/mpeg" -> "mp3").flatMap((mediaType, format) =>
         Chunk[Msg.UserBlock](
           ContentBlock.Audio.base64(mediaType, "AQ=="),
@@ -216,6 +230,11 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         Chunk("https://example.test/image.png", "https://example.test/audio.wav", "").map(url =>
           ContentBlock.Data.url(url)
         ) ++
+          invalidUrls.map(url => ContentBlock.Data(MediaSource.Url(url, Some("image/png")))) ++
+          (invalidTypes ++ Chunk(" ", "Image/PNG", "audio/wav", "audio/mpeg", "video/mp4"))
+            .map(mimeType =>
+              ContentBlock.Data(MediaSource.Url("https://example.test/image.png", Some(mimeType)))
+            ) ++
           Chunk("image/png", "audio/wav").flatMap(mediaType =>
             invalidData.map(data => ContentBlock.Data.base64(mediaType, data))
           ) ++ (invalidTypes ++ Chunk("audio/mp3", "audio/ogg", "Audio/Wav", "application/pdf"))
@@ -226,8 +245,11 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         Msg.user(Chunk[Msg.UserBlock](ContentBlock.Text("must not survive alone"), value))
       ) ++ dataFailures.map(value =>
         Msg.user(Chunk[Msg.UserBlock](ContentBlock.Text("must not survive alone"), value))
-      ) ++ Chunk("image/png", "audio/mpeg").flatMap(mediaType =>
-        val data = ContentBlock.Data.base64(mediaType, "AQ==")
+      ) ++ Chunk(
+        ContentBlock.Data.base64("image/png", "AQ=="),
+        ContentBlock.Data.base64("audio/mpeg", "AQ=="),
+        ContentBlock.Data(MediaSource.Url("https://example.test/opaque", Some("image/png")))
+      ).flatMap(data =>
         Chunk(
           Msg.assistant(Chunk(data)),
           Msg.tool(Chunk(ContentBlock.ToolResult("call", output = Chunk(data))))

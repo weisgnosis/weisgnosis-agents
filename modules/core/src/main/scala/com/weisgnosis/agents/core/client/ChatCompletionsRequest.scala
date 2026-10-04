@@ -171,7 +171,7 @@ object ChatCompletionsRequest:
           Right(Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str(text)))
         case ContentBlock.Image(source, _, _) => inputImage(source)
         case ContentBlock.Audio(source, _, _) => inputAudio(source)
-        case ContentBlock.Data(source, _, _)  => inlineData(source)
+        case ContentBlock.Data(source, _, _)  => dataPart(source)
         case _ =>
           Left(
             AgentError.InvalidMessage("User content supports only text, images, and inline audio")
@@ -186,15 +186,21 @@ object ChatCompletionsRequest:
       )
     )
 
-  private def inlineData(source: MediaSource): Either[AgentError, Json] = source match
+  private def dataPart(source: MediaSource): Either[AgentError, Json] = source match
+    case MediaSource.Url(_, Some(mimeType)) if imageMediaTypes.contains(mimeType) =>
+      inputImage(source)
     case MediaSource.Base64(mediaType, _) if imageMediaTypes.contains(mediaType) =>
       inputImage(source)
     case MediaSource.Base64(mediaType, _) if audioFormats.contains(mediaType) => inputAudio(source)
     case _ =>
-      Left(AgentError.InvalidMessage("Data blocks require supported inline image or audio media"))
+      Left(
+        AgentError.InvalidMessage(
+          "Data blocks require supported inline media or an image URL with an explicit supported MIME hint"
+        )
+      )
 
   private def inputAudio(source: MediaSource): Either[AgentError, Json] = source match
-    case MediaSource.Url(_) =>
+    case MediaSource.Url(_, _) =>
       Left(
         AgentError.InvalidMessage("Audio requires inline base64 data; audio URLs are unsupported")
       )
@@ -212,7 +218,7 @@ object ChatCompletionsRequest:
       )
 
   private def imageUrl(source: MediaSource): Either[AgentError, String] = source match
-    case MediaSource.Url(value) =>
+    case MediaSource.Url(value, _) =>
       for
         _ <- message(
           value.nonEmpty && value.forall(character =>

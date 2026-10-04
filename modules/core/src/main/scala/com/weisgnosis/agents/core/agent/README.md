@@ -113,7 +113,7 @@ Migration: ToolDef appends the defaulted returnMode field. Old JSON without it d
 | [ToolDef.scala](../tool/ToolDef.scala) | 8848c5c6698a13c05e4dc6fe9a8ec51710ec0708 |
 | [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | 1193c35e18f1f0b6aa49d414c4a44f45d7a56a04 |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | 67e4f5c680d919c0f4a4cc1858b5c4d4d2769219 |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | d50f4ca8904210823730e31f93a48a268f7bfb49 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current fixture identity](../client/README.md#user-image-projection); returnMode omission remains covered. |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Three grouped runtime tests cover ordered processed output and rejection cases, live/restored/supplied/partial resumes, joined cleanup/cancellation and native/synthetic exclusion; existing tables cover codec compatibility and provider-field omission. Focused checks passed 26 tests in 690 ms (`return-direct-compiled-focused.log`).
 - [x] Full `scalafmtAll scalafmtSbt verify` passed in `return-direct-final-verify.log` with zero compiler warnings or test failures. Current totals and process-local verification settings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
