@@ -305,7 +305,8 @@ The independent audit found the following gaps; completed corrections are checke
 - [ ] Implement explicit field/payload adapters; identifier parsing alone cannot establish compatibility.
 - [x] Implement AgentResult, DataBlockStart/Delta/End, ToolResultDataDelta, ExceedMaxIters, RequestStop, and AllToolsDenied payloads and codecs.
 - [x] Publish finalized ordinary and structured results after preparation/history commit and before AgentEnd; StructuredCompletionSpec verifies failure, cancellation, fallback, and cleanup.
-- [ ] Integrate remaining runtime publication, correlated block assembly, phase stopping, and durable pending-work resumption.
+- [x] Integrate reviewed host acting-stop publication after admitted observations drain.
+- [ ] Integrate other remaining runtime publication and durable pending-work resumption.
 - [x] Correct AgentStart/AgentEnd correlation with one runtime pair per engine attempt. ReActAgentEventSpec verifies identity, private completion, buffering order, failure, cancellation, timeout, and early consumer cleanup. StructuredCompletionSpec now verifies finalized result publication and structured streaming through the same attempt boundary.
 - [x] Exercise all 39 variants with repeated source tagging and verify tool-result metadata remains independent of source.
 
@@ -373,7 +374,7 @@ The eight payload classes below are implemented and verified independently of th
 | DataBlockDelta | replyId, blockId, delta: String | Delta is text; it is not a ContentBlock |
 | ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Inline provider and completed typed local output blocks are published with full metadata; provisional local payloads are published with protected metadata; provider multimodal serialization remains pending |
 | ExceedMaxIters | replyId, maxIters, currentIter | Runtime guard verified with correlated replyId and completed iteration count |
-| RequestStop | reason, available typed GenerateReason; default MiddlewareStopRequested | Cooperative phase stop and durable pending-work resumption |
+| RequestStop | reason, available typed GenerateReason; default MiddlewareStopRequested | Reviewed host acting-stop publication; durable pending-work resumption remains open |
 | AllToolsDenied | Chunk[ToolUse], empty by default | Permission/HITL integration and middleware stop decision |
 
 Upstream base events also have identity/time, optional source, and metadata. This payload increment preserves immutable optional source and data-delta metadata but does not add the universal id/createdAt envelope or translate uppercase type objects. A future envelope adapter must use explicitly supplied identity/time or an effectful allocator rather than eager UUID/clock access. Class presence alone is not runtime evidence: the pinned source has no production DataBlock event construction sites. A RequestStop event is distinct from fiber cancellation; supporting its type does not implement phase suspension or resumption.
@@ -429,6 +430,15 @@ The following method mappings use the pinned Java revision above. Formatter sour
 - [x] The explicit OpenRouterEncryptedDetails profile preserves checked encrypted objects in received order and replays all historical assistant arrays. Two checked-detail groups cover strict shapes, optional/null fields, repeated indexes, explicit empty arrays, interrupted preservation and incompatible-policy rejection.
 - [x] Extended runtime/pruning tables and one real HTTP cycle verify opaque-only retry, unchanged protected sibling arguments, denial before fixed/approved rewriting, historical wire replay and no fabricated Thinking events. The [canonical acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) records all 17 reviewed identities, reproduced classification assertions and full verification.
 - [ ] Text/summary detail variants, other signature representations and live-provider interoperability remain outside this encrypted-only scope. The mixed Java formatter methods above stay open; strict malformed-detail failure intentionally differs from testUnconvertibleThinkingDetailsSkipped.
+
+## Host acting-stop applicability
+
+The pinned source `agentscope-core/src/test/java/io/agentscope/core/agent/ReActAgentReturnDirectTest.java` supplies the following partial mappings. Both final reviews and full acting-stop-accepted-verify.log verification passed; exact Scala identities and evidence belong to [acting-stop decisions](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions).
+
+- [ ] ReActAgentReturnDirectTest.earlierPostActingStopWinsOverReturnDirect (line 486): the runtime fixture covers retaining the earliest original stop, processing/persisting the whole admitted batch and avoiding another model call. Java returnDirect precedence is not implemented; Scala returns the tagged owning assistant and Stopped state, not the stopping tool-result message. Whole-method parity remains open.
+- [ ] ReActAgentReturnDirectTest.hitlStopTakesPriorityOverReturnDirect (line 453): only the explicit post-acting stop overlaps. This increment does not establish HITL or returnDirect integration.
+
+`agentscope-core/src/test/java/io/agentscope/core/legacy/hook/HookStopAgentTest.java` PostActingEventTests.testStopAgentSetsFlag/testDefaultNotStopped exercise mutable flag APIs. The local typed Continue/Stop decision is an intentional immutable replacement, with no mutable flag/reset claim. Its post-reasoning pending-call resume tests remain separate. Local decision composition intentionally skips later processors for the stopping observation; all admitted observations still run. Cancellation with a cleanup defect is a ZIO lifecycle contract, not Java hook parity.
 
 ## Live model stream adaptation
 

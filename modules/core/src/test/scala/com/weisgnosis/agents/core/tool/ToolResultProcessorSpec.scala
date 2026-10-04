@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.core.tool
 
 import com.weisgnosis.agents.core.model.{ContentBlock, ToolResultState}
+import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -82,6 +83,54 @@ object ToolResultProcessorSpec extends ZIOSpecDefault:
         after.forall(!_.isServerTool),
         payload.applyTo(original).text == "first",
         unchanged.applyTo(original) == original
+      )
+    },
+    test(
+      "decisions stop only their chain while legacy calls and scoped failures retain their semantics"
+    ) {
+      val original = ContentBlock.ToolResult.text("call", "tool", "raw")
+      val payload  = ToolResultPayload(Chunk(ContentBlock.Text("processed")))
+      val failure  = AgentError.InvalidConfiguration("later processor failed")
+      val defect   = new IllegalStateException("processor cleanup failed")
+      for
+        seen <- Ref.make(Chunk.empty[String])
+        stopping = ToolResultProcessor.deciding(_ =>
+          seen.update(_ :+ "stop") *>
+            ZIO.addFinalizer(seen.update(_ :+ "closed")) *>
+            ZIO.succeed(ToolResultDecision.Stop(payload, "host decision"))
+        )
+        later = ToolResultProcessor(_ => seen.update(_ :+ "later") *> ZIO.fail(failure))
+        chain = stopping.andThen(later)
+        decision      <- ZIO.scoped(chain.processDecision(original))
+        afterDecision <- seen.get
+        direct        <- ZIO.scoped(chain.process(original)).exit
+        afterDirect   <- seen.get
+        legacy = ToolResultProcessor(result =>
+          seen.update(_ :+ "legacy").as(ToolResultPayload.fromResult(result))
+        )
+        continued   <- ZIO.scoped(legacy.processDecision(original))
+        failed      <- ZIO.scoped(legacy.andThen(later).processDecision(original)).exit
+        afterLegacy <- seen.get
+        cleanup <- ZIO
+          .scoped(
+            ToolResultProcessor
+              .deciding(_ =>
+                ZIO
+                  .addFinalizer(ZIO.die(defect))
+                  .as(ToolResultDecision.Stop(payload, "not accepted"))
+              )
+              .processDecision(original)
+          )
+          .exit
+      yield assertTrue(
+        decision == ToolResultDecision.Stop(payload, "host decision"),
+        afterDecision == Chunk("stop", "closed"),
+        direct == Exit.fail(failure),
+        afterDirect == Chunk("stop", "closed", "stop", "later", "closed"),
+        continued == ToolResultDecision.Continue(ToolResultPayload.fromResult(original)),
+        failed == Exit.fail(failure),
+        afterLegacy == afterDirect ++ Chunk("legacy", "legacy", "later"),
+        cleanup.causeOption.exists(_.defects == List(defect))
       )
     }
   )

@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
-import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent}
+import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, AgentRunState, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
@@ -619,6 +619,31 @@ object SubagentToolsSpec extends ZIOSpecDefault:
           )
         }
         .map(results => results.reduceOption(_ && _).getOrElse(assertTrue(false)))
+        .flatMap: otherResults =>
+          val stopped = AgentResult(
+            Msg.assistant("paired turn"),
+            Chunk.empty,
+            1,
+            AgentRunState.Stopped("host decision")
+          )
+          for
+            supervisor <- TaskSupervisor.open[AgentResult]
+            tasks <- SubagentTaskRegistry.openWith(
+              (_, _, _) => supervisor.attach(ZIO.succeed(stopped)),
+              1
+            )
+            tools = SubagentTools.make(tasks)
+            spawned   <- tools.executeSafe("agent_spawn", input)
+            observed  <- observation(spawned.output)
+            inspected <- tools.executeSafe("agent_task", taskInput(observed._1))
+            retained  <- observation(inspected.output)
+            records   <- tasks.list
+          yield otherResults && assertTrue(
+            spawned.state == ToolResultState.Error,
+            observed._2 == SubagentToolState.Stopped(SubagentToolText("host decision", 0)),
+            retained == observed,
+            records.exists(_.state == SubagentTaskState.Completed(Exit.succeed(stopped)))
+          )
     },
     test(
       "interrupting the active spawn tool waits for child cleanup and preserves caller interruption"

@@ -31,6 +31,10 @@ object AgentResultSpec extends ZIOSpecDefault:
         state = AgentRunState.Interrupted,
         usage = Some(ChatUsage(10, 20))
       )
-      assertTrue(result.toJson.fromJson[AgentResult] == Right(result))
+      val stopped = result.copy(state = AgentRunState.Stopped("host decision"))
+      assertTrue(
+        result.toJson.fromJson[AgentResult] == Right(result),
+        stopped.toJson.fromJson[AgentResult] == Right(stopped)
+      )
     }
   )

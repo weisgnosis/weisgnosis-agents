@@ -1,5 +1,7 @@
 # Agent event verification
 
+The existing RequestStop codec is unchanged. [Acting-stop runtime tests](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) exercise host authority and publication after completed observations; the event payload alone grants no stop, cancellation or resume authority. Both independent reviews and full verification passed for this bounded integration.
+
 These suites verify payload codecs and selected runtime boundaries. They do not establish exhaustive event integration or Java wire compatibility.
 
 - [ModelStreamContextSpec](ModelStreamContextSpec.scala)
@@ -16,7 +18,7 @@ These suites verify payload codecs and selected runtime boundaries. They do not 
 - [x] ReActAgentEmissionSpec verifies correlated iteration-limit publication and inline provider metadata/text/data order with occurrence-sensitive cancellation handling.
 - [x] StructuredCompletionSpec verifies finalized result publication after history commit and before AgentEnd; see the reviewed [agent scope](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).
 - [x] Verify reply/request correlation in actual live model streams.
-- [ ] Complete remaining runtime event ordering, provider multimodal projection, stop/resume integration, and richer source attribution.
+- [ ] Complete remaining runtime event ordering, provider multimodal projection, post-reasoning/HITL stop and durable resume integration, and richer source attribution.
 
 The [current event contracts and reviewed source identities](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md) distinguish previously accepted identifiers/codecs from the latest payload increment. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) records ten deprecated legacy methods as explicit exclusions and retains six ordering requirements as pending work; the seventh disabled upstream ordering declaration now has an implemented Scala limit-event regression. Decoding an event does not establish runtime authority or publication.
 

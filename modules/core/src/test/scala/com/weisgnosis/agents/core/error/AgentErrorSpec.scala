@@ -38,11 +38,14 @@ object AgentErrorSpec extends ZIOSpecDefault:
       )
     },
     test("spawn depth errors retain typed diagnostics and their individual JSON codec") {
-      val error = AgentError.SpawnDepthExceeded(3)
+      val error   = AgentError.SpawnDepthExceeded(3)
+      val stopped = AgentError.ExecutionStopped("host decision")
       assertTrue(
         error.toJson.fromJson[AgentError.SpawnDepthExceeded] == Right(error),
         error.maximumDepth == 3,
-        error.getMessage == "Maximum subagent spawn depth exceeded: 3"
+        error.getMessage == "Maximum subagent spawn depth exceeded: 3",
+        stopped.toJson.fromJson[AgentError.ExecutionStopped] == Right(stopped),
+        stopped.getMessage == "Execution stopped: host decision"
       )
     },
     test("plan storage errors retain their dedicated type, message and JSON representation") {

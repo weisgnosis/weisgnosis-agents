@@ -6,6 +6,7 @@
 | --- | --- |
 | Configuration and message validation | InvalidConfiguration and InvalidMessage reject invalid runtime configuration and dynamic role/content combinations; see the [model contract](../model/README.md). |
 | Model and host callbacks | ModelError identifies provider failure. TextTransformationError, ReasoningHookError, HistoryPreparationError, ModelInputError and CompletionObservationError keep host failures separate from provider-native fallback; see the [client](../client/README.md) and [agent](../agent/README.md) contracts. |
+| Acting-phase termination | ExecutionStopped(reason) reports a host processor stop from structured execution, before payload decoding; it is not a ModelError and cannot trigger native provider fallback. See [acting-stop decisions](../agent/README.md#acting-stop-decisions). |
 | Storage | MemoryStorageError and PlanStorageError cover backend I/O, ownership and closed-handle failures. Path rejection remains PermissionDenied; finalizer failures remain observable defects. See [memory](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md) and [plan](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md). |
 | Tools, permissions and runtime limits | ToolExecutionError, ToolNotFoundError, PermissionDenied, ContextLengthExceeded, MaxIterationsExceeded and TimeoutError retain their dedicated diagnostics. Interrupted is domain data, not a substitute for fiber interruption. |
 | Descendant lineage | SpawnDepthExceeded rejects excessive depth before child construction or identity allocation; see the [subagent contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md). |
@@ -16,8 +17,8 @@ Each leaf exposes a message and its individual derived JSON codec. The hierarchy
 
 ## Current review acceptance
 
-- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for McpSessionExpired and its codec/diagnostic integration, with no findings. Current AgentError.scala blob: `57b2b7ae3b1b38799b3674cf8b011b986cdd0bce`; AgentErrorSpec.scala blob: `e16409f0ec97729924597ee22ff305ebc216748b`.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed in `mcp-session-expiry-verify.log`: 600 core / 690 harness / 82 MCP tests (1,372 total), compile task 23 seconds and test task 31 seconds including incremental test compilation, with zero compiler warnings or failures. Five focused core groups passed in 239 ms; the HTTP/manager focused run passed 24 groups in 3.846 seconds. The linked MCP contracts own their reviewed integration identities.
+- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for McpSessionExpired and its codec/diagnostic integration, with no findings. Current changed error source/spec identities are recorded in [acting-stop decisions](../agent/README.md#acting-stop-decisions); expiry semantics retain their reviewed contract.
+- [x] Scoped `mcp-session-expiry-verify.log` verification passed with zero compiler warnings or failures. Five focused core groups passed in 239 ms; the HTTP/manager focused run passed 24 groups in 3.846 seconds. The linked MCP contracts own their reviewed integration identities.
 - [x] Existing failure boundaries retain their originating package acceptance and integration evidence; the links above describe current behavior instead of repeating closed review history.
 - [ ] Complete exhaustive error-hierarchy and applicable upstream scenario mapping. Neither this additive review nor passing suites establishes exhaustive parity.
 

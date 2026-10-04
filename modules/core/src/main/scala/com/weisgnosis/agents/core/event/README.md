@@ -41,7 +41,8 @@ Existing lowercase event objects remain canonical. Concrete event encoding inclu
 - [x] `sbt scalafmtAll scalafmtSbt verify` passed 291 core and 40 harness tests with zero compiler warnings.
 - [x] Correlated iteration-limit publication and inline provider text/data/metadata delivery are verified in ReActAgentEmissionSpec and reviewed in the [agent scope](../agent/README.md).
 - [ ] Implement remaining runtime publication/order, model data-block assembly, and provider multimodal projection.
-- [ ] Implement phase-stop authority, durable pending-work resumption, and permission-driven denied-call publication.
+- [x] Both reviewers and full verification accepted [host acting-stop publication](../agent/README.md#acting-stop-decisions).
+- [ ] Implement durable pending-work resumption and permission-driven denied-call publication.
 - [x] Classify all ten deprecated coarse-event methods as excluded API/wire compatibility, without claiming their assertions pass.
 - [x] Implement request/reply correlation for live model and content events.
 - [ ] Complete explicit uppercase typed-payload/envelope adapters and remaining local tool/subagent attribution.

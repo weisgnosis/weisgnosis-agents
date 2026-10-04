@@ -268,7 +268,7 @@ object ReActAgentModelInputSpec extends ZIOSpecDefault:
       )
     },
     test(
-      "cooperative cancellation propagates projection finalizer defects without false recovery"
+      "cooperative cancellation preserves projection finalizer defects and recovers once"
     ) {
       val defect = new IllegalStateException("projection cleanup defect")
       for
@@ -285,7 +285,12 @@ object ReActAgentModelInputSpec extends ZIOSpecDefault:
         _       <- agent.interrupt
         exit    <- fiber.join
         history <- agent.history
-      yield assertTrue(exit.causeOption.exists(_.defects.contains(defect)), history == canonical)
+      yield assertTrue(
+        exit.causeOption.exists(_.defects.contains(defect)),
+        history.take(canonical.size) == canonical,
+        history.size == canonical.size + 1,
+        history.count(_.generateReason.contains("interrupted")) == 1
+      )
     },
     test("thinking retries project each request without dropping canonical reasoning or usage") {
       for

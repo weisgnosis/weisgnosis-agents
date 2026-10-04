@@ -14,7 +14,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala regressions. T
 | [ToolFixedArgumentsSpec](ToolFixedArgumentsSpec.scala) | Checked full originals, stable order/idempotence, fixed consistency, empty scalar compatibility, typed wrapper forwarding and filtered/merged/custom Toolkit dispatch |
 | [ToolDefSpec](ToolDefSpec.scala) | Legacy absent/null optional schema decoding, None omission and object/boolean AST round-trips |
 | [ToolkitSpec](ToolkitSpec.scala) | Immutable registration and dispatch |
-| [ToolResultProcessorSpec](ToolResultProcessorSpec.scala) | Payload codecs, protected control keys and suspended composition |
+| [ToolResultProcessorSpec](ToolResultProcessorSpec.scala) | Payload codecs, protected control keys, suspended composition and host decision-chain stop/legacy behavior |
 | [ToolAuthorizerSpec](ToolAuthorizerSpec.scala) | Decision codecs, lazy legacy/lambda delegation with absent/read-only/mutating admitted access, and error-channel separation |
 
 The descriptive output-schema contract and exact reviewed identities are in the [source acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas). Some(Json.Null) is intentionally not a presence-preserving codec value.

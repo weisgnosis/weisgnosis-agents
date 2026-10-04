@@ -31,6 +31,7 @@ enum SubagentToolState derives JsonCodec:
   case Running, Promoted, Interrupted, Missing
   case Completed(reply: SubagentToolText)
   case Suspended(reply: SubagentToolText)
+  case Stopped(reason: SubagentToolText)
   case Failed(message: SubagentToolText)
 
 enum SubagentToolRejection derives JsonCodec:
@@ -279,7 +280,8 @@ object SubagentTools:
       exit: Option[Exit[AgentError, AgentResult]]
   ): Observation[SubagentToolResult] =
     exit match
-      case Some(value @ Exit.Success(result)) if result.state != AgentRunState.Interrupted =>
+      case Some(value @ Exit.Success(result))
+          if result.state == AgentRunState.Completed || result.state == AgentRunState.Suspended =>
         Observation.Success(project(id, value))
       case Some(value) => Observation.Error(project(id, value))
       case None        => Observation.Error(task(id, SubagentToolState.Missing))
@@ -523,6 +525,7 @@ object SubagentTools:
           case AgentRunState.Completed   => SubagentToolState.Completed(preview(result.reply.text))
           case AgentRunState.Suspended   => SubagentToolState.Suspended(preview(result.reply.text))
           case AgentRunState.Interrupted => SubagentToolState.Interrupted
+          case AgentRunState.Stopped(reason) => SubagentToolState.Stopped(preview(reason))
       case Exit.Failure(cause) if cause.isInterrupted => SubagentToolState.Interrupted
       case Exit.Failure(cause) =>
         val message =

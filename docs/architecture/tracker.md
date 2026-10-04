@@ -22,7 +22,7 @@ Last synchronized: 2026-10-04. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 619 core / 698 harness / 83 MCP tests (1,400 total), zero compiler warnings or failures. Evidence: `encrypted-reasoning-verify.log`; compile task 1 second and test task 18 seconds.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 623 core / 698 harness / 83 MCP tests (1,404 total), zero compiler warnings or failures. Evidence: `acting-stop-accepted-verify.log`; compile task 1 second and test task 18 seconds.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -112,7 +112,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Both reviewers approved [selected Google tool-call signatures](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-call-signatures), including indexed preservation, signed-input protection and historical replay; full verification passed.
 - [x] Both reviewers approved [MCP guarded reservation](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance), preserving terminal causes after the existing HTTP assertion exposed a race; full verification passed.
 - [x] Both reviewers approved [encrypted reasoning](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning): strict opaque objects, all-historical replay, message-level argument protection and corrected opaque-only retry classification; full verification passed.
-- [ ] Next: bounded runtime phase-stop authority preflight from the existing RequestStop payload.
+- [x] Both reviewers approved [host acting-stop decisions](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions), including deterministic admitted-batch completion and corrected owner/cooperative cancellation recovery; full verification passed.
+- [ ] Next: explicitly selected text/summary reasoning-detail preservation and replay.
 - [ ] Complete separately selected text/summary and other reasoning-detail formats; encrypted-only acceptance is not full provider parity.
 - [x] Implement and independently review scoped HTTP POST and explicit GET requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [x] Both independent reviews approved direct host replacement after real SDK session expiry and same-send POST-body recovery after real Netty truncation. Exact identities, verification and bounded exclusions are in the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#independent-server-interoperability); manager-on-real-server, listener reconnection and cancellation interoperability remain separate.
@@ -124,7 +125,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 
 ## Remaining integration and parity
 
-- [ ] Complete applicable core/harness method mappings and remaining structured-output, lifecycle and event-ordering gaps, including broader provider multimodal projection, other provider signature/tool metadata, event adapters, phase-stop integration and richer subagent attribution.
+- [ ] Complete applicable core/harness method mappings and remaining structured-output, lifecycle and event-ordering gaps, including broader provider multimodal projection, other provider signature/tool metadata, event adapters, post-reasoning/HITL suspension and richer subagent attribution.
 - [x] All fourteen Plan inventory methods have bounded adaptations, including opt-in child installation and retained named-session restrictions. Java middleware/API shapes, automatic flag copying and unrestricted shell bypass are intentionally excluded; authenticated UI and durable approval restoration remain unfinished.
 - [ ] Implement durable host persistence and authenticated, idempotent resumption from `ConfirmResult` without another model request.
 - [ ] Complete model-selection configuration, remote memory/transcript adapters, timestamp-watermark migration, session discovery and scheduling.

@@ -20,7 +20,7 @@ Dependencies point from harness and mcp to core. Core must not import harness se
 
 - Msg factories and codecs are pure. A private constructor, typed role factories, and validated dynamic updates make role/content checks unavoidable. The explicit identified effect allocates optional identity.
 - Toolkit registration and merging return typed errors. Tools retain input/output types; failures become Error observations and cancellation propagates.
-- AgentResult.state is Completed, Suspended, or Interrupted. ReAct currently produces Completed or Interrupted; Suspended is a domain capability, not installed durable middleware.
+- AgentResult.state is Completed, Suspended, Interrupted or Stopped(reason). Host processor acting-stop decisions add ordinary Stopped results after the admitted batch drains; its reviewed contract distinguishes Stopped from suspended/resumable work. Suspended remains a domain capability, not installed durable middleware.
 - LlmClient has scripted implementations and ChatCompletionsClient for scoped text/user-image/function HTTP completion. An explicit encrypted-reasoning profile preserves ordered opaque assistant details and protected sibling arguments; other detail formats remain separate. Runtime-assigned ModelStreamContext correlates incremental model events; malformed or incomplete streams never dispatch tools.
 - AgentEvent is a sealed hierarchy of 39 variants. Some variants belong to planned subsystems.
 - Native structured output supplies LlmConfig.responseFormat; transports serialize it. Synthetic output uses generate_response and removes only synthetic context blocks.

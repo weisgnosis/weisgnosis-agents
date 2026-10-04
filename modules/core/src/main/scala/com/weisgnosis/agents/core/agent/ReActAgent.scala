@@ -245,7 +245,9 @@ final class ReActAgent private (
       captured: Option[Json]
   ): Either[AgentError, (AgentResult, A)] =
     if rawResult.state != AgentRunState.Completed then
-      Left(AgentError.Interrupted("Structured output run ended before completion"))
+      Left(rawResult.state match
+        case AgentRunState.Stopped(reason) => AgentError.ExecutionStopped(reason)
+        case _ => AgentError.Interrupted("Structured output run ended before completion"))
     else
       val payload = captured match
         case Some(json) => StructuredOutput.validatedPayload(json)
@@ -570,36 +572,49 @@ final class ReActAgent private (
         withSystem ++ newMessages
       }
       progressRef <- Ref.make[RunProgress](RunProgress.Ready)
-      result <- ZIO.acquireReleaseWith(
-        eventHub.publish(AgentEvent.AgentStartEvent(agentId, replyId, agentId))
-      )(_ => eventHub.publish(AgentEvent.AgentEndEvent(replyId)).unit) { _ =>
-        ZIO.uninterruptibleMask { restore =>
-          val prepare = loop(
-            1,
-            0,
-            runTools,
-            eventHub,
-            replyId,
-            requestConfig,
-            structuredResponse,
-            progressRef,
-            usageRef
-          ).flatMap(result => usageRef.get.map(usage => result.copy(usage = usage)))
-            .flatMap(prepareResult)
-            .onInterrupt(reconcileDanglingToolCalls(stateRef, progressRef).unit)
-          for
-            completed <- restore(
-              raceWithSignal(prepare, ZIO.sleep(config.timeout)).flatMap:
-                case Left(_) =>
-                  ZIO.fail(AgentError.TimeoutError(config.timeout.toSeconds, "Agent run timed out"))
-                case Right(value) => ZIO.succeed(value)
-            )
-            _ <- stateRef.set(completed._1.history)
-            _ <- complete(completed._1)
-            _ <- eventHub.publish(AgentEvent.AgentResultEvent(completed._1.reply))
-          yield completed
+      result <- ZIO
+        .acquireReleaseWith(
+          eventHub.publish(AgentEvent.AgentStartEvent(agentId, replyId, agentId))
+        )(_ => eventHub.publish(AgentEvent.AgentEndEvent(replyId)).unit) { _ =>
+          ZIO.uninterruptibleMask { restore =>
+            val prepare = loop(
+              1,
+              0,
+              runTools,
+              eventHub,
+              replyId,
+              requestConfig,
+              structuredResponse,
+              progressRef,
+              usageRef
+            ).flatMap(result => usageRef.get.map(usage => result.copy(usage = usage)))
+              .flatMap(prepareResult)
+              .onInterrupt(reconcileDanglingToolCalls(stateRef, progressRef).unit)
+            for
+              completed <- restore(
+                raceWithSignal(prepare, ZIO.sleep(config.timeout)).flatMap:
+                  case Left(_) =>
+                    ZIO.fail(
+                      AgentError.TimeoutError(config.timeout.toSeconds, "Agent run timed out")
+                    )
+                  case Right(value) => ZIO.succeed(value)
+              )
+              _ <- stateRef.set(completed._1.history)
+              _ <- complete(completed._1)
+              _ <- eventHub.publish(AgentEvent.AgentResultEvent(completed._1.reply))
+            yield completed
+          }
         }
-      }
+        .onExit:
+          case Exit.Failure(_) =>
+            // Only the caller and this run's signal identify cancellation; worker failures do not.
+            ZIO.descriptor
+              .zip(p.isDone)
+              .flatMap:
+                case (owner, requested) if owner.interrupters.nonEmpty || requested =>
+                  reconcileDanglingToolCalls(stateRef, progressRef).unit
+                case _ => ZIO.unit
+          case _ => ZIO.unit
     yield result
 
   private enum ObservationState:
@@ -795,36 +810,43 @@ final class ReActAgent private (
                         argumentPolicy
                       )
                     localPhase =
-                      if allSafe then ZIO.foreachParDiscard(pendingCalls)(execute)
-                      else ZIO.foreachDiscard(pendingCalls)(execute)
-                    phase = (ZIO.foreachDiscard(inline.completed) { case (call, indexed) =>
-                      processInlineResult(call, indexed, assistantPosition, context, eventHub)
-                    } *> localPhase).onExit:
-                      case Exit.Failure(cause) if !cause.isInterruptedOnly =>
-                        finalizeFailedToolPhase(assistantPosition)
-                      case _ => ZIO.unit
+                      if allSafe then ZIO.foreachPar(pendingCalls)(execute)
+                      else ZIO.foreach(pendingCalls)(execute)
+                    phase = ZIO
+                      .foreach(inline.completed) { case (call, indexed) =>
+                        processInlineResult(call, indexed, assistantPosition, context, eventHub)
+                      }
+                      .zipWith(localPhase)(_ ++ _)
+                      .onExit:
+                        case Exit.Failure(cause) if !cause.isInterruptedOnly =>
+                          finalizeFailedToolPhase(assistantPosition)
+                        case _ => ZIO.unit
                     outcome <- raceWithInterrupt(phase)
                     turnRes <- outcome match
                       case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
-                      case Right(_) =>
+                      case Right(decisions) =>
                         val captured = structuredResponse.fold[UIO[Option[Json]]](ZIO.none)(_.get)
-                        captured.flatMap:
-                          case value if pendingCalls.isEmpty || value.nonEmpty =>
-                            completedToolTurn(assistantPosition, iteration)
-                          case _ =>
-                            restore(
-                              loop(
-                                iteration + 1,
-                                0,
-                                runTools,
-                                eventHub,
-                                replyId,
-                                requestConfig,
-                                structuredResponse,
-                                progressRef,
-                                usageRef
-                              )
-                            )
+                        decisions.flatten.sortBy(_.ordinal).headOption match
+                          case Some(stop) =>
+                            stoppedToolTurn(assistantPosition, iteration, stop.reason, eventHub)
+                          case None =>
+                            captured.flatMap:
+                              case value if pendingCalls.isEmpty || value.nonEmpty =>
+                                completedToolTurn(assistantPosition, iteration)
+                              case _ =>
+                                restore(
+                                  loop(
+                                    iteration + 1,
+                                    0,
+                                    runTools,
+                                    eventHub,
+                                    replyId,
+                                    requestConfig,
+                                    structuredResponse,
+                                    progressRef,
+                                    usageRef
+                                  )
+                                )
                   yield turnRes
 
                 case TurnOutput.Interrupted(partial) =>
@@ -937,9 +959,7 @@ final class ReActAgent private (
                     .flatMap(history => stateRef.set(history) *> requestModel(history))
             yield result
           }
-          .onInterrupt {
-            reconcileDanglingToolCalls(stateRef, progressRef).ignore
-          }
+          .onInterrupt(reconcileDanglingToolCalls(stateRef, progressRef).unit)
 
   /** Runtime-owned request enrichment follows validation of the host's projected history. */
   private def withSkillPrompt(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =
@@ -992,8 +1012,12 @@ final class ReActAgent private (
 
   final private case class IndexedToolResult(result: ContentBlock.ToolResult, ordinal: Int)
 
+  final private case class ActingStop(ordinal: Int, reason: String)
+
+  final private case class ProcessedResult(result: ContentBlock.ToolResult, stop: Option[String])
+
   final private case class ToolResultPartition(
-      completed: Chunk[(ContentBlock.ToolUse, IndexedToolResult)],
+      completed: Chunk[(IndexedToolCall, IndexedToolResult)],
       pending: Chunk[IndexedToolCall],
       unmatched: Chunk[IndexedToolResult]
   )
@@ -1019,7 +1043,7 @@ final class ReActAgent private (
           matchingAndAfter.headOption match
             case Some(result) =>
               partition.copy(
-                completed = partition.completed :+ (call -> result),
+                completed = partition.completed :+ (indexed -> result),
                 unmatched = before ++ matchingAndAfter.drop(1)
               )
             case None => partition.copy(pending = partition.pending :+ indexed)
@@ -1032,29 +1056,48 @@ final class ReActAgent private (
         .orElseFail(AgentError.InvalidMessage("The completed assistant turn is missing"))
         .map(reply => AgentResult(reply, history, iteration))
 
-  private def processedResult(result: ContentBlock.ToolResult): UIO[ContentBlock.ToolResult] =
+  private def stoppedToolTurn(
+      position: Int,
+      iteration: Int,
+      reason: String,
+      eventHub: Hub[AgentEvent]
+  ): IO[AgentError, AgentResult] =
+    for
+      _ <- stateRef.update(_.zipWithIndex.map { case (message, index) =>
+        if index == position then
+          message.withGenerateReason(GenerateReason.ActingStopRequested.wireName)
+        else message
+      })
+      result <- completedToolTurn(position, iteration)
+      _ <- eventHub.publish(AgentEvent.RequestStopEvent(reason, GenerateReason.ActingStopRequested))
+    yield result.copy(state = AgentRunState.Stopped(reason))
+
+  private def processedResult(result: ContentBlock.ToolResult): UIO[ProcessedResult] =
     ZIO
-      .scoped(ZIO.suspendSucceed(toolResultProcessor.process(result)))
-      .catchAll(_ => ZIO.succeed(ToolResultPayload.fromResult(result)))
-      .map(_.applyTo(result))
+      .scoped(ZIO.suspendSucceed(toolResultProcessor.processDecision(result)))
+      .catchAll(_ => ZIO.succeed(ToolResultDecision.Continue(ToolResultPayload.fromResult(result))))
+      .map:
+        case ToolResultDecision.Continue(payload) => ProcessedResult(payload.applyTo(result), None)
+        case ToolResultDecision.Stop(payload, reason) =>
+          ProcessedResult(payload.applyTo(result), Some(reason))
 
   private def processInlineResult(
-      call: ContentBlock.ToolUse,
+      call: IndexedToolCall,
       indexed: IndexedToolResult,
       assistantPosition: Int,
       context: ModelStreamContext,
       eventHub: Hub[AgentEvent]
-  ): UIO[Unit] =
+  ): UIO[Option[ActingStop]] =
     ZIO.uninterruptibleMask: restore =>
       for
         completed <- restore(processedResult(indexed.result))
         _ <- stateRef.update(_.zipWithIndex.map { case (message, position) =>
           if position == assistantPosition then
-            message.mapToolResultAt(indexed.ordinal)(_ => completed)
+            message.mapToolResultAt(indexed.ordinal)(_ => completed.result)
           else message
         })
-        _ <- publishInlineResult(call, completed, context, eventHub)
-      yield ()
+        _ <- publishInlineResult(call.call, completed.result, context, eventHub)
+      yield completed.stop.map(ActingStop(call.ordinal, _))
 
   private def publishInlineResult(
       call: ContentBlock.ToolUse,
@@ -1206,7 +1249,7 @@ final class ReActAgent private (
       eventHub: Hub[AgentEvent],
       context: ModelStreamContext,
       argumentPolicy: ArgumentPolicy
-  ): ZIO[Any, Nothing, Unit] =
+  ): UIO[Option[ActingStop]] =
     ZIO.uninterruptibleMask: restore =>
       val call = indexed.call
       for
@@ -1266,10 +1309,10 @@ final class ReActAgent private (
         position  <- stateRef.modify(history => (history.size, history :+ toolMsg))
         completed <- restore(processedResult(resultBlock))
         _ <- stateRef.update(_.zipWithIndex.map { case (message, index) =>
-          if index == position then toolMsg.mapToolResults(_ => completed) else message
+          if index == position then toolMsg.mapToolResults(_ => completed.result) else message
         })
-        _ <- publishCompletedResult(call, completed, context, eventHub, observed.progress)
-      yield ()
+        _ <- publishCompletedResult(call, completed.result, context, eventHub, observed.progress)
+      yield completed.stop.map(ActingStop(indexed.ordinal, _))
 
   private def handleInterrupt(
       stateRef: Ref[Chunk[Msg]],

@@ -21,6 +21,7 @@ import zio.json.*
 
 enum AgentRunState derives JsonCodec:
   case Completed, Suspended, Interrupted
+  case Stopped(reason: String)
 
 /**
  * Result of executing a ReAct agent run.

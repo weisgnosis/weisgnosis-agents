@@ -113,6 +113,10 @@ object AgentError:
       message: String
   ) extends AgentError derives JsonCodec
 
+  /** A host processor ended the acting phase without producing a structured completion. */
+  final case class ExecutionStopped(reason: String) extends AgentError derives JsonCodec:
+    def message: String = s"Execution stopped: $reason"
+
   final case class DeserializationError(
       message: String
   ) extends AgentError derives JsonCodec

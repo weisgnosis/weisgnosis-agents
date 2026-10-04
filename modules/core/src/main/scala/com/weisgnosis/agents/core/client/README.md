@@ -106,7 +106,7 @@ Migration: exhaustive ReasoningReplay and LlmChunk matches must handle the new c
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | ddfd6a7af17856c6c075d9674cceb7e01c14dbc5 |
+| ReActAgent.scala | Encrypted-reasoning baseline ddfd6a7af17856c6c075d9674cceb7e01c14dbc5; current identity: [acting-stop decisions](../agent/README.md#acting-stop-decisions). |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | c087722e13cb05e4939bfce1c498d2fb00e395a2 |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | b513b501eff8ef8bd356afff29cca2e7335ca581 |
 | [LlmChunk.scala](LlmChunk.scala) | 6fe68b9f5882f097a3f5af13fa74981891d70ecf |
@@ -124,7 +124,7 @@ Migration: exhaustive ReasoningReplay and LlmChunk matches must handle the new c
 | [EncryptedReasoningDetail.scala](EncryptedReasoningDetail.scala) | 5cedaa9500d6699b73a6a871075d1bad02d6232f |
 | [EncryptedReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/EncryptedReasoningDetailSpec.scala) | f6e5ec577c8f7da54c0e8f582321465cf693af16 |
 
-- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for these exact 17 identities, with no findings. Full scalafmtAll scalafmtSbt verify passed in encrypted-reasoning-verify.log with zero compiler warnings or failed tests. Focused encrypted-reasoning-focused-green.log passed 86 core tests in 3.266 seconds and 27 harness tests in 310 ms. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the encrypted-reasoning identities recorded here, with no findings; the changed runtime has its separate current-scope link. Full scalafmtAll scalafmtSbt verify passed in encrypted-reasoning-verify.log with zero compiler warnings or failed tests. Focused encrypted-reasoning-focused-green.log passed 86 core tests in 3.266 seconds and 27 harness tests in 310 ms. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] Two checked-detail groups, extended classification/authorization/pruning tables and one real HTTP ReAct group verify ordered opaque replay, preserved sibling inputs, denial of edited input, execution with unchanged input and absence of all Thinking events. This is loopback contract evidence, not live OpenRouter interoperability.
 - [ ] Implement separately selected text/summary and other provider reasoning formats; no full reasoning-union or whole upstream formatter parity is claimed.
 

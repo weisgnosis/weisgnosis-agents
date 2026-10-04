@@ -41,7 +41,7 @@ The spawner's context and retained-child helpers have the current session-catalo
 | [SubagentSpawner.scala](SubagentSpawner.scala) | `910ddfabb5f6b5b3e36025425feb5bfec423612f` |
 | [SubagentSpawnerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSpawnerSpec.scala) | `b2866e1bab047dc31f463a1f809d45fe4676b7ba` |
 | [SubagentSpawnerAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSpawnerAgentSpec.scala) | `56b59a7fa9a7af22f4d63b8578533a068312cd21` |
-| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | `4b4b37d57e469975eaf208e8466fa1640fa8e11f` |
+| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | [Current error identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) |
 | [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | `b564c375448d4a6789dc2e45f9261c02a8075650` |
 
 ## Configured child construction
@@ -163,7 +163,7 @@ Turns are serialized, without a FIFO guarantee. Cancelling a queued turn reaches
 
 The host retains the returned TaskResource and its acquiring Scope. Closing it joins running, queued and promoted turns and further descendants before releasing registration/client resources. Promoted turns survive their individual caller Scope, not session closure. After closure, sends return Closed. Complete execution records remain inspectable through the retained registry; hosts manage retirement and retained result memory.
 
-This API supports ordinary runs only. A defensive continuation guard rejects later sends if a result is Suspended, but current ReAct execution does not produce that state, so this branch has no integration evidence. The session itself supplies no resume API, durable restoration or policy installation; factories produced by SubagentConstruction retain their inherited restrictions across turns. Host session-ID lookup is supplied by the explicit directory below. The model-facing adapter below binds `agent_send` to a host-selected session.
+This API supports ordinary runs only. A defensive continuation guard rejects later sends if a result is Suspended, but current ReAct execution does not produce that state, so this branch has no integration evidence. Stopped results leave this latch Ready for new work; that follows the existing Suspended-only state rule, not a new session-resumption protocol. The session itself supplies no resume API, durable restoration or policy installation; factories produced by SubagentConstruction retain their inherited restrictions across turns. Host session-ID lookup is supplied by the explicit directory below. The model-facing adapter below binds `agent_send` to a host-selected session.
 
 ## Bounded host session directory
 
@@ -203,7 +203,7 @@ By default, `agent_spawn` submits a fresh child and waits through the existing 3
 
 `agent_task` polls retained status without a model request or restart. `agent_cancel` waits for task cleanup and leaves the terminal record inspectable. Completed results remain unchanged by cancellation. IDs from another registry are Missing. The make and forSession variants retain their existing input and result shapes. Toolkit variants share tool names and are alternatives; hosts must select the intended variant rather than merge colliding definitions.
 
-Spawn/send rejection, missing IDs, child failure and a child's interrupted result become Error observations through the standard tool boundary, naming the invoked tool. Interruption of the calling fiber remains cancellation, not a manufactured success or Error reply. Inspecting or cancelling an existing failed/interrupted child is a successful observation of that terminal state. Task observations expose IDs and Running, Promoted, Completed, Suspended, Failed, Interrupted or Missing projections, never task handles; synchronous timeout has its separate ID-free variant below. Typed failure text is retained; defect-only detail uses a generic message.
+Spawn/send rejection, missing IDs, child failure and a child's interrupted or Stopped result become Error observations through the standard tool boundary, naming the invoked tool. Interruption of the calling fiber remains cancellation, not a manufactured success or Error reply. Inspecting or cancelling an existing failed/interrupted child is a successful observation of that terminal state. Task observations expose IDs and Running, Promoted, Completed, Suspended, Stopped, Failed, Interrupted or Missing projections, never task handles; synchronous timeout has its separate ID-free variant below. Stopped exposes only the bounded reason; the registry retains the complete AgentResult. Exhaustive SubagentToolState matches and wire consumers must accept the additive Stopped variant. Typed failure text is retained; defect-only detail uses a generic message.
 
 Reply and failure text previews are bounded to 4,000 UTF-16 code units, including a head/tail separator; truncation avoids splitting surrogate pairs. `omittedCharacters` counts omitted original UTF-16 units, excluding the separator. JSON framing is outside this text bound. The registry retains the complete original Exit and AgentResult, so bounded tool output does not bound retained memory.
 
@@ -311,10 +311,10 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `b8c862182e0a625e7d6f83c0ac72c120f700e80b` |
 | [SubagentExecutionPolicy.scala](SubagentExecutionPolicy.scala) | `df95802fbd98e3db0d5e64fe958f812b6f470003` |
 | [SubagentExecutionPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentExecutionPolicySpec.scala) | `ccab2966d1d868250b00eed9150138e3a5df69f1` |
-| [SubagentTools.scala](SubagentTools.scala) | `3239e6dd9d78b7c043345fd52c94cee703229730` |
+| [SubagentTools.scala](SubagentTools.scala) | [Current acting-stop identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) |
 | [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | `417dacb3a10064054d6d834e9cb29121833c5682` |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
-| [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | `6540e848a84bf9a53fc9dc4c6b9becb7be98d8a4` |
+| [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | [Current acting-stop identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `b63432a7c6d16a0bc7bdd06a473b74631ced147a` |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
 | [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `6db27b3d881222658521e11970b1def3d597f61c` |

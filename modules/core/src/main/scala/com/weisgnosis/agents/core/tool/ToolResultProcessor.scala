@@ -39,16 +39,50 @@ object ToolResultPayload:
   def fromResult(result: ContentBlock.ToolResult): ToolResultPayload =
     ToolResultPayload(result.output, result.metadata)
 
+/** A host processor decision; tool payloads cannot grant stop authority. */
+enum ToolResultDecision:
+  case Continue(value: ToolResultPayload)
+  case Stop(value: ToolResultPayload, reason: String)
+
+  def payload: ToolResultPayload = this match
+    case Continue(value) => value
+    case Stop(value, _)  => value
+
 /** Optional scoped processing of an already persisted completed local or matched inline provider observation. */
 trait ToolResultProcessor:
   def process(result: ContentBlock.ToolResult): ZIO[Scope, AgentError, ToolResultPayload]
 
+  def processDecision(result: ContentBlock.ToolResult): ZIO[Scope, AgentError, ToolResultDecision] =
+    process(result).map(ToolResultDecision.Continue(_))
+
   final def andThen(next: ToolResultProcessor): ToolResultProcessor =
-    ToolResultProcessor(result =>
-      process(result).flatMap(payload => next.process(payload.applyTo(result)))
-    )
+    val first = this
+    new ToolResultProcessor:
+      def process(result: ContentBlock.ToolResult): ZIO[Scope, AgentError, ToolResultPayload] =
+        first.process(result).flatMap(payload => next.process(payload.applyTo(result)))
+
+      override def processDecision(
+          result: ContentBlock.ToolResult
+      ): ZIO[Scope, AgentError, ToolResultDecision] =
+        first
+          .processDecision(result)
+          .flatMap:
+            case ToolResultDecision.Continue(payload) =>
+              next.processDecision(payload.applyTo(result))
+            case stop @ ToolResultDecision.Stop(_, _) => ZIO.succeed(stop)
 
 object ToolResultProcessor:
+  /** Stop ends this decision chain; direct payload-only processing still evaluates every stage. */
+  def deciding(
+      run: ContentBlock.ToolResult => ZIO[Scope, AgentError, ToolResultDecision]
+  ): ToolResultProcessor = new ToolResultProcessor:
+    def process(result: ContentBlock.ToolResult): ZIO[Scope, AgentError, ToolResultPayload] =
+      processDecision(result).map(_.payload)
+
+    override def processDecision(
+        result: ContentBlock.ToolResult
+    ): ZIO[Scope, AgentError, ToolResultDecision] = ZIO.suspendSucceed(run(result))
+
   val identity: ToolResultProcessor =
     ToolResultProcessor(result => ZIO.succeed(ToolResultPayload.fromResult(result)))
 

@@ -10,7 +10,7 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 | [skill](src/main/scala/com/weisgnosis/agents/core/skill/README.md) | Checked preloaded catalogue, exact logical resources and explicit Meta targets; runtime loading uses ordinary authorization |
 | [tool](src/main/scala/com/weisgnosis/agents/core/tool/README.md) | Typed tools, immutable host-selected groups and pure scoped notes, attached fixed raw arguments, host-selected descriptive output schemas, immutable registry, typed completed observations, path screening |
 | [client](src/main/scala/com/weisgnosis/agents/core/client/README.md) | Client port, scripted clients, validated text/user-image/function requests, scoped HTTP completion, SSE framing, indexed assembly, explicit Google tool-signature replay and selected encrypted reasoning |
-| [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | ReAct lifecycle, run-owned group activation, preloaded skill loading and snapshot-consistent descriptions/results, interruption, thinking retries, structured output |
+| [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | ReAct lifecycle, run-owned group activation, preloaded skill loading and snapshot-consistent descriptions/results, interruption, thinking retries, structured output and reviewed host acting-stop decisions |
 
 Typed failures are defined in [AgentError.scala](src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala). Provider extensions, remaining event integrations, automatic failover, and exhaustive upstream parity remain pending.
 

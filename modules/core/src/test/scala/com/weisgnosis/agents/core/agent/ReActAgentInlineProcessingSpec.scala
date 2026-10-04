@@ -273,7 +273,7 @@ object ReActAgentInlineProcessingSpec extends ZIOSpecDefault:
         exit.causeOption.exists(_.defects.contains(defect)),
         history.filter(_.role == Role.Assistant).flatMap(_.toolResults) == Chunk(inline),
         ToolHistory.inspect(history).isComplete,
-        history.forall(!_.generateReason.contains("interrupted"))
+        history.count(_.generateReason.contains("interrupted")) == 1
       )
     },
     test(

@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+[Acting-stop decisions](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) have three grouped runtime cases: original-ordinal selection across mixed inline/parallel calls and later reuse; caller-owned forwarding cancellation with held processor cleanup; native/synthetic structured rejection before captured decoding. The caller-owned cancellation regression, cooperative recovery expectations and unchanged timeout/sibling-defect controls pass full verification. Exact identities and evidence are recorded in the linked contract. Cancelled public stream consumers do not promise tail delivery.
+
 The extended post-reasoning table verifies opaque-only reminders and empty-array controls; the authorization table rejects fixed-input changes for protected sibling calls before consulting the authorizer. [Current identities and evidence](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) include these cases without claiming protection from trusted host history/reasoning replacements.
 
 - [x] Both independent reviewers approved fixed-argument preparation and runtime integration; full verification passed. The [current acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments) records exact scope and identities.
@@ -13,6 +15,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [ReActAgentReasoningHookSpec](ReActAgentReasoningHookSpec.scala)
 - [AgentConfigSpec](AgentConfigSpec.scala)
 - [AgentResultSpec](AgentResultSpec.scala)
+- [ReActAgentActingStopSpec](ReActAgentActingStopSpec.scala)
 - [ReActAgentToolResultProcessorSpec](ReActAgentToolResultProcessorSpec.scala)
 - [ReActAgentToolEventSpec](ReActAgentToolEventSpec.scala)
 - [ReActAgentEmissionSpec](ReActAgentEmissionSpec.scala)
@@ -67,7 +70,7 @@ The added deferred-reader runtime group verifies ordinary authorization before r
 - [x] ReActAgentEmissionSpec and ReActAgentToolEventSpec verify limits, inline metadata, occurrence matching, persistence before publication, normalized/empty observations, parallel completion, cancellation, and repeated IDs.
 - [x] Six StructuredJsonBoundarySpec and five real-loopback StructuredOutputHttpSpec scenarios cover strict extraction, schema delivery, compression, usage/thinking, fallback, nonretryable errors, and invalid native JSON.
 - [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope.
-- [ ] Complete remaining hook, provider continuation, event ordering, and permission/phase-stop scenarios.
+- [ ] Complete remaining hook, provider continuation, event ordering, and permission/post-reasoning suspension scenarios.
 
 Twelve StructuredOutputCapabilityRoutingSpec tests cover all declared/unknown capability routes, explicit overrides, application tool execution, native rejection fallback, and preset response formats. The preset-format regression failed before correction. Four separate client capability tests verify codecs, defaults, invalid declarations, and HTTP-body exclusion. These are local tests, not sixteen newly mapped upstream methods.
 
