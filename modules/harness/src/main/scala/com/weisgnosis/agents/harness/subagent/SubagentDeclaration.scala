@@ -35,7 +35,8 @@ final case class SubagentDeclaration(
     model: Option[String] = None,
     temperature: Option[Double] = None,
     maxIterations: Option[Int] = None,
-    skills: SubagentSkillSelection = SubagentSkillSelection.AllAvailable
+    skills: SubagentSkillSelection = SubagentSkillSelection.AllAvailable,
+    topP: Option[Double] = None
 ) derives JsonCodec:
   def validated: Either[AgentError, SubagentDeclaration] =
     val validTools = tools match
@@ -50,6 +51,8 @@ final case class SubagentDeclaration(
       Left(AgentError.InvalidConfiguration("Subagent model override must be nonblank"))
     else if temperature.exists(value => !value.isFinite) then
       Left(AgentError.InvalidConfiguration("Subagent temperature must be finite"))
+    else if topP.exists(value => !value.isFinite || value < 0 || value > 1) then
+      Left(AgentError.InvalidConfiguration("Subagent topP must be finite and between 0 and 1"))
     else if maxIterations.exists(_ <= 0) then
       Left(AgentError.InvalidConfiguration("Subagent maxIterations must be positive"))
     else if !validTools then
@@ -83,7 +86,8 @@ final case class SubagentDeclaration(
         ),
         parentModel.copy(
           model = declaration.model.getOrElse(parentModel.model),
-          temperature = declaration.temperature.getOrElse(parentModel.temperature)
+          temperature = declaration.temperature.getOrElse(parentModel.temperature),
+          topP = declaration.topP.orElse(parentModel.topP)
         ),
         inherited,
         SubagentToolBoundary(declaration.tools),

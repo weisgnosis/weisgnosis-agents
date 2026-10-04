@@ -101,7 +101,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
           toolkit <- ZIO.fromEither(Toolkit.empty.register(selectedTool))
           agent <- ReActAgent.make(
             client = primary,
-            llmConfig = primaryConfig,
+            llmConfig = primaryConfig.copy(topP = Some(0.8)),
             toolkit = toolkit,
             fallback = Some(
               ModelTarget(
@@ -109,6 +109,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                 targetConfig.copy(
                   temperature = 1.1,
                   maxTokens = Some(77),
+                  topP = Some(0.6),
                   responseFormat = Some(Json.Obj("unused" -> Json.Bool(true)))
                 )
               )
@@ -125,7 +126,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                       ),
                       ModelRequestSettings(
                         if request.model == "primary" then 0.2 else 0.4,
-                        Some(42)
+                        Some(42),
+                        if request.model == "primary" then None else Some(0.3)
                       )
                     )
                   )
@@ -228,8 +230,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
           projected.map(_._2.model) == starts.map(_.model),
           projected.forall { case (_, request) =>
             request.tools == toolkit.definitions && request.settings ==
-              (if request.model == "primary" then ModelRequestSettings(0.7, None)
-               else ModelRequestSettings(1.1, Some(77)))
+              (if request.model == "primary" then ModelRequestSettings(0.7, None, Some(0.8))
+               else ModelRequestSettings(1.1, Some(77), Some(0.6)))
           },
           requests.forall { case (model, value) =>
             value.asObject.exists(fields =>
@@ -240,6 +242,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   .get("temperature")
                   .contains(Json.Num(if model == "primary" then 0.2 else 0.4)) &&
                 fields.get("max_tokens").contains(Json.Num(42)) &&
+                (fields.get("top_p") == (if model == "primary" then None
+                                         else Some(Json.Num(0.3)))) &&
                 fields.get("messages").exists(_.toJson.contains(s"request for $model"))
             )
           },

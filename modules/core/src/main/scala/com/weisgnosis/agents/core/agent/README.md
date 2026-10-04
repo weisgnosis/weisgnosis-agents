@@ -123,7 +123,7 @@ BeforeActing checkpoints may preserve a provider-only pause, with no local pendi
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | 8c43423f655a348bd5d9cbbeefcc4483777edea8 |
+| [ReActAgent.scala](ReActAgent.scala) | [Current topP scope identity](../client/README.md#optional-nucleus-sampling) |
 | [PendingActing.scala](PendingActing.scala) | bdcdb1e276a1dcbb1a86dc321c4ecdf39bdbeb4c |
 | [ToolHistory.scala](../model/ToolHistory.scala) | ba82c0b9d409c0eb444b2212c603532efa83235f |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | f3382b5f930c7810c3193d9a027df04382b9707b |
@@ -261,7 +261,7 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 | File | Reviewed Git blob |
 | --- | --- |
 | [ReActAgent.scala](ReActAgent.scala) | [Current request-projection identity](#current-model-input-identities) |
-| [LlmClient.scala](../client/LlmClient.scala) | 028232913b8bd75fc8a5a5fd6acbb97fef2b3d4e |
+| [LlmClient.scala](../client/LlmClient.scala) | [Current topP scope identity](../client/README.md#optional-nucleus-sampling) |
 | [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | 41fe7ee22d997bb6e190d89df49d72747fce9f20 |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | 80b7ff0f54208c99085192edc59cdcc417e7ac04 |
 | [BeforeResponseRejection.scala](../client/BeforeResponseRejection.scala) | 96121e91541c7858bd5f6f6764546cb6aa2d4bf2 |
@@ -303,7 +303,7 @@ LlmConfig.structuredOutputCapability is a host declaration for the configured mo
 
 Explicit Native and SyntheticTool modes override this selection. Native installs the supplied structured schema. Every synthetic attempt clears responseFormat while retaining other configuration, including when falling back from a rejected native attempt. Ordinary runs preserve the host's responseFormat. Auto native attempts fall back only on an exact singleton ModelError failure with status 400, 422, or 501; other errors and cancellation propagate. This status policy is broader than provider-specific capability error classification.
 
-The declaration is serialized with LlmConfig but excluded from the HTTP request body. Existing constructor calls retain their defaults; positional pattern matches against LlmConfig must account for the new final field. Unknown preserves prior routing, while declared Unsupported avoids a native probe entirely.
+The declaration is serialized with LlmConfig but excluded from the HTTP request body. Existing constructor calls retain their defaults; positional pattern matches and binary rebuilding follow the [current LlmConfig migration](../client/README.md#optional-nucleus-sampling). Unknown preserves prior routing, while declared Unsupported avoids a native probe entirely.
 
 ## Current acceptance
 
@@ -485,25 +485,25 @@ Superseded model-input scope identities remain in `40f6f05`; changed identities 
 
 ## Request-only model history
 
-ModelInputTransform is distinct from HistoryPreparer: it returns a transient request view without canonical write authority. Existing apply(context, history) implementations remain valid; default projectRequest invokes that legacy callback once and retains the selected target's settings. ModelRequestInput contains prepared history, the selected model name, admitted tool definitions and ModelRequestSettings(temperature, maxTokens). It contains no client, credentials, endpoint or capability declarations. ModelInputProjection returns only history and settings; it cannot replace tools, the model, client or response format.
+ModelInputTransform is distinct from HistoryPreparer: it returns a transient request view without canonical write authority. Existing apply(context, history) implementations remain valid; default projectRequest invokes that legacy callback once and retains the selected target's settings. ModelRequestInput contains prepared history, the selected model name, admitted tool definitions and ModelRequestSettings(temperature, maxTokens, topP). It contains no client, credentials, endpoint or capability declarations. ModelInputProjection returns only history and settings; it cannot replace tools, the model, client or response format.
 
-ModelInputTransform.withRequest(base)(project) adds selected-request behavior to an explicit base. Standalone apply still delegates only to the legacy base. projectRequest runs the base and added callback once, validates each intermediate history/settings before the next stage, and shares the caller's scope. Runtime execution closes the projection scope before final validation, request events and client dispatch. Temperature must be finite in [0, 2]; maxTokens must be absent or positive. Existing HistoryRewrite rules preserve exact ordered system messages and complete occurrence-aware call/result pairs. Structural validation is not semantic fidelity or full provider grammar validation.
+ModelInputTransform.withRequest(base)(project) adds selected-request behavior to an explicit base. Standalone apply still delegates only to the legacy base. projectRequest runs the base and added callback once, validates each intermediate history/settings before the next stage, and shares the caller's scope. Runtime execution closes the projection scope before final validation, request events and client dispatch. Temperature must be finite in [0, 2]; maxTokens must be absent or positive; optional topP must be finite in [0, 1]. Projected topP=None clears the selected target value; [nucleus-sampling acceptance](../client/README.md#optional-nucleus-sampling) owns current identities and arity migration. Existing HistoryRewrite rules preserve exact ordered system messages and complete occurrence-aware call/result pairs. Structural validation is not semantic fidelity or full provider grammar validation.
 
 Every actual selected model attempt starts from prepared canonical history and its own configured settings, with a fresh request context. This includes explicit model failover and native/synthetic attempts. The admitted tool snapshot and active response format remain unchanged. Request-only skill projection follows validation. Built-in HTTP status retries reuse the serialized request and do not rerun projection. Projected history/settings never replace canonical history, configuration, recovery positions, usage or tool authority. Newly injected content is not automatically evicted.
 
 Typed callback failures and invalid output use ModelInputError and cannot trigger model failover or native-format fallback. Defects and complete cancellation/cleanup causes propagate; scoped cleanup is joined. Completed canonical preparation is not rolled back. Callbacks must not reenter operations needing the held run lock.
 
-Migration: the default projectRequest method preserves existing ModelInputTransform implementations and ordinary factory calls. withRequest requires an explicit base so existing Plan/other history behavior is retained intentionally. New request/projection values are transient immutable data without codecs. Dependent binaries should be rebuilt. Validation now also rejects invalid original temperature/maxTokens with an identity or legacy transform, including custom clients, before request events or client invocation. This is a deliberate compatibility tightening, not a general middleware/interception framework.
+Migration: the default projectRequest method preserves existing ModelInputTransform implementations and ordinary factory calls. withRequest requires an explicit base so existing Plan/other history behavior is retained intentionally. New request/projection values are transient immutable data without codecs. Dependent binaries should be rebuilt. Validation now also rejects invalid original temperature/maxTokens/topP with an identity or legacy transform, including custom clients, before request events or client invocation. This is a deliberate compatibility tightening, not a general middleware/interception framework.
 
 ## Current model-input identities
 
 | File | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](ModelInputTransform.scala) | 7570689063551d3cf0391bd8ef796fca5638a509 |
+| [ModelInputTransform.scala](ModelInputTransform.scala) | [Current topP scope identity](../client/README.md#optional-nucleus-sampling) |
 | [ReActAgent.scala](ReActAgent.scala) | [Current runtime identity](#host-selected-return-direct-completion) |
-| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | c473479329060cb836ed876d7c8997d0ab435f1b |
-| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 90a1ec2e255e473fca9e00ca869c5752f98f0fe3 |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | 461176a848cf147e36dc907c7165a37fdb7d0987 |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current topP scope identity](../client/README.md#optional-nucleus-sampling) |
+| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current topP scope identity](../client/README.md#optional-nucleus-sampling) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current topP scope identity](../client/README.md#optional-nucleus-sampling) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the five identities above, with no findings. Final focused checks passed 18 tests in 807 ms (`request-projection-final-focused.log`). Full `scalafmtAll scalafmtSbt verify` passed in `request-projection-final-verify.log` with zero compiler warnings or failures; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Verification used process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx512m -Xss1m -XX:ActiveProcessorCount=2` and `sbt --mem 512`; repository defaults and production behavior were not changed for the host resource limit.
 

@@ -382,7 +382,12 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
       val result = ChatCompletionsRequest.encode(
         Chunk(Msg.user("question")),
         Chunk.empty,
-        config.copy(temperature = 0.25, maxTokens = Some(512), responseFormat = Some(format))
+        config.copy(
+          temperature = 0.25,
+          maxTokens = Some(512),
+          responseFormat = Some(format),
+          topP = Some(0.9)
+        )
       )
       assertTrue(
         result.exists(value =>
@@ -391,7 +396,20 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             value.get("stream_options").contains(Json.Obj("include_usage" -> Json.Bool(true))) &&
             value.get("temperature").contains(Json.Num(0.25)) &&
             value.get("max_tokens").contains(Json.Num(512)) &&
+            value.get("top_p").contains(Json.Num(0.9)) &&
             value.get("response_format").contains(format) && value.get("tools").isEmpty
+        ),
+        Chunk(None, Some(0.0), Some(1.0)).forall(topP =>
+          ChatCompletionsRequest
+            .encode(Chunk(Msg.user("question")), Chunk.empty, config.copy(topP = topP))
+            .exists(_.get("top_p") == topP.map(Json.Num(_)))
+        ),
+        """{"model":"test-model"}""".fromJson[LlmConfig] == Right(LlmConfig("test-model")),
+        """{"model":"test-model","topP":null}""".fromJson[LlmConfig] == Right(
+          LlmConfig("test-model")
+        ),
+        config.copy(topP = Some(0.9)).toJson.fromJson[LlmConfig] == Right(
+          config.copy(topP = Some(0.9))
         )
       )
     },
@@ -636,6 +654,10 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         config.copy(temperature = Double.PositiveInfinity),
         config.copy(temperature = -1),
         config.copy(temperature = 3),
+        config.copy(topP = Some(Double.NaN)),
+        config.copy(topP = Some(Double.PositiveInfinity)),
+        config.copy(topP = Some(-0.1)),
+        config.copy(topP = Some(1.1)),
         config.copy(maxTokens = Some(0)),
         config.copy(responseFormat = Some(Json.Str("invalid")))
       )

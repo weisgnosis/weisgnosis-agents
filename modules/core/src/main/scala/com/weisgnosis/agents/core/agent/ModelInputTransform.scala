@@ -22,7 +22,11 @@ import com.weisgnosis.agents.core.tool.ToolDef
 import zio.*
 
 /** Transient request projection data, not serialized agent state or a provider configuration. */
-final case class ModelRequestSettings(temperature: Double, maxTokens: Option[Int])
+final case class ModelRequestSettings(
+    temperature: Double,
+    maxTokens: Option[Int],
+    topP: Option[Double] = None
+)
 
 final case class ModelRequestInput(
     history: Chunk[Msg],
@@ -104,6 +108,11 @@ object ModelInputTransform:
           candidate.settings.temperature <= 2,
         (),
         AgentError.ModelInputError("Projected temperature must be finite and between 0 and 2")
+      )
+      _ <- Either.cond(
+        candidate.settings.topP.forall(value => value.isFinite && value >= 0 && value <= 1),
+        (),
+        AgentError.ModelInputError("Projected topP must be finite and between 0 and 1")
       )
       _ <- Either.cond(
         candidate.settings.maxTokens.forall(_ > 0),

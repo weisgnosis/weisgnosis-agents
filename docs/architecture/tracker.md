@@ -1,6 +1,6 @@
 # Architecture implementation tracker
 
-Last synchronized: 2026-10-04. Implementation is active. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
+Last synchronized: 2026-10-05. Implementation is active. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
 
 ## Current acceptance
 
@@ -22,7 +22,7 @@ Last synchronized: 2026-10-04. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 655 core / 720 harness / 85 MCP tests (1,460 total), zero compiler warnings or failures. Evidence: `provider-ownership-final-verify.log`; compile task 1 second and test task 31 seconds, including test compilation. This run used process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx1024m -Xss16m -XX:ActiveProcessorCount=2` and `sbt --mem 1024`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 655 core / 720 harness / 85 MCP tests (1,460 total), zero compiler warnings or failures. Evidence: `top-p-verify.log`; compile task 1 second and test task 28 seconds. This run used process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx1024m -Xss16m -XX:ActiveProcessorCount=2` and `sbt --mem 1024`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -138,7 +138,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Both reviewers approved real SDK local listener cancellation and explicit same-session cursorless re-listening; full verification passed. Exact fixture identity and limits are in the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#independent-server-interoperability).
 - [x] Both reviewers approved [AllToolsDenied observation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#all-tools-denied-observation) after complete batch cleanup with Deferred/Stop priority; full verification passed.
 - [x] Both reviewers approved [provider-owned pending-call continuation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls), local-only recovery/checkpoint choices and safe compaction pairing; unchanged defect assertions and full verification pass.
-- [ ] Next: implement and independently review optional topP through model settings, request projection and subagent declarations; the current draft is not accepted yet.
+- [x] Both reviewers approved [optional topP](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-nucleus-sampling) across model settings, request projection and subagent declarations; full verification passed.
+- [ ] Next: implement and independently review typed host-selected tool_choice serialization and validation; this next scope is not accepted yet.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.

@@ -1400,7 +1400,11 @@ final class ReActAgent private (
           history,
           target.config.model,
           tools,
-          ModelRequestSettings(target.config.temperature, target.config.maxTokens)
+          ModelRequestSettings(
+            target.config.temperature,
+            target.config.maxTokens,
+            target.config.topP
+          )
         )
         candidate <- ZIO.scoped(
           ZIO.suspendSucceed(modelInputTransform.projectRequest(context, request))
@@ -1409,7 +1413,8 @@ final class ReActAgent private (
         view      <- ZIO.fromEither(withSkillPrompt(validated.history))
         projectedConfig = target.config.copy(
           temperature = validated.settings.temperature,
-          maxTokens = validated.settings.maxTokens
+          maxTokens = validated.settings.maxTokens,
+          topP = validated.settings.topP
         )
         _ <- eventHub.publish(
           AgentEvent.ModelRequestStartEvent(target.config.model, 0, context = Some(context))

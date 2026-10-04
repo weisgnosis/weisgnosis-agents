@@ -45,7 +45,8 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
     "https://host.invalid/model",
     Some("host-secret"),
     0.4,
-    Some(300)
+    Some(300),
+    topP = Some(0.8)
   )
   private val declared: SubagentDeclaration = SubagentDeclaration(
     "reviewer",
@@ -149,6 +150,10 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
           declared.copy(model = Some(" ")),
           declared.copy(temperature = Some(Double.NaN)),
           declared.copy(temperature = Some(Double.PositiveInfinity)),
+          declared.copy(topP = Some(Double.NaN)),
+          declared.copy(topP = Some(Double.PositiveInfinity)),
+          declared.copy(topP = Some(-0.1)),
+          declared.copy(topP = Some(1.1)),
           declared.copy(maxIterations = Some(0)),
           declared.copy(tools = SubagentToolSelection.Only(Set(""))),
           declared.copy(skills = SubagentSkillSelection.Only(Set(" "))),
@@ -158,7 +163,8 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
         invalidParent = compile(declared, parentConfig.copy(timeout = Duration.Zero))
         roundTrip = declared.copy(
           tools = SubagentToolSelection.Only(Set.empty),
-          skills = SubagentSkillSelection.Only(Set("guide"))
+          skills = SubagentSkillSelection.Only(Set("guide")),
+          topP = Some(0.9)
         )
         untouched <- acquired.get
       yield assertTrue(
@@ -167,6 +173,9 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
         valid.isRight,
         untouched == 0,
         roundTrip.toJson.fromJson[SubagentDeclaration] == Right(roundTrip),
+        Chunk(0.0, 1.0).forall(value => declared.copy(topP = Some(value)).validated.isRight),
+        """{"name":"reviewer","description":"Reviews delegated work","systemPrompt":"Review carefully.","topP":null}"""
+          .fromJson[SubagentDeclaration] == Right(declared),
         """{"name":"reviewer","description":"Reviews delegated work","systemPrompt":"Review carefully."}"""
           .fromJson[SubagentDeclaration] == Right(declared)
       )
@@ -252,10 +261,11 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
                 tools = SubagentToolSelection.Only(Set("read", "hidden")),
                 model = Some("child-model"),
                 temperature = Some(0.2),
+                topP = Some(0),
                 maxIterations = Some(1)
               ),
               Set("read"),
-              parentModel.copy(model = "child-model", temperature = 0.2),
+              parentModel.copy(model = "child-model", temperature = 0.2, topP = Some(0)),
               1
             ),
             (

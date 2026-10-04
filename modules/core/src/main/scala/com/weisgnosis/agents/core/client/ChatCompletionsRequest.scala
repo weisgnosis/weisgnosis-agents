@@ -57,6 +57,10 @@ object ChatCompletionsRequest:
       )
       _ <- configuration(config.maxTokens.forall(_ > 0), "Maximum tokens must be positive")
       _ <- configuration(
+        config.topP.forall(value => value.isFinite && value >= 0 && value <= 1),
+        "topP must be finite and between 0 and 1"
+      )
+      _ <- configuration(
         config.responseFormat.forall(_.isInstanceOf[Json.Obj]),
         "Response format must be an object"
       )
@@ -83,6 +87,7 @@ object ChatCompletionsRequest:
           "temperature"    -> Json.Num(config.temperature)
         ) ++
           Chunk.fromIterable(config.maxTokens.map(value => "max_tokens" -> Json.Num(value))) ++
+          Chunk.fromIterable(config.topP.map(value => "top_p" -> Json.Num(value))) ++
           Chunk.fromIterable(config.responseFormat.map(value => "response_format" -> value)) ++
           (if definitions.isEmpty then Chunk.empty else Chunk("tools" -> Json.Arr(definitions)))
       )

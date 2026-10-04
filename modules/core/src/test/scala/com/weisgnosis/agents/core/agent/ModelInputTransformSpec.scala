@@ -74,7 +74,12 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
       val tools =
         Chunk(ToolDef("lookup", "Host definition", Json.Obj("type" -> Json.Str("object"))))
       val request =
-        ModelRequestInput(history, "selected-model", tools, ModelRequestSettings(0.7, Some(100)))
+        ModelRequestInput(
+          history,
+          "selected-model",
+          tools,
+          ModelRequestSettings(0.7, Some(100), Some(0.9))
+        )
       for
         calls <- Ref.make(Chunk.empty[String])
         seen  <- Ref.make(Chunk.empty[(ModelStreamContext, ModelRequestInput)])
@@ -90,7 +95,7 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
             .as(
               ModelInputProjection(
                 input.history :+ Msg.user("first"),
-                ModelRequestSettings(0, Some(11))
+                ModelRequestSettings(0, Some(11), Some(0.4))
               )
             )
         second = ModelInputTransform.withRequest(first): (ctx, input) =>
@@ -99,7 +104,7 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
             .as(
               ModelInputProjection(
                 input.history :+ Msg.user("second"),
-                input.settings.copy(maxTokens = None)
+                input.settings.copy(maxTokens = None, topP = None)
               )
             )
         standalone = second(context, history)
@@ -119,7 +124,7 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
           context -> request.copy(history = legacy),
           context -> request.copy(
             history = legacy :+ Msg.user("first"),
-            settings = ModelRequestSettings(0, Some(11))
+            settings = ModelRequestSettings(0, Some(11), Some(0.4))
           )
         ),
         result == ModelInputProjection(
@@ -133,9 +138,15 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
       val settings = ModelRequestSettings(0.7, Some(10))
       val request  = ModelRequestInput(history, "selected", Chunk.empty, settings)
       val cases = Chunk(
-        ModelInputProjection(history, ModelRequestSettings(0, None))               -> true,
-        ModelInputProjection(history, ModelRequestSettings(2, Some(Int.MaxValue))) -> true,
-        ModelInputProjection(history, settings.copy(temperature = Double.NaN))     -> false,
+        ModelInputProjection(history, settings.copy(topP = Some(0)))                       -> true,
+        ModelInputProjection(history, settings.copy(topP = Some(1)))                       -> true,
+        ModelInputProjection(history, settings.copy(topP = Some(Double.NaN)))              -> false,
+        ModelInputProjection(history, settings.copy(topP = Some(Double.PositiveInfinity))) -> false,
+        ModelInputProjection(history, settings.copy(topP = Some(-0.1)))                    -> false,
+        ModelInputProjection(history, settings.copy(topP = Some(1.1)))                     -> false,
+        ModelInputProjection(history, ModelRequestSettings(0, None))                       -> true,
+        ModelInputProjection(history, ModelRequestSettings(2, Some(Int.MaxValue)))         -> true,
+        ModelInputProjection(history, settings.copy(temperature = Double.NaN))             -> false,
         ModelInputProjection(
           history,
           settings.copy(temperature = Double.PositiveInfinity)

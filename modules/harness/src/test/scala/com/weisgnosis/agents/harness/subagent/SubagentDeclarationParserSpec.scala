@@ -30,6 +30,10 @@ object SubagentDeclarationParserSpec extends ZIOSpecDefault:
       val base = SubagentDeclaration("reviewer", "Review", "Body\n")
       val examples = Chunk(
         ("description: Review", base),
+        ("description: Review\ntop_p: 0", base.copy(topP = Some(0))),
+        ("description: Review\ntopP: '1e0'", base.copy(topP = Some(1))),
+        ("description: Review\ntop_p: null", base),
+        ("description: Review\ntopP: ~", base),
         (
           "description: Review\nmodel: null\ntemperature: ~\nsteps:\nmaxIters: NULL\ntools: Null",
           base
@@ -136,6 +140,18 @@ object SubagentDeclarationParserSpec extends ZIOSpecDefault:
         "description: Review\ntemperature: 'null'",
         "description: Review\ntemperature: .inf",
         "description: Review\ntemperature: 1e999",
+        "description: Review\ntop_p: 0.5\ntopP: 0.5",
+        "description: Review\ntop_p: null\ntopP: 0.5",
+        "description: Review\ntop_p: 0.5\ntopP: null",
+        "description: Review\ntop_p: null\ntopP: null",
+        "description: Review\ntop_p: 0.5\ntop_p: 0.5",
+        "description: Review\ntopP: 'null'",
+        "description: Review\ntopP: .inf",
+        "description: Review\ntopP: 1e999",
+        "description: Review\ntopP: -0.1",
+        "description: Review\ntopP: 1.1",
+        "description: Review\ntopP: [0.5]",
+        "description: Review\ntopP: {value: 0.5}",
         "description: Review\nsteps: 2.5",
         "description: Review\nsteps: 0",
         "description: Review\nsteps: 2147483648",

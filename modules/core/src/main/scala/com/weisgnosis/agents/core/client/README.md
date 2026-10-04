@@ -21,6 +21,31 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [StreamAccumulator](StreamAccumulator.scala)
 - [TurnOutput](TurnOutput.scala)
 
+## Optional nucleus sampling
+
+LlmConfig.topP is optional, defaulting to None. ChatCompletions emits top_p only for Some(value), requiring a finite value in the inclusive range [0, 1]; None omits the field. There is no provider-specific clamping, inferred default or endpoint/capability change. Domain JSON uses topP; old missing or explicit-null values decode as None.
+
+ModelRequestSettings carries the selected target's topP into the scoped request projection. Its output replaces that target's setting: None explicitly clears it. Validation runs after projection cleanup and before request events or custom-client dispatch; primary and fallback start from their own configurations, and transport retries reuse the encoded request. SubagentDeclaration.topP instead treats None as inheritance and Some as a child override. Its checked YAML profile accepts top_p or topP, rejects simultaneous key presence even when either value is null, and treats omitted/plain-null as inheritance; quoted numeric scalars parse, while quoted null and malformed/nonfinite/out-of-range values fail. It grants no execution authority.
+
+Migration: the appended defaulted fields preserve ordinary omitted-argument construction and legacy JSON. Positional patterns/Product arities become eight for LlmConfig, three for ModelRequestSettings and nine for SubagentDeclaration; constructor method values may need adaptation and dependent binaries must be rebuilt. Declaration validation and request validation remain explicit boundaries rather than validation performed by the derived data codecs.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5bbd26b08badd4655233de44bc37d2b8aa055066 |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | b93825f7cb540cdbe8bb950d88f43254d6c62441 |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | 12e0ea16be1733eef8ecde83c1da2280356519e8 |
+| [LlmClient.scala](LlmClient.scala) | 22bbd2a6c28be1b2178a5118a6ed3f901481298a |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | f1fc743eab486530a80f640121c9645525a3357e |
+| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 0d4f7af173a519abc65ece2feadc6f7f19efc053 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | d899e668220a07abc9f6442b1c4835c50282faea |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | a5366fc324e4f6c76ba9463b98de76e0cf24f4a1 |
+| [SubagentDeclaration.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclaration.scala) | bf55c6a99b8c35bfaa28bd15eb8fba2617ad9faa |
+| [SubagentDeclarationParser.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParser.scala) | 2033e68dc48552d838cf7f96b7a53d9e1a2df45c |
+| [SubagentDeclarationParserSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | 3143e211c09c6a1f58b9eaaa4afd0e88868bbfa1 |
+| [SubagentDeclarationSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | e4939bf0e57bdc01b018a87b6afdd8197a0ed310 |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these twelve identities, with no findings. Existing tables cover omission/endpoints, strict invalid values, original invalid custom-client configuration, per-target projection and clearing in serialized requests, declaration inheritance/override, JSON compatibility and YAML alias conflicts. The scope extends existing test groups. Focused top-p-focused.log passed 37 core tests in 1.023 seconds and seven harness tests in 485 ms; full scalafmtAll scalafmtSbt verify passed in top-p-verify.log with zero compiler warnings or failures. Current aggregate evidence is in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
 ## Structured output capabilities
 
 LlmConfig.structuredOutputCapability is a host declaration for the configured model/endpoint, not automatic discovery. Unknown is the default for source and JSON compatibility. Native() permits application tools by default; Native(NativeToolSupport.Unsupported) restricts native formatting to requests without application tools. Unsupported cannot declare tool support independently.
@@ -34,7 +59,7 @@ LlmConfig.structuredOutputCapability is a host declaration for the configured mo
 
 Explicit Native and SyntheticTool modes override this selection. Native installs the supplied structured schema. Every synthetic attempt clears responseFormat while retaining other configuration, including when falling back from a rejected native attempt. Ordinary runs preserve the host's responseFormat. Auto native attempts fall back only on an exact singleton ModelError failure with status 400, 422, or 501; other errors and cancellation propagate. This status policy is broader than provider-specific capability error classification.
 
-The declaration is serialized with LlmConfig but excluded from the HTTP request body. Existing constructor calls retain their defaults; positional pattern matches against LlmConfig must account for the new final field. Unknown preserves prior routing, while declared Unsupported avoids a native probe entirely.
+The declaration is serialized with LlmConfig but excluded from the HTTP request body. Existing constructor calls retain their defaults; positional pattern matches and binary rebuilding follow the [current LlmConfig migration](#optional-nucleus-sampling). Unknown preserves prior routing, while declared Unsupported avoids a native probe entirely.
 
 ## Completion data boundary
 
@@ -84,8 +109,8 @@ Existing tables verify six inline MIME mappings, four image URL hints on a misle
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | ad9af772b380dd81e4b3b1d796165af3cf1ff1b8 |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | 3134b949db30effa732d3d3ba9f1a17261e3aad4 |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current topP scope identity](README.md#optional-nucleus-sampling) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current topP scope identity](README.md#optional-nucleus-sampling) |
 | [MediaSource.scala](../model/MediaSource.scala) | a443433df837fc8d4eb4b714664b90b2a7bcef3c |
 | [MediaSourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/MediaSourceSpec.scala) | ac9619600ec48fe7f0c5713ae7f34c8f8c0f6ad6 |
 

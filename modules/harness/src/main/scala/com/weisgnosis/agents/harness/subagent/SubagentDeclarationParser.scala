@@ -50,7 +50,17 @@ object SubagentDeclarationParser:
     case Done(values: Header)
 
   private val fields: Set[String] =
-    Set("description", "model", "temperature", "tools", "skills", "steps", "maxIters")
+    Set(
+      "description",
+      "model",
+      "temperature",
+      "top_p",
+      "topP",
+      "tools",
+      "skills",
+      "steps",
+      "maxIters"
+    )
 
   def parse(
       name: String,
@@ -166,14 +176,14 @@ object SubagentDeclarationParser:
       .filter(_ > 0)
       .toRight(invalid("iteration overrides must be positive decimal Int values"))
 
-  private def temperature(value: String): Either[AgentError, Double] =
+  private def decimal(value: String, field: String): Either[AgentError, Double] =
     Option
       .when(value.matches("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?"))(
         value.toDoubleOption
       )
       .flatten
       .filter(_.isFinite)
-      .toRight(invalid("temperature must be a finite decimal number"))
+      .toRight(invalid(s"$field must be a finite decimal number"))
 
   private def optional[A](
       value: Option[String],
@@ -204,9 +214,15 @@ object SubagentDeclarationParser:
       description <- scalar(values, "description").toRight(invalid("description is required"))
       tools       <- selection(values, "tools")
       skills      <- selection(values, "skills")
-      sampled     <- optional(scalar(values, "temperature"), temperature)
-      steps       <- optional(scalar(values, "steps"), integer)
-      maxIters    <- optional(scalar(values, "maxIters"), integer)
+      sampled     <- optional(scalar(values, "temperature"), decimal(_, "temperature"))
+      _ <- Either.cond(
+        !(values.contains("top_p") && values.contains("topP")),
+        (),
+        invalid("top_p and topP cannot both be supplied")
+      )
+      topP  <- optional(scalar(values, "top_p").orElse(scalar(values, "topP")), decimal(_, "topP"))
+      steps <- optional(scalar(values, "steps"), integer)
+      maxIters <- optional(scalar(values, "maxIters"), integer)
       declaration <- SubagentDeclaration(
         name,
         description,
@@ -219,6 +235,7 @@ object SubagentDeclarationParser:
         steps.orElse(maxIters),
         skills.fold[SubagentSkillSelection](SubagentSkillSelection.AllAvailable)(
           SubagentSkillSelection.Only(_)
-        )
+        ),
+        topP
       ).validated
     yield declaration

@@ -1,5 +1,7 @@
 # Model client and stream verification
 
+Existing request/failover tables cover optional topP omission, inclusive endpoints, invalid values, per-target inheritance and projected clearing in actual serialized controlled-driver requests. Current reviewed identities and verification are in [optional nucleus sampling](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#optional-nucleus-sampling). No new test groups or live-provider compatibility claim.
+
 The [selected-reasoning contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) records checked encrypted/text/summary values, ordered all-history replay and sibling-input protection. Two general-detail groups cover literal fields, profile rejection, scalar precedence, direct mixed-chunk rejection and canonical/event agreement. The real HTTP ReAct table checks both selected profiles: encrypted-only emits no Thinking events; general details emit exactly their plaintext projection. Both independent reviews and full reasoning-details-verify.log verification passed; the source contract owns exact identities and focused evidence. These are local protocol tests, not live OpenRouter interoperability.
 
 These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity or live-provider behavior.
