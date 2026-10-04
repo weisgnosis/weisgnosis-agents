@@ -299,7 +299,7 @@ The independent audit found the following gaps; completed corrections are checke
 - [x] Preserve immutable metadata on existing tool-result start/text-delta/end events through decoding, encoding, and repeated source tagging.
 - [x] Add tool-result data-delta payload and its immutable metadata contract; AgentEventPayloadSpec verifies round-trip and repeated source tagging.
 - [x] Publish ordered inline provider result text/data events with complete result metadata and correlated data reply IDs; preserve call occurrences and cancellation reconciliation.
-- [ ] Extend local tool execution to structured/streaming results and propagate their metadata.
+- [x] Support [typed final results and incremental local tool progress with reviewed metadata propagation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution).
 - [x] Classify current event/lowercase and upstream type/uppercase wire formats as noninterchangeable; existing Scala wire tags remain canonical for compatibility.
 - [x] Implement the separate AgentEventType identifier codec for all 31 canonical names and 11 aliases.
 - [ ] Implement explicit field/payload adapters; identifier parsing alone cannot establish compatibility.
@@ -1074,7 +1074,7 @@ The fourteen Plan inventory methods now have bounded adaptations; full Java API/
 - [x] Bounded `ToolEmitterIntegrationTest.testToolEmitterWithHook` adaptation: provisional content reaches existing runtime events with call identity while an independently typed final value becomes model history only after EOF and cleanup. Immutable scoped streams replace mutable emitter injection and Hook APIs.
 - [x] Bounded `ToolEmitterIntegrationTest.testToolWithoutEmitter` adaptation: the default stream executes the legacy contextual method once and retains ordinary final publication without provisional output.
 - [x] Bounded `ToolEmitterIntegrationTest.testMultipleToolsWithEmitters` adaptation: actual parallel calls retain their own deltas and final values; repeated IDs do not share final-delta suppression. The Scala runtime test uses two streaming tools plus an ordinary sibling rather than sequential Java callback collection.
-- [ ] `ReActAgentToolkitConcurrencyTest.concurrentCallsDoNotCrossTalkChunkCallbacks` remains open: one-agent parallel occurrences do not prove isolation between separate concurrent event destinations sharing a Toolkit.
+- [x] `ReActAgentToolkitConcurrencyTest.concurrentCallsDoNotCrossTalkChunkCallbacks` (pinned core/tool test, lines 308-347): a bounded adaptation shares one Tool/Toolkit between two independently owned Scala agents, holds both streams concurrently and checks exact isolated deltas, final observations, histories and distinct request/reply contexts. Java uses concurrent sessions on one agent; that API is not claimed. Both reviewers approved the [current fixture](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#shared-toolkit-destination-isolation), and full verification passed.
 - [ ] Public callback/Hook fanout and callback-failure isolation in `testReActAgentPreservesUserChunkCallback`, `testInternalChunkCallbackFailureDoesNotBlockUserCallback`, `testUserChunkCallbackFailureDoesNotInterruptToolExecution` and `testInternalChunkCallbackFailureDoesNotInterruptToolExecution` are outside the typed-stream API; whole emitter-suite parity is not claimed.
 
 ## MCP protocol and connection boundaries

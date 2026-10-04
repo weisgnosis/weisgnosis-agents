@@ -74,7 +74,7 @@ Migration: streamWithContext is a defaulted source-compatible method, but depend
 | [ToolExecutionUpdate.scala](ToolExecutionUpdate.scala) | `36f338a5d77db0660a283be80b709fb67ec10391` |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](../agent/README.md#acting-stop-decisions) |
 | [ToolExecutionUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionUpdateSpec.scala) | `7db9194fc19f472c34ecd1a552403692f28bc32a` |
-| [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) | `6122a20ac472555626805e32c0d7ffba4beff702` |
+| [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) | Current fixture identity and verification: [shared-Toolkit isolation](../agent/README.md#shared-toolkit-destination-isolation). |
 
 ## Typed execution observations
 

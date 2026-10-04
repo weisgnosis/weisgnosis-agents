@@ -98,6 +98,12 @@ The upstream null-message scenario is adapted to typed Discard followed by a val
 
 The [agent table](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) records unchanged post-reasoning identities; commit `8850a60` preserves all six identities from that increment.
 
+## Shared-Toolkit destination isolation
+
+ReActAgentToolEventSpec also holds two independently owned agents inside the same Tool stream from one shared Toolkit. Both enter before release; exact chunk/final sequences, distinct request/reply contexts and separate canonical histories reject cross-talk even with the same call ID. Scoped teardown releases the barrier before joining owned fibers. This is a bounded adaptation of Java's concurrent session callback contract, not concurrent-run support on one Scala agent.
+
+- [x] Both reviewers approved the current fixture and full `shared-toolkit-verify.log` verification passed. Exact identity and focused evidence are in the [source acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#shared-toolkit-destination-isolation).
+
 ## Completed-result processing verification
 
 Ten ReActAgentToolResultProcessorSpec scenarios verify raw persistence before processing, committed payloads before continuation/events, typed failure fallback, cooperative/fiber cancellation, reversed parallel completion with reused IDs, inline provider processing, composition cleanup, sequential/parallel defects, and failing processor finalizers. Cancellation assertions distinguish completed raw successes from genuinely unfinished calls.

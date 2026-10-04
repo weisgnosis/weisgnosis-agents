@@ -192,6 +192,92 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
           history.flatMap(_.toolResults).size == 3
         )
     ,
+    test("concurrent agents sharing one toolkit isolate streamed output and request context"):
+      ZIO.scoped:
+        for
+          entered <- ZIO.acquireRelease(Queue.unbounded[String])(_.shutdown)
+          release <- Promise.make[Nothing, Unit]
+          shared = new Tool[Any, String, String]:
+            def definition: ToolDef = ToolDef("lookup", "Stream isolated output", Json.Obj())
+            def decodeInput(raw: Json): Either[String, String] =
+              raw.asString.toRight("Expected a label")
+            def encodeOutput(output: String): String = output
+            def execute(input: String): UIO[String]  = ZIO.succeed(s"done-$input")
+            override def streamWithContext(
+                input: String,
+                invocation: ToolInvocation
+            ): ZStream[Any, Throwable, ToolExecutionUpdate[String]] =
+              ZStream.succeed(
+                ToolExecutionUpdate.Progress(
+                  ToolResultPayload(Chunk(ContentBlock.Text(s"chunk-$input")))
+                )
+              ) ++
+                ZStream.fromZIO(entered.offer(input) *> release.await).drain ++
+                ZStream(
+                  ToolExecutionUpdate.Progress(
+                    ToolResultPayload(Chunk(ContentBlock.Text(s"chunk2-$input")))
+                  ),
+                  ToolExecutionUpdate.Completed(s"done-$input")
+                )
+          toolkit = Toolkit(Map("lookup" -> shared))
+          agents <- ZIO.foreach(Chunk("A", "B"))(label =>
+            ReActAgent
+              .make(
+                client = model(Chunk(call.copy(input = Json.Str(label)))),
+                toolkit = toolkit
+              )
+              .map(agent => (label, agent))
+          )
+          collect = ZIO.foreachPar(agents): (label, agent) =>
+            for
+              events  <- agent.streamEvents(Msg.user(label)).runCollect
+              history <- agent.history
+            yield (label, events, history)
+          assertion <- (for
+            running <- collect.forkScoped
+            first   <- entered.take
+            second  <- entered.take
+            held    <- running.poll
+            _       <- release.succeed(())
+            results <- running.join
+            contexts = results.flatMap { case (_, events, _) =>
+              events
+                .collect { case event: AgentEvent.ModelRequestStartEvent => event.context }
+                .flatten
+                .take(1)
+            }
+            destinations = results.map: (label, events, history) =>
+              val context = events
+                .collect { case event: AgentEvent.ModelRequestStartEvent =>
+                  event.context
+                }
+                .flatten
+                .headOption
+              val starts = events.collect { case event: AgentEvent.ToolResultStartEvent => event }
+              val deltas = events.collect { case event: AgentEvent.ToolResultDeltaEvent => event }
+              val ends   = events.collect { case event: AgentEvent.ToolResultEndEvent => event }
+              assertTrue(
+                starts.size == 1,
+                deltas.map(_.delta) == Chunk(s"chunk-$label", s"chunk2-$label"),
+                ends.map(_.output) == Chunk(s"done-$label"),
+                ends.forall(_.state == ToolResultState.Success),
+                context.nonEmpty,
+                starts.forall(event => event.callId == call.id && event.context == context),
+                deltas.forall(event => event.callId == call.id && event.context == context),
+                ends.forall(event => event.callId == call.id && event.context == context),
+                history.flatMap(_.toolUses).map(_.input) == Chunk(Json.Str(label)),
+                history.flatMap(_.toolResults).map(_.text) == Chunk(s"done-$label")
+              )
+          yield assertTrue(
+            Set(first, second) == Set("A", "B"),
+            held.isEmpty,
+            contexts.size == 2,
+            contexts.map(_.requestId).distinct.size == 2,
+            contexts.map(_.replyId).distinct.size == 2
+          ) && destinations.foldLeft(assertTrue(true))(_ && _))
+            .ensuring(release.succeed(()).unit)
+        yield assertion
+    ,
     test("commits local observations before delivering output and completion"):
       val lookup =
         Tool.make(ToolDef("lookup", "lookup", Json.Obj()))(_ => ZIO.succeed("observation"))
