@@ -1,5 +1,7 @@
 # Permission verification
 
+ConfirmedBatchAuthorizerSpec is accepted: four grouped contracts exercise restored repeated-ID batches, modified/fixed/signed input and live policy/gate denial, complete-set and request identity rejection, and cancellation with joined failing gate cleanup. Exact final scope and verification are recorded in the [batch contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations).
+
 - [PermissionGateSpec](PermissionGateSpec.scala): priority combinations, restricted arguments, defaults, suspended callbacks, separately scoped sequential composition and failure/cancellation cleanup.
 - [PermissionPromiseSpec](PermissionPromiseSpec.scala): registration before publication, one-shot resolution, duplicate requests, cancellation, and late responses.
 - [DurableResumeSpec](DurableResumeSpec.scala): serializable values and immutable policy resumption only; no durable ReAct workflow is implied.
@@ -11,6 +13,6 @@ The three composition additions reuse the existing priority and authorization co
 - [x] `path_review` and `current_docs` approved current gate/authorizer metadata forwarding and the retained composition suites in the [permission contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/permission/README.md#current-review-acceptance), with no unresolved findings.
 - [x] Full `scalafmtAll scalafmtSbt verify` passed with zero compiler warnings or failures (`plan-admission-verify.log`). Actual metadata forwarding through both composition positions and confirmed-input rechecks is covered by [PlanPermissionIntegrationSpec](../plan/PlanPermissionIntegrationSpec.scala).
 - [x] [SubagentConstructionSpec](../subagent/SubagentConstructionSpec.scala) verifies opt-in inherited-policy installation in actual nested and reused child runtimes.
-- [ ] Complete remaining upstream two-call confirmation, authenticated transport and durable resumption behavior in the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md).
+- [ ] Complete remaining partial-confirmation/event mappings, authenticated transport and durable host persistence in the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md).
 
 The unchanged runtime integration suite retains its recorded review; composition closes no additional whole upstream method. Affirmative Allow can resolve the implicit default Ask; composition is not a restriction-only capability.

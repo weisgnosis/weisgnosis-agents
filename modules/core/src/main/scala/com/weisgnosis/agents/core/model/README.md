@@ -12,7 +12,7 @@ Pure domain values and codecs model messages, content, roles, media sources, usa
 - [Msg](Msg.scala)
 - [Role](Role.scala)
 - [ToolCallState](ToolCallState.scala)
-- [ToolHistory internal analysis](ToolHistory.scala)
+- [ToolHistory internal analysis](ToolHistory.scala): pending occurrences retain their original assistant tool-use ordinal after result consumption; the [confirmed-batch scope](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) records current identity and acceptance.
 - [ToolResultState](ToolResultState.scala)
 
 ## Wire and construction contracts

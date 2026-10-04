@@ -27,6 +27,9 @@ final case class ConfirmResult(
     reason: Option[String] = None
 ) derives JsonCodec
 
+/** A host-authenticated decision for an original tool-use ordinal within a saved assistant turn. */
+final case class ConfirmedToolCall(callOrdinal: Int, confirmation: ConfirmResult) derives JsonCodec
+
 /** Serializable durable suspension. The host persists this value before ending an activity. */
 final case class PendingApproval(requestId: String, call: ContentBlock.ToolUse) derives JsonCodec
 

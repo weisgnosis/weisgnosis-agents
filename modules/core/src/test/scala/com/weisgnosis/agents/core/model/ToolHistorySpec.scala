@@ -66,6 +66,7 @@ object ToolHistorySpec extends ZIOSpecDefault:
       assertTrue(
         !analysis.isComplete,
         analysis.pending.map(_.call.name) == Chunk("second"),
+        analysis.pending.map(_.ordinal) == Chunk(1),
         analysis.unmatched == Chunk(wrong),
         analysis.spans == Chunk(ToolHistory.Span(0, 1))
       )

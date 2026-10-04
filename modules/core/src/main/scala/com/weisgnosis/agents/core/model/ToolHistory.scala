@@ -19,7 +19,7 @@ import zio.Chunk
 
 /** Internal shared occurrence semantics for history rewriting and compaction boundaries. */
 private[agents] object ToolHistory:
-  final case class Occurrence(call: ContentBlock.ToolUse, position: Int)
+  final case class Occurrence(call: ContentBlock.ToolUse, position: Int, ordinal: Int)
   final case class Span(start: Int, end: Int)
   final case class Analysis(
       pending: Chunk[Occurrence],
@@ -33,7 +33,9 @@ private[agents] object ToolHistory:
       case (analysis, (message, position)) =>
         message.role match
           case Role.Assistant =>
-            val calls = message.toolUses.map(Occurrence(_, position))
+            val calls = message.toolUses.zipWithIndex.map { case (call, ordinal) =>
+              Occurrence(call, position, ordinal)
+            }
             val inline = message.toolResults.foldLeft(Analysis(calls, Chunk.empty, Chunk.empty)) {
               (current, result) => consume(current, result, position, _.isServerTool)
             }

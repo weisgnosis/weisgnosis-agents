@@ -1495,6 +1495,7 @@ final class ReActAgent private (
 
   private def authorizeTool(
       call: ContentBlock.ToolUse,
+      callOrdinal: Int,
       preparedInput: Json,
       context: ModelStreamContext,
       toolkit: Toolkit,
@@ -1517,7 +1518,12 @@ final class ReActAgent private (
                   else AdmittedToolAccess.Mutating
                 )
               toolAuthorizer.authorize(
-                ToolAuthorizationRequest(requestId, context, withToolInput(call, preparedInput)),
+                ToolAuthorizationRequest(
+                  requestId,
+                  context,
+                  withToolInput(call, preparedInput),
+                  Some(callOrdinal)
+                ),
                 admittedAccess
               )
           )
@@ -1582,7 +1588,9 @@ final class ReActAgent private (
       for
         authorization <- ZIO
           .fromEither(toolkit.prepareInput(call.name, call.input))
-          .flatMap(input => restore(authorizeTool(call, input, context, toolkit, argumentPolicy)))
+          .flatMap(input =>
+            restore(authorizeTool(call, indexed.ordinal, input, context, toolkit, argumentPolicy))
+          )
           .either
         _ <- eventHub.publish(
           AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))

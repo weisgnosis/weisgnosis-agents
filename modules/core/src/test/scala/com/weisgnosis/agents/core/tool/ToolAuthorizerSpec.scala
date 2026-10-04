@@ -35,8 +35,12 @@ object ToolAuthorizerSpec extends ZIOSpecDefault:
       val approved: ToolAuthorization =
         ToolAuthorization.Approved(Json.Obj("query" -> Json.Str("safe")))
       val denied: ToolAuthorization = ToolAuthorization.Denied("restricted")
+      val indexed                   = request.copy(callOrdinal = Some(2))
       assertTrue(
         request.toJson.fromJson[ToolAuthorizationRequest] == Right(request),
+        indexed.toJson.fromJson[ToolAuthorizationRequest] == Right(indexed),
+        """{"requestId":"approval","context":{"replyId":"reply","requestId":"request"},"call":{"id":"call","name":"read","input":{}}}"""
+          .fromJson[ToolAuthorizationRequest] == Right(request),
         approved.toJson.fromJson[ToolAuthorization] == Right(approved),
         denied.toJson.fromJson[ToolAuthorization] == Right(denied)
       )

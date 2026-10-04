@@ -151,7 +151,7 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 ## Admitted tool access
 
-`AdmittedToolAccess.ReadOnly | Mutating` is transient host/runtime metadata with no codec. The additive concrete `authorize(request, admittedAccess: Option[AdmittedToolAccess])` overload delegates to the original abstract single-argument method by default. ToolAuthorizationRequest and its JSON shape, lambda construction and existing request/decision codecs are unchanged.
+`AdmittedToolAccess.ReadOnly | Mutating` is transient host/runtime metadata with no codec. The additive concrete `authorize(request, admittedAccess: Option[AdmittedToolAccess])` overload delegates to the original abstract single-argument method by default. Lambda construction and the decision codec remain unchanged. The separate checkpoint-confirmation increment appends optional callOrdinal to ToolAuthorizationRequest and is accepted.
 
 ReAct resolves the tool from the same admitted Toolkit used for the request batch and samples its actual Tool.isReadOnly accessor, including host overrides; it does not trust the definition flag or model metadata. Missing tools provide None. Sampling and overload invocation stay inside the suspended authorization decision boundary, preserving existing defect/interruption handling and ownership. Fixed preparation, approval validation and dispatch ordering are unchanged.
 
@@ -161,12 +161,12 @@ Custom authorizers compile without implementing the overload. To consume or forw
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ToolAuthorizer.scala](ToolAuthorizer.scala) | `b23c9d8b5da9c80708187d760395dda26519ae91` |
-| [ToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | `1144e20023c7ebe8cfc021ec577afeae92696e94` |
+| [ToolAuthorizer.scala](ToolAuthorizer.scala) | [Current confirmed-batch identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) |
+| [ToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | [Current confirmed-batch identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) |
 
 ## Scoped local authorization
 
-ReActAgent.make and Builder.toolAuthorizer accept a ToolAuthorizer, defaulting explicitly to allow for compatibility. Installing a host authorizer is necessary to enforce permission policy. ToolAuthorizationRequest contains a fresh approval UUID, the originating ModelStreamContext, and the call with framework-fixed arguments prepared before authorization. ToolAuthorization exposes Approved(input) or Denied(reason); identity, name, metadata, and execution authority are not replaceable decision fields. Requests and decisions have derived codecs, but serialization alone grants no execution authority.
+ReActAgent.make and Builder.toolAuthorizer accept a ToolAuthorizer, defaulting explicitly to allow for compatibility. Installing a host authorizer is necessary to enforce permission policy. ToolAuthorizationRequest contains a fresh approval UUID, the originating ModelStreamContext, the call with framework-fixed arguments prepared before authorization, and an optional original tool-use ordinal. ReAct supplies that ordinal independently of repeated call IDs; legacy construction and missing JSON fields default to None. Four-field positional patterns need updating and dependent binaries must be rebuilt. The [complete-batch adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) is accepted. ToolAuthorization exposes Approved(input) or Denied(reason); identity, name, metadata, and execution authority are not replaceable decision fields. Requests and decisions have derived codecs, but serialization alone grants no execution authority.
 
 The runtime persists the assistant message before authorization and captures its exact history position. Every pending local call passes preparation and authorization checks, including provider-marked calls without matched inline observations; rejected preparation or signed changes do not invoke the authorizer. Matched provider inline results bypass local authorization. Each callback owns an interruptible scope; cleanup finishes before result Start and local execution. The request scope does not extend across the tool operation. Hosts must not reenter mutating agent operations while the run lock is held.
 

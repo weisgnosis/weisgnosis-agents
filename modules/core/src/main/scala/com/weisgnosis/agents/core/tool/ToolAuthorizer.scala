@@ -27,7 +27,8 @@ import zio.json.ast.Json
 final case class ToolAuthorizationRequest(
     requestId: String,
     context: ModelStreamContext,
-    call: ContentBlock.ToolUse
+    call: ContentBlock.ToolUse,
+    callOrdinal: Option[Int] = None
 ) derives JsonCodec
 
 enum ToolAuthorization derives JsonCodec:

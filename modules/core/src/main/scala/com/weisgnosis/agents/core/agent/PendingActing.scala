@@ -34,7 +34,7 @@ final case class PendingActing(
 ) derives JsonCodec
 
 object PendingActing:
-  private[agent] def validate(
+  private[agents] def validate(
       result: AgentResult
   ): Either[AgentError.InvalidConfiguration, PendingActing] =
     val invalid = AgentError.InvalidConfiguration("Invalid before-acting checkpoint")
