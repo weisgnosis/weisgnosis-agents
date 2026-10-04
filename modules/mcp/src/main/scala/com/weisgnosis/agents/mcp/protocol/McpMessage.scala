@@ -18,7 +18,6 @@ package com.weisgnosis.agents.mcp.protocol
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
 import zio.Chunk
-import zio.json.*
 import zio.json.ast.Json
 
 /** Correlation identity preserves string versus integer representation without floating-point loss. */
@@ -53,7 +52,7 @@ object McpMessage:
     JsonBoundary.validate(value).flatMap(read).left.map(AgentError.DeserializationError(_))
 
   def encode(message: McpMessage): Either[AgentError.InvalidMessage, String] =
-    toJson(message).map(_.toJson)
+    toJson(message).map(JsonBoundary.render)
 
   def toJson(message: McpMessage): Either[AgentError.InvalidMessage, Json.Obj] =
     (for

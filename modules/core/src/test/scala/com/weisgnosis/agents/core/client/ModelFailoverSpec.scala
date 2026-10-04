@@ -105,7 +105,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
               topP = Some(0.8),
               toolChoice = Some(ToolChoice.None),
               frequencyPenalty = Some(0.5),
-              presencePenalty = Some(-0.5)
+              presencePenalty = Some(-0.5),
+              seed = Some(2147483648L)
             ),
             toolkit = toolkit,
             fallback = Some(
@@ -117,6 +118,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   topP = Some(0.6),
                   frequencyPenalty = Some(-0.3),
                   presencePenalty = Some(0.3),
+                  seed = Some(Long.MaxValue),
                   toolChoice = Some(ToolChoice.Specific("lookup")),
                   responseFormat = Some(Json.Obj("unused" -> Json.Bool(true)))
                 )
@@ -137,7 +139,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                         Some(42),
                         if request.model == "primary" then None else Some(0.3),
                         frequencyPenalty = if request.model == "primary" then None else Some(-2),
-                        presencePenalty = if request.model == "primary" then Some(0) else None
+                        presencePenalty = if request.model == "primary" then Some(0) else None,
+                        seed = if request.model == "primary" then Some(Long.MinValue) else None
                       )
                     )
                   )
@@ -185,7 +188,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                             0.3,
                             Some(23),
                             frequencyPenalty = Some(0.2),
-                            presencePenalty = Some(-0.2)
+                            presencePenalty = Some(-0.2),
+                            seed = Some(0L)
                           )
                         )
                       )
@@ -230,7 +234,11 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                       fields.get("temperature").contains(Json.Num(0.3)) &&
                       fields.get("max_tokens").contains(Json.Num(23)) &&
                       fields.get("frequency_penalty").contains(Json.Num(0.2)) &&
-                      fields.get("presence_penalty").contains(Json.Num(-0.2))
+                      fields.get("presence_penalty").contains(Json.Num(-0.2)) &&
+                      fields
+                        .get("seed")
+                        .flatMap(_.asNumber)
+                        .exists(_.value.compareTo(java.math.BigDecimal.ZERO) == 0)
                   )
                 )
               )
@@ -250,8 +258,23 @@ object ModelFailoverSpec extends ZIOSpecDefault:
           projected.forall { case (_, request) =>
             request.tools == toolkit.definitions && request.settings ==
               (if request.model == "primary" then
-                 ModelRequestSettings(0.7, None, Some(0.8), Some(0.5), Some(-0.5))
-               else ModelRequestSettings(1.1, Some(77), Some(0.6), Some(-0.3), Some(0.3)))
+                 ModelRequestSettings(
+                   0.7,
+                   None,
+                   Some(0.8),
+                   Some(0.5),
+                   Some(-0.5),
+                   Some(2147483648L)
+                 )
+               else
+                 ModelRequestSettings(
+                   1.1,
+                   Some(77),
+                   Some(0.6),
+                   Some(-0.3),
+                   Some(0.3),
+                   Some(Long.MaxValue)
+                 ))
           },
           requests.forall { case (model, value) =>
             value.asObject.exists(fields =>
@@ -286,6 +309,12 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                      .flatMap(_.asNumber)
                      .exists(_.value.compareTo(java.math.BigDecimal.ZERO) == 0)
                  else fields.get("presence_penalty").isEmpty) &&
+                (if model == "primary" then
+                   fields
+                     .get("seed")
+                     .flatMap(_.asNumber)
+                     .exists(_.value.compareTo(java.math.BigDecimal.valueOf(Long.MinValue)) == 0)
+                 else fields.get("seed").isEmpty) &&
                 fields.get("messages").exists(_.toJson.contains(s"request for $model"))
             )
           },

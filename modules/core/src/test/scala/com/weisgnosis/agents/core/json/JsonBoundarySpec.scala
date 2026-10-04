@@ -69,4 +69,40 @@ object JsonBoundarySpec extends ZIOSpecDefault:
         JsonBoundary.validate(duplicate).isLeft,
         JsonBoundary.validate(Json.Arr(duplicate)).isLeft
       )
+    ,
+    test("renders exact decimal values and ordered nested data without consuming the call stack"):
+      val minimum = Json.Num(Long.MinValue)
+      val scaled =
+        Json.Num(new java.math.BigDecimal(java.math.BigInteger.valueOf(Long.MinValue), 3))
+      val decimals = Chunk(
+        minimum                      -> "-9223372036854775808",
+        Json.Num(Long.MinValue + 1L) -> "-9223372036854775807",
+        Json.Num(-2147483649L)       -> "-2147483649",
+        Json.Num(Long.MaxValue)      -> "9223372036854775807",
+        scaled                       -> "-9223372036854775.808"
+      )
+      val nested = Json.Obj(
+        "quote\"\n" -> Json.Arr(
+          minimum,
+          scaled,
+          Json.Str("escaped\t\\\""),
+          Json.Null,
+          Json.Bool(true),
+          Json.Bool(false)
+        ),
+        "empty" -> Json.Obj(),
+        "array" -> Json.Arr()
+      )
+      val expected =
+        """{"quote\"\n":[-9223372036854775808,-9223372036854775.808,"escaped\t\\\"",null,true,false],"empty":{},"array":[]}"""
+      val depth = 20000
+      val deep  = (0 until depth).foldLeft[Json](Json.Null)((value, _) => Json.Arr(value))
+      assertTrue(
+        minimum.value.toString == "-9223372036854775808",
+        JsonBoundary.render(minimum) == "-9223372036854775808",
+        decimals.forall((value, expected) => JsonBoundary.render(value) == expected),
+        JsonBoundary.render(nested) == expected,
+        JsonBoundary.decode(expected) == Right(nested),
+        JsonBoundary.render(deep) == "[" * depth + "null" + "]" * depth
+      )
   )

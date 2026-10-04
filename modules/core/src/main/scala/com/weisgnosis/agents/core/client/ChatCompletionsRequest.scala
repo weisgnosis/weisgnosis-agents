@@ -101,6 +101,7 @@ object ChatCompletionsRequest:
             config.presencePenalty.map(value => "presence_penalty" -> Json.Num(value))
           ) ++
           Chunk.fromIterable(config.responseFormat.map(value => "response_format" -> value)) ++
+          Chunk.fromIterable(config.seed.map(value => "seed" -> Json.Num(value))) ++
           Chunk.fromIterable(choice.map(value => "tool_choice" -> value)) ++
           (if definitions.isEmpty then Chunk.empty else Chunk("tools" -> Json.Arr(definitions)))
       )
@@ -401,7 +402,7 @@ object ChatCompletionsRequest:
         "type" -> Json.Str("function"),
         "function" -> Json.Obj(
           "name"      -> Json.Str(call.name),
-          "arguments" -> Json.Str(call.input.toJson)
+          "arguments" -> Json.Str(JsonBoundary.render(call.input))
         )
       ) ++ signature
     )

@@ -27,7 +27,8 @@ final case class ModelRequestSettings(
     maxTokens: Option[Int],
     topP: Option[Double] = None,
     frequencyPenalty: Option[Double] = None,
-    presencePenalty: Option[Double] = None
+    presencePenalty: Option[Double] = None,
+    seed: Option[Long] = None
 )
 
 final case class ModelRequestInput(

@@ -1,33 +1,5 @@
-# Shared JSON boundaries
+# Shared JSON boundary verification
 
-JsonBoundary is library-internal (private[agents]) and pure. It has no dependency on model, agent, or transport packages. decode parses one complete document with JSON whitespace, validates container/string/primitive boundaries, and rejects duplicate object keys throughout the tree. validate checks an existing immutable AST directly, preserving its representation. Both operations return Either[String, Json].
+[JsonBoundarySpec](JsonBoundarySpec.scala) covers complete documents, primitive/container syntax, escaping, recursive duplicate rejection, truncated input and direct AST validation. Its exact-rendering group uses independently authored numeric/escaped literals, nested objects/arrays, signed Long endpoints, a scaled minimum coefficient and a 20,000-level array. It does not generate expected wire values with the dependency writer under test.
 
-The implementation moved from client.ProtocolJson so Msg, structured output, request encoding, delta decoding, and tool accumulation can share the same authority boundary. Existing AST validation avoids re-encoding and parsing. This is JSON syntax/ambiguity validation, not JSON Schema validation or a request-size limit.
-
-- [JsonBoundarySpec](JsonBoundarySpec.scala)
-
-## Verification and acceptance
-
-- [x] Six JsonBoundarySpec tests cover complete documents, primitive/container syntax, escaping, duplicate fields, truncated input, and direct AST validation.
-- [x] Six StructuredJsonBoundarySpec regressions and five StructuredOutputHttpSpec loopback tests verify extraction and actual HTTP paths. Four initial regressions failed before strict extraction; the additional duplicate-wrapper regression failed before validation was moved ahead of extraction.
-- [x] `review_fp` and `review_harness` approved the final ten-file increment against `9c165a7` on 2026-09-29 after the wrapper correction. No findings remain within strict JSON boundaries and structured HTTP completion. Full verification passed 404 core and 40 harness tests.
-- [ ] Complete hook scenarios and exhaustive provider compatibility; no general JSON Schema validation is claimed.
-
-The following identities supersede earlier acceptance records for changed files. The former client ProtocolJson source/spec paths were moved to this package; incoming links are updated.
-
-| File | Reviewed Git blob |
-| --- | --- |
-| [ChatCompletionsRequest.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequest.scala) | ed7f2f592fe5ce0205f35521955dabed171a614a |
-| [ReasoningModelAdapter.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/ReasoningModelAdapter.scala) | 72ae618a2309d972887169d140863711fffe3123 |
-| [StreamAccumulator.scala](../../../../../../../main/scala/com/weisgnosis/agents/core/client/StreamAccumulator.scala) | 223c6aeb22a15ee9d6fa45945b5b914d48c10a57 |
-| [StructuredJsonBoundarySpec.scala](../agent/StructuredJsonBoundarySpec.scala) | d967396a6c6e6cd9842c0fe69eb5ba14def41685 |
-| [StructuredOutputHttpSpec.scala](../agent/StructuredOutputHttpSpec.scala) | 93610a93773fb649034e575803c6fc49d1d15ca2 |
-| [JsonBoundarySpec.scala](JsonBoundarySpec.scala) | c08295405b54cd3684e23f21344fe0fa2fbe35a3 |
-
-The ReActAgent identity from this increment is preserved in `06bd2e1`; its subsequent capability routing is covered by the current client/agent acceptance.
-
-StructuredOutput from the JSON increment is preserved in `06bd2e1`; its subsequent single-transfer usage correction is covered by current agent acceptance.
-
-Commit `06bd2e1` preserves the reviewed JSON-scope Msg identity; its current occurrence-update scope is recorded in the core tool README.
-
-The previous JsonBoundary identity is preserved in e4bd6b0. Its visibility now permits harness memory checkpoints/journals to reuse strict parsing without exposing a public API; parsing behavior is unchanged. Current persistence review and identity are recorded in the [harness memory README](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+The [source contract](../../../../../../../main/scala/com/weisgnosis/agents/core/json/README.md#verification-and-acceptance) records the reproduced decimal corruption, current identities, review status and verification. Tests establish only the explicitly integrated renderer boundaries, not all derived codecs, arbitrary host serialization or general schema validation.

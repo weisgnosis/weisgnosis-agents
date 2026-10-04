@@ -1431,7 +1431,8 @@ final class ReActAgent private (
             target.config.maxTokens,
             target.config.topP,
             target.config.frequencyPenalty,
-            target.config.presencePenalty
+            target.config.presencePenalty,
+            target.config.seed
           )
         )
         candidate <- ZIO.scoped(
@@ -1444,7 +1445,8 @@ final class ReActAgent private (
           maxTokens = validated.settings.maxTokens,
           topP = validated.settings.topP,
           frequencyPenalty = validated.settings.frequencyPenalty,
-          presencePenalty = validated.settings.presencePenalty
+          presencePenalty = validated.settings.presencePenalty,
+          seed = validated.settings.seed
         )
         _ <- eventHub.publish(
           AgentEvent.ModelRequestStartEvent(target.config.model, 0, context = Some(context))

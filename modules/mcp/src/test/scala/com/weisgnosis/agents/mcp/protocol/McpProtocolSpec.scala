@@ -20,7 +20,15 @@ import zio.json.ast.Json
 import zio.test.*
 
 object McpProtocolSpec extends ZIOSpecDefault:
-  private val large: BigInt = (BigInt(1) << 100) + 7
+  private val large: BigInt   = (BigInt(1) << 100) + 7
+  private val minimum: BigInt = BigInt(Long.MinValue)
+  private val numericPayload: Json.Obj = Json.Obj(
+    "nested" -> Json.Arr(
+      Json.Num(BigDecimal("-922337203685477580.8")),
+      Json.Obj("small" -> Json.Num(BigDecimal("-0.09223372036854775808"))),
+      Json.Num(BigDecimal("-9.223372036854775808E+20"))
+    )
+  )
 
   private def roundTrip(message: McpMessage, wire: String): TestResult =
     assertTrue(
@@ -101,7 +109,15 @@ object McpProtocolSpec extends ZIOSpecDefault:
           encoded.flatMap(_.get("id")).contains(wireId),
           encoded.flatMap(_.get("params")).contains(params)
         )
-      checks.reduceOption(_ && _).getOrElse(assertTrue(false)) && assertTrue(
+      val minimumRequest = McpMessage.Request(
+        McpRequestId.Number(minimum),
+        "custom",
+        Some(numericPayload)
+      )
+      roundTrip(
+        minimumRequest,
+        """{"jsonrpc":"2.0","id":-9223372036854775808,"method":"custom","params":{"nested":[-922337203685477580.8,{"small":-0.09223372036854775808},-9.223372036854775808E+20]}}"""
+      ) && checks.reduceOption(_ && _).getOrElse(assertTrue(false)) && assertTrue(
         McpMessage.decode("""{"jsonrpc":"2.0","id":7e2,"method":"custom"}""") ==
           Right(McpMessage.Request(McpRequestId.Number(700), "custom"))
       )
@@ -133,7 +149,21 @@ object McpProtocolSpec extends ZIOSpecDefault:
         Some(McpRequestId.Text("1")),
         McpRpcError(-32602, "Invalid arguments", Some(Json.Arr(Json.Str("detail"), Json.Num(3))))
       )
-      roundTrip(result, """{"jsonrpc":"2.0","id":"task","result":{"resultType":"complete"}}""") &&
+      val minimumResult = McpMessage.Success(McpRequestId.Number(minimum), numericPayload)
+      val minimumError = McpMessage.Failure(
+        Some(McpRequestId.Number(minimum)),
+        McpRpcError(minimum, "numeric detail", Some(numericPayload))
+      )
+      roundTrip(
+        minimumResult,
+        """{"jsonrpc":"2.0","id":-9223372036854775808,"result":{"nested":[-922337203685477580.8,{"small":-0.09223372036854775808},-9.223372036854775808E+20]}}"""
+      ) && roundTrip(
+        minimumError,
+        """{"jsonrpc":"2.0","id":-9223372036854775808,"error":{"code":-9223372036854775808,"message":"numeric detail","data":{"nested":[-922337203685477580.8,{"small":-0.09223372036854775808},-9.223372036854775808E+20]}}}"""
+      ) && roundTrip(
+        result,
+        """{"jsonrpc":"2.0","id":"task","result":{"resultType":"complete"}}"""
+      ) &&
       roundTrip(
         absent,
         """{"jsonrpc":"2.0","error":{"code":-32700,"message":"Malformed request"}}"""

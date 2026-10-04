@@ -30,6 +30,19 @@ All four conversions reject duplicate object keys recursively, including inside 
 
 The envelope does not validate method names, payload schemas, `_meta`, or revision-specific result requirements such as `resultType`. The [2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/basic) and [2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic) specifications provide the envelope references; no handshake or complete compatibility with either revision is claimed.
 
+## Exact envelope rendering
+
+encode validates the envelope and renders all nested numeric values with the shared [exact JSON renderer](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md). Long.MinValue IDs/error codes and scaled decimal payload values retain their values through both HTTP and stdio framing. toJson still returns an AST: callers who serialize that AST with the dependency's .toJson bypass this repair. This changes neither allowed IDs nor method/payload authority.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [McpMessage.scala](McpMessage.scala) | `5d989b0aac6134f2d649a4335a14a775b384fa6b` |
+| [McpProtocolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) | `2fe7a8635455897573c07e8440612acee8aa15d7` |
+
+- [x] `path_review` approved FP/ZIO correctness and `registry_contract` independently approved MCP invariants. `current_docs` authored the regression and did not independently approve this pair.
+- [x] The MCP section of `exact-json-focused-red.log` recorded three passes/two failures against unchanged McpMessage `43387554aa5e8d88708180cde4b45e5fbf3b6858`: valid minimum IDs/codes encoded as -9223372036854775808E-16, breaking round-trip decoding; nested scaled payloads also changed value. Existing groups now use independently authored wire literals for params, results and error data. No new MCP groups were added.
+- [x] Full formatting and verification passed in `exact-json-verify.log` with zero compiler warnings or failures. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current aggregate evidence. This is an owned-envelope correction, not a global replacement of derived JSON codecs.
+
 ## 2025-06-18 initialization helpers
 
 [McpInitialization](McpInitialization.scala) implements payload construction and checked result projection for exactly `2025-06-18`, following that revision's [lifecycle specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle). This payload-only scope is independently reviewed and accepted as recorded below.
@@ -69,13 +82,13 @@ Known optional fields reject explicit null or malformed types. URI, base64 data,
 Accepted scope: the four message cases, checked wire/AST conversion, strict envelope/error fields, recursive duplicate rejection, complete-document decoding, optional null error data, and guarded signed 256-bit IDs/error codes. The accepted initialization scope is limited to the fixed 2025-06-18 request, initialized notification, implementation identity, and checked result/capability projection described above. The accepted tool scope adds 2025-06-18 list/call request construction, one-page ordered list parsing, limited schema-shape checks, and untrusted annotations/extensions. The accepted call-result scope adds the five content variants, embedded text/blob preservation, typed success/error outcome, structuredContent, annotations, metadata, and extensions described above. Other method/version contracts, format validation, core content conversion, output-schema evaluation, transport, correlation, runtime lifecycle/ordering, and tool adapters remain excluded.
 
 - [x] Five grouped [McpProtocolSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) tests pass for integer bounds, identities, notifications, responses, and strict boundaries.
-- [x] `path_review` independently approved FP/ZIO correctness and `current_docs` independently approved protocol invariants for the final source/test identities below, with no unresolved findings.
-- [x] `scalafmtAll`, `scalafmtSbt`, and `verify` passed with zero compiler warnings or failed tests: core 561, harness 651, MCP 17; total 1,229. Evidence: `mcp-call-result-verify.log`.
+- [x] `path_review` and `current_docs` approved the unchanged initialization/tool/call-result scopes below. The changed envelope pair has its current reviewers and identities in [exact rendering](#exact-envelope-rendering).
+- [x] The unchanged initialization/tool/call-result contracts retain their scoped verification in `mcp-call-result-verify.log`. Current envelope review and full verification are recorded in [exact rendering](#exact-envelope-rendering).
 
 | Reviewed file | Git blob identity |
 | --- | --- |
-| [McpMessage.scala](McpMessage.scala) | `43387554aa5e8d88708180cde4b45e5fbf3b6858` |
-| [McpProtocolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) | `22b9640fee4539891d6bfc6077b693a1623cd47c` |
+| [McpMessage.scala](McpMessage.scala) | [Current envelope identity](#exact-envelope-rendering) |
+| [McpProtocolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) | [Current envelope identity](#exact-envelope-rendering) |
 | [McpInitialization.scala](McpInitialization.scala) | `ccfe85505e6fce523e255bb0b9cc4619e4af477e` |
 | [McpInitializationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) | `a2937c98c7ddd00c94afca7f50925237f3d9fe6a` |
 | [McpTools.scala](McpTools.scala) | `91819dd4870965c2f335e6f254ba240374beaa74` |

@@ -388,7 +388,8 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
           responseFormat = Some(format),
           topP = Some(0.9),
           frequencyPenalty = Some(0.5),
-          presencePenalty = Some(0.3)
+          presencePenalty = Some(0.3),
+          seed = Some(42L)
         )
       )
       assertTrue(
@@ -401,6 +402,7 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             value.get("top_p").contains(Json.Num(0.9)) &&
             value.get("frequency_penalty").contains(Json.Num(0.5)) &&
             value.get("presence_penalty").contains(Json.Num(0.3)) &&
+            value.get("seed").contains(Json.Num(42L)) &&
             value.get("response_format").contains(format) && value.get("tools").isEmpty
         ),
         Chunk(None, Some(0.0), Some(1.0)).forall(topP =>
@@ -421,6 +423,34 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             )
         ),
         """{"model":"test-model"}""".fromJson[LlmConfig] == Right(LlmConfig("test-model")),
+        Chunk(
+          None,
+          Some(0L),
+          Some(42L),
+          Some(2147483648L),
+          Some(Long.MinValue),
+          Some(Long.MaxValue)
+        ).forall(seed =>
+          val selected = config.copy(seed = seed)
+          ChatCompletionsRequest
+            .encode(Chunk(Msg.user("question")), Chunk.empty, selected)
+            .exists(value =>
+              value.get("seed") match
+                case Some(Json.Num(number)) =>
+                  seed.exists(expected =>
+                    number.compareTo(java.math.BigDecimal.valueOf(expected)) == 0
+                  )
+                case None => seed.isEmpty
+                case _    => false
+            ) &&
+          selected.toJson.fromJson[LlmConfig] == Right(selected)
+        ),
+        Chunk("1.5", "9223372036854775808", "-9223372036854775809").forall(seed =>
+          s"""{"model":"test-model","seed":$seed}""".fromJson[LlmConfig].isLeft
+        ),
+        """{"model":"test-model","seed":null}""".fromJson[LlmConfig] == Right(
+          LlmConfig("test-model")
+        ),
         """{"model":"test-model","topP":null}""".fromJson[LlmConfig] == Right(
           LlmConfig("test-model")
         ),
@@ -507,8 +537,9 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
       )
     },
     test("serializes authoritative tool input rather than a stale raw content cache") {
-      val input = Json.Obj("query" -> Json.Str("Scala"))
-      val call  = ContentBlock.ToolUse("call", "search", input, content = Some("stale"))
+      val input =
+        Json.Obj("query" -> Json.Str("Scala"), "nested" -> Json.Arr(Json.Num(Long.MinValue)))
+      val call = ContentBlock.ToolUse("call", "search", input, content = Some("stale"))
       val result = ChatCompletionsRequest.encode(
         Chunk(
           Msg.assistant(Chunk(ContentBlock.Text("searching"), call)),
@@ -528,7 +559,10 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
                 "id"   -> Json.Str("call"),
                 "type" -> Json.Str("function"),
                 "function" -> Json
-                  .Obj("name" -> Json.Str("search"), "arguments" -> Json.Str(input.toJson))
+                  .Obj(
+                    "name"      -> Json.Str("search"),
+                    "arguments" -> Json.Str("""{"query":"Scala","nested":[-9223372036854775808]}""")
+                  )
               )
             )
           )

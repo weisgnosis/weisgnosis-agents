@@ -23,6 +23,10 @@ private[agents] object JsonBoundary:
   private enum StringPosition:
     case Outside, Inside, Escaped
 
+  private enum RenderToken:
+    case Value(value: Json)
+    case Text(value: String)
+
   private val numberPattern = "-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?".r
 
   def decode(value: String): Either[String, Json] =
@@ -35,6 +39,35 @@ private[agents] object JsonBoundary:
   /** Checks immutable AST fields directly, preserving the supplied JSON representation. */
   def validate(value: Json): Either[String, Json] =
     uniqueFields(value).map(_ => value)
+
+  /** Exact decimal rendering avoids the dependency's minimum-Long unscaled-value overflow. */
+  def render(value: Json): String =
+    @annotation.tailrec
+    def loop(pending: List[RenderToken], output: List[String]): String = pending match
+      case Nil                            => output.reverse.mkString
+      case RenderToken.Text(text) :: rest => loop(rest, text :: output)
+      case RenderToken.Value(json) :: rest =>
+        json match
+          case Json.Num(number) => loop(rest, number.toString :: output)
+          case Json.Str(text)   => loop(rest, text.toJson :: output)
+          case Json.Bool(value) => loop(rest, value.toString :: output)
+          case Json.Null        => loop(rest, "null" :: output)
+          case Json.Arr(values) =>
+            val elements = values.zipWithIndex.toList.flatMap: (item, index) =>
+              val prefix = if index == 0 then Nil else List(RenderToken.Text(","))
+              prefix ::: List(RenderToken.Value(item))
+            loop(RenderToken.Text("[") :: (elements ::: (RenderToken.Text("]") :: rest)), output)
+          case Json.Obj(fields) =>
+            val members = fields.zipWithIndex.toList.flatMap: (field, index) =>
+              val (key, item) = field
+              val prefix      = if index == 0 then Nil else List(RenderToken.Text(","))
+              prefix ::: List(
+                RenderToken.Text(key.toJson),
+                RenderToken.Text(":"),
+                RenderToken.Value(item)
+              )
+            loop(RenderToken.Text("{") :: (members ::: (RenderToken.Text("}") :: rest)), output)
+    loop(List(RenderToken.Value(value)), Nil)
 
   private def whitespace(value: Char): Boolean =
     value == ' ' || value == '\t' || value == '\r' || value == '\n'

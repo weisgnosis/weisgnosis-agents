@@ -39,7 +39,8 @@ final case class LlmConfig(
     topP: Option[Double] = None,
     toolChoice: Option[ToolChoice] = None,
     frequencyPenalty: Option[Double] = None,
-    presencePenalty: Option[Double] = None
+    presencePenalty: Option[Double] = None,
+    seed: Option[Long] = None
 ) derives JsonCodec
 
 /**

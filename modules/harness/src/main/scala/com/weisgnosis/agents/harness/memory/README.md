@@ -158,7 +158,7 @@ Unchanged Git-normalized persistence identities (earlier changes remain in e4bd6
 
 | Source | Blob identity |
 | --- | --- |
-| [JsonBoundary.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/JsonBoundary.scala) | 12240a5fcf0d9e5d46dc2eb67963a5a963a003e5 |
+| [JsonBoundary.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/JsonBoundary.scala) | [Current JSON identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-seed-and-exact-request-rendering) |
 | [LocalDailyMemoryStore.scala](LocalDailyMemoryStore.scala) | 2a8c2ddfc0a7a9940bd0da7ead4a8b6c16ed5ed7 |
 | [LocalMemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalMemoryRepositorySpec.scala) | 6fc453b560fd36612ba3eb5470d75814edc0b36d |
 | [MemoryFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFilesSpec.scala) | 80b616760f88a68fb8fb289cc87d079dcba7f259 |

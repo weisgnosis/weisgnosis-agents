@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolDef
 import java.net.URI
@@ -88,7 +89,7 @@ final class ChatCompletionsTransport private (
           .unless(config.apiKey.forall(key => key.nonEmpty && key.forall(c => c > ' ' && c < 127)))
         headers = Headers("Content-Type" -> "application/json", "Accept" -> "text/event-stream") ++
           config.apiKey.fold(Headers.empty)(key => Headers("Authorization", s"Bearer $key"))
-        request = Request.post(url, Body.fromString(body.toJson)).addHeaders(headers)
+        request = Request.post(url, Body.fromString(JsonBoundary.render(body))).addHeaders(headers)
         output <- retryPolicy match
           case CompletionRetryPolicy.Disabled =>
             exchange(request, 1, Duration.Zero, onFrame, transformText)

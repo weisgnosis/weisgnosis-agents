@@ -78,7 +78,7 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
           history,
           "selected-model",
           tools,
-          ModelRequestSettings(0.7, Some(100), Some(0.9), Some(0.5), Some(0.3))
+          ModelRequestSettings(0.7, Some(100), Some(0.9), Some(0.5), Some(0.3), Some(42L))
         )
       for
         calls <- Ref.make(Chunk.empty[String])
@@ -95,7 +95,7 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
             .as(
               ModelInputProjection(
                 input.history :+ Msg.user("first"),
-                ModelRequestSettings(0, Some(11), Some(0.4), Some(-2), Some(2))
+                ModelRequestSettings(0, Some(11), Some(0.4), Some(-2), Some(2), Some(Long.MaxValue))
               )
             )
         second = ModelInputTransform.withRequest(first): (ctx, input) =>
@@ -108,7 +108,8 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
                   maxTokens = None,
                   topP = None,
                   frequencyPenalty = None,
-                  presencePenalty = None
+                  presencePenalty = None,
+                  seed = None
                 )
               )
             )
@@ -129,7 +130,8 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
           context -> request.copy(history = legacy),
           context -> request.copy(
             history = legacy :+ Msg.user("first"),
-            settings = ModelRequestSettings(0, Some(11), Some(0.4), Some(-2), Some(2))
+            settings =
+              ModelRequestSettings(0, Some(11), Some(0.4), Some(-2), Some(2), Some(Long.MaxValue))
           )
         ),
         result == ModelInputProjection(
