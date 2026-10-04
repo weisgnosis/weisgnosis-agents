@@ -75,7 +75,7 @@ Migration: ToolAuthorization gains the codec case Deferred(reason), requiring ex
 | [SubagentFactory.scala](../subagent/SubagentFactory.scala) | f34c4395ef80ac1207ac32398477a1a410fb5942 |
 | [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
 | [ReActAgentResumeSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | aaebc39619a824bc3616aec5c12da9cee88e617a |
-| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | ed6082180649b7eeab8ce5bf2b6f61d45f0f8b28 |
+| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current reviewed fixture identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#all-tools-denied-observation) |
 | [ToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | 1d5cdf458c1fc66d266c54af94d5ba3c59ab915d |
 | [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
 

@@ -99,6 +99,20 @@ Concurrent independently owned agents can share the same Tool and immutable Tool
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) at `b634d0f0d15cc56b27a2040d0eb925722af7c609`, with no findings. Focused verification passed nine tests in 417 ms (`shared-toolkit-focused.log`); full `scalafmtAll scalafmtSbt verify` passed in `shared-toolkit-verify.log` with zero compiler warnings or failures. Current repository totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
+## All-tools-denied observation
+
+After successful cleanup of a nonempty entirely local admitted batch, ReAct publishes AllToolsDeniedEvent only when every final observation is Denied. The complete ordinal-to-history ledger includes outcomes from earlier partial resumes and preserves repeated IDs; the payload contains persisted approved calls in original order. Deferred approval and current or saved acting Stop take precedence. Publication follows all result End events and precedes the next model request in ordinary, native and synthetic execution; it does not stop the run or establish human provenance.
+
+Mixed Success/Error, inline/provider batches and incomplete deferred batches do not qualify. A tool cannot grant itself denial authority: tool-produced Denied is normalized to Error. Optional processor failure preserves the authoritative observation. An interrupted or defective phase retains its full cause and does not reach aggregate publication; later cancellation cannot retract an already published observation. No public API or event codec changes.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ReActAgent.scala](ReActAgent.scala) | 59a50c7af0399bc071e2ff3719e09d1b40ef541a |
+| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | e9d3a02bf5c2f2452b2e2b7ff854141a2a681c0e |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this pair, including unchanged Direct behavior through the shared completed-ledger helper. Two grouped cases cover fresh/restored batches, priority and exclusion tables, structured runs, held cleanup and cancellation. Focused checks passed 19 tests in 678 ms (`all-denied-final-focused.log`), including the three existing Direct groups; full `scalafmtAll scalafmtSbt verify` passed in `all-denied-verify.log` with zero compiler warnings or failures. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
+- [ ] Provider-hosted calls without inline results currently enter local dispatch/recovery. Correct this separate ownership defect with regression expectations derived from provider ownership, including history/checkpoint boundaries; it is not covered by this acceptance.
+
 ## Host-selected return-direct completion
 
 ToolDef.returnMode defaults to ToolReturnMode.Continue. Direct permits an ordinary fresh or resumed run to finish without another model request only when its original nonempty admitted batch contains exclusively local Direct calls and every processed observation is Success. Eligibility uses the admitted definitions and complete original-ordinal ledger, including supplied and previously completed results. Later activation changes do not grant this policy. Deferred approval takes precedence, followed by the earliest current or saved acting Stop; all admitted work and processor cleanup join before direct completion. Cancellation and defects retain their existing failure authority. Native and synthetic structured runs continue to their normal capture boundary.
@@ -109,13 +123,13 @@ Migration: ToolDef appends the defaulted returnMode field. Old JSON without it d
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | 297ef010800c799c02035107d0863c7189f83097 |
+| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed runtime identity](#all-tools-denied-observation); shared completed-ledger extraction preserves Direct behavior. |
 | [ToolDef.scala](../tool/ToolDef.scala) | 8848c5c6698a13c05e4dc6fe9a8ec51710ec0708 |
 | [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | e9de09814ad62b90d3592fdf8d205de7d5bfd935 |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | 67e4f5c680d919c0f4a4cc1858b5c4d4d2769219 |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current fixture identity](../client/README.md#user-image-projection); returnMode omission remains covered. |
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Three grouped runtime tests cover ordered processed output and rejection cases, live/restored/supplied/partial resumes, joined cleanup/cancellation and native/synthetic exclusion; existing tables cover codec compatibility and provider-field omission. The resumed supplied Error and mixed-mode rows verify zero local execution, exact-once processing, preserved result states/content in the actual following model request and one further request. Supplied Denied remains unsupported. Both reviewers renewed approval of the current spec; production identities and their reviewed behavior are unchanged. Focused checks passed three groups in 599 ms (`return-direct-resume-focused.log`).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Three grouped runtime tests cover ordered processed output and rejection cases, live/restored/supplied/partial resumes, joined cleanup/cancellation and native/synthetic exclusion; existing tables cover codec compatibility and provider-field omission. The resumed supplied Error and mixed-mode rows verify zero local execution, exact-once processing, preserved result states/content in the actual following model request and one further request. Supplied Denied remains unsupported. Both reviewers renewed approval of the current spec; the Direct contract remains unchanged, with the runtime helper reviewed in the linked AllToolsDenied scope. Focused checks passed three groups in 599 ms (`return-direct-resume-focused.log`).
 - [x] Full `scalafmtAll scalafmtSbt verify` passed in `return-direct-resume-verify.log` with zero compiler warnings or test failures. Current totals and process-local verification settings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 ## Current typed-result acceptance

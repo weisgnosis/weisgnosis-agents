@@ -1196,9 +1196,11 @@ final class ReActAgent private (
         directDefinitions = continuation match
           case Some(pending) => pending.admittedTools
           case None          => activeToolkit.definitions
-        direct = completionMode == CompletionMode.Ordinary && assistantMsg.toolUses.nonEmpty &&
-          assistantMsg.toolResults.isEmpty && assistantMsg.toolUses.forall(call =>
-            !call.isServerTool && directDefinitions.exists(definition =>
+        allLocal = assistantMsg.toolUses.nonEmpty && assistantMsg.toolResults.isEmpty &&
+          assistantMsg.toolUses.forall(call => !call.isServerTool)
+        direct = completionMode == CompletionMode.Ordinary && allLocal &&
+          assistantMsg.toolUses.forall(call =>
+            directDefinitions.exists(definition =>
               definition.name == call.name && definition.returnMode == ToolReturnMode.Direct
             )
           )
@@ -1288,9 +1290,20 @@ final class ReActAgent private (
                 stop match
                   case Some(value) => stoppedToolTurn(position, iteration, value.reason, eventHub)
                   case None =>
-                    (if direct then
-                       directToolTurn(assistantMsg, position, iteration, context, progressRef)
-                     else ZIO.none).flatMap:
+                    (for
+                      completed <-
+                        if allLocal then completedLocalResults(assistantMsg, position, progressRef)
+                        else ZIO.succeed(Chunk.empty)
+                      _ <- ZIO.when(
+                        completed.nonEmpty && completed.forall(_._2.state == ToolResultState.Denied)
+                      )(
+                        eventHub.publish(AgentEvent.AllToolsDeniedEvent(completed.map(_._1)))
+                      )
+                      result <-
+                        if direct then
+                          directToolTurn(completed.map(_._2), iteration, context, progressRef)
+                        else ZIO.none
+                    yield result).flatMap:
                       case Some(result) => ZIO.succeed(result)
                       case None =>
                         completionMode.captured.flatMap:
@@ -1642,15 +1655,13 @@ final class ReActAgent private (
         .orElseFail(AgentError.InvalidMessage("The completed assistant turn is missing"))
         .map(reply => AgentResult(reply, history, iteration))
 
-  /** Read final processed observations by original occurrence, including prior resumed completions. */
-  private def directToolTurn(
+  /** Resolves the entire completed local batch by occurrence, including prior resumed outcomes. */
+  private def completedLocalResults(
       assistant: Msg,
       position: Int,
-      iteration: Int,
-      context: ModelStreamContext,
       progressRef: Ref[RunProgress]
-  ): IO[AgentError, Option[AgentResult]] =
-    val invalid = AgentError.InvalidMessage("The completed direct-return ledger is invalid")
+  ): IO[AgentError, Chunk[(ContentBlock.ToolUse, ContentBlock.ToolResult)]] =
+    val invalid = AgentError.InvalidMessage("The completed local tool ledger is invalid")
     for
       positions <- progressRef.get.flatMap:
         case RunProgress.PersistedAssistant(saved, completed)
@@ -1659,7 +1670,18 @@ final class ReActAgent private (
           ZIO.succeed(completed)
         case _ => ZIO.fail(invalid)
       history <- stateRef.get
-      results <- ZIO.foreach(assistant.toolUses.zipWithIndex): (call, ordinal) =>
+      persisted <- ZIO
+        .fromOption(
+          history
+            .lift(position)
+            .filter(message =>
+              message.role == Role.Assistant &&
+                message.toolUses.map(call => (call.id, call.name)) ==
+                assistant.toolUses.map(call => (call.id, call.name))
+            )
+        )
+        .orElseFail(invalid)
+      results <- ZIO.foreach(persisted.toolUses.zipWithIndex): (call, ordinal) =>
         ZIO
           .fromOption(
             positions
@@ -1672,25 +1694,31 @@ final class ReActAgent private (
           .flatMap(message =>
             message.toolResults match
               case Chunk(result) if result.id == call.id && result.name.contains(call.name) =>
-                ZIO.succeed(result)
+                ZIO.succeed(call -> result)
               case _ => ZIO.fail(invalid)
           )
-      output = results.flatMap(_.output)
-      presentational = output.forall:
-        case _: ContentBlock.Text | _: ContentBlock.Image | _: ContentBlock.Audio |
-            _: ContentBlock.Video | _: ContentBlock.Data =>
-          true
-        case _ => false
-      result <-
-        if results.forall(_.state == ToolResultState.Success) && presentational then
-          val content = if output.isEmpty then Chunk(ContentBlock.Text("(no output)")) else output
-          val reply = Msg
-            .assistant(content, id = Some(context.replyId), name = Some(config.name))
-            .withGenerateReason(GenerateReason.ToolReturnDirect)
-          persistAssistant(reply, progressRef) *> stateRef.get
-            .map(completed => Some(AgentResult(reply, completed, iteration)))
-        else ZIO.none
-    yield result
+    yield results
+
+  private def directToolTurn(
+      results: Chunk[ContentBlock.ToolResult],
+      iteration: Int,
+      context: ModelStreamContext,
+      progressRef: Ref[RunProgress]
+  ): IO[AgentError, Option[AgentResult]] =
+    val output = results.flatMap(_.output)
+    val presentational = output.forall:
+      case _: ContentBlock.Text | _: ContentBlock.Image | _: ContentBlock.Audio |
+          _: ContentBlock.Video | _: ContentBlock.Data =>
+        true
+      case _ => false
+    if results.forall(_.state == ToolResultState.Success) && presentational then
+      val content = if output.isEmpty then Chunk(ContentBlock.Text("(no output)")) else output
+      val reply = Msg
+        .assistant(content, id = Some(context.replyId), name = Some(config.name))
+        .withGenerateReason(GenerateReason.ToolReturnDirect)
+      persistAssistant(reply, progressRef) *> stateRef.get
+        .map(completed => Some(AgentResult(reply, completed, iteration)))
+    else ZIO.none
 
   private def stoppedToolTurn(
       position: Int,

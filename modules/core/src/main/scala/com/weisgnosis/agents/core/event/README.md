@@ -8,6 +8,8 @@ AgentEvent defines 39 immutable payload variants with JSON codecs and withSource
 - [AgentEvent](AgentEvent.scala)
 - [AgentEventType](AgentEventType.scala)
 
+AllToolsDeniedEvent has [runtime integration](../agent/README.md#all-tools-denied-observation) after successful complete-local-batch cleanup and Deferred/Stop resolution. Its original-ordinal payload is observational: it neither stops execution nor proves a human decision. Codecs remain unchanged.
+
 ## Codec and metadata contracts
 
 All 39 concrete/base codecs encode the same object with exactly one lowercase event discriminator. Concrete decoders also read legacy untagged payloads; a supplied tag must match. Base decoding requires a unique valid tag. Missing required fields, malformed tags, and duplicate discriminators fail. Immutable source updates preserve every other field.

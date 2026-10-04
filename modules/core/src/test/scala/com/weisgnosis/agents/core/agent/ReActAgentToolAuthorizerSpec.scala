@@ -15,16 +15,28 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
+import com.weisgnosis.agents.core.client.{
+  LlmClient,
+  LlmConfig,
+  NativeToolSupport,
+  StructuredOutputCapability,
+  TurnOutput
+}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.AgentEvent
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.*
 import zio.*
+import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
 object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
+  private enum DeniedBatch:
+    case Fresh, Partial, Success, Error, Inline, Deferred, Stop, SavedStop, ProcessorFailure,
+      Native, Synthetic, HostDenied
+  private enum DeniedCleanup:
+    case Complete, Cancel
   private val originalInput: Json = Json.Obj("value" -> Json.Str("original"))
   private val approvedInput: Json = Json.Obj("value" -> Json.Str("approved"))
   private val call: ContentBlock.ToolUse =
@@ -37,6 +49,262 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
     )
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ReActAgentToolAuthorizerSpec")(
+    test("all-denied observations follow the complete local batch across fresh and restored runs"):
+      ZIO
+        .foreach(Chunk.fromArray(DeniedBatch.values)): mode =>
+          for
+            modelCalls <- Ref.make(0)
+            inputs     <- Ref.make(Chunk.empty[Chunk[Msg]])
+            permit     <- Ref.make(false)
+            processed  <- Ref.make(0)
+            executions <- Ref.make(0)
+            local = Chunk(call, call.copy(input = approvedInput))
+            inline: Chunk[ContentBlock] =
+              if mode == DeniedBatch.Inline then
+                Chunk(
+                  call.copy(id = "remote").withServerTool(true),
+                  ContentBlock.ToolResult.text("remote", "lookup", "remote", ToolResultState.Denied)
+                )
+              else Chunk.empty
+            model = LlmClient.mockEffectful((history, _, _) =>
+              inputs.update(_ :+ history) *> modelCalls
+                .getAndUpdate(_ + 1)
+                .map:
+                  case 0 => TurnOutput.ToolCalls(Msg.assistant(local ++ inline))
+                  case _ if mode == DeniedBatch.Synthetic =>
+                    TurnOutput.ToolCalls(
+                      Msg.assistant(
+                        Chunk(
+                          ContentBlock.ToolUse(
+                            "capture",
+                            "generate_response",
+                            Json.Obj("response" -> Json.Num(7))
+                          )
+                        )
+                      )
+                    )
+                  case _ =>
+                    TurnOutput.FinalText(
+                      Msg.assistant(if mode == DeniedBatch.Native then "7" else "done")
+                    )
+            )
+            bound = new Tool[Any, Json, ToolExecutionResult]:
+              def definition: ToolDef = ToolDef("lookup", "Read", Json.Obj())
+              def decodeInput(raw: Json): Either[String, Json] = Right(raw)
+              def execute(input: Json): UIO[ToolExecutionResult] = executions
+                .update(_ + 1)
+                .as(
+                  ToolExecutionResult(
+                    "denied-looking output",
+                    mode match
+                      case DeniedBatch.Error      => ToolResultState.Error
+                      case DeniedBatch.HostDenied => ToolResultState.Denied
+                      case _                      => ToolResultState.Success
+                  )
+                )
+              def encodeOutput(value: ToolExecutionResult): String = value.output
+              override def encodeResult(value: ToolExecutionResult): ToolExecutionResult = value
+            authorizer = ToolAuthorizer(request =>
+              permit.get.map: allowed =>
+                if request.call.name == "generate_response" then
+                  ToolAuthorization.Approved(request.call.input)
+                else if mode == DeniedBatch.HostDenied then
+                  ToolAuthorization.Approved(approvedInput)
+                else if Set(DeniedBatch.Partial, DeniedBatch.SavedStop, DeniedBatch.Deferred)
+                    .contains(mode) &&
+                  request.callOrdinal.contains(1) && !allowed
+                then ToolAuthorization.Deferred("waiting")
+                else if (mode == DeniedBatch.Success || mode == DeniedBatch.Error) &&
+                  request.callOrdinal.contains(1)
+                then ToolAuthorization.Approved(request.call.input)
+                else ToolAuthorization.Denied("denied")
+            )
+            processor = ToolResultProcessor.deciding(_ =>
+              processed.update(_ + 1) *>
+                (if mode == DeniedBatch.ProcessorFailure then
+                   ZIO.fail(AgentError.InvalidMessage("optional processor"))
+                 else
+                   ZIO.succeed:
+                     val payload = ToolResultPayload(
+                       Chunk(ContentBlock.Text("redacted")),
+                       Map("state" -> Json.Str("denied"))
+                     )
+                     if mode == DeniedBatch.Stop || mode == DeniedBatch.SavedStop then
+                       ToolResultDecision.Stop(payload, "host stop")
+                     else ToolResultDecision.Continue(payload))
+            )
+            make = ReActAgent.make(
+              client = model,
+              toolkit = Toolkit(Map("lookup" -> bound)),
+              toolAuthorizer = authorizer,
+              toolResultProcessor = processor,
+              llmConfig = LlmConfig(
+                "denial",
+                structuredOutputCapability =
+                  if mode == DeniedBatch.Native then
+                    StructuredOutputCapability.Native(NativeToolSupport.Supported)
+                  else StructuredOutputCapability.Unsupported
+              )
+            )
+            agent <- make
+            initial <-
+              if mode == DeniedBatch.Native || mode == DeniedBatch.Synthetic then
+                agent
+                  .streamStructuredWithResult[Int](
+                    Msg.user("q"),
+                    Json.Obj("type" -> Json.Str("integer"))
+                  )
+                  .map:
+                    case AgentRunUpdate.Event(event)        => AgentRunUpdate.Event(event)
+                    case AgentRunUpdate.Result((result, _)) => AgentRunUpdate.Result(result)
+                  .runCollect
+              else agent.streamWithResult(Msg.user("q")).runCollect
+            resumed <-
+              if mode == DeniedBatch.Partial || mode == DeniedBatch.SavedStop then
+                for
+                  checkpoint <- ZIO
+                    .fromOption(initial.collect { case AgentRunUpdate.Result(value) =>
+                      value
+                    }.headOption)
+                    .orElseFail(AgentError.InvalidMessage("Missing checkpoint"))
+                  decoded  <- ZIO.fromEither(checkpoint.toJson.fromJson[AgentResult])
+                  _        <- permit.set(true)
+                  restored <- make
+                  _        <- restored.restore(decoded)
+                  updates  <- restored.streamResumeWithResult().runCollect
+                yield updates
+              else ZIO.succeed(Chunk.empty)
+            updates = initial ++ resumed
+            result <- ZIO
+              .fromOption(updates.collect { case AgentRunUpdate.Result(value) => value }.lastOption)
+              .orElseFail(AgentError.InvalidMessage("Missing result"))
+            requests   <- modelCalls.get
+            seen       <- inputs.get
+            processing <- processed.get
+            executed   <- executions.get
+            events     = updates.collect { case AgentRunUpdate.Event(value) => value }
+            aggregates = events.collect { case event: AgentEvent.AllToolsDeniedEvent => event }
+            expected = Set(
+              DeniedBatch.Fresh,
+              DeniedBatch.Partial,
+              DeniedBatch.ProcessorFailure,
+              DeniedBatch.Native,
+              DeniedBatch.Synthetic
+            ).contains(mode)
+            stops = mode == DeniedBatch.Stop || mode == DeniedBatch.SavedStop
+            calls = result.history
+              .find(_.toolUses.nonEmpty)
+              .fold(Chunk.empty[ContentBlock.ToolUse])(_.toolUses)
+            aggregateIndex = events.indexWhere(_.isInstanceOf[AgentEvent.AllToolsDeniedEvent])
+            ends = events.zipWithIndex.collect {
+              case (event: AgentEvent.ToolResultEndEvent, index) if event.callId == "call" => index
+            }
+          yield assertTrue(
+            aggregates.map(_.deniedToolCalls) == (if expected then Chunk(calls) else Chunk.empty),
+            !expected || (ends.size == 2 && ends.forall(_ < aggregateIndex) &&
+              aggregateIndex < events
+                .lastIndexWhere(_.isInstanceOf[AgentEvent.ModelRequestStartEvent])),
+            !expected || seen.lastOption.exists(
+              _.flatMap(_.toolResults).map(_.state) ==
+                Chunk(ToolResultState.Denied, ToolResultState.Denied)
+            ),
+            mode != DeniedBatch.HostDenied || calls.forall(_.input == approvedInput),
+            mode != DeniedBatch.HostDenied || (
+              result.history.flatMap(_.toolResults).map(_.state) ==
+                Chunk(ToolResultState.Error, ToolResultState.Error) &&
+                seen.lastOption.exists(
+                  _.flatMap(_.toolResults).map(_.state) ==
+                    Chunk(ToolResultState.Error, ToolResultState.Error)
+                )
+            ),
+            mode == DeniedBatch.HostDenied || calls.take(2) == local,
+            requests == (if stops || mode == DeniedBatch.Deferred then 1 else 2),
+            executed == (if mode == DeniedBatch.HostDenied then 2
+                         else if mode == DeniedBatch.Success || mode == DeniedBatch.Error then 1
+                         else 0),
+            processing == (if mode == DeniedBatch.Deferred then 1
+                           else if mode == DeniedBatch.Inline || mode == DeniedBatch.Synthetic then
+                             3
+                           else 2),
+            if stops then result.state == AgentRunState.Stopped("host stop")
+            else if mode == DeniedBatch.Deferred then result.isSuspended
+            else result.state == AgentRunState.Completed,
+            resumed.isEmpty || !initial.exists {
+              case AgentRunUpdate.Event(_: AgentEvent.AllToolsDeniedEvent) => true
+              case _                                                       => false
+            }
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test("all-denied publication waits for processor cleanup and cancellation preserves its cause"):
+      val defect = new IllegalStateException("denied processor cleanup")
+      ZIO
+        .foreach(Chunk.fromArray(DeniedCleanup.values)): mode =>
+          ZIO.scoped:
+            for
+              cleaning     <- Promise.make[Nothing, Unit]
+              release      <- Promise.make[Nothing, Unit]
+              cancelled    <- Promise.make[Nothing, Unit]
+              hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+              subscription <- hub.subscribe
+              destination  <- ToolEventPort.open(hub)
+              model        <- client(Chunk(call))
+              agent <- ReActAgent.make(
+                client = model,
+                toolkit = toolkit(_ => ZIO.succeed("unused")),
+                toolAuthorizer =
+                  ToolAuthorizer(_ => ZIO.succeed(ToolAuthorization.Denied("denied"))),
+                toolResultProcessor = ToolResultProcessor(result =>
+                  ZIO
+                    .addFinalizer(
+                      cleaning.succeed(()) *>
+                        (if mode == DeniedCleanup.Cancel then
+                           ZIO.descriptor
+                             .zip(release.isDone)
+                             .flatMap:
+                               case (descriptor, released) =>
+                                 if descriptor.interrupters.nonEmpty then
+                                   cancelled.succeed(()).as(true)
+                                 else ZIO.yieldNow.as(released)
+                             .repeatUntil(identity)
+                             .unit
+                         else ZIO.unit) *> release.await *>
+                        (if mode == DeniedCleanup.Cancel then ZIO.die(defect) else ZIO.unit)
+                    )
+                    .as(ToolResultPayload.fromResult(result))
+                )
+              )
+              checked <- (for
+                running     <- agent.runForwarding(Msg.user("q"), destination, "denial").forkScoped
+                _           <- cleaning.await
+                pending     <- running.poll
+                before      <- subscription.takeAll
+                interrupter <- ZIO.fiberId
+                _ <- ZIO.when(mode == DeniedCleanup.Cancel)(
+                  running.interruptAsFork(interrupter) *> cancelled.await
+                )
+                _     <- release.succeed(())
+                exit  <- running.await
+                after <- subscription.takeAll
+              yield assertTrue(
+                pending.isEmpty,
+                !before.exists(_.isInstanceOf[AgentEvent.AllToolsDeniedEvent])
+              ) && (mode match
+                case DeniedCleanup.Complete =>
+                  assertTrue(
+                    exit.isSuccess,
+                    after.count(_.isInstanceOf[AgentEvent.AllToolsDeniedEvent]) == 1
+                  )
+                case DeniedCleanup.Cancel =>
+                  assertTrue(
+                    exit.isInterrupted,
+                    exit.causeOption.exists(_.defects == List(defect)),
+                    !after.exists(_.isInstanceOf[AgentEvent.AllToolsDeniedEvent])
+                  )))
+                .ensuring(release.succeed(()).unit)
+            yield checked
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test(
       "fixed arguments are visible to authorization and accepted input is persisted before contextual execution"
     ) {
