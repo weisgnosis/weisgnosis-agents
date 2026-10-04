@@ -80,6 +80,10 @@ private[client] object ModelStreamPublisher:
             order = if started then order else order :+ Block.Thinking(index)
           )
           (next, start :+ AgentEvent.ThinkingBlockDeltaEvent(value, index, context = Some(context)))
+        case LlmChunk.ReasoningDetailsDelta(details) =>
+          val text = details.map(_.plaintext).mkString
+          if text.isEmpty then (this, Chunk.empty)
+          else accept(LlmChunk.ThinkingDelta(text), context)
         case call: LlmChunk.ToolCallChunk =>
           tools.getOrElse(call.streamIndex, ToolProgress.Pending(None, None, "")) match
             case ToolProgress.Started(id, _) =>
@@ -110,8 +114,7 @@ private[client] object ModelStreamPublisher:
                     ),
                     Chunk.empty
                   )
-        case _: LlmChunk.UsageChunk | _: LlmChunk.FinishReason |
-            _: LlmChunk.ReasoningDetailsDelta =>
+        case _: LlmChunk.UsageChunk | _: LlmChunk.FinishReason =>
           (this, Chunk.empty)
 
     def endEvents(

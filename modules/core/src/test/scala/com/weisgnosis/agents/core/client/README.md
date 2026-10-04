@@ -1,12 +1,13 @@
 # Model client and stream verification
 
-The [encrypted-reasoning acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) records two checked-detail groups, extended assembly/pruning tables and one actual HTTP ReAct cycle. The latter preserves ordered message-level details, denies a sibling input rewrite, executes unchanged input and emits no Thinking events. These are local protocol tests, not live OpenRouter interoperability; text/summary variants remain unsupported.
+The [selected-reasoning contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) records checked encrypted/text/summary values, ordered all-history replay and sibling-input protection. Two general-detail groups cover literal fields, profile rejection, scalar precedence, direct mixed-chunk rejection and canonical/event agreement. The real HTTP ReAct table checks both selected profiles: encrypted-only emits no Thinking events; general details emit exactly their plaintext projection. Both independent reviews and full reasoning-details-verify.log verification passed; the source contract owns exact identities and focused evidence. These are local protocol tests, not live OpenRouter interoperability.
 
 These ZIO Test suites cover selected upstream scenarios and Scala runtime regressions. They do not certify exhaustive upstream parity or live-provider behavior.
 
 - [ModelTextTransformSpec](ModelTextTransformSpec.scala)
 - [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala)
 - [EncryptedReasoningDetailSpec](EncryptedReasoningDetailSpec.scala)
+- [ReasoningDetailSpec](ReasoningDetailSpec.scala)
 - [ChatCompletionsClientSpec](ChatCompletionsClientSpec.scala)
 - [ModelStreamPublisherSpec](ModelStreamPublisherSpec.scala)
 - [HttpClientTestSupport](HttpClientTestSupport.scala)
@@ -44,7 +45,7 @@ ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadat
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
 - [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the unchanged JSON-boundary identities from that scope; current capability identities are listed below. No findings remain within this scope.
 - [x] `path_review` approved the three real HTTP fixtures at the identities below. Only those fixtures use `TestAspect.withLiveClock`; deterministic fixtures retain TestClock and suite timeouts remain 20 seconds.
-- [ ] Complete other provider signatures/tool metadata, inline server response decoding, text/summary and other reasoning-detail variants, additional input-size bounds, and exhaustive upstream mapping.
+- [ ] Complete other provider signatures/tool metadata, inline server response decoding, other reasoning-detail variants, additional input-size bounds, and exhaustive upstream mapping.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
 

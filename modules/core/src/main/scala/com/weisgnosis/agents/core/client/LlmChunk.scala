@@ -31,9 +31,9 @@ object LlmChunk:
       blockIndex: Int = 0
   ) extends LlmChunk derives JsonCodec
 
-  /** Ordered opaque objects, including an explicitly present empty array; never a text delta. */
+  /** Ordered checked objects, including an explicitly present empty array, with one plaintext projection. */
   final case class ReasoningDetailsDelta(
-      details: Chunk[EncryptedReasoningDetail]
+      details: Chunk[ReasoningDetail]
   ) extends LlmChunk derives JsonCodec
 
   final case class ThinkingDelta(

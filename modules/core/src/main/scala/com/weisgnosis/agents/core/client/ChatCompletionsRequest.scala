@@ -26,7 +26,7 @@ import zio.json.ast.Json
 
 /** Explicit reasoning wire policy shared by response decoding and historical replay. */
 enum ReasoningReplay derives JsonCodec:
-  case Omit, LatestAssistant, OpenRouterEncryptedDetails
+  case Omit, LatestAssistant, OpenRouterEncryptedDetails, OpenRouterDetails
 
 /** Explicit wire format for opaque per-call signatures; unrelated metadata is never projected. */
 enum ToolSignatureFormat derives JsonCodec:
@@ -68,7 +68,8 @@ object ChatCompletionsRequest:
             ReasoningReplay.LatestAssistant
           case ReasoningReplay.OpenRouterEncryptedDetails =>
             ReasoningReplay.OpenRouterEncryptedDetails
-          case _ => ReasoningReplay.Omit
+          case ReasoningReplay.OpenRouterDetails => ReasoningReplay.OpenRouterDetails
+          case _                                 => ReasoningReplay.Omit
         encodeMessage(msg, replay, toolSignatureFormat)
       body = Json.Obj(
         Chunk(
@@ -233,7 +234,8 @@ object ChatCompletionsRequest:
         .collect { case thought: ContentBlock.Thinking => thought }
         .flatMap(_.metadata.get("reasoningDetails"))
       _ <- message(
-        details.isEmpty || replay == ReasoningReplay.OpenRouterEncryptedDetails,
+        details.isEmpty || replay == ReasoningReplay.OpenRouterEncryptedDetails ||
+          replay == ReasoningReplay.OpenRouterDetails,
         "Reasoning details require an explicit replay profile"
       )
       reasoning <- replay match
@@ -248,16 +250,21 @@ object ChatCompletionsRequest:
           yield
             if msg.thinking.isEmpty then Chunk.empty
             else Chunk("reasoning_content" -> Json.Str(msg.thinking))
-        case ReasoningReplay.OpenRouterEncryptedDetails =>
+        case profile @ (ReasoningReplay.OpenRouterEncryptedDetails |
+            ReasoningReplay.OpenRouterDetails) =>
           for
             _ <- message(
               msg.content
                 .collect { case thought: ContentBlock.Thinking => thought }
                 .forall(_.metadata.keySet.subsetOf(Set("reasoningDetails"))),
-              "Unsupported thinking metadata for encrypted reasoning replay"
+              "Unsupported thinking metadata for detailed reasoning replay"
             )
             arrays <- traverse(details)(value =>
-              EncryptedReasoningDetail.decodeArray(value).left.map(AgentError.InvalidMessage(_))
+              val checked = profile match
+                case ReasoningReplay.OpenRouterEncryptedDetails =>
+                  EncryptedReasoningDetail.decodeArray(value).map(_.map(_.toDetail))
+                case _ => ReasoningDetail.decodeArray(value)
+              checked.left.map(AgentError.InvalidMessage(_))
             )
           yield
             if details.isEmpty then Chunk.empty

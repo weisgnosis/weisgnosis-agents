@@ -16,13 +16,14 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.json.JsonBoundary
 import zio.Chunk
 import zio.json.*
 import zio.json.ast.Json
 
 /** One checked opaque protocol object; replay preserves the supplied AST without decoding data. */
 final class EncryptedReasoningDetail private (val value: Json.Obj):
+  def toDetail: ReasoningDetail = ReasoningDetail.fromEncrypted(this)
+
   override def equals(other: Any): Boolean = other match
     case that: EncryptedReasoningDetail => value == that.value
     case _                              => false
@@ -34,28 +35,12 @@ object EncryptedReasoningDetail:
   private val invalid = "Invalid encrypted reasoning detail"
 
   def make(value: Json.Obj): Either[AgentError.InvalidMessage, EncryptedReasoningDetail] =
-    val valid = JsonBoundary.validate(value).isRight &&
+    val valid = ReasoningDetail.validCommon(value) &&
       value.fields.forall((key, _) => fields.contains(key)) &&
       value.get("type").contains(Json.Str("reasoning.encrypted")) &&
-      value.get("data").flatMap(_.asString).exists(data => !data.isBlank) &&
-      value
-        .get("id")
-        .forall:
-          case Json.Null    => true
-          case Json.Str(id) => !id.isBlank
-          case _            => false
-    val validFormat = value
-      .get("format")
-      .forall:
-        case Json.Str(format) => !format.isBlank
-        case _                => false
-    val validIndex = value
-      .get("index")
-      .forall:
-        case number: Json.Num => number.as[Int].exists(_ >= 0)
-        case _                => false
+      value.get("data").flatMap(_.asString).exists(data => !data.isBlank)
     Either.cond(
-      valid && validFormat && validIndex,
+      valid,
       new EncryptedReasoningDetail(value),
       AgentError.InvalidMessage(invalid)
     )

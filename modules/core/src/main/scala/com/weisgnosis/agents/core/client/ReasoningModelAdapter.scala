@@ -191,14 +191,29 @@ object ReasoningModelAdapter:
             case ReasoningReplay.OpenRouterEncryptedDetails =>
               EncryptedReasoningDetail
                 .decodeArray(value)
+                .map(entries => Chunk(LlmChunk.ReasoningDetailsDelta(entries.map(_.toDetail))))
+            case ReasoningReplay.OpenRouterDetails =>
+              ReasoningDetail
+                .decodeArray(value)
                 .map(entries => Chunk(LlmChunk.ReasoningDetailsDelta(entries)))
             case _ => Left("Reasoning details require an explicit replay profile")
-    yield details ++ Chunk.fromIterable(
-      delta.reasoningContent
-        .orElse(delta.thinking)
-        .filter(_.nonEmpty)
-        .map(LlmChunk.ThinkingDelta(_))
-    ) ++
+      // This selected profile uses detailed text exclusively, without cross-frame alias deduplication.
+      _ <- Either.cond(
+        reasoningReplay != ReasoningReplay.OpenRouterDetails || delta.reasoningDetails.nonEmpty ||
+          !(delta.reasoningContent.exists(_.nonEmpty) || delta.thinking.exists(_.nonEmpty)),
+        (),
+        "OpenRouterDetails requires a reasoning_details array when scalar reasoning is supplied"
+      )
+      scalar = reasoningReplay match
+        case ReasoningReplay.OpenRouterDetails => Chunk.empty
+        case _ =>
+          Chunk.fromIterable(
+            delta.reasoningContent
+              .orElse(delta.thinking)
+              .filter(_.nonEmpty)
+              .map(LlmChunk.ThinkingDelta(_))
+          )
+    yield details ++ scalar ++
       Chunk.fromIterable(delta.content.filter(_.nonEmpty).map(LlmChunk.TextDelta(_))) ++
       tools ++ Chunk.fromIterable(choice.finishReason.map(LlmChunk.FinishReason(_)))
 

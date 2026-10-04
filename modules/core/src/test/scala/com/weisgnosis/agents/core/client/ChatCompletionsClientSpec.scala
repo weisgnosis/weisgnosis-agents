@@ -232,140 +232,198 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
           )
         .provide(Client.default, Server.defaultWithPort(0))
     ) @@ TestAspect.withLiveClock,
-    test("a real encrypted reasoning tool cycle preserves ordered details and original inputs")(
+    test("real selected reasoning tool cycles preserve details, plaintext and original inputs")(
       ZIO
-        .scoped:
-          val firstDetail = Json.Obj(
-            "type"   -> Json.Str("reasoning.encrypted"),
-            "id"     -> Json.Str("first"),
-            "index"  -> Json.Num(0),
-            "format" -> Json.Str("anthropic-claude-v1"),
-            "data"   -> Json.Str(" opaque-first ")
-          )
-          val secondDetail = Json.Obj(
-            "type"  -> Json.Str("reasoning.encrypted"),
-            "id"    -> Json.Str("second"),
-            "index" -> Json.Num(0),
-            "data"  -> Json.Str("[REDACTED]")
-          )
-          val expected = Json.Arr(firstDetail, secondDetail)
-          val opening = frame(
-            Json
-              .Obj(
-                "choices" -> Json.Arr(
-                  Json.Obj(
-                    "index" -> Json.Num(0),
-                    "delta" -> Json.Obj("reasoning_details" -> Json.Arr(firstDetail))
+        .foreach(
+          Chunk(ReasoningReplay.OpenRouterEncryptedDetails, ReasoningReplay.OpenRouterDetails)
+        )(profile =>
+          ZIO
+            .scoped:
+              val firstDetail = Json.Obj(
+                "type"   -> Json.Str("reasoning.encrypted"),
+                "id"     -> Json.Str("first"),
+                "index"  -> Json.Num(0),
+                "format" -> Json.Str("anthropic-claude-v1"),
+                "data"   -> Json.Str(" opaque-first ")
+              )
+              val secondDetail = Json.Obj(
+                "type"  -> Json.Str("reasoning.encrypted"),
+                "id"    -> Json.Str("second"),
+                "index" -> Json.Num(0),
+                "data"  -> Json.Str("[REDACTED]")
+              )
+              val openingDetails = profile match
+                case ReasoningReplay.OpenRouterDetails =>
+                  Chunk(
+                    firstDetail,
+                    Json.Obj(
+                      "type"      -> Json.Str("reasoning.text"),
+                      "text"      -> Json.Str("consider "),
+                      "signature" -> Json.Null,
+                      "id"        -> Json.Str("shared"),
+                      "index"     -> Json.Num(0)
+                    )
                   )
-                )
-              )
-              .toJson
-          )
-          val calls = frame(
-            """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"edit","function":{"name":"lookup","arguments":"{}"}},{"index":1,"id":"keep","function":{"name":"lookup","arguments":"{}"}}]}}]}"""
-          )
-          val closing = frame(
-            Json
-              .Obj(
-                "choices" -> Json.Arr(
-                  Json.Obj(
-                    "index"         -> Json.Num(0),
-                    "delta"         -> Json.Obj("reasoning_details" -> Json.Arr(secondDetail)),
-                    "finish_reason" -> Json.Str("tool_calls")
+                case _ => Chunk(firstDetail)
+              val closingDetails = profile match
+                case ReasoningReplay.OpenRouterDetails =>
+                  Chunk(
+                    Json.Obj(
+                      "type"    -> Json.Str("reasoning.summary"),
+                      "summary" -> Json.Str("summary ")
+                    ),
+                    secondDetail,
+                    Json.Obj(
+                      "type"      -> Json.Str("reasoning.text"),
+                      "text"      -> Json.Str("answer"),
+                      "signature" -> Json.Str(" opaque "),
+                      "id"        -> Json.Str("shared"),
+                      "index"     -> Json.Num(0)
+                    )
                   )
-                )
-              )
-              .toJson
-          )
-          for
-            requests <- Ref.make(Chunk.empty[String])
-            executed <- Ref.make(Chunk.empty[Json])
-            lookup = Tool.make(ToolDef("lookup", "Look up a value", Json.Obj()))(input =>
-              executed.update(_ :+ input).as("observation")
-            )
-            authorizer = ToolAuthorizer(request =>
-              ZIO.succeed(
-                ToolAuthorization.Approved(
-                  if request.call.id == "edit" then Json.Obj("changed" -> Json.Bool(true))
-                  else request.call.input
-                )
-              )
-            )
-            port <- Server.install(Routes(Method.POST / "completion" -> handler {
-              (request: Request) =>
-                request.body.asString
-                  .orElseSucceed("")
-                  .flatMap(body => requests.modify(previous => (previous.size, previous :+ body)))
-                  .map(index =>
-                    response(
-                      ZStream.succeed(
-                        if index == 0 then opening + calls + closing + done else text + stop + done
+                case _ => Chunk(secondDetail)
+              val expected = Json.Arr(openingDetails ++ closingDetails)
+              val expectedThinking = profile match
+                case ReasoningReplay.OpenRouterDetails => "consider summary answer"
+                case _                                 => ""
+              def delta(details: Chunk[Json]): Json.Obj =
+                val aliases = profile match
+                  case ReasoningReplay.OpenRouterDetails =>
+                    Chunk(
+                      "reasoning_content" -> Json.Str("must not duplicate details"),
+                      "thinking"          -> Json.Str("alternate scalar must not duplicate details")
+                    )
+                  case _ => Chunk.empty
+                Json.Obj(Chunk("reasoning_details" -> Json.Arr(details)) ++ aliases)
+              val opening = frame(
+                Json
+                  .Obj(
+                    "choices" -> Json.Arr(
+                      Json.Obj(
+                        "index" -> Json.Num(0),
+                        "delta" -> delta(openingDetails)
                       )
                     )
                   )
-            }))
-            http <- ZIO.service[Client]
-            client <- ChatCompletionsClient
-              .make(http, reasoningReplay = ReasoningReplay.OpenRouterEncryptedDetails)
-            agent <- ReActAgent.make(
-              client = client,
-              toolkit = Toolkit(Map("lookup" -> lookup)),
-              toolAuthorizer = authorizer,
-              llmConfig = config.copy(endpoint = s"http://127.0.0.1:$port/completion")
-            )
-            events  <- agent.streamEvents(Msg.user("lookup both")).runCollect
-            history <- agent.history
-            raw     <- requests.get
-            bodies  <- ZIO.foreach(raw)(body => ZIO.fromEither(body.fromJson[Json]))
-            inputs  <- executed.get
-            replayed = bodies
-              .drop(1)
-              .flatMap(
-                _.asObject.flatMap(_.get("messages")).flatMap(_.asArray).getOrElse(Chunk.empty)
+                  .toJson
               )
-              .flatMap(_.asObject)
-              .filter(_.get("tool_calls").nonEmpty)
-            wireCalls = replayed.flatMap(
-              _.get("tool_calls").flatMap(_.asArray).getOrElse(Chunk.empty)
-            )
-            retained = history.flatMap(_.content.collect { case value: ContentBlock.Thinking =>
-              value
-            })
-            results = history.flatMap(_.toolResults)
-          yield assertTrue(
-            bodies.size == 2,
-            inputs == Chunk(Json.Obj()),
-            replayed.size == 1,
-            replayed.forall(_.get("reasoning_details").contains(expected)),
-            wireCalls.size == 2,
-            wireCalls.forall(
-              _.asObject
-                .flatMap(_.get("function"))
-                .flatMap(_.asObject)
-                .flatMap(_.get("arguments"))
-                .contains(Json.Str("{}"))
-            ),
-            retained.size == 1,
-            retained
-              .forall(value => value.thinking.isEmpty && value.reasoningDetails.contains(expected)),
-            history
-              .flatMap(_.toolUses)
-              .forall(call => call.input == Json.Obj() && call.metadata.isEmpty),
-            results.find(_.id == "edit").exists(_.state == ToolResultState.Denied),
-            results.find(_.id == "keep").exists(_.state == ToolResultState.Success),
-            !events.exists:
-              case _: AgentEvent.ThinkingBlockStartEvent | _: AgentEvent.ThinkingBlockDeltaEvent |
-                  _: AgentEvent.ThinkingBlockEndEvent =>
-                true
-              case _ => false,
-            events.collect { case event: AgentEvent.TextBlockDeltaEvent =>
-              event.delta
-            }.mkString == "answer",
-            events.collect { case event: AgentEvent.AgentResultEvent =>
-              event.result.text
-            } == Chunk("answer")
-          )
-        .provide(Client.default, Server.defaultWithPort(0))
+              val calls = frame(
+                """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"edit","function":{"name":"lookup","arguments":"{}"}},{"index":1,"id":"keep","function":{"name":"lookup","arguments":"{}"}}]}}]}"""
+              )
+              val closing = frame(
+                Json
+                  .Obj(
+                    "choices" -> Json.Arr(
+                      Json.Obj(
+                        "index"         -> Json.Num(0),
+                        "delta"         -> delta(closingDetails),
+                        "finish_reason" -> Json.Str("tool_calls")
+                      )
+                    )
+                  )
+                  .toJson
+              )
+              for
+                requests <- Ref.make(Chunk.empty[String])
+                executed <- Ref.make(Chunk.empty[Json])
+                lookup = Tool.make(ToolDef("lookup", "Look up a value", Json.Obj()))(input =>
+                  executed.update(_ :+ input).as("observation")
+                )
+                authorizer = ToolAuthorizer(request =>
+                  ZIO.succeed(
+                    ToolAuthorization.Approved(
+                      if request.call.id == "edit" then Json.Obj("changed" -> Json.Bool(true))
+                      else request.call.input
+                    )
+                  )
+                )
+                port <- Server.install(Routes(Method.POST / "completion" -> handler {
+                  (request: Request) =>
+                    request.body.asString
+                      .orElseSucceed("")
+                      .flatMap(body =>
+                        requests.modify(previous => (previous.size, previous :+ body))
+                      )
+                      .map(index =>
+                        response(
+                          ZStream.succeed(
+                            if index == 0 then opening + calls + closing + done
+                            else text + stop + done
+                          )
+                        )
+                      )
+                }))
+                http <- ZIO.service[Client]
+                client <- ChatCompletionsClient
+                  .make(http, reasoningReplay = profile)
+                agent <- ReActAgent.make(
+                  client = client,
+                  toolkit = Toolkit(Map("lookup" -> lookup)),
+                  toolAuthorizer = authorizer,
+                  llmConfig = config.copy(endpoint = s"http://127.0.0.1:$port/completion")
+                )
+                events  <- agent.streamEvents(Msg.user("lookup both")).runCollect
+                history <- agent.history
+                raw     <- requests.get
+                bodies  <- ZIO.foreach(raw)(body => ZIO.fromEither(body.fromJson[Json]))
+                inputs  <- executed.get
+                replayed = bodies
+                  .drop(1)
+                  .flatMap(
+                    _.asObject.flatMap(_.get("messages")).flatMap(_.asArray).getOrElse(Chunk.empty)
+                  )
+                  .flatMap(_.asObject)
+                  .filter(_.get("tool_calls").nonEmpty)
+                wireCalls = replayed.flatMap(
+                  _.get("tool_calls").flatMap(_.asArray).getOrElse(Chunk.empty)
+                )
+                retained = history.flatMap(_.content.collect { case value: ContentBlock.Thinking =>
+                  value
+                })
+                results = history.flatMap(_.toolResults)
+              yield assertTrue(
+                bodies.size == 2,
+                inputs == Chunk(Json.Obj()),
+                replayed.size == 1,
+                replayed.forall(_.get("reasoning_details").contains(expected)),
+                wireCalls.size == 2,
+                wireCalls.forall(
+                  _.asObject
+                    .flatMap(_.get("function"))
+                    .flatMap(_.asObject)
+                    .flatMap(_.get("arguments"))
+                    .contains(Json.Str("{}"))
+                ),
+                retained.size == 1,
+                retained
+                  .forall(value =>
+                    value.thinking == expectedThinking && value.reasoningDetails.contains(expected)
+                  ),
+                history
+                  .flatMap(_.toolUses)
+                  .forall(call => call.input == Json.Obj() && call.metadata.isEmpty),
+                results.find(_.id == "edit").exists(_.state == ToolResultState.Denied),
+                results.find(_.id == "keep").exists(_.state == ToolResultState.Success),
+                events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
+                  event.delta
+                }.mkString == expectedThinking,
+                events.collect { case event: AgentEvent.ThinkingBlockEndEvent =>
+                  event.fullThought
+                } ==
+                  (if expectedThinking.isEmpty then Chunk.empty else Chunk(expectedThinking)),
+                events.count(_.isInstanceOf[AgentEvent.ThinkingBlockStartEvent]) ==
+                  (if expectedThinking.isEmpty then 0 else 1),
+                replayed.forall(_.get("reasoning_content").isEmpty),
+                events.collect { case event: AgentEvent.TextBlockDeltaEvent =>
+                  event.delta
+                }.mkString == "answer",
+                events.collect { case event: AgentEvent.AgentResultEvent =>
+                  event.result.text
+                } == Chunk("answer")
+              )
+            .provide(Client.default, Server.defaultWithPort(0))
+        )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     ) @@ TestAspect.withLiveClock,
     test("buffers argument fragments until call identity exists"):
       val pending = frame(

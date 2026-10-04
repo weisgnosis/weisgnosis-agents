@@ -20,7 +20,8 @@ The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/
 - [x] `registry_contract` and `current_docs` approved child-owned Plan tools/context through declared/general-purpose factories and live restrictions across named sessions. The [Plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#child-installation-acceptance) records five current identities and full verification.
 - [x] Explicit Google tool-call signature decoding, indexed preservation and historical replay are independently reviewed and verified.
 - [x] Preserve and replay selected encrypted reasoning details, with opaque-only classification and sibling-input protection; see the [current client contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning).
-- [ ] Implement separately selected text/summary and other reasoning formats; durable integration remains unfinished.
+- [x] Preserve selected text/summary reasoning with exact ordered replay and matching plaintext events; both reviews and full verification passed.
+- [ ] Complete other provider formats and durable integration.
 - [x] MCP grouped registration provides coherent Ready-only toolkit/membership snapshots; the host explicitly installs both fields into ReAct.
 - [x] Preloaded skill resources activate explicit Meta groups through ordinary authorized runtime loading, with no filesystem or repository capability.
 - [x] Explicit child Plan tools/context retain independent review and live ancestor admission.

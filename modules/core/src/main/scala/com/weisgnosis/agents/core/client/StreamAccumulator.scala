@@ -38,6 +38,10 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
             order = appendKey(ContentKey.Text(index))
           )
         )
+      // A single plaintext channel keeps canonical block ordering aligned with published deltas.
+      case _: LlmChunk.ThinkingDelta
+          if state.reasoningDetails.exists(_.exists(_.plaintext.nonEmpty)) =>
+        Left("Cannot mix scalar thinking and plaintext reasoning details")
       case LlmChunk.ThinkingDelta(delta, index, signature) =>
         validIndex(index).map: _ =>
           val previous = state.thinkingBlocks.getOrElse(index, ThinkingFragments())
@@ -53,6 +57,9 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
             ),
             order = appendKey(ContentKey.Thinking(index))
           )
+      case LlmChunk.ReasoningDetailsDelta(details)
+          if state.thinkingBlocks.nonEmpty && details.exists(_.plaintext.nonEmpty) =>
+        Left("Cannot mix scalar thinking and plaintext reasoning details")
       case LlmChunk.ReasoningDetailsDelta(details) =>
         Right(
           state.copy(
@@ -177,7 +184,10 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
       case ContentKey.ReasoningDetails =>
         Chunk.fromIterable(
           state.reasoningDetails.map(details =>
-            ContentBlock.Thinking("", Map("reasoningDetails" -> Json.Arr(details.map(_.value))))
+            ContentBlock.Thinking(
+              details.map(_.plaintext).mkString,
+              Map("reasoningDetails" -> Json.Arr(details.map(_.value)))
+            )
           )
         )
       case ContentKey.Text(index) =>
@@ -217,7 +227,7 @@ object StreamAccumulator:
   final private case class State(
       textBlocks: Map[Int, String] = Map.empty,
       thinkingBlocks: Map[Int, ThinkingFragments] = Map.empty,
-      reasoningDetails: Option[Chunk[EncryptedReasoningDetail]] = None,
+      reasoningDetails: Option[Chunk[ReasoningDetail]] = None,
       order: Chunk[ContentKey] = Chunk.empty,
       toolCalls: Map[Int, ToolFragments] = Map.empty,
       usage: Option[ChatUsage] = None,
