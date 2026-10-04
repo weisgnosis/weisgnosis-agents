@@ -45,6 +45,16 @@ trait LlmClient:
       context: ModelStreamContext
   ): ZIO[Scope, AgentError, TurnOutput]
 
+  /** Legacy clients cannot grant pre-response failover authority from arbitrary failures. */
+  private[core] def attemptTurn(
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      config: LlmConfig,
+      eventHub: Hub[AgentEvent],
+      context: ModelStreamContext
+  ): ZIO[Scope, AgentError | BeforeResponseRejection, TurnOutput] =
+    streamTurn(history, tools, config, eventHub, context)
+
 object LlmClient:
 
   /** Creates a mock client returning a sequence of fixed responses or deltas. */

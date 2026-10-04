@@ -266,6 +266,30 @@ object StructuredOutputCapabilityRoutingSpec extends ZIOSpecDefault:
           .forall(_.config == configured.copy(responseFormat = None))
       )
     },
+    test("automatic structured fallback preserves compound failures without another model call"):
+      val rejection = AgentError.ModelError(400, "unsupported format")
+      val secondary = AgentError.ModelError(503, "independent failure")
+      ZIO
+        .foreach(
+          Chunk(
+            Cause.fail(rejection) ++ Cause.fail(secondary),
+            Cause.fail(rejection) && Cause.fail(secondary)
+          )
+        ): cause =>
+          for
+            requests <- Ref.make(Chunk.empty[Request])
+            model = client(
+              requests,
+              request =>
+                if request.config.responseFormat.isDefined then ZIO.refailCause(cause)
+                else answer(request)
+            )
+            agent    <- ReActAgent.make(client = model)
+            exit     <- agent.runStructured[Int](Chunk(Msg.user("number")), schema).exit
+            observed <- requests.get
+          yield assertTrue(exit.causeOption.contains(cause), observed.size == 1)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("declared native support retains rejection fallback without duplicating the user input") {
       for
         requests <- Ref.make(Chunk.empty[Request])

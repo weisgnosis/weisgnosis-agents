@@ -12,6 +12,8 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [EncryptedReasoningDetail](EncryptedReasoningDetail.scala)
 - [ReasoningDetail](ReasoningDetail.scala)
 - [LlmClient](LlmClient.scala)
+- [ModelTarget](ModelTarget.scala)
+- [BeforeResponseRejection](BeforeResponseRejection.scala)
 - [StructuredOutputCapability](StructuredOutputCapability.scala)
 - [JsonBoundary](../json/JsonBoundary.scala)
 - [ReasoningModelAdapter](ReasoningModelAdapter.scala)
@@ -30,7 +32,7 @@ LlmConfig.structuredOutputCapability is a host declaration for the configured mo
 | Native() | Native with rejection fallback | Native with rejection fallback |
 | Native(NativeToolSupport.Unsupported) | Native with rejection fallback | Synthetic |
 
-Explicit Native and SyntheticTool modes override this selection. Native installs the supplied structured schema. Every synthetic attempt clears responseFormat while retaining other configuration, including when falling back from a rejected native attempt. Ordinary runs preserve the host's responseFormat. Auto native attempts still fall back on ModelError status 400, 422, or 501; other errors and cancellation propagate. This status policy is broader than provider-specific capability error classification.
+Explicit Native and SyntheticTool modes override this selection. Native installs the supplied structured schema. Every synthetic attempt clears responseFormat while retaining other configuration, including when falling back from a rejected native attempt. Ordinary runs preserve the host's responseFormat. Auto native attempts fall back only on an exact singleton ModelError failure with status 400, 422, or 501; other errors and cancellation propagate. This status policy is broader than provider-specific capability error classification.
 
 The declaration is serialized with LlmConfig but excluded from the HTTP request body. Existing constructor calls retain their defaults; positional pattern matches against LlmConfig must account for the new final field. Unknown preserves prior routing, while declared Unsupported avoids a native probe entirely.
 
@@ -164,7 +166,7 @@ Transport tests cover a real loopback POST/chunked SSE response plus determinist
 
 CompletionRetryPolicy.disabled preserves a single HTTP attempt. make(maxAttempts, delay = Duration.Zero) returns Either[InvalidConfiguration, CompletionRetryPolicy], requiring at least one total attempt and a finite nonnegative fixed delay. Construction performs no effects. Only actual HTTP rejection statuses 429, 500, 502, 503 and 504 are eligible; this host-selected allowlist is not inferred from a public ModelError.
 
-A private rejection tag is created only after the configured bounded error-body read succeeds. Retry is considered after that attempt's response Scope has fully closed, and only for the exact singleton tagged failure. Cleanup defects, mixed causes, interruption, acquisition/network failures, error-body read failures, successful-status SSE/provider errors, framing/validation failures and callback failures are terminal. Exhaustion exposes the final rejection's original status and bounded payload; private tags do not escape. No Retry-After handling, exponential backoff, failover or general network retry is provided.
+A private rejection tag is created only after the configured bounded error-body read succeeds. Retry is considered after that attempt's response Scope has fully closed, and only for the exact singleton tagged failure. Cleanup defects, mixed causes, interruption, acquisition/network failures, error-body read failures, successful-status SSE/provider errors, framing/validation failures and callback failures are terminal. Exhaustion exposes the final rejection's original status and bounded payload; private tags do not escape public calls. The internal runtime attempt boundary may retain a restricted marker for a clean exhausted eligible rejection; custom/public ModelError values do not carry that authority. No Retry-After handling, exponential backoff or general network retry is provided. Runtime-owned [model failover](../agent/README.md#scoped-model-failover) has its own independently reviewed scope.
 
 The validated request body and headers are prepared once, then each attempt acquires a fresh response Scope. The delay begins after cleanup and remains interruptible. These attempts share one logical model invocation and ModelStreamContext; they do not rerun model-input projection, create another history turn or publish rejected-response chunks. There is no retry after successful-status content has begun, so provisional model output cannot be replayed by this policy. The attempt budget counts this library's Client.streaming calls; middleware, redirects or retries inside the borrowed host client are outside that budget, and no provider billing/idempotency guarantee is implied. The host owns the injected client/pool and direct-call deadline; ReAct's outer timeout still bounds its invocation.
 
@@ -173,8 +175,8 @@ Migration: ChatCompletionsClient.make and ChatCompletionsTransport.make append a
 | File | Reviewed Git blob |
 | --- | --- |
 | [CompletionRetryPolicy.scala](CompletionRetryPolicy.scala) | 162be32d7454f3a7e2017a334dd07a715a11347b |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | f85eafc76fa0050ae17d752e7fc65fb99448d776 |
-| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | be515130f81f54d46a1c605d27f54a9fdac3b1b4 |
+| ChatCompletionsTransport.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
+| ChatCompletionsClient.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
 | [CompletionRetryPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionRetryPolicySpec.scala) | 5df81123863d6f3faa10cfd1c70206f2604baf63 |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | cb042aee28d6e082c9688481f4b08c0e1540df1d |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | fad2db089f26f5509e27f4ad6bc88d9834b6d59d |
@@ -220,9 +222,9 @@ Final formatted source identities against `06bd2e1`:
 
 | File | Git blob |
 | --- | --- |
-| [LlmClient.scala](LlmClient.scala) | b758296bfa7a82740bfe55e683dc97543a7be215 |
+| LlmClient.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
 | [StructuredOutputCapability.scala](StructuredOutputCapability.scala) | 5b68a9b3d6c89651b05b46d42b61382987eb90ee |
-| [StructuredOutputCapabilityRoutingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputCapabilityRoutingSpec.scala) | 355a72c1cda4ba6f5b8b5994230d018f13383458 |
+| StructuredOutputCapabilityRoutingSpec.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
 | [StructuredOutputCapabilitySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StructuredOutputCapabilitySpec.scala) | bebc0adc73b60d08e784f4dcfbdcfa46bea91ddc |
 
 - [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.

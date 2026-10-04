@@ -16,8 +16,10 @@
 package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.{
+  BeforeResponseRejection,
   LlmClient,
   LlmConfig,
+  ModelTarget,
   NativeToolSupport,
   StructuredOutputCapability,
   TurnOutput
@@ -59,7 +61,8 @@ final class ReActAgent private (
     val modelInputTransform: ModelInputTransform,
     val completionObserver: TurnCompletionObserver,
     val toolGroups: Option[ToolGroups],
-    private val skillLibrary: SkillLibrary
+    private val skillLibrary: SkillLibrary,
+    val fallback: Option[ModelTarget]
 ):
 
   val skills: SkillCatalog = skillLibrary.catalog
@@ -215,10 +218,11 @@ final class ReActAgent private (
             )
 
         def nativeWithFallback: ZIO[Scope, AgentError, (AgentResult, A)] =
-          nativeAttempt.catchAll {
-            case AgentError.ModelError(status, _, _) if Set(400, 422, 501).contains(status) =>
+          nativeAttempt.catchAllCause {
+            case Cause.Fail(AgentError.ModelError(status, _, _), _)
+                if Set(400, 422, 501).contains(status) =>
               syntheticAttempt(Chunk.empty)
-            case error => ZIO.fail(error)
+            case cause => ZIO.refailCause(cause)
           }
 
         def automaticAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
@@ -856,94 +860,42 @@ final class ReActAgent private (
                     progressRef
                   )
 
-            def dispatchModel(
-                history: Chunk[Msg],
-                context: ModelStreamContext
-            ): ZIO[Scope, AgentError, AgentResult] =
-              for
-                _ <- eventHub.publish(
-                  AgentEvent.ModelRequestStartEvent(requestConfig.model, 0, context = Some(context))
-                )
-                turnOutputEither <- raceWithInterrupt(
-                  ZIO
-                    .scoped(
-                      client.streamTurn(
-                        history,
-                        activeToolkit.definitions,
-                        requestConfig,
-                        eventHub,
-                        context
-                      )
-                    )
-                    .tap(output =>
-                      usageRef
-                        .update(current =>
-                          output.message.chatUsage
-                            .fold(current)(usage => Some(current.fold(usage)(_.combine(usage))))
-                        )
-                        .uninterruptible
-                    )
-                    .tap:
-                      case _: TurnOutput.Interrupted => ZIO.unit
-                      case output =>
-                        eventHub
-                          .publish(
-                            AgentEvent.ModelResponseEndEvent(
-                              requestConfig.model,
-                              output.message.chatUsage.fold(0)(_.outputTokens),
-                              output.message.chatUsage.fold(0)(_.totalTokens),
-                              context = Some(context)
-                            )
-                          )
-                          .unit
-                )
-
-                outcome <- turnOutputEither match
-                  case Left(_) =>
-                    handleInterrupt(stateRef, iteration, progressRef)
-
-                  case Right(TurnOutput.Interrupted(partial)) =>
-                    persistAssistant(partial, progressRef) *> handleInterrupt(
-                      stateRef,
-                      iteration,
-                      progressRef
-                    )
-
-                  case Right(rawOutput) =>
-                    raceWithInterrupt(ZIO.scoped(applyReasoningHook(rawOutput, context))).flatMap:
-                      case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
-                      case Right(None) =>
-                        restore(
-                          loop(
-                            iteration + 1,
-                            emptyThinkingRetries,
-                            runTools,
-                            eventHub,
-                            replyId,
-                            requestConfig,
-                            structuredResponse,
-                            progressRef,
-                            usageRef
-                          )
-                        )
-                      case Right(Some(turnOutput)) => acceptTurn(turnOutput, context)
-              yield outcome
-
             def requestModel(history: Chunk[Msg]): ZIO[Scope, AgentError, AgentResult] =
-              for
-                requestId <- Random.nextUUID.map(_.toString)
-                context = ModelStreamContext(replyId, requestId)
-                transformed <- raceWithInterrupt(
-                  ZIO.scoped(ZIO.suspendSucceed(modelInputTransform(context, history)))
+              raceWithInterrupt(
+                modelTurn(
+                  history,
+                  activeToolkit.definitions,
+                  requestConfig,
+                  replyId,
+                  eventHub,
+                  usageRef
                 )
-                result <- transformed match
-                  case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
-                  case Right(candidate) =>
-                    ZIO
-                      .fromEither(ModelInputTransform.validate(history, candidate))
-                      .flatMap(view => ZIO.fromEither(withSkillPrompt(view)))
-                      .flatMap(view => dispatchModel(view, context))
-              yield result
+              ).flatMap:
+                case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
+                case Right((TurnOutput.Interrupted(partial), _)) =>
+                  persistAssistant(partial, progressRef) *> handleInterrupt(
+                    stateRef,
+                    iteration,
+                    progressRef
+                  )
+                case Right((rawOutput, context)) =>
+                  raceWithInterrupt(ZIO.scoped(applyReasoningHook(rawOutput, context))).flatMap:
+                    case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
+                    case Right(None) =>
+                      restore(
+                        loop(
+                          iteration + 1,
+                          emptyThinkingRetries,
+                          runTools,
+                          eventHub,
+                          replyId,
+                          requestConfig,
+                          structuredResponse,
+                          progressRef,
+                          usageRef
+                        )
+                      )
+                    case Right(Some(turnOutput)) => acceptTurn(turnOutput, context)
 
             for
               _        <- progressRef.set(RunProgress.Ready)
@@ -960,6 +912,90 @@ final class ReActAgent private (
             yield result
           }
           .onInterrupt(reconcileDanglingToolCalls(stateRef, progressRef).unit)
+
+  /** Each selected model owns its projection, request identity and joined request scope. */
+  private def modelTurn(
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      requestConfig: LlmConfig,
+      replyId: String,
+      eventHub: Hub[AgentEvent],
+      usageRef: Ref[Option[ChatUsage]]
+  ): IO[AgentError, (TurnOutput, ModelStreamContext)] =
+    def invoke(
+        target: ModelTarget
+    ): IO[AgentError | BeforeResponseRejection, (TurnOutput, ModelStreamContext)] =
+      for
+        requestId <- Random.nextUUID.map(_.toString)
+        context = ModelStreamContext(replyId, requestId)
+        candidate <- ZIO.scoped(ZIO.suspendSucceed(modelInputTransform(context, history)))
+        validated <- ZIO.fromEither(ModelInputTransform.validate(history, candidate))
+        view      <- ZIO.fromEither(withSkillPrompt(validated))
+        _ <- eventHub.publish(
+          AgentEvent.ModelRequestStartEvent(target.config.model, 0, context = Some(context))
+        )
+        output <- ZIO.scoped(
+          target.client.attemptTurn(view, tools, target.config, eventHub, context)
+        )
+        _ <- usageRef
+          .update(current =>
+            output.message.chatUsage.fold(current)(usage =>
+              Some(current.fold(usage)(_.combine(usage)))
+            )
+          )
+          .uninterruptible
+        _ <- output match
+          case _: TurnOutput.Interrupted => ZIO.unit
+          case _ =>
+            eventHub
+              .publish(
+                AgentEvent.ModelResponseEndEvent(
+                  target.config.model,
+                  output.message.chatUsage.fold(0)(_.outputTokens),
+                  output.message.chatUsage.fold(0)(_.totalTokens),
+                  context = Some(context)
+                )
+              )
+              .unit
+      yield (output, context)
+
+    def exposed(cause: Cause[AgentError | BeforeResponseRejection]): Cause[AgentError] =
+      cause.map:
+        case rejection: BeforeResponseRejection => rejection.original
+        case error: AgentError                  => error
+
+    val compatible = fallback
+      .filter(target =>
+        requestConfig.responseFormat.isEmpty || (target.config.structuredOutputCapability match
+          case StructuredOutputCapability.Native(support) =>
+            tools.isEmpty || support == NativeToolSupport.Supported
+          case _ => false)
+      )
+      .map(target =>
+        target.copy(config = target.config.copy(responseFormat = requestConfig.responseFormat))
+      )
+
+    ZIO.uninterruptibleMask: restore =>
+      def fail(cause: Cause[AgentError]): IO[AgentError, Nothing] =
+        if cause.isInterrupted then ZIO.refailCause(cause)
+        else
+          restore(ZIO.unit).exit.flatMap:
+            case Exit.Success(_)            => ZIO.refailCause(cause)
+            case Exit.Failure(interruption) => ZIO.refailCause(cause ++ interruption)
+
+      restore(invoke(ModelTarget(client, requestConfig))).exit.flatMap:
+        case Exit.Success(output) => restore(ZIO.succeed(output))
+        case Exit.Failure(cause) =>
+          cause match
+            case Cause.Fail(_: BeforeResponseRejection, _) =>
+              compatible match
+                case None => fail(exposed(cause))
+                case Some(target) =>
+                  restore(invoke(target)).exit.flatMap:
+                    case Exit.Success(output) => restore(ZIO.succeed(output))
+                    case Exit.Failure(fallbackCause) =>
+                      fail(exposed(cause) ++ exposed(fallbackCause))
+            case _ => fail(exposed(cause))
 
   /** Runtime-owned request enrichment follows validation of the host's projected history. */
   private def withSkillPrompt(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =
@@ -1432,7 +1468,8 @@ object ReActAgent:
       modelInputTransform: ModelInputTransform = ModelInputTransform.identity,
       completionObserver: TurnCompletionObserver = TurnCompletionObserver.ignore,
       toolGroups: Option[ToolGroups] = None,
-      skills: SkillCatalog | SkillLibrary = SkillCatalog.empty
+      skills: SkillCatalog | SkillLibrary = SkillCatalog.empty,
+      fallback: Option[ModelTarget] = None
   ): IO[AgentError, ReActAgent] =
     for
       _ <- ZIO.fromEither(config.validated)
@@ -1459,7 +1496,8 @@ object ReActAgent:
       modelInputTransform,
       completionObserver,
       toolGroups,
-      library
+      library,
+      fallback
     )
 
   def builder(): Builder = Builder()
@@ -1477,7 +1515,8 @@ object ReActAgent:
       private val _modelInputTransform: ModelInputTransform = ModelInputTransform.identity,
       private val _completionObserver: TurnCompletionObserver = TurnCompletionObserver.ignore,
       private val _toolGroups: Option[ToolGroups] = None,
-      private val _skills: SkillCatalog | SkillLibrary = SkillCatalog.empty
+      private val _skills: SkillCatalog | SkillLibrary = SkillCatalog.empty,
+      private val _fallback: Option[ModelTarget] = None
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -1493,6 +1532,7 @@ object ReActAgent:
     def model(c: LlmClient): Builder                          = copy(_client = Some(c))
     def client(c: LlmClient): Builder                         = copy(_client = Some(c))
     def llmConfig(c: LlmConfig): Builder                      = copy(_llmConfig = c)
+    def fallback(target: ModelTarget): Builder                = copy(_fallback = Some(target))
     def initialHistory(h: Chunk[Msg]): Builder                = copy(_initialHistory = h)
 
     def postReasoningHook(hook: PostReasoningHook): Builder = copy(_postReasoningHook = hook)
@@ -1528,6 +1568,7 @@ object ReActAgent:
             _modelInputTransform,
             _completionObserver,
             _toolGroups,
-            _skills
+            _skills,
+            _fallback
           )
         )

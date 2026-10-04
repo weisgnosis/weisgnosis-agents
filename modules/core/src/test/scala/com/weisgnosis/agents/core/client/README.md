@@ -13,6 +13,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [HttpClientTestSupport](HttpClientTestSupport.scala)
 - [ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala)
 - [CompletionRetryPolicySpec](CompletionRetryPolicySpec.scala)
+- [ModelFailoverSpec](ModelFailoverSpec.scala)
 - [ChatCompletionsRequestSpec](ChatCompletionsRequestSpec.scala)
 - [StructuredOutputCapabilitySpec](StructuredOutputCapabilitySpec.scala)
 - [LlmClientSpec](LlmClientSpec.scala)
@@ -42,6 +43,8 @@ ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadat
 - [x] Both final reviews and full signature-mcp-verify.log verification passed for selected Google tool-signature decoding/assembly/replay. Two unit groups cover stable indexed opaque values, JSON round-trip, interrupted sanitization and strict malformed/conflict rejection; one request group covers all-history replay; one real loopback ReAct group covers signed denial versus unsigned approval and the next HTTP request. No live-provider interoperability is claimed.
 
 The [bounded status-retry contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries) has final FP/ZIO and invariant approval plus full http-retry-verify.log verification. Its real HTTP table checks a rejected 429 followed by success and a terminal 400, with identical request body/auth, one input projection, one model context, no rejected-response chunks, and exact successful history/usage. Two controlled groups cover exact eligible statuses/budgets, same-valued public error exclusions, held cleanup, full failure causes, cancellation during body/cleanup and an interruptible delay. The unchanged cancellation regression now passes; no broader retry or scheduling coverage is claimed.
+
+[ModelFailoverSpec](ModelFailoverSpec.scala) exercises the runtime-owned target boundary through the real completion adapter with controlled drivers. Both final reviews and full model-failover-verify.log verification are recorded in the [runtime contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#scoped-model-failover). Its scope distinguishes eligible rejection from arbitrary public errors or successful-response failures, preserves canonical history with fresh target projections/contexts, and checks structured-plan compatibility and complete fallback failure causes. It does not establish live-provider routing, failover listeners or general network recovery.
 
 ## Current acceptance
 

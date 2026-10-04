@@ -12,7 +12,7 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 | [client](src/main/scala/com/weisgnosis/agents/core/client/README.md) | Client port, scripted clients, validated text/user-image/inline-audio/function requests, scoped HTTP completion, SSE framing, indexed assembly, explicit Google tool-signature replay and selected reasoning details |
 | [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | ReAct lifecycle, run-owned group activation, preloaded skill loading and snapshot-consistent descriptions/results, interruption, thinking retries, structured output and reviewed host acting-stop decisions |
 
-Typed failures are defined in [AgentError.scala](src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala). Provider extensions, remaining event integrations, automatic failover, and exhaustive upstream parity remain pending.
+Typed failures are defined in [AgentError.scala](src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala). Provider extensions, remaining event integrations, broader model-routing policies and exhaustive upstream parity remain pending; explicit bounded model failover is documented below.
 
 ReActAgent retains in-memory history and serializes runs. Resources are scoped per run/request; cancellation reconciles unfinished calls without overwriting completed observations. See [architecture](../../ARCHITECTURE.md) and the [parity audit](../../docs/architecture/test-parity.md).
 
@@ -66,3 +66,4 @@ Approval covers recorded revisions and named contracts, not unreviewed working-t
 - [x] Both independent reviewers approved [exact deferred skill capabilities](src/main/scala/com/weisgnosis/agents/core/skill/README.md#deferred-resource-capabilities), authorized scoped resolution before activation and logical-name prompt projection.
 
 - [x] Both reviewers approved [bounded HTTP-status retries](src/main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries), preserving default single-attempt behavior, one logical invocation and joined cleanup; full verification passed.
+- [x] Both reviewers approved [scoped model failover](src/main/scala/com/weisgnosis/agents/core/agent/README.md#scoped-model-failover), preserving prepared history, active schema/tools and complete failure causes; full verification passed.

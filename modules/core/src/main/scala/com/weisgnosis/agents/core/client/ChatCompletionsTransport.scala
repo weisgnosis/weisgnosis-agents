@@ -57,6 +57,16 @@ final class ChatCompletionsTransport private (
       transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String] =
         fragment => ZIO.succeed(fragment.delta)
   ): IO[AgentError, TurnOutput] =
+    BeforeResponseRejection.expose(observeAttempt(history, tools, config)(onFrame, transformText))
+
+  private[client] def observeAttempt(
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      config: LlmConfig
+  )(
+      onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
+  ): IO[AgentError | BeforeResponseRejection, TurnOutput] =
     ZIO.suspendSucceed:
       for
         body <- ZIO.fromEither(
@@ -92,7 +102,7 @@ final class ChatCompletionsTransport private (
       delay: Duration,
       onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
       transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
-  ): IO[AgentError, TurnOutput] =
+  ): IO[AgentError | BeforeResponseRejection, TurnOutput] =
     ZIO.uninterruptibleMask: restore =>
       restore(attempt(request, onFrame, transformText)).exit.flatMap:
         case Exit.Success(output) => restore(ZIO.succeed(output))
@@ -119,6 +129,9 @@ final class ChatCompletionsTransport private (
                         transformText
                       )
                     )
+                  case Cause.Fail(HttpRejection(error), _)
+                      if retryableStatuses.contains(error.statusCode) =>
+                    ZIO.fail(new BeforeResponseRejection(error))
                   case _ => ZIO.refailCause(failure)
 
   private def attempt(

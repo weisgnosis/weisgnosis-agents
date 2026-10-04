@@ -54,7 +54,9 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 
 - [x] Both reviewers approved opt-in bounded eager text-tree resource discovery; full verification passed and automatic runtime filesystem fallback remains separate.
 - [x] Project selected skill IDs, descriptions and logical resources into transient model-request system content after host input validation, without changing canonical history or activation.
-- [ ] Remaining provider/event integrations and retry/failover policies.
+- [x] Explicit bounded HTTP-status retries use fresh joined attempt scopes.
+- [x] One host-selected compatible fallback model has independent approval and full verification, with fresh target request identity and joined cleanup.
+- [ ] Broader provider/event integrations and durable resumption remain unfinished.
 - [ ] Agent middleware and durable HITL integration.
 - [ ] Remote memory storage and timestamp-watermark migration, remote transcript persistence, and memory scheduling.
 - [x] Scoped local task ownership, cancellation and default same-execution promotion; checked host synchronous waits join timeout cancellation without promotion.

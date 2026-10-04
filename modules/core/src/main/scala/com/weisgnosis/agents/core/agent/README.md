@@ -31,7 +31,7 @@ Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a 
 | [ReActAgent.scala](ReActAgent.scala) | `0fbbe1a282f1740efcb96b05d3d4befb39f44f4c` |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
-The table records the group/skill baseline. The current runtime identity is in [acting-stop decisions](#acting-stop-decisions), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
+The table records the group/skill baseline. The current runtime identity is in [scoped model failover](#scoped-model-failover), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
 
 ## Preloaded skills
 
@@ -76,13 +76,13 @@ The protected loader retains ordinary authorization and sequential dispatch. An 
 | [ReActAgent.scala](ReActAgent.scala) | `0e180b72941467786c27a3bf458780e33143e418` |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
 
-Current ReActAgent identity and execution approval are in [acting-stop decisions](#acting-stop-decisions); the groups spec above is unchanged.
+Current ReActAgent identity and execution approval are in [scoped model failover](#scoped-model-failover); the groups spec above is unchanged.
 
 ## Fixed-argument authorization
 
 Attached [fixed raw arguments](../tool/README.md#fixed-raw-arguments) are prepared before local authorization, without changing the persisted original call while approval is pending. Malformed preparation yields Error without callback execution; signed-input changes and approved fixed-field alterations yield Denied. Nonfixed rewrites remain allowed. Approved history, invocation context and execution share the final prepared input, retaining original model-input provenance. Inline provider results still bypass local dispatch. Cancellation joins authorizer cleanup and retains the complete interruption/cleanup cause.
 
-Current Tool/Toolkit identities and scoped verification belong to the linked tool acceptance; the current ReActAgent identity is in [acting-stop decisions](#acting-stop-decisions); the result/event contracts below remain separate bounded scopes.
+Current Tool/Toolkit identities and scoped verification belong to the linked tool acceptance; the current ReActAgent identity is in [scoped model failover](#scoped-model-failover); the result/event contracts below remain separate bounded scopes.
 
 ## Incremental local tool results
 
@@ -95,7 +95,7 @@ Final-delta suppression is local to each execution occurrence, including repeate
 
 ## Current typed-result acceptance
 
-The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [acting-stop decisions](#acting-stop-decisions); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
+The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [scoped model failover](#scoped-model-failover); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
 
 - [x] `path_review` and `current_docs` approved typed local result publication within the linked tool acceptance; full repository verification passed with no warnings or failures.
 
@@ -114,7 +114,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 | [AgentRunUpdate.scala](AgentRunUpdate.scala) | `e441b9614dba3364da17b6b4780c3a6fae002396` |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | `20b296b5e3c6430eab21f3124b8fd49bd1acc6a0` |
 
-The stream table records its reviewed baseline. Current ReActAgent identity and verification are recorded under [acting-stop decisions](#acting-stop-decisions). The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
+The stream table records its reviewed baseline. Current ReActAgent identity and verification are recorded under [scoped model failover](#scoped-model-failover). The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
 
 ## Direct event forwarding
 
@@ -160,7 +160,7 @@ Migration: processDecision is a concrete additive method and deciding is an opt-
 | Reviewed file | Git blob |
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | e4d2d204b1de682fd1e118900bbf2c22244dd39c |
-| [ReActAgent.scala](ReActAgent.scala) | e9f789c2de31afa312c01e04ec1d464efbcb441f |
+| ReActAgent.scala | Current identity: [scoped model failover](#scoped-model-failover). |
 | [AgentError.scala](../error/AgentError.scala) | 595899f138addfb459d8845f57806bb4a1d2eca6 |
 | [ToolResultProcessor.scala](../tool/ToolResultProcessor.scala) | bf23b2d700291b38545f9c0ed9f57826ac9c5158 |
 | [AgentResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentResultSpec.scala) | a94ecf5e07e816c1b53bbb2532ad251a111cc064 |
@@ -172,7 +172,7 @@ Migration: processDecision is a concrete additive method and deciding is an opt-
 | [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | a96798914868b8698405643d4f5f15618748bf14 |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 995fcc757a7a7c374a8e83ca1757dd736d000c25 |
 
-- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for these exact 12 identities, with no findings. Full scalafmtAll scalafmtSbt verify passed in acting-stop-accepted-verify.log with zero compiler warnings or failed tests. Focused acting-stop-origin-green.log passed 39 core tests in 568 ms and eight harness tests in 519 ms. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the acting-stop scope (unchanged identities above and runtime baseline e9f789c2de31afa312c01e04ec1d464efbcb441f), with no findings. Full scalafmtAll scalafmtSbt verify passed in acting-stop-accepted-verify.log with zero compiler warnings or failed tests. Focused acting-stop-origin-green.log passed 39 core tests in 568 ms and eight harness tests in 519 ms. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [ ] HITL/post-reasoning suspension, returnDirect tool flags and durable checkpoint/resume remain separate contracts.
 
 The cancellation-origin regression in acting-stop-origin-red.log ran unchanged expectations against draft ReActAgent 88020c23137d08e7bf58eeba232b59c8155dcc27 and InlineProcessingSpec a96798914868b8698405643d4f5f15618748bf14: eight tests passed and two failed. Cooperative interruption with a cleanup defect lacked the required recovery and complete pairing; timeout with a cleanup defect incorrectly added user-interruption recovery. The final caller-boundary exit hook checks actual caller interruption or this run's cooperative signal after joined cleanup, retains generic failure pairing and preserves the full Cause. The same expectations pass alongside unchanged timeout and sibling-defect controls.
@@ -182,6 +182,34 @@ The cancellation-origin regression in acting-stop-origin-red.log ran unchanged e
 StructuredOutput supports native formatting and synthetic generate_response with root definition hoisting. Synthetic output completes only after acting finishes in the Completed state, without another model turn. Ordinary tool pairs and unrelated empty history remain. Final replies retain signed thinking exactly once and generating-request usage; AgentResult usage aggregates the run. Stopped runs fail with AgentError.ExecutionStopped(reason) before captured payload decoding and do not trigger Auto provider fallback. Other incomplete runs fail with AgentError.Interrupted and retain recovery history even after payload capture.
 
 runStructured and streamStructuredEvents share the same preparation and commit path. Structured payload resolution selects existing metadata or parses visible text exactly once; that AST supplies both decoding and committed metadata. Preparation remains interruptible and timeout-bounded. A masked completion section commits finalized history, completes required observation and cleanup, then publishes AgentResultEvent before AgentEnd. Required observation can delay cancellation without the attempt timeout bounding it. Late cancellation may coexist with committed result publication while the caller ultimately exits interrupted. Auto fallback retains two attempt boundary pairs, with no result from the failed native attempt; the run lock covers both attempts. Input event payloads and ToolCallState metadata do not grant runtime permission or stop/resume authority.
+
+## Scoped model failover
+
+ReActAgent.make appends fallback: Option[ModelTarget] = None; Builder.fallback installs one explicit client/config pair. This is a host capability, not model-selected routing or serialized LlmConfig data. Each model request tries its primary client first and may select the fallback once; later loop iterations start with the primary again. Default behavior remains unchanged.
+
+Only the built-in completion adapter can produce the private pre-response rejection evidence used here: an eligible actual HTTP rejection after its status-retry budget and response cleanup. A custom client's public ModelError, acquisition failure, successful-response stream failure, invalid projection, interruption or mixed cleanup Cause cannot trigger failover. Legacy/custom LlmClient implementations keep their existing streamTurn contract and do not gain this authority. Public client/transport calls still expose ordinary AgentError values.
+
+Each target gets a fresh requestId under the same replyId, its own scoped ModelInputTransform invocation from the same prepared canonical history, and the same admitted tool-definition snapshot. Request-only skill projection follows validation again. The primary request view is not reused or persisted as the fallback's input. Model start/end events name the actual selected model; successful fallback usage is counted once. Owned request/projection cleanup completes before another target starts, and the surrounding run timeout/cancellation remains authoritative. If fallback fails, the original primary failure precedes its complete Cause; defects and interruption are retained.
+
+Compatibility follows the active request plan. Without responseFormat, fallback capability declarations need not match. With native responseFormat, the target must declare Native, and must also support application tools when the admitted definitions are nonempty. An incompatible target performs no projection or I/O and leaves the primary failure unchanged. The original responseFormat overrides the target configuration, including clearing it for synthetic requests; schemas and tool definitions are not silently downgraded. Native-to-synthetic Auto fallback accepts only an exact singleton ModelError rejection with status 400, 422 or 501, never a compound failure.
+
+Migration: ordinary construction calls retain fallback=None; appended make/Builder fields may require method-value or positional-extractor updates and dependent binaries must be rebuilt. ModelTarget contains a live client and is intentionally not a JSON codec/configuration registry. There is no failover listener, persistent selected-model state, automatic capability discovery or remote routing.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [ReActAgent.scala](ReActAgent.scala) | c55bc5688a87383169a042095a7266d57285422b |
+| [LlmClient.scala](../client/LlmClient.scala) | 028232913b8bd75fc8a5a5fd6acbb97fef2b3d4e |
+| [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | 41fe7ee22d997bb6e190d89df49d72747fce9f20 |
+| [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | 80b7ff0f54208c99085192edc59cdcc417e7ac04 |
+| [BeforeResponseRejection.scala](../client/BeforeResponseRejection.scala) | 96121e91541c7858bd5f6f6764546cb6aa2d4bf2 |
+| [ModelTarget.scala](../client/ModelTarget.scala) | 5820bc6829e9ae0eaa81ca1bcad1d5024bba3bec |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | 01ef09a838ef9f74552189af35596989b497a0d8 |
+| [StructuredOutputCapabilityRoutingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputCapabilityRoutingSpec.scala) | 5eb368d7df046fafb4a3993711800a667675432a |
+
+- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the eight exact identities above, with no findings. Focused model-failover-green.log passed 51 tests in 5.313 seconds. Full scalafmtAll scalafmtSbt verify passed in model-failover-verify.log with zero compiler warnings or failed tests. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] Three grouped controlled-driver tests exercise primary HTTP retry exhaustion before target selection, repeated runtime requests, history/projection/context isolation, native/synthetic plan compatibility, excluded failures, held cleanup/cancellation and complete target failure causes. They are not live-provider interoperability or exhaustive scheduling evidence.
+
+The existing Auto boundary regression failed against ReActAgent e9f789c2de31afa312c01e04ec1d464efbcb441f with StructuredOutputCapabilityRoutingSpec 5eb368d7df046fafb4a3993711800a667675432a: model-failover-structured-red.log recorded 12 passing tests and one failure in 408 ms. Sequential/parallel compound failures incorrectly produced a successful synthetic result with two model calls instead of the original Cause and one call. The unchanged regression passes after narrowing fallback to the exact singleton failure shape.
 
 ## Model request correlation
 
@@ -210,7 +238,7 @@ LlmConfig.structuredOutputCapability is a host declaration for the configured mo
 | Native() | Native with rejection fallback | Native with rejection fallback |
 | Native(NativeToolSupport.Unsupported) | Native with rejection fallback | Synthetic |
 
-Explicit Native and SyntheticTool modes override this selection. Native installs the supplied structured schema. Every synthetic attempt clears responseFormat while retaining other configuration, including when falling back from a rejected native attempt. Ordinary runs preserve the host's responseFormat. Auto native attempts still fall back on ModelError status 400, 422, or 501; other errors and cancellation propagate. This status policy is broader than provider-specific capability error classification.
+Explicit Native and SyntheticTool modes override this selection. Native installs the supplied structured schema. Every synthetic attempt clears responseFormat while retaining other configuration, including when falling back from a rejected native attempt. Ordinary runs preserve the host's responseFormat. Auto native attempts fall back only on an exact singleton ModelError failure with status 400, 422, or 501; other errors and cancellation propagate. This status policy is broader than provider-specific capability error classification.
 
 The declaration is serialized with LlmConfig but excluded from the HTTP request body. Existing constructor calls retain their defaults; positional pattern matches against LlmConfig must account for the new final field. Unknown preserves prior routing, while declared Unsupported avoids a native probe entirely.
 
@@ -248,7 +276,7 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 ## Current post-reasoning identities
 
-Unchanged post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. Current ReActAgent identity belongs to [acting-stop decisions](#acting-stop-decisions); unchanged error contracts remain separate.
+Unchanged post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. Current ReActAgent identity belongs to [scoped model failover](#scoped-model-failover); unchanged error contracts remain separate.
 
 | File | Git blob |
 | --- | --- |
@@ -293,7 +321,7 @@ Appending the optional make argument preserves ordinary callers; positional Buil
 
 ## Current history-preparation identities
 
-Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [acting-stop decisions](#acting-stop-decisions); unchanged components follow:
+Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [scoped model failover](#scoped-model-failover); unchanged components follow:
 
 | File | Git blob |
 | --- | --- |
@@ -382,7 +410,7 @@ Migration: the optional constructor/builder dependency is additive, but position
 
 - [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
 
-The current ReActAgent identity is recorded under [acting-stop decisions](#acting-stop-decisions); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
+The current ReActAgent identity is recorded under [scoped model failover](#scoped-model-failover); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
 
 ## Current completion-observer identities
 

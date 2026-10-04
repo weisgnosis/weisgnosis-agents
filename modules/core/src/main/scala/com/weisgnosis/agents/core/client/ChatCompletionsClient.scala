@@ -34,9 +34,18 @@ final class ChatCompletionsClient private (
       eventHub: Hub[AgentEvent],
       context: ModelStreamContext
   ): ZIO[Scope, AgentError, TurnOutput] =
+    BeforeResponseRejection.expose(attemptTurn(history, tools, config, eventHub, context))
+
+  override private[core] def attemptTurn(
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      config: LlmConfig,
+      eventHub: Hub[AgentEvent],
+      context: ModelStreamContext
+  ): ZIO[Scope, AgentError | BeforeResponseRejection, TurnOutput] =
     for
       publisher <- ModelStreamPublisher.make(eventHub, context)
-      output <- transport.observe(history, tools, config)(
+      output <- transport.observeAttempt(history, tools, config)(
         publisher.frame,
         fragment => textTransform.transform(context, fragment)
       )

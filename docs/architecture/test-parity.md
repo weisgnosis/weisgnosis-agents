@@ -455,6 +455,17 @@ The following method mappings use the pinned Java revision above. Formatter sour
 
 The parser methods are in the pinned `agentscope-extensions/agentscope-extensions-model/agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/formatter/OpenAIResponseParserTest.java`. MinimaxDoubledSummaryReplayTest.summaryEventMessageClearedByTransportLayer (91), reasoningAndToolArgsNotDoubled (106), and chatCompletionOnlyStreamPreservesMessage (136) concern non-chunk summary-envelope suppression or full-message streams. Details-authoritative delta handling does not establish those contracts. No detail ID/index or encrypted data is inferred into a tool-call signature.
 
+## Scoped model-failover applicability
+
+Both final reviews and full model-failover-verify.log verification passed for the bounded scope. Pinned sources are `agentscope-core/src/test/java/io/agentscope/core/agent/ReActAgentTest.java` and `ReActAgentFailoverBoundaryTest.java`.
+
+- [x] ReActAgentTest.testFallbackModel (562): bounded adaptation of one primary model invocation followed by one fallback result after its HTTP retry budget. ModelFailoverSpec verifies exact request/model ordering and canonical output. Java accepts an arbitrary mock failure; Scala deliberately requires private adapter evidence of an eligible clean pre-response HTTP rejection.
+- [ ] ReActAgentFailoverBoundaryTest.fallsBackForFailureBeforeFirstResponse (42): only the pre-response selection boundary is applicable. Synchronous throws, arbitrary reactive failures and failover-listener notification are not the selected Scala contract, so whole-method parity remains open.
+- [x] ReActAgentFailoverBoundaryTest.doesNotSwitchAfterPrimaryEmitsAResponse (85): the bounded partial-SSE row verifies terminal failure and zero target calls after successful-response output. The Java listener-empty assertion has no Scala counterpart; no listener API is implemented.
+- [ ] FailoverListener notification/error-isolation, Java builder-copy/config serialization and general model-routing parity remain separate.
+
+The [runtime contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#scoped-model-failover) distinguishes fresh target request identity/projection from canonical preparation, preserves the active schema/tool snapshot, and records the actual compound Auto-fallback regression. Native-to-synthetic fallback is not authority to select another model.
+
 ## Host acting-stop applicability
 
 The pinned source `agentscope-core/src/test/java/io/agentscope/core/agent/ReActAgentReturnDirectTest.java` supplies the following partial mappings. Both final reviews and full acting-stop-accepted-verify.log verification passed; exact Scala identities and evidence belong to [acting-stop decisions](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions).
