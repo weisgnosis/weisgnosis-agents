@@ -18,7 +18,7 @@ package com.weisgnosis.agents.mcp.transport
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.ToolResultState
 import com.weisgnosis.agents.core.tool.{ToolDef, Toolkit}
-import com.weisgnosis.agents.mcp.client.McpClient
+import com.weisgnosis.agents.mcp.client.{McpClient, McpClientManager}
 import com.weisgnosis.agents.mcp.protocol.*
 import com.weisgnosis.agents.mcp.tool.McpTool
 import io.modelcontextprotocol.json.McpJsonMapper
@@ -91,6 +91,26 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
           .orDie
       )
       .flatMap(directory => ZIO.attemptBlocking(directory.toRealPath()))
+
+  private def deleteSession(http: Client, endpoint: String, session: String): Task[Status] =
+    ZIO.scoped:
+      for
+        url <- ZIO
+          .fromEither(URL.decode(endpoint))
+          .mapError(_ => AgentError.InvalidConfiguration("Invalid SDK fixture endpoint"))
+        response <- Client
+          .streaming(
+            Request
+              .delete(url)
+              .addHeaders(
+                Headers(
+                  "Mcp-Session-Id"       -> session,
+                  "MCP-Protocol-Version" -> McpInitialization.protocolVersion
+                )
+              )
+          )
+          .provideSomeEnvironment[Scope](_.add(http))
+      yield response.status
 
   private def server: ZIO[Scope, Throwable, Server] =
     for
@@ -190,21 +210,7 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
             oldSession <- ZIO
               .fromOption(beforeExpiry.flatMap(_.session).headOption)
               .orElseFail(AgentError.McpError("SDK session header was not observed"))
-            url <- ZIO.fromEither(URL.decode(peer.endpoint))
-            deleted <- ZIO.scoped:
-              Client
-                .streaming(
-                  Request
-                    .delete(url)
-                    .addHeaders(
-                      Headers(
-                        "Mcp-Session-Id"       -> oldSession,
-                        "MCP-Protocol-Version" -> McpInitialization.protocolVersion
-                      )
-                    )
-                )
-                .provideSomeEnvironment[Scope](_.add(http))
-                .map(_.status)
+            deleted        <- deleteSession(http, peer.endpoint, oldSession)
             expired        <- client.callTool("greet", Some(Json.Obj())).exit
             afterExpiry    <- exchanges.get
             _              <- client.close
@@ -259,4 +265,129 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
         state  <- ZIO.attemptBlocking(peer.tomcat.getServer().getState())
         exists <- ZIO.attemptBlocking(Files.exists(peer.directory))
       yield result && assertTrue(state == LifecycleState.DESTROYED, !exists)
-  ).provide(Client.default) @@ TestAspect.withLiveClock @@ TestAspect.timeout(30.seconds)
+    ,
+    test("manager replacement joins expired SDK ownership and never retargets stale bindings"):
+      for
+        observed <- ZIO.scoped:
+          for
+            peer           <- server
+            http           <- ZIO.service[Client]
+            exchanges      <- Ref.make(Chunk.empty[Exchange])
+            acquisitions   <- Ref.make(0)
+            releases       <- Ref.make(Chunk.empty[Int])
+            transports     <- Ref.make(Chunk.empty[McpStreamableHttpTransport])
+            removalStarted <- Promise.make[Nothing, Unit]
+            cleaning       <- Promise.make[Nothing, Unit]
+            release        <- Promise.make[Nothing, Unit]
+            recorded = recording(http, exchanges)
+            acquire = for
+              index <- acquisitions.getAndUpdate(_ + 1)
+              _ <- ZIO.addFinalizer(
+                (if index == 0 then
+                   removalStarted.isDone.flatMap(started =>
+                     if started then cleaning.succeed(()) *> release.await else ZIO.unit
+                   )
+                 else ZIO.unit) *> releases.update(_ :+ index)
+              )
+              transport <- McpStreamableHttpTransport.open(recorded, peer.endpoint)
+              _         <- transports.update(_ :+ transport)
+              client <- McpClient.open(transport, McpImplementation("scala-managed-interop", "1"))
+            yield client
+            result <- ZIO.scoped(
+              (for
+                manager <- McpClientManager.make(maxClients = 1, maxTools = 2)
+                _ <- manager.register(
+                  "peer",
+                  acquire,
+                  1,
+                  remote =>
+                    Right(
+                      Option.when(remote.name == "greet")(
+                        ToolDef("greeting", "Initial SDK binding", remote.inputSchema)
+                      )
+                    )
+                )
+                old          <- manager.toolkit
+                greeting     <- old.executeSafe("greeting", Json.Obj())
+                beforeExpiry <- exchanges.get
+                oldSession <- ZIO
+                  .fromOption(beforeExpiry.flatMap(_.session).headOption)
+                  .orElseFail(AgentError.McpError("Managed SDK session was not observed"))
+                deleted     <- deleteSession(http, peer.endpoint, oldSession)
+                expired     <- old.executeSafe("greeting", Json.Obj())
+                afterExpiry <- exchanges.get
+                _           <- removalStarted.succeed(())
+                replacing <- (manager.remove("peer") *> manager.register(
+                  "peer",
+                  acquire,
+                  1,
+                  remote =>
+                    Right(
+                      Option.when(remote.name == "greet")(
+                        ToolDef("greeting", "Replacement SDK binding", remote.inputSchema)
+                      )
+                    )
+                )).forkScoped
+                _                 <- cleaning.await
+                waiting           <- replacing.poll
+                beforeAcquire     <- acquisitions.get
+                hidden            <- manager.toolkit
+                _                 <- release.succeed(())
+                _                 <- replacing.join
+                current           <- manager.toolkit
+                afterRegistration <- exchanges.get
+                freshSession <- ZIO
+                  .fromOption(
+                    afterRegistration.drop(afterExpiry.size).flatMap(_.session).headOption
+                  )
+                  .orElseFail(AgentError.McpError("Managed replacement session was not observed"))
+                stale        <- old.executeSafe("greeting", Json.Obj())
+                afterStale   <- exchanges.get
+                fresh        <- current.executeSafe("greeting", Json.Obj())
+                _            <- manager.close
+                released     <- releases.get
+                beforeClosed <- exchanges.get
+                closed       <- current.executeSafe("greeting", Json.Obj())
+                owned        <- transports.get
+                closedTransports <- ZIO.foreach(owned)(transport =>
+                  ZIO
+                    .scoped(transport.send(McpMessage.Notification("notifications/initialized")))
+                    .exit
+                )
+                afterClosed <- exchanges.get
+              yield assertTrue(
+                greeting.state == ToolResultState.Success,
+                greeting.output == "Hello from Java SDK",
+                deleted == Status.Ok,
+                expired.state == ToolResultState.Error,
+                expired.output.contains(AgentError.McpSessionExpired().message),
+                afterExpiry.drop(beforeExpiry.size) == Chunk(
+                  Exchange(Method.POST, Some(oldSession), None),
+                  Exchange(Method.POST, Some(oldSession), Some(Status.NotFound))
+                ),
+                waiting.isEmpty,
+                beforeAcquire == 1,
+                hidden.isEmpty,
+                current.definitions.map(_.description) == Chunk("Replacement SDK binding"),
+                old.definitions.map(_.description) == Chunk("Initial SDK binding"),
+                freshSession != oldSession,
+                afterRegistration.drop(afterExpiry.size).filter(_.status.isEmpty).map(_.session) ==
+                  Chunk(None, Some(freshSession), Some(freshSession)),
+                stale.state == ToolResultState.Error,
+                afterStale == afterRegistration,
+                fresh.state == ToolResultState.Success,
+                fresh.output == greeting.output,
+                released == Chunk(0, 1),
+                closed.state == ToolResultState.Error,
+                closedTransports.size == 2,
+                closedTransports.forall(_.isFailure),
+                afterClosed == beforeClosed
+              )).ensuring(release.succeed(()).unit)
+            )
+          yield (peer, result)
+        (peer, result) = observed
+        state  <- ZIO.attemptBlocking(peer.tomcat.getServer().getState())
+        exists <- ZIO.attemptBlocking(Files.exists(peer.directory))
+      yield result && assertTrue(state == LifecycleState.DESTROYED, !exists)
+  ).provide(Client.default) @@ TestAspect.sequential @@ TestAspect.withLiveClock @@ TestAspect
+    .timeout(30.seconds)

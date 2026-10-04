@@ -13,7 +13,7 @@ The [connection acceptance](../../../../../../../main/scala/com/weisgnosis/agent
 
 ## Acceptance and next tests
 
-- [x] `registry_contract` and `current_docs` approved host-controlled recovery after typed HTTP session expiry through existing joined removal and fresh registration. The controlled peer uses actual McpClient initialization, held cleanup and counters; it does not establish real expired-server interoperability, atomic replacement, failed-call replay or old snapshot retargeting. Full `mcp-session-expiry-verify.log` verification passed.
+- [x] `registry_contract` and `current_docs` approved host-controlled recovery after typed HTTP session expiry through existing joined removal and fresh registration. The controlled peer uses actual McpClient initialization, held cleanup and counters; the separate [SDK fixture](../transport/README.md) adds real expired-server manager replacement. Neither establishes atomic replacement, failed-call replay or old snapshot retargeting. Full `mcp-session-expiry-verify.log` verification passed.
 
 - [x] The unchanged manager retains `path_review`/`current_docs` approval; the current recovery spec has `registry_contract`/`current_docs` approval, recorded in the [grouped installation acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#grouped-installation), with no findings. The compound-cause regression failed against unchanged source before correction; its final assertion checks the complete Cause and preserves independent resource defects exactly once.
 
