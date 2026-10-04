@@ -17,6 +17,7 @@ package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.mcp.protocol.{McpInitialization, McpMessage, McpRequestId}
+import java.io.IOException
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.channels.{ClosedByInterruptException, ClosedChannelException}
@@ -42,6 +43,7 @@ enum McpHttpListenResult:
 enum McpHttpListenPolicy derives JsonCodec:
   case Single
   case Resume(maxRestarts: Int)
+  case ResumeOnBodyIoFailure(maxRestarts: Int)
 
 enum McpHttpTermination:
   case Deleted, Unsupported, AlreadyExpired, NoSession
@@ -50,6 +52,7 @@ enum McpHttpContinuation derives JsonCodec:
   case Disabled
   case OnPrematureEof(maxAttempts: Int)
   case OnPrematureEofOrConnectionLoss(maxAttempts: Int)
+  case OnPrematureEofOrBodyIoFailure(maxAttempts: Int)
 
 /** Explicit host-run listening and termination; callers own and join both within the transport lifetime. */
 trait McpStreamableHttpTransport extends McpTransport:
@@ -59,7 +62,7 @@ trait McpStreamableHttpTransport extends McpTransport:
   def listen(policy: McpHttpListenPolicy): IO[AgentError, McpHttpListenResult] =
     McpStreamableHttpTransport.listenBudget(policy) *> (policy match
       case McpHttpListenPolicy.Single => listen
-      case _: McpHttpListenPolicy.Resume =>
+      case _: McpHttpListenPolicy.Resume | _: McpHttpListenPolicy.ResumeOnBodyIoFailure =>
         ZIO.fail(
           AgentError.McpError("MCP HTTP listener resumption is unsupported by this transport")
         ))
@@ -85,8 +88,9 @@ trait McpStreamableHttpTransport extends McpTransport:
  * joins GET cleanup without closing the transport unless cleanup also fails. Optional bounded
  * continuation resumes only the same send after joined response cleanup. Connection-loss recovery
  * also recognizes direct ClosedChannelException (except ClosedByInterruptException) and
- * PrematureChannelClosureException typed failures. Generic IOException, including zio-http body
- * truncation, remains nonretryable, as do compound causes, defects and cancellation. No POST is
+ * PrematureChannelClosureException typed failures. Explicit body-I/O policies additionally accept
+ * direct cause-free exact-class IOException from raw SSE bodies, including unclassified truncation or timeout.
+ * Other I/O failures, compound causes, defects and cancellation remain nonretryable. No POST is
  * replayed. Session termination is explicit and joins its response
  * cleanup; concurrent callers share the first attempt's full outcome. The host must join termination,
  * sends and listening before releasing the transport owner. Owner closure never sends DELETE and
@@ -95,9 +99,10 @@ trait McpStreamableHttpTransport extends McpTransport:
 object McpStreamableHttpTransport:
   private def listenBudget(policy: McpHttpListenPolicy): IO[AgentError.InvalidConfiguration, Int] =
     policy match
-      case McpHttpListenPolicy.Single                     => ZIO.succeed(0)
-      case McpHttpListenPolicy.Resume(value) if value > 0 => ZIO.succeed(value)
-      case _: McpHttpListenPolicy.Resume =>
+      case McpHttpListenPolicy.Single                                    => ZIO.succeed(0)
+      case McpHttpListenPolicy.Resume(value) if value > 0                => ZIO.succeed(value)
+      case McpHttpListenPolicy.ResumeOnBodyIoFailure(value) if value > 0 => ZIO.succeed(value)
+      case _: McpHttpListenPolicy.Resume | _: McpHttpListenPolicy.ResumeOnBodyIoFailure =>
         ZIO.fail(AgentError.InvalidConfiguration("MCP HTTP listener restarts must be positive"))
 
   private enum Initialization:
@@ -143,7 +148,8 @@ object McpStreamableHttpTransport:
   final private case class ExchangeResult(progress: Progress, session: Option[String])
 
   final private case class ConnectionLoss(error: AgentError)
-  private type AttemptError = AgentError | ConnectionLoss
+  final private case class BodyIoFailure(error: AgentError)
+  private type AttemptError = AgentError | ConnectionLoss | BodyIoFailure
 
   private enum ContentType:
     case Json, Sse
@@ -162,7 +168,8 @@ object McpStreamableHttpTransport:
         .when(continuation match
           case McpHttpContinuation.Disabled                                 => false
           case McpHttpContinuation.OnPrematureEof(attempts)                 => attempts <= 0
-          case McpHttpContinuation.OnPrematureEofOrConnectionLoss(attempts) => attempts <= 0)
+          case McpHttpContinuation.OnPrematureEofOrConnectionLoss(attempts) => attempts <= 0
+          case McpHttpContinuation.OnPrematureEofOrBodyIoFailure(attempts)  => attempts <= 0)
       url <- address(endpoint)
       live <- ZIO.uninterruptible:
         for
@@ -264,7 +271,31 @@ object McpStreamableHttpTransport:
 
   private def domainError(error: AttemptError): AgentError = error match
     case ConnectionLoss(value) => value
+    case BodyIoFailure(value)  => value
     case value: AgentError     => value
+
+  /** This additional provenance is assigned only before decoding a raw SSE response body. */
+  private def bodyBoundary(operation: String)(error: Throwable): AttemptError =
+    if error.getClass == classOf[IOException] && Option(error.getCause).isEmpty then
+      BodyIoFailure(boundary(operation)(error))
+    else attemptBoundary(operation)(error)
+
+  private def resumesFailure(policy: McpHttpListenPolicy, error: AttemptError): Boolean =
+    (policy, error) match
+      case (_: McpHttpListenPolicy.Resume, _: ConnectionLoss) => true
+      case (_: McpHttpListenPolicy.ResumeOnBodyIoFailure, _: ConnectionLoss | _: BodyIoFailure) =>
+        true
+      case _ => false
+
+  private def continuesFailure(policy: McpHttpContinuation, error: AttemptError): Boolean =
+    (policy, error) match
+      case (_: McpHttpContinuation.OnPrematureEofOrConnectionLoss, _: ConnectionLoss) => true
+      case (
+            _: McpHttpContinuation.OnPrematureEofOrBodyIoFailure,
+            _: ConnectionLoss | _: BodyIoFailure
+          ) =>
+        true
+      case _ => false
 
   final private class Live(
       http: Client,
@@ -349,7 +380,7 @@ object McpStreamableHttpTransport:
           ZIO
             .acquireRelease(claimListener)(_ => gate.withPermit(listener.set(Listener.Idle)))
             .flatMap(session =>
-              awaitListener(session, budget).onExit:
+              awaitListener(session, policy, budget).onExit:
                 case Exit.Failure(cause) if !cause.isInterruptedOnly => stop(cause)
                 case _                                               => ZIO.unit
             )
@@ -368,12 +399,13 @@ object McpStreamableHttpTransport:
     /** Keep the full GET outcome while racing terminal signals; cancellation always joins cleanup. */
     private def awaitListener(
         session: Option[String],
+        policy: McpHttpListenPolicy,
         budget: Int
     ): IO[AgentError, McpHttpListenResult] =
       ZIO.scoped:
         ZIO.uninterruptibleMask: restore =>
           for
-            action <- listenLoop(session, "", budget).interruptible.forkScoped
+            action <- listenLoop(session, "", policy, budget).interruptible.forkScoped
             observed <- restore(
               action.await
                 .map[Listening](Listening.Completed(_))
@@ -399,6 +431,7 @@ object McpStreamableHttpTransport:
     private def listenLoop(
         session: Option[String],
         cursor: String,
+        policy: McpHttpListenPolicy,
         remaining: Int
     ): IO[AgentError, McpHttpListenResult] =
       ZIO.uninterruptibleMask: restore =>
@@ -409,12 +442,13 @@ object McpStreamableHttpTransport:
             case Exit.Success(McpHttpListenResult.Ended) if remaining > 0 =>
               checkpoint.get.flatMap: committed =>
                 if committed.isEmpty then ZIO.succeed(McpHttpListenResult.Ended)
-                else restore(listenLoop(session, committed, remaining - 1))
+                else restore(listenLoop(session, committed, policy, remaining - 1))
             case Exit.Success(value) => ZIO.succeed(value)
-            case Exit.Failure(cause @ Cause.Fail(_: ConnectionLoss, _)) if remaining > 0 =>
+            case Exit.Failure(cause @ Cause.Fail(error, _))
+                if remaining > 0 && resumesFailure(policy, error) =>
               checkpoint.get.flatMap: committed =>
                 if committed.isEmpty then ZIO.refailCause(cause.map(domainError))
-                else restore(listenLoop(session, committed, remaining - 1))
+                else restore(listenLoop(session, committed, policy, remaining - 1))
             case Exit.Failure(cause) => ZIO.refailCause(cause.map(domainError))
         yield result
 
@@ -466,7 +500,7 @@ object McpStreamableHttpTransport:
                   .fail(AgentError.McpError("MCP HTTP GET requires text/event-stream"))
                   .unless(kind == ContentType.Sse)
                 _ <- response.body.asStream
-                  .mapError(attemptBoundary("MCP HTTP GET body"))
+                  .mapError(bodyBoundary("MCP HTTP GET body"))
                   .via(McpHttpFraming.sseEvents(limits.sseResponseBytes, limits.sseEventBytes))
                   .runForeach(event => offerListening(event, checkpoint))
               yield McpHttpListenResult.Ended
@@ -567,6 +601,7 @@ object McpStreamableHttpTransport:
                     case McpHttpContinuation.Disabled                              => 0
                     case McpHttpContinuation.OnPrematureEof(value)                 => value
                     case McpHttpContinuation.OnPrematureEofOrConnectionLoss(value) => value
+                    case McpHttpContinuation.OnPrematureEofOrBodyIoFailure(value)  => value
                   evaluateAttempt(
                     message,
                     checkpoint,
@@ -643,12 +678,9 @@ object McpStreamableHttpTransport:
             case _                           => ZIO.unit
         case Exit.Failure(cause) =>
           val failure = ZIO.refailCause(cause.map(domainError))
-          (message, continuation, cause) match
-            case (
-                  request: McpMessage.Request,
-                  _: McpHttpContinuation.OnPrematureEofOrConnectionLoss,
-                  Cause.Fail(_: ConnectionLoss, _)
-                ) if remaining > 0 =>
+          (message, cause) match
+            case (request: McpMessage.Request, Cause.Fail(error, _))
+                if remaining > 0 && continuesFailure(continuation, error) =>
               checkpoint.get.flatMap: result =>
                 result.progress match
                   case Progress.Continue(cursor) if cursor.nonEmpty =>
@@ -866,7 +898,7 @@ object McpStreamableHttpTransport:
         checkpoint: Ref[ExchangeResult]
     ): IO[AttemptError, Progress] =
       response.body.asStream
-        .mapError(attemptBoundary("MCP HTTP response body"))
+        .mapError(bodyBoundary("MCP HTTP response body"))
         .via(McpHttpFraming.sseEvents(limits.sseResponseBytes, limits.sseEventBytes))
         .mapZIO: event =>
           // Acceptance and its cursor checkpoint are one finite local publication step.

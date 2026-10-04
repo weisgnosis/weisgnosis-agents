@@ -63,4 +63,4 @@ Migration: this API is additive. LocalSkill.load remains unchanged; only its val
 
 The LocalSkillSpec identity above remains unchanged; LocalSkill's public behavior and signature are unchanged.
 
-- [ ] Next: general I/O recovery/session reinitialization, as ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, lazy resources, caches and SkillHook remain unfinished.
+- [ ] Next: session reinitialization and remaining I/O recovery, as ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, lazy resources, caches and SkillHook remain unfinished.
