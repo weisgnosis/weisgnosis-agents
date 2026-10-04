@@ -77,7 +77,8 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Checked preloaded skills, selected local loading and explicitly narrowed child catalogue/group snapshots.
 - [x] Both reviewers approved bounded inert skill metadata, and full verification passed.
 - [x] Both reviewers approved bounded immediate local skill discovery; full verification passed.
-- [ ] Other repository variants and full child Plan tool/prompt installation remain separate.
+- [x] Opt-in child-local Plan tools/context preserve live ancestor restrictions and independent review.
+- [ ] Other repository variants, authenticated host UI and durable approval restoration remain separate.
 - [x] Checked common MCP request, notification, success and error envelopes.
 - [x] Pure 2025-06-18 initialization payloads with exact-version checks and capability projection.
 - [x] Checked 2025-06-18 discovery pages and tool-call requests, preserving schema/extension data without assigning local authority to remote hints.
@@ -148,11 +149,11 @@ MemoryConfig now combines defaults and overrides without a mutable builder. Vali
 
 ## Plan-mode foundation
 
-Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; standalone safe plan storage is implemented below; stored-session publication is available; model-facing controls are available; descriptive location context is available; typed workspace-relative directories are available; child propagation remains pending. Host executors still own executable binding, canonical paths, resource limits and process scope.
+Static shell eligibility now uses a small positive grammar with typed rejection and parsed argv. It deliberately replaces upstream shell-name escape hatches with conservative inspection. Opt-in runtime plan admission is implemented below; standalone safe plan storage is implemented below; stored-session publication is available; model-facing controls are available; descriptive location context is available; typed workspace-relative directories are available; opt-in child propagation and local tool/context installation are available. Host executors still own executable binding, canonical paths, resource limits and process scope.
 
 ## Plan admission authority
 
-PlanPermissionGate now integrates explicit host-owned mode and tool classifications into normal permission admission. It restricts capabilities without granting permission, and execution requests still require confirmation. The runtime persists and streams denied results. Mode changes affect later checks; they do not revoke already admitted work. In-memory host-approved transitions are implemented below; stored publication and opt-in transition tools are available; location context is available; typed workspace-relative directories are available; child restrictions remain separate work.
+PlanPermissionGate now integrates explicit host-owned mode and tool classifications into normal permission admission. It restricts capabilities without granting permission, and execution requests still require confirmation. The runtime persists and streams denied results. Mode changes affect later checks; they do not revoke already admitted work. In-memory host-approved transitions are implemented below; stored publication and opt-in transition tools are available; location context is available; typed workspace-relative directories are available; live child restrictions and opt-in local tool/context installation are available.
 
 ## Plan-session review authority
 

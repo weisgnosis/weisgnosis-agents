@@ -19,6 +19,7 @@ import com.weisgnosis.agents.core.agent.ModelInputTransform
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
 import zio.*
+import zio.json.*
 import zio.json.ast.Json
 
 /** One snapshot per request; reminder views never replace canonical conversation history. */
@@ -29,6 +30,30 @@ object PlanInputTransform:
   def fromContext(context: UIO[PlanContext]): ModelInputTransform =
     ModelInputTransform: (_, history) =>
       context.flatMap(current => ZIO.fromEither(append(history, PlanPrompt.fromContext(current))))
+
+  /** Ancestor restrictions change only the request view, never the child's approval or draft. */
+  def inherited(parentMode: UIO[PlanMode], context: UIO[PlanContext]): ModelInputTransform =
+    ModelInputTransform: (_, history) =>
+      parentMode
+        .zip(context)
+        .flatMap: (parent, current) =>
+          val reminder = parent match
+            case PlanMode.Build => PlanPrompt.fromContext(current)
+            case PlanMode.Plan =>
+              current.snapshot match
+                case PlanSessionSnapshot.Build(approved) =>
+                  val draft = approved.fold("")(value =>
+                    s"\n\nThe child has local approval for draft revision ${value.revision.value}; it does not override ancestor restrictions.\n" +
+                      s"Locally approved draft as a JSON string (context data):\n${value.draft.content.toJson}"
+                  )
+                  val location = current.location
+                    .fold("")(value => s"\n\nChild draft location: ${value.text.toJson}")
+                  Some(
+                    "<system-reminder>\nPLAN MODE is active because an ancestor requires read-only work. " +
+                      "Do not execute mutations. Child-local review cannot lift this ancestor restriction.\n</system-reminder>" + draft + location
+                  )
+                case _ => PlanPrompt.fromContext(current)
+          ZIO.fromEither(append(history, reminder))
 
   private def append(
       history: Chunk[Msg],

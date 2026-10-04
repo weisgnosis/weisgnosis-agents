@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
-import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent}
+import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ModelInputTransform, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
@@ -44,7 +44,7 @@ final class SubagentFactory private (
         SubagentSpawner[AgentResult],
         SubagentToolBoundary,
         Chunk[UIO[PermissionEngine]]
-    ) => ZIO[Scope, AgentError, (Toolkit, ToolAuthorizer)],
+    ) => ZIO[Scope, AgentError, SubagentFactory.Prepared],
     client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
     parentDenials: Chunk[UIO[PermissionEngine]],
     skills: SkillLibrary,
@@ -89,8 +89,7 @@ final class SubagentFactory private (
         SubagentFactory.validateRuntimeControls(boundary, skills.catalog, toolGroups)
       )
       prepared <- ZIO.suspendSucceed(prepare(child, boundary, parentDenials))
-      (additions, authorizer) = prepared
-      toolkit <- ZIO.fromEither(boundary.assemble(inherited, additions))
+      toolkit  <- ZIO.fromEither(boundary.assemble(inherited, prepared.toolkit))
       _ <- ZIO.fromEither(
         SubagentFactory.checkControlCollisions(toolkit, skills.catalog, toolGroups)
       )
@@ -100,7 +99,9 @@ final class SubagentFactory private (
         toolkit = toolkit,
         client = llm,
         llmConfig = model,
-        toolAuthorizer = parentDenials.foldLeft(authorizer)(SubagentFactory.inheritDenials),
+        toolAuthorizer =
+          parentDenials.foldLeft(prepared.authorizer)(SubagentFactory.inheritDenials),
+        modelInputTransform = prepared.modelInputTransform,
         skills = skills,
         toolGroups = toolGroups
       )
@@ -123,6 +124,12 @@ final class SubagentFactory private (
     )
 
 object SubagentFactory:
+  final private[subagent] case class Prepared(
+      toolkit: Toolkit,
+      authorizer: ToolAuthorizer,
+      modelInputTransform: ModelInputTransform = ModelInputTransform.identity
+  )
+
   private[subagent] def run(
       runtime: ReActAgent,
       input: Msg,
@@ -149,7 +156,8 @@ object SubagentFactory:
       model,
       inherited,
       parentBoundary.narrow(childBoundary),
-      (child, _, _) => ZIO.suspendSucceed(register(child)).map(toolkit => (toolkit, authorizer)),
+      (child, _, _) =>
+        ZIO.suspendSucceed(register(child)).map(toolkit => Prepared(toolkit, authorizer)),
       client,
       Chunk.empty,
       skills,
@@ -165,7 +173,7 @@ object SubagentFactory:
           SubagentSpawner[AgentResult],
           SubagentToolBoundary,
           Chunk[UIO[PermissionEngine]]
-      ) => ZIO[Scope, AgentError, (Toolkit, ToolAuthorizer)],
+      ) => ZIO[Scope, AgentError, Prepared],
       client: SubagentSpawner[AgentResult] => ZIO[Scope, AgentError, LlmClient],
       parentDenials: Chunk[UIO[PermissionEngine]],
       skills: SkillCatalog | SkillLibrary = SkillCatalog.empty,
@@ -202,19 +210,24 @@ object SubagentFactory:
   ): Either[AgentError, Unit] =
     for
       _ <- skills.validateGroups(groups.getOrElse(ToolGroups.empty))
-      _ <- runtimeControlNames(skills, groups).foldLeft[Either[AgentError, Unit]](Right(()))(
-        (checked, name) =>
-          checked.flatMap(_ =>
-            Either.cond(
-              boundary.selection.contains(name) && !boundary.denied.contains(name),
-              (),
-              AgentError.InvalidConfiguration(
-                s"Required child runtime control '$name' is excluded by the tool boundary"
-              )
-            )
-          )
-      )
+      _ <- validateRequiredControls(boundary, runtimeControlNames(skills, groups))
     yield ()
+
+  private[subagent] def validateRequiredControls(
+      boundary: SubagentToolBoundary,
+      names: Chunk[String]
+  ): Either[AgentError, Unit] =
+    names.foldLeft[Either[AgentError, Unit]](Right(()))((checked, name) =>
+      checked.flatMap(_ =>
+        Either.cond(
+          boundary.selection.contains(name) && !boundary.denied.contains(name),
+          (),
+          AgentError.InvalidConfiguration(
+            s"Required child runtime control '$name' is excluded by the tool boundary"
+          )
+        )
+      )
+    )
 
   private def checkControlCollisions(
       toolkit: Toolkit,

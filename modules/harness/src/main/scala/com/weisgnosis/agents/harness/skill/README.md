@@ -78,4 +78,4 @@ Full `scalafmtAll scalafmtSbt verify` passed in `skill-resource-tree-verify.log`
 
 The repository table retains its reviewed helper baseline; current LocalSkill source/spec identities are in the explicit reader section. Existing load behavior and signature are unchanged.
 
-- [ ] Next: fresh-child Plan tools/context installation, as ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, automatic lazy-resource discovery and caches remain unfinished.
+- [ ] Next: real expired-server and actual Netty body-truncation interoperability, as ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, automatic lazy-resource discovery and caches remain unfinished.

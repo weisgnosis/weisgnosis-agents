@@ -125,6 +125,20 @@ Migration: the appended defaulted field preserves ordinary SubagentPermissions c
 
 - [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for the current SubagentFactory, SubagentConstruction and their paired specs at the four identities in the [acceptance table](#verification-and-acceptance), with no findings. The existing confirmation table now verifies exact evidence through nested wrappers; one new retained-child group checks default/opt-in behavior, live Plan and host/parent denial. Focused `child-access-test.log` passed 23 tests in 515 ms. Full `child-access-verify.log` passed formatting, fatal-warning compilation and all tests, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
 
+### Child Plan installation
+
+SubagentPermissions appends planInstallation: SubagentPlanInstallation, default Disabled. Enabled(publisher) installs PlanTools using that child's control and the host-selected publisher, plus PlanInputTransform.inherited for request-only context. The derived ancestor/child gate remains a live OR; approval is child-local and cannot lift an ancestor restriction. Raw SubagentFactory.make retains identity input projection and existing registration behavior.
+
+The final static boundary must admit all three controls before registration runs. Checked toolkit assembly rejects collisions before client acquisition. Default PlanTools.access entries are overridden by explicit host classifications; ordinary permission Deny still wins. Controls remain ordinary grouped tools: installation does not activate groups or guarantee visibility. Prepared state adds no fibers, reviewer ownership or storage acquisition; hosts retain borrowed dependency lifetimes.
+
+Migration: existing SubagentPermissions constructor calls retain Disabled behavior; positional patterns/Product arity now include its fifth field, and method values/dependent binaries may require recompilation. No binary compatibility is promised. There is no serialized capability reconstruction.
+
+- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for current factory/construction identities in the [acceptance table](#verification-and-acceptance) and the spec below, with no findings. The [Plan acceptance](../plan/README.md#child-installation-acceptance) records the other two identities and full `child-plan-verify.log` verification. Actual declared/general-purpose runs preserve local draft review/location and deny mutations under ancestor Plan; named sends retain one runtime/history and live restrictions without copying mode flags. Stored fixture evidence uses an in-memory store, not a real plan file.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [SubagentPlanInstallationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentPlanInstallationSpec.scala) | `fb8c7ddbde20714add34d47e77dec43f0e09632b` |
+
 ### Child skill snapshots
 
 The deferred-resource extension widens the existing skills parameter to SkillCatalog | SkillLibrary. Library selection narrows definitions and exact readers together before registration; derived descendants retain only that narrowed capability. Existing static loader/reset checks still use the selected catalogue and final tool boundary. It creates no readers from paths, copies no broader root capability, and does not revive excluded skills. Ordinary catalogue source calls remain valid; widened signatures require rebuilding dependent binaries. `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for the updated factory/construction/source-spec identities in the acceptance table, with no findings; full verification passed. Unchanged factory tests retain their prior identity. Combined `skill-library-final-verify.log` verification and all ten-file scope references are in the [core capability acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/skill/README.md#deferred-resource-capabilities). The extended nested runtime fixture observes only second/first/first reader effects; excluded skills cannot run their readers.
@@ -288,9 +302,9 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `b63432a7c6d16a0bc7bdd06a473b74631ced147a` |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
 | [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `6db27b3d881222658521e11970b1def3d597f61c` |
-| [SubagentConstruction.scala](SubagentConstruction.scala) | `47d7d75763980d2e2763698b084934c0ab345e07` |
+| [SubagentConstruction.scala](SubagentConstruction.scala) | `381703a6f1f92239110db9ce5bbec5d208047c52` |
 | [SubagentConstructionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) | `1ece182d43038473274d5bfa5c4bb2c9c5c664c2` |
-| [SubagentFactory.scala](SubagentFactory.scala) | `dec3c2b9bbdf13423bfa44014fd5476dab4b7b8d` |
+| [SubagentFactory.scala](SubagentFactory.scala) | `a8b2cc2a812262d538273d51edac5f907dba50d0` |
 | [SubagentFactorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentFactorySpec.scala) | `e7c0567f3b7cd873cb5f6ff39042a99152464e87` |
 | [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
 | [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |

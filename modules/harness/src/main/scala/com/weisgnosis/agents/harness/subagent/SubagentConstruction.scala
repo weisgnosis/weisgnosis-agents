@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
-import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult}
+import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ModelInputTransform}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillLibrary}
@@ -23,9 +23,12 @@ import com.weisgnosis.agents.core.tool.{Toolkit, ToolGroups}
 import com.weisgnosis.agents.harness.permission.{InteractivePermissionAuthorizer, PermissionEngine}
 import com.weisgnosis.agents.harness.plan.{
   PlanMode,
+  PlanInputTransform,
   PlanPermissionGate,
+  PlanReviewPublisher,
   PlanSessionControl,
-  PlanToolAccess
+  PlanToolAccess,
+  PlanTools
 }
 import zio.*
 import zio.json.JsonCodec
@@ -33,6 +36,11 @@ import zio.json.JsonCodec
 /** Explicit host classifications remain the default; admitted-tool fallback requires opt-in. */
 enum SubagentPlanAccess:
   case ExplicitAccess, AdmittedTools
+
+/** Optional child-local controls; the host retains review authority and selects the publisher. */
+enum SubagentPlanInstallation:
+  case Disabled
+  case Enabled(publisher: PlanReviewPublisher)
 
 /** Selection can narrow only the explicit parent catalogue; an empty Only set selects no skills. */
 enum SubagentSkillSelection derives JsonCodec:
@@ -44,7 +52,8 @@ final case class SubagentPermissions(
     authorizer: InteractivePermissionAuthorizer,
     plan: PlanSessionControl,
     access: Map[String, PlanToolAccess],
-    planAccess: SubagentPlanAccess = SubagentPlanAccess.ExplicitAccess
+    planAccess: SubagentPlanAccess = SubagentPlanAccess.ExplicitAccess,
+    planInstallation: SubagentPlanInstallation = SubagentPlanInstallation.Disabled
 )
 
 /**
@@ -64,7 +73,8 @@ final class SubagentConstruction private (
   /**
    * Initialize child permissions before registration in each build's Scope. Supply a fresh child
    * authorizer and Plan control per build when isolation is required. Registration receives the
-   * derived descendant capability; no Plan tools, prompts or reviewer are installed automatically.
+   * derived descendant capability. Opt-in Plan installation uses only that child's control and
+   * publisher; reviewer authority is never installed or inherited.
    */
   def factory(
       config: AgentConfig,
@@ -88,6 +98,15 @@ final class SubagentConstruction private (
         (child, effectiveBoundary, denials) =>
           for
             permissions <- ZIO.suspendSucceed(initialize)
+            _ <- permissions.planInstallation match
+              case SubagentPlanInstallation.Disabled => ZIO.unit
+              case SubagentPlanInstallation.Enabled(_) =>
+                ZIO.fromEither(
+                  SubagentFactory.validateRequiredControls(
+                    effectiveBoundary,
+                    Chunk.fromIterable(PlanTools.access.keys.toList.sorted)
+                  )
+                )
             mode = parentMode.zipWith(ZIO.suspendSucceed(permissions.plan.mode)):
               case (PlanMode.Plan, _) | (_, PlanMode.Plan) => PlanMode.Plan
               case (PlanMode.Build, PlanMode.Build)        => PlanMode.Build
@@ -100,13 +119,30 @@ final class SubagentConstruction private (
               toolGroups
             )
             additions <- ZIO.suspendSucceed(register(descendants, permissions))
+            installed <- permissions.planInstallation match
+              case SubagentPlanInstallation.Disabled => ZIO.succeed(additions)
+              case SubagentPlanInstallation.Enabled(publisher) =>
+                ZIO.fromEither(
+                  SubagentToolBoundary()
+                    .assemble(additions, PlanTools.make(permissions.plan, publisher))
+                )
+            access = permissions.planInstallation match
+              case SubagentPlanInstallation.Disabled   => permissions.access
+              case SubagentPlanInstallation.Enabled(_) => PlanTools.access ++ permissions.access
             gate = permissions.planAccess match
               case SubagentPlanAccess.ExplicitAccess =>
-                PlanPermissionGate.make(mode, permissions.access)
+                PlanPermissionGate.make(mode, access)
               case SubagentPlanAccess.AdmittedTools =>
-                PlanPermissionGate.withAdmittedTools(mode, permissions.access)
+                PlanPermissionGate.withAdmittedTools(mode, access)
             authorizer = permissions.authorizer.withAdditionalGate(gate)
-          yield (additions, authorizer),
+            transform = permissions.planInstallation match
+              case SubagentPlanInstallation.Disabled => ModelInputTransform.identity
+              case SubagentPlanInstallation.Enabled(_) =>
+                PlanInputTransform.inherited(
+                  parentMode,
+                  ZIO.suspendSucceed(permissions.plan.context)
+                )
+          yield SubagentFactory.Prepared(installed, authorizer, transform),
         client,
         parentDenials,
         library,

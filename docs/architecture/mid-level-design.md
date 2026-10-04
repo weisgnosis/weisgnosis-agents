@@ -15,10 +15,12 @@ The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/
 - [x] Selected skill catalogue text enriches model requests after validated host projection, preserving canonical history and activation.
 - [x] Both reviewers approved bounded eager text-tree resource discovery; documents-only defaults and runtime authority remain unchanged, and full verification passed.
 - [x] `registry_contract` and `current_docs` approved exact host-bound deferred readers, scoped runtime resolution and monotone child selection; full verification passed. Current ten-file identities are recorded in the core skill/runtime and harness skill/subagent contracts.
-- [ ] Next: install child-owned Plan tools and request-only context through declared/general-purpose factories; retain live ancestor restrictions and independent review. Durable integration remains unfinished.
+- [x] `registry_contract` and `current_docs` approved child-owned Plan tools/context through declared/general-purpose factories and live restrictions across named sessions. The [Plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#child-installation-acceptance) records five current identities and full verification.
+- [ ] Next: real expired-server replacement and actual Netty body-truncation interoperability; existing controlled fixtures do not close these checks. Durable integration remains unfinished.
 - [x] MCP grouped registration provides coherent Ready-only toolkit/membership snapshots; the host explicitly installs both fields into ReAct.
 - [x] Preloaded skill resources activate explicit Meta groups through ordinary authorized runtime loading, with no filesystem or repository capability.
-- [ ] Full child Plan tool/prompt installation and ambient metadata propagation, caching and schema evaluation remain separate integrations; real expiry/truncation interoperability remains unverified.
+- [x] Explicit child Plan tools/context retain independent review and live ancestor admission.
+- [ ] Ambient metadata propagation, caching and schema evaluation remain separate integrations; real expiry/truncation interoperability remains unverified.
 
 ## 1. ReAct lifecycle
 
@@ -125,7 +127,7 @@ SubagentConstruction adds a policy-aware factory path: scoped per-build permissi
 
 ## 10. Plan-mode hardening and remaining integration
 
-Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. PlanTools exit requires authenticated exact-ticket host review. Generic RequestExecution classification and ordinary policy may independently require Ask; they do not replace that review. A conservative static POSIX grammar is implemented below. Runtime admission is implemented below; inline declaration policy composition is available; full Plan tool/prompt installation remains explicit; opt-in plan tools are implemented below.
+Reject mutating tools in plan mode. If shell exploration is allowed, statically inspect commands and reject output redirection and mutating binaries. PlanTools exit requires authenticated exact-ticket host review. Generic RequestExecution classification and ordinary policy may independently require Ask; they do not replace that review. A conservative static POSIX grammar is implemented below. Runtime admission is implemented below; inline declaration policy composition is available; child Plan tool/prompt installation is explicitly opt-in; opt-in plan tools are implemented below.
 
 ## Transcript observation authority
 

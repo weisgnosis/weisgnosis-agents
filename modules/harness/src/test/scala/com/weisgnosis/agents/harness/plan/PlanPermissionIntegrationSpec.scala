@@ -15,15 +15,17 @@
  */
 package com.weisgnosis.agents.harness.plan
 
-import com.weisgnosis.agents.core.agent.{AgentConfig, ReActAgent, ToolExecution}
-import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
+import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent, ToolExecution}
+import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.AgentEvent
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
 import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.harness.permission.*
+import com.weisgnosis.agents.harness.subagent.*
 import zio.*
+import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
@@ -95,6 +97,145 @@ object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
     yield agent
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("PlanPermissionIntegrationSpec")(
+    test(
+      "Plan admits explicitly classified subagent controls while children retain mutation denial"
+    ):
+      for outcomes <- ZIO.foreach(Chunk("agent_spawn", "agent_send")): invocation =>
+          ZIO.scoped:
+            for
+              supervisor  <- TaskSupervisor.open[AgentResult]
+              root        <- SubagentSpawner.root(supervisor)
+              executed    <- Ref.make(Chunk.empty[String])
+              childStates <- Ref.make(Chunk.empty[ToolResultState])
+              construction = SubagentConstruction.root(
+                root,
+                SubagentToolBoundary(),
+                ZIO.succeed(allow),
+                ZIO.succeed(PlanMode.Plan)
+              )
+              configured <- ZIO.fromEither(
+                construction.factory(
+                  AgentConfig(toolExecution = ToolExecution.Sequential),
+                  LlmConfig("plan-child"),
+                  toolkit(Chunk("read", "write"), (name, _) => executed.update(_ :+ name).as("ok")),
+                  SubagentToolBoundary(),
+                  for
+                    requests <- PermissionRequests.make
+                    plan     <- PlanSession.make
+                    authorizer <- InteractivePermissionAuthorizer
+                      .make(requests, _ => ZIO.unit, allow)
+                  yield SubagentPermissions(
+                    authorizer,
+                    plan.control,
+                    Map("read" -> PlanToolAccess.ReadOnly, "write" -> PlanToolAccess.Mutation)
+                  ),
+                  (_, _) => ZIO.succeed(Toolkit.empty),
+                  _ =>
+                    ZIO.succeed(LlmClient.mockEffectful((history, _, _) =>
+                      val results = history.flatMap(_.toolResults)
+                      if results.isEmpty then
+                        ZIO.succeed(
+                          TurnOutput.ToolCalls(
+                            Msg.assistant(
+                              Chunk(
+                                ContentBlock.ToolUse("read", "read", Json.Obj()),
+                                ContentBlock.ToolUse("write", "write", Json.Obj())
+                              )
+                            )
+                          )
+                        )
+                      else
+                        childStates
+                          .set(results.map(_.state))
+                          .as(TurnOutput.FinalText(Msg.assistant("done")))
+                    ))
+                )
+              )
+              controls <- invocation match
+                case "agent_spawn" =>
+                  SubagentTaskRegistry.open(root, configured).map(SubagentTools.make)
+                case _ =>
+                  SubagentSession
+                    .open(root, configured)
+                    .flatMap:
+                      case TaskResourceAdmission.Accepted(resource) =>
+                        ZIO.succeed(SubagentTools.forSession(resource.value))
+                      case TaskResourceAdmission.Closed =>
+                        ZIO.fail(AgentError.InvalidConfiguration("Unexpected closed session"))
+              requests   <- PermissionRequests.make
+              authorizer <- InteractivePermissionAuthorizer.make(requests, _ => ZIO.unit, allow)
+              access = controls.tools.keys.map(_ -> PlanToolAccess.PlanControl).toMap
+              guarded = authorizer.withAdditionalGate(
+                PlanPermissionGate.make(ZIO.succeed(PlanMode.Plan), access)
+              )
+              model = LlmClient.mockEffectful((history, _, _) =>
+                val results = history.flatMap(_.toolResults)
+                val next = results.size match
+                  case 0 =>
+                    ZIO.succeed(
+                      Some(
+                        ContentBlock.ToolUse(
+                          "invoke",
+                          invocation,
+                          Json.Obj("prompt" -> Json.Str("investigate"))
+                        )
+                      )
+                    )
+                  case 1 | 2 =>
+                    ZIO
+                      .fromEither(
+                        results.lastOption
+                          .toRight("Missing task result")
+                          .flatMap(result =>
+                            result.text.dropWhile(_ != '{').fromJson[SubagentToolResult]
+                          )
+                      )
+                      .mapError(AgentError.InvalidConfiguration(_))
+                      .flatMap:
+                        case SubagentToolResult.Task(id, _) =>
+                          val name = if results.size == 1 then "agent_task" else "agent_cancel"
+                          ZIO.succeed(
+                            Some(
+                              ContentBlock.ToolUse(name, name, Json.Obj("task_id" -> Json.Str(id)))
+                            )
+                          )
+                        case other =>
+                          ZIO.fail(
+                            AgentError.InvalidConfiguration(s"Unexpected task result: $other")
+                          )
+                  case _ => ZIO.none
+                next.map:
+                  case Some(call) => TurnOutput.ToolCalls(Msg.assistant(Chunk(call)))
+                  case None       => TurnOutput.FinalText(Msg.assistant("finished"))
+              )
+              parent <- ReActAgent.make(
+                client = model,
+                toolkit = controls,
+                toolAuthorizer = guarded
+              )
+              result <- parent.run(Msg.user("delegate investigation"))
+              observations <- ZIO.foreach(result.history.flatMap(_.toolResults))(result =>
+                ZIO
+                  .fromEither(result.text.dropWhile(_ != '{').fromJson[SubagentToolResult])
+                  .mapError(AgentError.InvalidConfiguration(_))
+              )
+              actual <- executed.get
+              states <- childStates.get
+            yield assertTrue(
+              actual == Chunk("read"),
+              states == Chunk(ToolResultState.Success, ToolResultState.Denied),
+              result.history.flatMap(_.toolResults).map(_.state) == Chunk.fill(3)(
+                ToolResultState.Success
+              ),
+              observations.size == 3,
+              observations.forall {
+                case SubagentToolResult.Task(_, SubagentToolState.Completed(_)) => true
+                case _                                                          => false
+              },
+              observations.collect { case SubagentToolResult.Task(id, _) => id }.distinct.size == 1
+            )
+      yield outcomes.foldLeft(assertTrue(true))(_ && _)
+    ,
     test(
       "Plan admits the installed skill reader while retaining host denials and actual tool access"
     ) {
