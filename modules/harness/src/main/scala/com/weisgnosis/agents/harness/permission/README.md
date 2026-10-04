@@ -110,7 +110,7 @@ Migration: PendingActing appends default-empty permissionRequests, making nine p
 | File | Reviewed Git blob |
 | --- | --- |
 | [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | cf59776b34d79293210819f55cb23055863fc63b |
-| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | a70afba10ecc3d0216f52e03ffcda394fe75528d |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current request-projection identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#current-model-input-identities) |
 | [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | a07fafeb90d522e455e13b2d4d9586ff2158af98 |
 | [CheckpointPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/CheckpointPermissionIntegrationSpec.scala) | 29353c8d20160b5bf0360fb5c7422d75ec4ada5a |
 | [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | 01d1a8d08b858e0afc55345ded89bb27683ca04a |

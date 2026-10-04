@@ -15,11 +15,18 @@
  */
 package com.weisgnosis.agents.core.client
 
-import com.weisgnosis.agents.core.agent.{ModelInputTransform, ReActAgent, StructuredMode}
+import com.weisgnosis.agents.core.agent.{
+  ModelInputProjection,
+  ModelInputTransform,
+  ModelRequestInput,
+  ModelRequestSettings,
+  ReActAgent,
+  StructuredMode
+}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{Msg, Role}
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolFixedArguments, Toolkit}
 import zio.*
 import zio.http.*
 import zio.json.*
@@ -57,7 +64,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
       ZIO.scoped:
         for
           calls       <- Ref.make(Chunk.empty[(String, Json)])
-          projections <- Ref.make(Chunk.empty[(ModelStreamContext, Chunk[Msg])])
+          projections <- Ref.make(Chunk.empty[(ModelStreamContext, ModelRequestInput)])
+          executed    <- Ref.make(Chunk.empty[Json])
           targetCalls <- Ref.make(0)
           retryPolicy <- ZIO.fromEither(CompletionRetryPolicy.make(2))
           primary <- ChatCompletionsClient.make(
@@ -83,7 +91,14 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   .map(count => response(if count == 1 then toolCall else answer))
             )
           )
-          toolkit <- ZIO.fromEither(Toolkit.empty.register(lookup))
+          fixed <- ZIO.fromEither(ToolFixedArguments.make(Json.Obj("tenant" -> Json.Str("host"))))
+          selectedTool <- ZIO.fromEither(
+            Tool.withFixedArguments(
+              Tool.make(lookup.definition)(input => executed.update(_ :+ input).as("value")),
+              fixed
+            )
+          )
+          toolkit <- ZIO.fromEither(Toolkit.empty.register(selectedTool))
           agent <- ReActAgent.make(
             client = primary,
             llmConfig = primaryConfig,
@@ -91,17 +106,36 @@ object ModelFailoverSpec extends ZIOSpecDefault:
             fallback = Some(
               ModelTarget(
                 target,
-                targetConfig.copy(responseFormat = Some(Json.Obj("unused" -> Json.Bool(true))))
+                targetConfig.copy(
+                  temperature = 1.1,
+                  maxTokens = Some(77),
+                  responseFormat = Some(Json.Obj("unused" -> Json.Bool(true)))
+                )
               )
             ),
-            modelInputTransform = ModelInputTransform((context, history) =>
-              projections.update(_ :+ (context, history)).as(history)
-            )
+            modelInputTransform =
+              ModelInputTransform.withRequest(ModelInputTransform.identity)((context, request) =>
+                projections
+                  .update(_ :+ (context, request))
+                  .as(
+                    ModelInputProjection(
+                      request.history.map(message =>
+                        if message.role == Role.User then Msg.user(s"request for ${request.model}")
+                        else message
+                      ),
+                      ModelRequestSettings(
+                        if request.model == "primary" then 0.2 else 0.4,
+                        Some(42)
+                      )
+                    )
+                  )
+              )
           )
-          events    <- agent.streamEvents(Msg.user("question")).runCollect
-          history   <- agent.history
-          requests  <- calls.get
-          projected <- projections.get
+          events       <- agent.streamEvents(Msg.user("question")).runCollect
+          history      <- agent.history
+          requests     <- calls.get
+          projected    <- projections.get
+          actualInputs <- executed.get
           starts   = events.collect { case event: AgentEvent.ModelRequestStartEvent => event }
           ends     = events.collect { case event: AgentEvent.ModelResponseEndEvent => event }
           contexts = starts.flatMap(_.context)
@@ -130,6 +164,15 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   client = primary,
                   llmConfig = primaryConfig,
                   toolkit = toolkit,
+                  modelInputTransform =
+                    ModelInputTransform.withRequest(ModelInputTransform.identity)((_, request) =>
+                      ZIO.succeed(
+                        ModelInputProjection(
+                          request.history,
+                          ModelRequestSettings(0.3, Some(23))
+                        )
+                      )
+                    ),
                   fallback = Some(
                     ModelTarget(
                       selected,
@@ -162,7 +205,13 @@ object ModelFailoverSpec extends ZIOSpecDefault:
               yield assertTrue(
                 result._2 == 7,
                 sent.size == 1,
-                sent.forall(_.asObject.exists(_.get("response_format") == expectedFormat))
+                sent.forall(
+                  _.asObject.exists(fields =>
+                    fields.get("response_format") == expectedFormat &&
+                      fields.get("temperature").contains(Json.Num(0.3)) &&
+                      fields.get("max_tokens").contains(Json.Num(23))
+                  )
+                )
               )
         yield assertTrue(
           requests
@@ -175,13 +224,29 @@ object ModelFailoverSpec extends ZIOSpecDefault:
           contexts.map(_.requestId).distinct.size == 4,
           contexts.map(_.replyId).distinct.size == 1,
           projected.map(_._1) == contexts,
-          projected.map(_._2).grouped(2).forall(pair => pair.distinct.size == 1),
+          projected.map(_._2.history).grouped(2).forall(pair => pair.distinct.size == 1),
+          projected.map(_._2.model) == starts.map(_.model),
+          projected.forall { case (_, request) =>
+            request.tools == toolkit.definitions && request.settings ==
+              (if request.model == "primary" then ModelRequestSettings(0.7, None)
+               else ModelRequestSettings(1.1, Some(77)))
+          },
           requests.forall { case (model, value) =>
             value.asObject.exists(fields =>
-              fields.get("model").contains(Json.Str(model)) && fields.get("response_format").isEmpty
+              fields.get("model").contains(Json.Str(model)) && fields
+                .get("response_format")
+                .isEmpty &&
+                fields
+                  .get("temperature")
+                  .contains(Json.Num(if model == "primary" then 0.2 else 0.4)) &&
+                fields.get("max_tokens").contains(Json.Num(42)) &&
+                fields.get("messages").exists(_.toJson.contains(s"request for $model"))
             )
           },
           history.map(_.role) == Chunk(Role.User, Role.Assistant, Role.Tool, Role.Assistant),
+          history.headOption.exists(_.text == "question"),
+          actualInputs == Chunk(Json.Obj("tenant" -> Json.Str("host"))),
+          history.flatMap(_.toolUses).map(_.input) == actualInputs,
           history.lastOption.exists(_.text == "7"),
           events.count(_.isInstanceOf[AgentEvent.AgentResultEvent]) == 1
         ) && structured.foldLeft(assertTrue(true))(_ && _)

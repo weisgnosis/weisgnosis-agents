@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
+import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, ModelTarget, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
@@ -91,14 +91,27 @@ object ReActAgentModelInputSpec extends ZIOSpecDefault:
         )
       )
     },
-    test("invalid projected pairs or system rewrites fail after cleanup before request events") {
+    test("invalid request history or settings fail after cleanup before request events") {
       val call = ContentBlock.ToolUse("call", "lookup", Json.Obj())
-      val invalid = Chunk(
+      val invalidHistory = Chunk(
         Chunk(Msg.system("system"), Msg.assistant(Chunk(call))),
         Chunk(Msg.user("missing system"))
       )
+      val validSettings = ModelRequestSettings(0.7, None)
+      val invalid = invalidHistory.map(ModelInputProjection(_, validSettings)) ++ Chunk(
+        ModelRequestSettings(Double.NaN, None),
+        ModelRequestSettings(Double.PositiveInfinity, None),
+        ModelRequestSettings(-0.1, None),
+        ModelRequestSettings(2.1, None),
+        ModelRequestSettings(0.7, Some(0)),
+        ModelRequestSettings(0.7, Some(-1))
+      ).map(ModelInputProjection(canonical, _))
+      val cases = invalid.map(projection => (LlmConfig("custom"), Some(projection))) ++ Chunk(
+        (LlmConfig("custom", temperature = Double.NaN), None),
+        (LlmConfig("custom", maxTokens = Some(0)), None)
+      )
       ZIO
-        .foreach(invalid): candidate =>
+        .foreach(cases): (config, candidate) =>
           for
             requests <- Ref.make(0)
             events   <- Ref.make(Chunk.empty[AgentEvent])
@@ -106,11 +119,17 @@ object ReActAgentModelInputSpec extends ZIOSpecDefault:
             client = LlmClient.mockEffectful((_, _, _) =>
               requests.update(_ + 1).as(TurnOutput.FinalText(Msg.assistant("unexpected")))
             )
+            base = ModelInputTransform((_, history) =>
+              ZIO.addFinalizer(closed.set(true)).as(history)
+            )
             agent <- ReActAgent.make(
               client = client,
+              llmConfig = config,
+              fallback = Some(ModelTarget(client, LlmConfig("fallback"))),
               initialHistory = canonical,
-              modelInputTransform =
-                ModelInputTransform((_, _) => ZIO.addFinalizer(closed.set(true)).as(candidate))
+              modelInputTransform = candidate.fold(base)(projection =>
+                ModelInputTransform.withRequest(base)((_, _) => ZIO.succeed(projection))
+              )
             )
             exit <- agent
               .streamEvents(Chunk.empty)
@@ -139,11 +158,13 @@ object ReActAgentModelInputSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = client,
-          modelInputTransform = ModelInputTransform((_, _) =>
-            transforms.update(_ + 1) *> ZIO.fail(
-              AgentError.ModelInputError("status 400 in host transformation")
+          fallback = Some(ModelTarget(client, LlmConfig("fallback"))),
+          modelInputTransform =
+            ModelInputTransform.withRequest(ModelInputTransform.identity)((_, _) =>
+              transforms.update(_ + 1) *> ZIO.fail(
+                AgentError.ModelInputError("status 400 in host transformation")
+              )
             )
-          )
         )
         result      <- agent.runStructured[Int](Msg.user("q"), Json.Obj()).either
         transformed <- transforms.get
@@ -221,22 +242,35 @@ object ReActAgentModelInputSpec extends ZIOSpecDefault:
     },
     test("fiber cancellation preserves canonical history and closes projection resources") {
       for
-        entered <- Promise.make[Nothing, Unit]
-        closed  <- Ref.make(false)
+        entered  <- Promise.make[Nothing, Unit]
+        cleaning <- Promise.make[Nothing, Unit]
+        release  <- Promise.make[Nothing, Unit]
+        closed   <- Ref.make(false)
         agent <- ReActAgent.make(
           client = finished,
           initialHistory = canonical,
-          modelInputTransform = ModelInputTransform((_, _) =>
-            ZIO.addFinalizer(closed.set(true)) *> entered.succeed(()) *> ZIO.never
-          )
+          modelInputTransform =
+            ModelInputTransform.withRequest(ModelInputTransform.identity)((_, _) =>
+              ZIO.addFinalizer(cleaning.succeed(()) *> release.await *> closed.set(true)) *>
+                entered.succeed(()) *> ZIO.never
+            )
         )
-        fiber    <- agent.run(Chunk.empty).forkScoped
-        _        <- entered.await
-        exit     <- fiber.interrupt
+        observed <- ZIO.scoped(
+          (for
+            fiber   <- agent.run(Chunk.empty).forkScoped
+            _       <- entered.await
+            _       <- fiber.interruptFork
+            _       <- cleaning.await
+            waiting <- fiber.poll
+            _       <- release.succeed(())
+            exit    <- fiber.await
+          yield (waiting, exit)).ensuring(release.succeed(()).unit)
+        )
         history  <- agent.history
         released <- closed.get
       yield assertTrue(
-        exit.isInterrupted,
+        observed._1.isEmpty,
+        observed._2.isInterrupted,
         released,
         history.take(canonical.size) == canonical,
         history.count(_.generateReason.contains("interrupted")) == 1
@@ -276,8 +310,8 @@ object ReActAgentModelInputSpec extends ZIOSpecDefault:
         agent <- ReActAgent.make(
           client = finished,
           initialHistory = canonical,
-          modelInputTransform = ModelInputTransform((_, _) =>
-            ZIO.addFinalizer(ZIO.die(defect)) *> entered.succeed(()) *> ZIO.never
+          modelInputTransform = ModelInputTransform.withRequest(ModelInputTransform.identity)(
+            (_, _) => ZIO.addFinalizer(ZIO.die(defect)) *> entered.succeed(()) *> ZIO.never
           )
         )
         fiber   <- agent.run(Chunk.empty).exit.forkScoped

@@ -18,14 +18,36 @@ package com.weisgnosis.agents.core.agent
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.model.Msg
+import com.weisgnosis.agents.core.tool.ToolDef
 import zio.*
 
-/** Scoped request-only history projection; its output never replaces canonical agent history. */
+/** Transient request projection data, not serialized agent state or a provider configuration. */
+final case class ModelRequestSettings(temperature: Double, maxTokens: Option[Int])
+
+final case class ModelRequestInput(
+    history: Chunk[Msg],
+    model: String,
+    tools: Chunk[ToolDef],
+    settings: ModelRequestSettings
+)
+
+final case class ModelInputProjection(history: Chunk[Msg], settings: ModelRequestSettings)
+
+/** Scoped request-only projection; its output never replaces canonical history or tool authority. */
 trait ModelInputTransform:
   def apply(
       context: ModelStreamContext,
       canonicalHistory: Chunk[Msg]
   ): ZIO[Scope, AgentError.ModelInputError, Chunk[Msg]]
+
+  /** Legacy implementations project history once and retain the selected target's settings. */
+  def projectRequest(
+      context: ModelStreamContext,
+      request: ModelRequestInput
+  ): ZIO[Scope, AgentError.ModelInputError, ModelInputProjection] =
+    ZIO
+      .suspendSucceed(apply(context, request.history))
+      .map(ModelInputProjection(_, request.settings))
 
 object ModelInputTransform:
   val identity: ModelInputTransform = ModelInputTransform((_, history) => ZIO.succeed(history))
@@ -40,6 +62,55 @@ object ModelInputTransform:
         canonicalHistory: Chunk[Msg]
     ): ZIO[Scope, AgentError.ModelInputError, Chunk[Msg]] =
       ZIO.suspendSucceed(transform(context, canonicalHistory))
+
+  /**
+   * Adds selected-request behavior to an explicit base. Standalone apply retains the base's legacy
+   * behavior; only projectRequest invokes the additional callback. Both stages share the caller's
+   * Scope, and intermediate output is validated before the next callback runs.
+   */
+  def withRequest(base: ModelInputTransform)(
+      project: (ModelStreamContext, ModelRequestInput) => ZIO[
+        Scope,
+        AgentError.ModelInputError,
+        ModelInputProjection
+      ]
+  ): ModelInputTransform = new ModelInputTransform:
+    def apply(
+        context: ModelStreamContext,
+        canonicalHistory: Chunk[Msg]
+    ): ZIO[Scope, AgentError.ModelInputError, Chunk[Msg]] =
+      ZIO.suspendSucceed(base(context, canonicalHistory))
+
+    override def projectRequest(
+        context: ModelStreamContext,
+        request: ModelRequestInput
+    ): ZIO[Scope, AgentError.ModelInputError, ModelInputProjection] =
+      for
+        candidate <- ZIO.suspendSucceed(base.projectRequest(context, request))
+        validated <- ZIO.fromEither(validateProjection(request.history, candidate))
+        result <- ZIO.suspendSucceed(
+          project(context, request.copy(history = validated.history, settings = validated.settings))
+        )
+      yield result
+
+  private[agent] def validateProjection(
+      original: Chunk[Msg],
+      candidate: ModelInputProjection
+  ): Either[AgentError.ModelInputError, ModelInputProjection] =
+    for
+      _ <- validate(original, candidate.history)
+      _ <- Either.cond(
+        candidate.settings.temperature.isFinite && candidate.settings.temperature >= 0 &&
+          candidate.settings.temperature <= 2,
+        (),
+        AgentError.ModelInputError("Projected temperature must be finite and between 0 and 2")
+      )
+      _ <- Either.cond(
+        candidate.settings.maxTokens.forall(_ > 0),
+        (),
+        AgentError.ModelInputError("Projected maximum tokens must be positive")
+      )
+    yield candidate
 
   private[agent] def validate(
       original: Chunk[Msg],

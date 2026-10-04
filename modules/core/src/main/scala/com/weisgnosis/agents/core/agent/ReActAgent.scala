@@ -1359,14 +1359,26 @@ final class ReActAgent private (
       for
         requestId <- Random.nextUUID.map(_.toString)
         context = ModelStreamContext(replyId, requestId)
-        candidate <- ZIO.scoped(ZIO.suspendSucceed(modelInputTransform(context, history)))
-        validated <- ZIO.fromEither(ModelInputTransform.validate(history, candidate))
-        view      <- ZIO.fromEither(withSkillPrompt(validated))
+        request = ModelRequestInput(
+          history,
+          target.config.model,
+          tools,
+          ModelRequestSettings(target.config.temperature, target.config.maxTokens)
+        )
+        candidate <- ZIO.scoped(
+          ZIO.suspendSucceed(modelInputTransform.projectRequest(context, request))
+        )
+        validated <- ZIO.fromEither(ModelInputTransform.validateProjection(history, candidate))
+        view      <- ZIO.fromEither(withSkillPrompt(validated.history))
+        projectedConfig = target.config.copy(
+          temperature = validated.settings.temperature,
+          maxTokens = validated.settings.maxTokens
+        )
         _ <- eventHub.publish(
           AgentEvent.ModelRequestStartEvent(target.config.model, 0, context = Some(context))
         )
         output <- ZIO.scoped(
-          target.client.attemptTurn(view, tools, target.config, eventHub, context)
+          target.client.attemptTurn(view, tools, projectedConfig, eventHub, context)
         )
         _ <- usageRef
           .update(current =>

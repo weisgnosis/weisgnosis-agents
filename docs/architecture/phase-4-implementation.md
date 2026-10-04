@@ -42,7 +42,7 @@ InteractivePermissionAuthorizer installs policy through the core ToolAuthorizer 
 
 Structured completion resolves one payload AST for decoding and metadata, prepares within the attempt timeout, then commits history, completes required observation and cleanup, and publishes AgentResult before AgentEnd. Direct and structured streaming APIs share this path; Auto fallback retains two attempt boundary pairs. Pre-commit failures publish no finalized result.
 
-ModelInputTransform projects a request-only history after canonical preparation commits and before ModelRequestStart. Its scope closes before structural validation and dispatch. Canonical history, recovery positions, and usage remain authoritative; projection failures use ModelInputError and cannot trigger native fallback. Complete pairs may be omitted without losing canonical eviction or stored payloads. The port transforms history only; semantic fidelity and newly injected content remain host responsibilities.
+ModelInputTransform now supports checked transient history and temperature/maxTokens with immutable selected-model/tool context. Runtime closes projection cleanup before validation and dispatch, preserves canonical history and tool/client authority, and starts a fresh projection for each target. Existing legacy transforms remain supported; invalid settings fail before custom clients too. See the [current contract and migration](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#request-only-model-history).
 
 ## Verification
 

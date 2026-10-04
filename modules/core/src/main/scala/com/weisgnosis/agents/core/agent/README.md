@@ -28,7 +28,7 @@ Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a 
 
 | Reviewed group/skill baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current request-projection identity](#current-model-input-identities) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
 The table records the group/skill baseline. The current runtime identity is in [scoped model failover](#scoped-model-failover), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
@@ -58,7 +58,7 @@ Migration: configured skill listings move from the loader description to transie
 
 | Reviewed request-projection baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current request-projection identity](#current-model-input-identities) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2eb319710008d11433978458c47a01d1c9eac110` |
 
 The [catalogue contract](../skill/README.md#deferred-resource-capabilities) owns current catalogue/library identities and combined verification. Existing execution, forwarding, group and permission contracts retain their scoped evidence below. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals and next work.
@@ -73,7 +73,7 @@ The protected loader retains ordinary authorization and sequential dispatch. An 
 
 | Reviewed deferred-read baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current request-projection identity](#current-model-input-identities) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
 
 Current ReActAgent identity and execution approval are in [scoped model failover](#scoped-model-failover); the groups spec above is unchanged.
@@ -113,7 +113,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current request-projection identity](#current-model-input-identities) |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 8e28a12574d17faab954663516b2fb9529de34e5 |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | e8270b178be3f6d4dd90868be6555025bac07939 |
 
@@ -134,7 +134,7 @@ The unchanged [ReActAgentForwardingSpec](../../../../../../../test/scala/com/wei
 | Reviewed forwarding baseline | Git blob |
 | --- | --- |
 | [AgentEventForwarder.scala](AgentEventForwarder.scala) | `9198abc9f0b13f1cb1e347df0a73c57c50f6e2d1` |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current request-projection identity](#current-model-input-identities) |
 | [AgentEventForwarderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) | `2c0bbde7e0e5eb94f8c3f963ead3f1ed4eed37ab` |
 | [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | `9c602ab087cb78362035043bf07181b0aa108f89` |
 
@@ -173,7 +173,7 @@ Migration: processDecision is a concrete additive method and deciding is an opt-
 | [SubagentToolsSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | bc13a74044ad3d6e5bfd92efb0eda362dae71bb4 |
 | [ReActAgentActingStopSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentActingStopSpec.scala) | d6bd7f1768f9abc1e6178f758010d1677b750d1d |
 | [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | a96798914868b8698405643d4f5f15618748bf14 |
-| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 995fcc757a7a7c374a8e83ca1757dd736d000c25 |
+| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current identity](#current-model-input-identities) |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the acting-stop scope (unchanged identities above and runtime baseline e9f789c2de31afa312c01e04ec1d464efbcb441f), with no findings. Full scalafmtAll scalafmtSbt verify passed in acting-stop-accepted-verify.log with zero compiler warnings or failed tests. Focused acting-stop-origin-green.log passed 39 core tests in 568 ms and eight harness tests in 519 ms. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] Accept the separate [before-acting suspension contract](#before-acting-suspension-and-restoration); partial HITL confirmations, returnDirect flags and host persistence remain separate.
@@ -200,13 +200,13 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current request-projection identity](#current-model-input-identities) |
 | [LlmClient.scala](../client/LlmClient.scala) | 028232913b8bd75fc8a5a5fd6acbb97fef2b3d4e |
 | [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | 41fe7ee22d997bb6e190d89df49d72747fce9f20 |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | 80b7ff0f54208c99085192edc59cdcc417e7ac04 |
 | [BeforeResponseRejection.scala](../client/BeforeResponseRejection.scala) | 96121e91541c7858bd5f6f6764546cb6aa2d4bf2 |
 | [ModelTarget.scala](../client/ModelTarget.scala) | 5820bc6829e9ae0eaa81ca1bcad1d5024bba3bec |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | 01ef09a838ef9f74552189af35596989b497a0d8 |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](#current-model-input-identities) |
 | [StructuredOutputCapabilityRoutingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputCapabilityRoutingSpec.scala) | 5eb368d7df046fafb4a3993711800a667675432a |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the eight exact identities above, with no findings. Focused model-failover-green.log passed 51 tests in 5.313 seconds. Full scalafmtAll scalafmtSbt verify passed in model-failover-verify.log with zero compiler warnings or failed tests. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -287,7 +287,7 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current request-projection identity](#current-model-input-identities) |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
@@ -314,7 +314,7 @@ Migration: PendingActing appends default-empty suppliedResults, preserving old m
 | File | Reviewed Git blob |
 | --- | --- |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current request-projection identity](#current-model-input-identities) |
 | [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
 | [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
 | [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | 544ba0673471232ce7fa0b45fc88e002a887b917 |
@@ -425,37 +425,31 @@ Superseded model-input scope identities remain in `40f6f05`; changed identities 
 
 ## Request-only model history
 
-ModelInputTransform is distinct from HistoryPreparer: it returns a transient model-request view and has no canonical write authority. Install it through the optional ReActAgent.make argument or Builder.modelInputTransform; the default identity preserves existing callers. Its lazy callback receives ModelStreamContext and already-prepared canonical history, returning ZIO[Scope, AgentError.ModelInputError, Chunk[Msg]].
+ModelInputTransform is distinct from HistoryPreparer: it returns a transient request view without canonical write authority. Existing apply(context, history) implementations remain valid; default projectRequest invokes that legacy callback once and retains the selected target's settings. ModelRequestInput contains prepared history, the selected model name, admitted tool definitions and ModelRequestSettings(temperature, maxTokens). It contains no client, credentials, endpoint or capability declarations. ModelInputProjection returns only history and settings; it cannot replace tools, the model, client or response format.
 
-The runtime prepares, validates, and commits canonical history first, allocates a request context, runs projection in a separate interruptible scope, closes that scope, validates the view, then publishes ModelRequestStart and invokes the client with the view. The same context reaches model events. This runs for every request, including thinking retries, discarded reasoning, and native/synthetic Auto attempts. It does not change tool definitions or model configuration.
+ModelInputTransform.withRequest(base)(project) adds selected-request behavior to an explicit base. Standalone apply still delegates only to the legacy base. projectRequest runs the base and added callback once, validates each intermediate history/settings before the next stage, and shares the caller's scope. Runtime execution closes the projection scope before final validation, request events and client dispatch. Temperature must be finite in [0, 2]; maxTokens must be absent or positive. Existing HistoryRewrite rules preserve exact ordered system messages and complete occurrence-aware call/result pairs. Structural validation is not semantic fidelity or full provider grammar validation.
 
-Shared HistoryRewrite validation retains unchanged-input compatibility and requires changed views to preserve exact ordered system messages and complete occurrence-aware call/result pairing. A host may omit complete closed pairs or rewrite request-only content/state/metadata. Structural checks do not prove semantic fidelity or provider grammar. The host controls projection semantics and any additional pruning of new content it injects.
+Every actual selected model attempt starts from prepared canonical history and its own configured settings, with a fresh request context. This includes explicit model failover and native/synthetic attempts. The admitted tool snapshot and active response format remain unchanged. Request-only skill projection follows validation. Built-in HTTP status retries reuse the serialized request and do not rerun projection. Projected history/settings never replace canonical history, configuration, recovery positions, usage or tool authority. Newly injected content is not automatically evicted.
 
-Projected values never replace stateRef, AgentResult.history, accepted model output, recovery positions, or usage accounting. Canonical eviction therefore survives a view that removes its result; removed pairs are not reintroduced into the request. ModelInputTransform alone does not run eviction on newly injected view content. Install canonical eviction through ToolResultEvictor.preparer or immediate completion processing as appropriate.
+Typed callback failures and invalid output use ModelInputError and cannot trigger model failover or native-format fallback. Defects and complete cancellation/cleanup causes propagate; scoped cleanup is joined. Completed canonical preparation is not rolled back. Callbacks must not reenter operations needing the held run lock.
 
-Typed projection failures and invalid views use ModelInputError, never provider ModelError, and cannot trigger native-format fallback. Defects propagate. Cooperative/fiber cancellation and timeout close projection resources before returning, preserve prepared canonical history, and retain the existing recovery contract; cleanup defects are preserved rather than reported as a clean interruption. A shorter view cannot change the position used to reconcile a new in-flight call. Completed preparation side effects/state are not rolled back when projection fails. Callbacks must not reenter operations needing the held agent run lock.
-
-The make argument is additive; positional Builder matches must follow its current constructor. Exhaustive AgentError matches must include ModelInputError. Callback values remain runtime dependencies, not serialized configuration. This history-only port is not the complete upstream ReasoningInput/middleware API; Java object identity and mutable hook ordering are intentionally adapted to immutable values and deterministic runtime authority.
-
-- [x] `review_fp` and `review_harness` approved the final seven-file model-input scope against `40f6f05` on 2026-09-29. Required checks and regressions passed for this reviewed scope. No findings remain within request-only projection, structural validation, canonical-state isolation, and eviction integration. Broader legacy hook/middleware parity remains pending.
+Migration: the default projectRequest method preserves existing ModelInputTransform implementations and ordinary factory calls. withRequest requires an explicit base so existing Plan/other history behavior is retained intentionally. New request/projection values are transient immutable data without codecs. Dependent binaries should be rebuilt. Validation now also rejects invalid original temperature/maxTokens with an identity or legacy transform, including custom clients, before request events or client invocation. This is a deliberate compatibility tightening, not a general middleware/interception framework.
 
 ## Current model-input identities
 
-Final formatted scope against `40f6f05`:
-
 | File | Git blob |
 | --- | --- |
-| [HistoryPreparer.scala](HistoryPreparer.scala) | 088d1464febe6be050ce43856305a0efe3b7f0e5 |
-| [ModelInputTransform.scala](ModelInputTransform.scala) | 4dd6b57426cdc37ac37c7453a75eb7159acdba99 |
-| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 8a42440fcdbc2d5662cb67fbbf541483f2b865e5 |
-| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current identity](#acting-stop-decisions) |
-| [ToolResultEvictorHistorySpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorHistorySpec.scala) | 3070eb8d3caf57c99243fb7675b5fbbe8d7f25e8 |
+| [ModelInputTransform.scala](ModelInputTransform.scala) | 7570689063551d3cf0391bd8ef796fca5638a509 |
+| [ReActAgent.scala](ReActAgent.scala) | ccf162a813a23a87e274a5c9a0868282f6510b47 |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | c473479329060cb836ed876d7c8997d0ab435f1b |
+| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 90a1ec2e255e473fca9e00ca869c5752f98f0fe3 |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | 461176a848cf147e36dc907c7165a37fdb7d0987 |
 
-The changed compactor integration test identity from the history-preparation table is preserved in `52da827`; its current acceptance is in the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the five identities above, with no findings. Final focused checks passed 18 tests in 807 ms (`request-projection-final-focused.log`). Full `scalafmtAll scalafmtSbt verify` passed in `request-projection-final-verify.log` with zero compiler warnings or failures; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Verification used process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx512m -Xss1m -XX:ActiveProcessorCount=2` and `sbt --mem 512`; repository defaults and production behavior were not changed for the host resource limit.
 
-The compactor identity from the earlier preparation table is preserved in `738b216`; shared retained-user validation and daily extraction are reviewed in the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+Two new unit groups cover lazy legacy composition and checked intermediate history/settings. Existing runtime tables cover invalid projection/configuration before dispatch, joined cancellation and complete cleanup causes. The failover suite uses the real completion adapter with controlled HTTP drivers to inspect serialized per-target history/settings, retry reuse, unchanged schemas/tool definitions and fixed-argument execution. It adds no new real socket server or live-provider evidence. General interception, changed tool authority and mutable Java hook APIs are outside this scope.
 
-The changed AgentError.scala identity from the earlier table is preserved in `d1a4cf2`; current local-memory error acceptance is in the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+Unchanged HistoryPreparer (088d1464febe6be050ce43856305a0efe3b7f0e5) and ToolResultEvictorHistorySpec (3070eb8d3caf57c99243fb7675b5fbbe8d7f25e8) retain their separately reviewed history/eviction contracts. Current compactor and memory error identities belong to the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
 
 ## Required turn completion observation
 

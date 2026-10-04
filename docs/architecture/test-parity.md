@@ -508,7 +508,8 @@ The two newly completed mapped methods are native-with-tools Auto selection and 
 
 - [x] Verify four composition/error-type tests, nine live-client scenarios, and one error-codec test, including the mapped real HTTP fence-removal behavior.
 - [x] `review_fp` and `review_harness` approved the final seven-file text-transformation increment against `02b4654` on 2026-09-29 after the fallback-provenance correction. No findings remain within this scope. Full formatting, fatal-warning compilation, and verification passed 434 core and 40 harness tests.
-- [ ] Implement general model-call request/interception middleware and remaining legacy hook operations.
+- [x] Both reviewers approved bounded selected-request projection through ModelInputTransform, and full verification passed: immutable target/tool context, transient history/settings, scoped cleanup and unchanged dispatch authority. This is source-contract evidence, not a newly closed whole Java middleware method.
+- [ ] Implement remaining general model-call interception and broader legacy hook operations.
 
 This increment closes one previously pending upstream method through a documented typed adaptation. Fourteen local tests do not represent fourteen upstream methods. The Auto retry regression failed before narrowing callback failures to TextTransformationError. Raw ModelResponseChunk payloads remain original diagnostics; visible text is transformed before runtime assembly. The provider protocol and completion checks cannot be modified through this interface.
 
