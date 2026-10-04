@@ -50,11 +50,31 @@ object ToolHistorySpec extends ZIOSpecDefault:
       )
       val invalid =
         ToolHistory.inspect(Chunk(Msg.assistant(Chunk(local)), Msg.assistant(Chunk(result))))
+      val pendingServer = ToolHistory.inspect(Chunk(Msg.assistant(Chunk(server))))
+      val sameNameLocal = server.withServerTool(false)
+      val mixed         = ToolHistory.inspect(Chunk(Msg.assistant(Chunk(server, sameNameLocal))))
+      val completedLocal = ToolHistory.inspect(
+        Chunk(Msg.assistant(Chunk(server, sameNameLocal)), Msg.tool(Chunk(result)))
+      )
+      val externalServerResult = ToolHistory.inspect(
+        Chunk(Msg.assistant(Chunk(server)), Msg.tool(Chunk(result)))
+      )
+      val laterInline = ToolHistory.inspect(
+        Chunk(Msg.assistant(Chunk(server)), Msg.assistant(Chunk(result)))
+      )
       assertTrue(
         complete.isComplete,
         complete.spans == Chunk(ToolHistory.Span(1, 1), ToolHistory.Span(0, 2)),
         invalid.pending.map(_.call) == Chunk(local),
-        invalid.unmatched == Chunk(result)
+        invalid.unmatched == Chunk(result),
+        pendingServer.isComplete && pendingServer.spans.isEmpty,
+        mixed.pending == Chunk(ToolHistory.Occurrence(sameNameLocal, 0, 1)),
+        completedLocal.isComplete,
+        completedLocal.spans == Chunk(ToolHistory.Span(0, 1)),
+        externalServerResult.pending.isEmpty,
+        externalServerResult.unmatched == Chunk(result),
+        externalServerResult.spans.isEmpty,
+        laterInline.pending.isEmpty && laterInline.unmatched == Chunk(result)
       )
     },
     test("unnamed observations consume FIFO while wrong named observations remain unmatched") {

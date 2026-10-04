@@ -12,7 +12,7 @@ Pure domain values and codecs model messages, content, roles, media sources, usa
 - [Msg](Msg.scala)
 - [Role](Role.scala)
 - [ToolCallState](ToolCallState.scala)
-- [ToolHistory internal analysis](ToolHistory.scala): pending occurrences retain their original assistant tool-use ordinal after result consumption; the [confirmed-batch scope](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) records current identity and acceptance.
+- [ToolHistory internal analysis](ToolHistory.scala): pending occurrences retain their original assistant tool-use ordinal after result consumption; the [provider-ownership scope](../agent/README.md#provider-owned-pending-calls) records current identity and acceptance.
 - [ToolResultState](ToolResultState.scala)
 
 ## Wire and construction contracts
@@ -95,7 +95,7 @@ The internal mapToolUseAt operation updates one tool ordinal without changing me
 
 ## Shared tool-history analysis
 
-ToolHistory is private to the agents package hierarchy and supplies the common occurrence analysis for core rewrite validation and harness cutoff selection. It reports matched spans, pending calls, and unmatched results. Inline results can consume only provider calls from their own assistant message; local results consume one matching ID/name occurrence. Same-message spans cannot cross a message cutoff. It performs no effects or provider encoding checks.
+ToolHistory is private to the agents package hierarchy and supplies the common occurrence analysis for core rewrite validation and harness cutoff selection. It reports matched spans, pending local calls, and unmatched results. Unresolved provider calls create no local obligation or span. Inline results can consume only provider calls from their own assistant message; local results consume one matching local ID/name occurrence; separate Tool or later assistant results cannot complete an earlier provider call. Same-message spans cannot cross a message cutoff. It performs no effects or provider encoding checks.
 
 - [x] `review_fp` and `review_harness` approved the final nine-file history-preparation increment against `3c6958f` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 497 core and 73 harness tests, including twenty added tests. Acceptance covers structural rewrite validation and scoped compactor integration; semantic summary fidelity and exhaustive provider-format validation are excluded. Exact identities are in the [agent table](../agent/README.md).
 

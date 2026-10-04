@@ -37,6 +37,8 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
       Native, Synthetic, HostDenied
   private enum DeniedCleanup:
     case Complete, Cancel
+  private enum ProviderRun:
+    case Only, Mixed, Cancel, Resume, Bounded
   private val originalInput: Json = Json.Obj("value" -> Json.Str("original"))
   private val approvedInput: Json = Json.Obj("value" -> Json.Str("approved"))
   private val call: ContentBlock.ToolUse =
@@ -751,7 +753,7 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
       )
     },
     test(
-      "only matched inline results bypass authorization and cancellation keeps occurrence pairing"
+      "matched inline results bypass authorization and cancellation keeps local occurrence pairing"
     ) {
       val server = call.withServerTool(true)
       val inline = ContentBlock.ToolResult
@@ -781,19 +783,120 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
         )
       )
     },
-    test("unmatched provider-marked calls are gated and reconciled when locally dispatched") {
-      val server = call.withServerTool(true)
-      for
-        entered <- Promise.make[Nothing, Unit]
-        model   <- client(Chunk(server))
-        agent <- ReActAgent.make(
-          client = model,
-          toolAuthorizer = ToolAuthorizer(_ => entered.succeed(()) *> ZIO.never)
-        )
-        fiber   <- agent.run(Msg.user("q")).forkScoped
-        _       <- entered.await
-        _       <- fiber.interrupt
-        history <- agent.history
-      yield assertTrue(history.flatMap(_.toolResults).map(_.state) == Chunk(ToolResultState.Error))
-    }
+    (test("pending provider calls continue reasoning without local dispatch or reconciliation"):
+      ZIO
+        .foreach(Chunk.fromArray(ProviderRun.values)): mode =>
+          ZIO.scoped:
+            for
+              entered    <- Promise.make[Nothing, Unit]
+              cleaning   <- Promise.make[Nothing, Unit]
+              release    <- Promise.make[Nothing, Unit]
+              requests   <- Ref.make(Chunk.empty[ToolAuthorizationRequest])
+              executions <- Ref.make(Chunk.empty[Json])
+              modelCalls <- Ref.make(0)
+              processed  <- Ref.make(0)
+              providerInput = Json.Obj("owner" -> Json.Str("provider"))
+              server        = call.copy(input = providerInput).withServerTool(true)
+              mixed         = mode == ProviderRun.Mixed || mode == ProviderRun.Cancel
+              batch         = if mixed then Chunk(server, call) else Chunk(server)
+              model = LlmClient.mockEffectful((_, _, _) =>
+                modelCalls
+                  .getAndUpdate(_ + 1)
+                  .map(index =>
+                    if index == 0 || mode == ProviderRun.Bounded then
+                      TurnOutput.ToolCalls(Msg.assistant(batch))
+                    else TurnOutput.FinalText(Msg.assistant("provider finished"))
+                  )
+              )
+              tools = toolkit(input =>
+                executions.update(_ :+ input) *>
+                  (if mode == ProviderRun.Cancel && input == originalInput then
+                     (entered.succeed(()) *> ZIO.never)
+                       .ensuring(cleaning.succeed(()) *> release.await)
+                   else ZIO.succeed("local result"))
+              )
+              authorizer = ToolAuthorizer(request =>
+                requests.update(_ :+ request).as(ToolAuthorization.Approved(request.call.input))
+              )
+              processor = ToolResultProcessor(result =>
+                processed.update(_ + 1).as(ToolResultPayload.fromResult(result))
+              )
+              make = ReActAgent.make(
+                config = AgentConfig(maxIterations = 2, toolExecution = ToolExecution.Sequential),
+                client = model,
+                toolkit = tools,
+                toolAuthorizer = authorizer,
+                toolResultProcessor = processor,
+                postReasoningHook =
+                  if mode == ProviderRun.Resume then
+                    PostReasoningHook((_, message) =>
+                      ZIO.succeed(
+                        if message.toolUses.nonEmpty then
+                          ReasoningDecision.Suspend("review provider continuation")
+                        else ReasoningDecision.Keep
+                      )
+                    )
+                  else PostReasoningHook.keep
+              )
+              agent <- make
+              observed <- (mode match
+                case ProviderRun.Cancel =>
+                  for
+                    running     <- agent.run(Msg.user("q")).forkScoped
+                    _           <- entered.await
+                    interrupter <- ZIO.fiberId
+                    _           <- running.interruptAsFork(interrupter)
+                    _           <- cleaning.await
+                    held        <- running.poll
+                    _           <- release.succeed(())
+                    exit        <- running.await
+                    history     <- agent.history
+                  yield (exit, history, held.isEmpty)
+                case ProviderRun.Resume =>
+                  for
+                    checkpoint <- agent.run(Msg.user("q"))
+                    decoded    <- ZIO.fromEither(checkpoint.toJson.fromJson[AgentResult])
+                    restored   <- make
+                    _          <- restored.restore(decoded)
+                    exit       <- restored.resume().exit
+                    history    <- restored.history
+                  yield (exit, history, checkpoint.isSuspended)
+                case _ =>
+                  for
+                    exit    <- agent.run(Msg.user("q")).exit
+                    history <- agent.history
+                  yield (exit, history, true)
+              ).ensuring(release.succeed(()).unit)
+              seen       <- requests.get
+              done       <- executions.get
+              count      <- modelCalls.get
+              processing <- processed.get
+              (exit, history, joined) = observed
+              results                 = history.filter(_.role == Role.Tool).flatMap(_.toolResults)
+            yield assertTrue(
+              seen.map(_.callOrdinal) == (if mixed then Chunk(Some(1)) else Chunk.empty),
+              seen.map(_.call) == (if mixed then Chunk(call) else Chunk.empty),
+              done == (if mixed then Chunk(originalInput) else Chunk.empty),
+              results.map(_.state) == (mode match
+                case ProviderRun.Mixed  => Chunk(ToolResultState.Success)
+                case ProviderRun.Cancel => Chunk(ToolResultState.Error)
+                case _                  => Chunk.empty),
+              processing == (if mode == ProviderRun.Mixed then 1 else 0),
+              count == (if mode == ProviderRun.Cancel then 1 else 2),
+              joined,
+              if mode == ProviderRun.Cancel then
+                exit.isInterrupted && history.count(
+                  _.generationReason == GenerateReason.Interrupted
+                ) == 1
+              else
+                exit match
+                  case Exit.Success(result) =>
+                    result.iterationCount == 2 && result.state == AgentRunState.Completed &&
+                    (if mode == ProviderRun.Bounded then
+                       result.reply.generationReason == GenerateReason.MaxIterations
+                     else result.reply.text == "provider finished")
+                  case Exit.Failure(_) => false
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ) @@ TestAspect.timeout(15.seconds)
   )

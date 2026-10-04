@@ -26,6 +26,7 @@ private[agents] object ToolHistory:
       spans: Chunk[Span],
       unmatched: Chunk[ContentBlock.ToolResult]
   ):
+    /** Local pairing completeness; unresolved provider work belongs to subsequent model turns. */
     def isComplete: Boolean = pending.isEmpty && unmatched.isEmpty
 
   def inspect(history: Chunk[Msg]): Analysis =
@@ -33,14 +34,9 @@ private[agents] object ToolHistory:
       case (analysis, (message, position)) =>
         message.role match
           case Role.Assistant =>
-            val calls = message.toolUses.zipWithIndex.map { case (call, ordinal) =>
-              Occurrence(call, position, ordinal)
-            }
-            val inline = message.toolResults.foldLeft(Analysis(calls, Chunk.empty, Chunk.empty)) {
-              (current, result) => consume(current, result, position, _.isServerTool)
-            }
+            val inline = inlineOccurrences(message, position)
             Analysis(
-              analysis.pending ++ inline.pending,
+              analysis.pending ++ inline.pending.filterNot(_.call.isServerTool),
               analysis.spans ++ inline.spans,
               analysis.unmatched ++ inline.unmatched
             )
@@ -49,6 +45,18 @@ private[agents] object ToolHistory:
               consume(current, result, position, call => result.name.forall(_ == call.name))
             }
           case _ => analysis
+    }
+
+  /** Uses the same occurrence matching as history inspection, not an ID-only completion guess. */
+  def completedInlineOrdinals(message: Msg): Set[Int] =
+    message.toolUses.indices.toSet -- inlineOccurrences(message, 0).pending.map(_.ordinal).toSet
+
+  private def inlineOccurrences(message: Msg, position: Int): Analysis =
+    val calls = message.toolUses.zipWithIndex.map { case (call, ordinal) =>
+      Occurrence(call, position, ordinal)
+    }
+    message.toolResults.foldLeft(Analysis(calls, Chunk.empty, Chunk.empty)) { (current, result) =>
+      consume(current, result, position, _.isServerTool)
     }
 
   private def consume(

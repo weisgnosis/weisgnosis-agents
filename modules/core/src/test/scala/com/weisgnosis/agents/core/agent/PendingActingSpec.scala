@@ -44,6 +44,10 @@ object PendingActingSpec extends ZIOSpecDefault:
         Chunk(call.withServerTool(true), ContentBlock.ToolResult.text("same", "read", "inline"))
       )
       val completeInline = result.copy(reply = inline, history = prefix :+ inline)
+      val serverReply    = Msg.assistant(Chunk(call.withServerTool(true)))
+      val serverOnly     = result.copy(reply = serverReply, history = prefix :+ serverReply)
+      val mixedReply     = Msg.assistant(Chunk(call.withServerTool(true), call))
+      val mixed          = result.copy(reply = mixedReply, history = prefix :+ mixedReply)
       val invalid = Chunk(
         result.copy(state = AgentRunState.Completed),
         result.copy(iterationCount = 0),
@@ -68,6 +72,18 @@ object PendingActingSpec extends ZIOSpecDefault:
         result.toJson.fromJson[AgentResult] == Right(result),
         PendingActing.validate(result) == Right(pending),
         PendingActing.validate(completeInline) == Right(pending),
+        PendingActing.validate(serverOnly) == Right(pending),
+        PendingActing.pendingCalls(serverOnly) == Right(Chunk.empty),
+        PendingActing.pendingCalls(mixed) == Right(Chunk(PendingToolCall(1, call))),
+        PendingActing
+          .withResults(serverOnly, Chunk(SuppliedToolResult(0, ToolExecutionResult("not local"))))
+          .isLeft,
+        PendingActing
+          .withResults(mixed, Chunk(SuppliedToolResult(0, ToolExecutionResult("not local"))))
+          .isLeft,
+        PendingActing
+          .withResults(mixed, Chunk(SuppliedToolResult(1, ToolExecutionResult("local"))))
+          .isRight,
         invalid.forall(PendingActing.validate(_).isLeft)
       )
     ,
@@ -119,6 +135,12 @@ object PendingActingSpec extends ZIOSpecDefault:
       )
       def firstObservation(message: Msg): AgentResult =
         result.copy(history = result.history.take(2) ++ Chunk(message, failed))
+      val pendingServerReply =
+        Msg.assistant(reply.content.filterNot(_.isInstanceOf[ContentBlock.ToolResult]))
+      def withoutInline(candidate: AgentResult): AgentResult = candidate.copy(
+        reply = pendingServerReply,
+        history = candidate.history.updated(1, pendingServerReply)
+      )
       val duplicate = Json.Obj("key" -> Json.Num(1), "key" -> Json.Num(2))
       val permission =
         PendingPermissionRequest(0, "approval", Json.Obj("prepared" -> Json.Str("input")))
@@ -151,7 +173,8 @@ object PendingActingSpec extends ZIOSpecDefault:
         firstObservation(malformed),
         result.copy(reply = Msg.assistant("different")),
         stopped(0),
-        stopped(4)
+        stopped(4),
+        withoutInline(stopped(1))
       ) ++ Chunk(
         requests(Chunk(permission, permission)),
         requests(Chunk(permission.copy(callOrdinal = 1))),
@@ -182,6 +205,7 @@ object PendingActingSpec extends ZIOSpecDefault:
         result.toJson.fromJson[AgentResult] == Right(result),
         PendingActing.validate(result) == Right(pending),
         PendingActing.pendingCalls(result) == Right(Chunk(PendingToolCall(0, call))),
+        PendingActing.pendingCalls(withoutInline(result)) == Right(Chunk(PendingToolCall(0, call))),
         requests(Chunk(permission)).toJson.fromJson[AgentResult] == Right(
           requests(Chunk(permission))
         ),

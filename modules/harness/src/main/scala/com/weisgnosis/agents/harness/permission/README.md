@@ -45,8 +45,8 @@ Migration: ToolAuthorizationRequest appends optional callOrdinal, defaulting to 
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current supplied-result identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#supplied-results-for-suspended-batches) |
 | [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
 | [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
-| [ToolHistory.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/model/ToolHistory.scala) | 29b2733e5d9d9ce9906e8d6d05eeb8ea3314af33 |
-| [ToolHistorySpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | 36b9751869fc81a8ed6c708e874ac54339cbd5e1 |
+| [ToolHistory.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/model/ToolHistory.scala) | [Current provider-ownership identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls) |
+| [ToolHistorySpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | [Current provider-ownership identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls) |
 | [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
 | [ToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
 
@@ -56,7 +56,7 @@ Regression: `confirmed-batch-policy-red.log` reproduced stale-policy admission a
 
 ## Partial checkpoint confirmations
 
-`ConfirmedBatchAuthorizer.makePartial` accepts a checked subset of the unresolved original call ordinals. `make` retains complete-coverage validation. Duplicate, unknown, inline-completed, already-recorded and host-supplied ordinals reject either factory. A matching unresolved call without a confirmation returns `ToolAuthorization.Deferred("Awaiting host confirmation")` without reading policy or running gates. Positive and negative decisions retain the policy, fixed-input and signature checks described above. `PendingActing.pendingCalls` provides checked original-ordinal choices; repeated call IDs are not completion identities.
+`ConfirmedBatchAuthorizer.makePartial` accepts a checked subset of the unresolved original call ordinals. `make` retains complete-coverage validation. Duplicate, unknown, inline-completed, already-recorded and host-supplied ordinals reject either factory. A matching unresolved call without a confirmation returns `ToolAuthorization.Deferred("Awaiting host confirmation")` without reading policy or running gates. Positive and negative decisions retain the policy, fixed-input and signature checks described above. `PendingActing.pendingCalls` provides checked original-ordinal local choices; provider-owned pending calls cannot receive confirmations or supplied local results; repeated call IDs are not completion identities.
 
 After all admitted execution and processor scopes join, ordinary deferred batches return `Suspended` with `PendingActingStage.AwaitingApproval(completed, latestToolGroups, stop)`. CompletedToolCall records map original call ordinals bijectively to the Tool-message tail after the saved assistant. Restore checks exact identity/state and the complete prefix, reconstructs executable tools from host bindings, and preserves original admission separately from latest group activation. Saved control tools and future model requests share that latest activation. Completed local/supplied observations and inline processors are not replayed. New supplied results remain supported for unresolved ordinals.
 
@@ -109,9 +109,9 @@ Migration: PendingActing appends default-empty permissionRequests, making nine p
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | cf59776b34d79293210819f55cb23055863fc63b |
+| [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | [Current provider-ownership identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls) |
 | [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current request-projection identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#current-model-input-identities) |
-| [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | a07fafeb90d522e455e13b2d4d9586ff2158af98 |
+| [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current provider-ownership identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls) |
 | [CheckpointPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/CheckpointPermissionIntegrationSpec.scala) | 29353c8d20160b5bf0360fb5c7422d75ec4ada5a |
 | [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | 01d1a8d08b858e0afc55345ded89bb27683ca04a |
 

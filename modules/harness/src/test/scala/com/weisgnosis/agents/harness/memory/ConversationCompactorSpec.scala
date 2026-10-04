@@ -156,23 +156,29 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
         ) == 0
       )
     },
-    test("unmatched provider calls use local name-sensitive result matching") {
-      val server = ContentBlock.ToolUse("same", "provider", Json.Obj()).withServerTool(true)
-      val local  = ContentBlock.ToolUse("same", "local", Json.Obj())
-      val history = Chunk(
+    test("unresolved provider calls do not alter same-ID local pairing at the compaction boundary"):
+      val local  = ContentBlock.ToolUse("same", "search", Json.Obj())
+      val server = local.withServerTool(true)
+      val crossing = Chunk(
         Msg.assistant(Chunk(server, local)),
-        Msg.tool("same", "local", "result"),
-        Msg.user("extra"),
-        Msg.tool("same", "provider", "result"),
+        Msg.user("one"),
+        Msg.user("two"),
+        Msg.tool("same", "search", "local result"),
         Msg.assistant("tail")
       )
-      assertTrue(
-        compactor.calculateCutoffIndex(
-          history,
-          config.copy(keepTokens = 3, preserveTailMessages = 3)
-        ) == 0
+      val completedPrefix = Chunk(
+        Msg.assistant(Chunk(server, local)),
+        Msg.tool("same", "search", "local result"),
+        Msg.user("one"),
+        Msg.user("two"),
+        Msg.assistant("tail")
       )
-    },
+      val settings = config.copy(keepTokens = 3, preserveTailMessages = 3)
+      assertTrue(
+        compactor.calculateCutoffIndex(crossing, settings) == 0,
+        compactor.calculateCutoffIndex(completedPrefix, settings) == 2
+      )
+    ,
     test(
       "argument pruning clears cached content while preserving tool identity state and metadata"
     ) {

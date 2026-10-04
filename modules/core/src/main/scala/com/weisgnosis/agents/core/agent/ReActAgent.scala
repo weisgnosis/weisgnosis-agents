@@ -1192,7 +1192,9 @@ final class ReActAgent private (
           case PendingActingStage.BeforeActing => None
           case PendingActingStage.AwaitingApproval(_, _, stop) =>
             stop.map(value => ActingStop(value.callOrdinal, value.reason))
-        pendingCalls = inline.pending.filterNot(call => completed.contains(call.ordinal))
+        pendingCalls = inline.pending.filterNot(call =>
+          call.call.isServerTool || completed.contains(call.ordinal)
+        )
         directDefinitions = continuation match
           case Some(pending) => pending.admittedTools
           case None          => activeToolkit.definitions
@@ -1307,6 +1309,8 @@ final class ReActAgent private (
                       case Some(result) => ZIO.succeed(result)
                       case None =>
                         completionMode.captured.flatMap:
+                          // Unresolved provider calls remain in inline.pending and continue ordinary
+                          // reasoning; an explicitly captured structured response retains precedence.
                           case value if inline.pending.isEmpty || value.nonEmpty =>
                             completedToolTurn(position, iteration)
                           case _ =>
@@ -2116,7 +2120,7 @@ final class ReActAgent private (
           assistant.toolResults,
           _.isServerTool,
           (call, result) => call.id == result.id
-        ).pending.filterNot(call => completed.contains(call.ordinal))
+        ).pending.filterNot(call => call.call.isServerTool || completed.contains(call.ordinal))
 
   private def finalizeFailedToolPhase(progressRef: Ref[RunProgress]): UIO[Unit] =
     ZIO.uninterruptible:

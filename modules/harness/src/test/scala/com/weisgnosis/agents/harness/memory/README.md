@@ -1,6 +1,6 @@
 # Conversation compaction verification
 
-- [ConversationCompactorSpec](ConversationCompactorSpec.scala): 27 tests for pair-safe cutoff, summary/flush/tail routing, repeated compaction, user provenance, pruning, unchanged below-trigger history, and typed/interrupted hooks.
+- [ConversationCompactorSpec](ConversationCompactorSpec.scala): pair-safe cutoff tests, including same-ID/name local crossing and completed-prefix controls beside unresolved provider calls, plus summary/flush/tail routing, repeated compaction, user provenance, pruning, unchanged below-trigger history, and typed/interrupted hooks.
 - [ConversationCompactorIntegrationSpec](ConversationCompactorIntegrationSpec.scala): 12 tests for canonical history installation, shrinking-history recovery, failure policy, preparation/downstream cancellation, mixed cleanup causes, and separate-agent isolation.
 - [TokenCounterSpec](TokenCounterSpec.scala): deterministic additive estimation.
 
@@ -142,3 +142,5 @@ The unchanged daily-only scheduler suite also passes. See the [coordinator contr
 The [configuration contract and canonical identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md#immutable-memory-configuration) distinguish typed adaptations from Java builder/printf/null compatibility and model selection.
 
 - [x] `review_fp` and `review_harness` approved the final ten-file memory-configuration increment against `005bacf` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 451 harness tests, including 17 new cases, with zero compiler warnings. No findings remain within immutable policy values, strict budgets, total prompt rendering, configuration factories and the six explicit upstream method adaptations. Java builder/null/printf compatibility, model selection and automatic gate/queue installation are excluded.
+
+Current ConversationCompactorSpec identity and renewed review for provider/local ownership are recorded in the [runtime acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls). The stale provider-as-local result fixture was corrected; production compactor code is unchanged.

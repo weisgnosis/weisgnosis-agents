@@ -130,10 +130,10 @@ object PendingActing:
                 invalid
               )
             case PendingActingStage.AwaitingApproval(_, _, stop) =>
-              val tailPositions = (pending.assistantPosition + 1 until result.history.size).toSet
+              val tailPositions   = (pending.assistantPosition + 1 until result.history.size).toSet
+              val completedInline = ToolHistory.completedInlineOrdinals(result.reply)
               val validStop = stop.forall(value =>
-                result.reply.toolUses.indices.contains(value.callOrdinal) &&
-                  (!localOrdinals.contains(value.callOrdinal) || done.contains(value.callOrdinal))
+                done.contains(value.callOrdinal) || completedInline.contains(value.callOrdinal)
               )
               Either.cond(
                 ledger.map(_.callOrdinal).distinct.size == ledger.size &&
