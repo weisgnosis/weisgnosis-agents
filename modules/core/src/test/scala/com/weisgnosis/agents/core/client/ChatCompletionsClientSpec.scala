@@ -19,7 +19,17 @@ import com.weisgnosis.agents.core.agent.{ModelInputTransform, ReActAgent}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role, ToolResultState}
-import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorization, ToolAuthorizer, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.tool.{
+  Tool,
+  ToolAuthorization,
+  ToolAuthorizer,
+  ToolDef,
+  ToolGroup,
+  ToolGroupActivation,
+  ToolGroups,
+  ToolGroupScope,
+  Toolkit
+}
 import zio.*
 import zio.http.*
 import zio.stream.ZStream
@@ -29,6 +39,10 @@ import zio.test.*
 import HttpClientTestSupport.scripted
 
 object ChatCompletionsClientSpec extends ZIOSpecDefault:
+  /** Allowed deliberately receives a call despite wire "none"; only the host authorizer grants execution. */
+  private enum ChoiceAdmission:
+    case Allowed, Denied, Hidden
+
   private val config = LlmConfig("stream-model", endpoint = "http://localhost/completion")
   private val text   = frame("""{"choices":[{"index":0,"delta":{"content":"answer"}}]}""")
   private val thinking = frame(
@@ -96,54 +110,137 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
           events.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent])
         )
     ,
-    test("uses distinct request identities across a real HTTP tool cycle")(
+    test(
+      "real HTTP tool choice preserves request identities, admitted visibility and authorization"
+    )(
       ZIO
-        .scoped:
-          for
-            requests <- Ref.make(Chunk.empty[String])
-            executed <- Ref.make(0)
-            lookup = Tool.make(ToolDef("lookup", "Look up a value", Json.Obj()))(_ =>
-              executed.update(_ + 1).as("observation")
-            )
-            port <- Server.install(Routes(Method.POST / "completion" -> handler {
-              (request: Request) =>
-                request.body.asString
-                  .orElseSucceed("")
-                  .flatMap(body => requests.modify(previous => (previous.size, previous :+ body)))
-                  .map(index =>
-                    response(
-                      ZStream.succeed(if index == 0 then tool + done else text + stop + done)
+        .foreach(Chunk(ChoiceAdmission.Allowed, ChoiceAdmission.Denied, ChoiceAdmission.Hidden))(
+          admission =>
+            ZIO
+              .scoped:
+                for
+                  requests   <- Ref.make(Chunk.empty[String])
+                  executed   <- Ref.make(0)
+                  authorized <- Ref.make(0)
+                  lookup = Tool.make(ToolDef("lookup", "Look up a value", Json.Obj()))(_ =>
+                    executed.update(_ + 1).as("observation")
+                  )
+                  groups <- ZIO.fromEither(
+                    ToolGroups.empty.register(
+                      ToolGroup(
+                        "selected",
+                        "Host tool selection",
+                        if admission == ChoiceAdmission.Hidden then ToolGroupActivation.Inactive
+                        else ToolGroupActivation.Active,
+                        ToolGroupScope.External,
+                        Set("lookup")
+                      )
                     )
                   )
-            }))
-            http   <- ZIO.service[Client]
-            client <- ChatCompletionsClient.make(http)
-            agent <- ReActAgent.make(
-              client = client,
-              toolkit = Toolkit(Map("lookup" -> lookup)),
-              llmConfig = config.copy(endpoint = s"http://127.0.0.1:$port/completion")
-            )
-            events <- agent.streamEvents(Msg.user("lookup")).runCollect
-            bodies <- requests.get
-            count  <- executed.get
-            starts = events.collect { case event: AgentEvent.ModelRequestStartEvent =>
-              event.context
-            }
-            ends = events.collect { case event: AgentEvent.ModelResponseEndEvent => event.context }
-          yield assertTrue(
-            count == 1,
-            bodies.size == 2,
-            bodies.drop(1).headOption.exists(_.contains("observation")),
-            starts.size == 2,
-            starts == ends,
-            starts.flatten.map(_.requestId).distinct.size == 2,
-            starts.flatten.map(_.replyId).distinct.size == 1,
-            events.exists(_.isInstanceOf[AgentEvent.ToolCallEndEvent]),
-            events.collect { case event: AgentEvent.AgentResultEvent =>
-              event.result.text
-            } == Chunk("answer")
-          )
-        .provide(Client.default, Server.defaultWithPort(0))
+                  port <- Server.install(Routes(Method.POST / "completion" -> handler {
+                    (request: Request) =>
+                      request.body.asString
+                        .orElseSucceed("")
+                        .flatMap(body =>
+                          requests.modify(previous => (previous.size, previous :+ body))
+                        )
+                        .map(index =>
+                          response(
+                            ZStream.succeed(if index == 0 then tool + done else text + stop + done)
+                          )
+                        )
+                  }))
+                  http   <- ZIO.service[Client]
+                  client <- ChatCompletionsClient.make(http)
+                  agent <- ReActAgent.make(
+                    client = client,
+                    toolkit = Toolkit(Map("lookup" -> lookup)),
+                    toolGroups = Some(groups),
+                    toolAuthorizer = ToolAuthorizer(request =>
+                      authorized
+                        .update(_ + 1)
+                        .as(
+                          if admission == ChoiceAdmission.Denied then
+                            ToolAuthorization.Denied("host denial")
+                          else ToolAuthorization.Approved(request.call.input)
+                        )
+                    ),
+                    llmConfig = config.copy(
+                      endpoint = s"http://127.0.0.1:$port/completion",
+                      toolChoice = Some(
+                        if admission == ChoiceAdmission.Allowed then ToolChoice.None
+                        else ToolChoice.Specific("lookup")
+                      )
+                    )
+                  )
+                  outcome <- agent.streamEvents(Msg.user("lookup")).runCollect.either
+                  bodies  <- requests.get
+                  count   <- executed.get
+                  checks  <- authorized.get
+                  history <- agent.history
+                  events = outcome.getOrElse(Chunk.empty)
+                  starts = events.collect { case event: AgentEvent.ModelRequestStartEvent =>
+                    event.context
+                  }
+                  ends = events.collect { case event: AgentEvent.ModelResponseEndEvent =>
+                    event.context
+                  }
+                yield
+                  if admission == ChoiceAdmission.Hidden then
+                    assertTrue(
+                      outcome.left.exists(_.isInstanceOf[AgentError.InvalidConfiguration]),
+                      bodies.isEmpty,
+                      count == 0,
+                      checks == 0,
+                      history.flatMap(_.toolResults).isEmpty
+                    )
+                  else
+                    assertTrue(
+                      outcome.isRight,
+                      count == (if admission == ChoiceAdmission.Allowed then 1 else 0),
+                      checks == 1,
+                      bodies.size == 2,
+                      bodies.forall(
+                        _.fromJson[Json].exists(
+                          _.asObject.exists(fields =>
+                            fields
+                              .get("tool_choice")
+                              .contains(
+                                if admission == ChoiceAdmission.Allowed then Json.Str("none")
+                                else
+                                  Json.Obj(
+                                    "type"     -> Json.Str("function"),
+                                    "function" -> Json.Obj("name" -> Json.Str("lookup"))
+                                  )
+                              ) && fields.get("tools").exists(_.asArray.exists(_.size == 1))
+                          )
+                        )
+                      ),
+                      bodies
+                        .drop(1)
+                        .headOption
+                        .exists(
+                          _.contains(
+                            if admission == ChoiceAdmission.Allowed then "observation"
+                            else "host denial"
+                          )
+                        ),
+                      history.flatMap(_.toolResults).map(_.state) == Chunk(
+                        if admission == ChoiceAdmission.Allowed then ToolResultState.Success
+                        else ToolResultState.Denied
+                      ),
+                      starts.size == 2,
+                      starts == ends,
+                      starts.flatten.map(_.requestId).distinct.size == 2,
+                      starts.flatten.map(_.replyId).distinct.size == 1,
+                      events.exists(_.isInstanceOf[AgentEvent.ToolCallEndEvent]),
+                      events.collect { case event: AgentEvent.AgentResultEvent =>
+                        event.result.text
+                      } == Chunk("answer")
+                    )
+              .provide(Client.default, Server.defaultWithPort(0))
+        )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     ) @@ TestAspect.withLiveClock,
     test(
       "selected HTTP status retries preserve one logical model request and never replay client errors"

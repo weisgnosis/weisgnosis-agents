@@ -69,6 +69,7 @@ object ChatCompletionsRequest:
         "Tool definitions must have unique names"
       )
       definitions <- traverse(tools)(encodeDefinition)
+      choice      <- encodeToolChoice(config.toolChoice, tools)
       messages <- traverse(history.zipWithIndex): (msg, index) =>
         val replay = reasoningReplay match
           case ReasoningReplay.LatestAssistant if index == lastAssistant =>
@@ -89,10 +90,37 @@ object ChatCompletionsRequest:
           Chunk.fromIterable(config.maxTokens.map(value => "max_tokens" -> Json.Num(value))) ++
           Chunk.fromIterable(config.topP.map(value => "top_p" -> Json.Num(value))) ++
           Chunk.fromIterable(config.responseFormat.map(value => "response_format" -> value)) ++
+          Chunk.fromIterable(choice.map(value => "tool_choice" -> value)) ++
           (if definitions.isEmpty then Chunk.empty else Chunk("tools" -> Json.Arr(definitions)))
       )
       _ <- JsonBoundary.validate(body).left.map(AgentError.InvalidConfiguration(_))
     yield body
+
+  private def encodeToolChoice(
+      choice: Option[ToolChoice],
+      tools: Chunk[ToolDef]
+  ): Either[AgentError, Option[Json]] =
+    choice match
+      case None => Right(None)
+      case Some(ToolChoice.Auto) =>
+        Right(Option.when(tools.nonEmpty)(Json.Str("auto")))
+      case Some(ToolChoice.None) =>
+        Right(Option.when(tools.nonEmpty)(Json.Str("none")))
+      case Some(ToolChoice.Required) =>
+        configuration(tools.nonEmpty, "Required tool choice needs at least one advertised tool")
+          .map(_ => Some(Json.Str("required")))
+      case Some(ToolChoice.Specific(name)) =>
+        configuration(
+          namePattern.matches(name) && tools.exists(_.name == name),
+          "Specific tool choice must name an advertised function tool"
+        ).map(_ =>
+          Some(
+            Json.Obj(
+              "type"     -> Json.Str("function"),
+              "function" -> Json.Obj("name" -> Json.Str(name))
+            )
+          )
+        )
 
   private def validatePairing(history: Chunk[Msg]): Either[AgentError, Unit] =
     history

@@ -21,24 +21,43 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [StreamAccumulator](StreamAccumulator.scala)
 - [TurnOutput](TurnOutput.scala)
 
+## Host-selected tool choice
+
+LlmConfig.toolChoice defaults to Option.None, which omits tool_choice. Explicit ToolChoice.Auto, None and Required encode as auto, none and required; Specific(name) encodes the function-selection object. Auto and None are omitted when no tools are advertised. Required needs a nonempty visible definition set; Specific requires a syntactically valid exact name in that set. Validation rejects hidden, missing or invalid targets before HTTP acquisition. Definitions remain unchanged. The absent default intentionally differs from Java's null-to-auto helper behavior.
+
+This is provider steering, not permission or completion authority. A provider may still return a call despite none; runtime visibility, ordinary authorization and structured capture remain authoritative. Request projection cannot change the choice. Each selected primary/fallback target retains its own configured choice; retries reuse the same encoded body, and native/synthetic requests retain the choice without overriding it to force capture. The host must select hints compatible with its structured-output mode; hints that prevent capture remain subject to the existing iteration and timeout bounds. Provider compliance is not guaranteed. Custom LlmClient implementations interpret this configuration themselves; the validation/encoding contract belongs to ChatCompletions.
+
+Migration: LlmConfig appends defaulted toolChoice and now has nine positional/Product fields. Existing omitted-argument construction and old missing/JSON-null toolChoice decode as None; explicit enum cases round-trip through the domain codec. Constructor method values may need adaptation and dependent binaries must be rebuilt. Domain toolChoice JSON is distinct from provider tool_choice encoding.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | 0e228ff6251a40f0290a9d92c7df0d1197a419b2 |
+| [LlmClient.scala](LlmClient.scala) | 4e878986d565dcf9d0b81633e4450907c5d7becf |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | 358804e1c78a277b9a2b4233f9448cb72d8b51d1 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | c736be71f7b46b529826e2646516cb5387113ac3 |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | feeff471a558467c595111b2c7cb74c75e10354f |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Existing tables cover all choices, empty definitions, exact visibility rejection and codec defaults. The extended real HTTP cycle verifies that a returned call despite none still passes through host authorization, Specific cannot bypass host denial, and hidden Specific performs no HTTP/authorization. Controlled failover/structured requests retain each target's own choice. Focused tool-choice-focused.log passed 31 tests in 7.402 seconds; no new groups were added.
+- [x] Full scalafmtAll scalafmtSbt verify passed in tool-choice-verify.log with zero compiler warnings or failures. Current aggregate evidence is in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
 ## Optional nucleus sampling
 
 LlmConfig.topP is optional, defaulting to None. ChatCompletions emits top_p only for Some(value), requiring a finite value in the inclusive range [0, 1]; None omits the field. There is no provider-specific clamping, inferred default or endpoint/capability change. Domain JSON uses topP; old missing or explicit-null values decode as None.
 
 ModelRequestSettings carries the selected target's topP into the scoped request projection. Its output replaces that target's setting: None explicitly clears it. Validation runs after projection cleanup and before request events or custom-client dispatch; primary and fallback start from their own configurations, and transport retries reuse the encoded request. SubagentDeclaration.topP instead treats None as inheritance and Some as a child override. Its checked YAML profile accepts top_p or topP, rejects simultaneous key presence even when either value is null, and treats omitted/plain-null as inheritance; quoted numeric scalars parse, while quoted null and malformed/nonfinite/out-of-range values fail. It grants no execution authority.
 
-Migration: the appended defaulted fields preserve ordinary omitted-argument construction and legacy JSON. Positional patterns/Product arities become eight for LlmConfig, three for ModelRequestSettings and nine for SubagentDeclaration; constructor method values may need adaptation and dependent binaries must be rebuilt. Declaration validation and request validation remain explicit boundaries rather than validation performed by the derived data codecs.
+Migration: the appended defaulted fields preserve ordinary omitted-argument construction and legacy JSON. Positional patterns/Product arities are three for ModelRequestSettings and nine for SubagentDeclaration; LlmConfig follows the [current migration](#host-selected-tool-choice); constructor method values may need adaptation and dependent binaries must be rebuilt. Declaration validation and request validation remain explicit boundaries rather than validation performed by the derived data codecs.
 
 | Reviewed file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5bbd26b08badd4655233de44bc37d2b8aa055066 |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | b93825f7cb540cdbe8bb950d88f43254d6c62441 |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | 12e0ea16be1733eef8ecde83c1da2280356519e8 |
-| [LlmClient.scala](LlmClient.scala) | 22bbd2a6c28be1b2178a5118a6ed3f901481298a |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
+| [LlmClient.scala](LlmClient.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | f1fc743eab486530a80f640121c9645525a3357e |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 0d4f7af173a519abc65ece2feadc6f7f19efc053 |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | d899e668220a07abc9f6442b1c4835c50282faea |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | a5366fc324e4f6c76ba9463b98de76e0cf24f4a1 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
 | [SubagentDeclaration.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclaration.scala) | bf55c6a99b8c35bfaa28bd15eb8fba2617ad9faa |
 | [SubagentDeclarationParser.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParser.scala) | 2033e68dc48552d838cf7f96b7a53d9e1a2df45c |
 | [SubagentDeclarationParserSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | 3143e211c09c6a1f58b9eaaa4afd0e88868bbfa1 |
@@ -209,7 +228,7 @@ Migration: ChatCompletionsClient.make and ChatCompletionsTransport.make append a
 | ChatCompletionsClient.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
 | [CompletionRetryPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionRetryPolicySpec.scala) | 5df81123863d6f3faa10cfd1c70206f2604baf63 |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | cb042aee28d6e082c9688481f4b08c0e1540df1d |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | fad2db089f26f5509e27f4ad6bc88d9834b6d59d |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the six identities above, with no open findings. Full scalafmtAll scalafmtSbt verify passed in http-retry-verify.log with zero compiler warnings or failed tests. The focused http-retry-green.log run passed 26 tests in 5.408 seconds, including policy validation, two attempt-lifecycle/status groups and the actual HTTP 429/400 client table. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 

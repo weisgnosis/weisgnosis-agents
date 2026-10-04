@@ -101,7 +101,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
           toolkit <- ZIO.fromEither(Toolkit.empty.register(selectedTool))
           agent <- ReActAgent.make(
             client = primary,
-            llmConfig = primaryConfig.copy(topP = Some(0.8)),
+            llmConfig = primaryConfig.copy(topP = Some(0.8), toolChoice = Some(ToolChoice.None)),
             toolkit = toolkit,
             fallback = Some(
               ModelTarget(
@@ -110,6 +110,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   temperature = 1.1,
                   maxTokens = Some(77),
                   topP = Some(0.6),
+                  toolChoice = Some(ToolChoice.Specific("lookup")),
                   responseFormat = Some(Json.Obj("unused" -> Json.Bool(true)))
                 )
               )
@@ -179,6 +180,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                     ModelTarget(
                       selected,
                       targetConfig.copy(
+                        toolChoice = Some(ToolChoice.None),
                         responseFormat = Some(Json.Obj("stale" -> Json.Bool(true))),
                         structuredOutputCapability =
                           StructuredOutputCapability.Native(NativeToolSupport.Supported)
@@ -210,6 +212,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                 sent.forall(
                   _.asObject.exists(fields =>
                     fields.get("response_format") == expectedFormat &&
+                      fields.get("tool_choice").contains(Json.Str("none")) &&
                       fields.get("temperature").contains(Json.Num(0.3)) &&
                       fields.get("max_tokens").contains(Json.Num(23))
                   )
@@ -242,6 +245,16 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   .get("temperature")
                   .contains(Json.Num(if model == "primary" then 0.2 else 0.4)) &&
                 fields.get("max_tokens").contains(Json.Num(42)) &&
+                fields
+                  .get("tool_choice")
+                  .contains(
+                    if model == "primary" then Json.Str("none")
+                    else
+                      Json.Obj(
+                        "type"     -> Json.Str("function"),
+                        "function" -> Json.Obj("name" -> Json.Str("lookup"))
+                      )
+                  ) &&
                 (fields.get("top_p") == (if model == "primary" then None
                                          else Some(Json.Num(0.3)))) &&
                 fields.get("messages").exists(_.toJson.contains(s"request for $model"))

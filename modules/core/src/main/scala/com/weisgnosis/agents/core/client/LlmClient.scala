@@ -23,6 +23,11 @@ import zio.*
 import zio.json.*
 import zio.json.ast.Json
 
+/** Provider request steering only; tool visibility, authorization and completion remain runtime-owned. */
+enum ToolChoice derives JsonCodec:
+  case Auto, None, Required
+  case Specific(name: String)
+
 final case class LlmConfig(
     model: String,
     endpoint: String = "https://api.openai.com/v1/chat/completions",
@@ -31,7 +36,8 @@ final case class LlmConfig(
     maxTokens: Option[Int] = None,
     responseFormat: Option[Json] = None,
     structuredOutputCapability: StructuredOutputCapability = StructuredOutputCapability.Unknown,
-    topP: Option[Double] = None
+    topP: Option[Double] = None,
+    toolChoice: Option[ToolChoice] = None
 ) derives JsonCodec
 
 /**

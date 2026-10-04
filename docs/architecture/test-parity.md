@@ -409,6 +409,11 @@ Both final reviews and full verification passed. ChatCompletionsRequestSpec supp
 
 Source: pinned agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/formatter/OpenAIMessageConverterTest.java. These are pure provider-wire adaptations, not a mutable converter API or complete formatter-suite parity. The stricter Scala boundary rejects malformed URLs/Base64 and unsupported roles instead of fetching resources, guessing a media type or substituting text. No image decoding, animation/size validation or live-provider interoperability is claimed. Exact identities and evidence are in the [request contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
 
+### Host-selected tool choice
+
+- [x] OpenAIChatFormatterTest.testApplyToolChoice (201), testApplyToolChoiceAuto (215), testApplyToolChoiceNone (228) and testApplyToolChoiceRequired (722) have bounded request-table adaptations with exact provider JSON. testNoToolChoiceWithoutTools (736) and testNoToolChoiceWithEmptyTools (747) map to the empty Chunk representation. Specific additionally requires an advertised valid function name; Required rejects an empty set.
+- [x] testDefaultAutoForNullToolChoice (762) is an intentional difference: absent Scala configuration omits the field even with tools. Actual HTTP and controlled failover/structured checks separately establish runtime authority and per-target retention; they do not claim provider compliance or whole formatter parity. Both source reviewers approved the [exact five-file scope](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#host-selected-tool-choice); full tool-choice-verify.log verification passed.
+
 ### User inline-audio request projection
 
 The existing request tables add the following bounded mappings from the same pinned OpenAIMessageConverterTest.java. Both final reviews and full inline-audio-verify.log verification passed.

@@ -413,7 +413,9 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         )
       )
     },
-    test("serializes function definitions with exact parameters") {
+    test(
+      "serializes function definitions and checked host tool choices without changing visibility"
+    ) {
       val result =
         ChatCompletionsRequest.encode(Chunk(Msg.user("search")), Chunk(definition), config)
       val described = ChatCompletionsRequest.encode(
@@ -421,7 +423,49 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         Chunk(definition.copy(outputSchema = Some(schema), returnMode = ToolReturnMode.Direct)),
         config
       )
+      val choices: Chunk[(Option[ToolChoice], Option[Json])] = Chunk(
+        None                      -> None,
+        Some(ToolChoice.Auto)     -> Some(Json.Str("auto")),
+        Some(ToolChoice.None)     -> Some(Json.Str("none")),
+        Some(ToolChoice.Required) -> Some(Json.Str("required")),
+        Some(ToolChoice.Specific("search")) -> Some(
+          Json.Obj(
+            "type"     -> Json.Str("function"),
+            "function" -> Json.Obj("name" -> Json.Str("search"))
+          )
+        )
+      )
       assertTrue(
+        choices.forall { case (choice, expected) =>
+          val configured = config.copy(toolChoice = choice)
+          configured.toJson.fromJson[LlmConfig] == Right(configured) &&
+          ChatCompletionsRequest
+            .encode(Chunk(Msg.user("search")), Chunk(definition), configured)
+            .exists(value =>
+              value.get("tool_choice") == expected &&
+                result.exists(_.get("tools") == value.get("tools"))
+            )
+        },
+        Chunk(None, Some(ToolChoice.Auto), Some(ToolChoice.None)).forall(choice =>
+          ChatCompletionsRequest
+            .encode(Chunk(Msg.user("search")), Chunk.empty, config.copy(toolChoice = choice))
+            .exists(_.get("tool_choice").isEmpty)
+        ),
+        Chunk(
+          Chunk.empty[ToolDef] -> ToolChoice.Required,
+          Chunk.empty[ToolDef] -> ToolChoice.Specific("search"),
+          Chunk(definition)    -> ToolChoice.Specific("hidden"),
+          Chunk(definition)    -> ToolChoice.Specific(" "),
+          Chunk(definition)    -> ToolChoice.Specific("invalid/name")
+        ).forall { case (tools, choice) =>
+          ChatCompletionsRequest
+            .encode(Chunk(Msg.user("search")), tools, config.copy(toolChoice = Some(choice)))
+            .left
+            .exists(_.isInstanceOf[AgentError.InvalidConfiguration])
+        },
+        """{"model":"test-model","toolChoice":null}""".fromJson[LlmConfig] == Right(
+          LlmConfig("test-model")
+        ),
         described == result,
         result.exists(
           _.get("tools").contains(
