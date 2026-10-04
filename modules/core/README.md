@@ -37,6 +37,8 @@ Tool.encodeResult preserves String/Success behavior by default and permits typed
 
 - [x] `path_review` and `current_docs` approved host-selected descriptive output schemas, legacy optional codec semantics, actual model-call retention and current provider omission. The [tool contract](src/main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records five identities, migration and full verification.
 
+- [x] `registry_contract` and `current_docs` approved selected skill catalogue rendering and request-only system projection after host input validation, preserving canonical history and activation. The [runtime contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md#request-only-skill-catalogue) and linked catalogue record the four current identities, migration and full verification.
+
 - [x] `path_review` and `current_docs` approved the single-consumer delivery correction for direct forwarding and result-bearing streams, preserving caller-owned results, FIFO event order, complete failure causes and joined cancellation. The [agent contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md#direct-event-forwarding) records exact core evidence; harness wiring has its own scoped acceptance.
 
 - [x] `path_review` and `current_docs` approved explicit tool invocation context and scoped publication revocation, including actual ReAct cancellation. The [capability contract](src/main/scala/com/weisgnosis/agents/core/tool/README.md#invocation-event-capability) records migration, limits, exact identities and full verification.

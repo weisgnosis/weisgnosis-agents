@@ -1,8 +1,8 @@
 # weisgnosis-agents-mcp
 
-Typed captured-session expiry and explicit host recovery through existing joined manager removal/fresh registration are independently reviewed and verified. Automatic replay and durable recovery remain unfinished.
+Typed captured-session expiry and explicit host recovery through existing joined manager removal/fresh registration are independently reviewed and verified. Automatic replay is intentionally excluded; durable host recovery remains unfinished.
 
-This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter, initialized client, bounded optional outbound cancellation, bounded discovery, manual Toolkit binding and bounded scoped manager are independently reviewed and verified. Bounded HTTP JSON/SSE framing, response-local SSE event-ID snapshots and the scoped HTTP adapter with explicit GET, bounded same-send continuation, bounded listener resumption and explicit session termination are also reviewed; opt-in exact-class raw-SSE-body-I/O recovery is accepted; other I/O recovery and session reinitialization remain unfinished.
+This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter, initialized client, bounded optional outbound cancellation, bounded discovery, manual Toolkit binding and bounded scoped manager are independently reviewed and verified. Bounded HTTP JSON/SSE framing, response-local SSE event-ID snapshots and the scoped HTTP adapter with explicit GET, bounded same-send continuation, bounded listener resumption and explicit session termination are also reviewed; opt-in exact-class raw-SSE-body-I/O recovery is accepted; host-owned replacement after typed expiry is supported; real expiry/truncation interoperability remains unverified.
 
 | Package | Current scope |
 | --- | --- |
@@ -48,16 +48,16 @@ These are specification-derived protocol and ZIO ownership tests. AgentScope Jav
 
 - [x] Implement scoped HTTP POST and explicit GET for the selected 2025-06-18 contract.
 - [x] Both reviewers approved explicit raw-SSE-body-I/O continuation/listener policies and full verification passed.
-- [ ] Session reinitialization, other I/O recovery and broader server interoperability remain separate.
+- [ ] Establish real expired-server replacement and actual Netty body-truncation recovery interoperability.
 - [x] Enqueue bounded optional outbound cancellation for interrupted issued requests, excluding initialize and reply/terminal winners.
 - [x] Explicit host-controlled metadata propagation through registered tools has final FP/ZIO and invariant approval; both omission gates, restricted identity and effectful resolver cleanup are verified.
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
-- [ ] Complete general I/O recovery, session reinitialization and durable integration; the root tracker owns the cross-module sequence.
+- [ ] Complete remaining applicable interoperability and durable host integration; the root tracker owns the cross-module sequence.
 - [x] Install selected MCP aliases into host-declared groups with one coherent Ready-only snapshot; [grouped installation](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#grouped-installation) records final approvals and current source/spec identities. The host supplies both unfiltered toolkit and groups to ReAct; existing agents do not refresh.
 - [ ] Complete remaining ambient metadata propagation and broader schema transformation separately; core/harness provide selected skills, child snapshots and opt-in Plan admission, while manager selection retains explicit host authority.
-- [ ] Implement provider multimodal projection; core typed conversion is available, while caching, notification invalidation and reconnect remain separate.
+- [ ] Implement provider multimodal projection; core typed conversion is available, while caching and notification invalidation remain separate. Real expiry/truncation interoperability remains unverified; automatic cursorless reconnect and POST replay are intentional exclusions.
 - [ ] Evaluate output schemas where required by the selected client contract.
 
 The initialized client and its payload helpers explicitly select 2025-06-18. They do not support the different [2026-07-28 lifecycle](https://modelcontextprotocol.io/specification/2026-07-28/basic), which has no initialize exchange. No complete MCP revision support is claimed.

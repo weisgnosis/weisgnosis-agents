@@ -18,7 +18,7 @@ package com.weisgnosis.agents.core.agent
 import com.weisgnosis.agents.core.client.*
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
+import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
 import com.weisgnosis.agents.core.tool.*
 import zio.*
@@ -35,7 +35,7 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
     "Skill group reminders:\n" +
       "- Keep group \"a\" active while using any of these skills: \"first\".\n" +
       "- Keep group \"b\" active while using any of these skills: \"second\"."
-  final private case class Request(tools: Chunk[ToolDef], config: LlmConfig)
+  final private case class Request(tools: Chunk[ToolDef], config: LlmConfig, history: Chunk[Msg])
 
   private def hasSingleSkillReminder(request: Request): Boolean =
     request.tools
@@ -58,7 +58,7 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
         eventHub: Hub[AgentEvent],
         context: ModelStreamContext
     ): ZIO[Scope, AgentError, TurnOutput] =
-      val request = Request(tools, config)
+      val request = Request(tools, config, history)
       requests
         .modify(current => current.size -> (current :+ request))
         .flatMap(index => respond(index, request))
@@ -137,6 +137,115 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
     yield result
 
   def spec: Spec[TestEnvironment, Any] = suite("ReActAgentToolGroupsSpec")(
+    test("skill catalogue enriches validated model views without changing canonical history"):
+      val system = Msg.system(
+        Chunk(ContentBlock.Text("First block"), ContentBlock.Text("Second block")),
+        id = Some("system-id"),
+        name = Some("host"),
+        metadata = Map("retained" -> Json.Bool(true)),
+        timestamp = Some("host-time"),
+        usage = Some(ChatUsage(inputTokens = 3))
+      )
+      val existing = Chunk(Msg.user("earlier"), system, Msg.system("Later system"))
+      for
+        all <- ZIO.fromEither(
+          SkillCatalog.make(
+            Chunk(
+              SkillDefinition(
+                "selected",
+                "Visible description",
+                "PRIVATE BODY",
+                Map("guide.md" -> "PRIVATE RESOURCE"),
+                metadata = Json.Obj("private" -> Json.Str("PRIVATE META"))
+              ),
+              SkillDefinition("omitted", "OMITTED DESCRIPTION", "Other body")
+            )
+          )
+        )
+        selected <- ZIO.fromEither(all.select(Set("selected")))
+        results <- ZIO.foreach(
+          Chunk((existing, selected), (Chunk.empty[Msg], selected), (existing, SkillCatalog.empty))
+        ): (initial, catalog) =>
+          ZIO.scoped:
+            for
+              prepared  <- Ref.make(Chunk.empty[Chunk[Msg]])
+              projected <- Ref.make(Chunk.empty[Chunk[Msg]])
+              completed <- Ref.make(Chunk.empty[Chunk[Msg]])
+              requests  <- Ref.make(Chunk.empty[Request])
+              executed  <- Ref.make(Chunk.empty[(String, Json)])
+              base      <- toolkit(executed)
+              model = recording(requests)((index, _) =>
+                ZIO.succeed(if index == 0 then calls(call("local", "a")) else finish)
+              )
+              agent <- ReActAgent.make(
+                client = model,
+                toolkit = base,
+                skills = catalog,
+                initialHistory = initial,
+                historyPreparer =
+                  HistoryPreparer(history => prepared.update(_ :+ history).as(history)),
+                modelInputTransform = ModelInputTransform((_, history) =>
+                  projected.update(_ :+ history).as(history :+ Msg.user("view only"))
+                ),
+                completionObserver =
+                  TurnCompletionObserver(value => completed.update(_ :+ value.history))
+              )
+              first        <- agent.run(Msg.user("first run"))
+              second       <- agent.run(Msg.user("second run"))
+              persisted    <- agent.history
+              sent         <- requests.get
+              inputs       <- projected.get
+              preparations <- prepared.get
+              completions  <- completed.get
+              expectedSystem <- ZIO.fromEither(
+                system.withContent(system.content :+ ContentBlock.Text(catalog.systemPrompt))
+              )
+              views = inputs
+                .zip(sent)
+                .map: (input, request) =>
+                  val view = input :+ Msg.user("view only")
+                  if catalog.isEmpty then assertTrue(request.history == view)
+                  else
+                    val systems = request.history.filter(_.role == Role.System)
+                    assertTrue(
+                      systems.headOption.contains(
+                        if initial.isEmpty then Msg.system(catalog.systemPrompt) else expectedSystem
+                      ),
+                      systems.drop(1) == view.filter(_.role == Role.System).drop(1),
+                      request.history.filterNot(_.role == Role.System) == view
+                        .filterNot(_.role == Role.System),
+                      request.history.indexWhere(_.role == Role.System) == (if initial.isEmpty then
+                                                                              0
+                                                                            else 1),
+                      request.history
+                        .flatMap(_.content)
+                        .count(_ == ContentBlock.Text(catalog.systemPrompt)) == 1,
+                      !request.history.exists(message =>
+                        message.text.contains("PRIVATE") || message.text.contains("OMITTED")
+                      )
+                    )
+              canonical = preparations ++ inputs ++ completions ++ Chunk(
+                first.history,
+                second.history,
+                persisted
+              )
+            yield views.foldLeft(
+              assertTrue(
+                sent.size == 3,
+                inputs.size == 3,
+                completions.size == 2,
+                canonical.forall(
+                  _.forall(message =>
+                    !message.text.contains("Available skills") && !message.text.contains(
+                      "view only"
+                    )
+                  )
+                ),
+                persisted.filter(_.role == Role.System) == initial.filter(_.role == Role.System)
+              )
+            )(_ && _)
+      yield results.foldLeft(assertTrue(true))(_ && _)
+    ,
     test(
       "successful skill loads union groups for the next request without changing later run defaults"
     ) {
@@ -188,10 +297,14 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
           ),
           observed.forall(hasSingleSkillReminder),
           observed.forall(
+            _.history.flatMap(_.content).count(_ == ContentBlock.Text(catalog.systemPrompt)) == 1
+          ),
+          !result.history.exists(_.text.contains("Available skills")),
+          observed.forall(
             _.tools
               .find(_.name == loadSkill)
               .exists(tool =>
-                tool.isReadOnly && !tool.isConcurrencySafe && tool.description
+                tool.isReadOnly && !tool.isConcurrencySafe && !tool.description
                   .contains("guide.md") &&
                   !tool.description.contains("First instructions") && !tool.description
                     .contains("omitted")
@@ -390,6 +503,10 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
           result._2 == 7,
           observed.map(_.config.responseFormat.isDefined) == Chunk(true, true, false, false),
           observed.forall(hasSingleSkillReminder),
+          observed.forall(
+            _.history.flatMap(_.content).count(_ == ContentBlock.Text(catalog.systemPrompt)) == 1
+          ),
+          !result._1.history.exists(_.text.contains("Available skills")),
           observed.map(_.tools.map(_.name)) == Chunk(
             Chunk("a", "external", loadSkill, reset),
             Chunk("a", "b", "external", loadSkill, reset),
@@ -409,6 +526,9 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
           plainResult._2 == 8,
           plainObserved.map(_.tools.map(_.name)) == Chunk.fill(2)(Chunk(capture, loadSkill)),
           plainObserved.forall(_.config.responseFormat.isEmpty),
+          plainObserved.forall(
+            _.history.flatMap(_.content).count(_ == ContentBlock.Text(plain.systemPrompt)) == 1
+          ),
           plainResult._1.history
             .flatMap(_.toolResults)
             .find(_.id == "plain")

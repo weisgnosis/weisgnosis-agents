@@ -60,6 +60,40 @@ object SkillCatalogSpec extends ZIOSpecDefault:
   )
 
   def spec: Spec[TestEnvironment, Any] = suite("SkillCatalogSpec")(
+    test("system discovery text is deterministic, escaped and limited to selected public fields"):
+      val visible = definition.copy(
+        id = "a\"quoted\nID",
+        description = "Line one\nLine \"two\"",
+        resources = Map("z.md" -> "SECRET RESOURCE", "a \"quoted\".md" -> "SECRET RESOURCE"),
+        content = "SECRET BODY",
+        metadata = Json.Obj("private" -> Json.Str("SECRET METADATA"))
+      )
+      val other = definition.copy(id = "omitted", description = "OMITTED DESCRIPTION")
+      val expected = Json.Arr(
+        Json.Obj(
+          "id"          -> Json.Str(visible.id),
+          "description" -> Json.Str(visible.description),
+          "resources" -> Json.Arr(
+            Json.Str("SKILL.md"),
+            Json.Str("a \"quoted\".md"),
+            Json.Str("z.md")
+          )
+        )
+      )
+      for
+        catalog  <- ZIO.fromEither(SkillCatalog.make(Chunk(other, visible)))
+        reversed <- ZIO.fromEither(SkillCatalog.make(Chunk(visible, other)))
+        selected <- ZIO.fromEither(catalog.select(Set(visible.id)))
+      yield assertTrue(
+        SkillCatalog.empty.systemPrompt.isEmpty,
+        catalog.systemPrompt == reversed.systemPrompt,
+        selected.systemPrompt ==
+          "Available skills\nUse load_skill_through_path to load a selected skill by skillId and logical path; begin with SKILL.md.\n" + expected.toJson,
+        !selected.systemPrompt.contains("SECRET"),
+        !selected.systemPrompt.contains("OMITTED"),
+        !selected.systemPrompt.contains("research")
+      )
+    ,
     test("selection preserves exact definitions and cannot recover removed skills") {
       val other = definition.copy(id = "other", content = "Separate content")
       for

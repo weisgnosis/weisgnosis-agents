@@ -48,7 +48,7 @@ Tests cover real selected reads and resource release. Symlink rejection is sourc
 
 The scoped directory scan closes before candidate inspection and document loading. Entries are processed in filename order; the returned catalogue exposes definitions in declared-ID order. Ordinary non-directory entries are ignored, but every symbolic-link entry is rejected. Candidate directories undergo lexical and canonical sensitive-path checks before probing exact SKILL.md; their canonical path must equal the enumerated entry and have the repository root as its direct parent. Only NoSuchFileException from the document attribute probe means absence and skips that directory. Other probe failures and nonregular or symlink documents fail the whole load. A missing root also fails.
 
-Selected documents use LocalSkill's byte/parser limits, strict UTF-8 and joined scoped reads. Declared IDs, bodies and inert metadata survive unchanged; duplicate IDs or any malformed selected document fail the entire result. Resources and activation targets remain empty. There is no recursive discovery, resource fallback, origin/source ID generation, cache, save/delete operation, automatic installation or SkillHook integration. Host-controlled ancestor and filesystem-race assumptions remain unchanged: these are advisory checks, not an atomic sandbox or a cancellation deadline. Platform symlink/junction integration is still unverified.
+Selected documents use LocalSkill's byte/parser limits, strict UTF-8 and joined scoped reads. Declared IDs, bodies and inert metadata survive unchanged; duplicate IDs or any malformed selected document fail the entire result. Resources and activation targets remain empty. There is no recursive discovery, resource fallback, origin/source ID generation, cache, save/delete operation, automatic installation; request-only catalogue projection is a separate core runtime contract. Host-controlled ancestor and filesystem-race assumptions remain unchanged: these are advisory checks, not an atomic sandbox or a cancellation deadline. Platform symlink/junction integration is still unverified.
 
 Migration: this API is additive. LocalSkill.load remains unchanged; only its validate and canonicalDirectory helpers become private[skill] for checked reuse.
 
@@ -63,4 +63,4 @@ Migration: this API is additive. LocalSkill.load remains unchanged; only its val
 
 The LocalSkillSpec identity above remains unchanged; LocalSkill's public behavior and signature are unchanged.
 
-- [ ] Next: session reinitialization and remaining I/O recovery, as ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, lazy resources, caches and SkillHook remain unfinished.
+- [ ] Next: bounded skill repository resource integration, as ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, lazy resources and caches remain unfinished.

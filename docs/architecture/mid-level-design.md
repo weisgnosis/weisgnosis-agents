@@ -12,10 +12,11 @@ The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/
 - [x] Enqueue optional outbound cancellation only for interrupted issued requests whose abandonment wins, excluding initialize; bounded connection-owned delivery has no acknowledgement.
 - [x] Explicit host-controlled metadata propagation through registered tools has final FP/ZIO and invariant approval; both omission gates, restricted identity and effectful resolver cleanup are verified.
 - [x] Checked host presets and root input-schema exclusion have final independent approval; supplied/approved input overrides defaults after authorization.
-- [ ] Next: session reinitialization and remaining I/O recovery; bounded local repository discovery, strict inline parsing, bounded host-owned local loading, pure binding reminders and opt-in Plan admission are accepted. Durable integration remains unfinished.
+- [x] Selected skill catalogue text enriches model requests after validated host projection, preserving canonical history and activation.
+- [ ] Next: bounded skill repository resource integration; bounded local discovery, inline parsing, host-owned selected loading, pure reminders and opt-in Plan admission are accepted. Durable integration remains unfinished.
 - [x] MCP grouped registration provides coherent Ready-only toolkit/membership snapshots; the host explicitly installs both fields into ReAct.
 - [x] Preloaded skill resources activate explicit Meta groups through ordinary authorized runtime loading, with no filesystem or repository capability.
-- [ ] Full child Plan tool/prompt installation and ambient metadata propagation, caching, schema evaluation and reconnect remain separate integrations.
+- [ ] Full child Plan tool/prompt installation and ambient metadata propagation, caching and schema evaluation remain separate integrations; real expiry/truncation interoperability remains unverified.
 
 ## 1. ReAct lifecycle
 

@@ -29,6 +29,6 @@ The complete-cause fixture uses a direct ZChannel and verifies the unframed base
 - [x] Both reviewers approved the current HTTP source/spec including explicit termination, bounded continuation and captured-session isolation; port/stdio issuance boundaries retain their approval. Full `mcp-session-expiry-verify.log` repository verification passed; exact identities and evidence are in the [transport acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance).
 - [x] The real peer enforces initialize/initialized/ready ordering before discovery and invocation. Controlled-port client tests cover joined deadlines.
 - [x] Manager integration has separate [client tests](../client/README.md); manual Toolkit binding retains its own tests.
-- [ ] Session reinitialization, other I/O recovery and broader server/platform interoperability require separate contracts and evidence.
+- [ ] Establish real expired-server replacement and actual Netty body-truncation recovery interoperability; controlled-peer/driver evidence does not close them. Broader server/platform coverage remains separate.
 
 These tests do not establish whole AgentScope wrapper parity or complete protocol revision support.

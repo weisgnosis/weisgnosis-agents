@@ -38,6 +38,23 @@ final class SkillCatalog private (entries: Map[String, SkillDefinition]):
     Chunk.fromIterable(entries.toList.sortBy(_._1).map(_._2))
   def isEmpty: Boolean = entries.isEmpty
 
+  /** Request-only discovery text; omits bodies, metadata and activation targets. */
+  def systemPrompt: String =
+    if isEmpty then ""
+    else
+      val visible = definitions.map: skill =>
+        Json.Obj(
+          "id"          -> Json.Str(skill.id),
+          "description" -> Json.Str(skill.description),
+          "resources" -> Json.Arr(
+            (Chunk("SKILL.md") ++ Chunk.fromIterable(skill.resources.keys.toList.sorted))
+              .map(Json.Str(_))
+          )
+        )
+      "Available skills\n" +
+        s"Use ${SkillCatalog.LoadToolName} to load a selected skill by skillId and logical path; begin with SKILL.md.\n" +
+        Json.Arr(visible).toJson
+
   /** Select existing capabilities only; an empty selection removes every skill. */
   def select(ids: Set[String]): Either[AgentError.InvalidConfiguration, SkillCatalog] =
     if ids.exists(_.isBlank) then

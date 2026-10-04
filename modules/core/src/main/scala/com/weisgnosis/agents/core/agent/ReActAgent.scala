@@ -418,14 +418,7 @@ final class ReActAgent private (
     new Tool[Any, SkillRequest, String]:
       def definition: ToolDef = ToolDef(
         SkillCatalog.LoadToolName,
-        "Load a selected skill resource and activate its Meta groups for the next model request.\n" +
-          skills.definitions
-            .map(skill =>
-              val paths =
-                Chunk("SKILL.md") ++ Chunk.fromIterable(skill.resources.keys.toList.sorted)
-              s"${skill.id}: ${skill.description}\nResources: ${paths.mkString(", ")}"
-            )
-            .mkString("\n"),
+        "Load a selected skill resource and activate its Meta groups for the next model request.",
         Json.Obj(
           "type" -> Json.Str("object"),
           "properties" -> Json.Obj(
@@ -920,6 +913,7 @@ final class ReActAgent private (
                   case Right(candidate) =>
                     ZIO
                       .fromEither(ModelInputTransform.validate(history, candidate))
+                      .flatMap(view => ZIO.fromEither(withSkillPrompt(view)))
                       .flatMap(view => dispatchModel(view, context))
               yield result
 
@@ -940,6 +934,19 @@ final class ReActAgent private (
           .onInterrupt {
             reconcileDanglingToolCalls(stateRef, progressRef).ignore
           }
+
+  /** Runtime-owned request enrichment follows validation of the host's projected history. */
+  private def withSkillPrompt(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =
+    val prompt = skills.systemPrompt
+    if prompt.isEmpty then Right(history)
+    else
+      val (before, remaining) = history.span(_.role != Role.System)
+      remaining.headOption match
+        case None => Right(Chunk(Msg.system(prompt)) ++ history)
+        case Some(system) =>
+          system
+            .withContent(system.content :+ ContentBlock.Text(prompt))
+            .map(updated => before ++ Chunk(updated) ++ remaining.drop(1))
 
   private def applyReasoningHook(
       output: TurnOutput,

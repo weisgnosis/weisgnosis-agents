@@ -2,7 +2,7 @@
 
 ## Mission and authority
 
-MCP supports bounded optional outbound cancellation through the existing connection owner. Eligibility, transport boundaries and omissions are specified in the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#outbound-cancellation-contract); explicit host-run HTTP GET listening is accepted under the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#explicit-get-listening). Bounded framing preserves response-local SSE event IDs; bounded opt-in continuation within the same send, listener resumption and explicit session termination are accepted, while opt-in exact-class raw-SSE-body-I/O recovery is accepted; other I/O recovery and session recovery remain unfinished.
+MCP supports bounded optional outbound cancellation through the existing connection owner. Eligibility, transport boundaries and omissions are specified in the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#outbound-cancellation-contract); explicit host-run HTTP GET listening is accepted under the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#explicit-get-listening). Bounded framing preserves response-local SSE event IDs; bounded opt-in continuation within the same send, listener resumption and explicit session termination and opt-in exact-class raw-SSE-body-I/O recovery are accepted. Typed expiry supports host-owned fresh registration; real expiry/truncation interoperability remains unverified.
 
 Build a pure functional Scala 3/ZIO 2 runtime with deterministic authority over lifecycle, state, permissions, and completion. Selected AgentScope Java mechanics inform the design; attribution does not imply exhaustive parity.
 
@@ -50,6 +50,7 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 
 ## Planned platform
 
+- [x] Project selected skill IDs, descriptions and logical resources into transient model-request system content after host input validation, without changing canonical history or activation.
 - [ ] Remaining provider/event integrations and retry/failover policies.
 - [ ] Agent middleware and durable HITL integration.
 - [ ] Remote memory storage and timestamp-watermark migration, remote transcript persistence, and memory scheduling.
@@ -88,7 +89,7 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 - [x] Bounded scoped manager ownership and atomic host-selected registration passed both independent reviews and full verification; the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#scoped-manager-contract) records the accepted scope.
 - [x] Implement scoped HTTP POST and explicit GET with bounded JSON/SSE responses, session headers and opt-in listener resumption.
 - [x] Explicit same-send and listener policies recover only exact-class, cause-free IOException from raw SSE bodies, with bounded GETs and joined cleanup.
-- [ ] Complete separately specified remaining I/O recovery and session recovery.
+- [ ] Verify real expired-server replacement and actual Netty body-truncation interoperability. Automatic cursorless reconnect, unowned subscriptions, in-place session mutation and POST replay are intentional exclusions.
 
 See [mid-level requirements](mid-level-design.md) and the [parity audit](test-parity.md).
 
