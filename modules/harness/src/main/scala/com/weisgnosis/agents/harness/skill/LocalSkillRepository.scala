@@ -17,6 +17,7 @@ package com.weisgnosis.agents.harness.skill
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.skill.SkillCatalog
+import com.weisgnosis.agents.core.tool.PathSafety
 import com.weisgnosis.agents.harness.eviction.WorkspaceTrust
 import java.nio.file.{Files, LinkOption, NoSuchFileException, Path}
 import java.nio.file.attribute.BasicFileAttributes
@@ -30,16 +31,25 @@ final case class LocalSkillRepositoryLimits(
     local: LocalSkillLimits = LocalSkillLimits()
 ) derives JsonCodec
 
+/** Bounds all entries across one skill tree; the skill directory itself has depth zero. */
+final case class LocalSkillResourceLimits(maxEntries: Int = 4096, maxDepth: Int = 8)
+    derives JsonCodec
+
+enum LocalSkillResources derives JsonCodec:
+  case DocumentsOnly
+  case TextTree(limits: LocalSkillResourceLimits)
+
 /**
  * Cold, read-only discovery of immediate skill directories under one host-controlled root.
- * Declared IDs remain unchanged and duplicates fail the entire snapshot. Resources are not loaded.
+ * Declared IDs remain unchanged and duplicates fail the entire snapshot. Text resources are opt-in.
  * Canonical checks are advisory; joined blocking operations have no cancellation deadline.
  */
 object LocalSkillRepository:
   def load(
       directory: Path,
       trust: WorkspaceTrust,
-      limits: LocalSkillRepositoryLimits = LocalSkillRepositoryLimits()
+      limits: LocalSkillRepositoryLimits = LocalSkillRepositoryLimits(),
+      resources: LocalSkillResources = LocalSkillResources.DocumentsOnly
   ): IO[AgentError, SkillCatalog] = trust match
     case WorkspaceTrust.Untrusted => deny("Untrusted repository directories are unsupported")
     case WorkspaceTrust.HostControlled =>
@@ -47,7 +57,14 @@ object LocalSkillRepository:
         _ <- ZIO
           .fail(invalid("entry and skill limits must be positive"))
           .when(limits.maxEntries <= 0 || limits.maxSkills <= 0)
-        _       <- ZIO.fromEither(LocalSkill.validate(Set.empty, limits.local))
+        _ <- ZIO.fromEither(LocalSkill.validate(Set.empty, limits.local))
+        _ <- resources match
+          case LocalSkillResources.DocumentsOnly => ZIO.unit
+          case LocalSkillResources.TextTree(tree) =>
+            ZIO
+              .fail(invalid("resource entry and depth limits must be positive"))
+              .when(tree.maxEntries <= 0 || tree.maxDepth <= 0)
+              .unit
         root    <- LocalSkill.canonicalDirectory(directory)
         entries <- discover(root, limits.maxEntries)
         selected <- ZIO.foldLeft(entries)(Chunk.empty[Path])((selected, entry) =>
@@ -57,11 +74,101 @@ object LocalSkillRepository:
               ZIO.fail(invalid("skill count limit exceeded"))
             case Some(path) => ZIO.succeed(selected :+ path)
         )
-        definitions <- ZIO.foreach(selected)(path =>
-          LocalSkill.load(path, trust, limits = limits.local)
-        )
+        definitions <- ZIO.foreach(selected): path =>
+          for
+            names <- resources match
+              case LocalSkillResources.DocumentsOnly => ZIO.succeed(Set.empty[String])
+              case LocalSkillResources.TextTree(tree) =>
+                discoverResources(path, tree, limits.local)
+            definition <- LocalSkill.load(path, trust, names, limits.local)
+          yield definition
         catalog <- ZIO.fromEither(SkillCatalog.make(definitions))
       yield catalog
+
+  final private case class ResourceDirectory(path: Path, prefix: String, depth: Int)
+  final private case class ResourceScan(
+      entries: Int,
+      names: Set[String],
+      directories: Chunk[ResourceDirectory]
+  )
+
+  private def discoverResources(
+      root: Path,
+      limits: LocalSkillResourceLimits,
+      local: LocalSkillLimits
+  ): IO[AgentError, Set[String]] =
+    def visit(
+        pending: List[ResourceDirectory],
+        count: Int,
+        names: Set[String],
+        document: Path
+    ): IO[AgentError, Set[String]] =
+      pending match
+        case Nil => ZIO.succeed(names)
+        case directory :: remaining =>
+          for
+            entries <- discover(directory.path, limits.maxEntries - count)
+            scanned <- ZIO.foldLeft(entries)(
+              ResourceScan(count + entries.size, names, Chunk.empty)
+            ): (state, entry) =>
+              val name =
+                if directory.prefix.isEmpty then fileName(entry)
+                else directory.prefix + "/" + fileName(entry)
+              for
+                _ <- ZIO.fromEither(LocalSkill.validate(Set(name), local)).unless(entry == document)
+                _ <- deny("Sensitive resource path").when(PathSafety.isSensitivePath(entry))
+                attributes <- io("inspect resource", entry)(
+                  Files.readAttributes(
+                    entry,
+                    classOf[BasicFileAttributes],
+                    LinkOption.NOFOLLOW_LINKS
+                  )
+                )
+                _ <- deny("Resource entries must be non-symlink regular files or directories").unless(
+                  !attributes.isSymbolicLink && (attributes.isDirectory || attributes.isRegularFile)
+                )
+                _ <- deny("Selected SKILL.md must remain a regular file").when(
+                  entry == document && !attributes.isRegularFile
+                )
+                canonical <- io("canonicalize resource", entry)(entry.toRealPath())
+                _ <- deny(
+                  "Resource path must retain its canonical identity inside the skill directory"
+                ).unless(
+                  canonical == entry && Option(canonical.getParent).contains(directory.path) &&
+                    canonical != root && canonical.startsWith(root) && !PathSafety.isSensitivePath(
+                      canonical
+                    )
+                )
+                next <-
+                  if attributes.isDirectory then
+                    if directory.depth >= limits.maxDepth then
+                      ZIO.fail(invalid("resource directory depth limit exceeded"))
+                    else
+                      ZIO.succeed(
+                        state.copy(directories =
+                          state.directories :+ ResourceDirectory(
+                            canonical,
+                            name,
+                            directory.depth + 1
+                          )
+                        )
+                      )
+                  else if entry == document then ZIO.succeed(state)
+                  else
+                    ZIO
+                      .fromEither(LocalSkill.validate(state.names + name, local))
+                      .as(state.copy(names = state.names + name))
+              yield next
+            result <- visit(
+              scanned.directories.toList ++ remaining,
+              scanned.entries,
+              scanned.names,
+              document
+            )
+          yield result
+    io("resolve skill document", root)(root.resolve("SKILL.md")).flatMap(document =>
+      visit(List(ResourceDirectory(root, "", 0)), 0, Set.empty, document)
+    )
 
   private def discover(root: Path, maxEntries: Int): IO[AgentError, Chunk[Path]] =
     ZIO.scoped:

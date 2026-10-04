@@ -50,6 +50,7 @@ MemoryConsolidator validates replacement memory against a 1–4,000 token budget
 
 ## Planned platform
 
+- [x] Both reviewers approved opt-in bounded eager text-tree resource discovery; full verification passed and lazy runtime filesystem access remains separate.
 - [x] Project selected skill IDs, descriptions and logical resources into transient model-request system content after host input validation, without changing canonical history or activation.
 - [ ] Remaining provider/event integrations and retry/failover policies.
 - [ ] Agent middleware and durable HITL integration.

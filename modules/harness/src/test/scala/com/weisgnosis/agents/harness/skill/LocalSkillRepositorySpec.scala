@@ -44,6 +44,133 @@ object LocalSkillRepositorySpec extends ZIOSpecDefault:
       case _                              => false
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("LocalSkillRepositorySpec")(
+    test("opt-in text trees retain exact portable resources after filesystem release"):
+      for
+        root <- temporaryDirectory
+        repository = root.resolve("repository")
+        cold = LocalSkillRepository.load(
+          repository,
+          WorkspaceTrust.HostControlled,
+          resources = LocalSkillResources.TextTree(LocalSkillResourceLimits())
+        )
+        _         <- ZIO.attemptBlocking(Files.createDirectory(repository))
+        directory <- skill(repository, "skill", "selected")
+        nested    <- ZIO.attemptBlocking(Files.createDirectory(directory.resolve("references")))
+        _         <- write(nested.resolve("guide.md"), "  Exact café\r\n")
+        _         <- write(nested.resolve("SKILL.md"), "Nested resource, not a skill document")
+        _         <- write(directory.resolve(".notes"), "Benign dot file")
+        _         <- write(directory.resolve("z.txt"), "Last")
+        defaults  <- LocalSkillRepository.load(repository, WorkspaceTrust.HostControlled)
+        loaded    <- cold
+        _         <- ZIO.attemptBlocking(Files.move(repository, root.resolve("moved")))
+        resource  <- ZIO.fromEither(loaded.load("selected", "references/guide.md"))
+        _ <- ZIO.attemptBlocking(
+          Files.write(root.resolve("moved/skill/binary"), Array(0xc3.toByte, 0x28.toByte))
+        )
+        isolated <- LocalSkillRepository.load(root.resolve("moved"), WorkspaceTrust.HostControlled)
+        binary <- LocalSkillRepository
+          .load(
+            root.resolve("moved"),
+            WorkspaceTrust.HostControlled,
+            resources = LocalSkillResources.TextTree(LocalSkillResourceLimits())
+          )
+          .either
+      yield assertTrue(
+        defaults.definitions.forall(_.resources.isEmpty),
+        isolated.definitions == defaults.definitions,
+        loaded.definitions.map(_.resources) == Chunk(
+          Map(
+            "references/guide.md" -> "  Exact café\r\n",
+            ".notes"              -> "Benign dot file",
+            "z.txt"               -> "Last",
+            "references/SKILL.md" -> "Nested resource, not a skill document"
+          )
+        ),
+        resource.content == "  Exact café\r\n",
+        binary.left.exists(_.message.contains("decode UTF-8"))
+      )
+    ,
+    test("text-tree budgets and unsafe entries reject whole snapshots with pre-I/O validation"):
+      val tree   = LocalSkillResourceLimits(maxEntries = 5, maxDepth = 1)
+      val local  = LocalSkillLimits(maxResources = 2, maxResourceBytes = 4)
+      val limits = LocalSkillRepositoryLimits(local = local)
+      for
+        root <- temporaryDirectory
+        preflight <- ZIO.foreach(Chunk(tree.copy(maxEntries = 0), tree.copy(maxDepth = 0))):
+          invalid =>
+            LocalSkillRepository
+              .load(
+                root.resolve("missing"),
+                WorkspaceTrust.HostControlled,
+                limits,
+                LocalSkillResources.TextTree(invalid)
+              )
+              .either
+        directory <- skill(root, "skill", "selected")
+        nested    <- ZIO.attemptBlocking(Files.createDirectory(directory.resolve("references")))
+        _         <- ZIO.attemptBlocking(Files.createDirectory(directory.resolve("z-empty")))
+        _         <- write(directory.resolve("first.txt"), "1234")
+        _         <- write(nested.resolve("second.txt"), "abcd")
+        accepted <- LocalSkillRepository.load(
+          root,
+          WorkspaceTrust.HostControlled,
+          limits,
+          LocalSkillResources.TextTree(tree)
+        )
+        rejected <- ZIO.foreach(
+          Chunk(
+            (tree.copy(maxEntries = 4), limits, "directory entry limit exceeded"),
+            (
+              tree,
+              limits.copy(local = local.copy(maxResources = 1)),
+              "resource count limit exceeded"
+            ),
+            (tree, limits.copy(local = local.copy(maxResourceBytes = 3)), "byte limit exceeded")
+          )
+        ): (budget, configured, diagnostic) =>
+          LocalSkillRepository
+            .load(
+              root,
+              WorkspaceTrust.HostControlled,
+              configured,
+              LocalSkillResources.TextTree(budget)
+            )
+            .either
+            .map(result => assertTrue(result.left.exists(_.message.contains(diagnostic))))
+        _ <- ZIO.attemptBlocking(Files.createDirectory(nested.resolve("deeper")))
+        depth <- LocalSkillRepository
+          .load(
+            root,
+            WorkspaceTrust.HostControlled,
+            limits,
+            LocalSkillResources.TextTree(tree.copy(maxEntries = 6))
+          )
+          .either
+        _ <- ZIO.attemptBlocking(Files.delete(nested.resolve("deeper")))
+        _ <- write(nested.resolve(".env"), "sensitive")
+        sensitive <- LocalSkillRepository
+          .load(
+            root,
+            WorkspaceTrust.HostControlled,
+            limits,
+            LocalSkillResources.TextTree(tree.copy(maxEntries = 6))
+          )
+          .either
+      yield rejected.foldLeft(
+        assertTrue(
+          preflight.forall(
+            _ == Left(
+              AgentError.InvalidConfiguration(
+                "Local skill repository: resource entry and depth limits must be positive"
+              )
+            )
+          ),
+          accepted.definitions.map(_.resources.size) == Chunk(2),
+          depth.left.exists(_.message.contains("resource directory depth limit exceeded")),
+          denied(sensitive)
+        )
+      )(_ && _)
+    ,
     test("cold discovery retains declared identities and metadata without resources or recursion") {
       for
         root <- temporaryDirectory
