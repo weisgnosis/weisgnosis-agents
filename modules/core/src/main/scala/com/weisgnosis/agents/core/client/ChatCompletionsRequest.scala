@@ -17,9 +17,10 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
+import com.weisgnosis.agents.core.model.{ContentBlock, MediaSource, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.Chunk
+import zio.http.{Scheme, URL}
 import zio.json.*
 import zio.json.ast.Json
 
@@ -27,7 +28,7 @@ import zio.json.ast.Json
 enum ReasoningReplay derives JsonCodec:
   case Omit, LatestAssistant
 
-/** Pure serialization of the supported streaming text/function-call request surface. */
+/** Pure serialization of text, user images, and function calls; media sources are never fetched. */
 object ChatCompletionsRequest:
   private val namePattern = "[A-Za-z0-9_-]{1,64}".r
 
@@ -130,19 +131,76 @@ object ChatCompletionsRequest:
       case Role.Assistant => encodeAssistant(msg, replay).map(Chunk(_))
       case Role.System | Role.User =>
         for
-          _ <- message(
-            msg.content.forall(_.isInstanceOf[ContentBlock.Text]),
-            "This request codec only supports text in system/user messages"
-          )
+          content <-
+            if msg.role == Role.User then encodeUserContent(msg)
+            else
+              message(
+                msg.content.forall(_.isInstanceOf[ContentBlock.Text]),
+                "This request codec only supports text in system messages"
+              ).map(_ => Json.Str(msg.text))
           name <- messageName(msg)
         yield Chunk(
           Json.Obj(
             Chunk(
               "role"    -> Json.Str(if msg.role == Role.System then "system" else "user"),
-              "content" -> Json.Str(msg.text)
+              "content" -> content
             ) ++ name
           )
         )
+
+  private def encodeUserContent(msg: Msg): Either[AgentError, Json] =
+    if msg.content.forall(_.isInstanceOf[ContentBlock.Text]) then Right(Json.Str(msg.text))
+    else
+      traverse(msg.content):
+        case ContentBlock.Text(text) =>
+          Right(Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str(text)))
+        case ContentBlock.Image(source, _, _) =>
+          imageUrl(source).map(url =>
+            Json.Obj(
+              "type"      -> Json.Str("image_url"),
+              "image_url" -> Json.Obj("url" -> Json.Str(url))
+            )
+          )
+        case _ => Left(AgentError.InvalidMessage("User content supports only text and images"))
+      .map(parts => Json.Arr(parts))
+
+  private def imageUrl(source: MediaSource): Either[AgentError, String] = source match
+    case MediaSource.Url(value) =>
+      for
+        _ <- message(
+          value.nonEmpty && value.forall(character =>
+            !character.isWhitespace && !Character.isISOControl(character)
+          ),
+          "Image URLs must not contain raw whitespace or control characters"
+        )
+        url <- URL.decode(value).left.map(_ => AgentError.InvalidMessage("Invalid image URL"))
+        _ <- message(
+          url.scheme.exists(scheme => scheme == Scheme.HTTP || scheme == Scheme.HTTPS) &&
+            url.host.exists(_.nonEmpty) && url.port.forall(port => port > 0 && port <= 65535),
+          "Image URLs must be absolute HTTP or HTTPS URLs with a host and valid port"
+        )
+      yield value
+    case MediaSource.Base64(mediaType, data) =>
+      for
+        _ <- message(
+          Set("image/png", "image/jpeg", "image/webp", "image/gif").contains(mediaType),
+          "Inline images require an explicit PNG, JPEG, WEBP, or GIF media type"
+        )
+        _ <- message(validBase64(data), "Inline image data must be nonempty standard base64")
+      yield s"data:$mediaType;base64,$data"
+
+  /** Syntax validation only: no image decoding, animation inspection, or size-limit claim. */
+  private def validBase64(value: String): Boolean =
+    val firstPadding = value.indexOf('=')
+    val contentEnd   = if firstPadding < 0 then value.length else firstPadding
+    val padding      = value.length - contentEnd
+    value.nonEmpty && value.length % 4 == 0 && contentEnd > 0 && padding <= 2 &&
+    value.iterator.zipWithIndex.forall: (character, index) =>
+      if index >= contentEnd then character == '='
+      else
+        (character >= 'A' && character <= 'Z') ||
+        (character >= 'a' && character <= 'z') ||
+        (character >= '0' && character <= '9') || character == '+' || character == '/'
 
   private def encodeAssistant(msg: Msg, replay: ReasoningReplay): Either[AgentError, Json] =
     for

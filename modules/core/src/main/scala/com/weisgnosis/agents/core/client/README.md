@@ -55,13 +55,28 @@ JsonBoundary is a library-internal shared boundary in the independent json packa
 
 ## Request serialization
 
-ChatCompletionsRequest.encode returns Either[AgentError, Json.Obj] without effects. It serializes ordered text messages, function definitions, canonical tool argument ASTs, streaming usage options, and an optional native response_format object. Credentials, endpoint, runtime identity, timestamps, usage, and unrelated message metadata are not request-body fields. ToolDef.outputSchema remains descriptive metadata for custom clients; this encoder emits no output_schema extension. Its omission is covered by the [output-schema contract](../tool/README.md#descriptive-output-schemas).
+ChatCompletionsRequest.encode returns Either[AgentError, Json.Obj] without effects. It serializes ordered text and user-image messages, function definitions, canonical tool argument ASTs, streaming usage options, and an optional native response_format object. Credentials, endpoint, runtime identity, timestamps, usage, and unrelated message metadata are not request-body fields. ToolDef.outputSchema remains descriptive metadata for custom clients; this encoder emits no output_schema extension. Its omission is covered by the [output-schema contract](../tool/README.md#descriptive-output-schemas).
 
 History must contain complete local call/result pairs. Orphan, duplicate, unknown, and unresolved results fail before serialization; another conversation message cannot split pending calls from their observations. Grouped or separately delivered parallel results may arrive in any order, and completed later turns may reuse an ID. A grouped Tool message becomes individual protocol messages. Error, Interrupted, and Denied outputs carry explicit labels; Running and suspended observations fail.
 
-ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. Signed/detailed thinking cannot be replayed by this codec. Media, provider-hosted server calls/results, signed calls, and non-text tool output fail explicitly. This is the text/function baseline, not a general provider formatter.
+ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. Signed/detailed thinking cannot be replayed by this codec. Unsupported media, provider-hosted server calls/results, signed calls, and non-text tool output fail explicitly. User-image projection is defined below; broader provider formatting remains separate.
 
 Validation covers nonblank models, finite temperature in [0, 2], positive optional token limits, protocol names, unique definitions/call IDs, object schemas/arguments/response formats, and duplicate JSON fields. ToolUse.input is authoritative; stale raw content is not sent. Forwarding a schema object does not validate arbitrary JSON Schema semantics. Endpoint, authentication headers, HTTP status handling, and request resource lifetime belong to ChatCompletionsTransport.
+
+## User-image projection
+
+User messages containing only text retain their original string wire shape. A message containing images becomes an ordered array of text and image_url parts. HTTP(S) image URLs require a host and valid port, reject raw whitespace/control characters, and retain their original spelling. Inline images require an explicit image/png, image/jpeg, image/webp or image/gif media type and nonempty standard Base64 syntax. Image IDs and names are not provider fields. Invalid or unsupported blocks reject the whole request; no block is silently dropped or replaced with a placeholder.
+
+This is pure serialization: it does not fetch URLs, read files, decode image bytes, detect animation or validate provider size limits. In particular, accepting image/gif does not establish that the image is non-animated. Images in system, assistant and tool messages remain rejected; audio, video and generic Data blocks remain unsupported. Standard tool content stays text-only. The [official user schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_user_message_param.py), [image-part schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_content_part_image_param.py), [tool-message schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_tool_message_param.py) and [image guide](https://developers.openai.com/api/docs/guides/images-vision) define the selected provider surface. This does not imply compatibility with every endpoint accepting Chat Completions requests.
+
+No Scala API or domain-codec shape changes. Previously rejected valid user images now serialize; text-only requests and unsupported-role rejection retain their existing behavior. Full provider media validation remains the caller/provider responsibility.
+
+| File | Reviewed Git blob |
+| --- | --- |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | e03a72a80aa37e4f6323523594b1670c458968ae |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | f049456f4ca0ac6222eacc031b78ec584ed37505 |
+
+- [x] path_review approved FP/ZIO correctness and current_docs approved invariants at these exact identities, with no findings. Full scalafmtAll scalafmtSbt verify passed with zero compiler warnings or failures (user-image-verify.log). Two grouped image cases cover exact ordered wire values, all four explicit media types, malformed source tables and unsupported roles. Focused evidence: user-image-focused.log, 24 tests passed in 3.740 seconds. Current repository totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 ## Scoped HTTP completion
 
@@ -101,8 +116,8 @@ This is a typed live-client text transformation point, not the upstream event-re
 
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
 - [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the unchanged JSON-boundary identities from that scope; current capability identities are listed below. No findings remain within this scope.
-- [x] Full formatting, fatal-warning compilation, and verification passed 557 core and 601 harness tests.
-- [ ] Complete provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, incremental/structured local tool output, and exhaustive upstream mapping.
+- [x] The unchanged scopes retain their recorded verification; current request identities and verification are in [user-image projection](#user-image-projection), with repository totals in the tracker.
+- [ ] Complete provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, and exhaustive upstream mapping.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
 

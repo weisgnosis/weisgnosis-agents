@@ -18,17 +18,17 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [StreamAccumulatorCompletionSpec](StreamAccumulatorCompletionSpec.scala)
 - [StreamAccumulatorSpec](StreamAccumulatorSpec.scala)
 
-ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadata does not change the encoded provider request. The [output-schema acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records its current reviewed identity and full verification.
+ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadata does not change the encoded provider request. The [output-schema acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records that scoped evidence; the current request/spec identities are in [user-image projection](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
 
 ## Current evidence
 
-- [x] Sixteen request-codec regressions cover ordered messages, schemas/options, authoritative arguments, paired parallel results, failure states, reasoning policies, private runtime data exclusion, and typed rejection of unsupported or malformed requests.
+- [x] Request-codec regressions cover ordered messages, schemas/options, authoritative arguments, paired parallel results, failure states, reasoning policies, private runtime data exclusion, and typed rejection of unsupported or malformed requests.
 
 - [x] Sixteen strict-delta regressions cover field/index errors, duplicate keys, provider errors, unsupported calls, and complete frame boundaries; original reasoning/tool/usage parsing and context hygiene tests remain.
 - [x] Thirteen StreamAccumulatorCompletionSpec regressions cover required finish markers, malformed/non-object/trailing tool arguments, interrupted sanitization, raw content, deferred/stable identity, duplicate IDs, interleaved indexes, signed blocks, usage snapshots, and post-finish rejection.
 - [x] JsonBoundarySpec verifies six complete-document/duplicate/escape/numeric/direct-AST scenarios without effects.
 - [x] Existing accumulator scenarios and two ReAct thinking-retry integration tests now handle Either and explicit successful finish markers.
-- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 561 core and 626 harness tests with zero compiler warnings or failures on 2026-09-30.
+- [x] Final user-image reviews and full verification are recorded in the linked source contract; two grouped tables add exact image/text wire ordering and whole-request rejection of malformed sources and unsupported media roles.
 - [x] Fourteen transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
 - [x] Six live-client tests verify early deltas, real HTTP tool cycles, request identity, late call identity, malformed/incomplete streams, and cancellation.
 - [x] Three publisher tests verify indexed content, interleaved calls, and atomic ending-batch validation; two event-context tests cover all sixteen correlated variants and legacy payloads.
@@ -39,7 +39,7 @@ ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadat
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
 - [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the unchanged JSON-boundary identities from that scope; current capability identities are listed below. No findings remain within this scope.
 - [x] `path_review` approved the three real HTTP fixtures at the identities below. Only those fixtures use `TestAspect.withLiveClock`; deterministic fixtures retain TestClock and suite timeouts remain 20 seconds.
-- [ ] Complete provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, incremental/structured local tool output, and exhaustive upstream mapping.
+- [ ] Complete provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, and exhaustive upstream mapping.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
 

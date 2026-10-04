@@ -83,6 +83,103 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         )
       )
     },
+    test("projects ordered user images and text while preserving the text-only wire shape") {
+      def imagePart(url: String): Json = Json.Obj(
+        "type"      -> Json.Str("image_url"),
+        "image_url" -> Json.Obj("url" -> Json.Str(url))
+      )
+      def textPart(text: String): Json =
+        Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str(text))
+      val url = "https://example.test/image%20name.png?token=opaque%2Bvalue"
+      val cases = Chunk[(Chunk[Msg.UserBlock], Json)](
+        Chunk.empty                                                    -> Json.Str(""),
+        Chunk(ContentBlock.Text("first"), ContentBlock.Text("second")) -> Json.Str("first\nsecond"),
+        Chunk(ContentBlock.Image.url("http://example.test/image")) -> Json.Arr(
+          imagePart("http://example.test/image")
+        ),
+        Chunk[Msg.UserBlock](
+          ContentBlock.Text("before"),
+          ContentBlock
+            .Image(MediaSource.Url(url), id = Some("private-image"), name = Some("private-name")),
+          ContentBlock.Text("after"),
+          ContentBlock.Image.base64("image/png", "AQ==")
+        ) -> Json.Arr(
+          textPart("before"),
+          imagePart(url),
+          textPart("after"),
+          imagePart("data:image/png;base64,AQ==")
+        )
+      ) ++ Chunk(
+        "image/png"  -> "AQID",
+        "image/jpeg" -> "AQI=",
+        "image/webp" -> "AQ==",
+        "image/gif"  -> "/+8="
+      ).map: (mediaType, data) =>
+        Chunk[Msg.UserBlock](ContentBlock.Image.base64(mediaType, data)) ->
+          Json.Arr(imagePart(s"data:$mediaType;base64,$data"))
+      assertTrue(cases.forall { case (content, expected) =>
+        messages(ChatCompletionsRequest.encode(Chunk(Msg.user(content)), Chunk.empty, config))
+          .contains(
+            Chunk(
+              Json.Obj(
+                "role"    -> Json.Str("user"),
+                "content" -> expected,
+                "name"    -> Json.Str("user")
+              )
+            )
+          )
+      })
+    },
+    test("rejects malformed image sources and unsupported media roles without dropping blocks") {
+      val invalidUrls = Chunk(
+        "",
+        " ",
+        "/relative/image.png",
+        "//example.test/image.png",
+        "file:///private/image.png",
+        "C:\\private\\image.png",
+        "ftp://example.test/image.png",
+        "https:/missing-host",
+        "https://",
+        "https://example.test/image name.png",
+        "https://example.test/\nimage.png",
+        "https://example.test/image.png?query=raw space",
+        "https://example.test/image.png?query=\n",
+        "https://example.test:0/image.png",
+        "https://example.test:65536/image.png",
+        "data:image/png;base64,AQ=="
+      )
+      val invalidData =
+        Chunk("", "A", "AQ", "AQI", "A===", "====", "AA=A", "AQ-_", "AQI=\n", " AQ==", "éAAA")
+      val invalidTypes =
+        Chunk("", "image/jpg", "image/svg+xml", "text/plain", "image/png;extra=value")
+      val sourceFailures = invalidUrls.map(ContentBlock.Image.url) ++
+        invalidData.map(data => ContentBlock.Image.base64("image/png", data)) ++
+        invalidTypes.map(mediaType => ContentBlock.Image.base64(mediaType, "AQ=="))
+      val media = ContentBlock.Image.url("https://example.test/image.png")
+      val invalidMessages = sourceFailures.map(image =>
+        Msg.user(Chunk[Msg.UserBlock](ContentBlock.Text("must not survive alone"), image))
+      ) ++ Chunk(
+        Msg.assistant(Chunk(media)),
+        Msg.tool(Chunk(ContentBlock.ToolResult("call", output = Chunk(media)))),
+        Msg.user(
+          Chunk[Msg.UserBlock](
+            ContentBlock.Text("text"),
+            ContentBlock.Data.url("https://example.test/image.png")
+          )
+        ),
+        Msg.user(Chunk(ContentBlock.Video.url("https://example.test/video.mp4"))),
+        Msg.user(Chunk(ContentBlock.Audio.base64("audio/wav", "AQ==")))
+      )
+      assertTrue(
+        invalidMessages.forall(msg =>
+          ChatCompletionsRequest
+            .encode(pairedHistory(msg), Chunk.empty, config)
+            .left
+            .exists(_.isInstanceOf[AgentError.InvalidMessage])
+        )
+      )
+    },
     test("requests streaming usage and preserves native response format and generation options") {
       val format = Json.Obj(
         "type"        -> Json.Str("json_schema"),
@@ -286,7 +383,7 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
     },
     test("rejects unsupported media and ambiguous tool-role content") {
       val invalid = Chunk(
-        Msg.user(Chunk(ContentBlock.Image(MediaSource.Url("https://example.test/image")))),
+        Msg.user(Chunk(ContentBlock.Audio(MediaSource.Url("https://example.test/audio")))),
         Msg.assistant(Chunk(ContentBlock.Custom("extension", Json.Obj()))),
         Msg.tool(Chunk(ContentBlock.Text("uncorrelated"))),
         Msg.tool(Chunk.empty),

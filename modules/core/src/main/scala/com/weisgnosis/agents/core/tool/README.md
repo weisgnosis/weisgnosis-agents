@@ -53,7 +53,7 @@ The derived domain codec reads an absent or explicit-null outputSchema as None a
 | --- | --- |
 | [ToolDef.scala](ToolDef.scala) | `1884f7d4701df7e36c7b10235764534c6f699c29` |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | `2d00729523014e9c29ca576bcf11fe90a720d379` |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `af9528e389c6de56042421fbf8bdbf7639d775f5` |
+| ChatCompletionsRequestSpec.scala | Current identity and verification: [user-image projection](../client/README.md#user-image-projection); output-schema omission remains covered. |
 
 ## Incremental execution
 

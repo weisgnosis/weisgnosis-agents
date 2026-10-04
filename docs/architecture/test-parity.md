@@ -394,6 +394,17 @@ The pinned extension OpenAIStreamingToolCallTest and OpenAIResponseParserTest we
 
 The pinned core ToolCallsAccumulatorTest and ReasoningContextTest were inspected for parallel calls, raw argument preservation, interruption sanitization, and latest-snapshot usage. Mandatory compatible finish markers, strict complete object arguments, and stable identities are deliberate Scala hardening. LlmChunk has raw argument fragments rather than mutable parsed-map updates. Tool metadata, parsed-map merge scenarios, richer reasoning details, and the full method-level accumulator mapping remain pending; current signature support is for ThinkingDelta, not tool signatures.
 
+### User-image request projection
+
+Both final reviews and full verification passed. ChatCompletionsRequestSpec supplies two grouped tables for four bounded OpenAIMessageConverterTest adaptations:
+
+- [x] testImageBlockWithValidURLSource (line 117): ordered text and HTTPS image parts with the exact URL retained.
+- [x] testImageBlockWithValidBase64Source (line 147): text plus explicit image data URL; the Scala table additionally covers all four supported media types.
+- [x] testImageBlockWithURLSource (line 251): image-only HTTP user content uses an image_url array.
+- [x] testMultimodalMixedContent (line 315): ordered mixed text/image parts, without broad audio/video support.
+
+Source: pinned agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/formatter/OpenAIMessageConverterTest.java. These are pure provider-wire adaptations, not a mutable converter API or complete formatter-suite parity. The stricter Scala boundary rejects malformed URLs/Base64 and unsupported roles instead of fetching resources, guessing a media type or substituting text. No image decoding, animation/size validation or live-provider interoperability is claimed. Exact identities and evidence are in the [request contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
+
 ## Live model stream adaptation
 
 - [x] Six ChatCompletionsClientSpec scenarios verify incremental publication, real HTTP tool cycles, request/reply correlation, late tool identity, incomplete/malformed input, and cancellation.
