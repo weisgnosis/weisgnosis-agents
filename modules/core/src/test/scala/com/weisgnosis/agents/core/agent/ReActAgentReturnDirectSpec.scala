@@ -30,7 +30,7 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
     case Direct, Default, Mixed, Error, Denied, Inline, Control, Empty, EmptyText, PartiallyEmpty,
       Stop
   private enum Entry:
-    case Live, Restored, Supplied, Partial
+    case Live, Restored, Supplied, SuppliedError, SuppliedMixed, Partial
   private enum Cleanup:
     case Complete, Cancel
 
@@ -201,27 +201,37 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
       ZIO
         .foreach(Chunk.fromArray(Entry.values)): entry =>
           for
-            executions <- Ref.make(Chunk.empty[String])
-            calls      <- Ref.make(0)
-            permit     <- Ref.make(false)
-            processed  <- Ref.make(Chunk.empty[String])
+            executions   <- Ref.make(Chunk.empty[String])
+            calls        <- Ref.make(0)
+            modelHistory <- Ref.make(Chunk.empty[Chunk[Msg]])
+            permit       <- Ref.make(false)
+            processed    <- Ref.make(Chunk.empty[String])
+            supplied = entry match
+              case Entry.Supplied | Entry.SuppliedError | Entry.SuppliedMixed => true
+              case _                                                          => false
+            continues = entry == Entry.SuppliedError || entry == Entry.SuppliedMixed
+            firstState =
+              if entry == Entry.SuppliedError then ToolResultState.Error
+              else ToolResultState.Success
             tools = Toolkit(
               Chunk("first", "second")
                 .map(name =>
                   name -> tool(
                     name,
-                    ToolReturnMode.Direct,
+                    if entry == Entry.SuppliedMixed && name == "second" then ToolReturnMode.Continue
+                    else ToolReturnMode.Direct,
                     executions.update(_ :+ name).as(ToolExecutionResult(name))
                   )
                 )
                 .toMap
             )
-            client = LlmClient.mockEffectful((_, _, _) =>
-              calls
-                .update(_ + 1)
-                .as(
-                  TurnOutput.ToolCalls(Msg.assistant(Chunk(call("first"), call("second"))))
-                )
+            client = LlmClient.mockEffectful((history, _, _) =>
+              modelHistory.update(_ :+ history) *> calls
+                .getAndUpdate(_ + 1)
+                .map:
+                  case 0 =>
+                    TurnOutput.ToolCalls(Msg.assistant(Chunk(call("first"), call("second"))))
+                  case _ => TurnOutput.FinalText(Msg.assistant("summary"))
             )
             authorizer = ToolAuthorizer(request =>
               permit.get.map(allowed =>
@@ -247,13 +257,13 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
             checkpoint <- original.run(Msg.user("run"))
             _          <- permit.set(true)
             augmented <-
-              if entry == Entry.Supplied then
+              if supplied then
                 ZIO.fromEither(
                   PendingActing.withResults(
                     checkpoint,
                     Chunk(
                       SuppliedToolResult(1, ToolExecutionResult("second")),
-                      SuppliedToolResult(0, ToolExecutionResult("first"))
+                      SuppliedToolResult(0, ToolExecutionResult("first", firstState))
                     )
                   )
                 )
@@ -289,17 +299,45 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
             count    <- calls.get
             done     <- executions.get
             seen     <- processed.get
+            inputs   <- modelHistory.get
+            expectedObservations = Chunk(
+              (
+                "same",
+                Some("first"),
+                Chunk[ContentBlock](ContentBlock.Text("processed-first")),
+                firstState
+              ),
+              (
+                "same",
+                Some("second"),
+                Chunk[ContentBlock](ContentBlock.Text("processed-second")),
+                ToolResultState.Success
+              )
+            )
+            observations = result.history
+              .flatMap(_.toolResults)
+              .sortBy(_.name.getOrElse(""))
+              .map(value => (value.id, value.name, value.output, value.state))
+            inputObservations = inputs.map(
+              _.flatMap(_.toolResults)
+                .sortBy(_.name.getOrElse(""))
+                .map(value => (value.id, value.name, value.output, value.state))
+            )
           yield assertTrue(
             checkpoint.isSuspended,
-            result.reply.content == Chunk(
-              ContentBlock.Text("processed-first"),
-              ContentBlock.Text("processed-second")
-            ),
-            result.reply.generationReason == GenerateReason.ToolReturnDirect,
-            result.history.flatMap(_.toolResults).size == 2,
+            result.reply.content == (if continues then Chunk(ContentBlock.Text("summary"))
+                                     else
+                                       Chunk(
+                                         ContentBlock.Text("processed-first"),
+                                         ContentBlock.Text("processed-second")
+                                       )),
+            (result.reply.generationReason == GenerateReason.ToolReturnDirect) == !continues,
+            observations == expectedObservations,
+            inputObservations == (if continues then Chunk(Chunk.empty, expectedObservations)
+                                  else Chunk(Chunk.empty)),
             result.state == AgentRunState.Completed,
-            count == 1,
-            done.sorted == (if entry == Entry.Supplied then Chunk.empty
+            count == (if continues then 2 else 1),
+            done.sorted == (if supplied then Chunk.empty
                             else Chunk("first", "second")),
             seen.sorted == Chunk("first", "second"),
             rejected.isFailure && empty.isEmpty
@@ -372,7 +410,8 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
                 case Cleanup.Complete =>
                   assertTrue(exit match
                     case Exit.Success(result) =>
-                      result.reply.generationReason == GenerateReason.ToolReturnDirect
+                      result.reply.generationReason == GenerateReason.ToolReturnDirect &&
+                      result.iterationCount == 1
                     case Exit.Failure(_) => false)
                 case Cleanup.Cancel =>
                   assertTrue(

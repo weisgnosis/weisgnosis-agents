@@ -111,12 +111,12 @@ Migration: ToolDef appends the defaulted returnMode field. Old JSON without it d
 | --- | --- |
 | [ReActAgent.scala](ReActAgent.scala) | 297ef010800c799c02035107d0863c7189f83097 |
 | [ToolDef.scala](../tool/ToolDef.scala) | 8848c5c6698a13c05e4dc6fe9a8ec51710ec0708 |
-| [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | 1193c35e18f1f0b6aa49d414c4a44f45d7a56a04 |
+| [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | e9de09814ad62b90d3592fdf8d205de7d5bfd935 |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | 67e4f5c680d919c0f4a4cc1858b5c4d4d2769219 |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current fixture identity](../client/README.md#user-image-projection); returnMode omission remains covered. |
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Three grouped runtime tests cover ordered processed output and rejection cases, live/restored/supplied/partial resumes, joined cleanup/cancellation and native/synthetic exclusion; existing tables cover codec compatibility and provider-field omission. Focused checks passed 26 tests in 690 ms (`return-direct-compiled-focused.log`).
-- [x] Full `scalafmtAll scalafmtSbt verify` passed in `return-direct-final-verify.log` with zero compiler warnings or test failures. Current totals and process-local verification settings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Three grouped runtime tests cover ordered processed output and rejection cases, live/restored/supplied/partial resumes, joined cleanup/cancellation and native/synthetic exclusion; existing tables cover codec compatibility and provider-field omission. The resumed supplied Error and mixed-mode rows verify zero local execution, exact-once processing, preserved result states/content in the actual following model request and one further request. Supplied Denied remains unsupported. Both reviewers renewed approval of the current spec; production identities and their reviewed behavior are unchanged. Focused checks passed three groups in 599 ms (`return-direct-resume-focused.log`).
+- [x] Full `scalafmtAll scalafmtSbt verify` passed in `return-direct-resume-verify.log` with zero compiler warnings or test failures. Current totals and process-local verification settings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 ## Current typed-result acceptance
 
