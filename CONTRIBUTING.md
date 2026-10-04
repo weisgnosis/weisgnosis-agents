@@ -16,10 +16,10 @@ Read [AGENTS.md](AGENTS.md) before changing production or test code. Use Scala 3
 
 ```text
 sbt scalafmtAll scalafmtSbt
-sbt verify
+sbt verify packageArtifacts
 ```
 
-The verify alias runs scalafmtCheckAll, scalafmtSbtCheck, compile, and test. Fatal warnings use -Werror; deprecation, feature, unchecked, and unused-symbol warnings are enabled. The compiler also retains trees with -Yretain-trees. Tests use scripted clients, Promise barriers, TestClock, and scoped temporary resources.
+The verify alias runs scalafmtCheckAll, scalafmtSbtCheck, compile, and test. Fatal warnings use -Werror; deprecation, feature, unchecked, and unused-symbol warnings are enabled. The compiler also retains trees with -Yretain-trees. Tests use scripted clients, Promise barriers, TestClock, and scoped temporary resources. `packageArtifacts` generates module binary/source JARs and POMs without publishing; packaging changes also require the separate archive/dependency and isolated-consumer checks documented in the [build contract](project/README.md#local-artifact-packaging).
 
 These checks do not prove semantic purity, exhaustive parity, English correctness, filesystem trust, or production readiness. Those remain review responsibilities.
 
@@ -35,7 +35,7 @@ Update affected root/module/package READMEs, architecture contracts, tracker, te
 
 Review changed prose and comments for English and neutral terminology. Check local Markdown links. Unicode screening is supplemental evidence, not proof of natural-language correctness.
 
-Use focused Conventional Commit messages and the PR checklist. CI provisions the [official sbt runner](https://github.com/sbt/setup-sbt) before verify.
+Use focused Conventional Commit messages and the PR checklist. CI provisions the [official sbt runner](https://github.com/sbt/setup-sbt) before verification and artifact generation.
 
 ## Closing a review
 

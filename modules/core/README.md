@@ -1,5 +1,7 @@
 # weisgnosis-agents-core
 
+Local artifact: `com.weisgnosis:weisgnosis-agents-core_3:0.1.0-SNAPSHOT`. Binary/source JAR and POM generation, dependency boundaries and isolated-consumer evidence are defined in the [build contract](../../project/README.md#local-artifact-packaging); no external publication is claimed.
+
 The internal forwarding lifecycle also supports [host-only retained child resume](../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume), preserving checkpoint context and joined cleanup under existing runtime ownership.
 
 The [before-acting suspension contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) is accepted: ordinary saved-batch resume and resumed streams with checked host-supplied results and checked data restoration use fresh host bindings and owned invocation scopes. Partial-confirmation checkpoints are independently reviewed; host persistence remains external.

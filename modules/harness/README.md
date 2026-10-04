@@ -1,5 +1,7 @@
 # weisgnosis-agents-harness
 
+Local artifact: `com.weisgnosis:weisgnosis-agents-harness_3:0.1.0-SNAPSHOT`. Binary/source JAR and POM generation, dependency boundaries and isolated-consumer evidence are defined in the [build contract](../../project/README.md#local-artifact-packaging); no external publication is claimed.
+
 Core before-acting checkpoints are accepted. The [complete-batch confirmation adapter](src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) is accepted; partial confirmations are accepted. The nonblocking policy adapter is accepted; generic checkpoint event correlation is accepted and host persistence remains external. Child session/tool adapters recognize the data-bearing Suspended state; ordinary sends remain blocked afterward, while [host-only session resume](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume) reuses installed authorization and existing ownership. [Host checkpoint import](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-checkpoint-import) acquires current factory resources and validates suspended data before publishing a new session; it creates no execution until resume. Independent review and full verification passed; durable approval storage and exclusive claims remain external.
 
 Standalone context and permission components built on core.

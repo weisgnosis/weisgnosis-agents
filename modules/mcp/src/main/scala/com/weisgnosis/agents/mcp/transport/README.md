@@ -134,7 +134,7 @@ The [test-only build dependencies](../../../../../../../../../../project/README.
 | --- | --- |
 | [McpJavaSdkInteropSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) | `4f3f12025c5fa355573438294800eb8f8cefd8a3` |
 | [McpHttpRecoveryIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpRecoveryIntegrationSpec.scala) | `24e7fbf77eb3e5149fbe89e72f4201d5829f597d` |
-| [build.sbt](../../../../../../../../../../build.sbt), test-only interoperability configuration | `6c54a59788d5342f2ca7c4948bf0ad9352b6bd4c` |
+| [build.sbt](../../../../../../../../../../build.sbt), test-only interoperability configuration | [Current build identity](../../../../../../../../../../project/README.md#local-artifact-packaging) |
 | [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | `ac4cddf6d8f4a162f3d2da29796328a6389286ef` |
 | [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | `02f8aed5c483a2e7e932308d0c6f3c9cc3309ef2` |
 | [McpHttpFraming.scala](McpHttpFraming.scala) | `fbdfa581f7228b8da97ccac46f523a173b3781e5` |

@@ -1,6 +1,6 @@
 # Module index
 
-Package READMEs describe available source or explicitly label planned designs. Consult the [tracker](../docs/architecture/tracker.md) and [parity audit](../docs/architecture/test-parity.md) for reviewed scope and remaining integration.
+The three modules produce separately consumable binary/source JARs and POMs through `sbt packageArtifacts`; [build acceptance](../project/README.md#local-artifact-packaging) records coordinates, dependency scopes and local consumer evidence. Package READMEs describe available source or explicitly label planned designs. Consult the [tracker](../docs/architecture/tracker.md) and [parity audit](../docs/architecture/test-parity.md) for reviewed scope and remaining integration.
 
 | Module | Current status |
 | --- | --- |

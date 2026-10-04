@@ -25,7 +25,11 @@ lazy val commonSettings = Seq(
     "-Wunused:all",
     "-Yretain-trees"
   ),
-  testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+  testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+  Compile / packageBin / mappings +=
+    ((LocalRootProject / baseDirectory).value / "LICENSE" -> "META-INF/LICENSE"),
+  Compile / packageSrc / mappings +=
+    ((LocalRootProject / baseDirectory).value / "LICENSE" -> "META-INF/LICENSE")
 )
 
 lazy val core = (project in file("modules/core"))
@@ -89,3 +93,9 @@ lazy val root = (project in file("."))
   )
 
 addCommandAlias("verify", ";scalafmtCheckAll;scalafmtSbtCheck;compile;test")
+addCommandAlias(
+  "packageArtifacts",
+  ";core / Compile / packageBin;core / Compile / packageSrc;core / makePom" +
+    ";harness / Compile / packageBin;harness / Compile / packageSrc;harness / makePom" +
+    ";mcp / Compile / packageBin;mcp / Compile / packageSrc;mcp / makePom"
+)

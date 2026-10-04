@@ -25,5 +25,5 @@ jobs:
       - name: Setup sbt
         uses: sbt/setup-sbt@v1
 
-      - name: Verify Formatting, Compilation, and Tests
-        run: sbt verify
+      - name: Verify Formatting, Compilation, Tests, and Packages
+        run: sbt verify packageArtifacts

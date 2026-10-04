@@ -22,14 +22,14 @@ Use JDK 21 and the sbt version pinned in project/build.properties.
 
 ```text
 sbt scalafmtAll scalafmtSbt
-sbt verify
+sbt verify packageArtifacts
 ```
 
 The verify alias checks formatting, compiles with fatal warnings, and runs all tests. See [CONTRIBUTING.md](CONTRIBUTING.md) for semantic review and documentation requirements.
 
 ## Minimal local example
 
-This example uses a scripted client and performs no provider request. Build from this repository; publication of snapshot artifacts is not guaranteed.
+This example uses a scripted client and performs no provider request. Build from this repository; [local artifact packaging](project/README.md#local-artifact-packaging) is independently reviewed, including separate archive and isolated-consumer validation. Snapshot artifacts have not been externally published.
 
 ```scala
 package com.weisgnosis.agents.examples

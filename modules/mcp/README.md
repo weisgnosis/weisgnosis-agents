@@ -1,5 +1,7 @@
 # weisgnosis-agents-mcp
 
+Local artifact: `com.weisgnosis:weisgnosis-agents-mcp_3:0.1.0-SNAPSHOT`. Binary/source JAR and POM generation, dependency boundaries and isolated-consumer evidence are defined in the [build contract](../../project/README.md#local-artifact-packaging); no external publication is claimed.
+
 Typed captured-session expiry and explicit host recovery through existing joined manager removal/fresh registration are independently reviewed and verified. Automatic replay is intentionally excluded; durable host recovery remains unfinished.
 
 This module supplies checked MCP messages, selected 2025-06-18 payload helpers, bounded scoped request correlation and accepted connection ownership over an injected port. A direct-process stdio adapter, initialized client, bounded optional outbound cancellation, bounded discovery, manual Toolkit binding and bounded scoped manager are independently reviewed and verified. Bounded HTTP JSON/SSE framing, response-local SSE event-ID snapshots and the scoped HTTP adapter with explicit GET, bounded same-send continuation, bounded listener resumption and explicit session termination are also reviewed; opt-in exact-class raw-SSE-body-I/O recovery is accepted; host-owned replacement after typed expiry is supported; direct-client and manager SDK session replacement and real Netty same-send POST-body recovery are verified within their bounded test scopes.
