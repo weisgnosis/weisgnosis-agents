@@ -15,7 +15,7 @@ These suites verify payload codecs and selected runtime boundaries. They do not 
 ## Current acceptance
 
 - [x] `review_fp` and `review_harness` approved the final three-file payload increment against `66bb42d` on 2026-09-29 with no unresolved findings.
-- [x] Full formatting, fatal-warning compilation, and tests passed: 291 core and 40 harness.
+- [x] Full formatting, fatal-warning compilation and tests passed; current totals are maintained in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Runtime sequence evidence is separate from codecs and is recorded in the [ordering acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#runtime-event-ordering).
 - [x] All 13 enabled AgentEventStreamTest declarations now have identifier/payload evidence with documented adaptations.
 - [x] ReActAgentEmissionSpec verifies correlated iteration-limit publication and inline provider metadata/text/data order with occurrence-sensitive cancellation handling.
 - [x] StructuredCompletionSpec verifies finalized result publication after history commit and before AgentEnd; see the reviewed [agent scope](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).

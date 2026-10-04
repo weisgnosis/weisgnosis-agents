@@ -1,5 +1,7 @@
 # ReAct execution and structured output
 
+[Runtime ordering acceptance](../client/README.md#runtime-event-ordering) records exact current lifecycle-spec identities and bounded text/thinking/tool-cycle adaptations. Fully drained invocations begin with AgentStart and end with correlated AgentEnd; early consumers abandon later output.
+
 ReActAgent retains history and serializes runs. Model requests receive their own Scope, closed before the next request. Assistant tool calls are persisted before dispatch. Completed observations survive cancellation; unfinished local occurrences receive Error observations followed by one recovery message for the run. Thinking-only responses trigger bounded synthetic reminders. AgentConfig uses ToolExecution and a five-minute timeout; AgentResult uses AgentRunState and optional ChatUsage.
 
 - [AgentConfig](AgentConfig.scala)

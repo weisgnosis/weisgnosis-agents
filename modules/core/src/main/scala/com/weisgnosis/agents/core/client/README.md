@@ -21,6 +21,20 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [StreamAccumulator](StreamAccumulator.scala)
 - [TurnOutput](TurnOutput.scala)
 
+## Runtime event ordering
+
+The held stream and real HTTP tool cycle in ChatCompletionsClientSpec assert the complete lifecycle projection, excluding only raw ModelResponseChunkEvent frames. Incremental content/tool-call Start and Delta events precede ModelResponseEnd; block End events follow validated completion. Thinking and text are independently indexed streams: the tested thinking-then-text input begins thinking first, but text may start before ThinkingEnd. A completed local result lifecycle occurs between the tool-call model response and the next model request. AgentResult precedes the final AgentEnd.
+
+ReActAgentEventSpec checks AgentStart first and the matching AgentEnd last for fully drained success, buffered events, failure, self/cooperative interruption and timeout. Early consumer termination still joins cleanup while abandoning subsequent output. Existing partial-confirmation tests establish correlated Ask after batch drain and before RequestStop, then Decision before result events in separate restored invocations; these generic events do not prove a human response. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md#agenteventstreamtest-seven-disabled-ordering-declarations) records intentional differences from disabled upstream comments. Model DataBlock emission remains unspecified and unimplemented; tool-result data events are a separate supported path.
+
+| Reviewed spec | Git blob |
+| --- | --- |
+| [ReActAgentEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEventSpec.scala) | `e2991912ecc419178a41373ae9b56d7467314faf` |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | `a885b877f0e2c6c8481a9ed3164a0cb6af4a083e` |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no findings. Existing groups were strengthened; no production behavior or test-group count changed. Focused `event-order-focused.log` passed seventeen tests in 7.747 seconds.
+- [x] Formatting and full verification passed in `event-order-verify.log`, with zero compiler warnings or failures. Current totals and environment belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
 ## Host-selected tool choice
 
 LlmConfig.toolChoice defaults to Option.None, which omits tool_choice. Explicit ToolChoice.Auto, None and Required encode as auto, none and required; Specific(name) encodes the function-selection object. Auto and None are omitted when no tools are advertised. Required needs a nonempty visible definition set; Specific requires a syntactically valid exact name in that set. Validation rejects hidden, missing or invalid targets before HTTP acquisition. Definitions remain unchanged. The absent default intentionally differs from Java's null-to-auto helper behavior.
@@ -33,7 +47,7 @@ Migration: LlmConfig appends defaulted toolChoice and now has nine positional/Pr
 | --- | --- |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | 0e228ff6251a40f0290a9d92c7df0d1197a419b2 |
 | [LlmClient.scala](LlmClient.scala) | 4e878986d565dcf9d0b81633e4450907c5d7becf |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | 358804e1c78a277b9a2b4233f9448cb72d8b51d1 |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current ordering identity](#runtime-event-ordering) |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | c736be71f7b46b529826e2646516cb5387113ac3 |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | feeff471a558467c595111b2c7cb74c75e10354f |
 
@@ -183,7 +197,7 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | [Msg.scala](../model/Msg.scala) | e95148040f9bb3499aaf43fed3a8e6ed21237672 |
 | [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | fbf31dcaeb77162c6354047cb299c7773ff7e461 |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | 4ce0c254250b9428990dd24e6a0e6310d41cb867 |
-| ChatCompletionsClientSpec.scala | Current identity: [retry acceptance](#bounded-http-status-retries). |
+| ChatCompletionsClientSpec.scala | Current identity: [ordering acceptance](#runtime-event-ordering). |
 | [ReasoningAdapterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterSpec.scala) | 1f17e10621d99b2cd79f0382f7c4cc7255b68cf0 |
 | [StreamAccumulatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorSpec.scala) | e90bd63fa63fa74f395d557a5199093dc77f8954 |
 | [ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | fc7dda775a912ce8c4eb567ce9d90ea44df0f640 |
@@ -228,7 +242,7 @@ Migration: ChatCompletionsClient.make and ChatCompletionsTransport.make append a
 | ChatCompletionsClient.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
 | [CompletionRetryPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionRetryPolicySpec.scala) | 5df81123863d6f3faa10cfd1c70206f2604baf63 |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | cb042aee28d6e082c9688481f4b08c0e1540df1d |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current tool-choice identity](README.md#host-selected-tool-choice) |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current ordering identity](#runtime-event-ordering) |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the six identities above, with no open findings. Full scalafmtAll scalafmtSbt verify passed in http-retry-verify.log with zero compiler warnings or failed tests. The focused http-retry-green.log run passed 26 tests in 5.408 seconds, including policy validation, two attempt-lifecycle/status groups and the actual HTTP 429/400 client table. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 

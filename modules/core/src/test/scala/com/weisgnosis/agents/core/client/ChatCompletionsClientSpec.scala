@@ -101,6 +101,19 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
           starts.flatMap(_.context) == ends.flatMap(_.context),
           contexts(events).forall(context => replyIds.contains(context.replyId)),
           contexts(events).map(_.requestId).distinct.size == 1,
+          lifecycle(events) == Chunk(
+            "agent-start",
+            "model-start",
+            "thinking-start",
+            "thinking-delta",
+            "text-start",
+            "text-delta",
+            "thinking-end",
+            "text-end",
+            "model-end",
+            "agent-result",
+            "agent-end"
+          ),
           events.indexWhere(_.isInstanceOf[AgentEvent.TextBlockEndEvent]) < events.indexWhere(
             _.isInstanceOf[AgentEvent.ModelResponseEndEvent]
           ),
@@ -234,6 +247,24 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
                       starts.flatten.map(_.requestId).distinct.size == 2,
                       starts.flatten.map(_.replyId).distinct.size == 1,
                       events.exists(_.isInstanceOf[AgentEvent.ToolCallEndEvent]),
+                      admission != ChoiceAdmission.Allowed || lifecycle(events) == Chunk(
+                        "agent-start",
+                        "model-start",
+                        "tool-call-start",
+                        "tool-call-delta",
+                        "tool-call-end",
+                        "model-end",
+                        "tool-result-start",
+                        "tool-result-delta",
+                        "tool-result-end",
+                        "model-start",
+                        "text-start",
+                        "text-delta",
+                        "text-end",
+                        "model-end",
+                        "agent-result",
+                        "agent-end"
+                      ),
                       events.collect { case event: AgentEvent.AgentResultEvent =>
                         event.result.text
                       } == Chunk("answer")
@@ -749,6 +780,29 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
   ) @@ TestAspect.timeout(20.seconds)
 
   private def frame(json: String): String = s"data: $json\n\n"
+
+  private def lifecycle(events: Chunk[AgentEvent]): Chunk[String] =
+    events
+      .filterNot(_.isInstanceOf[AgentEvent.ModelResponseChunkEvent])
+      .map:
+        case _: AgentEvent.AgentStartEvent         => "agent-start"
+        case _: AgentEvent.ModelRequestStartEvent  => "model-start"
+        case _: AgentEvent.ThinkingBlockStartEvent => "thinking-start"
+        case _: AgentEvent.ThinkingBlockDeltaEvent => "thinking-delta"
+        case _: AgentEvent.ThinkingBlockEndEvent   => "thinking-end"
+        case _: AgentEvent.TextBlockStartEvent     => "text-start"
+        case _: AgentEvent.TextBlockDeltaEvent     => "text-delta"
+        case _: AgentEvent.TextBlockEndEvent       => "text-end"
+        case _: AgentEvent.ToolCallStartEvent      => "tool-call-start"
+        case _: AgentEvent.ToolCallDeltaEvent      => "tool-call-delta"
+        case _: AgentEvent.ToolCallEndEvent        => "tool-call-end"
+        case _: AgentEvent.ToolResultStartEvent    => "tool-result-start"
+        case _: AgentEvent.ToolResultDeltaEvent    => "tool-result-delta"
+        case _: AgentEvent.ToolResultEndEvent      => "tool-result-end"
+        case _: AgentEvent.ModelResponseEndEvent   => "model-end"
+        case _: AgentEvent.AgentResultEvent        => "agent-result"
+        case _: AgentEvent.AgentEndEvent           => "agent-end"
+        case _                                     => "unexpected"
 
   private def response(stream: ZStream[Any, Nothing, String]): Response =
     Response(

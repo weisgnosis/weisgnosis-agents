@@ -82,5 +82,5 @@ Real loopback client/server acquisition, use and release run with a live clock. 
 | Reviewed fixture suite | Git blob |
 | --- | --- |
 | ChatCompletionsTransportSpec | Current identity: [retry acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries). |
-| ChatCompletionsClientSpec | Current identity: [retry acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries). |
+| ChatCompletionsClientSpec | Current identity: [ordering acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#runtime-event-ordering). |
 | [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | `396f6d75c01bcaac54750a0d5df97c219a4b8c31` |

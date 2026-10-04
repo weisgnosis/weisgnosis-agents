@@ -27,7 +27,10 @@ object ReActAgentEventSpec extends ZIOSpecDefault:
   private def paired(events: Chunk[AgentEvent]): Boolean =
     val starts = events.collect { case event: AgentEvent.AgentStartEvent => event.replyId }
     val ends   = events.collect { case event: AgentEvent.AgentEndEvent => event.replyId }
-    starts.size == 1 && starts == ends && events.lastOption.exists {
+    starts.size == 1 && starts == ends && events.headOption.exists {
+      case _: AgentEvent.AgentStartEvent => true
+      case _                             => false
+    } && events.lastOption.exists {
       case _: AgentEvent.AgentEndEvent => true
       case _                           => false
     }

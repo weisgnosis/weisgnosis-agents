@@ -42,11 +42,13 @@ Existing lowercase event objects remain canonical. Concrete event encoding inclu
 - [x] Both reviewers approved the final three-file payload increment against `66bb42d` on 2026-09-29; no findings remain in its scope.
 - [x] AgentEventSerdeSpec exercises all 39 variants through concrete/base codecs, legacy leaf input, repeated source tagging, and strict discriminator validation.
 - [x] AgentEventPayloadSpec adds seven payload tests, including toolResultDataDeltaEventMetadataRoundTrip, nested validation, immutable fields, and optional-value normalization.
-- [x] `sbt scalafmtAll scalafmtSbt verify` passed 291 core and 40 harness tests with zero compiler warnings.
+- [x] Payload verification passed with zero compiler warnings; current repository totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] Correlated iteration-limit publication and inline provider text/data/metadata delivery are verified in ReActAgentEmissionSpec and reviewed in the [agent scope](../agent/README.md).
-- [ ] Implement remaining runtime publication/order, model data-block assembly, and provider multimodal projection.
+- [x] Independently review [bounded runtime ordering](../client/README.md#runtime-event-ordering) for current model/tool lifecycles and drained invocation boundaries.
+- [ ] Define and implement model data-block production/encoding and remaining provider output-media projection.
 - [x] Both reviewers and full verification accepted [host acting-stop publication](../agent/README.md#acting-stop-decisions).
-- [ ] Implement durable pending-work resumption and permission-driven denied-call publication.
+- [x] Integrate generic checkpoint Ask/Decision and complete-batch AllToolsDenied publication under their linked runtime contracts.
+- [ ] Integrate host-owned durable checkpoint storage and authenticated delivery; event data grants no authority.
 - [x] Classify all ten deprecated coarse-event methods as excluded API/wire compatibility, without claiming their assertions pass.
 - [x] Implement request/reply correlation for live model and content events.
 - [ ] Complete explicit uppercase typed-payload/envelope adapters and remaining local tool/subagent attribution.

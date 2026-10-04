@@ -12,7 +12,7 @@ Scala 3/ZIO 2 agent components with immutable models and effectful lifecycle man
 | --- | --- |
 | [json](src/main/scala/com/weisgnosis/agents/core/json/README.md) | Shared internal complete-document and immutable AST validation |
 | [model](src/main/scala/com/weisgnosis/agents/core/model/README.md) | Msg, content, roles, usage, codecs |
-| [event](src/main/scala/com/weisgnosis/agents/core/event/README.md) | 39 typed variants and source tagging; not all emitters are implemented |
+| [event](src/main/scala/com/weisgnosis/agents/core/event/README.md) | 39 typed variants, source tagging and [reviewed bounded lifecycle ordering](src/main/scala/com/weisgnosis/agents/core/client/README.md#runtime-event-ordering); model data-block production remains unimplemented |
 | [skill](src/main/scala/com/weisgnosis/agents/core/skill/README.md) | Checked preloaded catalogue, exact logical resources and explicit Meta targets; runtime loading uses ordinary authorization |
 | [tool](src/main/scala/com/weisgnosis/agents/core/tool/README.md) | Typed tools, immutable host-selected groups and pure scoped notes, attached fixed raw arguments, host-selected descriptive output schemas, immutable registry, typed completed observations, path screening |
 | [client](src/main/scala/com/weisgnosis/agents/core/client/README.md) | Client port, scripted clients, validated text/user-media/function requests with inline image/audio Data and explicitly hinted image URL projection, scoped HTTP completion, SSE framing, indexed assembly, explicit Google tool-signature replay and selected reasoning details |

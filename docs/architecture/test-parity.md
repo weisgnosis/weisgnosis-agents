@@ -332,7 +332,8 @@ The pinned upstream Event, EventType, and EventSource classes are explicitly dep
 Unsupported legacy behavior includes StreamOptions filtering, ALL, default final-result exclusion, cumulative message snapshots, Java constructors/getters, and structured EventSource attribution (agent/session/task IDs, depth, and path). Current optional string source tagging is not an EventSource adapter. A future consumer requiring that protocol needs an explicit separately scoped adapter; no compatibility adapter is currently promised or implemented.
 
 - [x] Implement actual model-stream reply/request correlation through the typed event API.
-- [ ] Complete remaining model/tool block ordering and attribution.
+- [x] Verify [bounded runtime ordering adaptations](#agenteventstreamtest-seven-disabled-ordering-declarations) for current text/thinking/tool cycles and checkpoint decisions.
+- [ ] Define remaining model data-block production and richer attribution contracts.
 - [ ] Define and integrate richer subagent source attribution with the planned supervisor.
 
 ### AgentEventStreamTest: 13 enabled methods
@@ -353,15 +354,15 @@ Unsupported legacy behavior includes StreamOptions filtering, ALL, default final
 
 ### AgentEventStreamTest: seven disabled ordering declarations
 
-These upstream methods contain comments rather than executable assertions and their enclosing class is disabled. They remain explicit implementation requirements, not passing upstream evidence. The new ReActAgentEventSpec tests actual runtime boundaries and transport completion, without claiming the entire prescribed model/tool event sequence.
+These pinned `agentscope-core/src/test/java/io/agentscope/core/event/AgentEventStreamTest.java` methods contain comments rather than executable assertions and their enclosing class is disabled. The checked items below are deliberate Scala contract adaptations, not passing upstream tests or literal sequence parity. [Current ordering acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#runtime-event-ordering) records exact reviewed specs and verification.
 
-- [ ] `singleIterationOrder`: complete and verify the prescribed runtime sequence.
-- [ ] `thinkingBeforeText`: complete and verify the prescribed runtime sequence.
-- [ ] `toolCallCycle`: complete and verify the prescribed runtime sequence.
-- [ ] `hitlReentry`: complete and verify the prescribed runtime sequence.
-- [ ] `dataBlockEmission`: complete and verify the prescribed runtime sequence.
+- [x] `singleIterationOrder` (245): ChatCompletionsClientSpec asserts the exact held-stream lifecycle projection, excluding raw frame events. Incremental blocks precede ModelResponseEnd and AgentResult precedes AgentEnd, intentionally differing from the comment placing model completion before content.
+- [x] `thinkingBeforeText` (258): the same held stream verifies ThinkingStart/Delta before TextStart/Delta for ordered input, then both End events at completion. Independent indexed thinking/text may overlap; universal ThinkingEnd-before-TextStart is intentionally not promised.
+- [x] `toolCallCycle` (266): the actual HTTP Allowed cycle asserts incremental tool-call events before model completion, complete local result Start/Delta/End before the second model request, and final text/result/end order. This adapts the disabled comment rather than moving live deltas after response completion.
+- [x] `hitlReentry` (281): PartialConfirmationSpec verifies Ask after admitted-result drain and before RequestStop, stable request identities across repeated deferral, and correlated Decision before result Start. Explicit checkpoint/resume invocations replace one paused sink-backed stream; generic decisions carry no human-envelope provenance.
+- [ ] `dataBlockEmission` (293): define a concrete model-media producer and delta encoding before implementing DataBlock Start/Delta/End publication. Existing tool-result data events and request-media projection do not close this declaration.
 - [x] `exceedMaxIters` -> ReActAgentEmissionSpec verifies the implemented limit event before AgentResult and AgentEnd, with the same attempt replyId and completed iteration count; the upstream declaration itself remains disabled.
-- [ ] `streamBoundaries`: complete and verify the prescribed runtime sequence.
+- [x] `streamBoundaries` (309): ReActAgentEventSpec checks the first AgentStart, one correlated boundary pair and last AgentEnd on fully drained success/buffering/failure/self-interruption/cooperative-interruption/timeout paths. Early consumer termination joins cleanup but is excluded from tail-delivery guarantees.
 
 ### Implemented payloads and remaining runtime contracts
 
@@ -370,7 +371,7 @@ The eight payload classes below are implemented and verified independently of th
 | Implemented variant | Payload | Runtime integration status |
 | --- | --- | --- |
 | AgentResult | result: Msg | Runtime publishes after preparation and history commit, before AgentEnd; pre-commit failures publish no finalized result |
-| DataBlockStart / End | replyId, blockId | Stable block correlation and provider assembly |
+| DataBlockStart / End | replyId, blockId | Payload/codec support; model producer and runtime assembly remain unimplemented |
 | DataBlockDelta | replyId, blockId, delta: String | Delta is text; it is not a ContentBlock |
 | ToolResultDataDelta | replyId, toolCallId, toolCallName, data: ContentBlock, metadata | Inline provider and completed typed local output blocks are published with full metadata; provisional local payloads are published with protected metadata; provider multimodal serialization remains pending |
 | ExceedMaxIters | replyId, maxIters, currentIter | Runtime guard verified with correlated replyId and completed iteration count |
