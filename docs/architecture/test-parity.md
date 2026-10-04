@@ -388,11 +388,11 @@ Inline event metadata intentionally preserves the complete result map; pinned up
 - [x] Implement indexed text/thinking assembly with signatures, typed finish validation, strict completed object arguments, preserved raw content, and interrupted sanitization; thirteen accumulator regressions cover this scope.
 - [x] Validate full JSON documents and duplicate keys through JsonBoundary, with six paired tests and frame/tool suffix regressions.
 - [x] Implement text/function request serialization with sixteen local regression tests, including paired histories, explicit reasoning replay, and unsupported-content rejection. These tests are not claimed as sixteen mapped upstream methods.
-- [ ] Map the full upstream formatter surface, implement remaining request extensions and provider signature/tool-metadata decoding, and complete remaining provider and tool-result event integration.
+- [ ] Map the full upstream formatter surface, implement remaining request extensions and other provider signature/tool-metadata decoding, and complete remaining provider and tool-result event integration.
 
 The pinned extension OpenAIStreamingToolCallTest and OpenAIResponseParserTest were inspected for fragment, usage, and error semantics. They are outside the earlier core-only inventory, and their full applicability mapping remains open. The current adapter intentionally supports indexed function-call deltas and fails unsupported legacy calls instead of silently dropping them.
 
-The pinned core ToolCallsAccumulatorTest and ReasoningContextTest were inspected for parallel calls, raw argument preservation, interruption sanitization, and latest-snapshot usage. Mandatory compatible finish markers, strict complete object arguments, and stable identities are deliberate Scala hardening. LlmChunk has raw argument fragments rather than mutable parsed-map updates. Tool metadata, parsed-map merge scenarios, richer reasoning details, and the full method-level accumulator mapping remain pending; current signature support is for ThinkingDelta, not tool signatures.
+The pinned core ToolCallsAccumulatorTest and ReasoningContextTest were inspected for parallel calls, raw argument preservation, interruption sanitization, and latest-snapshot usage. Mandatory compatible finish markers, strict complete object arguments, and stable identities are deliberate Scala hardening. LlmChunk has raw argument fragments rather than mutable parsed-map updates. Selected Google tool-call signatures now have the bounded mappings below. Parsed-map merge scenarios, richer reasoning details and the full method-level accumulator mapping remain pending.
 
 ### User-image request projection
 
@@ -404,6 +404,19 @@ Both final reviews and full verification passed. ChatCompletionsRequestSpec supp
 - [x] testMultimodalMixedContent (line 315): ordered mixed text/image parts, without broad audio/video support.
 
 Source: pinned agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/formatter/OpenAIMessageConverterTest.java. These are pure provider-wire adaptations, not a mutable converter API or complete formatter-suite parity. The stricter Scala boundary rejects malformed URLs/Base64 and unsupported roles instead of fetching resources, guessing a media type or substituting text. No image decoding, animation/size validation or live-provider interoperability is claimed. Exact identities and evidence are in the [request contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
+
+### Selected tool-call signature mappings
+
+Both final reviews and full signature-mcp-verify.log verification passed for the [current client scope](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-call-signatures).
+
+- [x] ToolCallsAccumulatorTest.testAccumulateMetadata: preserve an opaque signature while argument fragments arrive, using immutable string metadata instead of Java byte arrays/maps.
+- [x] ToolCallsAccumulatorTest.testAccumulateWithoutMetadata: unsigned calls remain unsigned.
+- [x] ToolCallsAccumulatorTest.testParallelToolCallsWithMetadata: stream-index isolation prevents signature propagation to other calls.
+- [x] OpenAIThoughtSignatureTest.testToolUseWithoutMetadata: unsigned request calls carry no signature extension.
+- [ ] OpenAIThoughtSignatureTest.testTypedMetadataAttachedDirectly and testToolMetadataRestoredAfterRoundTrip: tool-signature portions are covered by typed metadata, JSON round-trip and request replay; reasoningDetails assertions remain pending, so whole-method parity is not established.
+- [ ] Complete applicable ThinkingBlock reasoningDetails preservation/replay from testThinkingDetailsRestoredAfterRoundTrip; invalid-detail behavior and exact provider representation still need an explicit contract.
+
+OpenAIThoughtSignatureTest's function.thoughtSignature DTO differs from the selected official Google extra_content.google.thought_signature wire format. testByteArraySignatureConverted has no direct Scala representation: already-opaque strings are preserved. testUnusableSignatureIgnored and testUnconvertibleThinkingDetailsSkipped are not adopted as silent-dropping policies; malformed recognized signature metadata fails closed. The real HTTP fixture is a local integration oracle, not an external Google server test. Server-tool authority, arbitrary metadata and thinking signatures are outside this selected format.
 
 ## Live model stream adaptation
 
@@ -1034,3 +1047,5 @@ AgentScope Java delegates JSON-RPC encoding to MCP SDK 0.17.2 at the pinned upst
 The [2026-07-28 specification](https://modelcontextprotocol.io/specification/2026-07-28/basic) defines the common envelope. Strict unknown-field rejection and bounded integers are explicit local constraints. Method-level result tags, capabilities, request correlation state and version compatibility remain outside this codec's acceptance.
 
 - [x] Verify runtime-owned lineage with six capability cases, two actual nested ReAct cases and one error-codec case. Depth-four rejection occurs before UUID/callback effects; cancellation reconciles every running level. These test-fixture spawn calls do not close production AgentSpawnTool mappings.
+
+- [x] Both reviewers approved the MCP connection reservation/terminal correction; full signature-mcp-verify.log verification passed. The unchanged HTTP expiry assertion exposed an additional registry-closed failure in tool-signature-verify.log; exact evidence and current identities are in the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance). This is a Scala ownership regression, not another mapped upstream method.

@@ -28,6 +28,10 @@ import zio.json.ast.Json
 enum ReasoningReplay derives JsonCodec:
   case Omit, LatestAssistant
 
+/** Explicit wire format for opaque per-call signatures; unrelated metadata is never projected. */
+enum ToolSignatureFormat derives JsonCodec:
+  case Unsupported, GoogleExtraContent
+
 /** Pure serialization of text, user images, and function calls; media sources are never fetched. */
 object ChatCompletionsRequest:
   private val namePattern = "[A-Za-z0-9_-]{1,64}".r
@@ -36,7 +40,8 @@ object ChatCompletionsRequest:
       history: Chunk[Msg],
       tools: Chunk[ToolDef],
       config: LlmConfig,
-      reasoningReplay: ReasoningReplay = ReasoningReplay.Omit
+      reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
+      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported
   ): Either[AgentError, Json.Obj] =
     val lastAssistant = history.lastIndexWhere(_.role == Role.Assistant)
     for
@@ -62,7 +67,7 @@ object ChatCompletionsRequest:
           case ReasoningReplay.LatestAssistant if index == lastAssistant =>
             ReasoningReplay.LatestAssistant
           case _ => ReasoningReplay.Omit
-        encodeMessage(msg, replay)
+        encodeMessage(msg, replay, toolSignatureFormat)
       body = Json.Obj(
         Chunk(
           "model"          -> Json.Str(config.model),
@@ -118,7 +123,11 @@ object ChatCompletionsRequest:
       )
     )
 
-  private def encodeMessage(msg: Msg, replay: ReasoningReplay): Either[AgentError, Chunk[Json]] =
+  private def encodeMessage(
+      msg: Msg,
+      replay: ReasoningReplay,
+      toolSignatureFormat: ToolSignatureFormat
+  ): Either[AgentError, Chunk[Json]] =
     msg.role match
       case Role.Tool =>
         for
@@ -128,7 +137,7 @@ object ChatCompletionsRequest:
           )
           results <- traverse(msg.toolResults)(encodeResult)
         yield results
-      case Role.Assistant => encodeAssistant(msg, replay).map(Chunk(_))
+      case Role.Assistant => encodeAssistant(msg, replay, toolSignatureFormat).map(Chunk(_))
       case Role.System | Role.User =>
         for
           content <-
@@ -202,7 +211,11 @@ object ChatCompletionsRequest:
         (character >= 'a' && character <= 'z') ||
         (character >= '0' && character <= '9') || character == '+' || character == '/'
 
-  private def encodeAssistant(msg: Msg, replay: ReasoningReplay): Either[AgentError, Json] =
+  private def encodeAssistant(
+      msg: Msg,
+      replay: ReasoningReplay,
+      toolSignatureFormat: ToolSignatureFormat
+  ): Either[AgentError, Json] =
     for
       _ <- message(
         msg.content.forall(assistantContent),
@@ -213,7 +226,7 @@ object ChatCompletionsRequest:
         "Assistant tool call IDs must be unique"
       )
       name  <- messageName(msg)
-      calls <- traverse(msg.toolUses)(encodeCall)
+      calls <- traverse(msg.toolUses)(call => encodeCall(call, toolSignatureFormat))
       reasoning <- replay match
         case ReasoningReplay.Omit => Right(Chunk.empty)
         case ReasoningReplay.LatestAssistant =>
@@ -234,26 +247,48 @@ object ChatCompletionsRequest:
         (if calls.isEmpty then Chunk.empty else Chunk("tool_calls" -> Json.Arr(calls)))
     )
 
-  private def encodeCall(call: ContentBlock.ToolUse): Either[AgentError, Json] =
+  private def encodeCall(
+      call: ContentBlock.ToolUse,
+      toolSignatureFormat: ToolSignatureFormat
+  ): Either[AgentError, Json] =
     for
       _ <- message(
         call.id.trim.nonEmpty && namePattern.matches(call.name),
         "Tool calls require a nonblank ID and valid function name"
       )
       _ <- message(
-        !call.isServerTool && !call.metadata.contains("thoughtSignature") && !call.metadata
-          .contains("reasoningDetails"),
-        "Server tools and signed calls require a provider-specific request codec"
+        !call.isServerTool && !call.metadata.contains("reasoningDetails"),
+        "Server tools and reasoning details require another request codec"
       )
+      signature <- call.metadata.get("thoughtSignature") match
+        case None => Right(Chunk.empty)
+        case Some(Json.Str(value)) if !value.isBlank =>
+          toolSignatureFormat match
+            case ToolSignatureFormat.Unsupported =>
+              Left(
+                AgentError.InvalidMessage("Tool thought signatures require an explicit wire format")
+              )
+            case ToolSignatureFormat.GoogleExtraContent =>
+              Right(
+                Chunk(
+                  "extra_content" -> Json.Obj(
+                    "google" -> Json.Obj("thought_signature" -> Json.Str(value))
+                  )
+                )
+              )
+        case _ =>
+          Left(AgentError.InvalidMessage("Tool thought signature must be a nonblank string"))
       _ <- message(call.input.isInstanceOf[Json.Obj], "Function call arguments must be an object")
       _ <- JsonBoundary.validate(call.input).left.map(AgentError.InvalidMessage(_))
     yield Json.Obj(
-      "id"   -> Json.Str(call.id),
-      "type" -> Json.Str("function"),
-      "function" -> Json.Obj(
-        "name"      -> Json.Str(call.name),
-        "arguments" -> Json.Str(call.input.toJson)
-      )
+      Chunk(
+        "id"   -> Json.Str(call.id),
+        "type" -> Json.Str("function"),
+        "function" -> Json.Obj(
+          "name"      -> Json.Str(call.name),
+          "arguments" -> Json.Str(call.input.toJson)
+        )
+      ) ++ signature
     )
 
   private def encodeResult(result: ContentBlock.ToolResult): Either[AgentError, Json] =

@@ -82,7 +82,13 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
           arguments <- objectArguments(tool.arguments).left.map(error =>
             AgentError.DeserializationError(s"Invalid completed tool arguments: $error")
           )
-        yield previous :+ ContentBlock.ToolUse(id, name, arguments, content = Some(tool.arguments))
+        yield previous :+ ContentBlock.ToolUse(
+          id,
+          name,
+          arguments,
+          content = Some(tool.arguments),
+          metadata = signatureMetadata(tool.thoughtSignature)
+        )
       )
       _ <- Either.cond(
         tools.map(_.id).distinct.size == tools.size,
@@ -104,7 +110,8 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
         tool.callId.getOrElse(s"stream_call_${tool.index}"),
         tool.name.getOrElse(""),
         arguments.getOrElse(Json.Obj()),
-        content = Some(arguments.fold("{}")(_ => tool.arguments))
+        content = Some(arguments.fold("{}")(_ => tool.arguments)),
+        metadata = signatureMetadata(tool.thoughtSignature)
       )
     TurnOutput.Interrupted(materialize(tools))
 
@@ -130,19 +137,33 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
         (),
         "Tool name changed within one stream index"
       )
+      _ <- Either.cond(
+        tool.thoughtSignature.forall(value => !value.isBlank),
+        (),
+        "Tool thought signature must not be blank"
+      )
+      _ <- Either.cond(
+        compatible(previous.thoughtSignature, tool.thoughtSignature),
+        (),
+        "Tool thought signature changed within one stream index"
+      )
     yield state.copy(toolCalls =
       state.toolCalls.updated(
         tool.streamIndex,
         previous.copy(
           callId = tool.callId.orElse(previous.callId),
           name = tool.name.orElse(previous.name),
-          arguments = previous.arguments + tool.argumentsDelta
+          arguments = previous.arguments + tool.argumentsDelta,
+          thoughtSignature = tool.thoughtSignature.orElse(previous.thoughtSignature)
         )
       )
     )
 
   private def orderedTools: Chunk[ToolFragments] =
     Chunk.fromIterable(state.toolCalls.toList.sortBy(_._1).map(_._2))
+
+  private def signatureMetadata(signature: Option[String]): Map[String, Json] =
+    signature.fold(Map.empty[String, Json])(value => Map("thoughtSignature" -> Json.Str(value)))
 
   private def materialize(tools: Chunk[ContentBlock.ToolUse]): Msg =
     val content: Chunk[ContentBlock] = state.order.flatMap:
@@ -175,7 +196,8 @@ object StreamAccumulator:
       index: Int,
       callId: Option[String] = None,
       name: Option[String] = None,
-      arguments: String = ""
+      arguments: String = "",
+      thoughtSignature: Option[String] = None
   )
 
   final private case class State(

@@ -18,7 +18,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [StreamAccumulatorCompletionSpec](StreamAccumulatorCompletionSpec.scala)
 - [StreamAccumulatorSpec](StreamAccumulatorSpec.scala)
 
-ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadata does not change the encoded provider request. The [output-schema acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records that scoped evidence; the current request/spec identities are in [user-image projection](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
+ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadata does not change the encoded provider request. The [output-schema acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records that scoped evidence; the current request/spec identities are in [tool-call signatures](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#tool-call-signatures).
 
 ## Current evidence
 
@@ -30,16 +30,18 @@ ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadat
 - [x] Existing accumulator scenarios and two ReAct thinking-retry integration tests now handle Either and explicit successful finish markers.
 - [x] Final user-image reviews and full verification are recorded in the linked source contract; two grouped tables add exact image/text wire ordering and whole-request rejection of malformed sources and unsupported media roles.
 - [x] Fourteen transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
-- [x] Six live-client tests verify early deltas, real HTTP tool cycles, request identity, late call identity, malformed/incomplete streams, and cancellation.
+- [x] Live-client tests verify early deltas, real HTTP tool cycles, request identity, late call identity, malformed/incomplete streams, and cancellation.
 - [x] Three publisher tests verify indexed content, interleaved calls, and atomic ending-batch validation; two event-context tests cover all sixteen correlated variants and legacy payloads.
-- [ ] Complete remaining event integration, provider signature/metadata decoding, and exhaustive upstream scenario mapping.
+- [ ] Complete remaining event integration, other provider signature/metadata decoding, and exhaustive upstream scenario mapping.
+
+- [x] Both final reviews and full signature-mcp-verify.log verification passed for selected Google tool-signature decoding/assembly/replay. Two unit groups cover stable indexed opaque values, JSON round-trip, interrupted sanitization and strict malformed/conflict rejection; one request group covers all-history replay; one real loopback ReAct group covers signed denial versus unsigned approval and the next HTTP request. No live-provider interoperability is claimed.
 
 ## Current acceptance
 
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
 - [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the unchanged JSON-boundary identities from that scope; current capability identities are listed below. No findings remain within this scope.
 - [x] `path_review` approved the three real HTTP fixtures at the identities below. Only those fixtures use `TestAspect.withLiveClock`; deterministic fixtures retain TestClock and suite timeouts remain 20 seconds.
-- [ ] Complete provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, and exhaustive upstream mapping.
+- [ ] Complete other provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, and exhaustive upstream mapping.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
 
@@ -66,5 +68,5 @@ Real loopback client/server acquisition, use and release run with a live clock. 
 | Reviewed fixture suite | Git blob |
 | --- | --- |
 | [ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala) | `1aee5a644a169f297b38d9a93e65ed1ab9f9485e` |
-| [ChatCompletionsClientSpec](ChatCompletionsClientSpec.scala) | `f3c52d5d5ff2ef59361a03cc46f6e6268e7c45a0` |
+| ChatCompletionsClientSpec | Current identity: [tool-call signatures](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#tool-call-signatures). |
 | [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | `396f6d75c01bcaac54750a0d5df97c219a4b8c31` |

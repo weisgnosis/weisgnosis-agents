@@ -116,7 +116,7 @@ object McpConnection:
       execute:
         for
           dispatch <- Ref.make[Dispatch](Dispatch.NotIssued)
-          pending <- requests.register(cause =>
+          pending <- reserve(cause =>
             if cause.isInterrupted then cancelIssued(dispatch) else ZIO.unit
           )
           message <- ZIO.suspendSucceed(ZIO.fromEither(build(pending.id)))
@@ -127,6 +127,22 @@ object McpConnection:
             ZIO.suspendSucceed(transport.send(message, dispatch.set(Dispatch.Issued(message))))
           reply <- pending.await
         yield reply
+
+    /** Reserve in the fresh action scope before stop can close the request registry. */
+    private def reserve(
+        onAbandon: Cause[AgentError] => UIO[Unit]
+    ): ZIO[Scope, AgentError, McpRequests.PendingRequest] =
+      gate
+        .withPermit(
+          ZIO.uninterruptible:
+            admission.get.flatMap:
+              case Admission.Open       => requests.register(onAbandon).map(Some(_))
+              case Admission.Stopped(_) => ZIO.none
+        )
+        .flatMap:
+          case Some(pending) => ZIO.succeed(pending)
+          // The supervisor owns terminal delivery; never wait while holding its admission gate.
+          case None => ZIO.never
 
     /** The registry settles abandonment first; this bounded offer never waits on transport I/O. */
     private def cancelIssued(dispatch: Ref[Dispatch]): UIO[Unit] =

@@ -34,7 +34,8 @@ final case class CompletionTransportLimits(
 final class ChatCompletionsTransport private (
     http: Client,
     limits: CompletionTransportLimits,
-    reasoningReplay: ReasoningReplay
+    reasoningReplay: ReasoningReplay,
+    toolSignatureFormat: ToolSignatureFormat
 ):
   /** Owns the request scope, closing it before success, failure, or interruption returns. */
   def complete(
@@ -56,7 +57,13 @@ final class ChatCompletionsTransport private (
     ZIO.scoped:
       for
         body <- ZIO.fromEither(
-          ChatCompletionsRequest.encode(history, tools, config, reasoningReplay)
+          ChatCompletionsRequest.encode(
+            history,
+            tools,
+            config,
+            reasoningReplay,
+            toolSignatureFormat
+          )
         )
         url <- endpoint(config.endpoint)
         _ <- ZIO
@@ -128,8 +135,10 @@ final class ChatCompletionsTransport private (
                 .map(ChatCompletionsTransport.StreamState.Completed(_))
             else
               for
-                deltas <- ZIO.fromEither(ReasoningModelAdapter.parseChunk(frame.data))
-                _      <- ZIO.fromEither(accumulate(accumulator, deltas))
+                deltas <- ZIO.fromEither(
+                  ReasoningModelAdapter.parseChunk(frame.data, toolSignatureFormat)
+                )
+                _ <- ZIO.fromEither(accumulate(accumulator, deltas))
                 transformed <- ZIO.foreach(deltas):
                   case fragment: LlmChunk.TextDelta =>
                     transformText(fragment).map(text => fragment.copy(delta = text))
@@ -187,11 +196,12 @@ object ChatCompletionsTransport:
   def make(
       http: Client,
       limits: CompletionTransportLimits = CompletionTransportLimits(),
-      reasoningReplay: ReasoningReplay = ReasoningReplay.Omit
+      reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
+      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported
   ): IO[AgentError, ChatCompletionsTransport] =
     ZIO.fromEither:
       Either.cond(
         limits.responseBytes > 0 && limits.errorBodyBytes > 0,
-        new ChatCompletionsTransport(http, limits, reasoningReplay),
+        new ChatCompletionsTransport(http, limits, reasoningReplay, toolSignatureFormat),
         AgentError.InvalidConfiguration("Transport byte limits must be positive")
       )

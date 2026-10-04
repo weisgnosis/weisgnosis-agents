@@ -16,7 +16,8 @@ The [initialized client](../../modules/mcp/src/main/scala/com/weisgnosis/agents/
 - [x] Both reviewers approved bounded eager text-tree resource discovery; documents-only defaults and runtime authority remain unchanged, and full verification passed.
 - [x] `registry_contract` and `current_docs` approved exact host-bound deferred readers, scoped runtime resolution and monotone child selection; full verification passed. Current ten-file identities are recorded in the core skill/runtime and harness skill/subagent contracts.
 - [x] `registry_contract` and `current_docs` approved child-owned Plan tools/context through declared/general-purpose factories and live restrictions across named sessions. The [Plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#child-installation-acceptance) records five current identities and full verification.
-- [ ] Complete provider signature/tool-metadata decoding and replay; durable integration remains unfinished.
+- [x] Explicit Google tool-call signature decoding, indexed preservation and historical replay are independently reviewed and verified.
+- [ ] Define bounded reasoningDetails preservation/replay; durable integration remains unfinished.
 - [x] MCP grouped registration provides coherent Ready-only toolkit/membership snapshots; the host explicitly installs both fields into ReAct.
 - [x] Preloaded skill resources activate explicit Meta groups through ordinary authorized runtime loading, with no filesystem or repository capability.
 - [x] Explicit child Plan tools/context retain independent review and live ancestor admission.

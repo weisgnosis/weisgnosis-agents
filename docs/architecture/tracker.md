@@ -22,7 +22,7 @@ Last synchronized: 2026-10-04. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 612 core / 698 harness / 83 MCP tests (1,393 total), zero compiler warnings or failures. Evidence: `user-image-verify.log`; compile task 2 seconds and test task 19 seconds.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 616 core / 698 harness / 83 MCP tests (1,397 total), zero compiler warnings or failures. Evidence: `signature-mcp-verify.log`; compile task 1 second and test task 15 seconds.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -109,7 +109,9 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] `registry_contract` and `current_docs` approved exact host-bound deferred readers, scoped runtime resolution and monotone child selection; full verification passed. Current ten-file identities are recorded in the core skill/runtime and harness skill/subagent contracts.
 - [x] `registry_contract` and `current_docs` approved child-owned Plan tools/context through declared/general-purpose factories and live restrictions across named sessions. The [Plan contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#child-installation-acceptance) records five current identities and full verification.
 - [x] Both final reviewers approved [ordered user text/image request projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection), and full verification passed; standard tool messages remain text-only.
-- [ ] Next: provider signature/tool-metadata decoding and end-to-end replay, with the concrete supported extension surface still under preflight.
+- [x] Both reviewers approved [selected Google tool-call signatures](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-call-signatures), including indexed preservation, signed-input protection and historical replay; full verification passed.
+- [x] Both reviewers approved [MCP guarded reservation](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance), preserving terminal causes after the existing HTTP assertion exposed a race; full verification passed.
+- [ ] Next: bounded reasoningDetails encrypted-block preservation and replay; the concrete provider contract remains under preflight.
 - [x] Implement and independently review scoped HTTP POST and explicit GET requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [x] Both independent reviews approved direct host replacement after real SDK session expiry and same-send POST-body recovery after real Netty truncation. Exact identities, verification and bounded exclusions are in the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#independent-server-interoperability); manager-on-real-server, listener reconnection and cancellation interoperability remain separate.
 - [ ] Define durable host reuse/recovery and post-promotion event delivery separately, with explicit lifetime and retention contracts.
@@ -120,7 +122,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 
 ## Remaining integration and parity
 
-- [ ] Complete applicable core/harness method mappings and remaining structured-output, lifecycle and event-ordering gaps, including broader provider multimodal projection, provider signature/tool metadata, event adapters, phase-stop integration and richer subagent attribution.
+- [ ] Complete applicable core/harness method mappings and remaining structured-output, lifecycle and event-ordering gaps, including broader provider multimodal projection, other provider signature/tool metadata, event adapters, phase-stop integration and richer subagent attribution.
 - [x] All fourteen Plan inventory methods have bounded adaptations, including opt-in child installation and retained named-session restrictions. Java middleware/API shapes, automatic flag copying and unrestricted shell bypass are intentionally excluded; authenticated UI and durable approval restoration remain unfinished.
 - [ ] Implement durable host persistence and authenticated, idempotent resumption from `ConfirmResult` without another model request.
 - [ ] Complete model-selection configuration, remote memory/transcript adapters, timestamp-watermark migration, session discovery and scheduling.

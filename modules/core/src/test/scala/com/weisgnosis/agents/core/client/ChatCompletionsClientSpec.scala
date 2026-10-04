@@ -17,11 +17,12 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.agent.ReActAgent
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
-import com.weisgnosis.agents.core.model.Msg
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.model.{Msg, ToolResultState}
+import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorization, ToolAuthorizer, ToolDef, Toolkit}
 import zio.*
 import zio.http.*
 import zio.stream.ZStream
+import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 import HttpClientTestSupport.scripted
@@ -137,6 +138,94 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
             starts.flatten.map(_.requestId).distinct.size == 2,
             starts.flatten.map(_.replyId).distinct.size == 1,
             events.exists(_.isInstanceOf[AgentEvent.ToolCallEndEvent]),
+            events.collect { case event: AgentEvent.AgentResultEvent =>
+              event.result.text
+            } == Chunk("answer")
+          )
+        .provide(Client.default, Server.defaultWithPort(0))
+    ) @@ TestAspect.withLiveClock,
+    test("a real signed tool cycle replays only its signature and denies edits to signed input")(
+      ZIO
+        .scoped:
+          val beginning = frame(
+            """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"signed","function":{"name":"lookup","arguments":"{\"value\":"}},{"index":1,"id":"unsigned","function":{"name":"lookup","arguments":"{\"value\":\"original\"}"}}]}}]}"""
+          )
+          val ending = frame(
+            """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"original\"}"},"extra_content":{"google":{"thought_signature":"opaque-signature"},"serverTool":true}}]},"finish_reason":"tool_calls"}]}"""
+          )
+          val changed = Json.Obj("value" -> Json.Str("changed"))
+          for
+            requests   <- Ref.make(Chunk.empty[String])
+            executed   <- Ref.make(Chunk.empty[Json])
+            authorized <- Ref.make(Chunk.empty[Map[String, Json]])
+            lookup = Tool.make(ToolDef("lookup", "Look up a value", Json.Obj()))(input =>
+              executed.update(_ :+ input).as("observation")
+            )
+            authorizer = ToolAuthorizer(request =>
+              authorized.update(_ :+ request.call.metadata).as(ToolAuthorization.Approved(changed))
+            )
+            port <- Server.install(Routes(Method.POST / "completion" -> handler {
+              (request: Request) =>
+                request.body.asString
+                  .orElseSucceed("")
+                  .flatMap(body => requests.modify(previous => (previous.size, previous :+ body)))
+                  .map(index =>
+                    response(
+                      ZStream.succeed(
+                        if index == 0 then beginning + ending + done else text + stop + done
+                      )
+                    )
+                  )
+            }))
+            http <- ZIO.service[Client]
+            client <- ChatCompletionsClient
+              .make(http, toolSignatureFormat = ToolSignatureFormat.GoogleExtraContent)
+            agent <- ReActAgent.make(
+              client = client,
+              toolkit = Toolkit(Map("lookup" -> lookup)),
+              toolAuthorizer = authorizer,
+              llmConfig = config.copy(endpoint = s"http://127.0.0.1:$port/completion")
+            )
+            events    <- agent.streamEvents(Msg.user("lookup both")).runCollect
+            history   <- agent.history
+            raw       <- requests.get
+            bodies    <- ZIO.foreach(raw)(body => ZIO.fromEither(body.fromJson[Json]))
+            inputs    <- executed.get
+            decisions <- authorized.get
+            replayed = bodies
+              .drop(1)
+              .flatMap(
+                _.asObject.flatMap(_.get("messages")).flatMap(_.asArray).getOrElse(Chunk.empty)
+              )
+              .flatMap(
+                _.asObject.flatMap(_.get("tool_calls")).flatMap(_.asArray).getOrElse(Chunk.empty)
+              )
+            signature = Json.Obj(
+              "google" -> Json.Obj("thought_signature" -> Json.Str("opaque-signature"))
+            )
+            calls   = history.flatMap(_.toolUses)
+            results = history.flatMap(_.toolResults)
+          yield assertTrue(
+            bodies.size == 2,
+            inputs == Chunk(changed),
+            decisions.count(_.contains("thoughtSignature")) == 1,
+            calls
+              .find(_.id == "signed")
+              .exists(call =>
+                call.input == Json.Obj("value" -> Json.Str("original")) &&
+                  call.metadata.get("thoughtSignature").contains(Json.Str("opaque-signature"))
+              ),
+            calls
+              .find(_.id == "unsigned")
+              .exists(call => call.input == changed && !call.metadata.contains("thoughtSignature")),
+            replayed
+              .find(_.asObject.flatMap(_.get("id")).contains(Json.Str("signed")))
+              .exists(_.asObject.flatMap(_.get("extra_content")).contains(signature)),
+            replayed
+              .find(_.asObject.flatMap(_.get("id")).contains(Json.Str("unsigned")))
+              .exists(_.asObject.flatMap(_.get("extra_content")).isEmpty),
+            results.find(_.id == "signed").exists(_.state == ToolResultState.Denied),
+            results.find(_.id == "unsigned").exists(_.state == ToolResultState.Success),
             events.collect { case event: AgentEvent.AgentResultEvent =>
               event.result.text
             } == Chunk("answer")

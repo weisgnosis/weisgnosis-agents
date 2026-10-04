@@ -300,19 +300,21 @@ object McpConnectionSpec extends ZIOSpecDefault:
                     },
                     capacity = 1
                   )
-                  request  <- connection.request(mode).forkScoped
-                  _        <- duplex.nextRequest
-                  _        <- entered.await
-                  full     <- connection.request("full").exit
-                  _        <- duplex.received.offer(Take.failCause(cause))
-                  failed   <- request.await
-                  _        <- cleaned.await
-                  rejected <- connection.request("after failure").exit
+                  request          <- connection.request(mode).forkScoped
+                  _                <- duplex.nextRequest
+                  _                <- entered.await
+                  full             <- connection.request("full").exit
+                  _                <- duplex.received.offer(Take.failCause(cause))
+                  failed           <- request.await
+                  _                <- cleaned.await
+                  rejected         <- connection.request("after failure").exit
+                  sentAfterFailure <- duplex.sent.takeAll
                   _ <- observed.succeed(
                     assertTrue(
                       localFailure(full),
                       failed.causeOption.contains(cause),
-                      localFailure(rejected)
+                      rejected.causeOption.contains(cause),
+                      sentAfterFailure.isEmpty
                     )
                   )
                 yield ()

@@ -16,15 +16,124 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.model.ChatUsage
+import com.weisgnosis.agents.core.model.{ChatUsage, Msg}
 import zio.Chunk
 import zio.test.*
+import zio.json.*
+import zio.json.ast.Json
 
 /** Protocol failures must not become empty successful model observations. */
 object ReasoningAdapterValidationSpec extends ZIOSpecDefault:
   private def delta(fields: String): String = s"""{"choices":[{"index":0,"delta":{$fields}}]}"""
 
   def spec: Spec[TestEnvironment, Any] = suite("ReasoningAdapterValidationSpec")(
+    test(
+      "Google signatures assemble by stream index through late fragments and interrupted snapshots"
+    ) {
+      val first           = "opaque-first+/="
+      val second          = "opaque-second"
+      val argumentsPrefix = Json.Str("{\"x\":").toJson
+      val frames = Chunk(
+        delta(
+          s""""tool_calls":[{"index":0,"id":"one","function":{"name":"search","arguments":$argumentsPrefix},"extra_content":{"google":{"thought_signature":"$first"}}},{"index":1,"id":"two","function":{"name":"search","arguments":"{}"}}]"""
+        ),
+        delta(
+          """"tool_calls":[{"index":2,"id":"three","function":{"name":"search","arguments":"{"}},{"index":0,"function":{"arguments":"1}"}}]"""
+        ),
+        delta(
+          s""""tool_calls":[{"index":2,"function":{"arguments":"}"},"extra_content":{"google":{"thought_signature":"$second"}}},{"index":0,"extra_content":{"google":{"thought_signature":"$first"}}}]"""
+        )
+      )
+      def assemble(values: Chunk[String]): Either[AgentError, StreamAccumulator] =
+        values.foldLeft[Either[AgentError, StreamAccumulator]](Right(StreamAccumulator.empty))(
+          (acc, frame) =>
+            for
+              state <- acc
+              chunks <- ReasoningModelAdapter.parseChunk(
+                frame,
+                ToolSignatureFormat.GoogleExtraContent
+              )
+              next <- chunks.foldLeft[Either[AgentError, StreamAccumulator]](Right(state))(
+                (current, chunk) => current.flatMap(_.feed(chunk))
+              )
+            yield next
+        )
+      val finalMessage = for
+        accumulated <- assemble(frames)
+        finished    <- accumulated.feed(LlmChunk.FinishReason("tool_calls"))
+        output      <- finished.toTurnOutput
+      yield output.message
+      val roundTrip =
+        finalMessage.flatMap(_.toJson.fromJson[Msg].left.map(AgentError.DeserializationError(_)))
+      val interrupted = assemble(frames.take(1)).map(_.toInterrupted.message)
+      assertTrue(
+        roundTrip == finalMessage,
+        finalMessage.exists(
+          _.toolUses.map(call => (call.id, call.input, call.thoughtSignature)) == Chunk(
+            ("one", Json.Obj("x" -> Json.Num(1)), Some(first)),
+            ("two", Json.Obj(), None),
+            ("three", Json.Obj(), Some(second))
+          )
+        ),
+        interrupted.exists(
+          _.toolUses.map(call => (call.input, call.thoughtSignature)) == Chunk(
+            (Json.Obj(), Some(first)),
+            (Json.Obj(), None)
+          )
+        ),
+        """{"streamIndex":0}""".fromJson[LlmChunk.ToolCallChunk].exists(_.thoughtSignature.isEmpty)
+      )
+    },
+    test(
+      "unsupported malformed or conflicting Google signatures fail without revealing their value"
+    ) {
+      val token = "private-opaque-token"
+      val badValues = Chunk[Json](
+        Json.Null,
+        Json.Num(1),
+        Json.Bool(true),
+        Json.Arr(),
+        Json.Obj(),
+        Json.Str(""),
+        Json.Str(" \t")
+      )
+      def signed(value: Json): String = delta(
+        s""""tool_calls":[{"index":0,"extra_content":{"google":{"thought_signature":${value.toJson}}}}]"""
+      )
+      val invalidContainers = Chunk(
+        delta(""""tool_calls":[{"index":0,"extra_content":{"google":null}}]"""),
+        delta(""""tool_calls":[{"index":0,"extra_content":{"google":[]}}]"""),
+        delta(""""tool_calls":[{"index":0,"extra_content":42}]""")
+      )
+      val rejected = badValues.map(signed) ++ invalidContainers
+      val formats  = Chunk(ToolSignatureFormat.Unsupported, ToolSignatureFormat.GoogleExtraContent)
+      val initial =
+        StreamAccumulator.empty.feed(LlmChunk.ToolCallChunk(0, thoughtSignature = Some(token)))
+      val conflicting = initial.flatMap(
+        _.feed(LlmChunk.ToolCallChunk(0, thoughtSignature = Some("other-private-token")))
+      )
+      val unsupported = ReasoningModelAdapter.parseChunk(signed(Json.Str(token)))
+      val unsigned = delta(
+        """"tool_calls":[{"index":0,"id":"call","function":{"name":"search","arguments":"{}"},"extra_content":{"unrelated":{"serverTool":true}}}]"""
+      )
+      assertTrue(
+        formats.forall(format =>
+          rejected.forall(frame => ReasoningModelAdapter.parseChunk(frame, format).isLeft)
+        ),
+        unsupported.left.exists(error => !error.message.contains(token)),
+        conflicting.left.exists(error =>
+          !error.message.contains(token) && !error.message.contains("other-private-token")
+        ),
+        StreamAccumulator.empty
+          .feed(LlmChunk.ToolCallChunk(0, thoughtSignature = Some(" ")))
+          .isLeft,
+        ReasoningModelAdapter.parseChunk(unsigned) == ReasoningModelAdapter
+          .parseChunk(unsigned, ToolSignatureFormat.GoogleExtraContent),
+        ReasoningModelAdapter.parseChunk(unsigned) == Right(
+          Chunk(LlmChunk.ToolCallChunk(0, Some("call"), Some("search"), "{}"))
+        )
+      )
+    },
     test("malformed JSON and invalid root envelopes fail in the typed channel") {
       val invalid =
         Chunk("broken", "[]", "null", "{}", """{"choices":null}""", """{"choices":[]}""")

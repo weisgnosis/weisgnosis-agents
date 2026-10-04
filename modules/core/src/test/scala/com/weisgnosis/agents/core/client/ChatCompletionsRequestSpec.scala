@@ -180,6 +180,103 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         )
       )
     },
+    test(
+      "Google signature replay follows each historical call and rejects malformed or unsupported metadata"
+    ) {
+      val first = ContentBlock.ToolUse(
+        "one",
+        "search",
+        Json.Obj(),
+        metadata = Map(
+          "thoughtSignature" -> Json.Str("opaque-one"),
+          "private"          -> Json.Str("must-not-project")
+        )
+      )
+      val unsigned = ContentBlock.ToolUse("two", "search", Json.Obj())
+      val next =
+        first.copy(id = "three", metadata = Map("thoughtSignature" -> Json.Str("opaque-three")))
+      val history = Chunk(
+        Msg.assistant(Chunk(ContentBlock.Thinking("earlier"), first, unsigned)),
+        Msg.tool(
+          Chunk(
+            ContentBlock.ToolResult.text("one", "search", "done"),
+            ContentBlock.ToolResult.text("two", "search", "done")
+          )
+        ),
+        Msg.user("next"),
+        Msg.assistant(Chunk(ContentBlock.Thinking("latest"), next)),
+        Msg.tool("three", "search", "done")
+      )
+      def callJson(id: String, signature: Option[String]): Json = Json.Obj(
+        Chunk(
+          "id"       -> Json.Str(id),
+          "type"     -> Json.Str("function"),
+          "function" -> Json.Obj("name" -> Json.Str("search"), "arguments" -> Json.Str("{}"))
+        ) ++ Chunk.fromIterable(
+          signature.map(value =>
+            "extra_content" -> Json.Obj(
+              "google" -> Json.Obj("thought_signature" -> Json.Str(value))
+            )
+          )
+        )
+      )
+      val expected = Chunk(
+        callJson("one", Some("opaque-one")),
+        callJson("two", None),
+        callJson("three", Some("opaque-three"))
+      )
+      val malformed = Chunk[Json](Json.Null, Json.Num(1), Json.Obj(), Json.Str(""), Json.Str(" \t"))
+      val forbidden = Chunk(
+        first.withServerTool(true),
+        first.copy(metadata = first.metadata.updated("reasoningDetails", Json.Arr()))
+      )
+      val replayModes = Chunk(ReasoningReplay.Omit, ReasoningReplay.LatestAssistant)
+      assertTrue(
+        replayModes.forall(mode =>
+          messages(
+            ChatCompletionsRequest.encode(
+              history,
+              Chunk.empty,
+              config,
+              mode,
+              ToolSignatureFormat.GoogleExtraContent
+            )
+          )
+            .exists(
+              _.flatMap(
+                _.asObject.flatMap(_.get("tool_calls")).flatMap(_.asArray).getOrElse(Chunk.empty)
+              ) == expected
+            )
+        ),
+        ChatCompletionsRequest.encode(history, Chunk.empty, config).isLeft,
+        malformed.forall(value =>
+          ChatCompletionsRequest
+            .encode(
+              pairedHistory(
+                Msg.assistant(Chunk(first.copy(metadata = Map("thoughtSignature" -> value))))
+              ),
+              Chunk.empty,
+              config,
+              toolSignatureFormat = ToolSignatureFormat.GoogleExtraContent
+            )
+            .left
+            .exists(_.isInstanceOf[AgentError.InvalidMessage])
+        ),
+        forbidden.forall(call =>
+          ChatCompletionsRequest
+            .encode(
+              pairedHistory(Msg.assistant(Chunk(call))),
+              Chunk.empty,
+              config,
+              toolSignatureFormat = ToolSignatureFormat.GoogleExtraContent
+            )
+            .isLeft
+        ),
+        ToolSignatureFormat.GoogleExtraContent.toJson.fromJson[ToolSignatureFormat] == Right(
+          ToolSignatureFormat.GoogleExtraContent
+        )
+      )
+    },
     test("requests streaming usage and preserves native response format and generation options") {
       val format = Json.Obj(
         "type"        -> Json.Str("json_schema"),
@@ -425,9 +522,11 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             .left
             .exists(error =>
               error == AgentError.InvalidMessage(
-                if msg.role == Role.Assistant then
-                  "Server tools and signed calls require a provider-specific request codec"
-                else "Server or suspended tool results require a different protocol"
+                if msg.role != Role.Assistant then
+                  "Server or suspended tool results require a different protocol"
+                else if msg.toolUses.exists(_.metadata.contains("thoughtSignature")) then
+                  "Tool thought signatures require an explicit wire format"
+                else "Server tools and reasoning details require another request codec"
               )
             )
         )

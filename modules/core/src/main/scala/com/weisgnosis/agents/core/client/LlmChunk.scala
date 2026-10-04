@@ -40,7 +40,8 @@ object LlmChunk:
       streamIndex: Int,
       callId: Option[String] = None,
       name: Option[String] = None,
-      argumentsDelta: String = ""
+      argumentsDelta: String = "",
+      thoughtSignature: Option[String] = None
   ) extends LlmChunk derives JsonCodec
 
   final case class UsageChunk(

@@ -51,7 +51,8 @@ object ReasoningModelAdapter:
       index: StreamIndex,
       id: Option[String] = None,
       function: Option[FunctionDelta] = None,
-      @jsonField("type") kind: Option[String] = None
+      @jsonField("type") kind: Option[String] = None,
+      @jsonField("extra_content") extraContent: Option[Json] = None
   ) derives JsonDecoder
 
   final private case class Delta(
@@ -97,6 +98,12 @@ object ReasoningModelAdapter:
    * SSE framing and the [DONE] marker belong to SseParser. Only choice zero is supported.
    */
   def parseChunk(jsonStr: String): Either[AgentError, Chunk[LlmChunk]] =
+    parseChunk(jsonStr, ToolSignatureFormat.Unsupported)
+
+  def parseChunk(
+      jsonStr: String,
+      toolSignatureFormat: ToolSignatureFormat
+  ): Either[AgentError, Chunk[LlmChunk]] =
     for
       json <- JsonBoundary.decode(jsonStr).left.map(AgentError.DeserializationError(_))
       chunks <- json match
@@ -125,20 +132,26 @@ object ReasoningModelAdapter:
                   "Completion choices must be an explicit array"
                 )
                 value   <- obj.as[Completion]
-                decoded <- decodeCompletion(value)
+                decoded <- decodeCompletion(value, toolSignatureFormat)
               yield decoded).left.map(AgentError.DeserializationError(_))
         case _ => Left(AgentError.DeserializationError("Completion chunk must be an object"))
     yield chunks
 
-  private def decodeCompletion(value: Completion): Either[String, Chunk[LlmChunk]] =
+  private def decodeCompletion(
+      value: Completion,
+      toolSignatureFormat: ToolSignatureFormat
+  ): Either[String, Chunk[LlmChunk]] =
     for choices <- value.choices.toList match
         case Nil if value.usage.nonEmpty              => Right(Chunk.empty)
-        case choice :: Nil if choice.index.value == 0 => decodeChoice(choice)
+        case choice :: Nil if choice.index.value == 0 => decodeChoice(choice, toolSignatureFormat)
         case Nil => Left("An empty choices array requires a usage payload")
         case _   => Left("Exactly one completion choice with index zero is supported")
     yield choices ++ Chunk.fromIterable(value.usage.map(decodeUsage))
 
-  private def decodeChoice(choice: Choice): Either[String, Chunk[LlmChunk]] =
+  private def decodeChoice(
+      choice: Choice,
+      toolSignatureFormat: ToolSignatureFormat
+  ): Either[String, Chunk[LlmChunk]] =
     val delta = choice.delta
     val calls = delta.toolCalls.getOrElse(Chunk.empty)
     for
@@ -157,7 +170,7 @@ object ReasoningModelAdapter:
       tools <- calls.foldLeft[Either[String, Chunk[LlmChunk]]](Right(Chunk.empty))((acc, tool) =>
         for
           previous <- acc
-          decoded  <- decodeTool(tool)
+          decoded  <- decodeTool(tool, toolSignatureFormat)
         yield previous :+ decoded
       )
     yield Chunk.fromIterable(
@@ -169,14 +182,45 @@ object ReasoningModelAdapter:
       Chunk.fromIterable(delta.content.filter(_.nonEmpty).map(LlmChunk.TextDelta(_))) ++
       tools ++ Chunk.fromIterable(choice.finishReason.map(LlmChunk.FinishReason(_)))
 
-  private def decodeTool(tool: ToolDelta): Either[String, LlmChunk] =
-    for _ <- Either.cond(tool.kind.forall(_ == "function"), (), "Unsupported streamed tool type")
+  private def decodeTool(
+      tool: ToolDelta,
+      toolSignatureFormat: ToolSignatureFormat
+  ): Either[String, LlmChunk] =
+    for
+      _ <- Either.cond(tool.kind.forall(_ == "function"), (), "Unsupported streamed tool type")
+      signature <- decodeSignature(tool.extraContent, toolSignatureFormat)
     yield LlmChunk.ToolCallChunk(
       tool.index.value,
       tool.id,
       tool.function.flatMap(_.name),
-      tool.function.flatMap(_.arguments).getOrElse("")
+      tool.function.flatMap(_.arguments).getOrElse(""),
+      signature
     )
+
+  private def decodeSignature(
+      extraContent: Option[Json],
+      format: ToolSignatureFormat
+  ): Either[String, Option[String]] =
+    // Absent/null extra_content is optional; present google and signature values are checked below.
+    val invalid = "Invalid tool thought signature or container"
+    for
+      google <- extraContent match
+        case None                  => Right(None)
+        case Some(value: Json.Obj) => Right(value.get("google"))
+        case _                     => Left(invalid)
+      signature <- google match
+        case None                  => Right(None)
+        case Some(value: Json.Obj) => Right(value.get("thought_signature"))
+        case _                     => Left(invalid)
+      result <- signature match
+        case None => Right(None)
+        case Some(Json.Str(value)) if !value.isBlank =>
+          format match
+            case ToolSignatureFormat.Unsupported =>
+              Left("Tool thought signatures require an explicit wire format")
+            case ToolSignatureFormat.GoogleExtraContent => Right(Some(value))
+        case _ => Left(invalid)
+    yield result
 
   private def decodeUsage(value: Usage): LlmChunk =
     LlmChunk.UsageChunk(

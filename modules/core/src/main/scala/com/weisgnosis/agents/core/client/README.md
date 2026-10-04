@@ -39,9 +39,9 @@ Normal frames require an explicit choices array. Exactly one choice with an expl
 
 Missing/JSON-null usage counts normalize to zero. Supplied counts and indexes must be nonnegative JSON integers within Int bounds; strings, fractions, overflow, and malformed nested objects fail. Non-null provider error envelopes become ModelError with status 200, representing an error carried inside an otherwise successful streaming response. Missing/empty provider messages receive a deterministic fallback. The transport preserves actual HTTP rejection status separately.
 
-Indexed function tools, text, and reasoning_content/thinking strings are supported. Non-assistant roles, nonempty refusal deltas, unsupported tool kinds, and non-null legacy function_call payloads fail explicitly. Canonical reasoning_content takes precedence over thinking. Unknown extension fields remain ignored unless they contain duplicate keys; this does not establish support for audio, richer reasoning details/signatures, or other provider payloads. Their integration remains pending.
+Indexed function tools, text, and reasoning_content/thinking strings are supported. Non-assistant roles, nonempty refusal deltas, unsupported tool kinds, and non-null legacy function_call payloads fail explicitly. Canonical reasoning_content takes precedence over thinking. Unknown extension fields remain ignored unless they contain duplicate keys; this does not establish support for audio, richer reasoning details or other provider payloads. Their integration remains pending.
 
-The wire baseline uses [streamed function-call deltas](https://developers.openai.com/api/docs/guides/function-calling). Single-choice limits and strict validation are runtime policy. The accumulator enforces the completion contracts below. Indexed text/thinking/function block publication and agent HTTP integration are implemented below. Provider signature decoding remains separate work.
+The wire baseline uses [streamed function-call deltas](https://developers.openai.com/api/docs/guides/function-calling). Single-choice limits and strict validation are runtime policy. The accumulator enforces the completion contracts below. Indexed text/thinking/function block publication and agent HTTP integration are implemented below. The explicit Google tool-signature contract is described below; other signature formats remain separate.
 
 ## Indexed assembly and completion
 
@@ -49,7 +49,7 @@ StreamAccumulator is now privately constructed through empty. feed returns Eithe
 
 Tool fragments remain keyed and emitted in numeric streamIndex order. IDs/names may arrive after argument fragments but must be nonblank, stable, present at completion, and IDs must be unique across completed calls. Arguments must be a complete JSON object with unique keys. Valid assembled raw text is retained in ToolUse.content exactly. Normal malformed/non-object/trailing input fails; toInterrupted instead sanitizes both input and content to {} and uses a deterministic placeholder only when the call ID has not arrived. This produces TurnOutput.Interrupted for reconciliation, never a completed executable turn.
 
-Text and thinking use separate index namespaces and retain first-appearance block order. Thinking signatures concatenate exactly, including signature-only blocks and whitespace; this covers LlmChunk assembly, not provider signature decoding. Tool blocks follow these content blocks in numeric order. Usage is the latest complete snapshot, never a sum of streaming snapshots.
+Text and thinking use separate index namespaces and retain first-appearance block order. Thinking signatures concatenate exactly, including signature-only blocks and whitespace; this covers ThinkingDelta assembly, not provider thinking-signature decoding. Tool blocks follow these content blocks in numeric order. Usage is the latest complete snapshot, never a sum of streaming snapshots.
 
 JsonBoundary is a library-internal shared boundary in the independent json package. zio-json's ordinary decoder permits unconsumed suffixes, so a pure tail-recursive boundary scanner checks the full document, JSON whitespace, container/string escapes, and complete primitive tokens. AST parsing validates grammar; a second tail-recursive traversal rejects duplicate fields. This prevents response frames, tool arguments, and structured text from hiding trailing garbage. Existing request/metadata/captured ASTs use direct duplicate-field validation without a serialization round trip.
 
@@ -59,7 +59,7 @@ ChatCompletionsRequest.encode returns Either[AgentError, Json.Obj] without effec
 
 History must contain complete local call/result pairs. Orphan, duplicate, unknown, and unresolved results fail before serialization; another conversation message cannot split pending calls from their observations. Grouped or separately delivered parallel results may arrive in any order, and completed later turns may reuse an ID. A grouped Tool message becomes individual protocol messages. Error, Interrupted, and Denied outputs carry explicit labels; Running and suspended observations fail.
 
-ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. Signed/detailed thinking cannot be replayed by this codec. Unsupported media, provider-hosted server calls/results, signed calls, and non-text tool output fail explicitly. User-image projection is defined below; broader provider formatting remains separate.
+ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. Signed/detailed thinking cannot be replayed by this codec. Unsupported media, provider-hosted server calls/results, calls signed with an unsupported format, and non-text tool output fail explicitly. User-image projection is defined below; broader provider formatting remains separate.
 
 Validation covers nonblank models, finite temperature in [0, 2], positive optional token limits, protocol names, unique definitions/call IDs, object schemas/arguments/response formats, and duplicate JSON fields. ToolUse.input is authoritative; stale raw content is not sent. Forwarding a schema object does not validate arbitrary JSON Schema semantics. Endpoint, authentication headers, HTTP status handling, and request resource lifetime belong to ChatCompletionsTransport.
 
@@ -71,16 +71,35 @@ This is pure serialization: it does not fetch URLs, read files, decode image byt
 
 No Scala API or domain-codec shape changes. Previously rejected valid user images now serialize; text-only requests and unsupported-role rejection retain their existing behavior. Full provider media validation remains the caller/provider responsibility.
 
+Two grouped image cases retain their accepted user-image contract and user-image-verify.log evidence. Current request source/spec identities and verification are consolidated in [tool-call signatures](#tool-call-signatures).
+
+## Tool-call signatures
+
+ToolSignatureFormat.Unsupported is the default. A host may explicitly choose GoogleExtraContent through ChatCompletionsClient.make or ChatCompletionsTransport.make; the transport uses the same immutable choice for response decoding and every historical request call. The selected wire field is tool_calls[].extra_content.google.thought_signature, following the [Google OpenAI-compatibility signature contract](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures#signatures-for-openai-compatibility). This does not enable generic provider metadata, ThinkingBlock signatures, reasoningDetails or server-hosted calls.
+
+The decoder accepts an absent/JSON-null extra_content as absent. Present extra_content and google containers must be objects; a supplied thought_signature must be a nonblank string. Unsupported rejects a recognized Google signature before dispatch. Unknown extension fields remain ignored, apart from duplicate-key rejection; they cannot grant server-tool authority. The opaque string is retained exactly, without decoding or concatenation. Each stream index may receive the same value again but cannot change it. Completed and interrupted ToolUse metadata retain thoughtSignature, including when interruption sanitizes unfinished arguments to {}. Parallel calls never inherit another call's signature.
+
+GoogleExtraContent replays that metadata on its original call across all historical assistant messages, independently of ReasoningReplay's latest-thinking policy. Other metadata is not copied to the wire. Malformed reserved signature metadata fails instead of being silently omitted. The existing runtime guard denies argument rewrites on signed calls, preserving the original canonical input; signatures are protocol data and confer no execution permission. Raw diagnostic frames may contain signatures; the added validation messages do not quote signature values.
+
+Migration: LlmChunk.ToolCallChunk appends defaulted thoughtSignature: Option[String]; old JSON omitting it still decodes to None, while positional extractors/Product now have five fields. encode and both make methods append a defaulted format argument, preserving ordinary source calls; method values may need adaptation and dependent binaries must be rebuilt. ReasoningModelAdapter retains its one-argument parseChunk overload and adds an explicit-format overload. No ownership, retries or provider discovery are introduced.
+
 | File | Reviewed Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | e03a72a80aa37e4f6323523594b1670c458968ae |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | f049456f4ca0ac6222eacc031b78ec584ed37505 |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | e5da37b22364928201db3c1c0828457691e819ce |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | b9ba4d6ce8d0287adb6a2679b21985022958e7fc |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | e84f2810313707c5de6eba6b3ccb551a329f2e9d |
+| [LlmChunk.scala](LlmChunk.scala) | 9886bf157fcdee5aa5713728f1faca5d6c9de90d |
+| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 993136e5674994c3d63346d1634241e1c38374ea |
+| [StreamAccumulator.scala](StreamAccumulator.scala) | a55c65b62f1fdcdd3e43d332ea55929bad8a0167 |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | 59b41e4994ff9fd62b399944635d192119956109 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | f03711c555b132774c057c4e0bbb181809a1b86f |
+| [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | af2751bfa6d0e9388411acc93928d6012ffed63d |
 
-- [x] path_review approved FP/ZIO correctness and current_docs approved invariants at these exact identities, with no findings. Full scalafmtAll scalafmtSbt verify passed with zero compiler warnings or failures (user-image-verify.log). Two grouped image cases cover exact ordered wire values, all four explicit media types, malformed source tables and unsupported roles. Focused evidence: user-image-focused.log, 24 tests passed in 3.740 seconds. Current repository totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the exact nine-file table, with no findings. Full scalafmtAll scalafmtSbt verify passed in signature-mcp-verify.log with zero compiler warnings or failures; focused tool-signature-focused.log passed 102 tests in 4.029 seconds. The reviewed source adds two decoder/assembly groups, one historical request/codec group and one real loopback ReAct group. The HTTP fixture checks late per-call signatures, denial of signed argument rewrites, execution of an unsigned rewrite and exact second-request replay. It is not live Google interoperability. Current repository totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 ## Scoped HTTP completion
 
-ChatCompletionsTransport.make accepts an injected zio-http Client, positive CompletionTransportLimits, and a ReasoningReplay policy. complete returns IO[AgentError, TurnOutput] and owns an inner request Scope. Success, failure, and cancellation close that scope before returning; cancellation stays interruption rather than a partial successful turn. The injected client layer and its connection pool belong to the host.
+ChatCompletionsTransport.make accepts an injected zio-http Client, positive CompletionTransportLimits, a ReasoningReplay policy and an explicit ToolSignatureFormat. complete returns IO[AgentError, TurnOutput] and owns an inner request Scope. Success, failure, and cancellation close that scope before returning; cancellation stays interruption rather than a partial successful turn. The injected client layer and its connection pool belong to the host.
 
 The transport sends POST JSON with Accept: text/event-stream and an optional Authorization bearer header. It requires an absolute HTTP(S) endpoint with a host, valid port, and no user information or fragment. Invalid limits, endpoints, credentials, or request bodies fail before dispatch. Transport failures use ModelError status zero without leaking exception text. HTTP rejection keeps the actual status and a bounded raw error payload; it does not retry automatically.
 
@@ -98,7 +117,7 @@ The runtime emits ModelRequestStart before invocation and ModelResponseEnd only 
 
 Each valid SSE JSON frame produces one ModelResponseChunk, then ordered text/thinking/function events. The entire frame is decoded and accepted by the accumulator before publication. Earlier valid events remain observable if a later frame fails. Deltas are provisional input, not completed conversation state or authorization to execute a tool.
 
-Text and thinking retain separate index namespaces and one start per index. Tool events use streamIndex as blockIndex; identity may arrive late, so arguments are buffered until both call ID and name exist, then emitted as one buffered delta. Subsequent fragments preserve their received order. Only a validated finish plus [DONE] closes blocks, in start order, and exposes the assembled turn. Failure/cancellation may leave observed starts without ends; consumers must use runtime termination/error rather than invent completion. Thinking signatures remain in the assembled Msg; these text-oriented events do not carry signature fragments.
+Text and thinking retain separate index namespaces and one start per index. Tool events use streamIndex as blockIndex; identity may arrive late, so arguments are buffered until both call ID and name exist, then emitted as one buffered delta. Subsequent fragments preserve their received order. Only a validated finish plus [DONE] closes blocks, in start order, and exposes the assembled turn. Failure/cancellation may leave observed starts without ends; consumers must use runtime termination/error rather than invent completion. Thinking and selected tool signatures remain in the assembled Msg; these text-oriented events do not carry signature fragments.
 
 Live deltas precede ModelResponseEnd. Open text/thinking blocks remain open until validated completion, allowing interleaving without premature endings. This deliberately differs from disabled upstream ordering sketches that place model-end before buffered content and close thinking before text starts. Local completed tool observations now carry the same request context and are persisted before delta/end publication. Full ordering parity and richer provider content remain pending.
 
@@ -116,8 +135,8 @@ This is a typed live-client text transformation point, not the upstream event-re
 
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
 - [x] `review_fp` and `review_harness` approved the shared JSON/structured HTTP increment against `9c165a7` on 2026-09-29 after correcting wrapper validation. The [JSON package acceptance table](../json/README.md) records the unchanged JSON-boundary identities from that scope; current capability identities are listed below. No findings remain within this scope.
-- [x] The unchanged scopes retain their recorded verification; current request identities and verification are in [user-image projection](#user-image-projection), with repository totals in the tracker.
-- [ ] Complete provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, and exhaustive upstream mapping.
+- [x] The unchanged scopes retain their recorded verification; current client identities and verification are in [tool-call signatures](#tool-call-signatures), with repository totals in the tracker.
+- [ ] Complete other provider signatures/tool metadata, inline server response decoding, richer reasoning details, additional input-size bounds, and exhaustive upstream mapping.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
 
@@ -138,13 +157,11 @@ Final formatted source identities against `06bd2e1`:
 
 ## Text transformation increment identities
 
-Unchanged production contracts retain acceptance against `02b4654`. The current real HTTP fixture clock revision is independently approved by `path_review`; its scope and verification are in the [test contract](../../../../../../../test/scala/com/weisgnosis/agents/core/client/README.md#real-http-fixture-clocks).
+Unchanged text-transformation contracts retain acceptance against `02b4654`; current client/transport identities are in [tool-call signatures](#tool-call-signatures). The current real HTTP fixture clock revision is independently approved by `path_review`; its scope and verification are in the [test contract](../../../../../../../test/scala/com/weisgnosis/agents/core/client/README.md#real-http-fixture-clocks).
 
 | File | Git blob |
 | --- | --- |
 | [ModelTextTransform.scala](ModelTextTransform.scala) | b07cec74ae6bd35945b8558c2f9bb067df7a2555 |
-| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | dacaa56e30fc478e607a1e0b87dc944ac34d63e9 |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | 4823ebe434672fb6f4c41896f858ee7b262a0420 |
 | [ModelTextTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelTextTransformSpec.scala) | dcdd1fef54fb9dd166171ce5b21682a9019a4fe3 |
 | [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | 396f6d75c01bcaac54750a0d5df97c219a4b8c31 |
 
