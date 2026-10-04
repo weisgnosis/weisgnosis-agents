@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
-import com.weisgnosis.agents.core.tool.ToolDef
+import com.weisgnosis.agents.core.tool.{ToolDef, ToolReturnMode}
 import zio.Chunk
 import zio.json.*
 import zio.json.ast.Json
@@ -378,7 +378,7 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         ChatCompletionsRequest.encode(Chunk(Msg.user("search")), Chunk(definition), config)
       val described = ChatCompletionsRequest.encode(
         Chunk(Msg.user("search")),
-        Chunk(definition.copy(outputSchema = Some(schema))),
+        Chunk(definition.copy(outputSchema = Some(schema), returnMode = ToolReturnMode.Direct)),
         config
       )
       assertTrue(

@@ -44,6 +44,13 @@ object ToolDefSpec extends ZIOSpecDefault:
       )
       assertTrue(
         legacy.toJson.fromJson[ToolDef] == Right(definition),
+        legacy.toJson.fromJson[ToolDef].exists(_.returnMode == ToolReturnMode.Continue),
+        Chunk
+          .fromArray(ToolReturnMode.values)
+          .forall(mode =>
+            val selected = definition.copy(returnMode = mode)
+            selected.toJson.fromJson[ToolDef] == Right(selected)
+          ),
         explicitNull.toJson.fromJson[ToolDef] == Right(definition),
         definition.toJson.fromJson[Json].exists {
           case value: Json.Obj => value.get("outputSchema").isEmpty

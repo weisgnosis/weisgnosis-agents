@@ -60,7 +60,7 @@ JsonBoundary is a library-internal shared boundary in the independent json packa
 
 ## Request serialization
 
-ChatCompletionsRequest.encode returns Either[AgentError, Json.Obj] without effects. It serializes ordered text and user image/audio messages, including explicitly typed inline Data blocks, function definitions, canonical tool argument ASTs, streaming usage options, and an optional native response_format object. Credentials, endpoint, runtime identity, timestamps, usage, and unrelated message metadata are not request-body fields. ToolDef.outputSchema remains descriptive metadata for custom clients; this encoder emits no output_schema extension. Its omission is covered by the [output-schema contract](../tool/README.md#descriptive-output-schemas).
+ChatCompletionsRequest.encode returns Either[AgentError, Json.Obj] without effects. It serializes ordered text and user image/audio messages, including explicitly typed inline Data blocks, function definitions, canonical tool argument ASTs, streaming usage options, and an optional native response_format object. Credentials, endpoint, runtime identity, timestamps, usage, and unrelated message metadata are not request-body fields. ToolDef.returnMode is local runtime policy and is omitted from provider definitions. ToolDef.outputSchema remains descriptive metadata for custom clients; this encoder emits no output_schema extension. Its omission is covered by the [output-schema contract](../tool/README.md#descriptive-output-schemas).
 
 History must contain complete local call/result pairs. Orphan, duplicate, unknown, and unresolved results fail before serialization; another conversation message cannot split pending calls from their observations. Grouped or separately delivered parallel results may arrive in any order, and completed later turns may reuse an ID. A grouped Tool message becomes individual protocol messages. Error, Interrupted, and Denied outputs carry explicit labels; Running and suspended observations fail.
 
@@ -85,7 +85,7 @@ The two existing media tables verify all six MIME mappings through typed media a
 | File | Reviewed Git blob |
 | --- | --- |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | 17081b90f6fc314e5b47e782df2dcc7e0264559a |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | 15928eaf1c4024e77e5992c96ef67b503c4aab6c |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current fixture identity](../agent/README.md#host-selected-return-direct-completion) |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the two identities above, with no findings. The existing focused suites passed 19 tests in 212 ms (inline-data-focused.log); full scalafmtAll scalafmtSbt verify passed in inline-data-verify.log with zero compiler warnings or failed tests. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [ ] Audio output, URL retrieval, additional media/provider formats and live-provider interoperability remain unfinished.

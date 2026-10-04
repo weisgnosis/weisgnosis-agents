@@ -22,7 +22,7 @@ Last synchronized: 2026-10-04. Implementation is active. This document records c
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed: 650 core / 720 harness / 84 MCP tests (1,454 total), zero compiler warnings or failures. Evidence: `inline-data-verify.log`; compile task 1 second and test task 19 seconds. This run used process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx512m -Xss1m -XX:ActiveProcessorCount=2` and `sbt --mem 512`.
+- [x] Full `scalafmtAll scalafmtSbt verify` passed: 653 core / 720 harness / 84 MCP tests (1,457 total), zero compiler warnings or failures. Evidence: `return-direct-final-verify.log`; compile task 1 second and test task 26 seconds, including MCP test compilation. This run used process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx1024m -Xss16m -XX:ActiveProcessorCount=2` and `sbt --mem 1024`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -132,7 +132,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] `path_review` and `current_docs` approved [retained-observer child cancellation events](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#scoped-child-event-forwarding); full verification passed with no production changes.
 - [x] Both reviewers approved [shared-Toolkit event-destination isolation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#shared-toolkit-destination-isolation) with actual overlapping executions and no production changes; full verification passed.
 - [x] Both reviewers approved [inline Data image/audio projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection) using the existing exact MIME and user-only boundary; full verification passed.
-- [ ] Next: preflight the remaining return-direct contract against the existing acting-stop runtime; no return-direct implementation is accepted yet.
+- [x] Both reviewers approved [host-selected return-direct completion](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#host-selected-return-direct-completion), preserving admitted occurrence order, processed history, approval/Stop priorities and structured-output authority; full verification passed.
+- [ ] Next: preflight explicit MIME hints for user Data URL projection against the existing domain and provider boundary; no API or implementation is selected yet.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.
@@ -170,7 +171,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 
 Run `sbt scalafmtAll scalafmtSbt` and `sbt verify` with JDK 21. Verification requires zero compiler warnings and failed tests. Each behavioral increment also requires independent FP/ZIO and invariant review, current package contracts and test mappings, English prose and valid local links under [AGENTS.md](../../AGENTS.md).
 
-On the current Windows host, use one sbt process at a time. Current verification uses process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx512m -Xss1m -XX:ActiveProcessorCount=2` and sbt `--mem 512`. These are host settings, not repository defaults.
+On the current Windows host, use one sbt process at a time. Current verification uses process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx1024m -Xss16m -XX:ActiveProcessorCount=2` and sbt `--mem 1024`. These are host settings, not repository defaults.
 
 TaskSupervisor lifecycle changes must preserve its parallel outer owner scope, sequential worker scopes and explicit worker-owner completion closure; direct `forkIn` into the parallel owner previously caused self-join on immediate completion. Tests cover full Exit observation and cancellation cleanup. Resource closure must retain the first closer's Exit for finalizers and share its complete cleanup outcome with concurrent/repeated closers. Custom TaskSupervisor implementations must implement both `own` and `ownRetained` with their distinct caller-lease contracts; delegating only `attach` is insufficient.
 

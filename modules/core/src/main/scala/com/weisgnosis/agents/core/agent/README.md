@@ -99,6 +99,25 @@ Concurrent independently owned agents can share the same Tool and immutable Tool
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) at `b634d0f0d15cc56b27a2040d0eb925722af7c609`, with no findings. Focused verification passed nine tests in 417 ms (`shared-toolkit-focused.log`); full `scalafmtAll scalafmtSbt verify` passed in `shared-toolkit-verify.log` with zero compiler warnings or failures. Current repository totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
+## Host-selected return-direct completion
+
+ToolDef.returnMode defaults to ToolReturnMode.Continue. Direct permits an ordinary fresh or resumed run to finish without another model request only when its original nonempty admitted batch contains exclusively local Direct calls and every processed observation is Success. Eligibility uses the admitted definitions and complete original-ordinal ledger, including supplied and previously completed results. Later activation changes do not grant this policy. Deferred approval takes precedence, followed by the earliest current or saved acting Stop; all admitted work and processor cleanup join before direct completion. Cancellation and defects retain their existing failure authority. Native and synthetic structured runs continue to their normal capture boundary.
+
+Successful direct completion preserves the full processed Tool history and appends a presentation assistant tagged ToolReturnDirect, using runtime reply identity and no promoted result-level control metadata. Output follows original call order, including repeated IDs and reversed completion. Only Text, Image, Audio, Video and Data blocks are presentational; any Thinking, ToolUse, ToolResult, Custom or Hint block declines the shortcut without dropping the observation. An entirely zero-block batch produces `(no output)`; an empty Text block remains empty, and a partially empty batch gets no placeholder. Result processors can redact content or request Stop; original unprocessed payloads never bypass them. Existing AgentResult/AgentEnd delivery remains; no additional closing TextBlock event sequence is synthesized. Provider serialization limits still apply to retained media history on a future model call.
+
+Migration: ToolDef appends the defaulted returnMode field. Old JSON without it decodes as Continue; named construction/copies retain defaults. Positional patterns/Product arity now have seven fields, and dependent binaries must be rebuilt. Restoring a checkpoint still requires exact trusted host definitions, including returnMode. ChatCompletions does not serialize this local completion policy as a provider tool-schema field.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ReActAgent.scala](ReActAgent.scala) | 297ef010800c799c02035107d0863c7189f83097 |
+| [ToolDef.scala](../tool/ToolDef.scala) | 8848c5c6698a13c05e4dc6fe9a8ec51710ec0708 |
+| [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | 1193c35e18f1f0b6aa49d414c4a44f45d7a56a04 |
+| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | 67e4f5c680d919c0f4a4cc1858b5c4d4d2769219 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | d50f4ca8904210823730e31f93a48a268f7bfb49 |
+
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Three grouped runtime tests cover ordered processed output and rejection cases, live/restored/supplied/partial resumes, joined cleanup/cancellation and native/synthetic exclusion; existing tables cover codec compatibility and provider-field omission. Focused checks passed 26 tests in 690 ms (`return-direct-compiled-focused.log`).
+- [x] Full `scalafmtAll scalafmtSbt verify` passed in `return-direct-final-verify.log` with zero compiler warnings or test failures. Current totals and process-local verification settings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
 ## Current typed-result acceptance
 
 The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [result-bearing streams](#result-bearing-streams); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
@@ -446,7 +465,7 @@ Migration: the default projectRequest method preserves existing ModelInputTransf
 | File | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](ModelInputTransform.scala) | 7570689063551d3cf0391bd8ef796fca5638a509 |
-| [ReActAgent.scala](ReActAgent.scala) | ccf162a813a23a87e274a5c9a0868282f6510b47 |
+| [ReActAgent.scala](ReActAgent.scala) | [Current runtime identity](#host-selected-return-direct-completion) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | c473479329060cb836ed876d7c8997d0ab435f1b |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | 90a1ec2e255e473fca9e00ca869c5752f98f0fe3 |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | 461176a848cf147e36dc907c7165a37fdb7d0987 |

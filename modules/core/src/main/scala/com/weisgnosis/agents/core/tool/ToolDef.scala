@@ -18,6 +18,10 @@ package com.weisgnosis.agents.core.tool
 import zio.json.*
 import zio.json.ast.Json
 
+/** Host-selected ordinary-run completion policy; tool outputs cannot select this mode. */
+enum ToolReturnMode derives JsonCodec:
+  case Continue, Direct
+
 /**
  * Declarative definition and JSON schema metadata of an executable tool.
  * Output schema is host-selected descriptive data; it neither validates results nor grants authority.
@@ -30,5 +34,6 @@ final case class ToolDef(
     parametersSchema: Json,
     isConcurrencySafe: Boolean = true,
     isReadOnly: Boolean = false,
-    outputSchema: Option[Json] = None
+    outputSchema: Option[Json] = None,
+    returnMode: ToolReturnMode = ToolReturnMode.Continue
 ) derives JsonCodec

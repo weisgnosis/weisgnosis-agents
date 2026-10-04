@@ -12,7 +12,7 @@ Registration publishes the complete client/tool set atomically after capacity an
 
 The acquisition must place owned transport resources in its supplied scope. The manager closes the returned client before releasing those resources. Registering an externally initialized client does not extend its original lifetime, and registration still authorizes the manager to close it. Copying a Toolkit snapshot never transfers ownership. Acquisitions, selectors and owned finalizers must not remove their own registration or close their manager, because closure joins that work.
 
-Host selection explicitly retains, omits or overrides remote outputSchema in ToolDef; the manager does not adopt it automatically. The [core schema contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records codec semantics, six-field pattern/Product migration and required binary rebuilding.
+Host selection explicitly retains, omits or overrides remote outputSchema in ToolDef; the manager does not adopt it automatically. The [core schema contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records codec semantics, current positional-pattern/Product migration and required binary rebuilding.
 
 Selected bindings can also attach core fixed arguments, prepared before runtime authorization rather than merged as defaults afterward; the [fixed binding contract](../tool/README.md#fixed-arguments) defines the distinction and current acceptance.
 

@@ -45,15 +45,19 @@ Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and
 
 The current Chat Completions encoder emits only function name, description and input parameters. It does not send outputSchema as a provider extension. Custom model clients receive the complete ToolDef and own any supported provider projection.
 
-The derived domain codec reads an absent or explicit-null outputSchema as None and omits None when encoding. Non-null schema ASTs retain their structure; Some(Json.Null) does not round-trip as present. Existing constructors and named copies can omit the defaulted field; positional pattern matches and Product arity now have six fields, and downstream binaries must be rebuilt. No schema evaluation or custom compatibility codec is introduced.
+The derived domain codec reads an absent or explicit-null outputSchema as None and omits None when encoding. Non-null schema ASTs retain their structure; Some(Json.Null) does not round-trip as present. Existing constructors and named copies can omit the defaulted field; positional pattern matches and Product arity now have seven fields (including returnMode), and downstream binaries must be rebuilt. No schema evaluation or custom compatibility codec is introduced.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Unchanged core identities are below; current integration tests belong to the [MCP binding acceptance](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance). Formatting and full `verify` passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Current core identities are linked below; current integration tests belong to the [MCP binding acceptance](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance). Formatting and full `verify` passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
 
 | Reviewed source/test | Git blob |
 | --- | --- |
-| [ToolDef.scala](ToolDef.scala) | `1884f7d4701df7e36c7b10235764534c6f699c29` |
-| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | `2d00729523014e9c29ca576bcf11fe90a720d379` |
-| ChatCompletionsRequestSpec.scala | Current identity and verification: [tool-call signatures](../client/README.md#tool-call-signatures); output-schema omission remains covered. |
+| [ToolDef.scala](ToolDef.scala) | [Current identity](../agent/README.md#host-selected-return-direct-completion) |
+| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | [Current identity](../agent/README.md#host-selected-return-direct-completion) |
+| ChatCompletionsRequestSpec.scala | Current identity: [return-direct scope](../agent/README.md#host-selected-return-direct-completion); output-schema and returnMode omission remain covered. |
+
+## Local return mode
+
+ToolDef.returnMode is a host-selected Continue (default) or Direct policy, not model/output metadata. Only an ordinary all-local, all-Direct successful batch may return processed presentation content without another model call, after joined cleanup and approval/Stop precedence. Full Tool observations remain in history. See the [runtime contract and seven-field migration](../agent/README.md#host-selected-return-direct-completion) for exact limits, current identities and full verification.
 
 ## Incremental execution
 

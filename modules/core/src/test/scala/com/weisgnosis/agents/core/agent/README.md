@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+[ReActAgentReturnDirectSpec](ReActAgentReturnDirectSpec.scala) adds three grouped contracts: reverse-completion/repeated-ID processed presentation and rejection tables; live/restored/supplied/partial completion with exact-once processing and trusted definition matching; held cleanup/cancellation and native/synthetic exclusion. Existing ToolDef/request tables cover default-mode compatibility and provider omission. Exact identities, reviews and full verification are in the [runtime contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#host-selected-return-direct-completion).
+
 The [checkpoint-event scope](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) is accepted. It extends existing ordinal/restore/input tables and adds one joined phase-drain group; generic event correlation does not establish human-source or durable-delivery authority.
 
 Partial-confirmation tests have final independent approval and full verification. The [current contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) covers checked ordinal-position ledgers, successive restored subsets, preserved inline/completed processing, saved activation and Stop state, structured rejection and joined cancellation.

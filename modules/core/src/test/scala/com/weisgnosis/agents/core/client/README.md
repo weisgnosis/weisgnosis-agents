@@ -24,7 +24,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [StreamAccumulatorCompletionSpec](StreamAccumulatorCompletionSpec.scala)
 - [StreamAccumulatorSpec](StreamAccumulatorSpec.scala)
 
-ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadata does not change the encoded provider request. The [output-schema acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records that scoped evidence; the current request/spec identities are in [user-media projection](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
+ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadata and local returnMode do not change the encoded provider request. The [output-schema acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas) records that scoped evidence; the current request/spec identities are in [user-media projection](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#user-image-projection).
 
 ## Current evidence
 

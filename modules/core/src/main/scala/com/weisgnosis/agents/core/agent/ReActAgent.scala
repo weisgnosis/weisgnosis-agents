@@ -305,7 +305,7 @@ final class ReActAgent private (
             usageRef,
             complete,
             nativeConfig,
-            Some(capturedRef)
+            CompletionMode.Structured(capturedRef)
           )(
             prepare
           )
@@ -323,7 +323,7 @@ final class ReActAgent private (
                 usageRef,
                 complete,
                 syntheticConfig,
-                Some(capturedRef)
+                CompletionMode.Structured(capturedRef)
               )(prepare)
             )
 
@@ -746,6 +746,14 @@ final class ReActAgent private (
     case Fresh(messages: Chunk[Msg])
     case Resume(result: AgentResult, pending: PendingActing, admitted: Toolkit)
 
+  private enum CompletionMode:
+    case Ordinary
+    case Structured(response: Ref[Option[Json]])
+
+    def captured: UIO[Option[Json]] = this match
+      case Ordinary             => ZIO.none
+      case Structured(response) => response.get
+
   private def runWithHub[A](
       entry: RunEntry,
       eventHub: Hub[AgentEvent],
@@ -753,7 +761,7 @@ final class ReActAgent private (
       usageRef: Ref[Option[ChatUsage]],
       complete: AgentResult => IO[AgentError, Unit],
       requestConfig: LlmConfig = llmConfig,
-      structuredResponse: Option[Ref[Option[Json]]] = None
+      completionMode: CompletionMode = CompletionMode.Ordinary
   )(
       prepareResult: AgentResult => IO[AgentError, (AgentResult, A)]
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
@@ -806,7 +814,7 @@ final class ReActAgent private (
                   eventHub,
                   replyId,
                   requestConfig,
-                  structuredResponse,
+                  completionMode,
                   progressRef,
                   usageRef
                 )
@@ -820,7 +828,7 @@ final class ReActAgent private (
                   eventHub,
                   pending.context,
                   requestConfig,
-                  None,
+                  CompletionMode.Ordinary,
                   progressRef,
                   usageRef,
                   supplied,
@@ -936,7 +944,7 @@ final class ReActAgent private (
       eventHub: Hub[AgentEvent],
       replyId: String,
       requestConfig: LlmConfig,
-      structuredResponse: Option[Ref[Option[Json]]],
+      completionMode: CompletionMode,
       progressRef: Ref[RunProgress],
       usageRef: Ref[Option[ChatUsage]]
   ): ZIO[Scope, AgentError, AgentResult] =
@@ -1014,7 +1022,7 @@ final class ReActAgent private (
                           eventHub,
                           replyId,
                           requestConfig,
-                          structuredResponse,
+                          completionMode,
                           progressRef,
                           usageRef
                         )
@@ -1053,7 +1061,7 @@ final class ReActAgent private (
                         eventHub,
                         context,
                         requestConfig,
-                        structuredResponse,
+                        completionMode,
                         progressRef,
                         usageRef
                       )
@@ -1097,7 +1105,7 @@ final class ReActAgent private (
                           eventHub,
                           replyId,
                           requestConfig,
-                          structuredResponse,
+                          completionMode,
                           progressRef,
                           usageRef
                         )
@@ -1105,14 +1113,14 @@ final class ReActAgent private (
                     case Right(ReasoningOutcome.Accept(turnOutput)) =>
                       acceptTurn(turnOutput, context)
                     case Right(ReasoningOutcome.Suspend(message, reason)) =>
-                      structuredResponse match
-                        case Some(_) =>
+                      completionMode match
+                        case CompletionMode.Structured(_) =>
                           ZIO.fail(
                             AgentError.ReasoningHookError(
                               "Structured runs cannot suspend before acting"
                             )
                           )
-                        case None =>
+                        case CompletionMode.Ordinary =>
                           suspendActing(
                             message,
                             reason,
@@ -1152,7 +1160,7 @@ final class ReActAgent private (
       eventHub: Hub[AgentEvent],
       context: ModelStreamContext,
       requestConfig: LlmConfig,
-      structuredResponse: Option[Ref[Option[Json]]],
+      completionMode: CompletionMode,
       progressRef: Ref[RunProgress],
       usageRef: Ref[Option[ChatUsage]],
       supplied: Chunk[RecordedToolResult] = Chunk.empty,
@@ -1185,6 +1193,15 @@ final class ReActAgent private (
           case PendingActingStage.AwaitingApproval(_, _, stop) =>
             stop.map(value => ActingStop(value.callOrdinal, value.reason))
         pendingCalls = inline.pending.filterNot(call => completed.contains(call.ordinal))
+        directDefinitions = continuation match
+          case Some(pending) => pending.admittedTools
+          case None          => activeToolkit.definitions
+        direct = completionMode == CompletionMode.Ordinary && assistantMsg.toolUses.nonEmpty &&
+          assistantMsg.toolResults.isEmpty && assistantMsg.toolUses.forall(call =>
+            !call.isServerTool && directDefinitions.exists(definition =>
+              definition.name == call.name && definition.returnMode == ToolReturnMode.Direct
+            )
+          )
         allSafe = config.streamParallelTools && pendingCalls
           .forall(c => activeToolkit.resolve(c.call.name).forall(_.isConcurrencySafe))
         argumentPolicy =
@@ -1242,7 +1259,7 @@ final class ReActAgent private (
               .collect { case value: ActingOutcome.Deferred => value }
               .sortBy(_.request.callOrdinal)
             deferredRequests.headOption match
-              case Some(_) if structuredResponse.nonEmpty =>
+              case Some(_) if completionMode != CompletionMode.Ordinary =>
                 finalizeFailedToolPhase(progressRef) *>
                   ZIO.fail(
                     AgentError.InvalidConfiguration(
@@ -1271,25 +1288,28 @@ final class ReActAgent private (
                 stop match
                   case Some(value) => stoppedToolTurn(position, iteration, value.reason, eventHub)
                   case None =>
-                    structuredResponse
-                      .fold[UIO[Option[Json]]](ZIO.none)(_.get)
-                      .flatMap:
-                        case value if inline.pending.isEmpty || value.nonEmpty =>
-                          completedToolTurn(position, iteration)
-                        case _ =>
-                          restore(
-                            loop(
-                              iteration,
-                              0,
-                              runTools,
-                              eventHub,
-                              context.replyId,
-                              requestConfig,
-                              structuredResponse,
-                              progressRef,
-                              usageRef
+                    (if direct then
+                       directToolTurn(assistantMsg, position, iteration, context, progressRef)
+                     else ZIO.none).flatMap:
+                      case Some(result) => ZIO.succeed(result)
+                      case None =>
+                        completionMode.captured.flatMap:
+                          case value if inline.pending.isEmpty || value.nonEmpty =>
+                            completedToolTurn(position, iteration)
+                          case _ =>
+                            restore(
+                              loop(
+                                iteration,
+                                0,
+                                runTools,
+                                eventHub,
+                                context.replyId,
+                                requestConfig,
+                                completionMode,
+                                progressRef,
+                                usageRef
+                              )
                             )
-                          )
       yield turnRes
 
   /** Commits a partial checkpoint only after all admitted work and processor scopes have joined. */
@@ -1621,6 +1641,56 @@ final class ReActAgent private (
         .fromOption(history.lift(position))
         .orElseFail(AgentError.InvalidMessage("The completed assistant turn is missing"))
         .map(reply => AgentResult(reply, history, iteration))
+
+  /** Read final processed observations by original occurrence, including prior resumed completions. */
+  private def directToolTurn(
+      assistant: Msg,
+      position: Int,
+      iteration: Int,
+      context: ModelStreamContext,
+      progressRef: Ref[RunProgress]
+  ): IO[AgentError, Option[AgentResult]] =
+    val invalid = AgentError.InvalidMessage("The completed direct-return ledger is invalid")
+    for
+      positions <- progressRef.get.flatMap:
+        case RunProgress.PersistedAssistant(saved, completed)
+            if saved == position && completed.keySet == assistant.toolUses.indices.toSet &&
+              completed.values.toSet.size == completed.size =>
+          ZIO.succeed(completed)
+        case _ => ZIO.fail(invalid)
+      history <- stateRef.get
+      results <- ZIO.foreach(assistant.toolUses.zipWithIndex): (call, ordinal) =>
+        ZIO
+          .fromOption(
+            positions
+              .get(ordinal)
+              .flatMap(index =>
+                history.lift(index).filter(message => index > position && message.role == Role.Tool)
+              )
+          )
+          .orElseFail(invalid)
+          .flatMap(message =>
+            message.toolResults match
+              case Chunk(result) if result.id == call.id && result.name.contains(call.name) =>
+                ZIO.succeed(result)
+              case _ => ZIO.fail(invalid)
+          )
+      output = results.flatMap(_.output)
+      presentational = output.forall:
+        case _: ContentBlock.Text | _: ContentBlock.Image | _: ContentBlock.Audio |
+            _: ContentBlock.Video | _: ContentBlock.Data =>
+          true
+        case _ => false
+      result <-
+        if results.forall(_.state == ToolResultState.Success) && presentational then
+          val content = if output.isEmpty then Chunk(ContentBlock.Text("(no output)")) else output
+          val reply = Msg
+            .assistant(content, id = Some(context.replyId), name = Some(config.name))
+            .withGenerateReason(GenerateReason.ToolReturnDirect)
+          persistAssistant(reply, progressRef) *> stateRef.get
+            .map(completed => Some(AgentResult(reply, completed, iteration)))
+        else ZIO.none
+    yield result
 
   private def stoppedToolTurn(
       position: Int,
