@@ -202,7 +202,7 @@ The previous AgentError.scala identity is preserved in `0349b1a`; its current id
 
 [MemoryTrigger](MemoryTrigger.scala) models Always, Never and Throttled with a validated [MemoryInterval](MemoryInterval.scala). The smart constructor normalizes zero duration to Always; negative, infinite and overflowing intervals fail through InvalidConfiguration. A positive interval is strictly smaller than Long.MaxValue nanoseconds. Its custom JSON codec requires an integral JSON number in that range, rejecting quoted numbers and fractional/coerced values. Policy, operation, scope and decision ADTs use derived codecs; these are Scala configuration DTOs, not Java wire adapters.
 
-MemoryTriggerPolicy is immutable and fixed for a gate lifetime. Flush defaults to Always; maintenance defaults to 30 minutes. Creating a new gate starts fresh windows, including when changing policy. Never disables only admission through that operation; it does not disable compactor offload or flush callbacks installed independently.
+MemoryTriggerPolicy is immutable and fixed for a gate lifetime. Flush defaults to Always; maintenance defaults to 30 minutes. Creating a new in-memory gate starts fresh windows, including when changing policy; the persistent adapter below instead validates the policy stored at its address. Never disables only admission through that operation; it does not disable compactor offload or flush callbacks installed independently.
 
 [MemoryTriggerGate.inMemory](MemoryTriggerGate.scala) creates one explicitly shared authority. Hosts reuse that capability across callers belonging to the same memory domain. Separate gates are separate owners, even for equal textual identities; there is no static process-global registry. User and Session scope variants carry optional identities; absent and blank values share an anonymous slot within that scope, while distinct nonblank strings retain whitespace and delimiters. User scope does not fall back to session identity. Agent and Global each represent a constant slot within the host-selected owner. The gate does not authenticate callers, select filesystem paths, or infer workspace/agent ownership.
 
@@ -210,7 +210,7 @@ Operation and scope form structural keys, so flush and maintenance remain indepe
 
 cleanup(retention) samples the same monotonic clock under the same state authority. It removes only claims whose reserved interval has elapsed and whose age strictly exceeds retention. A shorter retention therefore cannot reopen an active interval. Claim renewal racing cleanup retains the new active reservation. Cleanup is an explicit host operation; no background fiber is started and entries remain until renewal or cleanup.
 
-A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. This increment supplies local admission only. The scoped queue foundation described below now supplies owned execution and pending coalescing. Completion-triggered flush integration is described below. Owned consolidation integration and explicit acknowledged-daily archival are available below; combined retention maintenance is available below; remote authority and session deletion remain pending.
+A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. The in-memory capability supplies local admission only; the persistent admission adapter below is separate. The scoped queue foundation described below now supplies owned execution and pending coalescing. Completion-triggered flush integration is described below. Owned consolidation integration and explicit acknowledged-daily archival are available below; combined retention maintenance is available below; persistent admission is defined below; distributed execution authority and session deletion remain pending.
 
 ## Current memory-trigger identities
 
@@ -219,8 +219,8 @@ Final formatted six-file scope against `73cd376`:
 | Source | Git blob |
 | --- | --- |
 | [MemoryInterval.scala](MemoryInterval.scala) | 0332f778d040180cbea43bbb7744a077f3a1c122 |
-| [MemoryTrigger.scala](MemoryTrigger.scala) | 7bec798b921f00857f213e0d19ad91febcde7c70 |
-| [MemoryTriggerGate.scala](MemoryTriggerGate.scala) | f37ce1546add8d78787bda1a1f7c204b2dd24551 |
+| [MemoryTrigger.scala](MemoryTrigger.scala) | [Current normalized-scope identity](#versioned-memory-trigger-gate) |
+| [MemoryTriggerGate.scala](MemoryTriggerGate.scala) | [Current normalized-scope identity](#versioned-memory-trigger-gate) |
 | [MemoryIntervalSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryIntervalSpec.scala) | 66085f594567f5703712911b93a26d4f909ab845 |
 | [MemoryTriggerGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTriggerGateSpec.scala) | 6cc2e51535a30f857fceecf0710caa4f1fb5bacf |
 | [MemoryTriggerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTriggerSpec.scala) | 0bdce255c3008037ffb077011130836c60c46b02 |
@@ -228,6 +228,33 @@ Final formatted six-file scope against `73cd376`:
 - [x] `review_fp` and `review_harness` approved the final six-file memory-trigger increment against `73cd376` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 287 harness tests, including 23 new cases, with zero compiler warnings. No findings remain within typed finite intervals, strict numeric codecs, immutable policies, explicit shared ownership, atomic monotonic admission and active-window-safe cleanup. Scheduling, execution locks, remote authority and full memory configuration parity remain outside this scope.
 
 - [x] `review_docs` approved the corrected memory-trigger documentation against `73cd376`: six identities, 23 tests, finite/monotonic admission, active-window cleanup, explicit owner sharing and conservative upstream applicability. Full verification passed 552 core / 287 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+
+## Versioned memory trigger gate
+
+[VersionedMemoryTriggerGate.make](VersionedMemoryTriggerGate.scala) is a pure checked factory over one VersionedJsonStore, StorageAddress and immutable MemoryTriggerPolicy. maxAttempts defaults to eight and must be positive. The injected now effect defaults to Clock.instant; construction neither evaluates it nor reads storage. One private version-1 aggregate stores the fixed policy and structural operation/scope reservations. MemoryScope.normalized is shared with the in-memory gate, preserving anonymous-slot and exact nonblank identity behavior without public API changes to existing callers.
+
+A throttled claim samples now once for the operation and preserves that sample across explicit CAS-conflict retries. BigInt nanosecond arithmetic compares persisted Instants without overflow; first/exact-expiry claims admit, earlier claims throttle, and backward clock movement keeps the prior window active. Each mutation retries only a definite ConditionalWrite.Conflict up to maxAttempts, rereading current reservations; no-op decisions skip publication. Exhaustion fails with MemoryStorageError. Underlying errors, cancellation and ambiguous acknowledgements propagate without replay; a write may already have committed.
+
+Always returns Admitted and Never returns Disabled without reading storage or sampling the clock. Consequently persisted policy/schema validation applies only to throttled claims and cleanup, not those bypass paths. Cleanup samples once and removes only reservations whose admission interval has elapsed and whose age strictly exceeds retention; equality or an active window stays retained. Cleanup conditionally publishes the remaining aggregate rather than deleting a backend address. No timer, worker or additional deletion capability is installed.
+
+Stored data requires the exact canonical version/policy/reservation shape, recursively unique JSON fields and valid Unicode. Reservation keys must be unique, normalized and associated with throttled operations. Policy mismatch or invalid stored data fails closed without resetting state. Hosts must consistently bind the same policy/address, protect backend lifetime and bound aggregate growth. A policy change requires a fresh persistent address; reopening an existing address with a changed policy fails validation on throttled claims/cleanup. Caller identities are correlation slots, not authentication. All readers/writers need trusted synchronized clocks: ahead skew can expire another writer's window early; backward skew extends throttling. This is admission, not an execution lock, completion record or exactly-once workflow claim. Backend replacement/deletion, untrusted clocks and external mutation invalidate those assumptions.
+
+Migration is additive. Existing in-memory monotonic clock behavior and gate/scheduler signatures are unchanged; normalized-scope extraction preserves existing local decisions. Persistent wall-clock reservations are a separate private format and are not imported from process-local counters. This bounded read/CAS adaptation does not establish complete remote middleware/coordination parity or distributed task execution.
+
+| Reviewed source/spec against 072164f | Git blob |
+| --- | --- |
+| [VersionedMemoryTriggerGate.scala](VersionedMemoryTriggerGate.scala) | `6524a8192d420d2203b0ea98670a6951abcafe2c` |
+| [MemoryTrigger.scala](MemoryTrigger.scala) | `81f433996f2a048910e565bb8e8b7350610d248a` |
+| [MemoryTriggerGate.scala](MemoryTriggerGate.scala) | `e98988db1861cb11983ff4c762c363913a51ea22` |
+| [VersionedMemoryTriggerGateSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/VersionedMemoryTriggerGateSpec.scala) | `7bfd89a9b7f4ce8d7840ecc521be8d51f75c1e38` |
+
+- [x] review_fp and review_invariants approved these four final identities against 072164f, with no unresolved findings.
+- [x] Focused verification passes 16 existing groups and three new real PostgreSQL gate groups in 1.621 seconds.
+- [x] versioned-memory-gate-verify.log passes formatting, fatal-warning compilation, four packages and 1,501 tests: 669 core / 726 harness / 86 MCP / 15 PostgreSQL / 5 examples, with zero compiler warnings or failed tests.
+- [x] versioned-memory-gate-artifact-preparation.log passes all four archive/POM checks.
+- [x] versioned-memory-gate-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh module hashes; its existing selected API smoke does not construct the gate.
+- [x] English inspection and all 2,764 local references in 78 Markdown documents pass with zero issues.
+- [x] review_fp and review_invariants approved final combined source/documentation closure against 072164f and these four unchanged identities, with no unresolved findings.
 
 ## Scoped memory task queue
 

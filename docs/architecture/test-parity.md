@@ -826,8 +826,8 @@ PeriodicGateTest:
 - [x] localGate_firstClaimWinsThenThrottles: first admission at clock origin, immediate rejection, exact renewal.
 - [x] localGate_differentNamesAreIndependent: independent structural user/session keys and operation keys replace arbitrary string names.
 - [x] localGate_releasesAfterGap: just-before/exact expiry replaces Thread.sleep timing.
-- [ ] storeBackedGate_firstClaimWinsThenThrottles: distributed/storage-backed gate remains unimplemented.
-- [ ] storeBackedGate_sharedAcrossInstances: shared local capability does not establish remote CAS behavior.
+- [x] storeBackedGate_firstClaimWinsThenThrottles (66): the versioned gate real-PostgreSQL adaptation has final source approval/full/artifact verification; final combined documentation approval passed.
+- [x] storeBackedGate_sharedAcrossInstances (76): independently constructed gates share an actual PostgreSQL CAS address, with final source/full/artifact verification; final combined documentation approval passed in the [gate manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-memory-trigger-gate). Trusted clock and lifetime limits remain explicit; this is admission, not an execution lock.
 
 MemoryFlushMiddlewareTriggerTest:
 

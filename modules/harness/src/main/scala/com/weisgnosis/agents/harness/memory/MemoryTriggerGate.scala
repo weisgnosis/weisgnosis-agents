@@ -48,15 +48,7 @@ object MemoryTriggerGate:
               case MemoryTrigger.Always => ZIO.succeed(MemoryTriggerDecision.Admitted)
               case MemoryTrigger.Never  => ZIO.succeed(MemoryTriggerDecision.Disabled)
               case MemoryTrigger.Throttled(gap) =>
-                val key = Key(
-                  operation,
-                  scope match
-                    case MemoryScope.User(identity) =>
-                      MemoryScope.User(identity.filterNot(_.isBlank))
-                    case MemoryScope.Session(identity) =>
-                      MemoryScope.Session(identity.filterNot(_.isBlank))
-                    case MemoryScope.Agent | MemoryScope.Global => scope
-                )
+                val key = Key(operation, MemoryScope.normalized(scope))
                 reservations.modifyZIO: current =>
                   Clock.nanoTime.map: now =>
                     current.get(key) match

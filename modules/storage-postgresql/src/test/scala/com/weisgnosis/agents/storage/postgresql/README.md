@@ -24,3 +24,7 @@ CI provisions PostgreSQL 16 and enables the suite without any LLM/provider reque
 ## Acting checkpoint integration
 
 [ActingCheckpointStoreSpec](ActingCheckpointStoreSpec.scala) covers actual PostgreSQL read/conditional publication and checkpoint restoration through current host runtime bindings; final source approvals and full real-database verification pass. Strict invalid persisted state and uncertain acknowledgement belong to this storage scope; authentication, exclusive execution and side-effect replay protection remain host responsibilities. Final source approvals, full verification and archive inspection pass; fresh consumer verification passes; final documentation acceptance passed in the [seven-file manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-acting-checkpoints).
+
+## Persistent memory admission
+
+[VersionedMemoryTriggerGateSpec](VersionedMemoryTriggerGateSpec.scala) uses actual PostgreSQL and the shared fixture to verify persistent admission and bounded conditional publication. Clock effects are explicitly injected; these controlled tests do not establish synchronized production clocks, exclusive execution, completion or exactly-once delivery. The [four-file gate manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-memory-trigger-gate) owns final source/full/artifact evidence and the completed final combined documentation approval.

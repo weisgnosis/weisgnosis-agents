@@ -28,7 +28,7 @@ object MemoryTrigger:
     if duration.isZero then Right(MemoryTrigger.Always)
     else MemoryInterval.fromDuration(duration).map(MemoryTrigger.Throttled.apply)
 
-/** Fixed for one gate lifetime; a new policy requires a new gate and starts fresh windows. */
+/** Fixed for one gate lifetime and persistent address; a changed policy needs a fresh address. */
 final case class MemoryTriggerPolicy(
     flush: MemoryTrigger = MemoryTrigger.Always,
     maintenance: MemoryTrigger = MemoryTrigger.Throttled(MemoryInterval.DefaultMaintenance)
@@ -41,6 +41,12 @@ enum MemoryScope derives JsonCodec:
   case User(identity: Option[String])
   case Session(identity: Option[String])
   case Agent, Global
+
+object MemoryScope:
+  private[memory] def normalized(scope: MemoryScope): MemoryScope = scope match
+    case MemoryScope.User(identity)    => MemoryScope.User(identity.filterNot(_.isBlank))
+    case MemoryScope.Session(identity) => MemoryScope.Session(identity.filterNot(_.isBlank))
+    case MemoryScope.Agent | MemoryScope.Global => scope
 
 enum MemoryTriggerDecision derives JsonCodec:
   case Admitted, Disabled, Throttled
