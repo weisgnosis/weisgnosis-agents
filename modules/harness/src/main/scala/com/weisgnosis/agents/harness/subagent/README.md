@@ -137,9 +137,15 @@ Migration: existing SubagentPermissions constructor calls retain Disabled behavi
 
 - [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for current factory/construction identities in the [acceptance table](#verification-and-acceptance) and the spec below, with no findings. The [Plan acceptance](../plan/README.md#child-installation-acceptance) records the other two identities and full `child-plan-verify.log` verification. Actual declared/general-purpose runs preserve local draft review/location and deny mutations under ancestor Plan; named sends retain one runtime/history and live restrictions without copying mode flags. Stored fixture evidence uses an in-memory store, not a real plan file.
 
-| Reviewed file | Git blob |
+The pinned PlanModeSubagentPropagationTest has exactly two methods: declaredSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration (53) and generalPurposeSubagent_inheritsPlanModeManagerMiddlewareAndConfiguration (82). Both have bounded explicit-installation adaptations: SubagentConstruction installs child controls/context, and actual declared/general-purpose factory runs assert the tool set, configured logical location/banner, local draft review and mutation denial. Automatic Java manager/middleware identity, mutable runtime context, unrestricted shell bypass and exact physical-file/event assertions are deliberate differences. This does not require a second automatic-installation API; durable host recovery remains separate.
+
+| Unchanged source/spec inspected against fbce6de | Git blob |
 | --- | --- |
-| [SubagentPlanInstallationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentPlanInstallationSpec.scala) | [Current SubagentPlanInstallationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+| [SubagentConstruction.scala](SubagentConstruction.scala) | `381703a6f1f92239110db9ce5bbec5d208047c52` |
+| [SubagentPlanInstallationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentPlanInstallationSpec.scala) | `31defa8c1bcb24e6a5fd6e1f9c7adb1da456821d` |
+
+- [x] Reconcile the two pinned methods with source installation and existing actual-child assertions; unchanged implementation acceptance remains scoped above.
+- [x] review_fp and review_invariants approved the four-file documentation reconciliation against fbce6de with no findings. English/diff and 78-document/2,960-local-reference checks pass. Unchanged source retains current 1,522-test verification; no new implementation acceptance is inferred.
 
 ### Child skill snapshots
 

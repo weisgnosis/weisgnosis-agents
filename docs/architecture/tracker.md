@@ -50,14 +50,13 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Hook-error gate reuse](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#hook-error-gate-reuse) has final scoped test/documentation acceptance for a second successful same-agent invocation after typed hook failure.
 
-Current delivery scope against 23a3bec: correct [interrupted transformed-progress history loss](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#interrupted-transformed-progress), preserving validated partial text without treating cancellation as completion.
+- [x] [Interrupted transformed-progress recovery](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#interrupted-transformed-progress) has final scoped acceptance after reproduced canonical-history loss; interrupted causes and failed cleanup retain their distinct boundaries.
 
-- [x] transformed-partial-red.log reproduces published transformed text missing from canonical history on unchanged production: eight tests pass, one fails.
-- [x] Finish producer/runtime progress and reviewed five-row cancellation/first-later typed-failure assertions; transformed-partial-green.log passes 14 tests with zero failures/ignored tests in 3.669 seconds, without new groups.
-- [x] review_fp and review_invariants approved the exact final five-file source/spec scope against 23a3bec, with no unresolved source findings.
-- [x] transformed-partial-verify.log passes 1,522 tests (676 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests and four RC1 packages; transformed-partial-preparation.log and transformed-partial-consumer.log pass current exact archives and fresh selected-API consumption.
-- [x] review_fp and review_invariants approved the final eighteen-file combined scope against 23a3bec with no unresolved findings; English/migration/diff and 78-document/2,958-local-reference checks pass.
-- [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
+Current delivery scope against fbce6de: reconcile the exactly two pinned Plan propagation methods with the existing [explicit installation contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#child-plan-installation), without source/test changes.
+
+- [x] Inspect both Java methods (53/82), SubagentConstruction installation and actual declared/general-purpose test assertions; replace stale contradictory installation status with bounded API differences.
+- [x] review_fp and review_invariants approved the four-file reconciliation against fbce6de with no findings; English/diff and 78-document/2,960-local-reference checks pass. Unchanged source retains current 1,522-test verification.
+- [ ] Assess the next remaining applicable finite inventory and genuine provider/remote middleware/release gaps; full-plan completion remains unclaimed.
 
 ## Current acceptance
 
@@ -108,9 +107,10 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-The transformed partial-history correction has final scoped acceptance above. Next, classify the finite pinned Plan propagation methods against existing child-installation/session tests, then continue the remaining applicable [method-level parity inventory](test-parity.md); do not infer new features or broader host authority from Java API differences.
+Assess the finite pinned ToolExecutorTest inventory next, including schema-only external execution, validation before suspension and inactive-group admission. Existing authorization deferral is a separate contract. Continue the remaining applicable [method-level parity inventory](test-parity.md) without inferring broader host authority from Java API differences.
 
-- [ ] Complete finite pinned Plan propagation classification against current scoped child/session behavior, then select the next applicable inventory gap.
+- [x] Complete independent acceptance of the finite pinned Plan propagation classification against current explicit child installation.
+- [ ] Classify the twelve pinned ToolExecutorTest methods and define the bounded external-tool execution contract before implementation.
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.

@@ -23,10 +23,10 @@ Update contracts and mappings when behavior changes. Record current reviewed sco
 
 ## Current documentation acceptance
 
-Current documentation scope against 23a3bec covers the [interrupted transformed-progress correction](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#interrupted-transformed-progress): reproduced partial-history loss, strict validated request-local snapshots, joined interruption-only recovery and unchanged public client/configuration contracts. Existing package acceptance remains bounded; private progress does not grant general middleware, custom-wrapper or completion authority.
+Current documentation scope against fbce6de reconciles the exactly two pinned PlanModeSubagentPropagationTest methods with existing [explicit child Plan installation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#child-plan-installation). Source/tests are unchanged. Explicit controls, configured request context, local review and mutation denial have bounded adaptations; automatic Java framework identity and unrestricted shell bypass are not required API clones.
 
-- [x] Both reviewers approved the exact five source/spec identities; focused and full 1,522-test verification, four RC1 packages, exact archive admission and fresh selected-API consumption pass.
-- [x] review_fp and review_invariants approved the final eighteen-file combined source/documentation scope against 23a3bec, with no unresolved findings; English/diff and all 2,958 local references in 78 Markdown documents pass.
+- [x] Inspect the two declared/general-purpose methods, installation source and actual-child test assertions; repair contradictory unfinished-installation wording without expanding implementation acceptance.
+- [x] review_fp and review_invariants approved the final four-file documentation scope against fbce6de with no findings. English/diff and 78-document/2,960-local-reference checks pass; unchanged source retains current verification.
 
 ## Versioned remote storage
 
