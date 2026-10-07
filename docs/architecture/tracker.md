@@ -16,16 +16,16 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Persistent memory admission](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-memory-trigger-gate) has final scoped review/verification with explicit trusted-clock/policy/address and uncertain-acknowledgement limits.
 
-Next task: explicit versioned session catalog/discovery under a host-selected address; automatic retention and global enumeration remain outside that proposed scope.
+- [x] [Immutable transcript publication](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments) provides bounded complete-chain restoration with host-owned manifest/subtree and explicit orphan/uncertain-acknowledgement limits.
 
-Current increment: [immutable transcript segment publication](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments), with a host-owned manifest/subtree and bounded complete-history restoration.
+Current increment: [explicit versioned transcript session catalog](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#explicit-transcript-session-catalog). It registers checked host-selected descriptors; it is not global discovery, automatic retention or writer installation.
 
-- [x] review_fp and review_invariants approved the two final identities against 9a4650d.
-- [x] Final focused real PostgreSQL segment verification passed three groups.
-- [x] Final full verification passed 1,504 tests with zero compiler warnings/failures and four packages; exact evidence is in the canonical contract.
-- [x] Four-artifact archive/POM inspection passed.
-- [x] Fresh standalone selected-API consumption passed with four current JARs.
-- [x] review_fp and review_invariants approved final combined documentation; English inspection and 78-document/2,783-local-reference checks pass with zero issues.
+- [x] review_fp and review_invariants approved the three final catalog/shared-helper/spec identities against 6a7a461.
+- [x] Final focused actual PostgreSQL catalog/shared-segment verification passed six groups.
+- [x] Final full verification passed 1,507 tests with zero compiler warnings/failures and four packages; the canonical contract owns exact evidence.
+- [x] Four-artifact archive/POM inspection and fresh selected-API consumption passed; the consumer does not construct the catalog.
+- [x] review_fp and review_invariants approved final combined documentation against 6a7a461 and the three unchanged identities; English inspection and 78-document/2,803-local-reference checks pass with zero issues.
+- [ ] Assess remaining remote retention/ownership contracts and release-pipeline work after catalog acceptance; no new implementation has started.
 
 ## Current acceptance
 
@@ -202,7 +202,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] review_fp and review_invariants approved final checkpoint documentation/English/link closure against b7488cc and the seven unchanged identities.
 - [x] review_fp and review_invariants approved final documentation/English/link closure for the [user Video URL projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-video-url-projection); source reviews, focused/full verification and artifact checks are complete above. The two pinned adaptations require an explicitly compatible host-selected endpoint; no universal provider-video support is claimed.
 - [x] Final combined documentation approval passed for the segmented transcript adapter above.
-- [ ] Define remaining discovery/pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.
+- [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.
 - [x] review_fp and review_invariants approved the three final identities for the [summary text alias](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#summary-text-alias); the implementation preserves summary, coalesces equal dual strings once and rejects malformed/conflicting aliases.
 - [x] Focused alias verification passes six existing groups, including the encrypted-detail suite matched by the wildcard; no new groups were added.
 - [x] reasoning-summary-verify.log passes 1,498 tests (669 core / 726 harness / 86 MCP / 12 PostgreSQL / 5 examples), four packages and zero compiler warnings/failures; reasoning-summary-artifact-preparation.log passes all four archive/POM checks.
@@ -228,7 +228,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [x] All fourteen Plan inventory methods have bounded adaptations, including opt-in child installation and retained named-session restrictions. Java middleware/API shapes, automatic flag copying and unrestricted shell bypass are intentionally excluded; authenticated UI and durable approval restoration remain unfinished.
 - [ ] Implement durable host persistence, authenticated delivery and idempotent checkpoint claims around the accepted complete-batch ConfirmResult adapter; partial confirmation has final independent acceptance.
 - [x] Support host-selected primary or dedicated memory clients through the existing injected MemoryExtractor; this is a deliberate assembly adaptation, not a new registry API or upstream test-method claim.
-- [ ] Define string-ID model registry selection only under a separate host contract; transcript discovery/pruning/layout migration, checkpoint runtime/host installation, remote session discovery and automatic scheduling remain unfinished.
+- [ ] Define string-ID model registry selection only under a separate host contract; broader/global transcript discovery, remote pruning/layout migration, checkpoint runtime/host installation, remote session discovery and automatic scheduling remain unfinished.
 - [ ] Validate platform-specific symlink/junction behavior and provide a secure storage backend if untrusted workspace support is required. Canonical checks are not an atomic filesystem sandbox; crash/fsync durability and hostile mutation isolation are not claimed.
 - [x] Implement checked common MCP JSON-RPC envelopes with exclusive message variants, strict fields, recursive duplicate rejection and bounded lossless numeric identities.
 - [x] Implement bounded scoped MCP request correlation with monotonic IDs, transactional settlement, cancellation cleanup and typed McpError lifecycle failures. Both reviewers approved the [client scope and identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
@@ -258,7 +258,7 @@ These proposed readiness checks supplement the remaining implementation/parity p
 - [ ] Freeze the actual RC release baseline; current source consumption is not a published binary compatibility baseline.
 - [ ] Validate remote CI and the release/publication pipeline, versioning, licensing and host/migration documentation before tagging or publishing an RC.
 
-Durable workflow replay, authentication, UI, distributed execution and idempotent checkpoint claims belong to hosts. The selected versioned memory adapter is implemented above; transcript discovery/pruning/layout migration, checkpoint runtime/host installation and their remaining ownership/recovery contracts remain unfinished; host responsibility is not a reason to mark those adapters complete.
+Durable workflow replay, authentication, UI, distributed execution and idempotent checkpoint claims belong to hosts. The selected versioned memory adapter is implemented above; broader/global transcript discovery, remote pruning/layout migration, checkpoint runtime/host installation and their remaining ownership/recovery contracts remain unfinished; host responsibility is not a reason to mark those adapters complete.
 
 ## Verification and contracts
 

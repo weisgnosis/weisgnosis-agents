@@ -32,3 +32,7 @@ CI provisions PostgreSQL 16 and enables the suite without any LLM/provider reque
 ## Immutable transcript publication
 
 [SegmentedTranscriptStoreSpec](SegmentedTranscriptStoreSpec.scala) exercises real PostgreSQL through the shared fixture and independent bindings. It verifies visible-chain restoration, unchanged prior segment bytes/revision, new-only returned observations, bounded conflicts/orphan invisibility and strict corruption/capacity/uncertain-publication behavior. The [two-file manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments) owns completed final source/full/artifact evidence and final combined documentation approval. Backend subtree protection, orphan reclamation and live host lifecycle remain explicit assumptions.
+
+## Explicit transcript catalog
+
+[VersionedTranscriptSessionCatalogSpec](VersionedTranscriptSessionCatalogSpec.scala) uses the real PostgreSQL fixture for three grouped catalog contracts: independent registration/reopen/sorting/isolation; binding/layout/subtree/capacity conflicts; strict schema and conditional-publication budgets/uncertain outcomes. This is discovery through a known host catalog, without global enumeration, transcript validation or retention authority. The [three-file manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#explicit-transcript-session-catalog) owns completed final source/full/artifact evidence and combined documentation approval.

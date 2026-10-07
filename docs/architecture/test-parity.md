@@ -813,7 +813,9 @@ The pinned upstream has no TranscriptMiddlewareTest counterpart. TranscriptMiddl
 - [x] Obtain independent FP/invariant approval against `0349b1a`; full verification passed 552 core / 264 harness tests.
 - [x] Map and implement local memory flush/consolidation triggers, isolation, throttling and asynchronous lifecycle adaptations below.
 - [ ] Complete remote trigger/isolation combinations and retention lifecycle behavior.
-- [ ] Complete bounded segment adapter acceptance; remote session indexes/discovery remain unfinished.
+- [x] Complete bounded segment adapter acceptance.
+- [x] Complete bounded explicit catalog documentation acceptance below.
+- [ ] Complete broader/global discovery separately.
 
 Exact reviewed identities are in the [core agent contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
 
@@ -1274,7 +1276,7 @@ The pinned BaseStore contract is in agentscope-harness/agent/filesystem/remote/s
 - [x] Verify bounded PostgresBaseStoreTest.getReturnsItem (178) and getReturnsNullWhenNotFound (193) adaptations through Option reads and exact numeric/namespace round-trips across independent real connections. Java uses mocked JDBC; Scala's PostgreSQL 16 fixture is separate integration evidence, not reproduction of those mocks.
 - [x] Verify bounded PostgresBaseStoreTest.putIfVersionInsertDuplicateReturnsFalse (261), putIfVersionUpdateSucceeds (298) and putIfVersionUpdateMismatchReturnsFalse (306) behavior through real create/update races and exact-revision reads. ConditionalWrite.Conflict replaces Boolean false; SQL exception-mocking branches are not claimed reproduced.
 - [x] Record final independent source/build/consumer-identity approval and full real-fixture verification in the [backend contract](../../modules/storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance).
-- [ ] Complete remaining transcript discovery/pruning/layout migration and checkpoint runtime/host installation, segmented memory layouts/migration and their recovery/ownership mappings separately; the selected versioned memory adaptation is recorded below. BaseStore unconditional put, delete, search, configurable SQL/schema/table behavior and whole-suite parity are not implemented by this prerequisite.
+- [ ] Complete broader/global transcript discovery, remote pruning/layout migration and checkpoint runtime/host installation, segmented memory layouts/migration and their recovery/ownership mappings separately; the selected versioned memory adaptation is recorded below. BaseStore unconditional put, delete, search, configurable SQL/schema/table behavior and whole-suite parity are not implemented by this prerequisite.
 
 ## Versioned remote memory adaptation
 
@@ -1284,7 +1286,7 @@ The private version-1 memory aggregate is a stronger atomic domain adaptation ov
 - [x] Obtain final FP/ZIO/invariant source approval and full-build/package verification for this selected remote-memory scope. No additional whole upstream method is closed merely by these integration groups.
 - [x] Fresh versioned-memory-artifact-consumer.log passes standalone formatting, clean compilation and execution against four actual packaged module hashes; existing selected APIs are exercised without constructing the new repository.
 - [x] review_fp and review_invariants approved final documentation for this selected remote-memory adaptation before bbadf13.
-- [ ] Complete remaining transcript discovery/pruning/layout migration, checkpoint adapters, remote filesystem applicability and legacy watermark method classification separately; authenticated/exactly-once host claims remain external.
+- [ ] Complete broader/global transcript discovery, remote pruning/layout migration, checkpoint adapters, remote filesystem applicability and legacy watermark method classification separately; authenticated/exactly-once host claims remain external.
 
 ## Versioned remote transcript adaptation
 
@@ -1295,7 +1297,7 @@ The new TranscriptStore composition reuses the existing observation/key/chain ru
 - [x] Both reviewers approved the three final source identities; full 1,492-test verification, four-artifact inspection and fresh standalone consumption pass through the [canonical transcript manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#versioned-remote-transcript).
 - [x] review_fp and review_invariants approved final transcript documentation/English/link closure before b7488cc.
 - [x] Complete bounded segmented adapter acceptance below.
-- [ ] Define separate indexes/discovery, compaction/pruning and reclamation ownership/recovery contracts.
+- [ ] Define broader/global discovery, automatic writer integration, compaction/pruning and reclamation ownership/recovery contracts.
 
 ## Conditional acting-checkpoint persistence
 
@@ -1314,4 +1316,14 @@ Pinned agentscope-harness/agent/transcript/ObjectStoreTranscriptStore.appendSegm
 - [x] Verify actual PostgreSQL immutable new-only publication, complete chain reopening and stable-key deduplication, with final independent source/full/artifact acceptance in the [two-file contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments).
 - [x] Verify definite manifest conflict/reparenting, invisible orphan preparation, malformed/cyclic/missing chain rejection, prospective capacity and ambiguous acknowledgement limits.
 - [x] review_fp and review_invariants approved final combined documentation/English/link closure for this bounded adaptation.
-- [ ] Define session indexes/discovery, orphan reclamation, compaction/pruning/deletion and layout migration separately; no whole upstream transcript-store suite parity is claimed.
+- [ ] Define broader/global discovery, automatic writer integration, orphan reclamation, compaction/pruning/deletion and layout migration separately; no whole upstream transcript-store suite parity is claimed.
+
+## Explicit transcript session catalog adaptation
+
+Pinned SessionTranscriptWriter.java documents sessions.json updates at line 84 and calls WorkspaceManager.updateSessionIndex at line 144; the latter method is in agent/workspace/WorkspaceManager.java at line 406. These are source-only index intent references. The explicit Scala catalog binds sorted checked descriptors at one host address, without Java filesystem metadata/layout, automatic writer installation or global enumeration. No whole Java method or test mapping is newly closed.
+
+- [x] Verify independent real PostgreSQL registration/reopen/order/isolation, exact-existing no-ops, identity/layout/subtree conflicts and capacity through the [three-file catalog contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#explicit-transcript-session-catalog).
+- [x] Verify strict persisted schema, bounded definite-conflict attempts and uncertain acknowledgement/cancellation; preserve shared segmented-store behavior.
+- [x] Obtain final source/full/artifact verification for the three reviewed identities.
+- [x] review_fp and review_invariants approved final combined documentation for the three unchanged catalog/shared-helper/spec identities.
+- [ ] Define removal/pruning/migration and any broader discovery or automatic writer integration separately.

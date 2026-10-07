@@ -54,10 +54,13 @@ object SegmentedTranscriptStore:
       manifest: StorageAddress,
       limits: TranscriptSegmentLimits = TranscriptSegmentLimits.default
   ): Either[AgentError.InvalidConfiguration, TranscriptStore] =
+    segmentNamespace(manifest).map(namespace => new Backend(store, manifest, namespace, limits))
+
+  private[transcript] def segmentNamespace(
+      manifest: StorageAddress
+  ): Either[AgentError.InvalidConfiguration, Chunk[String]] =
     val namespace = manifest.namespace ++ Chunk(manifest.key, "segments")
-    StorageAddress
-      .from(namespace, "00000000-0000-0000-0000-000000000000")
-      .map(_ => new Backend(store, manifest, namespace, limits))
+    StorageAddress.from(namespace, "00000000-0000-0000-0000-000000000000").map(_ => namespace)
 
   final private case class Manifest(schemaVersion: Int, head: UUID) derives JsonCodec
   final private case class Segment(
