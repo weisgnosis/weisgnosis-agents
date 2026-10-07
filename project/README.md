@@ -55,6 +55,8 @@ This inventory defines a candidate boundary, not an RC tag, frozen binary ABI, e
 - [x] Inspect the current public signature boundary and close the discovered Toolkit blocker with final source review and verification.
 - [ ] Freeze/tag the first release contract and validate the remote workflow, selected live-provider interoperability and publication requirements; remaining implementation/parity work stays in the [tracker](../docs/architecture/tracker.md).
 
+The current request API retains its signatures/defaults while adding a bounded [explicit user Video URL projection](../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-video-url-projection), with final source approval and focused verification; full verification and archive inspection pass; fresh artifact consumption passes; final documentation approval passed. Hosts select a compatible endpoint; serialization grants no fetching/MIME inference or universal provider guarantee.
+
 ## Remote storage API and artifact boundary
 
 storagePostgresql is the fourth separately consumable library in root aggregation/packageArtifacts, producing binary/source JARs and a POM. Its host-DataSource backend has no production JDBC driver/pool dependency; CI configures a PostgreSQL 16 service fixture. The current production inventory is 61 core, 99 harness, 16 MCP and one storage-postgresql Scala file. The earlier signature inventory describes its assessed revision; the additive contracts below do not establish a frozen release ABI.

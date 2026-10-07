@@ -113,14 +113,32 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         "type"      -> Json.Str("image_url"),
         "image_url" -> Json.Obj("url" -> Json.Str(url))
       )
+      def videoPart(url: String): Json = Json.Obj(
+        "type"      -> Json.Str("video_url"),
+        "video_url" -> Json.Obj("url" -> Json.Str(url))
+      )
       def audioPart(data: String, format: String): Json = Json.Obj(
         "type"        -> Json.Str("input_audio"),
         "input_audio" -> Json.Obj("data" -> Json.Str(data), "format" -> Json.Str(format))
       )
       def textPart(text: String): Json =
         Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str(text))
-      val url = "https://example.test/image%20name.png?token=opaque%2Bvalue"
+      val url   = "https://example.test/image%20name.png?token=opaque%2Bvalue"
+      val video = "https://example.test/video%20name.mp4?token=opaque%2Bvalue#part"
       val cases = Chunk[(Chunk[Msg.UserBlock], Json)](
+        Chunk(ContentBlock.Video.url("http://example.test/video")) -> Json.Arr(
+          videoPart("http://example.test/video")
+        ),
+        Chunk[Msg.UserBlock](
+          ContentBlock.Text("before"),
+          ContentBlock.Image.url(url),
+          ContentBlock.Video(
+            MediaSource.Url(video, Some("application/octet-stream")),
+            Some("private-video"),
+            Some("private-name")
+          ),
+          ContentBlock.Text("after")
+        ) -> Json.Arr(textPart("before"), imagePart(url), videoPart(video), textPart("after")),
         Chunk.empty                                                    -> Json.Str(""),
         Chunk(ContentBlock.Text("first"), ContentBlock.Text("second")) -> Json.Str("first\nsecond"),
         Chunk(ContentBlock.Image.url("http://example.test/image")) -> Json.Arr(
@@ -193,6 +211,7 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         ).map(block => Chunk(block) -> Json.Arr(audioPart("AQ==", format)))
       )
       assertTrue(cases.forall { case (content, expected) =>
+        preservesNonStreamingPayload(Chunk(Msg.user(content)), Chunk.empty, config) &&
         messages(ChatCompletionsRequest.encode(Chunk(Msg.user(content)), Chunk.empty, config))
           .contains(
             Chunk(
@@ -228,9 +247,10 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         Chunk("", "A", "AQ", "AQI", "A===", "====", "AA=A", "AQ-_", "AQI=\n", " AQ==", "éAAA")
       val invalidTypes =
         Chunk("", "image/jpg", "image/svg+xml", "text/plain", "image/png;extra=value")
-      val sourceFailures = invalidUrls.map(ContentBlock.Image.url) ++
-        invalidData.map(data => ContentBlock.Image.base64("image/png", data)) ++
-        invalidTypes.map(mediaType => ContentBlock.Image.base64(mediaType, "AQ=="))
+      val sourceFailures =
+        invalidUrls.map(ContentBlock.Image.url) ++
+          invalidData.map(data => ContentBlock.Image.base64("image/png", data)) ++
+          invalidTypes.map(mediaType => ContentBlock.Image.base64(mediaType, "AQ=="))
       val media = ContentBlock.Image.url("https://example.test/image.png")
       val audio = ContentBlock.Audio.base64("audio/wav", "AQ==")
       val audioFailures = invalidData.map(data => ContentBlock.Audio.base64("audio/wav", data)) ++
@@ -266,6 +286,13 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             .map(mediaType => ContentBlock.Data.base64(mediaType, "AQ=="))
       val invalidMessages = sourceFailures.map(image =>
         Msg.user(Chunk[Msg.UserBlock](ContentBlock.Text("must not survive alone"), image))
+      ) ++ invalidUrls.map(url =>
+        Msg.user(
+          Chunk[Msg.UserBlock](
+            ContentBlock.Text("must not survive alone"),
+            ContentBlock.Video.url(url)
+          )
+        )
       ) ++ audioFailures.map(value =>
         Msg.user(Chunk[Msg.UserBlock](ContentBlock.Text("must not survive alone"), value))
       ) ++ dataFailures.map(value =>
@@ -290,7 +317,16 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             ContentBlock.Data.url("https://example.test/image.png")
           )
         ),
-        Msg.user(Chunk(ContentBlock.Video.url("https://example.test/video.mp4"))),
+        Msg.user(Chunk(ContentBlock.Video.base64("video/mp4", "AQ=="))),
+        Msg.assistant(Chunk(ContentBlock.Video.url("https://example.test/video.mp4"))),
+        Msg.tool(
+          Chunk(
+            ContentBlock.ToolResult(
+              "call",
+              output = Chunk(ContentBlock.Video.url("https://example.test/video.mp4"))
+            )
+          )
+        ),
         Msg.user(Chunk(ContentBlock.Audio.base64("audio/opus", "AQ==")))
       )
       assertTrue(

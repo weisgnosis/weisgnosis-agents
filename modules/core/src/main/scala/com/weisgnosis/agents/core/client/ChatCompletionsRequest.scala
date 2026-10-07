@@ -37,7 +37,7 @@ private[client] enum CompletionResponseMode:
   case Streaming(profile: CompletionEnvelopeProfile)
   case NonStreaming
 
-/** Pure serialization of text, user images/inline audio, and function calls; media sources are never fetched. */
+/** Pure serialization of text, user media, and function calls; media sources are never fetched. */
 object ChatCompletionsRequest:
   private val namePattern = "[A-Za-z0-9_-]{1,64}".r
   private val imageMediaTypes: Set[String] =
@@ -273,10 +273,13 @@ object ChatCompletionsRequest:
           Right(Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str(text)))
         case ContentBlock.Image(source, _, _) => inputImage(source)
         case ContentBlock.Audio(source, _, _) => inputAudio(source)
+        case ContentBlock.Video(source, _, _) => inputVideo(source)
         case ContentBlock.Data(source, _, _)  => dataPart(source)
         case _ =>
           Left(
-            AgentError.InvalidMessage("User content supports only text, images, and inline audio")
+            AgentError.InvalidMessage(
+              "User content supports only text, images, inline audio, and video URLs"
+            )
           )
       .map(parts => Json.Arr(parts))
 
@@ -321,20 +324,7 @@ object ChatCompletionsRequest:
 
   private def imageUrl(source: MediaSource): Either[AgentError, String] = source match
     case MediaSource.Url(value, _) =>
-      for
-        _ <- message(
-          value.nonEmpty && value.forall(character =>
-            !character.isWhitespace && !Character.isISOControl(character)
-          ),
-          "Image URLs must not contain raw whitespace or control characters"
-        )
-        url <- URL.decode(value).left.map(_ => AgentError.InvalidMessage("Invalid image URL"))
-        _ <- message(
-          url.scheme.exists(scheme => scheme == Scheme.HTTP || scheme == Scheme.HTTPS) &&
-            url.host.exists(_.nonEmpty) && url.port.forall(port => port > 0 && port <= 65535),
-          "Image URLs must be absolute HTTP or HTTPS URLs with a host and valid port"
-        )
-      yield value
+      httpMediaUrl(value)
     case MediaSource.Base64(mediaType, data) =>
       for
         _ <- message(
@@ -343,6 +333,34 @@ object ChatCompletionsRequest:
         )
         _ <- message(validBase64(data), "Inline image data must be nonempty standard base64")
       yield s"data:$mediaType;base64,$data"
+
+  private def inputVideo(source: MediaSource): Either[AgentError, Json] = source match
+    case MediaSource.Url(value, _) =>
+      httpMediaUrl(value).map(url =>
+        Json.Obj("type" -> Json.Str("video_url"), "video_url" -> Json.Obj("url" -> Json.Str(url)))
+      )
+    case MediaSource.Base64(_, _) =>
+      Left(
+        AgentError.InvalidMessage(
+          "Video requires an explicit HTTP or HTTPS URL; inline video is unsupported"
+        )
+      )
+
+  private def httpMediaUrl(value: String): Either[AgentError, String] =
+    for
+      _ <- message(
+        value.nonEmpty && value.forall(character =>
+          !character.isWhitespace && !Character.isISOControl(character)
+        ),
+        "Media URLs must not contain raw whitespace or control characters"
+      )
+      url <- URL.decode(value).left.map(_ => AgentError.InvalidMessage("Invalid media URL"))
+      _ <- message(
+        url.scheme.exists(scheme => scheme == Scheme.HTTP || scheme == Scheme.HTTPS) &&
+          url.host.exists(_.nonEmpty) && url.port.forall(port => port > 0 && port <= 65535),
+        "Media URLs must be absolute HTTP or HTTPS URLs with a host and valid port"
+      )
+    yield value
 
   /** Syntax validation only: no media decoding, animation inspection, or size-limit claim. */
   private def validBase64(value: String): Boolean =

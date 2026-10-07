@@ -39,10 +39,10 @@ Migration: the three new public helpers are additive; prior public factory/encod
 | Reviewed source/spec | Git blob |
 | --- | --- |
 | [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | `cdce8807a5f7f3eace9558139d6fe2578c77078d` |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `a2a632bc1468b0c4912ef935a58edde3a9de9b36` |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `2e96e2e0ca08e25cf620d496b68f1c626fdbb75f` |
 | [CompletionEnvelopeDecoder.scala](CompletionEnvelopeDecoder.scala) | `464a7d3c69a2b7b7b847f38580d81b62a7db6534` |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `047d556fb36d1db13fd2861bbca7b756f220b749` |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [ChatCompletionsNonStreamingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsNonStreamingSpec.scala) | `1a9ecf7cc350750d1697a7393b0d35f73981ec1f` |
 | [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current storage identity](../../../../../../../../../storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) |
 
@@ -159,10 +159,10 @@ Migration: LlmConfig has fifteen positional/Product fields and ModelRequestSetti
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5235e2b4b911aa548e54b86bf8401243bb0522fc |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | 70ba09d5499cfe862e814bb79b918668dc4c168e |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [LlmClient.scala](LlmClient.scala) | c42e38120c873babf1cff3956d35c734d65f04eb |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 3a99d8850a8fa2905f1384bf04a818f386dd00da |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 | [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
 
@@ -182,11 +182,11 @@ Migration: current LlmConfig and ModelRequestSettings arities follow the [reason
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
 | [StopSequences.scala](StopSequences.scala) | 07e81b7f93282be465a2db4d5eacb98bdac3dbca |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 | [StopSequencesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StopSequencesSpec.scala) | a55a615fc899a28cc14d610af8005aaa7f72d448 |
 | [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
@@ -206,8 +206,8 @@ Migration: current LlmConfig arity follows the [stop-sequence migration](#option
 | Reviewed file | Git blob |
 | --- | --- |
 | [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 
@@ -226,12 +226,12 @@ The HTTP request body and historical tool-argument strings use the pure [exact J
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
 | [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
 | [JsonBoundary.scala](../json/JsonBoundary.scala) | `6cf481403cc762117989e31d5e1dd2c0c1ffd3be` |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 | [JsonBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/json/JsonBoundarySpec.scala) | `aca1f4ce72d66ff5f6f28ec0d13dc767a14a3800` |
 
@@ -250,11 +250,11 @@ Migration: Current LlmConfig and ModelRequestSettings arities are recorded in th
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current ReActAgentModelInputSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these eight identities, with no findings. Existing tables cover omission, zero, endpoints, nonfinite/out-of-range values, codec defaults, projection override/clearing and validation before custom dispatch, per-target selection, retry reuse and structured requests. No new test groups were added. Focused `penalties-numeric-focused.log` passed 37 tests in 1.186 seconds.
@@ -270,10 +270,10 @@ Migration: LlmConfig has a defaulted toolChoice; its current positional/Product 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Existing tables cover all choices, empty definitions, exact visibility rejection and codec defaults. The extended real HTTP cycle verifies that a returned call despite none still passes through host authorization, Specific cannot bypass host denial, and hidden Specific performs no HTTP/authorization. Controlled failover/structured requests retain each target's own choice. Focused tool-choice-focused.log passed 31 tests in 7.402 seconds; no new groups were added.
@@ -291,11 +291,11 @@ Migration: the appended defaulted fields preserve ordinary omitted-argument cons
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 | [SubagentDeclaration.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclaration.scala) | bf55c6a99b8c35bfaa28bd15eb8fba2617ad9faa |
 | [SubagentDeclarationParser.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParser.scala) | 2033e68dc48552d838cf7f96b7a53d9e1a2df45c |
@@ -353,13 +353,13 @@ Validation covers nonblank models, finite temperature in [0, 2], positive option
 
 ## User-image projection
 
-User messages containing only text retain their original string wire shape. A message containing supported media becomes an ordered array of text, image_url and input_audio parts. HTTP(S) image URLs require a host and valid port, reject raw whitespace/control characters, and retain their original spelling. Inline images require an explicit image/png, image/jpeg, image/webp or image/gif media type and nonempty standard Base64 syntax. Image, audio and Data IDs and names are not provider fields. Invalid or unsupported blocks reject the whole request; no block is silently dropped or replaced with a placeholder.
+User messages containing only text retain their original string wire shape. A message containing supported media becomes an ordered array of text, image_url, input_audio and supported video_url parts. HTTP(S) image URLs require a host and valid port, reject raw whitespace/control characters, and retain their original spelling. Inline images require an explicit image/png, image/jpeg, image/webp or image/gif media type and nonempty standard Base64 syntax. Image, audio, video and Data IDs and names are not provider fields. Invalid or unsupported blocks reject the whole request; no block is silently dropped or replaced with a placeholder.
 
 Inline audio accepts only MediaSource.Base64 with exact audio/wav or audio/mpeg MIME values, projecting format wav or mp3 respectively and preserving the original Base64 string. Payloads require the same nonempty standard Base64 syntax as inline images. Audio URLs, MIME aliases, parameters and other formats fail; the codec never guesses a format or substitutes a text reference. The [official input-audio schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_content_part_input_audio_param.py) specifies input_audio.data and format wav|mp3; the exact MIME mapping is local boundary policy.
 
 User ContentBlock.Data accepts inline Base64 with those same four image MIME types or audio/wav and audio/mpeg. Data URLs require an explicit MediaSource.Url.mimeType of image/png, image/jpeg, image/webp or image/gif and pass the existing HTTP(S) validator. The original URL is retained, including a misleading extension; no MIME type is inferred. The hint, ID and name are omitted from provider JSON. An explicit Image block keeps its existing URL behavior regardless of the descriptive hint. Missing/unsupported Data hints, audio/video Data URLs and malformed URLs reject the whole request. Inline Data continues to use the same image_url/input_audio validators and original block order.
 
-This is pure serialization: it does not fetch URLs, read files, decode media bytes, inspect audio headers/duration, detect animation or validate provider size limits. In particular, accepting image/gif does not establish that the image is non-animated. Image/audio/Data content in system, assistant and tool messages remains unsupported; video and other Data media are also rejected. Standard tool content stays text-only. The [official user schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_user_message_param.py), [image-part schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_content_part_image_param.py), [tool-message schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_tool_message_param.py) and [image guide](https://developers.openai.com/api/docs/guides/images-vision) define the selected provider surface. This does not imply compatibility with every endpoint accepting Chat Completions requests.
+This is pure serialization: it does not fetch URLs, read files, decode media bytes, inspect audio headers/duration, detect animation or validate provider size limits. In particular, accepting image/gif does not establish that the image is non-animated. Image/audio/video/Data content in system, assistant and tool messages remains unsupported; inline video and video Data inference are also rejected. Standard tool content stays text-only. The [official user schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_user_message_param.py), [image-part schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_content_part_image_param.py), [tool-message schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_tool_message_param.py) and [image guide](https://developers.openai.com/api/docs/guides/images-vision) define the selected image/audio provider surface. Video URL projection below requires an explicitly compatible endpoint. This does not imply compatibility with every endpoint accepting Chat Completions requests.
 
 Migration: MediaSource.Url appends mimeType: Option[String] = None with canonical mime_type JSON. Missing/null becomes None and None is omitted; invalid or duplicate canonical fields fail. Two-field Url patterns/Product and downstream binaries require updating. Defaulted construction calls remain valid; MediaSource.url now has two parameters, so method-value users must adapt rather than assuming the old function arity. Previously rejected supported user media now serialize; text-only requests and unsupported-role rejection retain their existing behavior. Full provider media validation remains the caller/provider responsibility.
 
@@ -367,14 +367,35 @@ Existing tables verify six inline MIME mappings, four image URL hints on a misle
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [MediaSource.scala](../model/MediaSource.scala) | a443433df837fc8d4eb4b714664b90b2a7bcef3c |
 | [MediaSourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/MediaSourceSpec.scala) | ac9619600ec48fe7f0c5713ae7f34c8f8c0f6ad6 |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these four identities, with no findings. Focused checks passed 23 tests in 282 ms (`mime-hint-focused.log`).
 - [x] Full `scalafmtAll scalafmtSbt verify` passed in `mime-hint-verify.log` with zero compiler warnings or failures; current aggregate totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [ ] Audio output, URL retrieval, additional media/provider formats and live-provider interoperability remain unfinished.
+
+## User Video URL projection
+
+An explicit user ContentBlock.Video(MediaSource.Url(...)) projects to a video_url part containing only the original url. Video-only and mixed text/image/video messages preserve block order. The same pure HTTP(S) syntax guard used for image URLs requires a host/valid port and rejects raw whitespace/control characters; original URL spelling, including query/fragment and percent escapes, is retained. Local IDs/names and descriptive MIME hints are omitted. No extension or MIME inference, fetching, media decoding or remote-content validation occurs.
+
+The host must select an endpoint that supports this video_url extension. Supplying the typed Video block expresses request intent, as with existing image/audio input; there is no additional feature flag or universal Chat Completions compatibility claim. Base64 video, Data video inference and video in system/assistant/tool roles reject the complete request. Existing text-only shape, image/audio/Data behavior, request signatures and configuration defaults are unchanged. URL failures retain typed InvalidMessage errors through the shared media guard.
+
+The existing positive/negative request tables add the bounded pinned OpenAIVideoSupportTest.testConvertVideoBlockWithUrlSource (154) and testConvertMixedTextAndVideoContent (219) adaptations, including exact wire order/URL preservation and rejected near-misses. No new test group or whole upstream suite mapping is introduced.
+
+| Reviewed source/spec against 1227ce5 | Git blob |
+| --- | --- |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `6cf6068bf6ed36db0e263aaee86b5c6b3b3be905` |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `5f9140ec6cbeca88c2c90b381d33925bdfe4bde6` |
+
+- [x] review_fp and review_invariants approved both final identities against 1227ce5, with no unresolved findings.
+- [x] video-url-final-green.log passes all 19 existing request groups in 402 ms; no test group was added.
+- [x] video-url-verify.log passes formatting, fatal-warning compilation, four packages and 1,497 tests: 669 core / 726 harness / 85 MCP / 12 PostgreSQL / 5 examples, with zero compiler warnings or failed tests.
+- [x] video-url-artifact-preparation.log passes all four archive/POM checks.
+- [x] video-url-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh module JAR hashes. The existing selected API smoke does not exercise a live video endpoint.
+- [x] review_fp and review_invariants approved final combined source/documentation closure against 1227ce5 and both unchanged identities. English inspection passed; all 2,722 local references in 78 Markdown documents passed with zero issues.
+- [ ] Inline video, additional provider/media formats and live compatible-endpoint validation remain unfinished.
 
 ## Tool-call signatures
 
@@ -413,7 +434,7 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | File | Reviewed Git blob |
 | --- | --- |
 | ReActAgent.scala | [Current identity](#optional-reasoning-effort) |
-| ChatCompletionsRequest.scala | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| ChatCompletionsRequest.scala | [Current Video URL identity](#user-video-url-projection) |
 | ChatCompletionsTransport.scala | [Current ordinary-JSON identity](#ordinary-json-completions) |
 | [LlmChunk.scala](LlmChunk.scala) | a35e034b66a8139d05ee1c6b1622ca19871538b1 |
 | [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 35b65c607b31f46da8213f4ffcfb12a6d7439128 |
