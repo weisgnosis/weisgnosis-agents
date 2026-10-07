@@ -113,7 +113,7 @@ Migration: PendingActing appends default-empty permissionRequests, making nine p
 | [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current request-projection identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#current-model-input-identities) |
 | [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current provider-ownership identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls) |
 | [CheckpointPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/CheckpointPermissionIntegrationSpec.scala) | [Current CheckpointPermissionIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
-| [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | [Current PartialConfirmationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+| [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | [Current strengthened event-oracle identity](#checkpoint-event-order-oracle), final documentation review passed |
 
 ## Implementation
 
@@ -148,3 +148,12 @@ The unchanged runtime integration suite retains `review_fp` and `review_harness`
 | [PermissionGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PermissionGateSpec.scala) | `9b5b4cd0e4d28763fe0905bc6387b8213fc3fd5f` |
 | [InteractivePermissionAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionAuthorizerSpec.scala) | `79b0aa4b4c179f1baf45a79a5dff31f0c062cbc0` |
 | [InteractivePermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionIntegrationSpec.scala), behavior preserved | [Current InteractivePermissionIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+
+## Checkpoint event-order oracle
+
+The existing PartialConfirmationSpec denied-before-Ask group now checks the exact collected Start/Delta/End phase and call-ID sequence, exactly one Denied end state and one RequestStop, alongside End-before-Ask-before-Stop and existing failure/cancellation/cleanup cases. This removes reliance on chained indexWhere comparisons that could pass with a missing Start at index -1. It strengthens a test oracle, changes no production behavior, adds no group and claims no reproduced runtime defect.
+
+- [x] review_fp and review_invariants approved PartialConfirmationSpec blob 529f0dbba249dd552365ed699fbab540ab9a0b0e against 2e16c3f, with no unresolved findings.
+- [x] checkpoint-order-contract-focused.log passed four tests in 1.110 seconds.
+- [x] checkpoint-order-contract-verify.log exited zero: 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests. Unchanged production/build/consumer retain scoped accepted 8792744 RC artifact evidence.
+- [x] review_fp and review_invariants approved the final combined eight-file test/documentation scope against 2e16c3f, with PartialConfirmationSpec blob 529f0dbba249dd552365ed699fbab540ab9a0b0e unchanged. Full verification passed all 1,517 tests with zero compiler warnings/failures/ignored tests. Manual English inspection, diff checks and 78-document/2,885-local-reference validation pass with zero issues.

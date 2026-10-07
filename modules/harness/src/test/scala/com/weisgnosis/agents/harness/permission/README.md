@@ -24,3 +24,5 @@ The three composition additions reuse the existing priority and authorization co
 - [ ] Complete remaining partial-confirmation/event mappings, authenticated transport and durable host persistence in the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md).
 
 The unchanged runtime integration suite retains its recorded review; composition closes no additional whole upstream method. Affirmative Allow can resolve the implicit default Ask; composition is not a restriction-only capability.
+
+The existing PartialConfirmationSpec checkpoint ordering group now requires the exact denied Start/Delta/End phase/call-ID sequence and explicit terminal counts, preserving existing Ask/Stop and failure/cancellation checks. The [renewed test-only acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-event-order-oracle) has both exact source approvals and focused verification; full verification passed and final combined documentation approval passed.

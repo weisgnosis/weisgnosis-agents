@@ -403,4 +403,6 @@ Inheritance through arbitrary raw host callbacks, model-selected session constru
 - [x] Implement and independently approve scoped correlated child forwarding through all existing spawn/send routes.
 - [ ] Complete optional remote/durable task routing and independently observed cancellation-tail delivery.
 
+The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) classifies selected Java context reference identity, external completed-future adoption, deterministic-key and Reactor-context API differences against current explicit capabilities; final documentation review passed. Durable reuse/restoration and post-lease/remote event delivery remain unfinished. Pure hashing is possible, but the Java exact key protocol is not the selected local identity contract.
+
 See the [repository tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) for immediate next work. No exhaustive upstream parity is claimed.

@@ -409,10 +409,14 @@ object PartialConfirmationSpec extends ZIOSpecDefault:
                     yield assertTrue(
                       exit.isSuccess,
                       events.count(_.isInstanceOf[AgentEvent.PermissionAskEvent]) == 1,
-                      events.indexWhere(_.isInstanceOf[AgentEvent.ToolResultStartEvent]) < events
-                        .indexWhere(_.isInstanceOf[AgentEvent.ToolResultDeltaEvent]),
-                      events.indexWhere(_.isInstanceOf[AgentEvent.ToolResultDeltaEvent]) < events
-                        .indexWhere(_.isInstanceOf[AgentEvent.ToolResultEndEvent]),
+                      events.collect {
+                        case event: AgentEvent.ToolResultStartEvent => "start" -> event.callId
+                        case event: AgentEvent.ToolResultDeltaEvent => "delta" -> event.callId
+                        case event: AgentEvent.ToolResultEndEvent   => "end"   -> event.callId
+                      } == Chunk("start" -> "denied", "delta" -> "denied", "end" -> "denied"),
+                      events.collect { case event: AgentEvent.ToolResultEndEvent => event.state } ==
+                        Chunk(ToolResultState.Denied),
+                      events.count(_.isInstanceOf[AgentEvent.RequestStopEvent]) == 1,
                       events.indexWhere(_.isInstanceOf[AgentEvent.ToolResultEndEvent]) < events
                         .indexWhere(_.isInstanceOf[AgentEvent.PermissionAskEvent]),
                       events.indexWhere(_.isInstanceOf[AgentEvent.PermissionAskEvent]) < events

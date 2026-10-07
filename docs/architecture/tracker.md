@@ -40,12 +40,15 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Explicit tool-image projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-image-result-projection) has final scoped acceptance; default TextOnly and compatible-endpoint limits remain explicit.
 
-Current delivery scope: [thinking-only retry contract tests](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#thinking-only-retry-contract) against 8792744. No production changes or new groups; independent retry/iteration limits intentionally omit Java's extra summarizing request.
+- [x] [Thinking-only retry contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#thinking-only-retry-contract) has final test/documentation acceptance with independent retry/iteration bounds and no extra summarizing request.
 
-- [x] review_fp and review_invariants approved the final paired test identity.
-- [x] thinking-retry-contract-focused.log passed five tests in 410 milliseconds.
-- [x] thinking-retry-contract-verify.log passed 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests; unchanged production/build/consumer retain accepted 8792744 artifact evidence.
-- [x] review_fp and review_invariants approved the final combined five-file test/documentation scope against 8792744, with ReActAgentThinkingRetrySpec blob b3ba2ecf4760a9e4ff4768436571994851170bf0 unchanged. Manual English inspection, diff checks and 78-document/2,878-local-reference validation pass with zero issues; full verification above passed all 1,517 tests.
+Current delivery scope: bounded [upstream API applicability classification](test-parity.md) against 2e16c3f, covering all sixteen synchronous MCP wrapper methods, selected subagent API differences and checkpoint denied-before-Ask ordering. One existing checkpoint event-order test group is strengthened; no production behavior or group count changes. Broader caching/schema/transport, durable host/reuse and post-lease event contracts remain open.
+
+- [x] review_fp and review_invariants approved exact PartialConfirmationSpec blob 529f0dbba249dd552365ed699fbab540ab9a0b0e against 2e16c3f.
+- [x] review_fp and review_invariants approved the final combined eight-file test/documentation scope against 2e16c3f, with PartialConfirmationSpec blob 529f0dbba249dd552365ed699fbab540ab9a0b0e unchanged. Full verification passed all 1,517 tests with zero compiler warnings/failures/ignored tests. Manual English inspection, diff checks and 78-document/2,885-local-reference validation pass with zero issues.
+- [x] checkpoint-order-contract-focused.log passed four tests in 1.110 seconds.
+- [x] checkpoint-order-contract-verify.log passed 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests; unchanged production/build/consumer retain scoped accepted RC artifact evidence.
+- [x] English inspection and local Markdown/diff validation passed for the accepted bounded scope.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -97,7 +100,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-The thinking-only retry test contract has full verification and final independent documentation acceptance above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+The current bounded applicability classification has final independent documentation acceptance above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
 
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.

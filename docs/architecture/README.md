@@ -23,7 +23,10 @@ Update contracts and mappings when behavior changes. Record current reviewed sco
 
 ## Current documentation acceptance
 
-review_fp and review_invariants approved the six-file architecture reconciliation against c1c95be: this index, high/mid/low-level designs, tracker and bounded parity currentness corrections. FP document manifest SHA-256: beddb1e8d5c1e65651442af73aa4444bd592d4163e9f672e5cd973e52576f3a2. Manual English/diff checks and 78-document/2,820-local-reference checks pass with zero issues. Approval is documentation-only; concurrent source changes are excluded.
+Current documentation scope against 2e16c3f classifies all sixteen pinned synchronous MCP wrapper methods, selected subagent identity/context/event API differences and checkpoint-path denied-before-Ask ordering. The associated [checkpoint event-order oracle](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-event-order-oracle) strengthens one existing test group; production behavior and group count are unchanged, and no whole-suite parity is granted. Existing source/package acceptance remains scoped to its own identities.
+
+- [x] review_fp and review_invariants approved the final combined eight-file test/documentation scope against 2e16c3f, with PartialConfirmationSpec blob 529f0dbba249dd552365ed699fbab540ab9a0b0e unchanged. Full verification passed all 1,517 tests with zero compiler warnings/failures/ignored tests. Manual English inspection, diff checks and 78-document/2,885-local-reference validation pass with zero issues.
+- [x] English inspection and local Markdown/diff validation passed for the accepted bounded scope.
 
 ## Versioned remote storage
 
