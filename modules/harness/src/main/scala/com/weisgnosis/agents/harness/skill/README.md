@@ -2,13 +2,40 @@
 
 [SkillMarkdownParser.parse](SkillMarkdownParser.scala) reads a bounded inline SKILL.md profile into core SkillDefinition. The required name and description fields must be nonblank YAML strings. Name becomes the exact ID; string values follow YAML semantics and the body is preserved exactly. Additional fields become ordered JSON metadata, excluding name/description. Resources and activation targets are empty: parsing acquires no capability and does not create group names or install a skill. Hosts can pass the result through checked SkillCatalog.make and explicitly configure any resources/targets.
 
-The header begins at column zero with a delimiter line containing exactly three hyphens plus optional spaces/tabs. LF and CRLF are supported, with no BOM or preceding whitespace. The first matching closing delimiter ends the header; the remaining body is preserved without trimming and must be nonblank. Quoted, plain textual, literal and folded string values follow YAML string semantics. Extra metadata supports block/flow mappings and sequences, strings, JSON-compatible finite numbers, booleans and null. Mapping keys must be strings; encounter order is retained at every object level.
+The header begins at column zero with a delimiter line containing exactly three hyphens plus optional spaces/tabs. LF, CRLF and CR are supported. One optional U+FEFF is accepted only at the start immediately before the opening delimiter; repeated BOMs and preceding whitespace are rejected. Interior metadata/body BOMs remain unchanged. The first matching closing delimiter ends the header; the remaining body is preserved without trimming and must be nonblank. Quoted, plain textual, literal and folded string values follow YAML string semantics. Extra metadata supports block/flow mappings and sequences, strings, JSON-compatible finite numbers, booleans and null. Mapping keys must be strings; encounter order is retained at every object level.
 
 Required name/description reject numeric, boolean, null and collection values; quoted string forms remain valid. Duplicate keys at every depth, collection/nonstring keys, aliases/anchors, explicit tags and YAML version/tag directives are rejected. YAML-only numeric spellings and nonfinite values are rejected rather than coerced. Metadata remains inert even for keys named allowed-tools, resources or activateGroups. Malformed YAML fails as AgentError.InvalidConfiguration, without permissive fallback or object loading. Other parser exceptions become bounded syntax diagnostics containing the exception class, not input content. Parsing uses the existing SnakeYAML Engine dependency; allocation, iteration, resolution and foreign event access are suspended in ZIO, with immutable parser state.
 
 SkillMarkdownLimits defaults to 128,000 document characters and 16,000 header characters, measured as UTF-16 units. maxMetadataDepth defaults to 10 and counts nested metadata collections, excluding the outer header mapping; scalar values add no collection depth. All three limits must be positive. The document includes delimiters/body; the header excludes delimiter lines and includes the newline before the closing delimiter. Validation precedes YAML reader creation. These bounds intentionally differ from upstream's 16,384-code-point header limit. The limits have a derived codec; parse always validates decoded values.
 
-Migration: SkillMarkdownLimits appends the defaulted third field maxMetadataDepth; old JSON without it uses 10. SkillDefinition appends default-empty metadata as its sixth field. Positional patterns/Product arity and encoded data change; rebuild dependent binaries. The subagent declaration parser is unchanged. Markdown generation, source-derived IDs and skill capability registration remain unfinished; selected local loading and bounded repository discovery are defined below.
+Migration: SkillMarkdownLimits appends the defaulted third field maxMetadataDepth; old JSON without it uses 10. SkillDefinition appends default-empty metadata as its sixth field. Positional patterns/Product arity and encoded data change; rebuild dependent binaries. The shared frontmatter compatibility scope below also updates subagent declaration framing without changing its model. Markdown generation, source-derived IDs and skill capability registration remain unfinished; selected local loading and bounded repository discovery are defined below.
+
+## UTF-8 BOM frontmatter compatibility
+
+[Upstream change 2c503d88](https://github.com/agentscope-ai/agentscope-java/commit/2c503d88ba844fe5ee149e8e5f0c1ed32b036420) adds one initial U+FEFF to shared skill frontmatter, preserves interior BOMs and tests LF/CRLF/CR, actual file discovery/loading and subagent declarations. Current [SkillMarkdownParser](SkillMarkdownParser.scala) and [SubagentDeclarationParser](../subagent/SubagentDeclarationParser.scala) implement that framing at their existing checked boundaries. Both parsers adjust only delimiter recognition, preserving original offsets and exact body whitespace. Existing document UTF-16 limits include the initial BOM; header limits exclude delimiter lines; local byte bounds include the original three UTF-8 BOM bytes. No global stripping, newline normalization or new YAML leniency is introduced.
+
+The existing four suites now carry the contract tables and actual UTF-8 files, with no new test groups. They retain strict repeated/noninitial BOM and delimiter near-misses, original size bounds, malformed UTF-8 and capability isolation. Upstream generic Markdown parsing returns unchanged raw input when frontmatter is absent; these domain parsers still reject missing required declarations as typed InvalidConfiguration. The subagent body remains exact rather than adopting Java's trim. This scope does not implement the upstream SkillManageTool create/edit APIs.
+
+- [x] `frontmatter-bom-red.log` reproduces typed missing-opening-delimiter failures against unchanged `7692d70` in both parsers and actual repositories; eight groups passed and eight failed.
+- [x] `frontmatter-bom-assertion-red.log` records three passing and two failing groups in 295 ms, including an explicit unchanged-production assertion: valid BOM table input returns Left(InvalidConfiguration) instead of the expected Right(SkillDefinition), preserving exact expected body and metadata.
+- [x] Implement one initial BOM plus LF/CRLF/CR framing without changing public signatures, YAML interpretation or resource ownership.
+- [x] `frontmatter-bom-focused-final.log` passes all sixteen existing groups in 382 ms with zero failures, ignored tests or compiler warnings.
+- [x] `review_fp` and `review_invariants` independently approved all six exact source/test identities below against `7692d70`, with no unresolved findings.
+- [x] `frontmatter-bom-full-verify.log` passes formatting, fatal-warning compilation, all 1,564 existing tests (687 core / 734 harness / 113 MCP / 22 fresh PostgreSQL / 8 examples) and four RC1 packages, with zero failures, ignored tests or compiler warnings.
+- [x] `frontmatter-bom-preparation.log` passes archive preparation and negative selector/source-archive regressions.
+- [x] `frontmatter-bom-consumer.log` passes standalone formatting, clean fatal-warning compilation and forked consumption of four fresh module hashes. Its existing packaged API smoke does not claim direct BOM parsing coverage.
+- [x] `review_fp` and `review_invariants` approved the final combined twenty-file scope against `7692d70`, including six unchanged source/spec identities and fourteen Markdown files; no unresolved findings remain in this scope.
+
+Current independently approved source/test manifest:
+
+| File | Git blob |
+| --- | --- |
+| [SkillMarkdownParser.scala](SkillMarkdownParser.scala) | `6c0616eb9cee601f23e80ae46533fd73de369766` |
+| [SubagentDeclarationParser.scala](../subagent/SubagentDeclarationParser.scala) | `8e9b4e87312a75fb4f6d3b865a6fd965f8fb630f` |
+| [LocalSkillRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillRepositorySpec.scala) | `08be327e19529fdbd3369c6c88790877e1c7e724` |
+| [SkillMarkdownParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/SkillMarkdownParserSpec.scala) | `f932cb0dab39ff35e4882f44ac68dd8322ab0622` |
+| [LocalSubagentDeclarationsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/LocalSubagentDeclarationsSpec.scala) | `72ad8fe7b48c286dbf3d5ff0fbb8de346cdb3efe` |
+| [SubagentDeclarationParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | `f34160b0dd8cb09a2ec9127a6c8f7dc7145a3250` |
 
 ## Verification and acceptance
 
@@ -18,8 +45,8 @@ Migration: SkillMarkdownLimits appends the defaulted third field maxMetadataDept
 
 | Reviewed file | Reviewed Git blob |
 | --- | --- |
-| [SkillMarkdownParser.scala](SkillMarkdownParser.scala) | `90a75be3050a79b13f356b3f39198b5b07b04699` |
-| [SkillMarkdownParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/SkillMarkdownParserSpec.scala) | `477a44c3bc663ed1db1a377d4ddc0437e72991f4` |
+| [SkillMarkdownParser.scala](SkillMarkdownParser.scala) | [Current BOM scope and acceptance gates](#utf-8-bom-frontmatter-compatibility) |
+| [SkillMarkdownParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/SkillMarkdownParserSpec.scala) | [Current BOM scope and acceptance gates](#utf-8-bom-frontmatter-compatibility) |
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/README.md) and [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) record the bounded mappings and exclusions. No exhaustive upstream skill-parser or loader parity is claimed.
 
@@ -73,7 +100,7 @@ Full `scalafmtAll scalafmtSbt verify` passed in `skill-resource-tree-verify.log`
 | Reviewed file | Git blob |
 | --- | --- |
 | [LocalSkillRepository.scala](LocalSkillRepository.scala) | `eff186771a953bc0b3c6ea0bf71b603927499f37` |
-| [LocalSkillRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillRepositorySpec.scala) | `cbe387f0f7025055f51799ef429c74f1c0fc5b58` |
+| [LocalSkillRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillRepositorySpec.scala) | [Current BOM scope and acceptance gates](#utf-8-bom-frontmatter-compatibility) |
 | [LocalSkill.scala](LocalSkill.scala), package-visible helper reuse | `d260589839585de3588c3a14ccb2a69f31200330` |
 
 The repository table retains its reviewed helper baseline; current LocalSkill source/spec identities are in the explicit reader section. Existing load behavior and signature are unchanged.

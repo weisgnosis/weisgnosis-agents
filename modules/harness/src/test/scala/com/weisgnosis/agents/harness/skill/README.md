@@ -1,10 +1,12 @@
 # Inline and local skill verification
 
+The [current BOM compatibility scope](../../../../../../../main/scala/com/weisgnosis/agents/harness/skill/README.md#utf-8-bom-frontmatter-compatibility) records actual failing-before-fix evidence, both final independent source approvals and sixteen focused passing groups for two parsers and four existing suites; full verification and package preparation passed. Fresh artifact consumption and final combined documentation approval passed against 7692d70 for six unchanged Scala files and fourteen Markdown files. Tables extend independent behavior without adding test groups; earlier parser acceptance does not accept this change.
+
 [SkillMarkdownParserSpec](SkillMarkdownParserSpec.scala) covers five grouped bounded contracts:
 
-- Exact body/declaration projection for plain, quoted, folded/literal, Unicode and flow-mapping strings, LF/CRLF framing, empty capabilities and checked catalogue reentry.
+- Exact body/declaration projection for plain, quoted, folded/literal, Unicode and flow-mapping strings, LF/CRLF/CR framing with one optional initial BOM and preserved interior BOMs, empty capabilities and checked catalogue reentry.
 - Required-string validation; ordered inert nested metadata; recursive duplicate, invalid-key, unsupported scalar/tag/alias and malformed-YAML rejection without fallback.
-- Positive UTF-16/depth limits, exact size/depth boundaries, delimiter near-misses, BOM/leading-whitespace rejection and blank bodies.
+- Positive UTF-16/depth limits, exact size/depth boundaries, delimiter near-misses, repeated/noninitial BOM and leading-whitespace rejection and blank bodies.
 
 - [x] `registry_contract` and `current_docs` approved the final metadata scope. The [source contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/skill/README.md#verification-and-acceptance) records exact current identities and full `skill-metadata-verify.log` verification.
 
@@ -17,7 +19,7 @@
 
 ## Local repository discovery
 
-[LocalSkillRepositorySpec](LocalSkillRepositorySpec.scala) retains three documents-only groups: cold immediate discovery with exact declared data and no resource loading; root/trust/path/file-shape and whole-batch validation; and all-entry, selected-skill and inherited local limits. Directory scan ownership and filename processing are separate from the returned catalogue's ID ordering. The [source contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/skill/README.md#local-repository-discovery) defines deliberate upstream differences and unverified platform behavior.
+[LocalSkillRepositorySpec](LocalSkillRepositorySpec.scala) retains three documents-only groups: cold immediate discovery with exact declared data and no resource loading; root/trust/path/file-shape and whole-batch validation; and all-entry, selected-skill and inherited local limits. The existing text-tree fixture includes an actual UTF-8 BOM document, exact preserved interior BOM, original byte/UTF-16 bounds and discovered ID. Directory scan ownership and filename processing are separate from the returned catalogue's ID ordering. The [source contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/skill/README.md#local-repository-discovery) defines deliberate upstream differences and unverified platform behavior.
 
 Two additional TextTree groups verify exact nested and benign dot-file resources, root-document exclusion, retained nested SKILL.md, detached text after moving the repository and default-mode isolation from invalid binary data. A boundary table pairs accepted entry/depth/count/byte limits with rejections and pre-I/O configuration validation; a sensitive nested path rejects the whole snapshot. These are five repository groups, plus three unchanged LocalSkill groups in the focused run. No platform alias/symlink or hostile-filesystem cancellation guarantee is tested.
 

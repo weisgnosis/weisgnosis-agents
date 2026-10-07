@@ -47,14 +47,23 @@ object LocalSkillRepositorySpec extends ZIOSpecDefault:
     test("opt-in text trees retain exact portable resources after filesystem release"):
       for
         root <- temporaryDirectory
+        markdown = "\uFEFF" + document("selected").replace("Text café", "Text café \uFEFF")
+        exact = LocalSkillRepositoryLimits(local =
+          LocalSkillLimits(
+            maxDocumentBytes = markdown.getBytes(StandardCharsets.UTF_8).length,
+            parser = SkillMarkdownLimits(maxDocumentCharacters = markdown.length)
+          )
+        )
         repository = root.resolve("repository")
         cold = LocalSkillRepository.load(
           repository,
           WorkspaceTrust.HostControlled,
+          limits = exact,
           resources = LocalSkillResources.TextTree(LocalSkillResourceLimits())
         )
         _         <- ZIO.attemptBlocking(Files.createDirectory(repository))
         directory <- skill(repository, "skill", "selected")
+        _         <- write(directory.resolve("SKILL.md"), markdown)
         nested    <- ZIO.attemptBlocking(Files.createDirectory(directory.resolve("references")))
         _         <- write(nested.resolve("guide.md"), "  Exact café\r\n")
         _         <- write(nested.resolve("SKILL.md"), "Nested resource, not a skill document")
@@ -62,8 +71,21 @@ object LocalSkillRepositorySpec extends ZIOSpecDefault:
         _         <- write(directory.resolve("z.txt"), "Last")
         defaults  <- LocalSkillRepository.load(repository, WorkspaceTrust.HostControlled)
         loaded    <- cold
-        _         <- ZIO.attemptBlocking(Files.move(repository, root.resolve("moved")))
-        resource  <- ZIO.fromEither(loaded.load("selected", "references/guide.md"))
+        bounded <- ZIO.foreach(
+          Chunk(
+            exact.copy(local =
+              exact.local.copy(maxDocumentBytes = exact.local.maxDocumentBytes - 1)
+            ),
+            exact.copy(local =
+              exact.local
+                .copy(parser = exact.local.parser.copy(maxDocumentCharacters = markdown.length - 1))
+            )
+          )
+        )(limits =>
+          LocalSkillRepository.load(repository, WorkspaceTrust.HostControlled, limits).either
+        )
+        _        <- ZIO.attemptBlocking(Files.move(repository, root.resolve("moved")))
+        resource <- ZIO.fromEither(loaded.load("selected", "references/guide.md"))
         _ <- ZIO.attemptBlocking(
           Files.write(root.resolve("moved/skill/binary"), Array(0xc3.toByte, 0x28.toByte))
         )
@@ -77,6 +99,9 @@ object LocalSkillRepositorySpec extends ZIOSpecDefault:
           .either
       yield assertTrue(
         defaults.definitions.forall(_.resources.isEmpty),
+        loaded.definitions.map(_.id) == Chunk("selected"),
+        loaded.definitions.map(_.content) == Chunk("# Exact body\nText café \uFEFF\n"),
+        bounded.forall(_.isLeft),
         isolated.definitions == defaults.definitions,
         loaded.definitions.map(_.resources) == Chunk(
           Map(

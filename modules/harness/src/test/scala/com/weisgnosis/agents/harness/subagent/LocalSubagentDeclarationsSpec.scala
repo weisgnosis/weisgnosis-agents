@@ -24,7 +24,7 @@ import zio.*
 import zio.test.*
 
 object LocalSubagentDeclarationsSpec extends ZIOSpecDefault:
-  private val content: String = "---\ndescription: Review\n---\nBody λ\n"
+  private val content: String = "\uFEFF---\ndescription: Review\n---\nBody λ\uFEFF\n"
 
   private def write(path: Path, text: String): Task[Unit] =
     ZIO.attemptBlocking(Files.writeString(path, text, StandardCharsets.UTF_8)).unit
@@ -44,7 +44,7 @@ object LocalSubagentDeclarationsSpec extends ZIOSpecDefault:
         _ <- write(directory.resolve("zeta.md"), content)
         _ <- write(
           directory.resolve("alpha.md"),
-          "---\r\ndescription: Alpha\r\nmodel: small\r\ntemperature: 0.25\r\nsteps: 3\r\ntools: []\r\n---\r\n\r\n# Exact body\r\n"
+          "\uFEFF---\r\ndescription: Alpha\r\nmodel: small\r\ntemperature: 0.25\r\nsteps: 3\r\ntools: []\r\n---\r\n\r\n# Exact body\r\n"
         )
         _      <- write(directory.resolve("ignored.MD"), "not a declaration")
         _      <- write(directory.resolve("notes.txt"), "not a declaration")
@@ -65,7 +65,7 @@ object LocalSubagentDeclarationsSpec extends ZIOSpecDefault:
             Some(0.25),
             Some(3)
           ),
-          SubagentDeclaration("zeta", "Review", "Body λ\n")
+          SubagentDeclaration("zeta", "Review", "Body λ\uFEFF\n")
         ),
         unchanged == content
       )

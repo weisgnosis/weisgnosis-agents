@@ -102,11 +102,21 @@ object SubagentDeclarationParserSpec extends ZIOSpecDefault:
           "--- \t\r\ndescription: >-\r\n  Review --- carefully\r\n  and explain.\r\n---\t\r\n" + body
         )
         quoted <- SubagentDeclarationParser.parse("reviewer", document("description: 'A --- B'"))
+        bom <- ZIO.foreach(Chunk("\n", "\r\n", "\r")): newline =>
+          val body = newline + "# Instructions" + newline + "Keep \uFEFF here." + newline + "  "
+          val markdown =
+            "\uFEFF---" + newline + "description: 'A\uFEFF agent'" + newline + "---" + newline + body
+          SubagentDeclarationParser
+            .parse("reviewer", markdown)
+            .map(_ == base.copy(description = "A\uFEFF agent", systemPrompt = body))
+        mixed <- SubagentDeclarationParser.parse("reviewer", "---\ndescription: Review\r---\nBody")
       yield assertTrue(
         parsed.forall(identity),
         multiline == base
           .copy(description = "Review --- carefully and explain.", systemPrompt = body),
-        quoted.description == "A --- B"
+        quoted.description == "A --- B",
+        bom.forall(identity),
+        mixed == base.copy(systemPrompt = "Body")
       )
     },
     test(
@@ -189,7 +199,7 @@ object SubagentDeclarationParserSpec extends ZIOSpecDefault:
       "exact framing and UTF-16 limits are enforced before YAML decoding without changing valid boundary input"
     ) {
       val header   = "description: Review\n"
-      val markdown = "---\n" + header + "---\n" + "\ud83d\ude00\n"
+      val markdown = "\uFEFF---\n" + header + "---\n" + "\ud83d\ude00\n"
       val exact    = SubagentDeclarationLimits(markdown.length, header.length)
       val invalidLimits = Chunk(
         exact.copy(maxDocumentCharacters = markdown.length - 1),
@@ -202,8 +212,10 @@ object SubagentDeclarationParserSpec extends ZIOSpecDefault:
         "---\ndescription: 'unclosed ---'\n",
         " ---\ndescription: Review\n---\n",
         "\ufeff" + markdown,
-        "---\rdescription: Review\r---\r",
-        "---\ndescription: Review\r---\nBody",
+        "\ufeff \t" + markdown,
+        "\ufeff",
+        "\ufeff# Content",
+        "Text\n\ufeff---\ndescription: Review\n---\nBody",
         "---\ndescription: Review\u0085---\nBody",
         "---\ndescription: Review\u2028---\nBody",
         "---\ndescription: Review\u2029---\nBody"

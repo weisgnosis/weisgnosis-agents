@@ -38,6 +38,11 @@ object SkillMarkdownParserSpec extends ZIOSpecDefault:
       "inline scalar profiles preserve exact body and produce capability-free catalogue values"
     ) {
       val body = "\r\n# Guide\r\nKeep --- inside the body.\r\n  "
+      val bomCases = Chunk("\n", "\r\n", "\r").map: newline =>
+        val preserved = newline + "# Instructions" + newline + "Keep \uFEFF here." + newline + "  "
+        val markdown = "\uFEFF---" + newline + "name: guide" + newline +
+          "description: 'A\uFEFF skill'" + newline + "---" + newline + preserved
+        markdown -> SkillDefinition("guide", "A\uFEFF skill", preserved)
       val cases = Chunk(
         document(header, body) -> SkillDefinition("guide", "Read carefully", body),
         document("description: ' true '\nname: '123'", body) -> SkillDefinition(
@@ -56,17 +61,18 @@ object SkillMarkdownParserSpec extends ZIOSpecDefault:
           SkillDefinition("café", "First line\nSecond line\n", body),
         document("{name: guide, description: Read carefully}", body) ->
           SkillDefinition("guide", "Read carefully", body)
-      )
+      ) ++ bomCases
       ZIO
         .foreach(cases) { case (markdown, expected) =>
           SkillMarkdownParser
             .parse(markdown)
-            .map(value =>
+            .either
+            .map(result =>
               assertTrue(
-                value == expected,
-                value.resources.isEmpty,
-                value.activateGroups.isEmpty,
-                SkillCatalog.make(Chunk(value)).isRight
+                result == Right(expected),
+                result.exists(_.resources.isEmpty),
+                result.exists(_.activateGroups.isEmpty),
+                result.exists(value => SkillCatalog.make(Chunk(value)).isRight)
               )
             )
         }
@@ -105,11 +111,14 @@ object SkillMarkdownParserSpec extends ZIOSpecDefault:
         .map(_.foldLeft(assertTrue(true))(_ && _))
     },
     test("UTF-16 limits and exact delimiter lines reject boundaries without trimming body") {
-      val valid  = document(header, "\nText 😀\n")
+      val valid  = "\uFEFF" + document(header, "\nText 😀\n")
       val limits = SkillMarkdownLimits(valid.length, header.length + 1)
       val invalidDocuments = Chunk(
         "",
         "No frontmatter",
+        "\uFEFF",
+        "\uFEFF# Content",
+        "Text\n\uFEFF---\nname: guide\n---\nBody",
         "\uFEFF" + valid,
         " " + valid,
         valid.replaceFirst("---", "---suffix"),

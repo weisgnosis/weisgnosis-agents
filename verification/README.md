@@ -1,6 +1,6 @@
 # Distribution verification
 
-Current batch/method-evidence artifacts pass clean standalone consumption in mcp-march-batch-consumer.log after the 1,564-test full verification and fresh archive admission. Final combined documentation approval is recorded in the [tracker](../docs/architecture/tracker.md#current-acceptance).
+Current initial-BOM parser artifacts pass clean standalone consumption in frontmatter-bom-consumer.log after the 1,564-test full verification and fresh archive admission. Final combined documentation approval is recorded in the [tracker](../docs/architecture/tracker.md#current-acceptance).
 
 The consumer also executes packaged valid/invalid schema-admission neighbors and verifies the production evaluator dependency. The [current schema acceptance](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns the exact consumer source and verification evidence.
 

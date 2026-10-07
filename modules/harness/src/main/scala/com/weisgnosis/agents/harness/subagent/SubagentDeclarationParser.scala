@@ -30,7 +30,7 @@ final case class SubagentDeclarationLimits(
 
 /**
  * Bounded inline frontmatter only: no path resolution, object loading or capability acquisition.
- * Exact column-zero delimiter lines accept trailing spaces/tabs and LF or CRLF, without a BOM.
+ * Column-zero delimiter lines accept trailing spaces/tabs, LF/CRLF/CR and one optional initial BOM.
  * Scalars are textual except plain YAML null spellings; quoted null remains literal text.
  */
 object SubagentDeclarationParser:
@@ -95,12 +95,12 @@ object SubagentDeclarationParser:
     else if markdown.length > limits.maxDocumentCharacters then
       Left(invalid("document character limit exceeded"))
     else
-      "\\A---[ \\t]*(?:\\r?\\n|\\z)".r
+      "\\A\uFEFF?---[ \\t]*(?:\\r\\n|[\\r\\n]|\\z)".r
         .findPrefixMatchOf(markdown)
         .toRight(invalid("missing opening delimiter line"))
         .flatMap: opening =>
           val remainder = markdown.drop(opening.end)
-          "(?:\\A|(?<=\\n))---[ \\t]*(?:\\r?\\n|\\z)".r
+          "(?:\\A|(?<=[\\r\\n]))---[ \\t]*(?:\\r\\n|[\\r\\n]|\\z)".r
             .findFirstMatchIn(remainder)
             .toRight(invalid("missing closing delimiter line"))
             .flatMap: closing =>

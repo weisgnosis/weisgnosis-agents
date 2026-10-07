@@ -140,6 +140,6 @@ The bounded adaptation of pinned `McpTool.callAsync` is fixed remote invocation 
 - [ ] Complete provider projection of retained MCP content: the explicit Chat Completions ImageParts extension supports successful Text/Image output, but unsupported Custom companions require explicit host adaptation.
 The borrowed client supplies [bounded optional outbound cancellation](../client/README.md#outbound-cancellation-contract); binding adds no delivery guarantee.
 
-- [ ] Keep caching, notification invalidation, reconnect and output-schema evaluation as separate work.
+- [ ] Implement the [remaining original-definition catalogue cache](../../../../../../../../../../docs/architecture/test-parity.md#remaining-original-library-obligations-source-inventory) separately from this tool binding. Notification invalidation and automatic output-result validation are not established by the mapped upstream cache/output-schema methods; current schema metadata remains descriptive.
 
 The manual binding does not close whole McpClientManager methods or establish complete MCP revision support.

@@ -36,7 +36,7 @@ final case class SkillMarkdownLimits(
 
 /**
  * Strict inline SKILL.md profile: required name/description strings and inert JSON metadata.
- * Column-zero delimiters accept trailing spaces/tabs and LF or CRLF, without a leading BOM.
+ * Column-zero delimiters accept trailing spaces/tabs, LF/CRLF/CR and one optional initial BOM.
  * Extra-value collection depth excludes the frontmatter root; scalars have depth zero.
  * No filesystem access, resource loading or group inference is performed.
  */
@@ -97,12 +97,12 @@ object SkillMarkdownParser:
     else if markdown.length > limits.maxDocumentCharacters then
       Left(invalid("document character limit exceeded"))
     else
-      "\\A---[ \\t]*(?:\\r?\\n|\\z)".r
+      "\\A\uFEFF?---[ \\t]*(?:\\r\\n|[\\r\\n]|\\z)".r
         .findPrefixMatchOf(markdown)
         .toRight(invalid("missing opening delimiter line"))
         .flatMap: opening =>
           val remainder = markdown.drop(opening.end)
-          "(?:\\A|(?<=\\n))---[ \\t]*(?:\\r?\\n|\\z)".r
+          "(?:\\A|(?<=[\\r\\n]))---[ \\t]*(?:\\r\\n|[\\r\\n]|\\z)".r
             .findFirstMatchIn(remainder)
             .toRight(invalid("missing closing delimiter line"))
             .flatMap: closing =>
