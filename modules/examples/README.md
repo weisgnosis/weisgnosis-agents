@@ -43,6 +43,26 @@ The paired actual-ReAct table checks both layouts through shared Ref-backed cond
 - [x] registered-transcript-consumer.log passed fresh standalone formatting, clean compilation and forked selected-API consumption; the smoke does not select Registered.
 - [x] review_fp and review_invariants approved final combined documentation against 1f4581b and the two unchanged identities; manual English inspection, changed-script/diff checks and 78-document/2,827-local-reference checks pass with zero issues.
 
+## Audited public model call
+
+[AuditedLlmClient.wrap](src/main/scala/com/weisgnosis/agents/examples/AuditedLlmClient.scala) is a pure unpublished example of public-call decoration. One suspended streamTurn delegation receives the exact history/tools/config/event hub/context inside a fresh request scope. Suspended Clock.nanoTime measurement includes owned request cleanup; the observer sees the complete exit afterward. The observation contains only ModelStreamContext, elapsed duration and Returned/Failed/Cancelled, with no copied content, configuration or causes. Cancelled means interruption-only failure; mixed failure/interruption remains Failed. Returned includes cooperative Interrupted and is not validated runtime completion.
+
+Ordinary output/cause is preserved. The UIO observer runs as an uninterruptible onExit finalizer and must terminate: slow observation delays cancellation. Observer defects replace success or compose with existing failure/cancellation. There is no durable audit-delivery guarantee. A public wrapper cannot forward private attemptTurn/BeforeResponseRejection capability-based failover proof; hosts must account for this limitation when decorating compatible clients. No retries, cache, raw event rewriting or general middleware facade is supplied, and library APIs are unchanged.
+
+The two paired test groups verify nonempty exact forwarding, one lazy delegation, client failures/observer defects/cooperative return, and held request cleanup followed by one timed cancellation observation. Pinned ModelCallMiddlewareExample.AuditingMiddleware.onModelCall (149-185) provides delegation/timing/outcome source intent only. Global counters, raw logging, Java chains and advertised client substitution are excluded; no whole middleware-method/suite parity is claimed.
+
+| Source/spec approved by review_fp and review_invariants against 15047a8 | Git blob |
+| --- | --- |
+| [AuditedLlmClient.scala](src/main/scala/com/weisgnosis/agents/examples/AuditedLlmClient.scala) | 2229c8466e49409cd181e1437f4a70d3c209df6a |
+| [AuditedLlmClientSpec.scala](src/test/scala/com/weisgnosis/agents/examples/AuditedLlmClientSpec.scala) | 72d0ee0cbadfc5883ec20922c88ed34e4e77eef6 |
+
+- [x] Both independent reviewers approved these final identities, with no unresolved findings.
+- [x] Focused verification passed two groups in 165 milliseconds.
+- [x] audited-client-verify.log exited zero: 1,512 tests (670 core / 726 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures and four packages.
+- [x] audited-client-preparation.log passed archive/source admission regressions and restored archive/POM staging.
+- [x] audited-client-consumer.log passed fresh standalone formatting, clean compilation and forked selected public API execution; the smoke does not exercise unpublished AuditedLlmClient.
+- [x] review_fp and review_invariants approved final combined documentation against 15047a8 and the two unchanged identities; manual English inspection, diff checks and 78-document/2,857-local-reference checks pass with zero issues.
+
 ## Lifecycle logging
 
 [LifecycleLogging](src/main/scala/com/weisgnosis/agents/examples/LifecycleLogging.scala) consumes result-bearing events through EOF and uses existing ZIO structured logging. Wrap the assembled agent with `LifecycleLogging.run(agent, input)` inside its owner scope. It returns the complete AgentResult and preserves failure causes, cancellation, and joined cleanup. It does not retry executed turns.
@@ -56,7 +76,7 @@ ZIO.logSpan supplies logging timing context, not an OpenTelemetry span or distri
 ## Verification and acceptance
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the five identities below, including the following model request receiving the retained eviction preview. No findings remain in this scope.
-- [x] Current formatting, fatal-warning compilation, full tests and packaging are recorded in the [registered assembly verification](#registered-transcript-assembly). Existing integration/offline-smoke contracts retain their scoped review acceptance.
+- [x] Current formatting, fatal-warning compilation, full tests and packaging are recorded in the [audited-client verification](#audited-public-model-call). Existing integration/offline-smoke contracts retain their scoped review acceptance.
 - [ ] Run the explicitly enabled smoke against a selected compatible live endpoint; offline verification does not establish live-provider interoperability.
 
 | Reviewed file | Git blob |
@@ -70,7 +90,7 @@ ZIO.logSpan supplies logging timing context, not an OpenTelemetry span or distri
 ## Logging acceptance
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the two logging identities below; no findings remain in this scope.
-- [x] Current full verification is recorded in the [registered assembly contract](#registered-transcript-assembly); the unchanged logging identities retain their accepted redaction/correlation/lifecycle scope.
+- [x] Current full verification is recorded in the [audited-client contract](#audited-public-model-call); the unchanged logging identities retain their accepted redaction/correlation/lifecycle scope.
 
 | Reviewed file | Git blob |
 | --- | --- |

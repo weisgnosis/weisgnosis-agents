@@ -9,3 +9,5 @@ LiveProviderSmoke explicitly reads its opt-in toggle before acquiring the HTTP c
 LifecycleLogging observes a narrow runtime-event allowlist with static messages and local correlation annotations. Its wrapper consumes EOF, preserves terminal results/failures and joins cancellation cleanup. The host owns logger configuration and independent log privacy; ZIO logging spans do not implement OpenTelemetry. See the [logging contract](../../../../../../../README.md#lifecycle-logging).
 
 These are unpublished integration examples, not additional supported library APIs. review_fp and review_invariants approved the exact [source/spec identities and verification](../../../../../../../README.md#verification-and-acceptance), with no findings. Public-provider validation remains open.
+
+[AuditedLlmClient](../../../../../../../README.md#audited-public-model-call) demonstrates one suspended public client delegation with request cleanup before context/timing/outcome observation. Its observer must terminate and private capability-based failover is not forwarded; source/full/artifact/documentation gates are recorded in the canonical contract.

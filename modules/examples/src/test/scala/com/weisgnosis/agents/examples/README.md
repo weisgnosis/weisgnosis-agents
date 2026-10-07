@@ -7,3 +7,5 @@ LiveProviderSmokeSpec verifies the disabled runnable path and explicit configura
 LifecycleLoggingSpec verifies payload exclusion and local correlation on example-origin records, actual terminal results, preserved failures and cancellation waiting for model cleanup. Independent ZIO failed-fiber logs are outside this adapter's privacy boundary.
 
 The fixture approval is explicit test data, not a suggested host authorization policy. No upstream parity claim applies to this new integration example. review_fp and review_invariants approved this scope with no findings; the [module acceptance](../../../../../../../README.md#verification-and-acceptance) records final identities and full verification. Live-provider validation remains separate.
+
+AuditedLlmClientSpec has two grouped public-wrapper contracts: exact forwarding/laziness/output/error/observer-defect handling and joined cancellation cleanup before one timed observation. It does not validate provider interoperability, durable audit delivery or private failover capability preservation; the [two-file manifest](../../../../../../../README.md#audited-public-model-call) owns current approval/evidence.

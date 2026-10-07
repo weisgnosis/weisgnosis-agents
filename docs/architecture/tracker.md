@@ -28,17 +28,17 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Remote memory middleware throttle integration](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration) verifies a bounded real-PostgreSQL matrix with shared local oracle; broader remote guarantees remain separate.
 
-Current increment: [custom-client model turn trust boundary](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#model-turn-trust-boundary). A confirmed malformed-output regression failed on the unchanged runtime; the final eight-malformed/two-valid table has source approval and full verification; final combined documentation closure passed.
+- [x] [Custom-client turn trust boundary](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#model-turn-trust-boundary) validates assistant role/classification before runtime truth and persistence, with reproduced malformed-output regressions.
 
-- [x] Reproduce malformed role/classification acceptance with concrete history/hook/success assertions before changing runtime behavior.
-- [x] Both independent reviewers approved the final runtime/spec identities against b70aa32.
-- [x] Final full verification covers the refined eight-malformed/two-valid regression table.
-- [x] Final full verification passed 1,510 tests with zero compiler warnings/failures and four packages.
-- [x] Source/archive regressions and restored archive/POM staging passed.
-- [x] Fresh standalone selected-API consumption passed, including the existing custom LlmClient smoke.
-- [x] review_fp and review_invariants approved final combined documentation against b70aa32 and the two unchanged identities; manual English/script/diff checks and 78-document/2,848-local-reference checks pass with zero issues.
-- [ ] Next task: implement a bounded unpublished per-request audited LlmClient decorator with one delegated public call, suspended monotonic timing and post-request-cleanup exit observation; preserve output/cause/cancellation. It will not add a general chain/cache/retry or preserve private capability-based failover; implementation has not started.
-- [ ] Assess remaining provider/remote middleware/release gaps separately; no blanket parity or readiness claim applies.
+Current increment: [unpublished audited public model call](../../modules/examples/README.md#audited-public-model-call). One suspended delegation observes context/timing/outcome after request cleanup; observer termination and private failover capability limits remain explicit.
+
+- [x] Both independent reviewers approved the two final source/spec identities against 15047a8.
+- [x] Focused verification passed two groups.
+- [x] Full verification passed 1,512 tests with zero compiler warnings/failures and four packages.
+- [x] Archive/source admission regressions and restored archive/POM staging passed.
+- [x] Fresh standalone selected-API consumption passed; the smoke does not exercise unpublished AuditedLlmClient.
+- [x] review_fp and review_invariants approved final combined documentation against 15047a8 and the two unchanged identities; manual English/diff checks and 78-document/2,857-local-reference checks pass with zero issues.
+- [ ] Assess remaining provider/remote middleware/release gaps separately; no general middleware facade or exhaustive parity is implied.
 
 ## Current acceptance
 

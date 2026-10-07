@@ -418,7 +418,7 @@ Inline event metadata intentionally preserves the complete result map; pinned up
 - [x] testApplyResponseFormat (551): existing object pass-through now explicitly checks json_object alongside native json_schema and omission. WithClass (571) reflection/class identity is excluded; compile-time codecs and supplied schemas replace it.
 - [x] testApplyReasoningEffortFromField (404), WithDefault (416), FromDefaultOnly (431): bounded wire-value adaptation through typed Low/Medium/High and optional target configuration/projection. The [reasoning-effort contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-reasoning-effort) records exact review and verification. Java's mutable field/default merge is not claimed.
 - [x] Adapt optional per-tool strict generation from testApplyToolsWithStrict (348) and omission in WithNullStrict (368) through host-selected Strict/Relaxed metadata and unchanged schemas. Existing tables also cover explicit false, codecs, fixed wrappers, MCP bindings and exact target/native/synthetic tool membership. Java compatibility-formatter supportsStrict suppression is not reproduced; hosts select compatible endpoints. Exact identities and verification belong to the [strictness contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness).
-- [ ] Define provider-specific thinking-budget contracts separately before mapping methods at 444–497. Arbitrary extra-body map storage/merging and nullable mutation helpers at 388, 513, 607, 624 and 647 remain outside the typed request API; this bounded inventory does not claim their adaptation or full formatter parity.
+- [ ] Define provider-specific thinking-budget contracts separately before mapping methods at 444-497. Arbitrary extra-body map storage/merging and nullable mutation helpers at 388, 513, 607, 624 and 647 remain outside the typed request API; this bounded inventory does not claim their adaptation or full formatter parity.
 
 ## Stop-sequence request adaptation
 
@@ -427,7 +427,7 @@ Inline event metadata intentionally preserves the complete result map; pinned up
 
 ## Completion parser hardening
 
-- [x] Bounded streamed-usage adaptation of pinned OpenAIResponseParserTest.testParseDeepSeekPromptCacheHitTokens (1134): 100 input / 50 output / 60 direct cached tokens. OpenAIResponseParser.getSafeCachedTokens (86–94) supplies direct-before-nested precedence, including zero; getSafeCacheCreationTokens (104–110) supplies nested cache_write_tokens. Existing Scala parser tables add null fallback and strict validation; the HTTP scenario checks canonical history. The [cache-usage contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding) records exact review and RED/GREEN evidence. This does not implement the Java full-message envelope or close full formatter parity.
+- [x] Bounded streamed-usage adaptation of pinned OpenAIResponseParserTest.testParseDeepSeekPromptCacheHitTokens (1134): 100 input / 50 output / 60 direct cached tokens. OpenAIResponseParser.getSafeCachedTokens (86-94) supplies direct-before-nested precedence, including zero; getSafeCacheCreationTokens (104-110) supplies nested cache_write_tokens. Existing Scala parser tables add null fallback and strict validation; the HTTP scenario checks canonical history. The [cache-usage contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding) records exact review and RED/GREEN evidence. This does not implement the Java full-message envelope or close full formatter parity.
 
 
 - [x] Preserve the three original reasoning/tool/usage parsing scenarios through a typed Either result.
@@ -1348,3 +1348,12 @@ The [runtime contract](../../modules/core/src/main/scala/com/weisgnosis/agents/c
 - [x] Both independent reviewers approved the final two identities; final full verification covers all eight malformed/two valid rows and archive staging passes.
 - [x] Complete fresh selected-API consumer verification, including the existing custom LlmClient smoke.
 - [x] review_fp and review_invariants approved final combined documentation for the two unchanged runtime trust-boundary identities against b70aa32.
+
+## Audited public client example
+
+Pinned agentscope-examples/documentation/ModelCallMiddlewareExample.AuditingMiddleware.onModelCall (149-185) supplies one-call delegation/timing/outcome source intent. The [unpublished Scala wrapper](../../modules/examples/README.md#audited-public-model-call) observes a complete client exit after owned request cleanup, preserving the distinction between Returned and runtime completion. Global counters/raw logging, Java chains/client substitution and private capability-based failover forwarding are excluded. This source-intent adaptation closes no general middleware suite or Java test method.
+
+- [x] Both reviewers approved the final two identities and focused two-group contracts.
+- [x] Full 1,512-test verification and archive/source preparation passed.
+- [x] Fresh standalone selected-API consumer verification passed; it does not exercise unpublished AuditedLlmClient.
+- [x] review_fp and review_invariants approved final combined documentation for the two unchanged audited-client example identities against 15047a8.
