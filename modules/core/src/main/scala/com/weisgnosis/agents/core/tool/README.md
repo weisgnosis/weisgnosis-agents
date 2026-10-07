@@ -20,7 +20,7 @@ The admission integration and consumer identities below retain their independent
 
 | Current source/spec/consumer | Git blob |
 | --- | --- |
-| [build.sbt](../../../../../../../../../../build.sbt) | `bd60c941c3c71586b02a10d9e738958c0ecd7411` |
+| [build.sbt](../../../../../../../../../../build.sbt) | [Current build identity](../../../../../../../../../../project/README.md#local-artifact-packaging) |
 | [ToolSchemaValidator.scala](ToolSchemaValidator.scala) | [Current declared-draft manifest](#declared-standard-schema-dialects) |
 | [Toolkit.scala](Toolkit.scala) | `5e539478bce0721851eff926595e99b435f8ee3b` |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | `e8238759c0ba058bd326fb94b5bad5a073ea942c` |

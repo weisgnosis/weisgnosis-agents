@@ -108,7 +108,7 @@ Opening and closing delimiters are column-zero `---` lines with optional trailin
 | --- | --- |
 | [SubagentDeclarationParser.scala](SubagentDeclarationParser.scala) | [Current BOM scope and acceptance gates](../skill/README.md#utf-8-bom-frontmatter-compatibility) |
 | [SubagentDeclarationParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | [Current BOM scope and acceptance gates](../skill/README.md#utf-8-bom-frontmatter-compatibility) |
-| [build.sbt](../../../../../../../../../../build.sbt) | `87773171635d77e6fe408aab5531d6554f8e1c7e` |
+| [build.sbt](../../../../../../../../../../build.sbt) | [Current build identity](../../../../../../../../../../project/README.md#local-artifact-packaging) |
 
 ## Local declaration loading
 

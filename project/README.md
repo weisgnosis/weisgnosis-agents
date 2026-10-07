@@ -1,6 +1,8 @@
 # Build definition support
 
-Core declares NetworkNT json-schema-validator 2.0.4 for [runtime tool-schema admission](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission). Its Jackson evaluator state stays behind a suspended private adapter; public JSON contracts remain zio-json ASTs/codecs. Fresh packaged consumption must resolve the new transitive dependency before accepting this increment.
+MCP now declares zio-process 0.7.2 for its [immutable process launcher](../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#immutable-process-launcher). The dependency launcher is unscoped; the adapter retains resource ownership. Source reviews and actual process checks pass; full verification, fresh archive admission and standalone consumption pass; review_fp and review_invariants approved final combined documentation against 203401a for four unchanged source/build identities and thirteen Markdown files. Existing test-only dependencies remain isolated.
+
+Core declares NetworkNT json-schema-validator 2.0.4 for [runtime tool-schema admission](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission). Its Jackson evaluator state stays behind a suspended private adapter; public JSON contracts remain zio-json ASTs/codecs. Fresh packaged consumption resolves and exercises the evaluator through valid/invalid schema-admission probes.
 
 [build.properties](build.properties) pins sbt; [plugins.sbt](plugins.sbt) declares build plugins, including scalafmt. Module dependencies and compiler options live in [build.sbt](../build.sbt). Run `sbt scalafmtAll scalafmtSbt` and `sbt verify packageArtifacts` after build or packaging changes.
 
@@ -22,7 +24,7 @@ Default coordinates are `com.weisgnosis:weisgnosis-agents-{core,harness,mcp,stor
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [build.sbt](../build.sbt) | [Current remote middleware test-sharing identity](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration) |
+| [build.sbt](../build.sbt) | [Current immutable MCP launcher build identity](../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#immutable-process-launcher) |
 | [ci.yml](../.github/workflows/ci.yml) | [Current candidate preparation identity](../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
 
 - [x] `review_fp` approved FP/ZIO/build correctness and `review_invariants` approved the current build identity and unpublished example scope, with no findings. The packaged-consumer CI extension has separate [scoped acceptance](../verification/artifact-consumer/README.md). Full `scalafmtAll scalafmtSbt verify packageArtifacts` passed in `packaged-api-verify.log`, with zero compiler warnings or failures; current repository totals and environment are in the [tracker](../docs/architecture/tracker.md#current-acceptance). No existing library test groups were added by the build/consumer changes; the [current example scope](../modules/examples/README.md#registered-transcript-assembly) records its current integration/admission/logging verification.

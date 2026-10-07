@@ -1,5 +1,7 @@
 # Upstream scenario coverage and remaining parity work
 
+The [stdio launcher standards correction](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#immutable-process-launcher) preserves the existing selected environment/lifecycle adaptation. Its additional stderr group is a distinct local lifecycle contract, not another pinned upstream method or evidence of complete wrapper parity. Both source approvals and focused checks pass; full verification, fresh archive admission and standalone consumption pass; review_fp and review_invariants approved final combined documentation against 203401a for four unchanged source/build identities and thirteen Markdown files.
+
 The engineering target is one paired Scala test for every applicable upstream behavior. Current suites cover selected scenarios and ZIO-specific regressions; exhaustive 1:1 parity has not been demonstrated. Suite names and passing counts are not evidence of complete parity.
 
 The reference is the clean local `agentscope-java` checkout at commit `f98a685fdc4589f81e626e1686ac2c63d14a2304`, verified on 2026-09-29. Upstream Java implementation details are translated into Scala domain behavior, not copied as imperative APIs. Updating this pin requires a new inventory and review of changed scenarios.

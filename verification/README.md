@@ -1,6 +1,6 @@
 # Distribution verification
 
-Current MCP catalogue artifacts pass clean standalone consumption in mcp-catalogue-consumer.log after the 1,569-test full verification and fresh archive admission. Final combined documentation approval is recorded in the [tracker](../docs/architecture/tracker.md#current-acceptance).
+Current immutable MCP launcher artifacts pass clean standalone consumption in stdio-functional-launcher-consumer.log after 1,570 passing tests and fresh archive admission. The [launcher manifest](../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#immutable-process-launcher) records exact source identities, diagnostic limits and final combined documentation approval from review_fp and review_invariants against 203401a.
 
 The consumer also executes packaged valid/invalid schema-admission neighbors and verifies the production evaluator dependency. The [current schema acceptance](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns the exact consumer source and verification evidence.
 

@@ -2,6 +2,7 @@ val scala3Version                      = "3.9.0"
 val zioVersion                         = "2.1.26"
 val zioJsonVersion                     = "0.9.1"
 val zioHttpVersion                     = "3.11.3"
+val zioProcessVersion: String          = "0.7.2"
 val jsonSchemaValidatorVersion: String = "2.0.4"
 val snakeYamlEngineVersion: String     = "3.1.1"
 val mcpJavaSdkVersion: String          = "0.17.2"
@@ -91,6 +92,7 @@ lazy val mcp = (project in file("modules/mcp"))
       "dev.zio"                    %% "zio-streams"       % zioVersion,
       "dev.zio"                    %% "zio-json"          % zioJsonVersion,
       "dev.zio"                    %% "zio-http"          % zioHttpVersion,
+      "dev.zio"                    %% "zio-process"       % zioProcessVersion,
       "dev.zio"                    %% "zio-test"          % zioVersion        % Test,
       "dev.zio"                    %% "zio-test-sbt"      % zioVersion        % Test
     )

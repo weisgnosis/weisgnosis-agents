@@ -23,7 +23,8 @@ import com.weisgnosis.agents.mcp.protocol.{
   McpImplementation,
   McpMessage,
   McpPacket,
-  McpProtocolVersion
+  McpProtocolVersion,
+  McpRequestId
 }
 import java.nio.file.Paths
 import scala.jdk.OptionConverters.*
@@ -79,16 +80,20 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
   private def peer(
       mode: String,
       environment: Map[String, String] = Map.empty,
-      version: McpProtocolVersion = McpProtocolVersion.V20250618
+      version: McpProtocolVersion = McpProtocolVersion.V20250618,
+      stderr: McpStdioTransport.StderrPolicy = McpStdioTransport.StderrPolicy.Discard
   ): ZIO[Scope, AgentError, Peer] =
     for
       arguments <- command(mode)
-      underlying <- McpStdioTransport.open(
-        arguments :+ version.wire,
-        maxFrameBytes = 16 * 1024 * 1024,
-        environment = environment,
-        version = version
-      )
+      underlying <- McpStdioTransport
+        .open(
+          arguments :+ version.wire,
+          maxFrameBytes = 16 * 1024 * 1024,
+          environment = environment,
+          version = version,
+          stderr = stderr
+        )
+        .withSystem(System.SystemLive)
       ready        <- Promise.make[AgentError, Long]
       writeStarted <- Promise.make[Nothing, Unit]
       observed = new McpTransport:
@@ -116,6 +121,31 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
     yield Peer(observed, ready, writeStarted)
 
   def spec: Spec[TestEnvironment, Any] = suite("McpStdioTransportSpec")(
+    test("native stderr policies preserve protocol progress and joined process reaping"):
+      ZIO
+        .foreach(
+          Chunk(
+            (McpStdioTransport.StderrPolicy.Discard, "stderr-pressure"),
+            (McpStdioTransport.StderrPolicy.Inherit, "stderr-inherit")
+          )
+        ): (policy, mode) =>
+          for
+            observed <- ZIO.scoped:
+              for
+                server     <- peer(mode, stderr = policy)
+                connection <- McpConnection.make(server.transport)
+                pid        <- server.ready.await
+                reply      <- connection.request("stderr-complete")
+              yield (pid, reply)
+            remains <- alive(observed._1)
+            completed = observed._2 match
+              case McpMessage.Success(id, result) =>
+                id == McpRequestId.Number(BigInt(1)) &&
+                result == Json.Obj("method" -> Json.Str("stderr-complete"))
+              case _: McpMessage.Failure => false
+          yield assertTrue(completed, !remains)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("real March subprocess receives one response batch and its owner reaps it"):
       for
         result <- ZIO.scoped:
@@ -147,9 +177,9 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
             server <- peer(
               "echo",
               Map(
-                "PATH"                               -> "child-only-path",
-                "WEISGNOSIS_MCP_STDIO_TEST_OVERRIDE" -> "child-only-value",
-                "WEISGNOSIS_MCP_STDIO_TEST_EMPTY"    -> ""
+                (if os.startsWith("Windows") then "pAtH" else "PATH") -> "child-only-path",
+                "WEISGNOSIS_MCP_STDIO_TEST_OVERRIDE"                  -> "child-only-value",
+                "WEISGNOSIS_MCP_STDIO_TEST_EMPTY"                     -> ""
               )
             )
             connection   <- McpConnection.make(server.transport)

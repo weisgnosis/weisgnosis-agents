@@ -152,6 +152,10 @@ object McpStdioPeer extends ZIOAppDefault:
       _ <- arguments.headOption match
         case Some("echo")  => echo
         case Some("batch") => batch
+        case Some("stderr-pressure") =>
+          Console.printError("x" * (2 * 1024 * 1024)).mapError(failure) *> echo
+        case Some("stderr-inherit") =>
+          Console.printError("MCP stderr inheritance probe\n").mapError(failure) *> echo
         case Some("client") =>
           client(
             ClientPhase.Initialize,

@@ -157,7 +157,7 @@ Distinct row addresses isolate the cases; they do not prove cross-scope collisio
 
 | Source/build approved by review_fp and review_invariants against 5caa18f | Git blob |
 | --- | --- |
-| [build.sbt](../../../../../../../../../../build.sbt) | d6d7eec1c3f36494d1be44d5fe420faf50391b99 |
+| [build.sbt](../../../../../../../../../../build.sbt) | [Current build identity](../../../../../../../../../../project/README.md#local-artifact-packaging) |
 | [Harness MemoryLifecycleIsolationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryLifecycleIsolationSpec.scala) | f2c942c2811b9755e9a30df88e0e47f2675fcd1e |
 | [PostgreSQL MemoryLifecycleIsolationSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/MemoryLifecycleIsolationSpec.scala) | 291785b68ce0935c0af15c60cec55b784b230210 |
 

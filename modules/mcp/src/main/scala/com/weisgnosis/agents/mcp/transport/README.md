@@ -3,6 +3,34 @@
 [McpTransport](McpTransport.scala) is a borrowed duplex message port. [McpStdioTransport](McpStdioTransport.scala) implements it for a host-selected direct child process; [McpStdioFraming](McpStdioFraming.scala) provides bounded UTF-8 newline framing. [McpHttpFraming](McpHttpFraming.scala) supplies bounded JSON/SSE bodies, and [McpStreamableHttpTransport](McpStreamableHttpTransport.scala) supplies the bounded HTTP POST and explicit GET contract below.
 
 
+## Immutable process launcher
+
+The repository configures direct processes through zio-process 0.7.2's immutable Command API. System properties and inherited environment reads are suspended in ZIO; Windows overrides retain the inherited key spelling. Command.run executes on the blocking executor inside acquireRelease. Because that dependency's run is unscoped, our finalizer is registered before raw-handle extraction and ownership transfer. Failed or cancelled handoff forcibly terminates/reaps the acquired child and closes its streams; completed handoff uses the existing idempotent Live.close. No shell, streamed stdin, background pump or daemon is introduced.
+
+Stdin/stdout explicitly use Pipe. Inherit selects native stderr inheritance; Discard redirects to the operating-system null device. The dependency internally uses JVM process machinery; this boundary does not claim immutable dependency internals. Application code neither obtains nor updates a mutable Java environment map. Public open arguments, default policies and direct-process ownership remain unchanged. Rebuild consumers to resolve the new production dependency.
+
+This corrects a literal engineering-standard violation in the prior adapter, not a reproduced process-behavior defect. The new stderr table checks exact correlated reply and joined reaping under 2 MB discard pressure and a small inherited marker. The actual log contains that marker, but the test is not an exact inherited-byte oracle. Existing real-process environment and cancellation groups remain. No Linux execution, arbitrary stderr sink behavior or descendant-process containment is established by this Windows run.
+
+Both review_fp and review_invariants approved these final source identities against 203401a with no unresolved source findings. Full delivery verification passes; review_fp and review_invariants approved final combined documentation against 203401a for four unchanged source/build identities and thirteen Markdown files.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [build.sbt](../../../../../../../../../../build.sbt) | `d068a6bd206879bef8c3be3063fcc96dbd1421e9` |
+| [McpStdioTransport.scala](McpStdioTransport.scala) | `c1aacae91c2b9d858d42f7b3d0760f1a3e844b8a` |
+| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | `9319622027a23540d7bf1e721be1eada6081c222` |
+| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | `75f1a607f5317458651a45cf1d2e0c72853a79ba` |
+
+- [x] Remove direct repository manipulation of the Java environment map without waiving the engineering rule.
+- [x] Obtain both independent source approvals and focused verification: stdio-functional-launcher-focused.log passes five groups in 2.727 seconds.
+- [x] stdio-functional-launcher-full-verify.log passes 1,570 tests (687 core / 734 harness / 119 MCP / 22 actual PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, formatting, compilation and four RC1 packages. A newly created empty PostgreSQL 16 database was used and its owned container was stopped.
+- [x] stdio-functional-launcher-preparation.log passes fresh source/POM/LICENSE admission and reversible invalid-selector/extra/duplicate-source checks. stdio-functional-launcher-consumer.log passes standalone formatting, clean compilation and fresh four-module hash consumption. The unchanged consumer resolves the launcher dependency but does not launch a packaged subprocess; actual process execution belongs to the focused/full MCP suites.
+
+The full log also contains SLF4J notices and a Netty host-connection-aborted diagnostic during loopback execution. These are distinct from compiler warnings; no cause beyond the recorded exception/context is asserted.
+
+- [x] review_fp and review_invariants approved final combined documentation against 203401a for these four unchanged source/build identities and thirteen Markdown files; no unresolved findings remain in this scope.
+
+The explicit evicted diagnostic selects ZIO/Streams 2.1.26 over the dependency's 2.0.9 and scala-collection-compat 2.14.0 over 2.9.0. sbt flags suspected binary incompatibility; no override or warning suppression was added. Actual process paths pass against selected versions; this is not universal binary compatibility proof or zero dependency-diagnostic evidence.
+
 ## March 2025 batch packets
 
 The current batch correction has final independent `review_fp` and `review_invariants` approval for the fourteen frozen source/test identities below, with no unresolved findings. Full repository verification, package preparation and fresh artifact consumption passed. review_fp and review_invariants approved final combined documentation against 55df42a for these unchanged source identities. The [March 2025 transport specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports) permits JSON-RPC arrays; the [June 2025 changelog](https://modelcontextprotocol.io/specification/2025-06-18/changelog) removes them. Exact selected handshakes alone did not implement this wire behavior. The actual `mcp-march-batch-red.log` regression against unchanged `55df42a` failed because a valid March request batch was decoded as a singular object; no grouped response was emitted.
@@ -38,14 +66,14 @@ Current source/test identities independently approved by `review_fp` and `review
 | [McpHttpFraming.scala](McpHttpFraming.scala) | `f26e97a7b5ec95bdb95b5adde7ec84bc9541020b` |
 | [McpLegacySseTransport.scala](McpLegacySseTransport.scala) | `0e7d7e7ae90600c04baf7d222cc17d1cbf80b2fb` |
 | [McpStdioFraming.scala](McpStdioFraming.scala) | `d49bfcc9bdede6a3a34b01c2b69499ddb0900f83` |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | `77226eb286ba8978b72765e540316785210aac94` |
+| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
 | [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | `3468095579944aa55d3d41d640e13716be02de2f` |
 | [McpTransport.scala](McpTransport.scala) | `29a6bd44d8795c8e15273e9fd1c126d6bbb26e51` |
 | [McpPacketSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpPacketSpec.scala) | `b087df63c66ec47bc00468651e2fb165e7a0b768` |
 | [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | `64961960e3a0a1e5a352b5a9a26d94b429592478` |
 | [McpLegacySseTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpLegacySseTransportSpec.scala) | `4853dba50b478cd2d6f502763f666d773547c419` |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | `c6c21781d6a4033312b13dfcf29bd8b128dbc2df` |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | `b18fcf51bbe41c252f8de12b5f2ae3e2184513fd` |
+| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
+| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
 | [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | `7d70b9165aba28ea69b8755f2ca37461d9fbeea4` |
 
 ## Legacy HTTP SSE and explicit revision selection
@@ -73,13 +101,13 @@ Legacy/revision dependencies and current source destinations:
 | [McpClient.scala](../client/McpClient.scala) | [Current catalogue source identity and gates](../client/README.md#connection-local-original-definition-catalogue) |
 | [McpInitialization.scala](../protocol/McpInitialization.scala) | `da69457d1449589c0b688a44eb600ee6969b442f` |
 | [McpHttpFraming.scala](McpHttpFraming.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
+| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
 | [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
 | [McpTransport.scala](McpTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
 | [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
 | [McpJavaSdkInteropSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) | `e9fb597dc90eaf58f83cd5b8176e86bf216582d1` |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
+| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
+| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
 | [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
 | [McpProtocolVersion.scala](../protocol/McpProtocolVersion.scala) | `070dc498191235347233b065937c84976bbb3bea` |
 | [McpLegacySseTransport.scala](McpLegacySseTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
@@ -111,15 +139,15 @@ This is direct-process ownership, not a process-tree sandbox. Descendant process
 
 The appended immutable environment map overrides selected inherited variables only in the direct child. Empty maps retain inheritance; empty values are preserved. Keys must be nonempty and contain neither equals signs nor NUL; values must not contain NUL. Override names that compare equal with String.equalsIgnoreCase are rejected on every platform, including Unicode case aliases. Windows updates the inherited key spelling; other platforms retain case-sensitive inherited names. This conservative override collision rule is portable admission policy, not a claim of identical native environment rules across operating systems.
 
-All native environment access/mutation is suspended at the ProcessBuilder adapter boundary before process start. Configuration failures use a static InvalidConfiguration message containing no supplied keys or values. The parent environment is never modified. Hosts select and protect environment values; these overrides grant no sandbox, secret storage, working-directory control or descendant-process ownership.
+Environment configuration uses the [immutable process launcher](#immutable-process-launcher); native implementation work is suspended before process start. Invalid override admission uses a static InvalidConfiguration message containing no supplied keys or values. The parent environment is never modified. Hosts select and protect environment values; these overrides grant no sandbox, secret storage, working-directory control or descendant-process ownership.
 
 Migration: omitted/named Scala source calls retain their defaults. The appended parameter changes the JVM method signature and method-value arity; rebuild consumers and update explicitly typed function values. Existing send/read/cancellation/cleanup contracts are unchanged.
 
 | Source reviewed by review_fp and review_invariants against 0661e31 | Git blob |
 | --- | --- |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
+| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
+| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
+| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
 | [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current consumer identity and schema admission scope](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) |
 
 - [x] Both independent reviewers approved the final four-file source scope with no unresolved findings; manifest SHA-256 706b2f52662ada4e9b8aeeba1ec1b9dab20f29b3c485fb79837d30c9cdf9b77d.
@@ -251,9 +279,9 @@ The [test-only build dependencies](../../../../../../../../../../project/README.
 | [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
 | [McpStdioFraming.scala](McpStdioFraming.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
 | [McpStdioFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioFramingSpec.scala) | `83db8decf53febdb299190ac7a9c1237e039ae85` |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
+| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
+| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
+| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
 
 The port/connection acceptance is recorded separately in the [client contract](../client/README.md#verification-and-acceptance). Stdio tests exercise a local JVM peer; they do not establish complete MCP revision support or interoperability with every server/platform.
 

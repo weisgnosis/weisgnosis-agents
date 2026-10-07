@@ -1,5 +1,7 @@
 # weisgnosis-agents
 
+The [immutable MCP process launcher](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#immutable-process-launcher) removes direct mutable Java environment-map manipulation while preserving scoped process ownership. Both source reviews and focused real-process checks pass; full verification, fresh archive admission and standalone consumption pass; review_fp and review_invariants approved final combined documentation against 203401a for four unchanged source/build identities and thirteen Markdown files.
+
 A Scala 3 and ZIO 2 library for agent execution with explicit resource ownership and deterministic runtime authority. It adapts agent mechanics from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java), licensed under Apache-2.0.
 
 **Development status:** locally verified candidate artifacts are available from this source tree; no public distribution, frozen binary compatibility baseline or complete upstream transfer is claimed. Read the [getting-started guide](docs/getting-started.md), [current tracker](docs/architecture/tracker.md) and [method-level parity audit](docs/architecture/test-parity.md) before integration.

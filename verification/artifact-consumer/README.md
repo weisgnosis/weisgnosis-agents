@@ -18,13 +18,13 @@ The consumer exercises public external-tool suspension/resume, schema rejection/
 
 ## Candidate preparation acceptance
 
-review_fp and review_invariants independently approved the current consumer at `212988aed44a63d0f4f21afb077c141eb450c336`. The [schema admission manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns this identity, its current source scope and the expanded build dependency.
+review_fp and review_invariants independently approved the current consumer at `212988aed44a63d0f4f21afb077c141eb450c336`. The [schema admission manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns the unchanged consumer identity and its reviewed source scope. The [immutable launcher manifest](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#immutable-process-launcher) owns the current build dependency identity.
 
-- [x] mcp-catalogue-full-verify.log passes 1,569 tests, zero compiler warnings/failures/ignored and four RC1 packages, including fresh PostgreSQL verification.
-- [x] mcp-catalogue-preparation.log passes fresh RC1 source/POM/LICENSE staging and reversible invalid-selector/extra/duplicate source-archive checks.
+- [x] stdio-functional-launcher-full-verify.log passes 1,570 tests, zero compiler warnings/failures/ignored and four RC1 packages, including fresh PostgreSQL verification.
+- [x] stdio-functional-launcher-preparation.log passes fresh RC1 source/POM/LICENSE staging and reversible invalid-selector/extra/duplicate source-archive checks.
 - [x] schema-resources-consumer.log records the obsolete blanket Jackson classpath rejection before correction. Jackson is required by the newly declared production evaluator; fixture/SDK/Tomcat/JDBC exclusions remain.
-- [x] mcp-catalogue-consumer.log passes standalone formatting, clean fatal-warning compilation and forked execution against four fresh hashes, including the valid/invalid schema probe. JVM/SLF4J diagnostic notices are not compiler warnings.
-- [x] review_fp and review_invariants approved the final sixteen-file scope against 63776a7: two unchanged Scala identities and fourteen Markdown files. The consumer source remains unchanged; direct catalogue acquisition is not part of its existing probe.
+- [x] stdio-functional-launcher-consumer.log passes standalone formatting, clean fatal-warning compilation and forked execution against four fresh hashes, including the valid/invalid schema probe. JVM/SLF4J diagnostic notices are not compiler warnings.
+- [x] review_fp and review_invariants approved the final seventeen-file immutable launcher scope against 203401a, including four unchanged source/build identities and thirteen Markdown files. The consumer source remains unchanged; packaged subprocess execution is not part of its existing probe. Actual process and cancellation checks run in MCP suites.
 
 The manual [candidate workflow](../../.github/workflows/candidate.yml) validates its version, provisions PostgreSQL 16, verifies/packages four modules, runs archive admission and the standalone consumer, and uploads unsigned artifacts/source metadata only after preceding steps succeed. The [workflow contract](../../.github/workflows/README.md) owns its separately reviewed identities and operational boundaries.
 

@@ -17,7 +17,8 @@ package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpPacket, McpProtocolVersion}
-import scala.jdk.CollectionConverters.*
+import java.io.File
+import zio.process.{Command, ProcessInput, ProcessOutput}
 import zio.*
 import zio.stream.{ZChannel, ZStream}
 
@@ -59,47 +60,77 @@ object McpStdioTransport:
         terminal <- Promise.make[Nothing, Cause[AgentError]]
         closing  <- Ref.make(Closing.Open)
         closed   <- Promise.make[Nothing, Exit[Nothing, Unit]]
-        transport <- ZIO.acquireRelease(
+        os <- System.propertyOrElse("os.name", "").mapError(ioError("read operating system", _))
+        inherited <- System.envs.mapError(ioError("read environment", _))
+        overrides = environment.map: (key, value) =>
+          val inheritedKey =
+            if os.startsWith("Windows") then inherited.keys.find(_.equalsIgnoreCase(key))
+            else None
+          inheritedKey.getOrElse(key) -> value
+        executable <- ZIO
+          .fromOption(command.headOption)
+          .orElseFail(
+            AgentError.InvalidConfiguration(
+              "MCP stdio requires an executable and a positive frame limit"
+            )
+          )
+        owner <- Ref.make(Option.empty[Live])
+        launched <- ZIO.acquireRelease(
           ZIO
-            .attemptBlocking {
-              val builder = new ProcessBuilder(command.toSeq*)
-              val _ = builder.redirectError(stderr match
-                case StderrPolicy.Discard => ProcessBuilder.Redirect.DISCARD
-                case StderrPolicy.Inherit => ProcessBuilder.Redirect.INHERIT)
-              builder
-            }
-            .mapError(ioError("configure", _))
-            .flatMap(builder =>
-              ZIO
-                .attemptBlocking:
-                  val target  = builder.environment()
-                  val windows = java.lang.System.getProperty("os.name", "").startsWith("Windows")
-                  environment.foreach: (key, value) =>
-                    val selectedKey =
-                      if windows then
-                        target
-                          .keySet()
-                          .iterator()
-                          .asScala
-                          .find(_.equalsIgnoreCase(key))
-                          .getOrElse(key)
-                      else key
-                    val _ = target.put(selectedKey, value)
-                .mapError(_ =>
-                  AgentError.InvalidConfiguration("MCP stdio environment overrides are invalid")
-                ) *>
-                ZIO.attemptBlocking(builder.start()).mapError(ioError("start", _))
+            .blocking(
+              Command(executable, command.drop(1).toSeq*)
+                .stdin(ProcessInput.Pipe)
+                .stdout(ProcessOutput.Pipe)
+                .stderr(stderr match
+                  case StderrPolicy.Discard =>
+                    ProcessOutput.FileRedirect(
+                      new File(if os.startsWith("Windows") then "NUL" else "/dev/null")
+                    )
+                  case StderrPolicy.Inherit => ProcessOutput.Inherit)
+                .env(overrides)
+                .run
             )
-            .map(process =>
-              new Live(process, maxFrameBytes, version, writes, reader, terminal, closing, closed)
-            )
-        )(_.close)
+            .mapError(ioError("start", _))
+        )(process =>
+          owner.get.flatMap:
+            case Some(live) => live.close
+            case None =>
+              process
+                .execute(raw => releaseProcess(raw))
+                .mapError(ioError("release unattached process", _))
+                .orDie
+                .flatten
+        )
+        raw <- launched.execute(process => process).mapError(ioError("access process", _))
+        transport = new Live(raw, maxFrameBytes, version, writes, reader, terminal, closing, closed)
+        _ <- owner.set(Some(transport))
       yield transport
 
   private def ioError(operation: String, error: Throwable): AgentError =
     AgentError.McpError(
       s"MCP stdio $operation failed (${error.getClass.getName}): ${Option(error.getMessage).getOrElse("no message")}"
     )
+
+  /** No caller joins here: an I/O caller may itself be running this cancellation finalizer. */
+  private def releaseProcess(process: Process): UIO[Unit] =
+    for
+      terminated <- ZIO
+        .attemptBlocking {
+          val _ = process.destroyForcibly()
+          val _ = process.waitFor()
+        }
+        .mapError(ioError("terminate", _))
+        .orDie
+        .exit
+      streams <- ZIO.foreach(
+        Chunk(
+          ZIO.attemptBlocking(process.getOutputStream.close()),
+          ZIO.attemptBlocking(process.getInputStream.close()),
+          ZIO.attemptBlocking(process.getErrorStream.close())
+        )
+      )(_.mapError(ioError("close stream", _)).orDie.exit)
+      _ <- Exit.collectAllParDiscard(terminated +: streams)
+    yield ()
 
   final private class Live(
       process: Process,
@@ -214,34 +245,17 @@ object McpStdioTransport:
         )
       )
 
-    /** No caller joins here: an I/O caller may itself be running this cancellation finalizer. */
-    private def releaseProcess: UIO[Unit] =
-      for
-        terminated <- ZIO
-          .attemptBlocking {
-            val _ = process.destroyForcibly()
-            val _ = process.waitFor()
-          }
-          .mapError(ioError("terminate", _))
-          .orDie
-          .exit
-        streams <- ZIO.foreach(
-          Chunk(
-            ZIO.attemptBlocking(process.getOutputStream.close()),
-            ZIO.attemptBlocking(process.getInputStream.close()),
-            ZIO.attemptBlocking(process.getErrorStream.close())
-          )
-        )(_.mapError(ioError("close stream", _)).orDie.exit)
-        _ <- Exit.collectAllParDiscard(terminated +: streams)
-      yield ()
-
     private def cleanup: UIO[Unit] =
       ZIO.uninterruptible:
         closing
           .getAndSet(Closing.Started)
           .flatMap:
             case Closing.Open =>
-              releaseProcess.exit.flatMap(closed.succeed).unit *> closed.await.flatMap(exit => exit)
+              McpStdioTransport
+                .releaseProcess(process)
+                .exit
+                .flatMap(closed.succeed)
+                .unit *> closed.await.flatMap(exit => exit)
             case Closing.Started => closed.await.flatMap(exit => exit)
 
     def close: UIO[Unit] =
