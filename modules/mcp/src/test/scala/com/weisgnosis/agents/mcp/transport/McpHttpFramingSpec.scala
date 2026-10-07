@@ -34,6 +34,48 @@ object McpHttpFramingSpec extends ZIOSpecDefault:
     ZIO.succeed(Chunk.fromArray(value.getBytes(StandardCharsets.UTF_8)))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpHttpFramingSpec")(
+    test(
+      "packet framing retains whole March arrays across fragmented stdio, JSON and SSE boundaries"
+    ):
+      val wire    = """[{"jsonrpc":"2.0","id":1,"result":{}}]"""
+      val version = McpProtocolVersion.V20250326
+      for
+        input <- bytes(wire)
+        json <- ZStream
+          .fromChunk(input)
+          .rechunk(1)
+          .via(McpHttpFraming.jsonPackets(version))
+          .runCollect
+        stdio <- ZStream
+          .fromChunk(input :+ 10.toByte)
+          .rechunk(1)
+          .via(McpStdioFraming.decodePackets(version))
+          .runCollect
+        sseBytes <- bytes(s"id: batch\ndata: $wire\n\n")
+        sse <- ZStream
+          .fromChunk(sseBytes)
+          .rechunk(1)
+          .via(McpHttpFraming.ssePackets(version))
+          .runCollect
+        tooSmall <- ZStream
+          .fromChunk(input)
+          .via(McpHttpFraming.jsonPackets(version, input.size - 1))
+          .runCollect
+          .exit
+        june <- ZStream
+          .fromChunk(input)
+          .via(McpHttpFraming.jsonPackets(McpProtocolVersion.V20250618))
+          .runCollect
+          .exit
+        expected <- ZIO.fromEither(McpPacket.decode(wire, version))
+      yield assertTrue(
+        json == Chunk(expected),
+        stdio == json,
+        sse == Chunk(McpHttpFraming.McpSsePacket(Some(expected), "batch")),
+        tooSmall.isFailure,
+        june.isFailure
+      )
+    ,
     test("raw SSE retains event names, multiline data and IDs without interpreting endpoint data"):
       for
         input <- bytes(

@@ -16,7 +16,8 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.client.McpClient
+import com.weisgnosis.agents.core.json.JsonBoundary
+import com.weisgnosis.agents.mcp.client.{McpClient, McpConnection}
 import com.weisgnosis.agents.mcp.protocol.*
 import zio.*
 import zio.http.*
@@ -58,6 +59,190 @@ object McpLegacySseTransportSpec extends ZIOSpecDefault:
     )
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Legacy MCP HTTP SSE")(
+    test("initialization permits server ping batches but rejects a batched initialization reply"):
+      ZIO.scoped:
+        for
+          messages     <- ZIO.acquireRelease(Queue.unbounded[Chunk[Byte]])(_.shutdown)
+          grouped      <- Ref.make(Chunk.empty[Json])
+          initializing <- Ref.make[Option[McpRequestId]](None)
+          http = scripted: request =>
+            if request.method == Method.GET then
+              ZIO.succeed(
+                events(
+                  ZStream.fromChunk(bytes("event: endpoint\ndata: /messages\n\n")) ++ ZStream
+                    .fromQueue(messages)
+                    .flattenChunks
+                )
+              )
+            else
+              request.body.asString.flatMap: wire =>
+                ZIO
+                  .fromEither(JsonBoundary.decode(wire).left.map(AgentError.InvalidMessage(_)))
+                  .flatMap:
+                    case batch: Json.Arr =>
+                      grouped.update(_ :+ batch) *> initializing.get.flatMap:
+                        case Some(id) =>
+                          ZIO
+                            .fromEither(McpMessage.encode(McpMessage.Success(id, Json.Obj())))
+                            .flatMap(value => messages.offer(bytes(s"data: [$value]\n\n")))
+                            .as(Response.status(Status.Accepted))
+                        case None =>
+                          ZIO.fail(AgentError.InvalidMessage("Missing initialization identity"))
+                    case value =>
+                      ZIO
+                        .fromEither(McpMessage.fromJson(value))
+                        .flatMap:
+                          case McpMessage.Request(id, "initialize", _) =>
+                            initializing.set(Some(id)) *>
+                              messages
+                                .offer(
+                                  bytes(
+                                    "data: [{\"jsonrpc\":\"2.0\",\"id\":70,\"method\":\"ping\"}]\n\n"
+                                  )
+                                )
+                                .as(Response.status(Status.Accepted))
+                          case _ =>
+                            ZIO.fail(
+                              AgentError.InvalidMessage("Unexpected initialization fixture message")
+                            )
+          transport <- McpLegacySseTransport.open(
+            http,
+            endpoint,
+            version = McpProtocolVersion.V20250326
+          )
+          connection <- McpConnection.make(transport)
+          result     <- connection.request("initialize").exit
+          groups     <- grouped.get
+          expected = Json.Arr(
+            Json.Obj("jsonrpc" -> Json.Str("2.0"), "id" -> Json.Num(70), "result" -> Json.Obj())
+          )
+        yield assertTrue(
+          groups == Chunk(expected),
+          result.isFailure,
+          result.causeOption.toList
+            .flatMap(_.failures)
+            .exists(_.message.contains("initialization cannot receive batch"))
+        )
+    ,
+    test("March request batches produce one grouped response including invalid members"):
+      ZIO.scoped:
+        for
+          messages <- ZIO.acquireRelease(Queue.unbounded[Chunk[Byte]])(_.shutdown)
+          grouped  <- Ref.make(Chunk.empty[Json])
+          pending  <- Ref.make[Option[McpRequestId]](None)
+          http = scripted: request =>
+            if request.method == Method.GET then
+              ZIO.succeed(
+                events(
+                  ZStream.fromChunk(bytes("event: endpoint\ndata: /messages\n\n")) ++
+                    ZStream.fromQueue(messages).flattenChunks
+                )
+              )
+            else
+              for
+                wire <- request.body.asString
+                json <- ZIO.fromEither(
+                  JsonBoundary.decode(wire).left.map(AgentError.InvalidMessage(_))
+                )
+                _ <- json match
+                  case batch: Json.Arr =>
+                    grouped.update(_ :+ batch) *> pending.get.flatMap:
+                      case Some(id) =>
+                        ZIO
+                          .fromEither(McpMessage.encode(McpMessage.Success(id, Json.Obj())))
+                          .flatMap(value => messages.offer(bytes(s"data: $value\n\n")))
+                          .unit
+                      case None => ZIO.fail(AgentError.InvalidMessage("Batch preceded request"))
+                  case _ =>
+                    ZIO
+                      .fromEither(McpMessage.fromJson(json))
+                      .flatMap:
+                        case McpMessage.Request(id, "probe", _) =>
+                          pending.set(Some(id)) *>
+                            messages
+                              .offer(
+                                bytes(
+                                  "data: [{\"jsonrpc\":\"2.0\",\"id\":70,\"method\":\"ping\"}," +
+                                    "42,{\"jsonrpc\":\"2.0\",\"method\":\"notifications/ignored\"}]\n\n"
+                                )
+                              )
+                              .unit
+                        case _ => ZIO.fail(AgentError.InvalidMessage("Unexpected fixture envelope"))
+              yield Response(status = Status.Accepted)
+          transport <- McpLegacySseTransport.open(
+            http,
+            endpoint,
+            version = McpProtocolVersion.V20250326
+          )
+          connection <- McpConnection.make(transport)
+          result     <- connection.request("probe").exit
+          responses  <- grouped.get
+          expected = Json.Arr(
+            Json.Obj("jsonrpc" -> Json.Str("2.0"), "id" -> Json.Num(70), "result" -> Json.Obj()),
+            Json.Obj(
+              "jsonrpc" -> Json.Str("2.0"),
+              "id"      -> Json.Null,
+              "error" -> Json.Obj(
+                "code"    -> Json.Num(-32600),
+                "message" -> Json.Str("Invalid Request")
+              )
+            )
+          )
+        yield assertTrue(result.isSuccess, responses == Chunk(expected))
+    ,
+    test(
+      "malformed response batches never complete a valid prefix or produce response-error loops"
+    ):
+      ZIO.scoped:
+        for
+          messages <- ZIO.acquireRelease(Queue.unbounded[Chunk[Byte]])(_.shutdown)
+          posts    <- Ref.make(0)
+          http = scripted: request =>
+            if request.method == Method.GET then
+              ZIO.succeed(
+                events(
+                  ZStream.fromChunk(bytes("event: endpoint\ndata: /messages\n\n")) ++ ZStream
+                    .fromQueue(messages)
+                    .flattenChunks
+                )
+              )
+            else
+              for
+                _       <- posts.update(_ + 1)
+                wire    <- request.body.asString
+                decoded <- ZIO.fromEither(McpMessage.decode(wire))
+                _ <- decoded match
+                  case McpMessage.Request(id, _, _) =>
+                    ZIO
+                      .fromEither(McpMessage.encode(McpMessage.Success(id, Json.Obj())))
+                      .flatMap: valid =>
+                        messages
+                          .offer(
+                            bytes(
+                              s"data: [$valid,{\"jsonrpc\":\"2.0\",\"id\":70,\"error\":false}]\n\n"
+                            )
+                          )
+                          .unit
+                  case _ => ZIO.fail(AgentError.InvalidMessage("Unexpected response-error loop"))
+              yield Response(status = Status.Accepted)
+          transport <- McpLegacySseTransport.open(
+            http,
+            endpoint,
+            version = McpProtocolVersion.V20250326
+          )
+          connection <- McpConnection.make(transport)
+          result     <- connection.request("probe").exit
+          count      <- posts.get
+        yield assertTrue(
+          result.isFailure,
+          count == 1,
+          result.causeOption.toList
+            .flatMap(_.failures)
+            .exists:
+              case _: AgentError.DeserializationError => true
+              case _                                  => false
+        )
+    ,
     test(
       "all selected revisions initialize through the advertised POST endpoint and receive replies over GET"
     ):
@@ -206,7 +391,11 @@ object McpLegacySseTransportSpec extends ZIOSpecDefault:
         (endpointEvent + endpointEvent, Some("second endpoint")),
         (endpointEvent + "event: message\ndata: malformed\n\n", None),
         (endpointEvent, Some("connection ended")),
-        (endpointEvent + notice + notice, Some("queue overflow"))
+        (endpointEvent + notice + notice, Some("queue overflow")),
+        (
+          endpointEvent + notice + "data: [{\"jsonrpc\":\"2.0\",\"method\":\"notification\"},{\"jsonrpc\":\"2.0\",\"method\":\"notification\"}]\n\n",
+          Some("queue overflow")
+        )
       )
       ZIO
         .foreach(cases): (wire, expected) =>
@@ -225,7 +414,12 @@ object McpLegacySseTransportSpec extends ZIOSpecDefault:
               .scoped:
                 for
                   transport <- McpLegacySseTransport
-                    .open(http, endpoint, limits = McpHttpLimits(incomingCapacity = 1))
+                    .open(
+                      http,
+                      endpoint,
+                      limits = McpHttpLimits(incomingCapacity = 1),
+                      version = McpProtocolVersion.V20250326
+                    )
                   _ <- ended.await
                   _ <- transport.incoming.runDrain
                 yield ()
@@ -270,34 +464,50 @@ object McpLegacySseTransportSpec extends ZIOSpecDefault:
         exit.causeOption.toList.flatMap(_.failures).exists(_.message.contains("endpoint deadline"))
       )
     ,
-    test("cancelling an issued POST joins its independent response cleanup"):
-      ZIO.scoped:
-        for
-          issued   <- Promise.make[Nothing, Unit]
-          cleaning <- Promise.make[Nothing, Unit]
-          release  <- Promise.make[Nothing, Unit]
-          http = scripted: request =>
-            if request.method == Method.GET then
-              ZIO.succeed(
-                events(
-                  ZStream.fromChunk(bytes("event: endpoint\ndata: /messages\n\n")) ++ ZStream.never
-                )
-              )
-            else
-              ZIO
-                .addFinalizer(cleaning.succeed(()) *> release.await)
-                .as(
-                  Response(status = Status.Accepted, body = Body.fromStreamChunked(ZStream.never))
-                )
-          transport <- McpLegacySseTransport.open(http, endpoint)
-          sending <- ZIO
-            .scoped(transport.send(McpMessage.Notification("example"), issued.succeed(()).unit))
-            .fork
-          _            <- issued.await
-          cancellation <- sending.interrupt.fork
-          _            <- cleaning.await
-          before       <- cancellation.poll
-          _            <- release.succeed(())
-          exit         <- cancellation.join
-        yield assertTrue(before.isEmpty, exit.isInterrupted)
+    test("cancelling singleton and grouped POSTs joins independent response cleanup"):
+      ZIO
+        .foreach(
+          Chunk(
+            McpPacket.Single(McpMessage.Notification("example")),
+            McpPacket.Batch(
+              Chunk(McpBatchMember.Message(McpMessage.Success(McpRequestId.Number(1), Json.Obj())))
+            )
+          )
+        ): packet =>
+          ZIO.scoped:
+            for
+              issued   <- Promise.make[Nothing, Unit]
+              cleaning <- Promise.make[Nothing, Unit]
+              release  <- Promise.make[Nothing, Unit]
+              http = scripted: request =>
+                if request.method == Method.GET then
+                  ZIO.succeed(
+                    events(
+                      ZStream.fromChunk(
+                        bytes("event: endpoint\ndata: /messages\n\n")
+                      ) ++ ZStream.never
+                    )
+                  )
+                else
+                  ZIO
+                    .addFinalizer(cleaning.succeed(()) *> release.await)
+                    .as(
+                      Response(
+                        status = Status.Accepted,
+                        body = Body.fromStreamChunked(
+                          ZStream.fromZIO(issued.succeed(())).drain ++ ZStream.never
+                        )
+                      )
+                    )
+              transport <- McpLegacySseTransport
+                .open(http, endpoint, version = McpProtocolVersion.V20250326)
+              sending      <- ZIO.scoped(transport.sendPacket(packet)).fork
+              _            <- issued.await
+              cancellation <- sending.interrupt.fork
+              _            <- cleaning.await
+              before       <- cancellation.poll
+              _            <- release.succeed(())
+              exit         <- cancellation.join
+            yield assertTrue(before.isEmpty, exit.isInterrupted)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
   ) @@ TestAspect.timeout(15.seconds)

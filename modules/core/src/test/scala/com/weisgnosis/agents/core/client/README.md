@@ -1,5 +1,7 @@
 # Model client and stream verification
 
+Existing request tables now explicitly reject blank call names and two calls with only one matching result. The [finite validator method manifest](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#pinned-tool-validator-method-evidence) records the test-only identities, bounded 39-method classification and remaining verification gates.
+
 Existing parser/detail/HTTP tables cover the [scalar reasoning aliases](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#scalar-reasoning-aliases), including exact coalescing, conflict rejection, null/empty/malformed values and authoritative details. No new groups were added; the linked contract owns current identities, changed precedence and verification.
 
 The [explicit envelope-profile contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles) owns current decoder/client/transport/accumulator identities and migration. Three pure table groups and one integration group cover full-only responses, validated summary suppression, terminal/usage preservation and exact single-copy output/events/transforms. Existing incomplete-call and missing-DONE groups also exercise the selected profile. This remains bounded SSE behavior; ordinary JSON HTTP has its separate [non-streaming contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions).

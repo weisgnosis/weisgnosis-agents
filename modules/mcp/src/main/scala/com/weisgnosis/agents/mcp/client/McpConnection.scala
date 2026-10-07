@@ -16,7 +16,13 @@
 package com.weisgnosis.agents.mcp.client
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpRequestId, McpRpcError}
+import com.weisgnosis.agents.mcp.protocol.{
+  McpBatchMember,
+  McpMessage,
+  McpPacket,
+  McpRequestId,
+  McpRpcError
+}
 import com.weisgnosis.agents.mcp.transport.McpTransport
 import zio.*
 import zio.json.ast.Json
@@ -75,16 +81,17 @@ object McpConnection:
     else
       ZIO.uninterruptible:
         for
-          owner      <- Scope.make
-          requests   <- owner.extend(McpRequests.make(capacity))
-          gate       <- Semaphore.make(1)
-          admission  <- Ref.make[Admission](Admission.Open)
-          active     <- Ref.make(Map.empty[Promise[Nothing, Unit], Fiber[AgentError, Any]])
-          terminal   <- Promise.make[Nothing, Cause[AgentError]]
-          controls   <- Queue.dropping[McpMessage](controlCapacity)
-          background <- Ref.make(Chunk.empty[Fiber.Runtime[AgentError, Any]])
-          closing    <- Ref.make(Closing.Open)
-          closed     <- Promise.make[Nothing, Exit[Nothing, Unit]]
+          owner        <- Scope.make
+          requests     <- owner.extend(McpRequests.make(capacity))
+          gate         <- Semaphore.make(1)
+          admission    <- Ref.make[Admission](Admission.Open)
+          active       <- Ref.make(Map.empty[Promise[Nothing, Unit], Fiber[AgentError, Any]])
+          terminal     <- Promise.make[Nothing, Cause[AgentError]]
+          controls     <- Queue.dropping[McpPacket](controlCapacity)
+          background   <- Ref.make(Chunk.empty[Fiber.Runtime[AgentError, Any]])
+          initializing <- Ref.make(Set.empty[McpRequestId])
+          closing      <- Ref.make(Closing.Open)
+          closed       <- Promise.make[Nothing, Exit[Nothing, Unit]]
           live = new Live(
             transport,
             capacity,
@@ -97,6 +104,7 @@ object McpConnection:
             controls,
             background,
             closing,
+            initializing,
             closed,
             observeNotification,
             observeStop
@@ -114,9 +122,10 @@ object McpConnection:
       admission: Ref[Admission],
       active: Ref[Map[Promise[Nothing, Unit], Fiber[AgentError, Any]]],
       terminal: Promise[Nothing, Cause[AgentError]],
-      controls: Queue[McpMessage],
+      controls: Queue[McpPacket],
       background: Ref[Chunk[Fiber.Runtime[AgentError, Any]]],
       closing: Ref[Closing],
+      initializing: Ref[Set[McpRequestId]],
       closed: Promise[Nothing, Exit[Nothing, Unit]],
       observeNotification: McpMessage.Notification => UIO[Unit],
       observeStop: Cause[AgentError] => UIO[Unit]
@@ -137,6 +146,12 @@ object McpConnection:
           _ <- ZIO
             .fail(AgentError.InvalidMessage("MCP request builder changed its allocated identity"))
             .unless(message.id == pending.id)
+          _ <-
+            if message.method == "initialize" then
+              ZIO.acquireRelease(initializing.update(_ + message.id))(_ =>
+                initializing.update(_ - message.id)
+              )
+            else ZIO.unit
           _ <- ZIO.fromEither(McpMessage.toJson(message)) *>
             ZIO.suspendSucceed(transport.send(message, dispatch.set(Dispatch.Issued(message))))
           reply <- pending.await
@@ -174,7 +189,7 @@ object McpConnection:
           ZIO.uninterruptible:
             gate.withPermit:
               admission.get.flatMap:
-                case Admission.Open       => controls.offer(notification).unit
+                case Admission.Open       => controls.offer(McpPacket.Single(notification)).unit
                 case Admission.Stopped(_) => ZIO.unit
 
     def notify(notification: McpMessage.Notification): IO[AgentError, Unit] =
@@ -290,16 +305,42 @@ object McpConnection:
           _           <- ZIO.foreachDiscard(services)(_.interruptAsFork(interrupter))
         yield ()
 
-    private def control(id: McpRequestId, method: String): UIO[Unit] =
-      val reply: McpMessage =
-        if method == "ping" then McpMessage.Success(id, Json.Obj())
-        else McpMessage.Failure(Some(id), McpRpcError(-32601, "Method not found"))
+    private def controlReply(id: McpRequestId, method: String): McpMessage =
+      if method == "ping" then McpMessage.Success(id, Json.Obj())
+      else McpMessage.Failure(Some(id), McpRpcError(-32601, "Method not found"))
+
+    private def enqueue(packet: McpPacket): UIO[Unit] =
       controls
-        .offer(reply)
+        .offer(packet)
         .flatMap:
           case true => ZIO.unit
           case false =>
             stop(Cause.fail(AgentError.McpError("MCP control response capacity reached")))
+
+    private def receivePacket(packet: McpPacket): UIO[Unit] = packet match
+      case McpPacket.Single(message) => receive(message)
+      case McpPacket.InvalidRequest  => enqueue(McpPacket.InvalidRequest)
+      case McpPacket.Batch(members) =>
+        initializing.get.flatMap: ids =>
+          val initializationReply = members.exists:
+            case McpBatchMember.Message(reply: McpMessage.Success) => ids.contains(reply.id)
+            case McpBatchMember.Message(reply: McpMessage.Failure) => reply.id.exists(ids.contains)
+            case _                                                 => false
+          if initializationReply then
+            stop(Cause.fail(AgentError.McpError("MCP initialization cannot receive batch packets")))
+          else receiveBatch(members)
+
+    private def receiveBatch(members: Chunk[McpBatchMember]): UIO[Unit] =
+      val replies = members.flatMap:
+        case McpBatchMember.InvalidRequest => Chunk(McpBatchMember.InvalidRequest)
+        case McpBatchMember.Message(McpMessage.Request(id, method, _)) =>
+          Chunk(McpBatchMember.Message(controlReply(id, method)))
+        case _ => Chunk.empty
+      ZIO.foreachDiscard(members):
+        case McpBatchMember.Message(_: McpMessage.Request) | McpBatchMember.InvalidRequest =>
+          ZIO.unit
+        case McpBatchMember.Message(message) => receive(message)
+      *> (if replies.isEmpty then ZIO.unit else enqueue(McpPacket.Batch(replies)))
 
     private def receive(message: McpMessage): UIO[Unit] = message match
       case reply: McpMessage.Success => requests.complete(reply).unit
@@ -308,7 +349,7 @@ object McpConnection:
           case Some(_) => requests.complete(reply).unit
           case None =>
             stop(Cause.fail(AgentError.McpError("MCP received an uncorrelated protocol error")))
-      case McpMessage.Request(id, method, _)     => control(id, method)
+      case McpMessage.Request(id, method, _) => enqueue(McpPacket.Single(controlReply(id, method)))
       case notification: McpMessage.Notification => observeNotification(notification)
 
     def start: UIO[Unit] =
@@ -318,7 +359,9 @@ object McpConnection:
           case Admission.Stopped(_) => ZIO.unit
           case Admission.Open =>
             for
-              reader <- (ready.await *> ZIO.suspendSucceed(transport.incoming.runForeach(receive)))
+              reader <- (ready.await *> ZIO.suspendSucceed(
+                transport.incomingPackets.runForeach(receivePacket)
+              ))
                 .onExit:
                   case Exit.Failure(cause) => stop(cause)
                   case Exit.Success(_) =>
@@ -326,7 +369,7 @@ object McpConnection:
                 .interruptible
                 .forkIn(owner)
               writer <- (ready.await *> controls.take
-                .flatMap(message => ZIO.scoped(send(message)))
+                .flatMap(packet => ZIO.scoped(transport.sendPacket(packet)))
                 .forever)
                 .onExit:
                   case Exit.Failure(cause) => stop(cause)

@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.McpMessage
+import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpPacket, McpProtocolVersion}
 import java.nio.{ByteBuffer, CharBuffer}
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
 import zio.*
@@ -28,8 +28,8 @@ import zio.stream.{ZChannel, ZPipeline}
  * Blank frames, BOM-prefixed frames, and nonempty unterminated EOF are rejected. No process I/O.
  */
 object McpStdioFraming:
-  private type Decoder =
-    ZChannel[Any, Nothing, Chunk[Byte], Any, AgentError, Chunk[McpMessage], Any]
+  private type Decoder[A] =
+    ZChannel[Any, Nothing, Chunk[Byte], Any, AgentError, Chunk[A], Any]
 
   final private case class Frame(segments: List[Chunk[Byte]], size: Int):
     def append(segment: Chunk[Byte]): Frame =
@@ -40,8 +40,20 @@ object McpStdioFraming:
     def bytes: Chunk[Byte] = segments.reverse.foldLeft(Chunk.empty[Byte])(_ ++ _)
 
   def decode(maxFrameBytes: Int = 1048576): ZPipeline[Any, AgentError, Byte, McpMessage] =
+    decodeWith(maxFrameBytes, McpMessage.decode)
+
+  def decodePackets(
+      version: McpProtocolVersion,
+      maxFrameBytes: Int = 1048576
+  ): ZPipeline[Any, AgentError, Byte, McpPacket] =
+    decodeWith(maxFrameBytes, McpPacket.decode(_, version))
+
+  private def decodeWith[A](
+      maxFrameBytes: Int,
+      decodeMessage: String => Either[AgentError.DeserializationError, A]
+  ): ZPipeline[Any, AgentError, Byte, A] =
     ZPipeline.fromChannel:
-      def read(frame: Frame): Decoder =
+      def read(frame: Frame): Decoder[A] =
         ZChannel.readWithCause(
           input => consume(input, frame),
           cause => ZChannel.refailCause(cause),
@@ -50,7 +62,7 @@ object McpStdioFraming:
             else ZChannel.fail(AgentError.DeserializationError("Unterminated MCP stdio frame"))
         )
 
-      def consume(input: Chunk[Byte], frame: Frame): Decoder =
+      def consume(input: Chunk[Byte], frame: Frame): Decoder[A] =
         ZChannel.suspend:
           val delimiter = input.indexWhere(_ == 10.toByte)
           val length    = if delimiter < 0 then input.size else delimiter
@@ -61,7 +73,7 @@ object McpStdioFraming:
             if delimiter < 0 then read(next)
             else
               ZChannel
-                .fromZIO(readFrame(next.bytes))
+                .fromZIO(readFrame(next.bytes, decodeMessage))
                 .flatMap(message =>
                   ZChannel.write(Chunk(message)) *> consume(input.drop(length + 1), Frame(Nil, 0))
                 )
@@ -72,9 +84,18 @@ object McpStdioFraming:
       message: McpMessage,
       maxFrameBytes: Int = 1048576
   ): IO[AgentError, Chunk[Byte]] =
+    ZIO.fromEither(McpMessage.encode(message)).flatMap(encodeWire(_, maxFrameBytes))
+
+  def encodePacket(
+      packet: McpPacket,
+      version: McpProtocolVersion,
+      maxFrameBytes: Int = 1048576
+  ): IO[AgentError, Chunk[Byte]] =
+    ZIO.fromEither(McpPacket.encode(packet, version)).flatMap(encodeWire(_, maxFrameBytes))
+
+  private def encodeWire(wire: String, maxFrameBytes: Int): IO[AgentError, Chunk[Byte]] =
     for
-      _    <- validateLimit(maxFrameBytes)
-      wire <- ZIO.fromEither(McpMessage.encode(message))
+      _ <- validateLimit(maxFrameBytes)
       // Every UTF-16 code unit needs at least one UTF-8 byte in a valid encoded string.
       _ <- ZIO
         .fail(AgentError.InvalidMessage("MCP stdio frame exceeds byte limit"))
@@ -96,7 +117,10 @@ object McpStdioFraming:
     if maxFrameBytes > 0 then ZIO.unit
     else ZIO.fail(AgentError.InvalidConfiguration("MCP stdio frame byte limit must be positive"))
 
-  private def readFrame(bytes: Chunk[Byte]): IO[AgentError, McpMessage] =
+  private def readFrame[A](
+      bytes: Chunk[Byte],
+      decode: String => Either[AgentError.DeserializationError, A]
+  ): IO[AgentError, A] =
     val text = ZIO.attempt:
       val decoder = StandardCharsets.UTF_8
         .newDecoder()
@@ -110,5 +134,5 @@ object McpStdioFraming:
       _ <- ZIO
         .fail(AgentError.DeserializationError("BOM is not accepted in MCP stdio frames"))
         .when(wire.startsWith("\ufeff"))
-      message <- ZIO.fromEither(McpMessage.decode(wire))
+      message <- ZIO.fromEither(decode(wire))
     yield message

@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpProtocolVersion}
+import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpPacket, McpProtocolVersion}
 import java.net.URI
 import zio.*
 import zio.http.{Body, Client, Headers, Request, URL}
@@ -47,7 +47,7 @@ object McpLegacySseTransport:
       transport <- ZIO.uninterruptibleMask: restore =>
         for
           queue <- owner.extend(
-            ZIO.acquireRelease(Queue.dropping[McpMessage](limits.incomingCapacity))(_.shutdown)
+            ZIO.acquireRelease(Queue.dropping[McpPacket](limits.incomingCapacity))(_.shutdown)
           )
           ready    <- Promise.make[AgentError, URL]
           terminal <- Promise.make[Nothing, Cause[AgentError]]
@@ -128,7 +128,7 @@ object McpLegacySseTransport:
       headers: Headers,
       limits: McpHttpLimits,
       override val protocolVersion: McpProtocolVersion,
-      queue: Queue[McpMessage],
+      queue: Queue[McpPacket],
       ready: Promise[AgentError, URL],
       terminal: Promise[Nothing, Cause[AgentError]],
       claimed: Ref[Consumer],
@@ -150,7 +150,7 @@ object McpLegacySseTransport:
         case Some(result) => result.flatMap(ZIO.refailCause(_))
         case None         => ZIO.unit
 
-    private def deliver(message: McpMessage): IO[AgentError, Unit] =
+    private def deliver(message: McpPacket): IO[AgentError, Unit] =
       queue
         .offer(message)
         .flatMap(accepted =>
@@ -181,7 +181,7 @@ object McpLegacySseTransport:
                 _ <- ZIO
                   .fail(AgentError.InvalidMessage("MCP legacy SSE message arrived before endpoint"))
                   .unless(published)
-                message <- ZIO.fromEither(McpMessage.decode(data))
+                message <- ZIO.fromEither(McpPacket.decode(data, protocolVersion))
                 _       <- deliver(message)
               yield ()
             case _ => ZIO.unit
@@ -223,16 +223,25 @@ object McpLegacySseTransport:
     def send(message: McpMessage): ZIO[Scope, AgentError, Unit] = send(message, ZIO.unit)
 
     override def send(message: McpMessage, onIssued: UIO[Unit]): ZIO[Scope, AgentError, Unit] =
-      val semaphore = message match
-        case _: McpMessage.Request => requests
-        case _                     => controls
+      sendPacketOwned(McpPacket.Single(message), onIssued)
+
+    override def sendPacket(packet: McpPacket): ZIO[Scope, AgentError, Unit] =
+      ZIO.fromEither(McpPacket.validateResponse(packet)) *> sendPacketOwned(packet, ZIO.unit)
+
+    private def sendPacketOwned(
+        packet: McpPacket,
+        onIssued: UIO[Unit]
+    ): ZIO[Scope, AgentError, Unit] =
+      val semaphore = packet match
+        case McpPacket.Single(_: McpMessage.Request) => requests
+        case _                                       => controls
       semaphore.withPermit:
         ZIO.scoped:
           ZIO.uninterruptibleMask: restore =>
             for
               _      <- ensureOpen
               target <- restore(ready.await)
-              bytes  <- McpHttpFraming.encode(message, limits.requestBytes)
+              bytes  <- McpHttpFraming.encodePacket(packet, protocolVersion, limits.requestBytes)
               response <- restore(
                 Client
                   .streaming(
@@ -275,6 +284,9 @@ object McpLegacySseTransport:
             yield ()
 
     def incoming: ZStream[Any, AgentError, McpMessage] =
+      incomingPackets.mapZIO(packet => ZIO.fromEither(McpPacket.single(packet)))
+
+    override def incomingPackets: ZStream[Any, AgentError, McpPacket] =
       ZStream.unwrap:
         claimed
           .getAndSet(Consumer.Claimed)

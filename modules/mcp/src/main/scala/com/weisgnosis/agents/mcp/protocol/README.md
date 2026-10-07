@@ -2,6 +2,8 @@
 
 [McpMessage](McpMessage.scala) implements the common JSON-RPC envelope shape used by MCP. The API is pure and has no transport, generated identifiers, method dispatch, or negotiated-version state. The bounded envelope scope is accepted. [McpInitialization](McpInitialization.scala) supplies pure initialization helpers with a default 2025-06-18 profile. Explicit older profiles are part of the [independently reviewed legacy/revision increment](../transport/README.md#legacy-http-sse-and-explicit-revision-selection). The current resource capability extension is governed by the [eleven-file resource scope and remaining acceptance gates](../client/README.md#resource-client-contract).
 
+[McpPacket](McpPacket.scala) adds bounded selected-March batch frames without changing the four-case McpMessage envelope. The [current batch contract and acceptance gates](../transport/README.md#march-2025-batch-packets) define grouped replies, invalid members, version restrictions and current verification. Both independent reviewers approved the fourteen exact packet-scope source/test identities; full verification, package preparation and fresh consumption passed. Final combined documentation approval remains pending.
+
 ## Types and wire contract
 
 | Type or case | Contract |
@@ -15,7 +17,7 @@
 
 The numeric limit is an explicit implementation boundary matching the JSON parser, not a claim that MCP itself limits integers to this range. Incoming nonzero numbers are checked using decimal precision and scale before integer expansion, then checked against the exact signed range. Zero bypasses expansion. Outbound IDs and error codes are checked before decimal conversion, so checked encodings remain within the same domain. Payload sizes and method-level numeric requirements remain outside this limit.
 
-Every encoded envelope has `jsonrpc` equal to `"2.0"`; decoding requires that exact value. Missing params and empty object params remain distinct. Explicit null or non-object params/results are rejected. Success and error are separate ADT cases, and mixed method/result/error envelopes are rejected. Arrays and batches are outside this boundary.
+Every encoded envelope has `jsonrpc` equal to `"2.0"`; decoding requires that exact value. Missing params and empty object params remain distinct. Explicit null or non-object params/results are rejected. Success and error are separate ADT cases, and mixed method/result/error envelopes are rejected. Arrays and batches remain outside McpMessage; the separate selected-March McpPacket boundary handles them.
 
 ## Checked codec API
 
@@ -57,7 +59,7 @@ These helpers allocate no identities and implement no runtime, correlation, orde
 
 ## 2025-06-18 resource requests and results
 
-[McpResources](McpResources.scala) adds checked list, template-list, read, subscribe and unsubscribe builders and resource notification projections. The [resource client contract](../client/README.md#resource-client-contract) owns the current eleven-file manifest, FP/ZIO and invariant approvals and focused verification for this added scope; full verification, package preparation and the fresh artifact consumer passed. Current legacy/revision documentation approval remains pending.
+[McpResources](McpResources.scala) adds checked list, template-list, read, subscribe and unsubscribe builders and resource notification projections. The [resource client contract](../client/README.md#resource-client-contract) owns the current eleven-file manifest, FP/ZIO and invariant approvals and focused verification for this added scope; full verification, package preparation and the fresh artifact consumer passed. Current packet-scope final combined documentation approval passed against 55df42a; unchanged legacy/revision scope retains its separate acceptance.
 
 Resource definitions retain URI/name, optional title/description/MIME type/nonnegative integer size, checked annotations, object `_meta` and unknown extensions. Templates retain `uriTemplate` and descriptive fields without expansion. Pages preserve ordered duplicates, opaque cursors, metadata and extensions. Reads reuse the existing text/blob resource body model, including both representations when supplied. Binary strings, URIs and timestamps are retained without local interpretation. Known malformed/null fields and duplicate keys anywhere in the AST fail before projection; no implicit codec bypasses these checked readers.
 

@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.mcp.protocol.{McpInitialization, McpMessage}
 import zio.*
 import zio.json.ast.Json
@@ -52,6 +53,37 @@ object McpStdioPeer extends ZIOAppDefault:
         case _: McpMessage.Notification => ZIO.unit
         case _ => ZIO.fail(AgentError.McpError("Unexpected test peer message"))
       .forever
+
+  private def batch: IO[AgentError, Unit] =
+    for
+      request <- readMessage
+      id <- request match
+        case McpMessage.Request(value, "batch", _) => ZIO.succeed(value)
+        case _ => ZIO.fail(AgentError.McpError("Expected batch probe"))
+      _ <- Console
+        .printLine(
+          """[{"jsonrpc":"2.0","id":70,"method":"ping"},42,{"jsonrpc":"2.0","method":"notifications/ignored"}]"""
+        )
+        .mapError(failure)
+      wire   <- Console.readLine.mapError(failure)
+      actual <- ZIO.fromEither(JsonBoundary.decode(wire).left.map(AgentError.InvalidMessage(_)))
+      expected = Json.Arr(
+        Json.Obj("jsonrpc" -> Json.Str("2.0"), "id" -> Json.Num(70), "result" -> Json.Obj()),
+        Json.Obj(
+          "jsonrpc" -> Json.Str("2.0"),
+          "id"      -> Json.Null,
+          "error" -> Json.Obj("code" -> Json.Num(-32600), "message" -> Json.Str("Invalid Request"))
+        )
+      )
+      _ <- ZIO
+        .fail(AgentError.McpError("Subprocess received ungrouped or incomplete responses"))
+        .unless(actual == expected)
+      reply <- ZIO.fromEither(
+        McpMessage.encode(McpMessage.Success(id, Json.Obj("grouped" -> Json.Bool(true))))
+      )
+      _ <- Console.printLine(s"[$reply]").mapError(failure)
+      _ <- ZIO.never
+    yield ()
 
   private enum ClientPhase:
     case Initialize, Initialized, Ready
@@ -118,7 +150,8 @@ object McpStdioPeer extends ZIOAppDefault:
         McpMessage.Notification("test/ready", Some(Json.Obj("pid" -> Json.Str(pid.toString))))
       )
       _ <- arguments.headOption match
-        case Some("echo") => echo
+        case Some("echo")  => echo
+        case Some("batch") => batch
         case Some("client") =>
           client(
             ClientPhase.Initialize,

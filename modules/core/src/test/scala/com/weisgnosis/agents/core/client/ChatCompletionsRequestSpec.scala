@@ -1129,6 +1129,15 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         Chunk(calls, Msg.user("next")),
         Chunk(calls, Msg.assistant("done")),
         Chunk(calls, result, result),
+        Chunk(
+          Msg.assistant(
+            Chunk(
+              ContentBlock.ToolUse("call", "search", Json.Obj()),
+              ContentBlock.ToolUse("other", "fetch", Json.Obj())
+            )
+          ),
+          result
+        ),
         Chunk(calls, Msg.tool("unknown", "search", "wrong")),
         Chunk(
           calls,
@@ -1173,12 +1182,16 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         Msg.assistant(Chunk(call, call)),
         Msg.assistant(Chunk(call.copy(input = Json.Obj("x" -> Json.Num(1), "x" -> Json.Num(2))))),
         Msg.assistant(Chunk(call.copy(input = Json.Arr()))),
-        Msg.assistant(Chunk(call.copy(id = "")))
+        Msg.assistant(Chunk(call.copy(id = ""))),
+        Msg.assistant(Chunk(call.copy(name = ""))),
+        Msg.assistant(Chunk(call.copy(name = "   ")))
       )
       val expected = Chunk(
         "Assistant tool call IDs must be unique",
         "Duplicate JSON object fields",
         "Function call arguments must be an object",
+        "Tool calls require a nonblank ID and valid function name",
+        "Tool calls require a nonblank ID and valid function name",
         "Tool calls require a nonblank ID and valid function name"
       )
       assertTrue(

@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpProtocolVersion}
+import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpPacket, McpProtocolVersion}
 import scala.jdk.CollectionConverters.*
 import zio.*
 import zio.stream.{ZChannel, ZStream}
@@ -139,8 +139,14 @@ object McpStdioTransport:
       send(message, ZIO.unit)
 
     override def send(message: McpMessage, onIssued: UIO[Unit]): ZIO[Scope, AgentError, Unit] =
+      writePacket(McpPacket.Single(message), onIssued)
+
+    override def sendPacket(packet: McpPacket): ZIO[Scope, AgentError, Unit] =
+      ZIO.fromEither(McpPacket.validateResponse(packet)) *> writePacket(packet, ZIO.unit)
+
+    private def writePacket(packet: McpPacket, onIssued: UIO[Unit]): ZIO[Scope, AgentError, Unit] =
       McpStdioFraming
-        .encode(message, maxFrameBytes)
+        .encodePacket(packet, protocolVersion, maxFrameBytes)
         .flatMap: frame =>
           writes.withPermit:
             ZIO.uninterruptibleMask: restore =>
@@ -196,9 +202,15 @@ object McpStdioTransport:
           else ZChannel.write(bytes) *> readChannel
 
     def incoming: ZStream[Any, AgentError, McpMessage] =
+      incomingPackets.mapZIO(packet => ZIO.fromEither(McpPacket.single(packet)))
+
+    override def incomingPackets: ZStream[Any, AgentError, McpPacket] =
       ZStream.fromChannel(
         ZChannel.acquireReleaseExitWith(claimReader)((_, exit) => releaseReader(exit))(_ =>
-          ZStream.fromChannel(readChannel).via(McpStdioFraming.decode(maxFrameBytes)).toChannel
+          ZStream
+            .fromChannel(readChannel)
+            .via(McpStdioFraming.decodePackets(protocolVersion, maxFrameBytes))
+            .toChannel
         )
       )
 

@@ -20,11 +20,11 @@ The consumer exercises public external-tool suspension/resume, schema rejection/
 
 review_fp and review_invariants independently approved the current consumer at `212988aed44a63d0f4f21afb077c141eb450c336`. The [schema admission manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns this identity, its current source scope and the expanded build dependency.
 
-- [x] dialects-projection-full-verify.log passes 1,555 tests, zero compiler warnings/failures/ignored and four RC1 packages, including fresh PostgreSQL verification.
-- [x] dialects-projection-preparation.log passes fresh RC1 source/POM/LICENSE staging and reversible invalid-selector/extra/duplicate source-archive checks.
+- [x] mcp-march-batch-full-verify.log passes 1,564 tests, zero compiler warnings/failures/ignored and four RC1 packages, including fresh PostgreSQL verification.
+- [x] mcp-march-batch-preparation.log passes fresh RC1 source/POM/LICENSE staging and reversible invalid-selector/extra/duplicate source-archive checks.
 - [x] schema-resources-consumer.log records the obsolete blanket Jackson classpath rejection before correction. Jackson is required by the newly declared production evaluator; fixture/SDK/Tomcat/JDBC exclusions remain.
-- [x] dialects-projection-consumer.log passes standalone formatting, clean fatal-warning compilation and forked execution against four fresh hashes, including the valid/invalid schema probe. JVM/SLF4J diagnostic notices are not compiler warnings.
-- [x] review_fp and review_invariants approved the final combined 20-file scope against 1e90db1, with five unchanged source/spec identities and fifteen Markdown files; no unresolved findings remain in this scope.
+- [x] mcp-march-batch-consumer.log passes standalone formatting, clean fatal-warning compilation and forked execution against four fresh hashes, including the valid/invalid schema probe. JVM/SLF4J diagnostic notices are not compiler warnings.
+- [x] review_fp and review_invariants approved the final combined 35-file scope against 55df42a, with sixteen unchanged source/spec identities and nineteen Markdown files; no unresolved findings remain in this scope.
 
 The manual [candidate workflow](../../.github/workflows/candidate.yml) validates its version, provisions PostgreSQL 16, verifies/packages four modules, runs archive admission and the standalone consumer, and uploads unsigned artifacts/source metadata only after preceding steps succeed. The [workflow contract](../../.github/workflows/README.md) owns its separately reviewed identities and operational boundaries.
 

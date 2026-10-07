@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.McpMessage
+import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpPacket, McpProtocolVersion}
 import java.nio.{ByteBuffer, CharBuffer}
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
 import zio.*
@@ -32,6 +32,8 @@ import zio.stream.{ZChannel, ZPipeline}
 object McpHttpFraming:
   /** A completed SSE block; its cursor is inherited only within this response. */
   final case class McpSseEvent(message: Option[McpMessage], lastEventId: String)
+
+  final case class McpSsePacket(packet: Option[McpPacket], lastEventId: String)
 
   /** Event names and data remain separate until the selected MCP transport interprets them. */
   final case class McpSseFrame(eventType: String, data: Option[String], lastEventId: String)
@@ -67,9 +69,18 @@ object McpHttpFraming:
       message: McpMessage,
       maxBytes: Int = 1048576
   ): IO[AgentError, Chunk[Byte]] =
+    ZIO.fromEither(McpMessage.encode(message)).flatMap(encodeWire(_, maxBytes))
+
+  def encodePacket(
+      packet: McpPacket,
+      version: McpProtocolVersion,
+      maxBytes: Int = 1048576
+  ): IO[AgentError, Chunk[Byte]] =
+    ZIO.fromEither(McpPacket.encode(packet, version)).flatMap(encodeWire(_, maxBytes))
+
+  private def encodeWire(wire: String, maxBytes: Int): IO[AgentError, Chunk[Byte]] =
     for
-      _    <- validate(maxBytes > 0)
-      wire <- ZIO.fromEither(McpMessage.encode(message))
+      _ <- validate(maxBytes > 0)
       _ <- ZIO
         .fail(AgentError.InvalidMessage("MCP HTTP body exceeds byte limit"))
         .when(wire.length > maxBytes)
@@ -87,8 +98,20 @@ object McpHttpFraming:
     yield bytes
 
   def json(maxBytes: Int = 1048576): ZPipeline[Any, AgentError, Byte, McpMessage] =
+    jsonDecoded(maxBytes, McpMessage.decode)
+
+  def jsonPackets(
+      version: McpProtocolVersion,
+      maxBytes: Int = 1048576
+  ): ZPipeline[Any, AgentError, Byte, McpPacket] =
+    jsonDecoded(maxBytes, McpPacket.decode(_, version))
+
+  private def jsonDecoded[A](
+      maxBytes: Int,
+      decode: String => Either[AgentError.DeserializationError, A]
+  ): ZPipeline[Any, AgentError, Byte, A] =
     ZPipeline.fromChannel:
-      def read(buffer: Buffer): Decoder[McpMessage] =
+      def read(buffer: Buffer): Decoder[A] =
         ZChannel.readWithCause(
           input =>
             if input.size > maxBytes - buffer.size then
@@ -105,7 +128,7 @@ object McpHttpFraming:
                     ZIO.fail(
                       AgentError.DeserializationError("BOM is not accepted in MCP HTTP JSON bodies")
                     )
-                  else ZIO.fromEither(McpMessage.decode(value))
+                  else ZIO.fromEither(decode(value))
                 )
               )
               .flatMap(message => ZChannel.write(Chunk(message)))
@@ -132,6 +155,16 @@ object McpHttpFraming:
       ZIO
         .foreach(frame.data)(value => ZIO.fromEither(McpMessage.decode(value)))
         .map(message => McpSseEvent(message, frame.lastEventId))
+
+  def ssePackets(
+      version: McpProtocolVersion,
+      maxBodyBytes: Long = 8L * 1024 * 1024,
+      maxEventBytes: Int = 1048576
+  ): ZPipeline[Any, AgentError, Byte, McpSsePacket] =
+    sseFrames(maxBodyBytes, maxEventBytes).mapZIO: frame =>
+      ZIO
+        .foreach(frame.data)(value => ZIO.fromEither(McpPacket.decode(value, version)))
+        .map(packet => McpSsePacket(packet, frame.lastEventId))
 
   /** Bounded UTF-8 SSE framing, preserving endpoint/message event names for legacy HTTP. */
   def sseFrames(

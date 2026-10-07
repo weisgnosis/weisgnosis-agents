@@ -38,6 +38,64 @@ object ToolSchemaValidatorSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolSchemaValidatorSpec")(
     test("standard constraints and exact numbers distinguish valid and invalid neighbors") {
       val cases = Chunk(
+        ("{}", "{\"name\":\"test\"}", true),
+        ("""{"type":"object","properties":{}}""", "{}", true),
+        ("""{"type":"object"}""", "null", false),
+        (
+          """{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"]}""",
+          """{"name":"John","age":30}""",
+          true
+        ),
+        (
+          """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""",
+          "{}",
+          false
+        ),
+        ("""{"type":"string"}""", "123", false),
+        ("""{"type":"integer"}""", "\"123\"", false),
+        ("""{"type":"number"}""", "95.5", true),
+        ("""{"type":"boolean"}""", "true", true),
+        ("""{"type":"boolean"}""", "false", true),
+        ("""{"type":"boolean"}""", "\"true\"", false),
+        ("""{"type":"boolean"}""", "1", false),
+        ("""{"enum":["red","green"]}""", "\"red\"", true),
+        ("""{"enum":["red","green"]}""", "\"blue\"", false),
+        ("""{"type":"integer","minimum":1,"maximum":3}""", "0", false),
+        ("""{"type":"integer","minimum":1,"maximum":3}""", "2", true),
+        ("""{"type":"integer","minimum":1,"maximum":3}""", "4", false),
+        ("""{"type":"string","minLength":2,"maxLength":3}""", "\"a\"", false),
+        ("""{"type":"string","minLength":2,"maxLength":3}""", "\"abcd\"", false),
+        ("""{"type":"array","items":{"type":"integer"}}""", "[1,2,\"three\"]", false),
+        (
+          """{"type":"object","properties":{"address":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}""",
+          """{"address":{"city":"Boston"}}""",
+          true
+        ),
+        (
+          """{"type":"object","properties":{"address":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}""",
+          """{"address":{}}""",
+          false
+        ),
+        (
+          """{"type":"object","properties":{"known":{"type":"string"}},"additionalProperties":false}""",
+          """{"unknown":null}""",
+          false
+        ),
+        (
+          """{"type":"object","properties":{"optional":{"type":"string"}}}""",
+          "{}",
+          true
+        ),
+        (
+          """{"type":"object","$defs":{"Material":{"type":"object","properties":{"key":{"type":"string"}}}},"properties":{"request":{"type":"object","properties":{"materialList":{"type":"array","items":{"$ref":"#/$defs/Material"}}}}}}""",
+          """{"request":{"materialList":[{"key":"value"}]}}""",
+          true
+        ),
+        (
+          """{"type":"object","properties":{"request":{"$defs":{"Material":{"type":"object"}},"type":"object","properties":{"materialList":{"type":"array","items":{"$ref":"#/$defs/Material"}}}}}}""",
+          """{"request":{"materialList":[{"key":"value"}]}}""",
+          false
+        ),
         ("""{"type":"integer","minimum":9007199254740993}""", "9007199254740993", true),
         ("""{"type":"integer","minimum":9007199254740993}""", "9007199254740992", false),
         ("""{"multipleOf":9007199254740993}""", "18014398509481986", true),
@@ -195,7 +253,11 @@ object ToolSchemaValidatorSpec extends ZIOSpecDefault:
         valid   <- ToolSchemaValidator.validate(schema, input).either
         invalid <- validation(required, """{"value":null}""")
         cyclic  <- validation("""{"$ref":"#"}""", inputText)
-        calls   <- Ref.make(Chunk.empty[Json])
+        paths <- validation(
+          """{"type":"object","properties":{"name":{"type":"string"},"address":{"type":"object","properties":{"city":{"type":"string"}}}}}""",
+          """{"name":123,"address":{"city":456}}"""
+        )
+        calls <- Ref.make(Chunk.empty[Json])
         tool = Tool.make(ToolDef("original", "Preserve input", schema))(value =>
           calls.update(_ :+ value).as("ok")
         )
@@ -205,6 +267,9 @@ object ToolSchemaValidatorSpec extends ZIOSpecDefault:
         valid.isRight,
         invalid.isLeft,
         cyclic.isLeft,
+        paths.left.exists(error =>
+          error.message.contains("/name") && error.message.contains("/address/city")
+        ),
         result.state == com.weisgnosis.agents.core.model.ToolResultState.Success,
         received == Chunk(input)
       )

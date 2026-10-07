@@ -22,6 +22,7 @@ import com.weisgnosis.agents.mcp.protocol.{
   McpContentBlock,
   McpImplementation,
   McpMessage,
+  McpPacket,
   McpProtocolVersion
 }
 import java.nio.file.Paths
@@ -93,23 +94,45 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
       observed = new McpTransport:
         override val protocolVersion: McpProtocolVersion            = underlying.protocolVersion
         def send(message: McpMessage): ZIO[Scope, AgentError, Unit] = underlying.send(message)
+        override def sendPacket(packet: McpPacket): ZIO[Scope, AgentError, Unit] =
+          underlying.sendPacket(packet)
         def incoming: ZStream[Any, AgentError, McpMessage] =
-          underlying.incoming
+          incomingPackets.mapZIO(packet => ZIO.fromEither(McpPacket.single(packet)))
+        override def incomingPackets: ZStream[Any, AgentError, McpPacket] =
+          underlying.incomingPackets
             .tap:
-              case McpMessage.Notification("test/ready", Some(params)) =>
+              case McpPacket.Single(McpMessage.Notification("test/ready", Some(params))) =>
                 val pid = params.fields.collectFirst:
                   case ("pid", Json.Str(value)) => value
                 ZIO
                   .fromOption(pid.flatMap(_.toLongOption))
                   .orElseFail(AgentError.McpError("Invalid test peer identity"))
                   .flatMap(value => ready.succeed(value).unit)
-              case McpMessage.Notification("test/write-started", _) => writeStarted.succeed(()).unit
-              case _                                                => ZIO.unit
+              case McpPacket.Single(McpMessage.Notification("test/write-started", _)) =>
+                writeStarted.succeed(()).unit
+              case _ => ZIO.unit
             .onError(cause => ready.failCause(cause).unit)
             .ensuring(ready.fail(AgentError.McpError("Peer ended before readiness")).unit)
     yield Peer(observed, ready, writeStarted)
 
   def spec: Spec[TestEnvironment, Any] = suite("McpStdioTransportSpec")(
+    test("real March subprocess receives one response batch and its owner reaps it"):
+      for
+        result <- ZIO.scoped:
+          for
+            server     <- peer("batch", version = McpProtocolVersion.V20250326)
+            connection <- McpConnection.make(server.transport)
+            pid        <- server.ready.await
+            reply      <- connection.request("batch")
+          yield (
+            pid,
+            reply match
+              case McpMessage.Success(_, result) => Some(result)
+              case _                             => None
+          )
+        running <- alive(result._1)
+      yield assertTrue(result._2.contains(Json.Obj("grouped" -> Json.Bool(true))), !running)
+    ,
     test(
       "real processes support concurrent RPC and initialized tool calls and are reaped after release"
     ) {

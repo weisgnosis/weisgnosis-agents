@@ -16,7 +16,13 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpProtocolVersion, McpRequestId}
+import com.weisgnosis.agents.mcp.protocol.{
+  McpBatchMember,
+  McpMessage,
+  McpPacket,
+  McpProtocolVersion,
+  McpRequestId
+}
 import java.io.IOException
 import java.net.URI
 import java.nio.charset.StandardCharsets
@@ -180,7 +186,7 @@ object McpStreamableHttpTransport:
           gate        <- Semaphore.make(1)
           requests    <- Semaphore.make(limits.maxConcurrentRequests.toLong)
           controls    <- Semaphore.make(1)
-          queue       <- Queue.dropping[McpMessage](limits.incomingCapacity)
+          queue       <- Queue.dropping[McpPacket](limits.incomingCapacity)
           state       <- Ref.make[State](State.Open(Session(Initialization.Fresh, None)))
           consumer    <- Ref.make[Consumer](Consumer.Available)
           listener    <- Ref.make[Listener](Listener.Idle)
@@ -315,7 +321,7 @@ object McpStreamableHttpTransport:
       gate: Semaphore,
       requests: Semaphore,
       controls: Semaphore,
-      queue: Queue[McpMessage],
+      queue: Queue[McpPacket],
       state: Ref[State],
       consumer: Ref[Consumer],
       listener: Ref[Listener],
@@ -507,7 +513,10 @@ object McpStreamableHttpTransport:
                   .unless(kind == ContentType.Sse)
                 _ <- response.body.asStream
                   .mapError(bodyBoundary("MCP HTTP GET body"))
-                  .via(McpHttpFraming.sseEvents(limits.sseResponseBytes, limits.sseEventBytes))
+                  .via(
+                    McpHttpFraming
+                      .ssePackets(protocolVersion, limits.sseResponseBytes, limits.sseEventBytes)
+                  )
                   .runForeach(event => offerListening(event, checkpoint))
               yield McpHttpListenResult.Ended
         yield result
@@ -539,34 +548,45 @@ object McpStreamableHttpTransport:
         .flatMap(proceedListening)
 
     private def offerListening(
-        event: McpHttpFraming.McpSseEvent,
+        event: McpHttpFraming.McpSsePacket,
         checkpoint: Ref[String]
     ): IO[AgentError, Unit] =
-      event.message match
-        case Some(_: McpMessage.Success) | Some(_: McpMessage.Failure) =>
-          ZIO.fail(AgentError.McpError("MCP HTTP listener streams cannot carry RPC responses"))
-        case _ =>
-          gate
-            .withPermit(ZIO.uninterruptible:
-              state.get.flatMap:
-                case State.Stopped(_, _) => ZIO.succeed(ListeningGate.Stopped)
-                case State.Open(_) =>
-                  val commit = checkpoint.set(event.lastEventId).as(ListeningGate.Continue)
-                  event.message match
-                    case None => commit
-                    case Some(message) =>
-                      queue
-                        .offer(message)
-                        .flatMap:
-                          case true => commit
-                          case false =>
-                            ZIO.succeed(
-                              ListeningGate
-                                .Rejected(AgentError.McpError("MCP HTTP incoming capacity reached"))
-                            ))
-            .flatMap(proceedListening)
+      val response = event.packet.exists(containsResponses)
+      if response then
+        ZIO.fail(AgentError.McpError("MCP HTTP listener streams cannot carry RPC responses"))
+      else
+        gate
+          .withPermit(ZIO.uninterruptible:
+            state.get.flatMap:
+              case State.Stopped(_, _) => ZIO.succeed(ListeningGate.Stopped)
+              case State.Open(_) =>
+                val commit = checkpoint.set(event.lastEventId).as(ListeningGate.Continue)
+                event.packet match
+                  case None => commit
+                  case Some(packet) =>
+                    queue
+                      .offer(packet)
+                      .flatMap:
+                        case true => commit
+                        case false =>
+                          ZIO.succeed(
+                            ListeningGate
+                              .Rejected(AgentError.McpError("MCP HTTP incoming capacity reached"))
+                          ))
+          .flatMap(proceedListening)
 
-    def incoming: ZStream[Any, AgentError, McpMessage] = ZStream.unwrapScoped:
+    private def containsResponses(packet: McpPacket): Boolean = packet match
+      case McpPacket.Single(_: McpMessage.Success | _: McpMessage.Failure) => true
+      case McpPacket.Batch(members) =>
+        members.exists:
+          case McpBatchMember.Message(_: McpMessage.Success | _: McpMessage.Failure) => true
+          case _                                                                     => false
+      case _ => false
+
+    def incoming: ZStream[Any, AgentError, McpMessage] =
+      incomingPackets.mapZIO(packet => ZIO.fromEither(McpPacket.single(packet)))
+
+    override def incomingPackets: ZStream[Any, AgentError, McpPacket] = ZStream.unwrapScoped:
       ZIO
         .acquireRelease(
           consumer
@@ -578,7 +598,7 @@ object McpStreamableHttpTransport:
         )(_ => stop(Cause.fail(AgentError.McpError("MCP HTTP incoming closed"))))
         .as(ZStream.fromChannel(receive))
 
-    private def receive: ZChannel[Any, Any, Any, Any, AgentError, Chunk[McpMessage], Unit] =
+    private def receive: ZChannel[Any, Any, Any, Any, AgentError, Chunk[McpPacket], Unit] =
       ZChannel
         .fromZIO(
           queue.take
@@ -620,6 +640,48 @@ object McpStreamableHttpTransport:
                 case Exit.Failure(cause) if initializing(message) => stop(cause)
                 case _                                            => ZIO.unit)
       yield ()
+
+    override def sendPacket(packet: McpPacket): ZIO[Scope, AgentError, Unit] = packet match
+      case McpPacket.Single(message) => send(message)
+      case _ =>
+        ZIO.fromEither(McpPacket.validateResponse(packet)) *> controls.withPermit(ZIO.scoped:
+          for
+            bytes <- McpHttpFraming.encodePacket(packet, protocolVersion, limits.requestBytes)
+            session <- gate.withPermit(state.get.flatMap:
+              case State.Stopped(cause, _) => ZIO.refailCause(cause)
+              case State.Open(value)       => ZIO.succeed(value.id))
+            response <- Client
+              .streaming(
+                Request
+                  .post(url, Body.fromChunk(bytes))
+                  .addHeaders(
+                    headers ++ Headers(
+                      "Content-Type"         -> "application/json",
+                      "Accept"               -> "application/json, text/event-stream",
+                      "MCP-Protocol-Version" -> protocolVersion.wire
+                    ) ++ session.fold(Headers.empty)(id => Headers("Mcp-Session-Id", id))
+                  )
+              )
+              .provideSomeEnvironment[Scope](_.add(http))
+              .mapError(boundary("MCP HTTP batch response POST"))
+            _ <-
+              if response.status.code == 404 && session.nonEmpty then
+                fatal(AgentError.McpSessionExpired())
+              else
+                ZIO
+                  .fail(AgentError.McpError("MCP HTTP batch response requires status 202"))
+                  .unless(response.status.code == 202)
+                  .unit
+            _ <- captureSession(None, session, response)
+            first <- response.body.asStream
+              .mapError(boundary("MCP HTTP batch acknowledgement body"))
+              .take(1)
+              .runCollect
+            _ <- ZIO
+              .fail(AgentError.McpError("MCP HTTP 202 acknowledgement must have an empty body"))
+              .unless(first.isEmpty)
+            _ <- ensureOpen
+          yield ())
 
     private def exchange(
         message: McpMessage,
@@ -853,7 +915,7 @@ object McpStreamableHttpTransport:
                 state.set(State.Open(session.copy(initialization = Initialization.Responded(id))))
               case _ => ZIO.unit
         else ZIO.unit
-      mark *> offer(reply)
+      mark *> offerPacket(McpPacket.Single(reply))
 
     private def contentType(response: Response): IO[AgentError, ContentType] =
       val values = response.rawHeaders("Content-Type")
@@ -883,16 +945,39 @@ object McpStreamableHttpTransport:
       contentType(response).flatMap:
         case ContentType.Json =>
           body
-            .via(McpHttpFraming.json(limits.jsonResponseBytes))
+            .via(McpHttpFraming.jsonPackets(protocolVersion, limits.jsonResponseBytes))
             .runHead
             .flatMap:
-              case Some(reply: McpMessage.Success) if reply.id == request.id =>
-                received(request, reply).as(Progress.Complete)
-              case Some(reply: McpMessage.Failure) if reply.id.contains(request.id) =>
-                offer(reply).as(Progress.Complete)
+              case Some(packet) if containsResponses(packet) => acceptPacket(request, packet, "")
               case _ =>
                 ZIO.fail(AgentError.McpError("MCP HTTP JSON response did not match its request"))
         case ContentType.Sse => consumeSse(request, response, "", checkpoint)
+
+    private def acceptPacket(
+        request: McpMessage.Request,
+        packet: McpPacket,
+        cursor: String
+    ): IO[AgentError, Progress] =
+      packet match
+        case McpPacket.Single(reply: McpMessage.Success) if reply.id == request.id =>
+          received(request, reply).as(Progress.Complete)
+        case McpPacket.Single(reply: McpMessage.Failure) if reply.id.contains(request.id) =>
+          offerPacket(packet).as(Progress.Complete)
+        case McpPacket.Single(_: McpMessage.Request | _: McpMessage.Notification) =>
+          offerPacket(packet).as(Progress.Continue(cursor))
+        case McpPacket.Batch(members) if request.method != "initialize" =>
+          if containsResponses(packet) then
+            val matches = members.forall:
+              case McpBatchMember.Message(reply: McpMessage.Success) => reply.id == request.id
+              case McpBatchMember.Message(reply: McpMessage.Failure) =>
+                reply.id.contains(request.id)
+              case _ => false
+            if matches && members.size == 1 then offerPacket(packet).as(Progress.Complete)
+            else ZIO.fail(AgentError.McpError("MCP HTTP response batch did not match its request"))
+          else offerPacket(packet).as(Progress.Continue(cursor))
+        case McpPacket.InvalidRequest if request.method != "initialize" =>
+          offerPacket(packet).as(Progress.Continue(cursor))
+        case _ => ZIO.fail(AgentError.McpError("MCP HTTP response did not match its request"))
 
     private def consumeSse(
         request: McpMessage.Request,
@@ -902,33 +987,25 @@ object McpStreamableHttpTransport:
     ): IO[AttemptError, Progress] =
       response.body.asStream
         .mapError(bodyBoundary("MCP HTTP response body"))
-        .via(McpHttpFraming.sseEvents(limits.sseResponseBytes, limits.sseEventBytes))
+        .via(
+          McpHttpFraming.ssePackets(protocolVersion, limits.sseResponseBytes, limits.sseEventBytes)
+        )
         .mapZIO: event =>
-          // Acceptance and its cursor checkpoint are one finite local publication step.
           ZIO.uninterruptible:
-            val accept = event.message match
-              case None => ZIO.succeed(Progress.Continue(event.lastEventId))
-              case Some(reply: McpMessage.Success) if reply.id == request.id =>
-                received(request, reply).as(Progress.Complete)
-              case Some(reply: McpMessage.Failure) if reply.id.contains(request.id) =>
-                offer(reply).as(Progress.Complete)
-              case Some(other: McpMessage.Request) =>
-                offer(other).as(Progress.Continue(event.lastEventId))
-              case Some(other: McpMessage.Notification) =>
-                offer(other).as(Progress.Continue(event.lastEventId))
-              case _ =>
-                ZIO.fail(AgentError.McpError("MCP HTTP SSE response did not match its request"))
+            val accept = event.packet match
+              case None         => ZIO.succeed(Progress.Continue(event.lastEventId))
+              case Some(packet) => acceptPacket(request, packet, event.lastEventId)
             accept.tap(progress => checkpoint.update(_.copy(progress = progress)))
         .takeUntil(_ == Progress.Complete)
         .runLast
         .map(_.getOrElse(Progress.Continue(previousCursor)))
 
-    private def offer(message: McpMessage): IO[AgentError, Unit] = gate.withPermit:
+    private def offerPacket(packet: McpPacket): IO[AgentError, Unit] = gate.withPermit:
       state.get.flatMap:
         case State.Stopped(cause, _) => ZIO.refailCause(cause)
         case State.Open(_) =>
           queue
-            .offer(message)
+            .offer(packet)
             .flatMap:
               case true => ZIO.unit
               case false =>

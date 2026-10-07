@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpProtocolVersion}
+import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpPacket, McpProtocolVersion}
 import zio.*
 import zio.stream.ZStream
 
@@ -40,5 +40,13 @@ trait McpTransport:
   def send(message: McpMessage, onIssued: UIO[Unit]): ZIO[Scope, AgentError, Unit] =
     ZIO.uninterruptibleMask: restore =>
       restore(send(message)) *> onIssued
+
+  /** Existing custom ports remain singular; grouped responses must never be flattened on send. */
+  def sendPacket(packet: McpPacket): ZIO[Scope, AgentError, Unit] = packet match
+    case McpPacket.Single(message) => send(message)
+    case _ =>
+      ZIO.fail(AgentError.InvalidMessage("This MCP transport does not support grouped responses"))
+
+  def incomingPackets: ZStream[Any, AgentError, McpPacket] = incoming.map(McpPacket.Single(_))
 
   def incoming: ZStream[Any, AgentError, McpMessage]

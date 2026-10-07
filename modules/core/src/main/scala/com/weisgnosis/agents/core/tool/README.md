@@ -49,13 +49,29 @@ review_fp and review_invariants approved this exact two-file source scope agains
 | Reviewed file | Git blob identity |
 | --- | --- |
 | [ToolSchemaValidator.scala](ToolSchemaValidator.scala) | `8041db0be7bd796787f7f30e2d3182c01c837c3b` |
-| [ToolSchemaValidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolSchemaValidatorSpec.scala) | `91fbd63c5faef46292505a6e4fceee5149a9adb5` |
+| [ToolSchemaValidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolSchemaValidatorSpec.scala) | [Current finite method-evidence identity](#pinned-tool-validator-method-evidence) |
 
 - [x] schema-dialects-red.log records three passing groups and one failed group against unchanged 1e90db1 production: valid declared older-draft schemas were rejected.
 - [x] schema-dialects-offload-review-green.log records five passing core groups, including lexical integer and recursive-reference controls. Its later example segment failed a draft final-history retention expectation after additional compaction; it is not full-build passing evidence.
 - [x] Both independent reviewers approved the two exact source/spec identities above.
 - [x] dialects-projection-full-verify.log passes 1,555 tests and four RC1 packages with zero compiler warnings/failures/ignored. dialects-projection-preparation.log and dialects-projection-consumer.log pass fresh archive admission and standalone four-module consumption.
 - [x] review_fp and review_invariants approved the final combined 20-file scope against 1e90db1, with five unchanged source/spec identities and fifteen Markdown files; no unresolved findings remain in this scope.
+
+## Pinned tool validator method evidence
+
+All 39 pinned ToolValidatorTest methods now have an explicit [method-level disposition](../../../../../../../../../../docs/architecture/test-parity.md#runtime-schema-admission-finite-evidence). Existing test tables add missing standard constraints, root versus misplaced definitions, exact nested error paths, blank call names and incomplete parallel results. No production behavior or test-group count changes. Java nullable strings/maps, mutable bean reflection and throwing helpers have explicit typed API adaptations; JSON literal null is not conflated with an absent Java reference.
+
+review_fp and review_invariants independently approved these two identities against 55df42a, with no unresolved source findings. The evaluator and runtime production identities retain their separately accepted scopes.
+
+| Test-only file | Git blob |
+| --- | --- |
+| [ToolSchemaValidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolSchemaValidatorSpec.scala) | `756e3337db2e47225188df418dfe3b4aea389cb7` |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `55ed7164c11fa17f1864037b970d6c2fa698e643` |
+
+- [x] schema-method-inventory-focused-final.log passes 28 groups in 778 ms; this is additional contract evidence, not a reproduced production defect or a RED claim.
+- [x] Both independent reviewers approved the exact two-file test scope and bounded method classification.
+- [x] mcp-march-batch-full-verify.log passes full formatting/compilation, 1,564 tests and four RC1 packages; preparation and fresh standalone consumer logs pass.
+- [x] review_fp and review_invariants approved the final combined 35-file scope against 55df42a, with sixteen unchanged source/spec identities and nineteen Markdown files; no unresolved findings remain in this scope.
 
 ## External tool bindings
 

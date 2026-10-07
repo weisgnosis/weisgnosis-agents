@@ -6,6 +6,8 @@ Toolkit construction and selection follow the [checked registry identity and mig
 
 The active [legacy/revision increment](../transport/README.md#legacy-http-sse-and-explicit-revision-selection) changes initialization selection and has final independent source approval plus successful full verification. Fresh consumer verification passed; combined documentation approval passed against ce55421. Earlier resource approvals below apply to their recorded blobs and do not accept this new diff.
 
+The connection now consumes bounded packets and retains server response groups for selected March transports. [Current batch contracts and acceptance](../transport/README.md#march-2025-batch-packets) cover that changed reader/writer behavior. Both independent reviewers approved the fourteen exact source/test identities; full verification, package preparation and fresh consumption passed. Only final combined documentation approval remains pending; earlier resource and connection approvals below apply to their narrower scopes.
+
 ## Resource client contract
 
 Resource access implements the original HLD's resource-server requirement for the selected revision, following the [MCP resource specification](https://modelcontextprotocol.io/specification/2025-06-18/server/resources). All eleven source/test files below have independent FP/ZIO and invariant approval, including the manager assertion correction. Full repository verification, package preparation and the fresh artifact consumer passed. Final combined documentation approval passed against 1441a97; previous tool-only approval does not accept this expanded scope.
@@ -39,7 +41,7 @@ Current reviewed scope is resource capabilities and checked projections, resourc
 | Current reviewed file | Git blob |
 | --- | --- |
 | [McpClient.scala](McpClient.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
-| [McpConnection.scala](McpConnection.scala) | `9cb7efab061d56b3ca9f8e610dd29e7874faea36` |
+| [McpConnection.scala](McpConnection.scala) | [Current packet scope and acceptance gates](../transport/README.md#march-2025-batch-packets) |
 | [McpResources.scala](../protocol/McpResources.scala) | `527aee48e9ca9dd562b5069ddc60321f2a6d1fae` |
 | [McpInitialization.scala](../protocol/McpInitialization.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
 | [McpCallResult.scala](../protocol/McpCallResult.scala) | `8bf6f992bd3a9a5398efe67e9ba803a076b700f4` |
@@ -197,8 +199,8 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 | [McpRequestsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) | `11c2b93a9f4eb7f48ae949e11774c8a1c40a7405` |
 | [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | [Current error acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) |
 | [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | [Current error acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) |
-| [McpConnection.scala](McpConnection.scala) | [Current resource/connection manifest](#resource-client-contract) |
-| [McpTransport.scala](../transport/McpTransport.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
+| [McpConnection.scala](McpConnection.scala) | [Current packet scope and acceptance gates](../transport/README.md#march-2025-batch-packets) |
+| [McpTransport.scala](../transport/McpTransport.scala) | [Current packet scope and acceptance gates](../transport/README.md#march-2025-batch-packets) |
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | [Current resource/connection manifest](#resource-client-contract) |
 | [McpClient.scala](McpClient.scala) | [Current resource/connection manifest](#resource-client-contract); prior tool/deadline contracts retained. |
 | [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | [Current resource/connection manifest](#resource-client-contract); prior tool/deadline contracts retained. |

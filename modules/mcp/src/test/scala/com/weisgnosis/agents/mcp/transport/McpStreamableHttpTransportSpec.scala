@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.mcp.client.McpClient
 import com.weisgnosis.agents.mcp.protocol.*
 import scala.annotation.unused
@@ -130,6 +131,87 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
     yield transport
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpStreamableHttpTransportSpec")(
+    test("March POST replies and GET request batches preserve grouping and join listener cleanup"):
+      ZIO.scoped:
+        for
+          supplied <- ZIO.acquireRelease(Queue.unbounded[Chunk[Byte]])(_.shutdown)
+          answered <- Promise.make[Nothing, Json]
+          entered  <- Promise.make[Nothing, Unit]
+          cleaned  <- Promise.make[Nothing, Unit]
+          http = scripted: request =>
+            if request.method == Method.GET then
+              ZIO.addFinalizer(cleaned.succeed(()).unit) *>
+                entered.succeed(()).as(stream(ZStream.fromQueue(supplied).flattenChunks))
+            else
+              request.body.asString.flatMap: wire =>
+                ZIO
+                  .fromEither(JsonBoundary.decode(wire).left.map(AgentError.InvalidMessage(_)))
+                  .flatMap:
+                    case batch: Json.Arr =>
+                      answered.succeed(batch).as(Response.status(Status.Accepted))
+                    case value =>
+                      ZIO
+                        .fromEither(McpMessage.fromJson(value))
+                        .flatMap:
+                          case McpMessage.Request(id, "initialize", _) =>
+                            json(
+                              McpMessage.Success(
+                                id,
+                                Json.Obj(initialization.fields.map:
+                                  case ("protocolVersion", _) =>
+                                    "protocolVersion" -> Json.Str("2025-03-26")
+                                  case field => field)
+                              )
+                            )
+                          case McpMessage.Request(id, "tools/list", _) =>
+                            ZIO
+                              .fromEither(McpMessage.encode(McpMessage.Success(id, emptyTools)))
+                              .map: reply =>
+                                Response(
+                                  status = Status.Ok,
+                                  headers = Headers("Content-Type" -> "application/json"),
+                                  body = Body.fromString(s"[$reply]")
+                                )
+                          case _: McpMessage.Notification =>
+                            ZIO.succeed(Response.status(Status.Accepted))
+                          case _ =>
+                            ZIO.fail(AgentError.InvalidMessage("Unexpected batch fixture message"))
+          transport <- McpStreamableHttpTransport.open(
+            http,
+            endpoint,
+            version = McpProtocolVersion.V20250326
+          )
+          initialized <- McpClient.open(transport, McpImplementation("batch-test", "1"))
+          page        <- initialized.listToolsPage()
+          listener    <- transport.listen.forkScoped
+          _           <- entered.await
+          _ <- supplied.offer(
+            Chunk.fromArray(
+              "data: [{\"jsonrpc\":\"2.0\",\"id\":70,\"method\":\"ping\"},42,{\"jsonrpc\":\"2.0\",\"method\":\"notifications/ignored\"}]\n\n"
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+            )
+          )
+          response    <- answered.await
+          interrupted <- listener.interrupt
+          released    <- cleaned.isDone
+          expected = Json.Arr(
+            Json.Obj("jsonrpc" -> Json.Str("2.0"), "id" -> Json.Num(70), "result" -> Json.Obj()),
+            Json.Obj(
+              "jsonrpc" -> Json.Str("2.0"),
+              "id"      -> Json.Null,
+              "error" -> Json.Obj(
+                "code"    -> Json.Num(-32600),
+                "message" -> Json.Str("Invalid Request")
+              )
+            )
+          )
+        yield assertTrue(
+          page.tools.isEmpty,
+          response == expected,
+          interrupted.isInterrupted,
+          released
+        )
+    ,
     test(
       "explicit March revision keeps initialization, POST, GET and DELETE version headers coherent"
     ):

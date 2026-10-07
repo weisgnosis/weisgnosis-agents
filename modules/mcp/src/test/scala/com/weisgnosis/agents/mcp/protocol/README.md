@@ -1,5 +1,7 @@
 # com.weisgnosis.agents.mcp.protocol: tests
 
+[McpPacketSpec](McpPacketSpec.scala) uses three grouped contracts for invalid request positions and response-error avoidance, selected revision/member limits, and exact explicit-null invalid-request replies. The [current batch scope](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md#march-2025-batch-packets) records both independent final source approvals and successful full verification, package preparation and fresh consumption; final combined documentation approval passed against 55df42a for the unchanged source identities. Prior singular-envelope acceptance is separate.
+
 [McpProtocolVersionSpec](McpProtocolVersionSpec.scala) checks explicit selected handshakes across 2024-11-05, 2025-03-26 and 2025-06-18, preserving the default and rejecting unrecognized server versions. Its [legacy/revision acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md#legacy-http-sse-and-explicit-revision-selection) records final source approval and full verification; selected projection checks do not establish preference-list negotiation parity.
 
 [McpProtocolSpec](McpProtocolSpec.scala) tests the [checked envelope contract](../../../../../../../main/scala/com/weisgnosis/agents/mcp/protocol/README.md). The five grouped tests, including reproduced integer-boundary and exact numeric-rendering regressions, pass and are accepted within the linked envelope scope.

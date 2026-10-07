@@ -1,5 +1,7 @@
 # Typed tools and path validation: verification
 
+The [finite validator method manifest](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#pinned-tool-validator-method-evidence) records the current test-only identities and all 39 pinned method dispositions. Existing groups cover missing constraints and exact error paths without increasing group counts; Java null/reflection API differences remain explicit.
+
 [ToolSchemaValidatorSpec](ToolSchemaValidatorSpec.scala) groups standard constraints/exact-number neighbors, declared Draft 4/6/7/2019-09 semantics and recursive-root policy, normalization/original-input preservation, and invalid schema/reference acquisition. Lexical 1.0/1 controls distinguish draft-specific integer node kinds; minimum-length neighbors independently verify string constraints. Reproduced failures include permissive decoder admission, tiny divisor underflow, percent-encoded pointer selection and malformed UTF-8 aliasing through reference keywords. The [current schema contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns final review and verification status.
 
 ## Failure fixtures
