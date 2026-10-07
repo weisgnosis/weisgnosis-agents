@@ -4,9 +4,44 @@ Toolkit construction and selection follow the [checked registry identity and mig
 
 [McpClient](McpClient.scala) provides initialized tool discovery/invocation (2025-06-18 by default) and resource access over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. HTTP POST and explicit GET connectivity has a separate [transport contract](../transport/README.md#http-contract).
 
-The active [legacy/revision increment](../transport/README.md#legacy-http-sse-and-explicit-revision-selection) changes initialization selection and has final independent source approval plus successful full verification. Fresh consumer verification passed; combined documentation approval passed against ce55421. Earlier resource approvals below apply to their recorded blobs and do not accept this new diff.
+The accepted [legacy/revision contract](../transport/README.md#legacy-http-sse-and-explicit-revision-selection) supplies explicit initialization selection. Its independent source and combined documentation reviews, full verification and fresh artifact consumption passed. Current McpClient identities and renewed acceptance belong to the catalogue manifest below; unchanged transport identities remain in the linked contract.
 
-The connection now consumes bounded packets and retains server response groups for selected March transports. [Current batch contracts and acceptance](../transport/README.md#march-2025-batch-packets) cover that changed reader/writer behavior. Both independent reviewers approved the fourteen exact source/test identities; full verification, package preparation and fresh consumption passed. Only final combined documentation approval remains pending; earlier resource and connection approvals below apply to their narrower scopes.
+The connection now consumes bounded packets and retains server response groups for selected March transports. [Current batch contracts and acceptance](../transport/README.md#march-2025-batch-packets) cover that changed reader/writer behavior. Both independent reviewers approved the fourteen exact source/test identities; full verification, package preparation and fresh consumption passed. Final combined documentation approval passed before the accepted batch commit 7692d70; earlier resource and connection approvals below apply to their narrower scopes.
+
+## Connection-local original-definition catalogue
+
+`acquireToolCatalogue(maxPages, maxTools, meta)` explicitly acquires the first complete bounded tool discovery result. `open` still performs only initialization, and `discoverTools` remains a live request that does not update the retained catalogue. Every acquisition call requires positive limits before inspecting state or sending requests. Limits constrain the first successful traversal; a later call with smaller positive limits reuses that snapshot without filtering or revalidation. Metadata belongs to the first successful traversal, not to later reuse. Concurrent acquisitions serialize; failed or cancelled discovery publishes no partial snapshot and permits a subsequent attempt. Each page uses the existing joined request deadline; there is no additional total traversal deadline.
+
+`cachedTools: UIO[Chunk[McpToolDefinition]]` reads ordered original definitions, including duplicate names. `cachedTool(name): UIO[Option[McpToolDefinition]]` returns the last occurrence of that name, matching upstream map insertion. Input/output schemas, title, description, annotations, metadata and extension ASTs remain unchanged. These effects perform no network access. Before acquisition and after closure the snapshot is empty and lookup returns None; an acquired empty catalogue is nevertheless a completed acquisition and is not rediscovered.
+
+Explicit close atomically marks the catalogue closed before joined connection cleanup. Natural scope release also clears it before the existing connection finalizer. Close does not wait on the acquisition semaphore, and an in-flight traversal cannot republish after closure. The connection remains the single owner of natural RPC cleanup, preventing a second finalizer from replaying its cleanup defects. The host still owns the borrowed transport. Original remote definitions are descriptive data: local Toolkit selection, aliases, fixed arguments, permissions and duplicate-registration rejection remain separate authorities. There is no notification invalidation, automatic refresh, reconnect or background task.
+
+Pinned AgentScope Java revision f98a685fdc4589f81e626e1686ac2c63d14a2304 caches original definitions during sync/async wrapper initialization and leaves that cache unchanged during later listTools calls. Scala exposes explicit bounded acquisition after scoped initialization instead of changing the existing open contract. The following are behavioral adaptations, not claims of whole-wrapper assertion equivalence:
+
+| Pinned behavior | Scala evidence |
+| --- | --- |
+| Sync/async testInitialize_Success and testGetCachedTool | Paginated original-definition table checks complete definitions, multiple and missing lookups, and last-name selection. Automatic discovery during open is intentionally replaced by explicit acquisition. |
+| Sync/async testInitialize_AlreadyInitialized; wrapper testInitialize_Idempotent | Concurrent and repeated acquisition performs one successful traversal, including an empty result. Scoped open has no repeated handshake operation. |
+| Wrapper testCachedTools_EmptyByDefault, testGetCachedTool_NonExistent, testGetCachedTool_Exists and testCachedTools_MultipleTools | Empty-before-acquisition and exact retained snapshot/lookups; mutable insertion and null are replaced by checked discovery and Option. |
+| Sync/async testListTools_Success | Existing live discovery remains independent; a changed remote list does not refresh the retained definitions. |
+| Sync/async testClose_Success; wrapper testClose and testClose_MultipleCallsSafe | Explicit and natural close clear the snapshot; repeated close is safe. Held send cleanup proves close waits and acquisition cannot resurrect state. Java fallback-close SDK mechanics are not reproduced. |
+| Wrapper testConcurrentAccess_CachedTools | The Java test inserts and reads one entry without concurrent workers. Scala additionally checks two actual concurrent acquisition fibers; it does not reproduce ConcurrentHashMap implementation assertions. |
+
+This additive feature has no defective accepted implementation and makes no failing-before-fix claim. Five focused contract groups additionally cover later-page remote failure, cancellation, atomic retry and close-time cleanup.
+
+| Current reviewed file | Git blob |
+| --- | --- |
+| [McpClient.scala](McpClient.scala) | `c042cbd00abc60e487086762be72625311910719` |
+| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `0ba785eb4ce2af540ee0a1bd83a81e4ad566d192` |
+
+- [x] Implement explicit bounded acquisition and effectful original-definition lookup without changing open or live discovery.
+- [x] `target/mcp-catalogue-focused.log` passes all fourteen McpClientSpec groups in 1.404 seconds, with no failures, ignored tests or compiler warnings.
+- [x] review_fp explicitly approved both exact source/spec identities above against 63776a7, including the final Scaladoc wrap; no findings remain in this source scope.
+- [x] review_invariants explicitly approved the same two identities and final source scope with no unresolved findings.
+- [x] target/mcp-catalogue-full-verify.log passes formatting and fatal-warning verification: 1,569 tests (687 core, 734 harness, 118 MCP, 22 fresh PostgreSQL and eight examples), zero failed or ignored tests and zero compiler warnings; four RC1 packages were built.
+- [x] target/mcp-catalogue-preparation.log passes archive admission and selector/source-archive negative cases.
+- [x] target/mcp-catalogue-consumer.log passes fresh standalone formatting, fatal-warning compilation and forked probes against four newly packaged artifact hashes. Existing consumer APIs are exercised; no catalogue-specific external-consumer probe is claimed.
+- [ ] Obtain final combined documentation approval for the current increment.
 
 ## Resource client contract
 
@@ -40,12 +75,12 @@ Current reviewed scope is resource capabilities and checked projections, resourc
 
 | Current reviewed file | Git blob |
 | --- | --- |
-| [McpClient.scala](McpClient.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
+| [McpClient.scala](McpClient.scala) | [Current catalogue scope and acceptance gates](#connection-local-original-definition-catalogue) |
 | [McpConnection.scala](McpConnection.scala) | [Current packet scope and acceptance gates](../transport/README.md#march-2025-batch-packets) |
 | [McpResources.scala](../protocol/McpResources.scala) | `527aee48e9ca9dd562b5069ddc60321f2a6d1fae` |
 | [McpInitialization.scala](../protocol/McpInitialization.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
 | [McpCallResult.scala](../protocol/McpCallResult.scala) | `8bf6f992bd3a9a5398efe67e9ba803a076b700f4` |
-| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `713d1a460f16d8915c0a12393e59c96fe18f4685` |
+| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | [Current catalogue scope and acceptance gates](#connection-local-original-definition-catalogue) |
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `caa269749f4e8a8847e64517fb1dbfb1ef6821a7` |
 | [McpResourcesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpResourcesSpec.scala) | `0a3e73d48a05f94eda0c6b49844c4d68dc432fc9` |
 | [McpInitializationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) | `ea5b58c6368b41be895bc0085e164f5777e3444e` |
@@ -66,7 +101,7 @@ Host selection explicitly retains, omits or overrides remote outputSchema in Too
 
 Selected bindings can also attach core fixed arguments, prepared before runtime authorization rather than merged as defaults afterward; the [fixed binding contract](../tool/README.md#fixed-arguments) defines the distinction and current acceptance.
 
-This scope includes checked shallow defaults and root properties/required exclusion through selected bindings. Core/harness provide selected skill loading, child snapshots and opt-in Plan admission as separate host-installed capabilities. Remaining ambient metadata propagation, broader schema rewriting/evaluation, discovery caches and notification invalidation are unfinished. It does not make discovery an atomic server snapshot or broaden the selected 2025-06-18 protocol support. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded adaptations and intentional differences.
+This scope includes checked shallow defaults and root properties/required exclusion through selected bindings. Core/harness provide selected skill loading, child snapshots and opt-in Plan admission as separate host-installed capabilities. Remaining ambient metadata propagation, broader schema rewriting/evaluation and notification invalidation are unfinished; explicit original-definition acquisition is documented above. It does not make discovery an atomic server snapshot or broaden the selected 2025-06-18 protocol support. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded adaptations and intentional differences.
 
 - [x] Implement bounded registration, immutable Toolkit publication and joined removal/closure with six grouped contract tests, including grouped installation and explicit host recovery.
 - [x] The unchanged manager implementation retains independent FP/ZIO and invariant approval. The changed integration assertion has renewed approval and verification in the [resource manifest](#resource-client-contract).
@@ -100,7 +135,8 @@ Custom managers inherit an ungrouped installation from their existing toolkit an
 | [McpClientManager.scala](McpClientManager.scala) | [Current McpClientManager.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | [Current approved assertion scope](#resource-client-contract) |
 
-- [ ] Complete ambient metadata, discovery caching and durable activation separately.
+- [x] Explicit original-definition caching has the [catalogue source and verification gates](#connection-local-original-definition-catalogue); it does not refresh manager Toolkit snapshots.
+- [ ] Complete remaining ambient metadata and durable activation integration separately.
 
 ## Independent deadlines
 
@@ -110,7 +146,7 @@ The initialization budget includes the initialize exchange, validated result and
 
 The existing McpClientSpec groups exercise independent initialization/request budgets, initialized-notification timing, later discovery pages and joined cleanup alongside the unchanged uniform overload. The standalone consumer constructs checked deadlines, rejects zero and calls the new overload through a controlled failing initialization; it does not contact an external MCP server. This is bounded adaptation of pinned McpClientBuilderTest.testTimeout (141) and testInitializationTimeout (149), whose Java assertions only check builder construction, not whole builder-suite parity.
 
-Current McpClient/McpClientSpec identities and both source reviewers are recorded in the [resource/connection manifest](#resource-client-contract). Existing separate deadline assertions pass within its current 29-group focused run. Full repository and fresh artifact-consumer verification pass under that manifest; final combined documentation acceptance passed against 1441a97.
+Current McpClient/McpClientSpec identities, both independent source approvals and current verification gates are recorded in the [catalogue manifest](#connection-local-original-definition-catalogue). Existing separate deadline and held-cleanup assertions pass in the current fourteen-group client run; the catalogue does not change deadline semantics.
 
 ## Builder applicability inventory
 
@@ -132,7 +168,7 @@ This four-document scope against be458fe changes no production, test or consumer
 
 `discoverTools(maxPages, maxTools, meta)` performs an explicitly bounded sequential traversal from the first page. Both limits must be positive before any discovery request. It preserves ordered duplicate definitions and counts every definition against the tool limit; an exact tool limit can still be followed by empty pages. The [selected pagination contract](https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/pagination) treats cursors as opaque. Cursors, including empty strings, are forwarded unchanged. Repeated cursors, excess tools, or a continuation on the final permitted page fail before another request. Only terminal success publishes the complete catalogue; later errors and cancellation yield no partial value. Each page uses the selected request deadline with joined cleanup. Limits count pages and definitions, not bytes, and cleanup can exceed the deadlines.
 
-The flattened catalogue omits page envelope metadata; use `listToolsPage` when that metadata is needed. Discovery is not an atomic server snapshot. There is no discovery cache, notification invalidation, schema evaluation, reconnect or Toolkit installation. The client does not implement the different 2026-07-28 lifecycle.
+The flattened catalogue omits page envelope metadata; use `listToolsPage` when that metadata is needed. Discovery is not an atomic server snapshot. This live operation does not update the separate explicitly acquired catalogue. There is no notification invalidation, schema evaluation, reconnect or Toolkit installation. The client does not implement the different 2026-07-28 lifecycle.
 
 ## API migration
 
@@ -202,8 +238,8 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 | [McpConnection.scala](McpConnection.scala) | [Current packet scope and acceptance gates](../transport/README.md#march-2025-batch-packets) |
 | [McpTransport.scala](../transport/McpTransport.scala) | [Current packet scope and acceptance gates](../transport/README.md#march-2025-batch-packets) |
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | [Current resource/connection manifest](#resource-client-contract) |
-| [McpClient.scala](McpClient.scala) | [Current resource/connection manifest](#resource-client-contract); prior tool/deadline contracts retained. |
-| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | [Current resource/connection manifest](#resource-client-contract); prior tool/deadline contracts retained. |
+| [McpClient.scala](McpClient.scala) | [Current catalogue scope and acceptance gates](#connection-local-original-definition-catalogue) |
+| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | [Current catalogue scope and acceptance gates](#connection-local-original-definition-catalogue) |
 
 ## Remaining work
 
@@ -214,7 +250,7 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 - [x] Host-selected descriptive output schemas survive binding, preset projection and model-call definitions; host discard/override and provider omission are verified without result evaluation.
 - [x] Checked MCP bindings install fixed arguments before authorization, preserve model-overridable defaults separately, and roll back malformed registration; both reviews and full verification passed.
 - [x] Install host-selected groups coherently with Ready tool snapshots; current manager source/spec acceptance is in [grouped installation](#grouped-installation).
-- [ ] Define remaining ambient metadata propagation, broader schema transformation and discovery caching separately.
+- [ ] Define remaining ambient metadata propagation, broader schema transformation and notification invalidation separately.
 Manager/ReAct grouped installation is covered here; manual binding and metadata integration also have tool-package tests; the stdio contract records real-process initialization/list/call coverage.
 
-These tests establish local concurrency and ownership contracts using controlled message ports. AgentScope Java delegates wire/request machinery to MCP Java SDK 0.17.2; all sixteen synchronous wrapper methods now have bounded applicability classifications in the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md), final documentation review passed. Automatic mutable caching/null lookups and SDK fallback-close semantics are deliberate differences; broader caching/invalidation and other wrapper/transport mappings remain separate. No complete MCP revision or whole-wrapper parity is claimed. MCP 2026-07-28 has a different lifecycle without initialize; it is not implemented by the selected older payload helpers.
+These tests establish local concurrency and ownership contracts using controlled message ports. AgentScope Java delegates wire/request machinery to MCP Java SDK 0.17.2; all sixteen synchronous wrapper methods now have bounded applicability classifications in the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md), final documentation review passed. Automatic acquisition during open, mutable map exposure/null lookups and SDK fallback-close semantics are deliberate API differences; the explicit original-definition catalogue above supplies the retained lookup behavior. Invalidation and other wrapper/transport mappings remain separate. No complete MCP revision or whole-wrapper parity is claimed. MCP 2026-07-28 has a different lifecycle without initialize; it is not implemented by the selected older payload helpers.

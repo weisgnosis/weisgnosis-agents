@@ -64,6 +64,17 @@ Child-specific [stdio environment overrides](src/main/scala/com/weisgnosis/agent
 
 These are specification-derived protocol and ZIO ownership tests. AgentScope Java delegates its wire machinery to MCP Java SDK 0.17.2. Three [independent SDK HTTP groups](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#independent-server-interoperability) exercise the unchanged SDK provider over real loopback, including direct-client and manager replacement after expiry, plus local listener cancellation and explicit same-session cursorless re-listening. A separate real Netty check exercises one same-send POST-body truncation recovery. These checks do not close whole upstream client-wrapper methods or establish full server conformance, remote-work cancellation or cursor-based listener replay.
 
+## Explicit tool catalogue
+
+The [connection-local catalogue contract](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#connection-local-original-definition-catalogue) adds bounded idempotent acquisition and effectful original-definition snapshot/lookup. Open remains handshake-only; live discovery never refreshes this snapshot. Ordered duplicate entries survive, named lookup selects the last occurrence, and explicit/natural close clears retained state without transferring borrowed transport ownership. The catalogue supplies descriptive data, not Toolkit execution authority.
+
+- [x] Implement and verify the two-file catalogue scope in fourteen focused client groups (target/mcp-catalogue-focused.log).
+- [x] review_fp and review_invariants explicitly approved both exact catalogue source/spec identities against 63776a7; the linked manifest records their hashes.
+- [x] target/mcp-catalogue-full-verify.log passes 1,569 tests and four RC1 packages with zero failed or ignored tests and zero compiler warnings.
+- [x] target/mcp-catalogue-preparation.log passes archive admission and negative preparation cases.
+- [x] target/mcp-catalogue-consumer.log passes fresh standalone formatting, fatal-warning compilation and forked probes against four new artifact hashes; the unchanged consumer does not exercise catalogue-specific APIs.
+- [x] review_fp and review_invariants approved the final sixteen-file scope against 63776a7, including two unchanged Scala identities and fourteen Markdown files; no unresolved findings remain in this scope.
+
 ## Remaining work
 
 - [x] Complete the pinned upstream embedded-resource core projection behaviors: text resources as visible text, image blobs as image content, and other/absent-MIME blobs as descriptive text. The current correction adds visible blocks with lossless `mcp/resource` companions and has a recorded failing-before-fix regression; focused verification passed and both independent source reviews approved the exact two-file scope; full verification, package preparation and fresh artifact consumption passed. The [tool contract](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity) records exact methods and current limits.
@@ -80,7 +91,7 @@ These are specification-derived protocol and ZIO ownership tests. AgentScope Jav
 - [ ] Complete remaining applicable interoperability and durable host integration; the root tracker owns the cross-module sequence.
 - [x] Install selected MCP aliases into host-declared groups with one coherent Ready-only snapshot; [grouped installation](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#grouped-installation) records final approvals and current source/spec identities. The host supplies both unfiltered toolkit and groups to ReAct; existing agents do not refresh.
 - [ ] Complete remaining ambient metadata propagation and broader schema transformation separately; core/harness provide selected skills, child snapshots and opt-in Plan admission, while manager selection retains explicit host authority.
-- [ ] Complete provider projection of retained MCP content: core typed conversion and the explicit Chat Completions ImageParts extension are available, but embedded-resource Custom companions need host adaptation; caching and notification invalidation remain separate. Cursor-based listener replay and remote-work cancellation interoperability remain unverified; automatic cursorless reconnect and POST replay are intentional exclusions.
+- [ ] Complete provider projection of retained MCP content: core typed conversion and the explicit Chat Completions ImageParts extension are available, but embedded-resource Custom companions need host adaptation; explicit original-definition caching has the separate acceptance gates above; notification invalidation remains unfinished. Cursor-based listener replay and remote-work cancellation interoperability remain unverified; automatic cursorless reconnect and POST replay are intentional exclusions.
 - [ ] Evaluate output schemas where required by the selected client contract.
 
 The initialized client defaults to 2025-06-18 and permits explicit older lifecycle selections through its transport. Payload helpers retain their documented selected projection scopes; the current March batch correction does not establish complete revision conformance. They do not support the different [2026-07-28 lifecycle](https://modelcontextprotocol.io/specification/2026-07-28/basic), which has no initialize exchange. No complete MCP revision support is claimed.

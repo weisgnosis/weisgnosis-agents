@@ -20,11 +20,11 @@ The consumer exercises public external-tool suspension/resume, schema rejection/
 
 review_fp and review_invariants independently approved the current consumer at `212988aed44a63d0f4f21afb077c141eb450c336`. The [schema admission manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns this identity, its current source scope and the expanded build dependency.
 
-- [x] frontmatter-bom-full-verify.log passes 1,564 tests, zero compiler warnings/failures/ignored and four RC1 packages, including fresh PostgreSQL verification.
-- [x] frontmatter-bom-preparation.log passes fresh RC1 source/POM/LICENSE staging and reversible invalid-selector/extra/duplicate source-archive checks.
+- [x] mcp-catalogue-full-verify.log passes 1,569 tests, zero compiler warnings/failures/ignored and four RC1 packages, including fresh PostgreSQL verification.
+- [x] mcp-catalogue-preparation.log passes fresh RC1 source/POM/LICENSE staging and reversible invalid-selector/extra/duplicate source-archive checks.
 - [x] schema-resources-consumer.log records the obsolete blanket Jackson classpath rejection before correction. Jackson is required by the newly declared production evaluator; fixture/SDK/Tomcat/JDBC exclusions remain.
-- [x] frontmatter-bom-consumer.log passes standalone formatting, clean fatal-warning compilation and forked execution against four fresh hashes, including the valid/invalid schema probe. JVM/SLF4J diagnostic notices are not compiler warnings.
-- [x] review_fp and review_invariants approved the final combined twenty-file scope against 7692d70, with six unchanged parser/spec identities and fourteen Markdown files. The consumer source remains unchanged.
+- [x] mcp-catalogue-consumer.log passes standalone formatting, clean fatal-warning compilation and forked execution against four fresh hashes, including the valid/invalid schema probe. JVM/SLF4J diagnostic notices are not compiler warnings.
+- [x] review_fp and review_invariants approved the final sixteen-file scope against 63776a7: two unchanged Scala identities and fourteen Markdown files. The consumer source remains unchanged; direct catalogue acquisition is not part of its existing probe.
 
 The manual [candidate workflow](../../.github/workflows/candidate.yml) validates its version, provisions PostgreSQL 16, verifies/packages four modules, runs archive admission and the standalone consumer, and uploads unsigned artifacts/source metadata only after preceding steps succeed. The [workflow contract](../../.github/workflows/README.md) owns its separately reviewed identities and operational boundaries.
 

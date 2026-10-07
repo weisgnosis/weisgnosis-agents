@@ -70,7 +70,7 @@ Legacy/revision dependencies and current source destinations:
 
 | File | Git blob |
 | --- | --- |
-| [McpClient.scala](../client/McpClient.scala) | `36b74d2f6fda30ba500ec36e80129552ce76d08c` |
+| [McpClient.scala](../client/McpClient.scala) | [Current catalogue source identity and gates](../client/README.md#connection-local-original-definition-catalogue) |
 | [McpInitialization.scala](../protocol/McpInitialization.scala) | `da69457d1449589c0b688a44eb600ee6969b442f` |
 | [McpHttpFraming.scala](McpHttpFraming.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
 | [McpStdioTransport.scala](McpStdioTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |

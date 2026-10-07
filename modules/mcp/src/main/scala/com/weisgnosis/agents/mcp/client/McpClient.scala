@@ -24,13 +24,15 @@ import zio.json.ast.Json
 import zio.stream.ZStream
 
 /**
- * Initialized client using the borrowed transport's explicit lifecycle profile. The host retains transport ownership.
+ * Initialized client using the borrowed transport's explicit lifecycle profile.
+ * The host retains transport ownership.
  * Checked initialization and request deadlines cancel the handshake and each list/call operation;
  * the Duration overload applies one uniform deadline. Returning waits for owned cleanup and can
  * exceed the selected deadline. Discovery is one page or an explicitly bounded
  * sequential traversal. Interrupted issued requests may send best-effort cancellation without
- * waiting for delivery; pre-header HTTP cancellation is ineligible. No cache, reconnect, notification
- * invalidation, schema evaluation, or Toolkit authority is installed.
+ * waiting for delivery; pre-header HTTP cancellation is ineligible. An explicit bounded catalogue
+ * retains original tool definitions; open and live discovery do not populate it.
+ * No reconnect, notification invalidation, schema evaluation, or Toolkit authority is installed.
  */
 final class McpClient private (
     val initialization: McpInitializationResult,
@@ -38,7 +40,9 @@ final class McpClient private (
     deadline: Duration,
     boundToolMetadata: Ref[McpToolMetadataPropagation],
     resourceEvents: Hub[McpResourceChange],
-    resourceFailure: Promise[Nothing, Cause[AgentError]]
+    resourceFailure: Promise[Nothing, Cause[AgentError]],
+    catalogue: Ref[McpClient.ToolCatalogue],
+    catalogueAdmission: Semaphore
 ):
   /**
    * Each bound invocation snapshots this restriction before its resolver. Changing it does not revoke
@@ -95,6 +99,53 @@ final class McpClient private (
         AgentError.InvalidConfiguration("MCP discovery page and tool limits must be positive")
       )
     else loop(None, Set.empty, 1, Chunk.empty)
+
+  /**
+   * Acquire the first complete bounded discovery snapshot. Positive bounds are required on every
+   * invocation, including reuse. Concurrent callers share the first successful snapshot; failed or
+   * cancelled discovery publishes nothing. Metadata applies only to the winning acquisition.
+   * Closing prevents publication and clears retained definitions. This is descriptive data, not
+   * local execution authority; live discovery and server notifications never refresh it.
+   */
+  def acquireToolCatalogue(
+      maxPages: Int,
+      maxTools: Int,
+      meta: Option[Json.Obj] = None
+  ): IO[AgentError, Chunk[McpToolDefinition]] =
+    if maxPages <= 0 || maxTools <= 0 then
+      ZIO.fail(
+        AgentError.InvalidConfiguration("MCP catalogue page and tool limits must be positive")
+      )
+    else
+      catalogueAdmission.withPermit:
+        catalogue.get.flatMap:
+          case McpClient.ToolCatalogue.Closed =>
+            ZIO.fail(AgentError.McpError("MCP tool catalogue closed"))
+          case McpClient.ToolCatalogue.Ready(entries) => ZIO.succeed(entries)
+          case McpClient.ToolCatalogue.Empty =>
+            discoverTools(maxPages, maxTools, meta).flatMap: entries =>
+              catalogue
+                .modify[Either[AgentError, Chunk[McpToolDefinition]]]:
+                  case McpClient.ToolCatalogue.Closed =>
+                    (
+                      Left(AgentError.McpError("MCP tool catalogue closed")),
+                      McpClient.ToolCatalogue.Closed
+                    )
+                  case McpClient.ToolCatalogue.Ready(retained) =>
+                    (Right(retained), McpClient.ToolCatalogue.Ready(retained))
+                  case McpClient.ToolCatalogue.Empty =>
+                    (Right(entries), McpClient.ToolCatalogue.Ready(entries))
+                .flatMap(ZIO.fromEither(_))
+
+  /** Ordered original entries, including duplicates; empty before acquisition and after close. */
+  def cachedTools: UIO[Chunk[McpToolDefinition]] =
+    catalogue.get.map:
+      case McpClient.ToolCatalogue.Ready(entries) => entries
+      case _                                      => Chunk.empty
+
+  /** Last occurrence wins, matching upstream named lookup without changing ordered discovery. */
+  def cachedTool(name: String): UIO[Option[McpToolDefinition]] =
+    cachedTools.map(_.reverse.find(_.name == name))
 
   def callTool(
       name: String,
@@ -192,7 +243,9 @@ final class McpClient private (
         )
       )
 
-  def close: UIO[Unit] = connection.close.ensuring(resourceEvents.shutdown)
+  def close: UIO[Unit] =
+    (catalogue.set(McpClient.ToolCatalogue.Closed) *>
+      connection.close.ensuring(resourceEvents.shutdown)).uninterruptible
 
   private def resourceRequest(
       operation: String,
@@ -254,6 +307,11 @@ final class McpClient private (
       .unit
 
 object McpClient:
+  private enum ToolCatalogue:
+    case Empty
+    case Ready(entries: Chunk[McpToolDefinition])
+    case Closed
+
   /** Positive finite operation limits; they do not bound joined resource cleanup. */
   final class Deadlines private (
       val initialization: Duration,
@@ -316,11 +374,22 @@ object McpClient:
         ).exit
         client <- initialized match
           case Exit.Success(result) =>
-            Ref
-              .make(McpToolMetadataPropagation.Allow)
-              .map(mode =>
-                new McpClient(result, connection, deadlines.request, mode, events, failure)
+            for
+              mode      <- Ref.make(McpToolMetadataPropagation.Allow)
+              catalogue <- Ref.make[ToolCatalogue](ToolCatalogue.Empty)
+              admission <- Semaphore.make(1)
+              live = new McpClient(
+                result,
+                connection,
+                deadlines.request,
+                mode,
+                events,
+                failure,
+                catalogue,
+                admission
               )
+              _ <- ZIO.addFinalizer(catalogue.set(ToolCatalogue.Closed))
+            yield live
           case Exit.Failure(cause) =>
             connection.close.exit.flatMap:
               case Exit.Success(_) => ZIO.refailCause(cause)

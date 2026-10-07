@@ -437,6 +437,219 @@ object McpClientSpec extends ZIOSpecDefault:
           .map(_.foldLeft(assertTrue(true))(_ && _))
     },
     test(
+      "tool catalogue retains original paginated definitions and last-name lookup without refreshing"
+    ) {
+      ZIO.scoped:
+        for
+          peer <- wire
+          metadata = Json.Obj("trace" -> Json.Str("catalogue"))
+          original = Json.Obj(
+            "name"        -> Json.Str("same"),
+            "title"       -> Json.Str("Original title"),
+            "description" -> Json.Str("Remote description"),
+            "inputSchema" -> Json
+              .Obj("type" -> Json.Str("object"), "additionalProperties" -> Json.Bool(false)),
+            "outputSchema" -> Json.Obj("type" -> Json.Str("object")),
+            "annotations" -> Json
+              .Obj("readOnlyHint" -> Json.Bool(true), "remoteHint" -> Json.Num(7)),
+            "_meta"           -> Json.Obj("origin" -> Json.Str("remote")),
+            "remoteExtension" -> Json.Arr(Json.Str("preserved"))
+          )
+          last = Json.Obj(
+            original.fields.filterNot(_._1 == "title") :+ ("title" -> Json.Str("Last title"))
+          )
+          firstPage = Json.Obj("tools" -> Json.Arr(original), "nextCursor" -> Json.Str("next"))
+          finalPage = Json.Obj(
+            "tools" -> Json.Arr(
+              last,
+              Json.Obj(
+                "name"        -> Json.Str("other"),
+                "inputSchema" -> Json.Obj("type" -> Json.Str("object"))
+              )
+            )
+          )
+          responses <- Ref.make(Chunk(firstPage, finalPage, page(Chunk("changed"))))
+          client <- listingClient(peer): request =>
+            responses
+              .modify(current => (current.headOption, current.drop(1)))
+              .flatMap(result => peer.reply(request, result.getOrElse(page(Chunk.empty))))
+          before        <- client.cachedTools
+          missingBefore <- client.cachedTool("same")
+          acquired      <- client.acquireToolCatalogue(2, 3, Some(metadata))
+          expectedFirst <- ZIO.fromEither(McpTools.readListResult(firstPage))
+          expectedLast  <- ZIO.fromEither(McpTools.readListResult(finalPage))
+          same          <- client.cachedTool("same")
+          other         <- client.cachedTool("other")
+          missing       <- client.cachedTool("absent")
+          live          <- client.discoverTools(1, 1)
+          repeated      <- client.acquireToolCatalogue(1, 1)
+          invalid       <- client.acquireToolCatalogue(0, 1).exit
+          snapshot      <- client.cachedTools
+          sent          <- peer.sent.get
+          requests = sent.collect { case request @ McpMessage.Request(_, "tools/list", _) =>
+            request
+          }
+        yield assertTrue(
+          before.isEmpty,
+          missingBefore.isEmpty,
+          acquired == expectedFirst.tools ++ expectedLast.tools,
+          same == expectedLast.tools.headOption,
+          other == expectedLast.tools.lastOption,
+          missing.isEmpty,
+          live.map(_.name) == Chunk("changed"),
+          repeated == acquired,
+          snapshot == acquired,
+          invalid.isFailure,
+          requests.size == 3,
+          requests.take(2).forall(_.params.flatMap(_.get("_meta")).contains(metadata)),
+          requests.lastOption.forall(_.params.flatMap(_.get("_meta")).isEmpty)
+        )
+    },
+    test("failed and cancelled partial catalogue acquisition publishes nothing and can retry") {
+      ZIO.scoped:
+        ZIO
+          .foreach(Chunk("failed", "cancelled")): scenario =>
+            for
+              peer     <- wire
+              entered  <- Promise.make[Nothing, Unit]
+              cleaned  <- Promise.make[Nothing, Unit]
+              requests <- Ref.make(0)
+              client <- listingClient(peer): request =>
+                requests
+                  .updateAndGet(_ + 1)
+                  .flatMap:
+                    case 1 => peer.reply(request, page(Chunk("partial"), Some("next")))
+                    case 2 if scenario == "cancelled" =>
+                      (entered.succeed(()) *> ZIO.never).ensuring(cleaned.succeed(()).unit)
+                    case 2 =>
+                      peer.receive(
+                        McpMessage.Failure(Some(request.id), McpRpcError(-32602, "expired"))
+                      )
+                    case _ => peer.reply(request, page(Chunk("retry")))
+              attempt <- client.acquireToolCatalogue(2, 2).forkScoped
+              observed <-
+                if scenario == "cancelled" then entered.await *> attempt.interrupt
+                else attempt.await
+              empty    <- client.cachedTools
+              cleanup  <- cleaned.isDone
+              retried  <- client.acquireToolCatalogue(1, 1)
+              retained <- client.cachedTools
+              count    <- requests.get
+            yield assertTrue(
+              observed.isFailure,
+              empty.isEmpty,
+              scenario != "cancelled" || (observed.isInterrupted && cleanup),
+              scenario != "failed" || observed.causeOption
+                .exists(_.failures.contains(AgentError.McpRemoteError(-32602, "expired"))),
+              retried.map(_.name) == Chunk("retry"),
+              retained == retried,
+              count == 3
+            )
+          .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
+    test(
+      "concurrent catalogue acquisition performs one traversal, including an empty successful snapshot"
+    ) {
+      ZIO.scoped:
+        ZIO
+          .foreach(Chunk(Chunk.empty[String], Chunk("one", "two"))): names =>
+            for
+              peer          <- wire
+              entered       <- Promise.make[Nothing, Unit]
+              release       <- Promise.make[Nothing, Unit]
+              secondStarted <- Promise.make[Nothing, Unit]
+              count         <- Ref.make(0)
+              client <- listingClient(peer): request =>
+                count.update(_ + 1) *> entered.succeed(()) *> release.await *> peer
+                  .reply(request, page(names))
+              first  <- client.acquireToolCatalogue(1, 2).forkScoped
+              _      <- entered.await
+              second <- (secondStarted.succeed(()) *> client.acquireToolCatalogue(1, 2)).forkScoped
+              _      <- secondStarted.await
+              before <- client.cachedTools
+              _      <- release.succeed(())
+              firstResult  <- first.join
+              secondResult <- second.join
+              repeated     <- client.acquireToolCatalogue(1, 2)
+              sent         <- count.get
+            yield assertTrue(
+              before.isEmpty,
+              firstResult.map(_.name) == names,
+              secondResult == firstResult,
+              repeated == firstResult,
+              sent == 1
+            )
+          .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
+    test("explicit and natural client close clear the catalogue and prevent reacquisition") {
+      ZIO.scoped:
+        ZIO
+          .foreach(Chunk("explicit", "natural")): scenario =>
+            for
+              peer  <- wire
+              owner <- ZIO.acquireRelease(Scope.make)(_.close(Exit.unit))
+              client <- owner.extend(
+                listingClient(peer)(request => peer.reply(request, page(Chunk("retained"))))
+              )
+              acquired <- client.acquireToolCatalogue(1, 1)
+              _        <- if scenario == "explicit" then client.close else owner.close(Exit.unit)
+              empty    <- client.cachedTools
+              missing  <- client.cachedTool("retained")
+              rejected <- client.acquireToolCatalogue(1, 1).exit
+              _        <- client.close
+              sent     <- peer.sent.get
+            yield assertTrue(
+              acquired.map(_.name) == Chunk("retained"),
+              empty.isEmpty,
+              missing.isEmpty,
+              rejected.causeOption
+                .exists(_.failures.contains(AgentError.McpError("MCP tool catalogue closed"))),
+              sent.count {
+                case McpMessage.Request(_, "tools/list", _) => true; case _ => false
+              } == 1
+            )
+          .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
+    test("close joins an in-flight catalogue send cleanup and cannot resurrect its snapshot") {
+      ZIO.scoped:
+        for
+          peer    <- wire
+          entered <- Promise.make[Nothing, Unit]
+          cleanup <- Promise.make[Nothing, Unit]
+          release <- Promise.make[Nothing, Unit]
+          client <- McpClient.open(
+            peer.transport {
+              case request @ McpMessage.Request(_, "initialize", _) =>
+                peer.reply(request, initialization())
+              case McpMessage.Request(_, "tools/list", _) =>
+                ZIO.acquireRelease(ZIO.unit)(_ => cleanup.succeed(()).unit *> release.await) *>
+                  entered.succeed(()) *> ZIO.never
+              case _ => ZIO.unit
+            },
+            identity
+          )
+          acquisition  <- client.acquireToolCatalogue(1, 1).forkScoped
+          _            <- entered.await
+          closing      <- client.close.forkScoped
+          _            <- cleanup.await
+          before       <- closing.poll
+          emptyDuring  <- client.cachedTools
+          _            <- release.succeed(())
+          _            <- closing.join
+          result       <- acquisition.await
+          emptyAfter   <- client.cachedTools
+          rejected     <- client.acquireToolCatalogue(1, 1).exit
+          readerClosed <- peer.closed.isDone
+        yield assertTrue(
+          before.isEmpty,
+          emptyDuring.isEmpty,
+          emptyAfter.isEmpty,
+          result.isFailure,
+          rejected.isFailure,
+          readerClosed
+        )
+    },
+    test(
       "resource discovery, reads and subscriptions share correlation, metadata and scoped notifications"
     ) {
       ZIO.scoped:

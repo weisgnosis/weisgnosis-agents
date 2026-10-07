@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+The finite [three-method interrupted tool-call mapping](../../../../../../../../../../docs/architecture/test-parity.md#interrupted-tool-call-methods) records existing reconciliation, same-agent continuation and completion-observer evidence without new source or test groups. One observer attempt is distinct from Java's literal durable StateStore transaction assertion; host persistence remains open. review_fp and review_invariants approved these finite classifications within the final sixteen-file scope against 63776a7; existing source/test identities and acceptance remain unchanged.
+
 The external admission table checks decoder-valid/schema-invalid initial inputs and approved edits before host handoff. A separate authenticated legacy-wait fixture preserves previously issued input without reauthorization or replay. Tool-group integration assertions retain exact observation cardinality and identity while allowing validation failures before executable siblings. See the [schema admission contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) for current acceptance.
 
 The accepted [failure-fixture scope](../tool/README.md#failure-fixtures) extends existing parallel execution evidence with exact mixed Error/Success terminal events and history, without production changes or new test groups. Final source approvals and focused/full verification pass; final combined documentation acceptance is approved.
