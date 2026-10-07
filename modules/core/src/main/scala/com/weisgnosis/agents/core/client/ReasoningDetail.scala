@@ -48,7 +48,18 @@ object ReasoningDetail:
           .cond(signatureValid, (), AgentError.InvalidMessage(invalid))
           .flatMap(_ => plain(value, "text", commonFields ++ Set("text", "signature")))
       case Some(Json.Str("reasoning.summary")) =>
-        plain(value, "summary", commonFields + "summary")
+        summary(value)
+      case _ => Left(AgentError.InvalidMessage(invalid))
+
+  private def summary(value: Json.Obj): Either[AgentError.InvalidMessage, ReasoningDetail] =
+    val aliases = Chunk("summary", "text").flatMap(value.get)
+    val texts   = aliases.collect { case Json.Str(text) => text }
+    texts.headOption match
+      case Some(text)
+          if texts.size == aliases.size && texts.forall(_ == text) && validCommon(value) &&
+            value.fields
+              .forall((key, _) => (commonFields ++ Set("summary", "text")).contains(key)) =>
+        Right(new ReasoningDetail(value, text))
       case _ => Left(AgentError.InvalidMessage(invalid))
 
   private def plain(

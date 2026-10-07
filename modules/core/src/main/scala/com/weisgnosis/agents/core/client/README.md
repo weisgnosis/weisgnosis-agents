@@ -43,7 +43,7 @@ Migration: the three new public helpers are additive; prior public factory/encod
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `2e96e2e0ca08e25cf620d496b68f1c626fdbb75f` |
 | [CompletionEnvelopeDecoder.scala](CompletionEnvelopeDecoder.scala) | `464a7d3c69a2b7b7b847f38580d81b62a7db6534` |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [ChatCompletionsNonStreamingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsNonStreamingSpec.scala) | `1a9ecf7cc350750d1697a7393b0d35f73981ec1f` |
+| [ChatCompletionsNonStreamingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsNonStreamingSpec.scala) | [Current summary-alias identity](#summary-text-alias) |
 | [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current storage identity](../../../../../../../../../storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved the seven exact identities with no findings.
@@ -62,7 +62,7 @@ Migration: public signatures/configuration are unchanged. Input validation inten
 | --- | --- |
 | [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | `8dd49ca8b602ae44bcdee42a51b558e884095cb9` |
 | [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | `e5ce3b8fc49bbff67ad3a6d0d19c0e412d934729` |
-| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | `74699ecd06022de8020863e050603083a08312cb` |
+| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | [Current summary-alias identity](#summary-text-alias) |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | `69bc307105d3a71fa5dbbbd9fd19da4c6c61781c` |
 
 - [x] review_fp and review_invariants approved these four exact identities with no findings.
@@ -421,7 +421,7 @@ The signature contract retains its independent path_review/current_docs approval
 
 ReasoningReplay.OpenRouterEncryptedDetails selects response decoding and all-historical-assistant replay for reasoning.encrypted only. OpenRouterDetails additionally selects reasoning.text and reasoning.summary from the [OpenRouter reasoning-details contract](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens#reasoning-details-api-shape). Both preserve each checked Json.Obj exactly, including absent fields and explicit nulls.
 
-ReasoningDetail accepts a strict local union: encrypted requires nonblank opaque data; text requires a text string and permits an absent, null or nonblank opaque signature; summary requires a summary string, not Java's legacy text field. Empty text and summary strings are valid. Each variant permits optional id (nonblank string or null), format (nonblank string) and index (nonnegative Int JSON integer). Duplicate, unknown, misplaced or malformed fields fail. EncryptedReasoningDetail retains its narrower validation and provides toDetail. Data and signatures are neither decoded nor concatenated; IDs/indexes never infer tool identity or merge objects.
+ReasoningDetail accepts a strict local union: encrypted requires nonblank opaque data; text requires a text string and permits an absent, null or nonblank opaque signature; summary accepts a summary string or the legacy text string through the [checked alias contract](#summary-text-alias). Empty text and summary strings are valid. Each variant permits optional id (nonblank string or null), format (nonblank string) and index (nonnegative Int JSON integer). Duplicate, unknown, misplaced or malformed fields fail. EncryptedReasoningDetail retains its narrower validation and provides toDetail. Data and signatures are neither decoded nor concatenated; IDs/indexes never infer tool identity or merge objects.
 
 ReasoningDetailsDelta retains objects in received order, including repeated IDs/indexes. Assembly stores one Thinking block at the first detail occurrence, with the exact reasoningDetails array and concatenated text/summary plaintext. Encrypted objects contribute no plaintext. Explicit [] is retained and replayed; absent/null wire fields remain absent. The general decoder treats any supplied array, including [], as authoritative over same-frame scalar reasoning_content/reasoning/thinking aliases. Without an array, nonempty scalar aliases fail under OpenRouterDetails; empty strings are allowed and whitespace is nonempty. This avoids cross-frame alias deduplication and deliberately limits provider compatibility. Other profiles retain their scalar behavior. Direct accumulator callers cannot mix scalar ThinkingDelta blocks and details with nonempty plaintext in either order; opaque-only details and [] remain compatible with scalar blocks.
 
@@ -450,14 +450,35 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | [ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [EncryptedReasoningDetail.scala](EncryptedReasoningDetail.scala) | 49a0287e2476b00943ff69f480f4ebca2ee46c37 |
 | [EncryptedReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/EncryptedReasoningDetailSpec.scala) | f6e5ec577c8f7da54c0e8f582321465cf693af16 |
-| [ReasoningDetail.scala](ReasoningDetail.scala) | 3cb2bbf21dbc02fe65b21435e962ca061eecff63 |
-| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | [Current identity](#scalar-reasoning-aliases) |
+| [ReasoningDetail.scala](ReasoningDetail.scala) | [Current summary-alias identity](#summary-text-alias) |
+| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | [Current summary-alias identity](#summary-text-alias) |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the nine-file general-details scope at the identities above, with no open findings. Full scalafmtAll scalafmtSbt verify passed in reasoning-details-verify.log with zero compiler warnings or failed tests. Focused reasoning-details-green.log passed 39 tests in 5.262 seconds. Unchanged encrypted-reasoning contracts retain their prior acceptance; current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] Two new pure groups and the existing HTTP table cover checked variants, literal null/empty values, scalar precedence, both mixed-chunk orders, exact historical replay and canonical/event agreement. The HTTP rows retain sibling-input protection for both selected profiles. This is loopback evidence, not live OpenRouter interoperability.
 - [ ] Other provider reasoning/signature formats and exhaustive upstream formatter parity remain unfinished; ordinary JSON completion has its separate accepted scope above.
 
 The public mixed-chunk regression in ReasoningDetailSpec 99be2c6d4da164e11fe9f946bf681e5297f710ba failed against accumulator 504510573cf7e492f3ee2fc530dd9d4e81d8397a in reasoning-details-mixing-red.log (11 passed, one failed, 5.136 seconds): both scalar/plaintext-detail orders were accepted instead of rejected. The same spec passed after the guard; opaque-only and empty-array near-misses remain permitted.
+
+## Summary text alias
+
+Within the explicit ReasoningReplay.OpenRouterDetails profile, reasoning.summary accepts either the summary string or the legacy text string. When both are present, they must be strings with exactly equal values and contribute plaintext once. Missing aliases, JSON null, other types or conflicting strings reject the complete detail; a valid sibling cannot hide a malformed supplied field. Empty strings remain valid. Other profile selection, strict common/allowed fields and encrypted/text variants are unchanged.
+
+The checked detail retains its literal original Json.Obj, including which alias fields were supplied. Thinking metadata and historical request replay preserve that AST rather than normalizing legacy text to summary or dropping equal dual fields. Ordered text/summary details concatenate plaintext in received order; no new signature interpretation or scalar precedence is introduced. Public signatures/defaults and existing omission/encrypted-only policies remain unchanged; callers relying on legacy-summary rejection must account for this bounded accepted input extension.
+
+Existing ReasoningDetailSpec tables exercise current/legacy/equal-dual inputs, strict malformed/conflicting rejection, selected streaming plaintext and exact replay. The existing ChatCompletionsNonStreamingSpec HTTP-client/ReAct table exercises text-only details, legacy summary and ordered mixed details through full-message response decoding, preserving literal thinking metadata and visible answer behavior. These are controlled fixtures, not live-provider interoperability or complete parser-suite evidence. No group was added.
+
+| Reviewed source/spec against 3bc1c6a | Git blob |
+| --- | --- |
+| [ReasoningDetail.scala](ReasoningDetail.scala) | `284f526b96729e23aecffd58275534c2b0731509` |
+| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | `3a482a37e800eb9f8ef5cce10937ee71c732a7ed` |
+| [ChatCompletionsNonStreamingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsNonStreamingSpec.scala) | `5af36022007afcf3b200302f99df1b949afa8735` |
+
+- [x] review_fp and review_invariants approved these three final identities against 3bc1c6a, with no unresolved findings.
+- [x] Focused verification passes six existing groups, including EncryptedReasoningDetailSpec matched by the wildcard; no groups were added.
+- [x] reasoning-summary-verify.log passes formatting, fatal-warning compilation, four packages and 1,498 tests: 669 core / 726 harness / 86 MCP / 12 PostgreSQL / 5 examples, with zero compiler warnings or failed tests.
+- [x] reasoning-summary-artifact-preparation.log passes all four archive/POM checks.
+- [x] reasoning-summary-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh module hashes; its existing selected API smoke does not explicitly invoke the new alias.
+- [x] review_fp and review_invariants approved final combined source/documentation closure against 3bc1c6a and the three unchanged identities. English/local-link inspection passed; the tracker records current repository verification.
 
 ## Scoped HTTP completion
 

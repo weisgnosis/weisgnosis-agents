@@ -22,6 +22,7 @@ import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import java.nio.charset.StandardCharsets
 import zio.*
 import zio.http.*
+import zio.json.*
 import zio.json.ast.Json
 import zio.stream.ZStream
 import zio.test.*
@@ -29,7 +30,28 @@ import HttpClientTestSupport.scripted
 
 object ChatCompletionsNonStreamingSpec extends ZIOSpecDefault:
   private enum TurnCase:
-    case Text, ToolCycle, TextAfterRetry
+    case Text, ToolCycle, TextAfterRetry, TextDetails, SummaryDetails, MixedDetails
+
+  private val textDetail = Json.Obj(
+    "type" -> Json.Str("reasoning.text"),
+    "text" -> Json.Str("First part")
+  )
+  private val summaryDetail = Json.Obj(
+    "type" -> Json.Str("reasoning.summary"),
+    "text" -> Json.Str(" and second part")
+  )
+
+  private def details(scenario: TurnCase): Chunk[Json] = scenario match
+    case TurnCase.TextDetails    => Chunk(textDetail)
+    case TurnCase.SummaryDetails => Chunk(summaryDetail)
+    case TurnCase.MixedDetails   => Chunk(textDetail, summaryDetail)
+    case _                       => Chunk.empty
+
+  private def thought(scenario: TurnCase): String = scenario match
+    case TurnCase.TextDetails    => "First part"
+    case TurnCase.SummaryDetails => " and second part"
+    case TurnCase.MixedDetails   => "First part and second part"
+    case _                       => ""
 
   private val config = LlmConfig("json-model", endpoint = "http://localhost/completion")
   private val answer = full("\"content\":\"answer\"", "stop")
@@ -62,7 +84,13 @@ object ChatCompletionsNonStreamingSpec extends ZIOSpecDefault:
                   else
                     response(
                       bytes(
-                        if scenario == TurnCase.ToolCycle && sent.size == 1 then call else answer
+                        if scenario == TurnCase.ToolCycle && sent.size == 1 then call
+                        else if details(scenario).nonEmpty then
+                          full(
+                            s"\"content\":\"answer\",\"reasoning_details\":${Json.Arr(details(scenario)).toJson}",
+                            "stop"
+                          )
+                        else answer
                       )
                     )
               ),
@@ -71,6 +99,9 @@ object ChatCompletionsNonStreamingSpec extends ZIOSpecDefault:
                   .update(_ :+ fragment.delta)
                   .as(fragment.delta.toUpperCase(java.util.Locale.ROOT))
               ),
+              reasoningReplay =
+                if details(scenario).nonEmpty then ReasoningReplay.OpenRouterDetails
+                else ReasoningReplay.Omit,
               retryPolicy = scenario match
                 case TurnCase.TextAfterRetry => retry
                 case _                       => CompletionRetryPolicy.disabled
@@ -91,14 +122,14 @@ object ChatCompletionsNonStreamingSpec extends ZIOSpecDefault:
             called       <- inputs.get
             replacements <- transformed.get
             expectedTurns = scenario match
-              case TurnCase.Text | TurnCase.TextAfterRetry => 1
-              case TurnCase.ToolCycle                      => 2
+              case TurnCase.ToolCycle => 2
+              case _                  => 1
             expectedInputs = scenario match
-              case TurnCase.Text | TurnCase.TextAfterRetry => Chunk.empty[Json]
               case TurnCase.ToolCycle => Chunk(Json.Obj("query" -> Json.Num(1)))
+              case _                  => Chunk.empty[Json]
             expectedRoles = scenario match
-              case TurnCase.Text | TurnCase.TextAfterRetry => Chunk(Role.User, Role.Assistant)
               case TurnCase.ToolCycle => Chunk(Role.User, Role.Assistant, Role.Tool, Role.Assistant)
+              case _                  => Chunk(Role.User, Role.Assistant)
             expectedRequests = scenario match
               case TurnCase.TextAfterRetry => 2
               case _                       => expectedTurns
@@ -125,10 +156,19 @@ object ChatCompletionsNonStreamingSpec extends ZIOSpecDefault:
             } == expectedInputs.map(_ => "a"),
             events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
               event.delta
-            } == expectedInputs.map(_ => "reason"),
+            } == (if scenario == TurnCase.ToolCycle then Chunk("reason")
+                  else if details(scenario).nonEmpty then Chunk(thought(scenario))
+                  else Chunk.empty),
+            details(scenario).isEmpty || history.lastOption.exists(message =>
+              message.thinking == thought(scenario) && message.content.exists {
+                case com.weisgnosis.agents.core.model.ContentBlock.Thinking(_, metadata) =>
+                  metadata.get("reasoningDetails").contains(Json.Arr(details(scenario)))
+                case _ => false
+              }
+            ),
             replacements == (scenario match
-              case TurnCase.Text | TurnCase.TextAfterRetry => Chunk("answer")
-              case TurnCase.ToolCycle                      => Chunk("search", "answer"))
+              case TurnCase.ToolCycle => Chunk("search", "answer")
+              case _                  => Chunk("answer"))
           )
         .map(_.foldLeft(assertTrue(true))(_ && _))
     ,

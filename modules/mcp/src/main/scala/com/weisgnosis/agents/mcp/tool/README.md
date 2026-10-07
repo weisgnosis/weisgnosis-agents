@@ -60,7 +60,7 @@ This is an additive public function; existing binding/resolver signatures and om
 - [x] The final full verification below passes all five metadata groups, including the strengthened position/uniqueness oracle and existing resolver omission/cleanup integration; no extra focused run is claimed for the final refinement.
 - [x] mcp-metadata-merge-verify.log passes formatting, fatal-warning compilation, four packages and 1,498 tests: 669 core / 726 harness / 86 MCP / 12 PostgreSQL / 5 examples, with zero compiler warnings or failed tests. Artifact preparation passes all four archive/POM checks.
 - [x] mcp-metadata-merge-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four actual module JAR hashes. Its existing selected API smoke does not call the new merge helper.
-- [x] review_fp and review_invariants approved final combined source/documentation closure against c4ec4c3 and these three unchanged identities. English inspection passed; all 2,734 local references in 78 Markdown documents passed with zero issues.
+- [x] review_fp and review_invariants approved final combined source/documentation closure against c4ec4c3 and these three unchanged identities. English inspection passed; all 2,733 local references in 78 Markdown documents passed with zero issues.
 
 ## Observation projection
 

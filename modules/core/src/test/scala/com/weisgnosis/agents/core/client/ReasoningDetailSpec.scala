@@ -36,6 +36,15 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
     "id"      -> Json.Null,
     "index"   -> Json.Num(0)
   )
+  private val legacySummary: Json.Obj = Json.Obj(
+    "type" -> Json.Str("reasoning.summary"),
+    "text" -> Json.Str("legacy ")
+  )
+  private val dualSummary: Json.Obj = Json.Obj(
+    "type"    -> Json.Str("reasoning.summary"),
+    "summary" -> Json.Str("equal "),
+    "text"    -> Json.Str("equal ")
+  )
   private val encrypted: Json.Obj = Json.Obj(
     "type"  -> Json.Str("reasoning.encrypted"),
     "data"  -> Json.Str(" opaque "),
@@ -78,6 +87,8 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
       val valid = Chunk(
         text,
         summary,
+        legacySummary,
+        dualSummary,
         encrypted,
         changed(text, "signature", Json.Str(" signature ")),
         Json.Obj(text.fields.filterNot(_._1 == "signature")),
@@ -90,7 +101,12 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
         changed(text, "signature", Json.Str(" ")),
         changed(text, "signature", Json.Num(1)),
         changed(summary, "summary", Json.Bool(true)),
-        Json.Obj(summary.fields.filterNot(_._1 == "summary") :+ ("text" -> Json.Str("legacy"))),
+        Json.Obj(summary.fields.filterNot(_._1 == "summary")),
+        changed(dualSummary, "text", Json.Str("conflict")),
+        changed(dualSummary, "summary", Json.Null),
+        changed(dualSummary, "text", Json.Null),
+        changed(dualSummary, "summary", Json.Num(1)),
+        changed(dualSummary, "text", Json.Bool(true)),
         changed(summary, "signature", Json.Str("misplaced")),
         changed(text, "data", Json.Str("misplaced")),
         Json.Obj(text.fields :+ ("text" -> Json.Str("duplicate"))),
@@ -201,11 +217,11 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
           "reasoning_content" -> Json.Str("first ")
         ),
         frame(
-          "reasoning_details" -> Json.Arr(summary, encrypted, text),
-          "thinking"          -> Json.Str("summary first ")
+          "reasoning_details" -> Json.Arr(summary, legacySummary, dualSummary, encrypted, text),
+          "thinking"          -> Json.Str("summary legacy equal first ")
         )
       )
-      val all = Json.Arr(encrypted, text, summary, encrypted, text)
+      val all = Json.Arr(encrypted, text, summary, legacySummary, dualSummary, encrypted, text)
       for
         chunks <- ZIO.fromEither(
           frames.foldLeft[Either[AgentError, Chunk[Chunk[LlmChunk]]]](Right(Chunk.empty))(
@@ -222,7 +238,10 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
           )((previous, chunk) => previous.flatMap(_.feed(chunk)))
         )
         output <- ZIO.fromEither(state.feed(LlmChunk.FinishReason("stop")).flatMap(_.toTurnOutput))
-        expected = ContentBlock.Thinking("first summary first ", Map("reasoningDetails" -> all))
+        expected = ContentBlock.Thinking(
+          "first summary legacy equal first ",
+          Map("reasoningDetails" -> all)
+        )
         empty <- ZIO.fromEither(
           StreamAccumulator.empty
             .feed(LlmChunk.ReasoningDetailsDelta(Chunk.empty))
