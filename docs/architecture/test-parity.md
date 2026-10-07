@@ -4,6 +4,11 @@ The engineering target is one paired Scala test for every applicable upstream be
 
 The reference is the clean local `agentscope-java` checkout at commit `f98a685fdc4589f81e626e1686ac2c63d14a2304`, verified on 2026-09-29. Upstream Java implementation details are translated into Scala domain behavior, not copied as imperative APIs. Updating this pin requires a new inventory and review of changed scenarios.
 
+## Cross-module host integration
+
+- [x] Independently review and verify the [HostAssembly and offline smoke admission](../../modules/examples/README.md#verification-and-acceptance) examples. Two composed lifecycle/tool groups and one offline admission group exercise Scala host integration; they do not close additional upstream Java test methods.
+- [ ] Validate an explicitly selected live endpoint separately from deterministic repository verification.
+
 ## Typed completed tool observations
 
 The [exact-output regression scope](../../modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) preserves nested numeric provenance, tool observations and opt-in checkpoint/event JSON, including direct metadata decoding. These reproduce dependency-boundary defects; they do not close additional upstream methods or promise all custom codecs are repaired.

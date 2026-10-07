@@ -29,6 +29,10 @@ sbt verify packageArtifacts
 
 The verify alias checks formatting, compiles with fatal warnings, and runs all tests. See [CONTRIBUTING.md](CONTRIBUTING.md) for semantic review and documentation requirements.
 
+## Host integration
+
+The nonpublished [examples project](modules/examples/README.md) verifies scoped core/harness/MCP assembly using the existing builder and explicit host dependencies. It also supplies a bounded, explicitly enabled live-provider smoke program; default verification makes no external provider requests.
+
 ## Minimal local example
 
 This example uses a scripted client and performs no provider request. Build from this repository; [local artifact packaging](project/README.md#local-artifact-packaging) is independently reviewed, including separate archive and isolated-consumer validation. Snapshot artifacts have not been externally published.

@@ -85,8 +85,20 @@ lazy val mcp = (project in file("modules/mcp"))
     )
   )
 
+lazy val examples = (project in file("modules/examples"))
+  .dependsOn(core, harness, mcp)
+  .settings(
+    name           := "weisgnosis-agents-examples",
+    publish / skip := true,
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-test"     % zioVersion % Test,
+      "dev.zio" %% "zio-test-sbt" % zioVersion % Test
+    )
+  )
+
 lazy val root = (project in file("."))
-  .aggregate(core, harness, mcp)
+  .aggregate(core, harness, mcp, examples)
   .settings(
     name           := "weisgnosis-agents",
     publish / skip := true
