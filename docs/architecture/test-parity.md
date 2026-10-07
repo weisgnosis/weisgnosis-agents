@@ -499,14 +499,29 @@ Missing hints, aliases, other media, non-HTTP(S) URLs and unsupported roles reje
 
 ### User Video URL request projection
 
-Pinned OpenAIVideoSupportTest.java in the OpenAI formatter test package provides two selected adaptations in the existing ChatCompletionsRequestSpec tables. The host must explicitly select a video_url-compatible endpoint; no public-provider or universal protocol support is inferred.
+Pinned OpenAIVideoSupportTest.java in the OpenAI formatter test package provides selected URL and inline video adaptations in the existing ChatCompletionsRequestSpec tables. The host must explicitly select a video_url-compatible endpoint; no public-provider or universal protocol support is inferred.
 
 - [x] testConvertVideoBlockWithUrlSource (154): user video-only content becomes one video_url part with original HTTP(S) URL and no local identity/MIME hint.
 - [x] testConvertMixedTextAndVideoContent (219): ordered user text/image/video parts retain exact values; other supported user-media ordering remains unchanged.
 - [x] Both reviewers approved the two final source/spec identities; full verification and archive inspection pass through the [two-file contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-video-url-projection).
 - [x] Fresh four-artifact standalone consumption passes without a live video-endpoint claim.
 - [x] review_fp and review_invariants approved final Video URL documentation/English/link closure against 1227ce5 and the two unchanged identities.
-- [ ] Inline/Base64 video, Data video inference, remaining video converter methods and live compatible-endpoint interoperability remain unfinished.
+- [x] Both reviewers approved the exact video/webm and video/mp4 source/spec scope; final focused/full/package/preparation verification passes. The finite ten-method applicability classification is recorded below; fresh consumer verification passes; final documentation approval belongs to the [current contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#inline-video-projection).
+
+| Pinned method and declaration line | Bounded adaptation or explicit difference |
+| --- | --- |
+| testConvertVideoUrlSource (90) | Pure request serialization retains the original valid HTTP(S) URL; no separate Java converter utility API is cloned. |
+| testConvertVideoBase64Source (98) | Explicit video/mp4 becomes the exact data URL; strict MIME/Base64 validation bounds the adaptation. |
+| testConvertVideoNullSource (106) | Scala Video requires a MediaSource; the nullable Java constructor/exception contract is excluded. |
+| testConvertVideoEmptyUrl (114) | Empty URL rejects with typed InvalidMessage rather than an unchecked Java exception. |
+| testCreateVideoUrlContentPart (128) | Request AST has video_url and the exact URL; mutable DTO construction is excluded. |
+| testCreateVideoUrlContentPartWithDataUri (138) | Explicit video/mp4 Base64 produces the exact data URL; an arbitrary prebuilt data-URL DTO API is not reproduced. |
+| testConvertVideoBlockWithUrlSource (154) | Existing accepted user Video URL projection. |
+| testConvertVideoBlockWithBase64Source (180; fixture 181) | Explicit video/webm Base64 produces the fixture's exact data URL. |
+| testConvertVideoBlockWithNullSource (201) | Nullable source silent-skipping without an exception is excluded by the typed strict source contract. |
+| testConvertMixedTextAndVideoContent (219) | Existing ordered mixed user-media projection, extended by inline video table rows. |
+
+- [ ] Other inline video MIME types, Data video inference, broader provider contracts and live compatible-endpoint interoperability remain unfinished; the finite ten-method inventory above is fully classified.
 
 ### Bounded streaming HTTP-status retries
 

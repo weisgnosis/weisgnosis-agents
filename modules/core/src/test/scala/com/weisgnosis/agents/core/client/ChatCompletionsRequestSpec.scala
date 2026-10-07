@@ -219,6 +219,23 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
       val url   = "https://example.test/image%20name.png?token=opaque%2Bvalue"
       val video = "https://example.test/video%20name.mp4?token=opaque%2Bvalue#part"
       val cases = Chunk[(Chunk[Msg.UserBlock], Json)](
+        Chunk[Msg.UserBlock](
+          ContentBlock.Text("before"),
+          ContentBlock.Video(
+            MediaSource.Base64("video/webm", "AQ=="),
+            Some("private-video"),
+            Some("private-name")
+          ),
+          ContentBlock.Video.base64("video/webm", "AQI="),
+          ContentBlock.Image.url(url),
+          ContentBlock.Text("after")
+        ) -> Json.Arr(
+          textPart("before"),
+          videoPart("data:video/webm;base64,AQ=="),
+          videoPart("data:video/webm;base64,AQI="),
+          imagePart(url),
+          textPart("after")
+        ),
         Chunk(ContentBlock.Video.url("http://example.test/video")) -> Json.Arr(
           videoPart("http://example.test/video")
         ),
@@ -278,6 +295,11 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
           textPart("between data"),
           audioPart("AQ==", "wav"),
           imagePart("https://example.test/opaque")
+        )
+      ) ++ Chunk("video/webm", "video/mp4").flatMap(mediaType =>
+        Chunk("dmlkZW9kYXRh", "AQ==", "AQI=", "/+8=").map(data =>
+          Chunk[Msg.UserBlock](ContentBlock.Video.base64(mediaType, data)) ->
+            Json.Arr(videoPart(s"data:$mediaType;base64,$data"))
         )
       ) ++ Chunk(
         "image/png"  -> "AQID",
@@ -364,6 +386,19 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
           ""
         )
           .map(ContentBlock.Audio.url)
+      val videoFailures = Chunk("video/webm", "video/mp4").flatMap(mediaType =>
+        invalidData.map(data => ContentBlock.Video.base64(mediaType, data))
+      ) ++
+        Chunk(
+          "",
+          "video/avi",
+          "Video/Webm",
+          "video/webm;codec=vp9",
+          "image/png",
+          "audio/wav",
+          "application/octet-stream"
+        )
+          .map(mediaType => ContentBlock.Video.base64(mediaType, "AQ=="))
       val dataFailures =
         Chunk("https://example.test/image.png", "https://example.test/audio.wav", "").map(url =>
           ContentBlock.Data.url(url)
@@ -375,7 +410,14 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             ) ++
           Chunk("image/png", "audio/wav").flatMap(mediaType =>
             invalidData.map(data => ContentBlock.Data.base64(mediaType, data))
-          ) ++ (invalidTypes ++ Chunk("audio/mp3", "audio/ogg", "Audio/Wav", "application/pdf"))
+          ) ++ (invalidTypes ++ Chunk(
+            "audio/mp3",
+            "audio/ogg",
+            "Audio/Wav",
+            "application/pdf",
+            "video/webm",
+            "video/mp4"
+          ))
             .map(mediaType => ContentBlock.Data.base64(mediaType, "AQ=="))
       val invalidMessages = sourceFailures.map(image =>
         Msg.user(Chunk[Msg.UserBlock](ContentBlock.Text("must not survive alone"), image))
@@ -386,6 +428,8 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             ContentBlock.Video.url(url)
           )
         )
+      ) ++ videoFailures.map(value =>
+        Msg.user(Chunk[Msg.UserBlock](ContentBlock.Text("must not survive alone"), value))
       ) ++ audioFailures.map(value =>
         Msg.user(Chunk[Msg.UserBlock](ContentBlock.Text("must not survive alone"), value))
       ) ++ dataFailures.map(value =>
@@ -410,7 +454,13 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             ContentBlock.Data.url("https://example.test/image.png")
           )
         ),
-        Msg.user(Chunk(ContentBlock.Video.base64("video/mp4", "AQ=="))),
+        Msg.assistant(Chunk(ContentBlock.Video.base64("video/webm", "AQ=="))),
+        Msg.tool(
+          Chunk(
+            ContentBlock
+              .ToolResult("call", output = Chunk(ContentBlock.Video.base64("video/webm", "AQ==")))
+          )
+        ),
         Msg.assistant(Chunk(ContentBlock.Video.url("https://example.test/video.mp4"))),
         Msg.tool(
           Chunk(
@@ -424,10 +474,10 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
       )
       assertTrue(
         invalidMessages.forall(msg =>
-          ChatCompletionsRequest
-            .encode(pairedHistory(msg), Chunk.empty, config)
-            .left
-            .exists(_.isInstanceOf[AgentError.InvalidMessage])
+          Chunk(
+            ChatCompletionsRequest.encode(pairedHistory(msg), Chunk.empty, config),
+            ChatCompletionsRequest.encodeNonStreaming(pairedHistory(msg), Chunk.empty, config)
+          ).forall(_.left.exists(_.isInstanceOf[AgentError.InvalidMessage]))
         )
       )
     },

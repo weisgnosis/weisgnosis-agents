@@ -44,12 +44,14 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Interactive batch preflight](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight) has final scoped acceptance for stable initial policy denials/preparation errors before Ask; normal authorization remains fresh and dynamic gates remain execution-time decisions.
 
-Current delivery scope: explicit [opaque signature details](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details) against 8d0aad6, preserving every existing profile's admission boundary.
+- [x] [Opaque signature details](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details) has final scoped acceptance with strict profile isolation and literal all-historical replay.
 
-- [x] review_fp and review_invariants approved the final four source/spec identities for signature-only decoding and all-historical replay.
-- [x] opaque-signature-focused.log verifies six tests, including round-trip/full-completion/scripted-cycle evidence, with zero failures/ignored tests in 674 ms.
-- [x] opaque-signature-verify.log passes all 1,522 tests with zero compiler warnings/failures/ignored tests and four RC1 packages; opaque-signature-preparation.log and opaque-signature-consumer.log pass exact archive admission and fresh four-hash standalone consumption.
-- [x] review_fp and review_invariants approved the final eleven-file combined scope against 8d0aad6; English/migration/diff and 78-document/2,928-local-reference checks pass.
+Current delivery scope: explicit [inline video projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#inline-video-projection) against bfe53a1; other MIME types, roles and Data inference remain unsupported.
+
+- [x] Both reviewers approved the exact final two-file scope; 20 focused tests pass in 390 ms with no added groups.
+- [x] inline-video-final-verify.log passes 1,522 tests (676 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests and four RC1 packages; inline-video-preparation.log passes exact archive checks and reversible rejection fixtures.
+- [x] inline-video-consumer.log passes standalone formatting, clean compilation and forked selected-API consumption against four fresh loaded module hashes; the unchanged smoke does not directly exercise inline video.
+- [x] review_fp and review_invariants approved the final ten-file combined scope against bfe53a1; English/diff and 78-document/2,937-local-reference checks pass.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -101,7 +103,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-Complete the explicit opaque-signature profile and its independent verification gates above. Then select the next bounded increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+Complete the explicit inline video projection and its independent verification gates above. Then select the next bounded increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
 
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.

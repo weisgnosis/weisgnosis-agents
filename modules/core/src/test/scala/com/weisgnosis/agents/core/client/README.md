@@ -76,9 +76,18 @@ The paired StopSequencesSpec checks nonempty construction, exact array round-tri
 
 Existing usage tables verify direct cache-hit precedence, explicit zero, absent/null fallback, cache-write preservation and strict malformed-count rejection, including overridden fallback counts. The existing real HTTP retry scenario checks these counters in canonical assistant history. No new test groups were added. Both independent reviewers approved the [exact source/spec identities](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding); that contract records RED/GREEN evidence and remaining verification gates.
 
+## Inline video projection evidence
+
+The [inline video contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#inline-video-projection) owns current request/spec identities. Existing positive/negative tables cover video/webm and video/mp4 exact data-URL projection, ordered mixed content, ignored private hints, invalid Base64/MIME rejection and unsupported roles/Data inference. This is pure serialization coverage, with no content/size inspection or live-provider evidence.
+
+- [x] Both reviewers approved the final two-file scope; inline-video-final-verify.log passes 20 focused tests in 390 ms and all 1,522 tests with zero compiler warnings/failures/ignored tests, with four RC1 packages.
+- [x] inline-video-preparation.log validates the changed archives/POMs/licenses and reversible rejection fixtures.
+- [x] inline-video-consumer.log passes standalone formatting, clean compilation and forked selected-API consumption against four fresh loaded module hashes; the unchanged smoke does not directly exercise inline video.
+- [x] review_fp and review_invariants approved the final ten-file combined scope against bfe53a1; no unresolved findings remain.
+
 ## Opaque signature profile evidence
 
-The [OpaqueSignatureDetails contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details) owns current ReasoningDetailSpec identity, completed source/focused/full/artifact evidence and remaining final documentation approval. The bounded extension targets strict signature-only decoding, unchanged existing profile admission, exact ordered arrays and explicit empty replay across historical assistant messages, Msg round-trip, separate scalar reasoning, pure full-completion decoding and a scripted ReAct cycle. It does not validate a live endpoint or change Google tool wire encoding.
+The [OpaqueSignatureDetails contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details) owns current ReasoningDetailSpec identity, completed source/focused/full/artifact and final documentation acceptance. The bounded extension targets strict signature-only decoding, unchanged existing profile admission, exact ordered arrays and explicit empty replay across historical assistant messages, Msg round-trip, separate scalar reasoning, pure full-completion decoding and a scripted ReAct cycle. It does not validate a live endpoint or change Google tool wire encoding.
 
 - [x] Both source reviewers approved the exact four-file scope; opaque-signature-focused.log passes all six tests with zero failures/ignored tests.
 - [x] Full verification passes all 1,522 tests with zero compiler warnings/failures/ignored tests; archive inspection and fresh standalone consumption pass under the canonical contract.

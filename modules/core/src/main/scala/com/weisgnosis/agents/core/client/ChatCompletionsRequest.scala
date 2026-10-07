@@ -295,7 +295,7 @@ object ChatCompletionsRequest:
         case _ =>
           Left(
             AgentError.InvalidMessage(
-              "User content supports only text, images, inline audio, and video URLs"
+              "User content supports only text, images, inline audio, and explicit supported video sources"
             )
           )
       .map(parts => Json.Arr(parts))
@@ -351,17 +351,20 @@ object ChatCompletionsRequest:
         _ <- message(validBase64(data), "Inline image data must be nonempty standard base64")
       yield s"data:$mediaType;base64,$data"
 
-  private def inputVideo(source: MediaSource): Either[AgentError, Json] = source match
-    case MediaSource.Url(value, _) =>
-      httpMediaUrl(value).map(url =>
-        Json.Obj("type" -> Json.Str("video_url"), "video_url" -> Json.Obj("url" -> Json.Str(url)))
-      )
-    case MediaSource.Base64(_, _) =>
-      Left(
-        AgentError.InvalidMessage(
-          "Video requires an explicit HTTP or HTTPS URL; inline video is unsupported"
-        )
-      )
+  private def inputVideo(source: MediaSource): Either[AgentError, Json] =
+    val url = source match
+      case MediaSource.Url(value, _) => httpMediaUrl(value)
+      case MediaSource.Base64(mediaType, data) =>
+        for
+          _ <- message(
+            mediaType == "video/webm" || mediaType == "video/mp4",
+            "Inline video requires video/webm or video/mp4"
+          )
+          _ <- message(validBase64(data), "Inline video data must be nonempty standard base64")
+        yield s"data:$mediaType;base64,$data"
+    url.map(value =>
+      Json.Obj("type" -> Json.Str("video_url"), "video_url" -> Json.Obj("url" -> Json.Str(value)))
+    )
 
   private def httpMediaUrl(value: String): Either[AgentError, String] =
     for
