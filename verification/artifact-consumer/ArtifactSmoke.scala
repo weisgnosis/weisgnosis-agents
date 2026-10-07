@@ -181,6 +181,13 @@ object ArtifactSmoke extends ZIOAppDefault:
         request <- ZIO.fromEither(
           ChatCompletionsRequest.encode(Chunk(Msg.user("question")), Chunk(definition), configured)
         )
+        ordinaryRequest <- ZIO.fromEither(
+          ChatCompletionsRequest.encodeNonStreaming(
+            Chunk(Msg.user("question")),
+            Chunk(definition),
+            configured
+          )
+        )
         turns <- Ref.make(0)
         client = new LlmClient:
           def streamTurn(
@@ -247,6 +254,10 @@ object ArtifactSmoke extends ZIOAppDefault:
                 CompletionEnvelopeProfile.DeltasWithFullMessageSummary
               ) &&
               configured.stopSequences.exists(_.values == Chunk("END", "STOP")) &&
+              ordinaryRequest.get("stream").contains(Json.Bool(false)) &&
+              ordinaryRequest.get("stream_options").isEmpty &&
+              ordinaryRequest.fields.filterNot(_._1 == "stream") == request.fields
+                .filterNot(field => field._1 == "stream" || field._1 == "stream_options") &&
               request.get("stop").contains(Json.Arr(Json.Str("END"), Json.Str("STOP"))) &&
               request.get("reasoning_effort").contains(Json.Str("high")) &&
               request

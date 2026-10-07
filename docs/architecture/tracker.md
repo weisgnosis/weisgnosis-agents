@@ -4,7 +4,7 @@ Last synchronized: 2026-10-07. Implementation is active. This document records c
 
 ## Current delivery gates
 
-Current delivered scope includes exact numeric event metadata, typed provider parallel-call steering, checked Toolkit registry identity, compatible cache-usage preservation, typed stop sequences, optional reasoning effort and per-tool provider schema strictness, plus blank-line-terminated SSE completion and an explicit full-message/summary envelope profile, with checked scalar reasoning aliases. Linked package contracts own exact source/spec identities and bounded review evidence; previous verification history belongs to Git.
+Current delivered scope includes exact numeric event metadata, typed provider parallel-call steering, checked Toolkit registry identity, compatible cache-usage preservation, typed stop sequences, optional reasoning effort and per-tool provider schema strictness, plus blank-line-terminated SSE completion and an explicit full-message/summary envelope profile, with checked scalar reasoning aliases and explicit ordinary JSON HTTP completion. Linked package contracts own exact source/spec identities and bounded review evidence; previous verification history belongs to Git.
 
 - [x] review_fp and review_invariants approved the [cache-usage decoder](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding), including reproduced loss/validation defects and final documentation.
 - [x] review_fp and review_invariants approved the [typed stop-sequence implementation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences), preserving selected-target projection and runtime completion/tool authority; exact identities are recorded there.
@@ -13,9 +13,10 @@ Current delivered scope includes exact numeric event metadata, typed provider pa
 - [x] review_fp and review_invariants approved the exact [SSE EOF correction](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion); RED 19/2 and focused GREEN 21/0 are recorded there.
 - [x] review_fp and review_invariants approved all eight [envelope-profile source/spec identities](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles); focused envelope-focused.log passes 29 groups.
 - [x] review_fp and review_invariants approved all four [reasoning-alias identities](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#scalar-reasoning-aliases); focused reasoning-alias-focused.log passes 32 groups without adding groups.
-- [x] Formatting and verify packageArtifacts pass in reasoning-alias-verify.log: 665 core / 724 harness / 85 MCP / 5 examples (1,479 total), zero compiler warnings or failed tests.
-- [x] reasoning-alias-artifact-preparation.log validates all archives/POMs; reasoning-alias-artifact-consumer.log clean-compiles and runs the external consumer against fresh loaded JAR hashes.
-- [x] Synchronize current contracts, intentional scalar precedence tightening and bounded mappings; both reviewers approved corrected final documentation. English prose/comments and 75 Markdown documents / 2,554 local references pass review/checks; no temporary review report remains.
+- [x] review_fp and review_invariants approved the seven [ordinary JSON source/spec identities](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions); focused verification passes 50 tests, including two new bounded integration groups.
+- [x] Formatting and verify packageArtifacts pass in nonstream-verify.log: 667 core / 724 harness / 85 MCP / 5 examples (1,481 total), zero compiler warnings or failed tests.
+- [x] nonstream-artifact-preparation.log validates archives/POMs; nonstream-artifact-consumer.log clean-compiles and runs the external consumer against fresh loaded JAR hashes.
+- [x] review_fp and review_invariants approved final ordinary JSON documentation after correcting the consumer coverage and SSE-only DONE wording; English prose and all 2,581 local references in 75 Markdown documents pass inspection. No temporary review report is retained.
 
 ExactJson remains opt-in and requires faithful encoder AST conversion. External dependency .toJson and legacy direct tool encoders are not globally replaced. This acceptance does not close remote storage, durable host integration, remaining parity, platform/live-provider or release work below. No remote publication or push was performed.
 
@@ -184,7 +185,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Inspect selected indexed-delta parser and completed-DONE termination methods against pinned upstream; no additional applicable delta behavior was identified. The selected full-message/summary envelope methods now have their own bounded adaptation in the parity mapping.
 - [x] Implement and independently review explicit full-message-only SSE handling and summary replay suppression, preserving indexed-delta defaults and actual accumulator completion authority.
 - [x] Implement and independently review reasoning as a scalar alias, strict equal-value coalescing/conflict rejection and unchanged details authority, with existing table/HTTP coverage.
-- [ ] Next: reconcile remaining provider/media parser methods and implement the next applicable bounded contract; ordinary non-streaming HTTP remains open. Other provider/media, remote persistence, platform and release validation remain unfinished.
+- [x] Implement explicit ordinary JSON HTTP completion with full bounded EOF validation, additive factories/encoder, correlated events and joined cleanup; the linked client contract records bounded parser mappings and verification.
+- [ ] Next: define versioned remote-storage ownership/publication/recovery contracts and implement a named PostgreSQL backend with a real integration fixture. Remaining provider/media, platform and release validation stays open.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.

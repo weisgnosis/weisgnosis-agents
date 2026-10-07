@@ -24,21 +24,21 @@ import java.nio.charset.StandardCharsets
 import zio.*
 import zio.http.{Body, Client, Headers, Request, Response, URL}
 import zio.json.*
-import zio.stream.ZStream
+import zio.stream.{ZPipeline, ZStream}
 
 final case class CompletionTransportLimits(
     responseBytes: Long = 8L * 1024 * 1024,
     errorBodyBytes: Int = 8192
 ) derives JsonCodec
 
-/** Scoped HTTP transport for the validated text/function streaming protocol. */
+/** Scoped HTTP transport for explicit SSE or ordinary JSON text/function completion. */
 final class ChatCompletionsTransport private (
     http: Client,
     limits: CompletionTransportLimits,
     reasoningReplay: ReasoningReplay,
     toolSignatureFormat: ToolSignatureFormat,
     retryPolicy: CompletionRetryPolicy,
-    envelopeProfile: CompletionEnvelopeProfile
+    responseMode: CompletionResponseMode
 ):
   import ChatCompletionsTransport.*
 
@@ -71,15 +71,18 @@ final class ChatCompletionsTransport private (
   ): IO[AgentError | BeforeResponseRejection, TurnOutput] =
     ZIO.suspendSucceed:
       for
-        body <- ZIO.fromEither(
-          ChatCompletionsRequest.encode(
-            history,
-            tools,
-            config,
-            reasoningReplay,
-            toolSignatureFormat
-          )
-        )
+        body <- ZIO.fromEither(responseMode match
+          case CompletionResponseMode.Streaming(_) =>
+            ChatCompletionsRequest
+              .encode(history, tools, config, reasoningReplay, toolSignatureFormat)
+          case CompletionResponseMode.NonStreaming =>
+            ChatCompletionsRequest.encodeNonStreaming(
+              history,
+              tools,
+              config,
+              reasoningReplay,
+              toolSignatureFormat
+            ))
         url <- endpoint(config.endpoint)
         _ <- ZIO
           .fail(
@@ -88,7 +91,10 @@ final class ChatCompletionsTransport private (
             )
           )
           .unless(config.apiKey.forall(key => key.nonEmpty && key.forall(c => c > ' ' && c < 127)))
-        headers = Headers("Content-Type" -> "application/json", "Accept" -> "text/event-stream") ++
+        accepted = responseMode match
+          case CompletionResponseMode.Streaming(_) => "text/event-stream"
+          case CompletionResponseMode.NonStreaming => "application/json"
+        headers = Headers("Content-Type" -> "application/json", "Accept" -> accepted) ++
           config.apiKey.fold(Headers.empty)(key => Headers("Authorization", s"Bearer $key"))
         request = Request.post(url, Body.fromString(JsonBoundary.render(body))).addHeaders(headers)
         output <- retryPolicy match
@@ -147,7 +153,12 @@ final class ChatCompletionsTransport private (
           restore(Client.streaming(request).provideSomeEnvironment[Scope](_.add(http)))
             .mapError(_ => AgentError.ModelError(0, "HTTP request failed"))
         output <-
-          if response.status.isSuccess then consume(response, onFrame, transformText)
+          if response.status.isSuccess then
+            responseMode match
+              case CompletionResponseMode.Streaming(profile) =>
+                consumeEventStream(response, onFrame, transformText, profile)
+              case CompletionResponseMode.NonStreaming =>
+                consumeJson(response, onFrame, transformText)
           else reject(response)
       yield output
 
@@ -170,10 +181,11 @@ final class ChatCompletionsTransport private (
       url <- ZIO.fromEither(URL.decode(value)).mapError(_ => invalid)
     yield url
 
-  private def consume(
+  private def consumeEventStream(
       response: Response,
       onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
-      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String],
+      envelopeProfile: CompletionEnvelopeProfile
   ): ZIO[Scope, AgentError, TurnOutput] =
     val status = response.status.code
     val eventStream = response.rawHeaders("Content-Type") match
@@ -222,6 +234,39 @@ final class ChatCompletionsTransport private (
           ZIO.fail(AgentError.ModelError(status, "Event stream ended before [DONE]"))
     yield output
 
+  private def consumeJson(
+      response: Response,
+      onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
+  ): ZIO[Scope, AgentError, TurnOutput] =
+    val status = response.status.code
+    val jsonBody = response.rawHeaders("Content-Type") match
+      case values if values.size == 1 =>
+        values.headOption.exists(_.takeWhile(_ != ';').trim.equalsIgnoreCase("application/json"))
+      case _ => false
+    for
+      _ <- ZIO
+        .fail(AgentError.ModelError(status, "Expected an application/json response"))
+        .unless(jsonBody)
+      parts <- bounded(response.body.asStream, status)
+        .via(ZPipeline.utf8Decode)
+        .mapError:
+          case error: AgentError => error
+          case _ => AgentError.ModelError(status, "Failed to read a UTF-8 JSON response")
+        .runCollect
+      raw = parts.mkString
+      deltas <- ZIO.fromEither(
+        CompletionEnvelopeDecoder.fullMessage(raw, toolSignatureFormat, reasoningReplay)
+      )
+      transformed <- ZIO.foreach(deltas):
+        case fragment: LlmChunk.TextDelta =>
+          transformText(fragment).map(text => fragment.copy(delta = text))
+        case other => ZIO.succeed(other)
+      accumulated <- ZIO.fromEither(accumulate(StreamAccumulator.empty, transformed))
+      output      <- ZIO.fromEither(accumulated.toTurnOutput)
+      _           <- onFrame(raw, transformed)
+    yield output
+
   private def accumulate(
       initial: StreamAccumulator,
       deltas: Chunk[LlmChunk]
@@ -237,7 +282,9 @@ final class ChatCompletionsTransport private (
     bytes.chunks
       .mapAccumZIO(0L): (consumed, chunk) =>
         if chunk.size.toLong > limits.responseBytes - consumed then
-          ZIO.fail(AgentError.ModelError(status, "Event stream exceeds the configured byte limit"))
+          ZIO.fail(
+            AgentError.ModelError(status, "Completion response exceeds the configured byte limit")
+          )
         else ZIO.succeed((consumed + chunk.size, chunk))
       .flattenChunks
 
@@ -276,6 +323,40 @@ object ChatCompletionsTransport:
       retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled,
       envelopeProfile: CompletionEnvelopeProfile = CompletionEnvelopeProfile.IndexedDeltas
   ): IO[AgentError, ChatCompletionsTransport] =
+    configured(
+      http,
+      limits,
+      reasoningReplay,
+      toolSignatureFormat,
+      retryPolicy,
+      CompletionResponseMode.Streaming(envelopeProfile)
+    )
+
+  /** Explicit ordinary JSON completion; response validation waits for bounded body EOF. */
+  def makeNonStreaming(
+      http: Client,
+      limits: CompletionTransportLimits = CompletionTransportLimits(),
+      reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
+      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
+      retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled
+  ): IO[AgentError, ChatCompletionsTransport] =
+    configured(
+      http,
+      limits,
+      reasoningReplay,
+      toolSignatureFormat,
+      retryPolicy,
+      CompletionResponseMode.NonStreaming
+    )
+
+  private def configured(
+      http: Client,
+      limits: CompletionTransportLimits,
+      reasoningReplay: ReasoningReplay,
+      toolSignatureFormat: ToolSignatureFormat,
+      retryPolicy: CompletionRetryPolicy,
+      mode: CompletionResponseMode
+  ): IO[AgentError, ChatCompletionsTransport] =
     ZIO.fromEither:
       Either.cond(
         limits.responseBytes > 0 && limits.errorBodyBytes > 0,
@@ -285,7 +366,7 @@ object ChatCompletionsTransport:
           reasoningReplay,
           toolSignatureFormat,
           retryPolicy,
-          envelopeProfile
+          mode
         ),
         AgentError.InvalidConfiguration("Transport byte limits must be positive")
       )

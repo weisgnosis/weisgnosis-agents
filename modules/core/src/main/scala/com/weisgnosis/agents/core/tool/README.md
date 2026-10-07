@@ -12,14 +12,14 @@ Migration: ToolDef has eight positional/Product fields. Existing construction/na
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](../client/ChatCompletionsRequest.scala) | d97a7ee5927a2e66bcdbe566c0b110599396278e |
+| [ChatCompletionsRequest.scala](../client/ChatCompletionsRequest.scala) | [Current ordinary-JSON identity](../client/README.md#ordinary-json-completions) |
 | [ToolDef.scala](ToolDef.scala) | 26657363aff7ca859fc0025610d0e3cc272e6215 |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | 6c96f0457442a2f3f3baf7635f005f8eb6818812 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current ordinary-JSON identity](../client/README.md#ordinary-json-completions) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | f044810dc8596f7c8bb30b5968755999079d1d30 |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | db7cb8b8cfd4188a7e977bf9040ccc08975f8781 |
 | [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | 6d805de6cc291b8afc29c1e6696a3d2f81b17ca0 |
 | [McpToolSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/tool/McpToolSpec.scala) | f1a5fbc69c84c7e6bb7e9997854f303f1ea1cca3 |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current identity](../client/README.md#completion-envelope-profiles) |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current ordinary-JSON identity](../client/README.md#ordinary-json-completions) |
 
 - [x] review_fp and review_invariants approved the seven library/spec identities after checking exact tool membership/counts and full definitions. Final formatted consumer review is part of combined closure.
 - [x] tool-strictness-focused.log passes 26 core / 3 MCP groups; tool-strictness-review-focused.log passes all three corrected failover groups. Existing groups were extended without increasing the total.
@@ -101,7 +101,7 @@ The derived domain codec reads an absent or explicit-null outputSchema as None a
 | --- | --- |
 | [ToolDef.scala](ToolDef.scala) | [Current identity](#provider-tool-schema-strictness) |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | [Current identity](#provider-tool-schema-strictness) |
-| ChatCompletionsRequestSpec.scala | [Current identity](#provider-tool-schema-strictness) |
+| ChatCompletionsRequestSpec.scala | [Current ordinary-JSON identity](../client/README.md#ordinary-json-completions) |
 
 ## Local return mode
 

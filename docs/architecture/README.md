@@ -1,5 +1,7 @@
 # Current architecture contracts
 
+Explicit [ordinary JSON completion](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions) complements default SSE through additive client/transport factories and a pure request encoder. Full bounded EOF validation precedes transforms/events; existing request ownership, tool authority and cleanup contracts apply.
+
 - [High-level design](high-level-design.md): runtime authority, module boundaries and host responsibilities.
 - [Mid-level design](mid-level-design.md): component composition and planned integrations.
 - [Low-level design](low-level-design.md): source-linked API contracts and migration notes.

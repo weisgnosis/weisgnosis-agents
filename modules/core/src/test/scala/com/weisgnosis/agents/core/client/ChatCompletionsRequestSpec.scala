@@ -31,6 +31,31 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
   private def messages(result: Either[AgentError, Json.Obj]): Option[Chunk[Json]] =
     result.toOption.flatMap(_.get("messages")).flatMap(_.asArray)
 
+  private def preservesNonStreamingPayload(
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      selected: LlmConfig
+  ): Boolean =
+    ChatCompletionsRequest
+      .encodeNonStreaming(history, tools, selected)
+      .exists(nonStreaming =>
+        nonStreaming.get("stream").contains(Json.Bool(false)) &&
+          nonStreaming.get("stream_options").isEmpty &&
+          ChatCompletionsRequest
+            .encode(history, tools, selected)
+            .exists(streaming =>
+              streaming.get("stream").contains(Json.Bool(true)) &&
+                streaming
+                  .get("stream_options")
+                  .contains(Json.Obj("include_usage" -> Json.Bool(true))) &&
+                Json.Obj(nonStreaming.fields.filterNot(_._1 == "stream")) ==
+                Json.Obj(
+                  streaming.fields
+                    .filterNot(field => field._1 == "stream" || field._1 == "stream_options")
+                )
+            )
+      )
+
   private def pairedHistory(msg: Msg): Chunk[Msg] = msg.role match
     case Role.Assistant if msg.toolUses.nonEmpty =>
       Chunk(
@@ -393,6 +418,22 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         )
       )
       assertTrue(
+        preservesNonStreamingPayload(
+          Chunk(Msg.user("question")),
+          Chunk.empty,
+          config.copy(
+            temperature = 0.25,
+            maxTokens = Some(512),
+            responseFormat = Some(format),
+            topP = Some(0.9),
+            frequencyPenalty = Some(0.5),
+            presencePenalty = Some(0.3),
+            seed = Some(Long.MinValue),
+            stopSequences = Some(StopSequences.one("END", "STOP")),
+            reasoningEffort = Some(ReasoningEffort.High),
+            parallelToolCalls = Some(ToolCallParallelism.Enabled)
+          )
+        ),
         result.exists(value =>
           value.get("model").contains(Json.Str("test-model")) &&
             value.get("stream").contains(Json.Bool(true)) &&
@@ -519,13 +560,10 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         Some(ToolSchemaStrictness.Strict)  -> Some(Json.Bool(true)),
         Some(ToolSchemaStrictness.Relaxed) -> Some(Json.Bool(false))
       )
-      val mixed = ChatCompletionsRequest.encode(
-        Chunk(Msg.user("search")),
-        strictness.zipWithIndex.map { case ((mode, _), index) =>
-          definition.copy(name = s"search_$index", schemaStrictness = mode)
-        },
-        config
-      )
+      val mixedTools = strictness.zipWithIndex.map { case ((mode, _), index) =>
+        definition.copy(name = s"search_$index", schemaStrictness = mode)
+      }
+      val mixed = ChatCompletionsRequest.encode(Chunk(Msg.user("search")), mixedTools, config)
       val choices: Chunk[(Option[ToolChoice], Option[Json])] = Chunk(
         None                      -> None,
         Some(ToolChoice.Auto)     -> Some(Json.Str("auto")),
@@ -542,6 +580,7 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         choices.forall { case (choice, expected) =>
           val configured = config.copy(toolChoice = choice)
           configured.toJson.fromJson[LlmConfig] == Right(configured) &&
+          preservesNonStreamingPayload(Chunk(Msg.user("search")), Chunk(definition), configured) &&
           ChatCompletionsRequest
             .encode(Chunk(Msg.user("search")), Chunk(definition), configured)
             .exists(value =>
@@ -589,6 +628,7 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         """{"model":"test-model","toolChoice":null}""".fromJson[LlmConfig] == Right(
           LlmConfig("test-model")
         ),
+        preservesNonStreamingPayload(Chunk(Msg.user("search")), mixedTools, config),
         mixed.exists(
           _.get("tools")
             .flatMap(_.asArray)
@@ -857,9 +897,12 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
       assertTrue(
         invalid.forall(value =>
           ChatCompletionsRequest
-            .encode(Chunk(Msg.user("question")), Chunk.empty, value)
-            .left
-            .exists(_.isInstanceOf[AgentError.InvalidConfiguration])
+            .encodeNonStreaming(Chunk(Msg.user("question")), Chunk.empty, value) ==
+            ChatCompletionsRequest.encode(Chunk(Msg.user("question")), Chunk.empty, value) &&
+            ChatCompletionsRequest
+              .encode(Chunk(Msg.user("question")), Chunk.empty, value)
+              .left
+              .exists(_.isInstanceOf[AgentError.InvalidConfiguration])
         )
       )
     },

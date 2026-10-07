@@ -32,6 +32,11 @@ enum ReasoningReplay derives JsonCodec:
 enum ToolSignatureFormat derives JsonCodec:
   case Unsupported, GoogleExtraContent
 
+/** Internal response selection prevents independent streaming and envelope flags. */
+private[client] enum CompletionResponseMode:
+  case Streaming(profile: CompletionEnvelopeProfile)
+  case NonStreaming
+
 /** Pure serialization of text, user images/inline audio, and function calls; media sources are never fetched. */
 object ChatCompletionsRequest:
   private val namePattern = "[A-Za-z0-9_-]{1,64}".r
@@ -46,6 +51,47 @@ object ChatCompletionsRequest:
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported
   ): Either[AgentError, Json.Obj] =
+    encodeWithMode(
+      history,
+      tools,
+      config,
+      reasoningReplay,
+      toolSignatureFormat,
+      CompletionResponseMode.Streaming(CompletionEnvelopeProfile.IndexedDeltas)
+    )
+
+  /** Selects one ordinary JSON response; all message and tool validation remains identical. */
+  def encodeNonStreaming(
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      config: LlmConfig,
+      reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
+      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported
+  ): Either[AgentError, Json.Obj] =
+    encodeWithMode(
+      history,
+      tools,
+      config,
+      reasoningReplay,
+      toolSignatureFormat,
+      CompletionResponseMode.NonStreaming
+    )
+
+  private def encodeWithMode(
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      config: LlmConfig,
+      reasoningReplay: ReasoningReplay,
+      toolSignatureFormat: ToolSignatureFormat,
+      mode: CompletionResponseMode
+  ): Either[AgentError, Json.Obj] =
+    val responseFields = mode match
+      case CompletionResponseMode.Streaming(_) =>
+        Chunk(
+          "stream"         -> Json.Bool(true),
+          "stream_options" -> Json.Obj("include_usage" -> Json.Bool(true))
+        )
+      case CompletionResponseMode.NonStreaming => Chunk("stream" -> Json.Bool(false))
     val lastAssistant = history.lastIndexWhere(_.role == Role.Assistant)
     for
       _ <- message(history.nonEmpty, "At least one message is required")
@@ -86,12 +132,9 @@ object ChatCompletionsRequest:
         encodeMessage(msg, replay, toolSignatureFormat)
       body = Json.Obj(
         Chunk(
-          "model"          -> Json.Str(config.model),
-          "messages"       -> Json.Arr(messages.flatten),
-          "stream"         -> Json.Bool(true),
-          "stream_options" -> Json.Obj("include_usage" -> Json.Bool(true)),
-          "temperature"    -> Json.Num(config.temperature)
-        ) ++
+          "model"    -> Json.Str(config.model),
+          "messages" -> Json.Arr(messages.flatten)
+        ) ++ responseFields ++ Chunk("temperature" -> Json.Num(config.temperature)) ++
           Chunk.fromIterable(config.maxTokens.map(value => "max_tokens" -> Json.Num(value))) ++
           Chunk.fromIterable(config.topP.map(value => "top_p" -> Json.Num(value))) ++
           Chunk.fromIterable(

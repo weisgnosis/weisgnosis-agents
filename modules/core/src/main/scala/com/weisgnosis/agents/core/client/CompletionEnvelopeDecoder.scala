@@ -179,6 +179,36 @@ private[client] object CompletionEnvelopeDecoder:
       Phase.AwaitingDelta
     )
 
+  def fullMessage(
+      data: String,
+      toolSignatureFormat: ToolSignatureFormat,
+      reasoningReplay: ReasoningReplay
+  ): Either[AgentError, Chunk[LlmChunk]] =
+    JsonBoundary
+      .decode(data)
+      .left
+      .map(AgentError.DeserializationError(_))
+      .flatMap:
+        case root: Json.Obj if root.get("error").exists(_ != Json.Null) =>
+          ReasoningModelAdapter.parseChunk(data, toolSignatureFormat, reasoningReplay)
+        case root: Json.Obj if root.get("object").contains(Json.Str("chat.completion")) =>
+          for
+            _ <- require(
+              root.get("choices").exists {
+                case Json.Arr(choices) => choices.size == 1
+                case _                 => false
+              },
+              "A JSON response requires exactly one completion choice"
+            )
+            decoded <- initial(
+              CompletionEnvelopeProfile.DeltasWithFullMessageSummary,
+              toolSignatureFormat,
+              reasoningReplay
+            )
+              .decode(data, None)
+          yield decoded._2
+        case _ => invalid("A JSON response requires an explicit full completion envelope")
+
   private def require(valid: Boolean, message: String): Either[AgentError, Unit] =
     Either.cond(valid, (), AgentError.DeserializationError(message))
 

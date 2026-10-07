@@ -1,5 +1,7 @@
 # weisgnosis-agents-core
 
+Explicit [ordinary JSON completion](src/main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions) complements default SSE through additive client/transport factories and a pure request encoder. Full bounded EOF validation precedes transforms/events; existing request ownership, tool authority and cleanup contracts apply.
+
 Toolkit now has a private canonical-name representation; host map construction uses checked fromMap, with explicit replacement/selection operations. The [registry migration and review contract](src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) records source/JVM changes, the reproduced defect and current source/spec identities. Existing module lifecycle and permission contracts remain in force.
 
 The [cache-usage decoder](src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding) preserves compatible direct cache-hit and nested cache-write counters with strict validation and independent review; no public API migration is needed.

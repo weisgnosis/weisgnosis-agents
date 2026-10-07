@@ -65,3 +65,16 @@ object ChatCompletionsClient:
     ChatCompletionsTransport
       .make(http, limits, reasoningReplay, toolSignatureFormat, retryPolicy, envelopeProfile)
       .map(new ChatCompletionsClient(_, textTransform))
+
+  /** Explicit ordinary JSON completion with the existing correlated semantic-event contract. */
+  def makeNonStreaming(
+      http: Client,
+      limits: CompletionTransportLimits = CompletionTransportLimits(),
+      reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
+      textTransform: ModelTextTransform = ModelTextTransform.identity,
+      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
+      retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled
+  ): IO[AgentError, ChatCompletionsClient] =
+    ChatCompletionsTransport
+      .makeNonStreaming(http, limits, reasoningReplay, toolSignatureFormat, retryPolicy)
+      .map(new ChatCompletionsClient(_, textTransform))

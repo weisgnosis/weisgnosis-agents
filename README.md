@@ -82,7 +82,7 @@ ChatCompletions/MCP, structured closing text and local transcript outputs use ex
 
 ## Current acceptance
 
-The [host-selected envelope profile](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles) adds bounded full-message SSE handling and summary deduplication with explicit migration/review; ordinary non-streaming HTTP remains separate.
+The [host-selected envelope profile](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles) adds bounded full-message SSE handling and summary deduplication with explicit migration/review; explicit [ordinary JSON HTTP factories](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions) provide separately reviewed full-response decoding.
 
 The [core SSE frame-completion contract](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion) records the independently reviewed correction that rejects truncated DONE and discards incomplete EOF frames; LF/CRLF framing is the selected profile.
 
