@@ -138,6 +138,96 @@ object McpToolSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("McpToolSpec")(
     test(
+      "embedded resources expose text, images and binary descriptions while retaining opaque payloads"
+    ):
+      val uri       = "file:///resource.bin"
+      val innerMeta = Json.Obj("origin" -> Json.Str("remote"))
+      val outerMeta = Json.Obj("correlation" -> Json.Str("resource"))
+      val text      = Json.Obj("text" -> Json.Str("File content"))
+      val blob      = Json.Obj("blob" -> Json.Str("opaque base64"))
+      val textCases: Chunk[(Json.Obj, Option[String], ContentBlock)] = Chunk(
+        (text, Some("text/plain"), ContentBlock.Text("File content")),
+        (
+          blob,
+          Some("application/octet-stream"),
+          ContentBlock.Text(s"[Binary resource: application/octet-stream, URI: $uri]")
+        ),
+        (blob, None, ContentBlock.Text(s"[Binary resource: unknown MIME type, URI: $uri]")),
+        (
+          Json.Obj("text" -> Json.Str("File content"), "blob" -> Json.Str("opaque base64")),
+          Some("image/png"),
+          ContentBlock.Text("File content")
+        )
+      )
+      val imageCases = Chunk("image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/bmp")
+        .map(mime => (blob, Some(mime), ContentBlock.Image.base64(mime, "opaque base64")))
+      ZIO.scoped:
+        for
+          server <- peer(_ =>
+            ZIO.fail(AgentError.McpError("Projection must not invoke a remote tool"))
+          )
+          bound = McpTool.bind(server.client, "remote", definition)
+          checks <- ZIO.foreach(textCases ++ imageCases): (body, mime, visible) =>
+            val resource = Json.Obj(
+              Chunk(
+                "uri"            -> Json.Str(uri),
+                "_meta"          -> innerMeta,
+                "futureResource" -> Json.Str("preserved")
+              ) ++ body.fields ++
+                Chunk.fromIterable(mime.map(value => "mimeType" -> Json.Str(value)))
+            )
+            val expectedCustom = ContentBlock.Custom(
+              "mcp/resource",
+              Json.Obj(
+                Chunk("uri" -> Json.Str(uri), "body" -> body) ++
+                  Chunk.fromIterable(mime.map(value => "mimeType" -> Json.Str(value))) ++
+                  Chunk(
+                    "meta"       -> innerMeta,
+                    "extensions" -> Json.Obj("futureResource" -> Json.Str("preserved"))
+                  )
+              )
+            )
+            ZIO
+              .fromEither(
+                McpCallResult.read(
+                  Json.Obj(
+                    "content" -> Json.Arr(
+                      block(
+                        "resource",
+                        "resource"      -> resource,
+                        "_meta"         -> outerMeta,
+                        "futureContent" -> Json.Num(7)
+                      )
+                    )
+                  )
+                )
+              )
+              .map: decoded =>
+                val projected = bound.encodeResult(decoded)
+                val remoteMetadata = projected.payload.metadata
+                  .get("mcp")
+                  .flatMap(_.asObject)
+                  .flatMap(_.get("content"))
+                  .flatMap(_.asArray)
+                assertTrue(
+                  projected.payload.output == Chunk(visible, expectedCustom),
+                  remoteMetadata.contains(
+                    Chunk(
+                      Json.Obj(
+                        "meta"       -> outerMeta,
+                        "extensions" -> Json.Obj("futureContent" -> Json.Num(7))
+                      )
+                    )
+                  ),
+                  projected.state == ToolResultState.Success,
+                  projected.output == (visible match
+                    case ContentBlock.Text(value) => value
+                    case _                        => "")
+                )
+          requests <- server.requests.get
+        yield checks.foldLeft(assertTrue(requests.map(_.method) == Chunk("initialize")))(_ && _)
+    ,
+    test(
       "explicit binding retains host authority, routes the fixed remote name and publishes typed error content"
     ) {
       ZIO.scoped:

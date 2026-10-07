@@ -64,7 +64,8 @@ These are specification-derived protocol and ZIO ownership tests. AgentScope Jav
 
 ## Remaining work
 
-- [ ] Complete the pinned upstream embedded-resource model-facing projection behaviors: text resources as visible text, image blobs as image content, and other/absent-MIME blobs as descriptive text. Current McpCallResultSpec/McpToolSpec verify lossless typed parsing and `mcp/resource` Custom payload retention; this does not establish literal parity with McpContentConverterTest's five embedded-resource conversion methods. The [tool contract](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity) records exact methods and current limits.
+- [x] Complete the pinned upstream embedded-resource core projection behaviors: text resources as visible text, image blobs as image content, and other/absent-MIME blobs as descriptive text. The current correction adds visible blocks with lossless `mcp/resource` companions and has a recorded failing-before-fix regression; focused verification passed and both independent source reviews approved the exact two-file scope; full verification, package preparation and fresh artifact consumption passed. The [tool contract](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity) records exact methods and current limits.
+- [x] review_fp and review_invariants approved the final combined 20-file scope against 1e90db1, with five unchanged source/spec identities and fifteen Markdown files; no unresolved findings remain in this scope.
 
 - [x] Implement scoped HTTP POST and explicit GET for the selected 2025-06-18 contract.
 - [x] Both reviewers approved explicit raw-SSE-body-I/O continuation/listener policies and full verification passed.
@@ -77,7 +78,7 @@ These are specification-derived protocol and ZIO ownership tests. AgentScope Jav
 - [ ] Complete remaining applicable interoperability and durable host integration; the root tracker owns the cross-module sequence.
 - [x] Install selected MCP aliases into host-declared groups with one coherent Ready-only snapshot; [grouped installation](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#grouped-installation) records final approvals and current source/spec identities. The host supplies both unfiltered toolkit and groups to ReAct; existing agents do not refresh.
 - [ ] Complete remaining ambient metadata propagation and broader schema transformation separately; core/harness provide selected skills, child snapshots and opt-in Plan admission, while manager selection retains explicit host authority.
-- [ ] Implement provider multimodal projection; core typed conversion is available, while caching and notification invalidation remain separate. Cursor-based listener replay and remote-work cancellation interoperability remain unverified; automatic cursorless reconnect and POST replay are intentional exclusions.
+- [ ] Complete provider projection of retained MCP content: core typed conversion and the explicit Chat Completions ImageParts extension are available, but embedded-resource Custom companions need host adaptation; caching and notification invalidation remain separate. Cursor-based listener replay and remote-work cancellation interoperability remain unverified; automatic cursorless reconnect and POST replay are intentional exclusions.
 - [ ] Evaluate output schemas where required by the selected client contract.
 
 The initialized client and its payload helpers explicitly select 2025-06-18. They do not support the different [2026-07-28 lifecycle](https://modelcontextprotocol.io/specification/2026-07-28/basic), which has no initialize exchange. No complete MCP revision support is claimed.

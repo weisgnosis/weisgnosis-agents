@@ -1,6 +1,6 @@
 # Distribution verification
 
-Current legacy/task-list artifacts pass clean standalone consumption in legacy-tasklist-consumer.log after the 1,552-test full verification and fresh archive admission. Final combined documentation approval is recorded in the [tracker](../docs/architecture/tracker.md#current-acceptance).
+Current dialect/projection/inspection artifacts pass clean standalone consumption in dialects-projection-consumer.log after the 1,555-test full verification and fresh archive admission. Final combined documentation approval is recorded in the [tracker](../docs/architecture/tracker.md#current-acceptance).
 
 The consumer also executes packaged valid/invalid schema-admission neighbors and verifies the production evaluator dependency. The [current schema acceptance](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns the exact consumer source and verification evidence.
 

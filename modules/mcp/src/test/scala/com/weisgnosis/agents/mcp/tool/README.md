@@ -1,11 +1,12 @@
 # MCP tool binding verification
 
-The [embedded resource projection parity task](../../../../../../../main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity) remains open. Current tests prove resource payload retention as Custom content, not the pinned Java converter's visible text/image/binary-description behaviors.
+The [embedded resource projection parity task](../../../../../../../main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity) is accepted within its named finite scope. The grouped regression reproduces the missing visible projection against unchanged production and checks pinned text/image/binary-description behavior together with retained Custom payloads and inner/outer metadata. Focused verification passed and both independent source reviews approved the exact two-file scope; full verification, package preparation and fresh artifact consumption passed. review_fp and review_invariants approved final combined documentation against 1e90db1 with these unchanged identities.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
-[McpToolSpec](McpToolSpec.scala) contains three grouped integration scenarios using an initialized client and controlled borrowed transport:
+[McpToolSpec](McpToolSpec.scala) contains four grouped contract scenarios using an initialized client and controlled borrowed transport:
 
+- A table reproduces embedded-resource text/image/binary-description parity and preserves both raw bodies, inner/outer metadata, result state and no additional network invocation.
 - Fixed remote routing through an actual ReAct continuation preserves host ToolDef authority, all five content variants, structured data, independent metadata/extension levels and all resource bodies. Error state survives while runtime identity/control metadata remains protected.
 - Non-object or duplicate arguments send nothing, including duplicate objects passed directly to execute through the checked client boundary. Valid success and remote RPC rejection become distinct Toolkit observations; an argument named name cannot reroute the binding.
 - Invocation cancellation joins blocked cleanup and retains interruption and its cleanup defect. Existing client suites separately cover remote RPC code/data preservation before Toolkit's textual normalization.

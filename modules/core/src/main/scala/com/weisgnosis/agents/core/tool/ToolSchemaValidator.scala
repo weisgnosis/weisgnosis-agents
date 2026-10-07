@@ -17,16 +17,18 @@ package com.weisgnosis.agents.core.tool
 
 import com.fasterxml.jackson.databind.{DeserializationFeature, JsonNode}
 import com.fasterxml.jackson.databind.json.JsonMapper
-import com.fasterxml.jackson.databind.node.TextNode
+import com.fasterxml.jackson.databind.node.{DecimalNode, TextNode}
 import com.networknt.schema.{
   Schema,
   SchemaContext,
   SchemaLocation,
   SchemaRegistry,
+  ExecutionContext,
   Specification,
   SpecificationVersion
 }
 import com.networknt.schema.dialect.Dialect
+import com.networknt.schema.path.NodePath
 import com.networknt.schema.keyword.{
   DynamicRefValidator,
   Keyword,
@@ -47,6 +49,33 @@ import java.util.regex.Matcher
 
 /** Suspended standards-backed admission; normalization never changes dispatched arguments. */
 private[core] object ToolSchemaValidator:
+  private enum StandardDraft(val id: String, val version: SpecificationVersion):
+    case Draft202012
+        extends StandardDraft(
+          "https://json-schema.org/draft/2020-12/schema",
+          SpecificationVersion.DRAFT_2020_12
+        )
+    case Draft201909
+        extends StandardDraft(
+          "https://json-schema.org/draft/2019-09/schema",
+          SpecificationVersion.DRAFT_2019_09
+        )
+    case Draft7
+        extends StandardDraft(
+          "http://json-schema.org/draft-07/schema#",
+          SpecificationVersion.DRAFT_7
+        )
+    case Draft6
+        extends StandardDraft(
+          "http://json-schema.org/draft-06/schema#",
+          SpecificationVersion.DRAFT_6
+        )
+    case Draft4
+        extends StandardDraft(
+          "http://json-schema.org/draft-04/schema#",
+          SpecificationVersion.DRAFT_4
+        )
+
   private val dialect: String = "https://json-schema.org/draft/2020-12/schema"
   private val standardResources: Set[String] = Set(
     dialect,
@@ -58,7 +87,25 @@ private[core] object ToolSchemaValidator:
     "https://json-schema.org/draft/2020-12/meta/format-annotation",
     "https://json-schema.org/draft/2020-12/meta/format-assertion",
     "https://json-schema.org/draft/2020-12/meta/content"
-  )
+  ) ++ StandardDraft.values.toSet.flatMap(value => Set(value.id, value.id.stripSuffix("#"))) ++
+    Set("core", "applicator", "validation", "meta-data", "format", "content")
+      .map(name => s"https://json-schema.org/draft/2019-09/meta/$name")
+
+  private def declaredDraft(
+      schema: Json,
+      inherited: StandardDraft
+  ): Either[AgentError.InvalidMessage, StandardDraft] =
+    schema match
+      case obj: Json.Obj =>
+        member(obj, "$schema") match
+          case None => Right(inherited)
+          case Some(Json.Str(value)) =>
+            StandardDraft.values
+              .find(_.id == value)
+              .toRight(AgentError.InvalidMessage("Unsupported declared tool schema dialect"))
+          case _ =>
+            Left(AgentError.InvalidMessage("Tool schema dialect must be a standard URI string"))
+      case _ => Right(inherited)
 
   def validate(schema: Json, input: Json): IO[AgentError.InvalidMessage, Unit] =
     for
@@ -73,6 +120,7 @@ private[core] object ToolSchemaValidator:
         if schema == Json.Obj() then ZIO.unit
         else
           for
+            selected   <- ZIO.fromEither(declaredDraft(schema, StandardDraft.Draft202012))
             view       <- ZIO.fromEither(normalize(input, schema, schema))
             references <- ZIO.fromEither(canonicalReferences(schema))
             errors <- ZIO
@@ -95,14 +143,30 @@ private[core] object ToolSchemaValidator:
                     new MultipleOfValidator(location, node, parent, context):
                       override protected def getDivisor(value: JsonNode): java.math.BigDecimal =
                         value.decimalValue()
-                val exactDialect = Dialect
-                  .builder(Specification.getDialect(SpecificationVersion.DRAFT_2020_12))
-                  .keyword(exactMultipleOf)
-                  .keyword(referenceKeyword("$ref", references))
-                  .keyword(referenceKeyword("$dynamicRef", references))
-                  .build()
-                val registry = SchemaRegistry.withDialect(
-                  exactDialect,
+                      override def validate(
+                          execution: ExecutionContext,
+                          value: JsonNode,
+                          root: JsonNode,
+                          path: NodePath
+                      ): Unit =
+                        if value.isNumber then
+                          super.validate(
+                            execution,
+                            DecimalNode.valueOf(value.decimalValue()),
+                            root,
+                            path
+                          )
+                val exactDialects = StandardDraft.values.toVector.map: profile =>
+                  val builder = Dialect
+                    .builder(Specification.getDialect(profile.version))
+                    .keyword(exactMultipleOf)
+                    .keyword(referenceKeyword("$ref", references))
+                  profile match
+                    case StandardDraft.Draft202012 =>
+                      builder.keyword(referenceKeyword("$dynamicRef", references)).build()
+                    case _ => builder.build()
+                val registry = SchemaRegistry.withDialects(
+                  exactDialects.asJava,
                   builder =>
                     builder
                       .schemaCacheEnabled(false)
@@ -114,11 +178,12 @@ private[core] object ToolSchemaValidator:
                       )
                     ()
                 )
-                val schemaNode = mapper.readTree(decimalJson(schema))
-                val malformed  = registry.getSchema(SchemaLocation.of(dialect)).validate(schemaNode)
+                val schemaNode = mapper.readTree(exactJson(schema))
+                val malformed =
+                  registry.getSchema(SchemaLocation.of(selected.id)).validate(schemaNode)
                 val failures =
                   if !malformed.isEmpty then malformed
-                  else registry.getSchema(schemaNode).validate(mapper.readTree(decimalJson(view)))
+                  else registry.getSchema(schemaNode).validate(mapper.readTree(exactJson(view)))
                 failures.asScala.iterator
                   .take(8)
                   .map(error => s"${error.getInstanceLocation}: ${error.getMessage}")
@@ -132,17 +197,15 @@ private[core] object ToolSchemaValidator:
           yield ()
     yield ()
 
-  // The evaluator's integer multipleOf path converts through Double. Decimal nodes keep all numeric
-  // keywords exact, including mathematically integral values, without expanding large exponents.
-  private def decimalJson(value: Json): String = value match
-    case Json.Num(number) =>
-      val text = number.toString
-      if text.exists(char => char == '.' || char == 'e' || char == 'E') then text else text + ".0"
+  // Preserve integer node kinds for Draft 4; the multipleOf adapter handles their exact conversion.
+  // Decimal text remains exact without expanding large exponents or using the AST's numeric encoder.
+  private def exactJson(value: Json): String = value match
+    case Json.Num(number) => number.toString
     case Json.Obj(fields) =>
       fields
-        .map((name, item) => Json.Str(name).toJson + ":" + decimalJson(item))
+        .map((name, item) => Json.Str(name).toJson + ":" + exactJson(item))
         .mkString("{", ",", "}")
-    case Json.Arr(items) => items.map(decimalJson).mkString("[", ",", "]")
+    case Json.Arr(items) => items.map(exactJson).mkString("[", ",", "]")
     case other           => other.toJson
 
   private def normalize(
@@ -177,6 +240,15 @@ private[core] object ToolSchemaValidator:
             .map(Json.Obj(_))
         case (Json.Arr(items), obj: Json.Obj) =>
           member(obj, "items") match
+            case Some(Json.Arr(children)) =>
+              items.zipWithIndex
+                .foldLeft[Either[AgentError.InvalidMessage, Chunk[Json]]](Right(Chunk.empty)):
+                  case (result, (value, index)) =>
+                    result.flatMap: values =>
+                      children.lift(index).orElse(member(obj, "additionalItems")) match
+                        case Some(child) => normalize(value, child, root).map(values :+ _)
+                        case None        => Right(values :+ value)
+                .map(Json.Arr(_))
             case Some(child) =>
               items
                 .foldLeft[Either[AgentError.InvalidMessage, Chunk[Json]]](Right(Chunk.empty))(
@@ -238,30 +310,55 @@ private[core] object ToolSchemaValidator:
   private def canonicalReferences(
       schema: Json
   ): Either[AgentError.InvalidMessage, Map[String, String]] =
-    val single = Set(
-      "additionalProperties",
-      "unevaluatedProperties",
-      "items",
-      "contains",
-      "propertyNames",
-      "not",
-      "if",
-      "then",
-      "else",
-      "unevaluatedItems",
-      "contentSchema"
-    )
-    val mapped = Set("$defs", "definitions", "properties", "patternProperties", "dependentSchemas")
-    val arrays = Set("allOf", "anyOf", "oneOf", "prefixItems")
+    def children(obj: Json.Obj, profile: StandardDraft): List[Json] =
+      val modern = profile match
+        case StandardDraft.Draft202012 | StandardDraft.Draft201909 =>
+          Set("unevaluatedProperties", "unevaluatedItems", "contentSchema")
+        case _ => Set.empty[String]
+      val conditional = profile match
+        case StandardDraft.Draft4 | StandardDraft.Draft6 => Set.empty[String]
+        case _                                           => Set("if", "then", "else")
+      val newer = profile match
+        case StandardDraft.Draft4 => Set.empty[String]
+        case _                    => Set("contains", "propertyNames")
+      val single = Set("additionalProperties", "not") ++ modern ++ conditional ++ newer
+      val mapped = Set("definitions", "properties", "patternProperties") ++ (profile match
+        case StandardDraft.Draft202012 | StandardDraft.Draft201909 =>
+          Set("$defs", "dependentSchemas")
+        case _ => Set("dependencies"))
+      val arrays = Set("allOf", "anyOf", "oneOf") ++ (profile match
+        case StandardDraft.Draft202012 => Set("prefixItems")
+        case _                         => Set.empty[String])
+      obj.fields.toList.flatMap: (name, value) =>
+        if single.contains(name) then List(value)
+        else if name == "items" || name == "additionalItems" then
+          (profile, value, name) match
+            case (StandardDraft.Draft202012, _, "additionalItems") => Nil
+            case (StandardDraft.Draft202012, _, _)                 => List(value)
+            case (_, Json.Arr(items), _)                           => items.toList
+            case _                                                 => List(value)
+        else if mapped.contains(name) then
+          value match
+            case Json.Obj(fields) => fields.map(_._2).toList
+            case _                => Nil
+        else if arrays.contains(name) then
+          value match
+            case Json.Arr(items) => items.toList
+            case _               => Nil
+        else Nil
+
     @annotation.tailrec
     def loop(
-        pending: List[Json],
+        pending: List[(Json, StandardDraft)],
         known: Map[String, String]
-    ): Either[AgentError.InvalidMessage, Map[String, String]] =
-      pending match
-        case Nil => Right(known)
-        case (obj: Json.Obj) :: rest =>
-          val checked = Chunk("$ref", "$dynamicRef")
+    ): Either[AgentError.InvalidMessage, Map[String, String]] = pending match
+      case Nil => Right(known)
+      case ((obj: Json.Obj, inherited)) :: rest =>
+        val checked = declaredDraft(obj, inherited).flatMap: profile =>
+          val keywords = profile match
+            case StandardDraft.Draft202012 => Chunk("$ref", "$dynamicRef")
+            case _                         => Chunk("$ref")
+          keywords
             .foldLeft[Either[AgentError.InvalidMessage, Map[String, String]]](Right(known)):
               (result, keyword) =>
                 result.flatMap: values =>
@@ -278,23 +375,13 @@ private[core] object ToolSchemaValidator:
                           else ref
                         values.updated(ref, canonical)
                     case _ => Right(values)
-          checked match
-            case Left(error) => Left(error)
-            case Right(updated) =>
-              val children = obj.fields.toList.flatMap: (name, value) =>
-                if single.contains(name) then List(value)
-                else if mapped.contains(name) then
-                  value match
-                    case Json.Obj(fields) => fields.map(_._2).toList
-                    case _                => Nil
-                else if arrays.contains(name) then
-                  value match
-                    case Json.Arr(items) => items.toList
-                    case _               => Nil
-                else Nil
-              loop(children ::: rest, updated)
-        case _ :: rest => loop(rest, known)
-    loop(List(schema), Map.empty)
+            .map(values => (profile, values))
+        checked match
+          case Left(error) => Left(error)
+          case Right((profile, updated)) =>
+            loop(children(obj, profile).map(_ -> profile) ::: rest, updated)
+      case _ :: rest => loop(rest, known)
+    loop(List(schema -> StandardDraft.Draft202012), Map.empty)
 
   private def decodeFragment(ref: String): Either[AgentError.InvalidMessage, String] =
     Try:

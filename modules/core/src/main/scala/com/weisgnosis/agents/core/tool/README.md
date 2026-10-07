@@ -6,25 +6,25 @@ Tool keeps its input/output codecs and effectful handler together. [External bin
 
 ## Runtime schema admission
 
-Toolkit.validateSchemaInput is an explicit ZIO effect. A request-owned NetworkNT 2.0.4 evaluator checks the declared Draft 2020-12 schema and argument constraints before fresh ReAct preflight/authorization, standalone local execution and external suspension. Approved argument edits are checked again. Invalid initial arguments produce Error observations; invalid approved edits are Denied. Empty schemas retain unconstrained admission, with duplicate-key JSON validation still enforced. Provider strictness remains an independent generation preference.
+Toolkit.validateSchemaInput is an explicit ZIO effect. A request-owned NetworkNT 2.0.4 evaluator checks the explicitly declared standard schema (default Draft 2020-12) and argument constraints before fresh ReAct preflight/authorization, standalone local execution and external suspension. Approved argument edits are checked again. Invalid initial arguments produce Error observations; invalid approved edits are Denied. Empty schemas retain unconstrained admission, with duplicate-key JSON validation still enforced. Provider strictness remains an independent generation preference.
 
-Optional declared object properties whose value is JSON null are removed only from a private validation view. Required nulls and unknown properties remain; nested properties, object additionalProperties and items follow the pinned ToolValidator normalization behavior. The decoder, invocation context, persisted approved history and external request retain exact original prepared/approved arguments. No coercion, default injection or automatic schema repair occurs.
+Optional declared object properties whose value is JSON null are removed only from a private validation view. Required nulls and unknown properties remain; nested properties, object additionalProperties and homogeneous items follow the pinned ToolValidator normalization behavior. Positional legacy items also apply the same private optional-null policy to each tuple position; this extends the pinned helper, which does not traverse tuple schemas. The decoder, invocation context, persisted approved history and external request retain exact original prepared/approved arguments. No coercion, default injection or automatic schema repair occurs.
 
-Numeric evaluation uses exact decimal nodes, including mathematically integral values and tiny positive multipleOf divisors. Local pointer references are decoded as strict UTF-8 URI fragments before JSON Pointer lookup; $ref and $dynamicRef share checked canonicalization at schema-bearing keywords. const, enum and examples remain instance data. Only bundled standard meta-schema resources may load; external network, filesystem and classpath reference acquisition is denied. This is schema admission, not a CPU sandbox or a filesystem security boundary.
+Numeric evaluation preserves integer node kinds and exact decimal text. The multipleOf keyword alone receives an exact decimal validation node, preventing integer rounding and tiny-positive-divisor underflow without changing other keywords or dispatched arguments. Local pointer references are decoded as strict UTF-8 URI fragments before JSON Pointer lookup; $ref and $dynamicRef share checked canonicalization at schema-bearing keywords. const, enum and examples remain instance data. Only bundled standard meta-schema resources may load; external network, filesystem and classpath reference acquisition is denied. This is schema admission, not a CPU sandbox or a filesystem security boundary.
 
 Trusted AwaitingResults checkpoints describe previously issued external work. They retain saved exact input and accept supplied completion without retrospective schema reinterpretation, authorization or execution. Fresh BeforeActing/AwaitingApproval work and new authorization edits receive current admission checks. Hosts own authentication, exclusive execution and checkpoint migration.
 
-Migration: declared constraints now reject arguments formerly accepted by a permissive decoder. Initial validation errors may appear in history before executable siblings complete; consumers correlate observations by occurrence/ID rather than assuming invocation arrival order. Toolkit.validateSchemaInput is additive; direct typed Tool.execute calls remain a trusted typed API. Other declared schema drafts remain an explicit unfinished original-plan applicability item, not a waived obligation.
+Migration: declared constraints now reject arguments formerly accepted by a permissive decoder. Initial validation errors may appear in history before executable siblings complete; consumers correlate observations by occurrence/ID rather than assuming invocation arrival order. Toolkit.validateSchemaInput is additive; direct typed Tool.execute calls remain a trusted typed API. The declared standard profiles below are implemented; remaining method-level applicability stays explicit in the tracker.
 
-review_fp and review_invariants independently approved the eleven identities below against 1441a97, including the standalone consumer. Approval is bounded to Draft 2020-12 admission, original-input preservation, issued-work compatibility, exact references/numbers and the correlated integration assertions. Other declared drafts and remaining method applicability stay open in the tracker.
+The admission integration and consumer identities below retain their independent approval against 1441a97. The changed evaluator/specification identities and their additional declared-draft scope are owned by the current manifest below; both review_fp and review_invariants approved those two files against 1e90db1. Remaining method applicability stays open; no exhaustive standards-conformance claim follows from these finite contracts.
 
 | Current source/spec/consumer | Git blob |
 | --- | --- |
 | [build.sbt](../../../../../../../../../../build.sbt) | `bd60c941c3c71586b02a10d9e738958c0ecd7411` |
-| [ToolSchemaValidator.scala](ToolSchemaValidator.scala) | `8dbe3019d2e3c079a5b8878de422ee89b68c47e7` |
+| [ToolSchemaValidator.scala](ToolSchemaValidator.scala) | [Current declared-draft manifest](#declared-standard-schema-dialects) |
 | [Toolkit.scala](Toolkit.scala) | `5e539478bce0721851eff926595e99b435f8ee3b` |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | `e8238759c0ba058bd326fb94b5bad5a073ea942c` |
-| [ToolSchemaValidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolSchemaValidatorSpec.scala) | `af979378d9fa2e189f2979bb33283a1d4875ce80` |
+| [ToolSchemaValidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolSchemaValidatorSpec.scala) | [Current declared-draft manifest](#declared-standard-schema-dialects) |
 | [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | `1da01f75b2e896af276c22584d5dda3eee2fb376` |
 | [ReActAgentExternalToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentExternalToolSpec.scala) | `99a1e0b677e4871d2e73212761a94fd1445f0bad` |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2ef2dc9e6b21c8a0be334b05deb7195bf71b0586` |
@@ -37,6 +37,25 @@ review_fp and review_invariants independently approved the eleven identities bel
 - [x] schema-resources-final-verify.log passes formatting, compilation with fatal warnings, 1,540 tests (685 core / 731 harness / 94 MCP / 22 fresh PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages.
 - [x] schema-resources-preparation.log passes fresh archive/POM/LICENSE admission and reversible rejection cases. schema-resources-consumer.log records the obsolete Jackson classpath rejection; schema-resources-consumer-green.log passes fresh standalone formatting/clean compilation/forked execution and the actual valid/invalid packaged schema probe. JVM/SLF4J diagnostic notices are distinct from compiler warnings.
 - [x] review_fp and review_invariants approved the final combined scope against 1441a97 with unchanged source identities; English and local-link checks pass.
+
+## Declared standard schema dialects
+
+The evaluator admits the five standard dialects recognized by the pinned upstream registry: Draft 4, 6, 7, 2019-09 and 2020-12. An absent declaration selects 2020-12; unknown or malformed declarations fail closed. Every evaluation owns its registry/configuration and uses bundled official meta-schemas only. Keyword traversal follows each dialect, so unsupported annotation data is not interpreted as a schema. Draft 4 retains lexical integer node semantics; newer drafts accept mathematically integral decimal nodes. Original input remains unchanged.
+
+Local $ref pointers retain strict UTF-8 canonicalization in every supported draft; 2020-12 $dynamicRef uses its own validator. Draft 2019-09 retains the standard root-only $recursiveRef policy: '#' is supported and other values are rejected. This follows [core section 8.2.4.2.1](https://json-schema.org/draft/2019-09/json-schema-core#rfc.section.8.2.4.2.1), rather than substituting ordinary pointer semantics for recursion. Remote schema acquisition remains disabled.
+
+review_fp and review_invariants approved this exact two-file source scope against 1e90db1 with no unresolved findings. Full verification and fresh packaged consumption pass; review_fp and review_invariants approved final combined documentation against 1e90db1 with the unchanged source identities.
+
+| Reviewed file | Git blob identity |
+| --- | --- |
+| [ToolSchemaValidator.scala](ToolSchemaValidator.scala) | `8041db0be7bd796787f7f30e2d3182c01c837c3b` |
+| [ToolSchemaValidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolSchemaValidatorSpec.scala) | `91fbd63c5faef46292505a6e4fceee5149a9adb5` |
+
+- [x] schema-dialects-red.log records three passing groups and one failed group against unchanged 1e90db1 production: valid declared older-draft schemas were rejected.
+- [x] schema-dialects-offload-review-green.log records five passing core groups, including lexical integer and recursive-reference controls. Its later example segment failed a draft final-history retention expectation after additional compaction; it is not full-build passing evidence.
+- [x] Both independent reviewers approved the two exact source/spec identities above.
+- [x] dialects-projection-full-verify.log passes 1,555 tests and four RC1 packages with zero compiler warnings/failures/ignored. dialects-projection-preparation.log and dialects-projection-consumer.log pass fresh archive admission and standalone four-module consumption.
+- [x] review_fp and review_invariants approved the final combined 20-file scope against 1e90db1, with five unchanged source/spec identities and fifteen Markdown files; no unresolved findings remain in this scope.
 
 ## External tool bindings
 
@@ -87,7 +106,7 @@ Migration: ToolDef has eight positional/Product fields. Existing construction/na
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | f044810dc8596f7c8bb30b5968755999079d1d30 |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | db7cb8b8cfd4188a7e977bf9040ccc08975f8781 |
 | [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | 6d805de6cc291b8afc29c1e6696a3d2f81b17ca0 |
-| [McpToolSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/tool/McpToolSpec.scala) | f1a5fbc69c84c7e6bb7e9997854f303f1ea1cca3 |
+| [McpToolSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/tool/McpToolSpec.scala) | [Current embedded-resource projection scope](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity) |
 | [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current ordinary-JSON identity](../client/README.md#ordinary-json-completions) |
 
 - [x] review_fp and review_invariants approved the seven library/spec identities after checking exact tool membership/counts and full definitions. Final formatted consumer review is part of combined closure.

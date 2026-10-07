@@ -286,16 +286,38 @@ object HostAssemblySpec extends ZIOSpecDefault:
             ): ZIO[Scope, AgentError, TurnOutput] =
               snapshots
                 .modify(current => (current.size, current :+ (history -> tools)))
-                .map:
+                .flatMap:
                   case 0 =>
-                    TurnOutput.ToolCalls(
-                      Msg.assistant(
-                        Chunk(
-                          ContentBlock.ToolUse("call", "report", Json.Obj())
+                    ZIO.succeed(
+                      TurnOutput.ToolCalls(
+                        Msg.assistant(
+                          Chunk(
+                            ContentBlock.ToolUse("call", "report", Json.Obj())
+                          )
                         )
                       )
                     )
-                  case _ => TurnOutput.FinalText(Msg.assistant("done"))
+                  case 1 =>
+                    ZIO
+                      .fromOption(
+                        history
+                          .flatMap(_.toolResults)
+                          .flatMap(_.metadata.get("eviction_path"))
+                          .collect { case Json.Str(path) => path }
+                          .headOption
+                      )
+                      .orElseFail(AgentError.InvalidMessage("Missing committed eviction path"))
+                      .map(path =>
+                        TurnOutput.ToolCalls(
+                          Msg.assistant(
+                            Chunk(
+                              ContentBlock
+                                .ToolUse("inspect", "read_file", Json.Obj("path" -> Json.Str(path)))
+                            )
+                          )
+                        )
+                      )
+                  case _ => ZIO.succeed(TurnOutput.FinalText(Msg.assistant("done")))
           read = Tool.make(
             ToolDef("read_file", "Retrieve persisted output", schema, isReadOnly = true)
           )(input =>
@@ -341,31 +363,32 @@ object HostAssemblySpec extends ZIOSpecDefault:
           preview = result.history.flatMap(_.content.collect {
             case value: ContentBlock.ToolResult => value
           })
-          retrieval <- ZIO.foreach(originals.values)(value =>
-            tools.executeSafe("read_file", Json.Obj("path" -> Json.Str(value.path)))
-          )
+          evicted = observed
+            .lift(1)
+            .flatMap(snapshot => snapshot._1.flatMap(_.toolResults).find(_.id == "call"))
           _      <- owner.close(Exit.unit)
           closed <- released.get
         yield assertTrue(
           result.reply.text == "done",
-          observed.size == 2,
+          observed.size == 3,
           observed.forall(_._2.map(_.name).toSet == Set("report", "read_file")),
           flushed.exists(_.exists(_.text.contains("old"))),
+          evicted.exists(value =>
+            value.state == ToolResultState.Success && value.text.length < 80001 &&
+              value.metadata.contains("eviction_cache_key") && originals.values.exists(stored =>
+                value.metadata.get("eviction_path").contains(Json.Str(stored.path))
+              )
+          ),
+          originals.size == 1,
+          decisions == Chunk("report", "read_file"),
           preview.exists(value =>
-            value.text.length < 80001 && value.metadata.contains("eviction_cache_key")
+            value.id == "inspect" && value.state == ToolResultState.Success && value.text == "x" * 80001
           ),
           observed.lastOption.exists(snapshot =>
             snapshot._1
-              .flatMap(_.content)
-              .exists:
-                case value: ContentBlock.ToolResult => preview.contains(value)
-                case _                              => false
+              .flatMap(_.toolResults)
+              .exists(value => value.id == "inspect" && value.text == "x" * 80001)
           ),
-          originals.size == 1,
-          retrieval.forall(value =>
-            value.state == ToolResultState.Success && value.output == "x" * 80001
-          ),
-          decisions == Chunk("report"),
           entries.exists(_.payload.isInstanceOf[TranscriptPayload.ToolUse]),
           entries.exists(_.payload match
             case TranscriptPayload.Message(_, text, _) => text == "done"

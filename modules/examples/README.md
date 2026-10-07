@@ -22,6 +22,17 @@ ZIO.scoped:
 
 The example keeps policy, model and storage choices explicit. The existing builder and ports suffice for this bounded assembly; an additional supported library facade is not justified by this example. Subagent installation, maintenance scheduling and durable host recovery keep their separate contracts.
 
+## Offloaded result inspection
+
+The existing HostAssemblySpec integration now requests read_file through the actual agent after receiving a committed report preview and cache path in the second model input. Host authorization runs for both report and inspection. The third model input and retained result contain all 80,001 original characters. The later compaction may remove the earlier report pair; its committed preview is checked at the point where the model consumes it, rather than required forever in final history. The redundant direct host-tool read is removed, with no new integration test count.
+
+review_fp and review_invariants approved HostAssemblySpec against 1e90db1 at `1e263afc181e1c502255338d080264bd69334fd4`, with no unresolved findings. This is offline host-installed capability integration, not filesystem/provider interoperability or a new library reader implementation.
+
+- [x] offload-inspection-focused.log passes all three HostAssembly groups in 905 ms.
+- [x] Both independent reviewers approved the exact specification identity above.
+- [x] dialects-projection-full-verify.log, dialects-projection-preparation.log and dialects-projection-consumer.log pass full verification, archive admission and fresh standalone consumption.
+- [x] review_fp and review_invariants approved the final combined 20-file scope against 1e90db1, with five unchanged source/spec identities and fifteen Markdown files; no unresolved findings remain in this scope.
+
 ## Registered transcript assembly
 
 HostAssembly.Dependencies.transcript now accepts TranscriptSource.Provided(existingStore) or Registered(backend, catalog, id, explicitLimits). Unpublished example callers supplying a store wrap it in Provided; library factory signatures/defaults are unchanged. Registered resolves exactly one matching catalog descriptor before MCP acquisition, chooses VersionedTranscriptStore with maxAttempts for Aggregate or SegmentedTranscriptStore with all checked limits for Segmented, then installs the existing offload/completion observer.
@@ -33,7 +44,7 @@ The paired actual-ReAct table checks both layouts through shared Ref-backed cond
 | Source/spec under review against 1f4581b | Git blob |
 | --- | --- |
 | [HostAssembly.scala](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) | 8f01c4db654983e4d47461d366e7452eabd130c2 |
-| [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | fc212b7e36c386278a3c36437df1f706e145e94c |
+| [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | [Current retrieval integration scope](#offloaded-result-inspection) |
 
 - [x] review_fp approved the final two source/spec identities against 1f4581b.
 - [x] review_invariants approved the same final two identities, with no unresolved findings.
@@ -84,8 +95,8 @@ ZIO.logSpan supplies logging timing context, not an OpenTelemetry span or distri
 | Reviewed file | Git blob |
 | --- | --- |
 | [build.sbt](../../build.sbt) | [Current candidate preparation identity](../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
-| [HostAssembly.scala](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) | [Current registered transcript scope](#registered-transcript-assembly) |
-| [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | [Current registered transcript scope](#registered-transcript-assembly) |
+| [HostAssembly.scala](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) | [Current registered assembly identity](#registered-transcript-assembly) |
+| [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | [Current retrieval integration scope](#offloaded-result-inspection) |
 | [LiveProviderSmoke.scala](src/main/scala/com/weisgnosis/agents/examples/LiveProviderSmoke.scala) | `61bffc3da29040c9ff16270b8bd9387cb845337d` |
 | [LiveProviderSmokeSpec.scala](src/test/scala/com/weisgnosis/agents/examples/LiveProviderSmokeSpec.scala) | `60092ce956893432a4415609ce95b75c05ab983c` |
 

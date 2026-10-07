@@ -1,6 +1,6 @@
 # weisgnosis-agents-core
 
-[Runtime schema admission](src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) checks declared Draft 2020-12 constraints before fresh tool authorization/execution or external suspension and after approved argument edits. Validation-only optional-null normalization preserves actual dispatched arguments. Final acceptance and other-draft applicability are recorded in the linked current contract.
+[Runtime schema admission](src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) checks declared Draft 4, 6, 7, 2019-09 and default 2020-12 constraints before fresh tool authorization/execution or external suspension and after approved argument edits. Validation-only optional-null normalization preserves actual dispatched arguments. The [declared-dialect manifest](src/main/scala/com/weisgnosis/agents/core/tool/README.md#declared-standard-schema-dialects) records exact source approvals, verification and remaining method applicability.
 
 The test-only [nested-error and parallel-failure fixtures](src/test/scala/com/weisgnosis/agents/core/tool/README.md#failure-fixtures) extend two existing groups for bounded upstream applicability. Production/API behavior is unchanged; final combined documentation acceptance is approved; final source approvals and focused/full verification pass.
 

@@ -126,11 +126,28 @@ object McpTool:
       case McpCallOutcome.Error   => ToolResultState.Error
     ToolExecutionResult(
       ToolResultPayload(
-        result.content.map(content => block(content.block)),
+        result.content.flatMap(content => blocks(content.block)),
         Map("mcp" -> metadata)
       ),
       state
     )
+
+  /** Resource metadata indexes remote content; visible companions do not add metadata entries. */
+  private def blocks(value: McpContentBlock): Chunk[ContentBlock] = value match
+    case McpContentBlock.Resource(resource) =>
+      val visible = resource.body match
+        case McpResourceBody.Text(text)           => ContentBlock.Text(text)
+        case McpResourceBody.TextAndBlob(text, _) => ContentBlock.Text(text)
+        case McpResourceBody.Blob(blob) =>
+          resource.mimeType match
+            case Some(mimeType) if mimeType.startsWith("image/") =>
+              ContentBlock.Image.base64(mimeType, blob)
+            case mimeType =>
+              ContentBlock.Text(
+                s"[Binary resource: ${mimeType.getOrElse("unknown MIME type")}, URI: ${resource.uri}]"
+              )
+      Chunk(visible, block(value))
+    case _ => Chunk(block(value))
 
   private def block(value: McpContentBlock): ContentBlock = value match
     case McpContentBlock.Text(text)            => ContentBlock.Text(text)

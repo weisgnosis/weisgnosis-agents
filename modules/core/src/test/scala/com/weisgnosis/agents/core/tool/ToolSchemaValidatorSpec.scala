@@ -99,6 +99,90 @@ object ToolSchemaValidatorSpec extends ZIOSpecDefault:
             .map(result => assertTrue((schema, input, result.isRight) == (schema, input, valid)))
         .map(results => results.foldLeft(assertTrue(true))(_ && _))
     },
+    test(
+      "declared standard drafts preserve exact constraints and their own reference and tuple semantics"
+    ):
+      val drafts = Chunk(
+        "http://json-schema.org/draft-04/schema#",
+        "http://json-schema.org/draft-06/schema#",
+        "http://json-schema.org/draft-07/schema#",
+        "https://json-schema.org/draft/2019-09/schema"
+      )
+      val cases = Chunk(
+        ("""{"type":"integer","minimum":9007199254740993}""", "9007199254740993", true),
+        ("""{"type":"integer","minimum":9007199254740993}""", "9007199254740992", false),
+        ("""{"multipleOf":1e-400}""", "2e-400", true),
+        ("""{"multipleOf":1e-400}""", "2.5e-400", false),
+        (
+          """{"definitions":{"a b":{"type":"integer","minimum":2}},"allOf":[{"$ref":"#/definitions/a%20b"}]}""",
+          "2",
+          true
+        ),
+        (
+          """{"definitions":{"a b":{"type":"integer","minimum":2}},"allOf":[{"$ref":"#/definitions/a%20b"}]}""",
+          "1",
+          false
+        ),
+        (
+          """{"definitions":{"\ufffd":{"type":"integer"}},"allOf":[{"$ref":"#/definitions/%FF"}]}""",
+          "2",
+          false
+        ),
+        (
+          """{"type":"array","items":[{"type":"object","properties":{"optional":{"type":"string"}}}],"additionalItems":false}""",
+          "[{\"optional\":null}]",
+          true
+        ),
+        (
+          """{"type":"array","items":[{"type":"integer"}],"additionalItems":false}""",
+          "[1,2]",
+          false
+        )
+      )
+      ZIO
+        .foreach(drafts): draft =>
+          ZIO
+            .foreach(
+              cases ++ Chunk(
+                (
+                  """{"type":"integer"}""",
+                  "1.0",
+                  draft != "http://json-schema.org/draft-04/schema#"
+                ),
+                ("""{"type":"integer"}""", "1", true),
+                ("""{"type":"string","minLength":2}""", "\"ab\"", true),
+                ("""{"type":"string","minLength":2}""", "\"a\"", false)
+              )
+            ): (body, input, expected) =>
+              val schema = s"""{"$$schema":"$draft",""" + body.stripPrefix("{")
+              validation(schema, input).map(result =>
+                assertTrue((draft, body, input, result.isRight) == (draft, body, input, expected))
+              )
+            .map(_.foldLeft(assertTrue(true))(_ && _))
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test("2019 recursive references retain the standard root-only policy"):
+      val schema =
+        """{"$schema":"https://json-schema.org/draft/2019-09/schema","$recursiveAnchor":true,"type":"object","properties":{"value":{"type":"integer","minimum":2},"next":{"$recursiveRef":"#"}}}"""
+      val cases = Chunk(
+        (schema, """{"next":{"value":2}}""", true),
+        (schema, """{"next":{"value":1}}""", false),
+        (
+          schema.replace("\"$recursiveRef\":\"#\"", "\"$recursiveRef\":\"#/properties/value\""),
+          """{"next":2}""",
+          false
+        ),
+        (
+          schema.replace("\"$recursiveRef\":\"#\"", "\"$recursiveRef\":\"#/%FF\""),
+          """{"next":2}""",
+          false
+        )
+      )
+      ZIO
+        .foreach(cases): (definition, input, expected) =>
+          validation(definition, input).map(result => assertTrue(result.isRight == expected))
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("optional nulls affect only the schema-validation view and local references terminate") {
       val schemaText =
         """{"type":"object","properties":{"optional":{"type":"string"},"child":{"$ref":"#/$defs/child"}},"$defs":{"child":{"type":"object","properties":{"value":{"type":"integer"},"optional":{"type":"string"}},"required":["value"]}}}"""

@@ -2,7 +2,7 @@
 
 Current legacy MCP HTTP/SSE, explicit revision selection and bounded task listing have independently approved source scopes and full verification. The [tracker](tracker.md#current-acceptance) owns final combined documentation status and the next original-plan obligation.
 
-Current [schema admission](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) and [MCP resource APIs](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) have finite source/spec review evidence. Their completion does not waive other schema dialects, embedded-resource projection or the original host cutover.
+Current [schema admission](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) and [MCP resource APIs](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) have finite source/spec review evidence. Declared standard dialects and visible embedded-resource projection now have separate finite source approvals and full verification. March 2025 batching, remaining method applicability and the original host cutover remain open in the tracker.
 
 Explicit [ordinary JSON completion](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions) complements default SSE through additive client/transport factories and a pure request encoder. Full bounded EOF validation precedes transforms/events; existing request ownership, tool authority and cleanup contracts apply.
 
