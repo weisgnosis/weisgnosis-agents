@@ -52,8 +52,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Inspect and Stage Fresh Packaged Artifacts
-        run: python verification/artifact-consumer/prepare.py
+      - name: Inspect Fresh Artifacts and Source-Archive Regressions
+        run: python verification/artifact-consumer/check_preparation.py
 
       - name: Verify External Packaged API Consumer
         working-directory: verification/artifact-consumer

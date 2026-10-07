@@ -69,9 +69,19 @@ object ArtifactSmoke extends ZIOAppDefault:
       manifest <- ZIO.fromEither(
         raw.fromJson[Manifest].left.map(_ => failure("Invalid artifact manifest"))
       )
+      expected <- System
+        .property("weisgnosis.artifact.version")
+        .mapError(_ => failure("Cannot read artifact version configuration"))
+        .map(_.getOrElse("0.1.0-SNAPSHOT"))
+      candidate = "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)-RC[1-9][0-9]*"
+      _ <- ZIO
+        .fail(failure("Invalid artifact verification version"))
+        .unless(
+          expected == "0.1.0-SNAPSHOT" || (expected.length <= 64 && expected.matches(candidate))
+        )
       _ <- ZIO
         .fail(failure("Unexpected artifact verification version"))
-        .unless(manifest.version == "0.1.0-SNAPSHOT")
+        .unless(manifest.version == expected)
     yield manifest
 
   /** Hash the actual resolved module JAR, never the source used to prepare the expected manifest. */

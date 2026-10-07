@@ -18,14 +18,18 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Immutable transcript publication](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments) provides bounded complete-chain restoration with host-owned manifest/subtree and explicit orphan/uncertain-acknowledgement limits.
 
-Current increment: [explicit versioned transcript session catalog](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#explicit-transcript-session-catalog). It registers checked host-selected descriptors; it is not global discovery, automatic retention or writer installation.
+- [x] [Explicit transcript catalog](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#explicit-transcript-session-catalog) registers checked descriptors at one known host address; global discovery and automatic writer installation remain separate.
 
-- [x] review_fp and review_invariants approved the three final catalog/shared-helper/spec identities against 6a7a461.
-- [x] Final focused actual PostgreSQL catalog/shared-segment verification passed six groups.
-- [x] Final full verification passed 1,507 tests with zero compiler warnings/failures and four packages; the canonical contract owns exact evidence.
-- [x] Four-artifact archive/POM inspection and fresh selected-API consumption passed; the consumer does not construct the catalog.
-- [x] review_fp and review_invariants approved final combined documentation against 6a7a461 and the three unchanged identities; English inspection and 78-document/2,803-local-reference checks pass with zero issues.
-- [ ] Assess remaining remote retention/ownership contracts and release-pipeline work after catalog acceptance; no new implementation has started.
+Current increment: [checked unsigned candidate preparation](../../verification/artifact-consumer/README.md#candidate-preparation-acceptance), including explicit RC coordinates, exact source admission and a manual success-only artifact workflow. It supplies no tag, signing, publication, remote execution proof or frozen ABI.
+
+- [x] review_fp and review_invariants approved the seven final source/config identities against 529aa4c.
+- [x] Reproduce source-archive and selector admission defects and verify corrected rejection/manifest invalidation; canonical preparation evidence records the RED/GREEN assertions.
+- [x] Selected-RC full verification passed 1,507 tests with zero compiler warnings/failures and four packages.
+- [x] Actual RC archive admission and restored package staging passed.
+- [x] Actual RC1 and default SNAPSHOT standalone consumer checks passed; an independent selected-version mismatch is rejected, with manifest bytes restored.
+- [x] review_fp and review_invariants approved final combined documentation against 529aa4c and the seven unchanged identities; English/script/diff checks and 78-document/2,813-local-reference checks pass with zero issues.
+- [ ] Validate remote workflow, public-provider and publication/release-baseline requirements separately.
+- [ ] Next task: assess remaining remote retention/ownership contracts, then selected provider reasoning/signature method gaps; no distributed workflow is added to the library.
 
 ## Current acceptance
 

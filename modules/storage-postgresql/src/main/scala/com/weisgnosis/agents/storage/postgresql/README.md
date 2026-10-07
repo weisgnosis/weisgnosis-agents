@@ -16,13 +16,13 @@ This is a per-address conditional publication prerequisite. Remote memory/transc
 
 | Reviewed source/build | Git blob |
 | --- | --- |
-| [ci.yml](../../../../../../../../../../.github/workflows/ci.yml) | `229cfbfa673afb912344dfad4ebb97d489b8d111` |
-| [build.sbt](../../../../../../../../../../build.sbt) | `939489757787f3aff500189a8ece6ce8b133ec37` |
+| [ci.yml](../../../../../../../../../../.github/workflows/ci.yml) | [Current candidate preparation identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
+| [build.sbt](../../../../../../../../../../build.sbt) | [Current candidate preparation identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
 | [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | `a27cfd268bc615a5c0211fd3c0388add55a13e1d` |
 | [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | `dcfd9032e358a9a2b87c197119ab24d5b093e84f` |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | `16a8fba2479d1261c42fb9d4006936f122630e7d` |
-| [build.sbt](../../../../../../../../../../verification/artifact-consumer/build.sbt) | `5cd2a197a7e3c3b7f94f1e466b7f94cc95d765c9` |
-| [prepare.py](../../../../../../../../../../verification/artifact-consumer/prepare.py) | `c36bf9e548147af5f13834788ecac11f3f5c072d` |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current candidate preparation identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
+| [build.sbt](../../../../../../../../../../verification/artifact-consumer/build.sbt) | [Current candidate preparation identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
+| [prepare.py](../../../../../../../../../../verification/artifact-consumer/prepare.py) | [Current candidate preparation identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
 | [VersionedJsonStore.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/storage/VersionedJsonStore.scala) | `5ae24e788910c42092ed764d7830e47e1d7fb27f` |
 | [VersionedJsonStoreSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/storage/VersionedJsonStoreSpec.scala) | `c977075cf98640a121d9405ece4c19f097417843` |
 | [PostgresVersionedJsonStore.scala](PostgresVersionedJsonStore.scala) | `6d1b55318fce559cba03a5ee8b90570610c43301` |

@@ -8,7 +8,16 @@ val tomcatVersion: String          = "11.0.18"
 val slf4jVersion: String           = "2.0.16"
 
 ThisBuild / scalaVersion := scala3Version
-ThisBuild / version      := "0.1.0-SNAPSHOT"
+ThisBuild / version := {
+  sys.props.get("weisgnosis.candidate.version").fold("0.1.0-SNAPSHOT") { candidate =>
+    val pattern = "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)-RC[1-9][0-9]*"
+    require(
+      candidate.length <= 64 && candidate.matches(pattern),
+      "Candidate version must be canonical ASCII major.minor.patch-RCpositive without leading zeros"
+    )
+    candidate
+  }
+}
 ThisBuild / organization := "com.weisgnosis"
 ThisBuild / homepage     := Some(url("https://weisgnosis.com"))
 ThisBuild / licenses     := List("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0"))

@@ -41,7 +41,7 @@ The nonpublished [examples project](modules/examples/README.md) verifies scoped 
 
 ## Minimal local example
 
-This example uses a scripted client and performs no provider request. Build from this repository; [local artifact packaging](project/README.md#local-artifact-packaging) is independently reviewed, including separate archive and isolated-consumer validation. Snapshot artifacts have not been externally published. The [first-RC API candidate](project/README.md#first-rc-api-candidate) distinguishes the inspected public contracts from internal helpers and unfinished release validation.
+This example uses a scripted client and performs no provider request. Build from this repository; [local artifact packaging](project/README.md#local-artifact-packaging) is independently reviewed, including separate archive and isolated-consumer validation. Default SNAPSHOT artifacts have not been externally published. [Checked unsigned RC preparation](verification/artifact-consumer/README.md#candidate-preparation-acceptance) and its manual workflow have final source/full/artifact verification and combined documentation approval; neither establishes a tag, frozen ABI or publication. The [first-RC API candidate](project/README.md#first-rc-api-candidate) distinguishes the inspected public contracts from internal helpers and unfinished release validation.
 
 ```scala
 package com.weisgnosis.agents.examples

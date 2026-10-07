@@ -1,0 +1,85 @@
+name: Candidate Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Canonical candidate version, for example 0.1.0-RC1
+        required: true
+        default: 0.1.0-RC1
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Verify Unsigned Candidate Packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fixture
+          POSTGRES_PASSWORD: fixture-password
+          POSTGRES_DB: fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fixture -d fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CANDIDATE_VERSION: ${{ inputs.version }}
+      WEISGNOSIS_POSTGRES_URL: jdbc:postgresql://127.0.0.1:5432/fixture
+      WEISGNOSIS_POSTGRES_USER: fixture
+      WEISGNOSIS_POSTGRES_PASSWORD: fixture-password
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java (JDK 21)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'sbt'
+
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
+
+      - name: Setup Python for Artifact Inspection
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Candidate Version
+        run: python verification/artifact-consumer/prepare.py --version "$CANDIDATE_VERSION" --check-only
+
+      - name: Verify and Package Selected Candidate
+        run: sbt "-Dweisgnosis.candidate.version=$CANDIDATE_VERSION" verify packageArtifacts
+
+      - name: Inspect Archives and Exercise Source Admission
+        run: python verification/artifact-consumer/check_preparation.py --version "$CANDIDATE_VERSION"
+
+      - name: Verify Fresh External Candidate Consumer
+        working-directory: verification/artifact-consumer
+        run: sbt "-Dweisgnosis.artifact.version=$CANDIDATE_VERSION" scalafmtCheckAll scalafmtSbtCheck clean compile run
+
+      - name: Record Candidate Source
+        run: printf 'source_commit=%s\nversion=%s\n' "$GITHUB_SHA" "$CANDIDATE_VERSION" > target/artifact-verification/candidate-source.txt
+
+      - name: Upload Verified Unsigned Candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: weisgnosis-agents-${{ inputs.version }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            target/artifact-verification/repository/com/weisgnosis/*/${{ inputs.version }}/*
+            target/artifact-verification/manifest.json
+            target/artifact-verification/candidate-source.txt
