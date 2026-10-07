@@ -24,6 +24,7 @@ import com.weisgnosis.agents.core.client.{
   ReasoningEffort,
   StopSequences,
   ToolCallParallelism,
+  ThinkingBudget,
   TurnOutput
 }
 import com.weisgnosis.agents.core.error.AgentError
@@ -188,11 +189,13 @@ object ArtifactSmoke extends ZIOAppDefault:
         decoded <- ZIO.fromEither(
           wire.fromJson[AgentEvent].left.map(AgentError.InvalidMessage.apply)
         )
+        thinkingBudget <- ZIO.fromEither(ThinkingBudget.fromInt(4096))
         configured = LlmConfig(
           "packaged-model",
           parallelToolCalls = Some(ToolCallParallelism.Disabled),
           stopSequences = Some(StopSequences.one("END", "STOP")),
-          reasoningEffort = Some(ReasoningEffort.High)
+          reasoningEffort = Some(ReasoningEffort.High),
+          thinkingBudget = Some(thinkingBudget)
         )
         definition = ToolDef(
           "sum",
@@ -285,6 +288,7 @@ object ArtifactSmoke extends ZIOAppDefault:
                 .filterNot(field => field._1 == "stream" || field._1 == "stream_options") &&
               request.get("stop").contains(Json.Arr(Json.Str("END"), Json.Str("STOP"))) &&
               request.get("reasoning_effort").contains(Json.Str("high")) &&
+              request.get("thinking_budget").contains(Json.Num(4096)) &&
               request
                 .get("tools")
                 .flatMap(_.asArray)

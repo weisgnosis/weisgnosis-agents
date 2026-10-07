@@ -112,3 +112,5 @@ Real loopback client/server acquisition, use and release run with a live clock. 
 | [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | [Current checked-usage migration identity](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
 
 Existing transport/transform/reasoning usage assertions handle checked totalTokens/combine; serde fixtures preserve the unchanged wire fields. This caller migration belongs to the [checked usage scope](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic), with completed source/full/artifact verification and final combined documentation approval.
+
+ThinkingBudgetSpec supplies one checked-value group; existing request/failover tables verify exact optional thinking_budget, target initialization, override/clear and shared structured request encoding. Final source/full/artifact verification passes; final combined documentation approval passed in the [nine-file contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#optional-thinking-budget).

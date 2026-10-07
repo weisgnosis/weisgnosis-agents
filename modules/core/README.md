@@ -8,6 +8,8 @@ Toolkit now has a private canonical-name representation; host map construction u
 
 The [cache-usage decoder](src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding) preserves compatible direct cache-hit and nested cache-write counters with strict validation and independent review; no public API migration is needed.
 
+The [thinking-budget endpoint preference](src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-thinking-budget) adds a checked positive optional integer, with explicit compatibility and sixteen/nine-field configuration/projection migration; source/full/artifact verification passes; final combined documentation approval passed.
+
 The [typed stop-sequence contract](src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences) adds checked provider request settings; the [reasoning-effort contract](src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-reasoning-effort) records current configuration migration and optional generation preferences; runtime completion and tool authority remain unchanged.
 
 Optional [per-tool provider schema strictness](src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness) preserves declared schemas and records the current eight-field ToolDef migration; it adds no local validation or authorization authority.

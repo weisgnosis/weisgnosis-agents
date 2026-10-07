@@ -22,6 +22,7 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [StopSequences](StopSequences.scala)
 - [SseParser](SseParser.scala)
 - [StreamAccumulator](StreamAccumulator.scala)
+- [ThinkingBudget](ThinkingBudget.scala)
 - [TurnOutput](TurnOutput.scala)
 
 ## Ordinary JSON completions
@@ -39,12 +40,12 @@ Migration: the three new public helpers are additive; prior public factory/encod
 | Reviewed source/spec | Git blob |
 | --- | --- |
 | [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | `cdce8807a5f7f3eace9558139d6fe2578c77078d` |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `2e96e2e0ca08e25cf620d496b68f1c626fdbb75f` |
 | [CompletionEnvelopeDecoder.scala](CompletionEnvelopeDecoder.scala) | `464a7d3c69a2b7b7b847f38580d81b62a7db6534` |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ChatCompletionsNonStreamingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsNonStreamingSpec.scala) | [Current summary-alias identity](#summary-text-alias) |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current storage identity](../../../../../../../../../storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved the seven exact identities with no findings.
 - [x] Focused verification passes 50 tests. Two new integration groups cover ordinary text/tool/reasoning turns and eligible HTTP-status retry, rejection before transforms/events, bounded EOF and joined failure/cancellation cleanup; existing request tables cover stream=false and absent stream_options.
@@ -89,7 +90,7 @@ Migration: the appended defaulted envelopeProfile parameter changes ChatCompleti
 | [CompletionEnvelopeDecoderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionEnvelopeDecoderSpec.scala) | `0d56b2ba1839634687b79c10a918e2048145c283` |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#scalar-reasoning-aliases) |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved protocol/runtime invariants for these exact identities, with no findings.
 - [x] envelope-focused.log passes 29 groups. Three pure table groups and one client integration group cover full-only output, selected reasoning details, multiple indexed calls, strict failures, terminal reconciliation and single-copy semantic events/transforms. Existing missing-DONE and incomplete-tool tables verify cleanup and zero dispatch; no mechanically duplicated suite was added.
@@ -147,24 +148,53 @@ This is a private decoder correction without public source/JVM or configuration 
 
 Per-tool provider strictness has a separate [definition contract and migration](../tool/README.md#provider-tool-schema-strictness); it is not a model-request projection setting.
 
+## Optional thinking budget
+
+ThinkingBudget.fromInt returns a checked positive opaque value; zero, negative/sentinel values, fractional/out-of-range JSON and nonnumeric values are rejected. LlmConfig and ModelRequestSettings append optional thinkingBudget, default None. The shared request encoder emits exact top-level thinking_budget only when present, for an explicitly compatible host-selected endpoint. It supplies no local token limit, model detection or automatic compatibility policy. Ordinary JSON/SSE and native/synthetic structured requests share that encoding.
+
+Each selected target initializes projection from its own configuration. Projected Some overrides that target preference and None clears it; neither changes model/client/tool authority. Provider preference is distinct from runtime completion/iteration limits. Pinned OpenAIChatFormatterTest.testApplyThinkingBudget (444), testApplyThinkingBudgetFromDefault (457), testApplyThinkingBudgetOverride (470) and testThinkingBudgetAbsent (484) have bounded explicit configuration/default/projection/omission adaptations; mutable Java default merging, arbitrary integers and extra-body overrides are excluded.
+
+Migration: current LlmConfig has sixteen positional/Product fields and ModelRequestSettings has nine. Appended defaulted options preserve ordinary omitted-argument source calls and legacy absent/null configuration JSON, while positional extractors, constructor method values and JVM signatures require assessment and dependent binaries must be rebuilt. This does not freeze a release ABI.
+
+| Source/spec approved by review_fp and review_invariants against c1c95be | Git blob |
+| --- | --- |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5bfb7b37d7be56f81db3d769d23e5577f436c2a3 |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | 4a8654e156707431d927184ad40517da5b9a28ad |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | 5e7d35df047cf143f94f8dd7487212293543dfeb |
+| [LlmClient.scala](LlmClient.scala) | 9c4283edfc7e6b211155aec109ff6677f358ad20 |
+| [ThinkingBudget.scala](ThinkingBudget.scala) | 3b9b10520a24381327ad497f22917b92ccefbf56 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | ffac20c233d2cde63cac565efcf406944be89fb5 |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | 3fbe7668f40375aaf86cab7f344cd0358af1ad2b |
+| [ThinkingBudgetSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ThinkingBudgetSpec.scala) | 510d451a6e06932f2d05de341b9a8c312eafa05a |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | 833ae02623eb2d7e55d1b8329cae707e4de0efc4 |
+
+Sorted nine-file source manifest SHA-256: d7377bceae26bcf3d0803628ec530c1c21d30249da4144f1f9a7e7e2692eb169. Architecture-only HEAD 8f7e4b2 does not grant source acceptance.
+
+- [x] review_fp and review_invariants approved all nine final identities against c1c95be, with no unresolved findings.
+- [x] Focused verification passed 28 tests in 1.419 seconds; one checked-value group and existing projection/request/failover tables cover the bounded contract.
+- [x] thinking-budget-verify.log exited zero: 1,515 tests (672 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures and four packages.
+- [x] thinking-budget-preparation.log passed source/archive admission regressions and restored archive/POM staging.
+- [x] thinking-budget-consumer.log passed standalone formatting, clean compilation and forked execution against four fresh module hashes, asserting exact budget 4096 in both response encoders and configuration round-trip alongside existing custom-client/runtime checks.
+- [x] review_fp and review_invariants approved final combined documentation against c1c95be and the nine unchanged identities. Manual English inspection, changed-script/diff checks and 78-document/2,845-local-reference checks pass with zero issues.
+
 ## Optional reasoning effort
 
 The supported ReasoningEffort.Low, Medium and High subset expresses explicit provider generation preferences; it is not a universal provider effort vocabulary. LlmConfig.reasoningEffort defaults to None; missing/JSON-null configuration keeps None and the provider field is omitted. Supplied values emit reasoning_effort as low, medium or high. Domain configuration uses the enum codec rather than lowercase provider strings; malformed enum values fail decoding. This bounded vocabulary follows the pinned upstream setting, without inferred model capabilities, provider-specific thinking budgets or a Java mutable-options merge.
 
 Each primary/fallback target supplies its own preference to ModelRequestSettings.reasoningEffort. Scoped request projection may replace it or clear it with None; legacy history transforms retain it, retries reuse the serialized body, and native/synthetic formatting preserves the projected value. The runtime does not infer completion, permissions or reasoning replay policy from this preference. Endpoint support remains the host's responsibility.
 
-Migration: LlmConfig has fifteen positional/Product fields and ModelRequestSettings has eight. Appended defaulted options preserve ordinary omitted-argument construction and legacy JSON; positional patterns/constructor method values may need adaptation and dependent binaries must be rebuilt.
+Migration: current arities are sixteen LlmConfig fields and nine ModelRequestSettings fields under the [thinking-budget migration](#optional-thinking-budget). Appended defaulted options preserve ordinary omitted-argument construction and legacy JSON; positional patterns/constructor method values may need adaptation and dependent binaries must be rebuilt.
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5235e2b4b911aa548e54b86bf8401243bb0522fc |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current trust-boundary identity](../agent/README.md#model-turn-trust-boundary) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [LlmClient.scala](LlmClient.scala) | c42e38120c873babf1cff3956d35c734d65f04eb |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 3a99d8850a8fa2905f1384bf04a818f386dd00da |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 
 - [x] review_fp and review_invariants approved these eight source/spec identities, including the final formatted external consumer, with no findings.
 - [x] reasoning-effort-focused.log passes 27 existing request/projection/failover groups; no new groups or reproduced-defect claim were added.
@@ -180,16 +210,16 @@ Migration: current LlmConfig and ModelRequestSettings arities follow the [reason
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-reasoning-effort) |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [StopSequences.scala](StopSequences.scala) | 07e81b7f93282be465a2db4d5eacb98bdac3dbca |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [StopSequencesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StopSequencesSpec.scala) | a55a615fc899a28cc14d610af8005aaa7f72d448 |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 
 - [x] review_fp and review_invariants approved the nine library/spec identities with no findings. The external consumer extension uses its final standalone formatting identity in the table.
 - [x] stop-sequences-focused.log passes 28 groups. One new paired table group covers the checked type; existing request/projection/failover tables were extended. This additive feature has no pre-fix defect claim.
@@ -205,10 +235,10 @@ Migration: current LlmConfig arity follows the [stop-sequence migration](#option
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
+| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for these five identities, with no findings.
@@ -224,15 +254,15 @@ The HTTP request body and historical tool-argument strings use the pure [exact J
 
 | Reviewed core file | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-reasoning-effort) |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
-| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
+| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [JsonBoundary.scala](../json/JsonBoundary.scala) | `6cf481403cc762117989e31d5e1dd2c0c1ffd3be` |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [JsonBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/json/JsonBoundarySpec.scala) | `aca1f4ce72d66ff5f6f28ec0d13dc767a14a3800` |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the ten core identities, with no findings. The core section of `exact-json-focused-red.log` passed 34 tests in 988 ms after correction. Existing seed/config/projection/serialized-request tables and the unchanged exact-renderer regression cover omission, zero, Long endpoints, escaping, nested values, scale and stack-safe traversal.
@@ -248,14 +278,14 @@ Migration: Current LlmConfig and ModelRequestSettings arities are recorded in th
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-reasoning-effort) |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current ReActAgentModelInputSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these eight identities, with no findings. Existing tables cover omission, zero, endpoints, nonfinite/out-of-range values, codec defaults, projection override/clearing and validation before custom dispatch, per-target selection, retry reuse and structured requests. No new test groups were added. Focused `penalties-numeric-focused.log` passed 37 tests in 1.186 seconds.
 - [x] Formatting and full verification passed in `penalties-verify.log`, with zero compiler warnings or failures. Current aggregate evidence and environment are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) keeps seed and broader generation-option behavior separate.
@@ -270,11 +300,11 @@ Migration: LlmConfig has a defaulted toolChoice; its current positional/Product 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Existing tables cover all choices, empty definitions, exact visibility rejection and codec defaults. The extended real HTTP cycle verifies that a returned call despite none still passes through host authorization, Specific cannot bypass host denial, and hidden Specific performs no HTTP/authorization. Controlled failover/structured requests retain each target's own choice. Focused tool-choice-focused.log passed 31 tests in 7.402 seconds; no new groups were added.
 - [x] Full scalafmtAll scalafmtSbt verify passed in tool-choice-verify.log with zero compiler warnings or failures. Current aggregate evidence is in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -289,14 +319,14 @@ Migration: the appended defaulted fields preserve ordinary omitted-argument cons
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-reasoning-effort) |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [SubagentDeclaration.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclaration.scala) | bf55c6a99b8c35bfaa28bd15eb8fba2617ad9faa |
 | [SubagentDeclarationParser.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParser.scala) | 2033e68dc48552d838cf7f96b7a53d9e1a2df45c |
 | [SubagentDeclarationParserSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | 3143e211c09c6a1f58b9eaaa4afd0e88868bbfa1 |
@@ -367,8 +397,8 @@ Existing tables verify six inline MIME mappings, four image URL hints on a misle
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current Video URL identity](#user-video-url-projection) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [MediaSource.scala](../model/MediaSource.scala) | a443433df837fc8d4eb4b714664b90b2a7bcef3c |
 | [MediaSourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/MediaSourceSpec.scala) | ac9619600ec48fe7f0c5713ae7f34c8f8c0f6ad6 |
 
@@ -386,8 +416,8 @@ The existing positive/negative request tables add the bounded pinned OpenAIVideo
 
 | Reviewed source/spec against 1227ce5 | Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `6cf6068bf6ed36db0e263aaee86b5c6b3b3be905` |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `5f9140ec6cbeca88c2c90b381d33925bdfe4bde6` |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 
 - [x] review_fp and review_invariants approved both final identities against 1227ce5, with no unresolved findings.
 - [x] video-url-final-green.log passes all 19 existing request groups in 402 ms; no test group was added.

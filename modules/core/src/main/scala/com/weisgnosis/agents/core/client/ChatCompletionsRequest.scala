@@ -148,6 +148,9 @@ object ChatCompletionsRequest:
           Chunk.fromIterable(
             config.stopSequences.map(value => "stop" -> Json.Arr(value.values.map(Json.Str(_))))
           ) ++
+          Chunk.fromIterable(
+            config.thinkingBudget.map(value => "thinking_budget" -> Json.Num(value.tokens))
+          ) ++
           Chunk.fromIterable(config.reasoningEffort.map:
             case ReasoningEffort.Low    => "reasoning_effort" -> Json.Str("low")
             case ReasoningEffort.Medium => "reasoning_effort" -> Json.Str("medium")

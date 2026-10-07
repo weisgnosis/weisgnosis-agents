@@ -523,6 +523,25 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             .encode(Chunk(Msg.user("question")), Chunk.empty, selected)
             .exists(_.get("reasoning_effort") == expected)
         },
+        Chunk(1, 2048, 4096, Int.MaxValue).forall(tokens =>
+          ThinkingBudget
+            .fromInt(tokens)
+            .exists(budget =>
+              val selected = config.copy(thinkingBudget = Some(budget))
+              selected.toJson.fromJson[LlmConfig] == Right(selected) &&
+              ChatCompletionsRequest
+                .encode(Chunk(Msg.user("question")), Chunk.empty, selected)
+                .exists(_.get("thinking_budget").contains(Json.Num(tokens))) &&
+              ChatCompletionsRequest
+                .encodeNonStreaming(Chunk(Msg.user("question")), Chunk.empty, selected)
+                .exists(_.get("thinking_budget").contains(Json.Num(tokens)))
+            )
+        ),
+        ChatCompletionsRequest
+          .encode(Chunk(Msg.user("question")), Chunk.empty, config)
+          .exists(_.get("thinking_budget").isEmpty),
+        """{"model":"test-model","thinkingBudget":null}""".fromJson[LlmConfig] == Right(config),
+        """{"model":"test-model","thinkingBudget":0}""".fromJson[LlmConfig].isLeft,
         """{"model":"test-model","reasoningEffort":null}""".fromJson[LlmConfig] == Right(config),
         """{"model":"test-model","reasoningEffort":"unknown"}""".fromJson[LlmConfig].isLeft,
         Chunk(None, Some(Json.Obj("type" -> Json.Str("json_object"))), Some(format)).forall(

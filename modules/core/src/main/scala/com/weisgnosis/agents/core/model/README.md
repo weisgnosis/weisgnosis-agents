@@ -12,7 +12,7 @@ checked-usage-red.log reproduces cross-turn overflow acceptance and invalid-usag
 
 | Source/spec approved by review_fp and review_invariants against c198f98 | Git blob |
 | --- | --- |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | fe27ee3f4e8a5ea3a01a8b043441ef39b04286ca |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](../client/README.md#optional-thinking-budget); prior behavioral scope retained. |
 | [ChatUsage.scala](ChatUsage.scala) | b18a1476dd7e2c6d4522cf89f6483f153d592caa |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 5f52c4fe7acd454475928f20ab7634dcc28157e2 |
 | [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | 924725a21a867e314580535955a6af1bf591ec2b |
@@ -24,7 +24,7 @@ checked-usage-red.log reproduces cross-turn overflow acceptance and invalid-usag
 | [ReasoningAdapterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterSpec.scala) | b59c6cb2e24f7b7e51f642abe05c685149a3ab4b |
 | [ChatUsageSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ChatUsageSpec.scala) | 591edd070fc3fb8250825d9889d5e9dd600baee8 |
 | [MsgSerdeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/MsgSerdeSpec.scala) | 7e166ab6899335e456a0a76d58f6c95cc2421d3e |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | dd874a88151159bade84be7b4386d8be68aa0d9e |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current thinking-budget identity](../client/README.md#optional-thinking-budget); prior behavioral scope retained. |
 
 - [x] Reproduce unchecked usage admission before changing arithmetic/runtime behavior.
 - [x] review_fp approved all twelve core identities plus the external consumer; review_invariants approved all fifteen Scala identities including the separate lease pair. The sorted thirteen-file core/consumer blob-path manifest SHA-256 is fa1c60d59c1f3bd2b1e19ba42d2170ece503772402182959fe62d04843152e4b.

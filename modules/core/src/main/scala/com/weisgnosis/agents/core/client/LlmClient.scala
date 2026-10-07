@@ -51,7 +51,8 @@ final case class LlmConfig(
     seed: Option[Long] = None,
     parallelToolCalls: Option[ToolCallParallelism] = None,
     stopSequences: Option[StopSequences] = None,
-    reasoningEffort: Option[ReasoningEffort] = None
+    reasoningEffort: Option[ReasoningEffort] = None,
+    thinkingBudget: Option[ThinkingBudget] = None
 ) derives JsonCodec
 
 /**

@@ -97,11 +97,15 @@ object ModelFailoverSpec extends ZIOSpecDefault:
     ):
       ZIO.scoped:
         for
-          calls       <- Ref.make(Chunk.empty[(String, Json)])
-          projections <- Ref.make(Chunk.empty[(ModelStreamContext, ModelRequestInput)])
-          executed    <- Ref.make(Chunk.empty[Json])
-          targetCalls <- Ref.make(0)
-          retryPolicy <- ZIO.fromEither(CompletionRetryPolicy.make(2))
+          calls            <- Ref.make(Chunk.empty[(String, Json)])
+          projections      <- Ref.make(Chunk.empty[(ModelStreamContext, ModelRequestInput)])
+          executed         <- Ref.make(Chunk.empty[Json])
+          targetCalls      <- Ref.make(0)
+          originalBudget   <- ZIO.fromEither(ThinkingBudget.fromInt(4096))
+          targetBudget     <- ZIO.fromEither(ThinkingBudget.fromInt(2048))
+          projectedBudget  <- ZIO.fromEither(ThinkingBudget.fromInt(1024))
+          structuredBudget <- ZIO.fromEither(ThinkingBudget.fromInt(512))
+          retryPolicy      <- ZIO.fromEither(CompletionRetryPolicy.make(2))
           primary <- ChatCompletionsClient.make(
             scripted(request =>
               request.body.asString
@@ -143,7 +147,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
               presencePenalty = Some(-0.5),
               seed = Some(2147483648L),
               stopSequences = Some(StopSequences.one("primary-original")),
-              reasoningEffort = Some(ReasoningEffort.Low)
+              reasoningEffort = Some(ReasoningEffort.Low),
+              thinkingBudget = Some(originalBudget)
             ),
             toolkit = toolkit,
             fallback = Some(
@@ -158,6 +163,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   seed = Some(Long.MaxValue),
                   stopSequences = Some(StopSequences.one("target-original")),
                   reasoningEffort = Some(ReasoningEffort.Medium),
+                  thinkingBudget = Some(targetBudget),
                   toolChoice = Some(ToolChoice.Specific("lookup")),
                   parallelToolCalls = Some(ToolCallParallelism.Enabled),
                   responseFormat = Some(Json.Obj("unused" -> Json.Bool(true)))
@@ -185,7 +191,9 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                           if request.model == "primary" then Some(StopSequences.one("END", "STOP"))
                           else None,
                         reasoningEffort =
-                          if request.model == "primary" then Some(ReasoningEffort.High) else None
+                          if request.model == "primary" then Some(ReasoningEffort.High) else None,
+                        thinkingBudget =
+                          if request.model == "primary" then Some(projectedBudget) else None
                       )
                     )
                   )
@@ -236,7 +244,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                             presencePenalty = Some(-0.2),
                             seed = Some(0L),
                             stopSequences = Some(StopSequences.one("structured")),
-                            reasoningEffort = Some(ReasoningEffort.Medium)
+                            reasoningEffort = Some(ReasoningEffort.Medium),
+                            thinkingBudget = Some(structuredBudget)
                           )
                         )
                       )
@@ -296,6 +305,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                       fields.get("max_tokens").contains(Json.Num(23)) &&
                       fields.get("stop").contains(Json.Arr(Json.Str("structured"))) &&
                       fields.get("reasoning_effort").contains(Json.Str("medium")) &&
+                      fields.get("thinking_budget").contains(Json.Num(512)) &&
                       fields.get("frequency_penalty").contains(Json.Num(0.2)) &&
                       fields.get("presence_penalty").contains(Json.Num(-0.2)) &&
                       fields
@@ -329,7 +339,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                    Some(-0.5),
                    Some(2147483648L),
                    Some(StopSequences.one("primary-original")),
-                   Some(ReasoningEffort.Low)
+                   Some(ReasoningEffort.Low),
+                   Some(originalBudget)
                  )
                else
                  ModelRequestSettings(
@@ -340,14 +351,17 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                    Some(0.3),
                    Some(Long.MaxValue),
                    Some(StopSequences.one("target-original")),
-                   Some(ReasoningEffort.Medium)
+                   Some(ReasoningEffort.Medium),
+                   Some(targetBudget)
                  ))
           },
           requests.forall { case (model, value) =>
             value.asObject.exists(fields =>
-              fields.get("model").contains(Json.Str(model)) && fields
-                .get("response_format")
-                .isEmpty &&
+              (fields.get("thinking_budget") == (if model == "primary" then Some(Json.Num(1024))
+                                                 else None)) &&
+                fields.get("model").contains(Json.Str(model)) && fields
+                  .get("response_format")
+                  .isEmpty &&
                 fields
                   .get("temperature")
                   .contains(Json.Num(if model == "primary" then 0.2 else 0.4)) &&

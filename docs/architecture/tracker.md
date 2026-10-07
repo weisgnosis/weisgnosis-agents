@@ -34,11 +34,16 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Checked usage arithmetic/runtime admission](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic) rejects invalid/overflowing telemetry without replacing accepted usage; [lease cancellation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#admitted-work-failure-and-cancellation) preserves admitted failure plus pending interruption. Public arithmetic callers follow the recorded migration.
 
-Current increment: reconcile living architecture contracts and this tracker against c1c95be. This is documentation work; no source or runtime behavior changes.
+- [x] Reconcile living architecture documentation against c1c95be with independent review; current package boundaries and every unfinished blocker remain explicit.
 
-- [x] review_fp and review_invariants approved the six-file documentation reconciliation against c1c95be, excluding concurrent source work.
-- [x] Manual English/diff checks and 78-document/2,820-local-reference checks pass with zero issues.
-- [ ] Next source task: separately review a positive checked thinking-budget endpoint preference; no source acceptance is granted by this documentation reconciliation.
+Current increment: [checked thinking-budget endpoint preference](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-thinking-budget), source-based on c1c95be. It supplies no local token limit or automatic provider compatibility.
+
+- [x] review_fp and review_invariants approved the nine final source/spec identities.
+- [x] Focused verification passed 28 tests.
+- [x] Full verification passed 1,515 tests with zero compiler warnings/failures and four packages.
+- [x] Source/archive admission and restored archive/POM staging passed.
+- [x] Fresh standalone selected-API consumption passed, including exact budget 4096 in both encoders and configuration round-trip.
+- [x] review_fp and review_invariants approved final combined documentation against c1c95be and the nine unchanged identities. Manual English inspection, changed-script/diff checks and 78-document/2,845-local-reference checks pass with zero issues.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -90,7 +95,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-The current documentation reconciliation is pending review above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+The current documentation reconciliation and bounded thinking-budget scope have final independent acceptance. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
 
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.
