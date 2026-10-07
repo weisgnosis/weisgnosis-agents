@@ -217,7 +217,7 @@ object ReActAgentHistoryPreparerSpec extends ZIOSpecDefault:
       yield assertTrue(
         count == 3,
         result.reply.generateReason.contains("empty_response"),
-        result.usage.exists(_.totalTokens == 6),
+        result.usage.exists(_.totalTokens == Right(6)),
         !result.history.exists(_.text == "discard")
       )
     },

@@ -104,7 +104,7 @@ object ReasoningAdapterSpec extends ZIOSpecDefault:
               u.outputTokens == 80 &&
               u.cachedTokens == 50 &&
               u.reasoningTokens == 40 &&
-              u.totalTokens == 200
+              u.totalTokens == Right(200)
             case _ => false)
         )
       }

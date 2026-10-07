@@ -1,5 +1,7 @@
 # ReAct execution and structured output
 
+Runtime usage telemetry also crosses a [checked arithmetic boundary](../model/README.md#checked-usage-arithmetic): first-turn invalid values and accumulated overflow fail before end events/hooks/persistence, retaining prior accepted usage. This scope has final source/full/artifact verification and final combined documentation approval; current ReActAgent identity belongs there.
+
 ## Model turn trust boundary
 
 The runtime validates every custom LlmClient TurnOutput after scoped client cleanup and before accepting usage, model-end publication, post-reasoning hooks or assistant persistence. All variants, including Interrupted, require Role.Assistant. ToolCalls requires at least one tool use. ThinkingOnly requires no calls, blank visible text and reasoning. FinalText requires no calls and either visible text or no reasoning; empty nonreasoning FinalText remains valid. Interrupted permits partial assistant content. Inline provider-hosted tool behavior is unchanged.
@@ -10,8 +12,8 @@ The grouped ReActAgentSpec regression derives expectations from untouched histor
 
 | Source/spec approved by review_fp and review_invariants against b70aa32 | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | 84381d3e39c853be0e8a47ebd0a08694a4b39354 |
-| [ReActAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala) | 4c5f853c2c03e25f6e1e2465cb208ec878ed681c |
+| [ReActAgent.scala](ReActAgent.scala) | [Current checked-usage scope](../model/README.md#checked-usage-arithmetic); role/classification behavior unchanged. |
+| [ReActAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
 
 - [x] review_fp and review_invariants approved both final identities against b70aa32, with no unresolved findings.
 - [x] The final full run covers the refined eight-malformed/two-valid table; the earlier focused eleven-test run predates the last row.
@@ -199,7 +201,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 | Reviewed file | Git blob |
 | --- | --- |
 | [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
-| [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | [Current AgentRunUpdateSpec.scala identity](../tool/README.md#checked-registry-identity) |
+| [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current ConfirmedBatchAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
 [AgentRunUpdate.scala](AgentRunUpdate.scala) retains its accepted identity `e441b9614dba3364da17b6b4780c3a6fae002396`; its ADT and codec policy are unchanged. Existing ordinary/structured scenarios retain full-value, cooperative interruption and terminal ordering coverage. The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
@@ -431,7 +433,7 @@ Baseline post-reasoning identities from the scope against `2a400e0`; commit `885
 | [PostReasoningHook.scala](PostReasoningHook.scala) | [Current identity](#before-acting-suspension-and-restoration) |
 | [StructuredOutput.scala](StructuredOutput.scala) | 5d6d81c944530f8ff7094733abfc21885729e456 |
 | [PostReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PostReasoningHookSpec.scala) | 0a024cbdaf20b5a7d3be015b30a60c07118310ab |
-| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current identity](../client/README.md#encrypted-reasoning) |
+| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
 
 ## Local-result processing boundary
 
@@ -469,12 +471,12 @@ Appending the optional make argument preserves ordinary callers; positional Buil
 
 ## Current history-preparation identities
 
-Unchanged identities from the scope against `3c6958f`; commit `2b99226` preserves the full nine-file scope. The current ReActAgent identity is recorded under [result-bearing streams](#result-bearing-streams); unchanged components follow:
+Current linked identities retain the behavioral scope against `3c6958f`; commit `2b99226` preserves the earlier nine-file scope. Changed usage callers link to their renewed acceptance; the current ReActAgent identity is recorded above.
 
 | File | Git blob |
 | --- | --- |
 | [ToolHistory.scala](../model/ToolHistory.scala) | [Current provider-ownership identity](#provider-owned-pending-calls) |
-| [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | 9f98df0f18d26e42766f1a41cdfe8c441b33c329 |
+| [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
 | [ToolHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | [Current provider-ownership identity](#provider-owned-pending-calls) |
 
 ## Inline processing and failed acting phases

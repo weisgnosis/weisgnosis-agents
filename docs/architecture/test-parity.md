@@ -1357,3 +1357,12 @@ Pinned agentscope-examples/documentation/ModelCallMiddlewareExample.AuditingMidd
 - [x] Full 1,512-test verification and archive/source preparation passed.
 - [x] Fresh standalone selected-API consumer verification passed; it does not exercise unpublished AuditedLlmClient.
 - [x] review_fp and review_invariants approved final combined documentation for the two unchanged audited-client example identities against 15047a8.
+
+## Checked telemetry and admitted-work cancellation
+
+The [usage arithmetic/runtime boundary](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic) and [lease failure/cancellation correction](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#admitted-work-failure-and-cancellation) address two reproduced Scala contract defects from a bounded source sample. Typed totalTokens/combine migration preserves wire fields; lifecycle correction preserves failure plus pending interruption. Neither closes an additional Java method or proves exhaustive code quality.
+
+- [x] Record concrete RED assertions on unchanged arithmetic/runtime and lease implementations.
+- [x] Complete final source approval, focused/full verification and archive preparation for both corrections.
+- [x] source-sample-fixes-consumer.log passed standalone formatting, clean compilation and forked execution against four fresh module hashes, exercising checked usage validation/combination/total and overflow rejection.
+- [x] Final combined documentation approval passed for checked usage/caller migration and lease cancellation against c198f98, with unchanged reviewed identities.

@@ -114,8 +114,8 @@ object AgentRunUpdateSpec extends ZIOSpecDefault:
         completed.size == 1,
         completed.forall(result =>
           result.history == history && result.iterationCount == 2 &&
-            result.state == AgentRunState.Completed && result.usage.contains(
-              firstUsage.combine(lastUsage)
+            result.state == AgentRunState.Completed && result.usage.exists(actual =>
+              firstUsage.combine(lastUsage) == Right(actual)
             ) &&
             result.reply.usage
               .contains(lastUsage) && result.history.flatMap(_.toolResults).size == 1

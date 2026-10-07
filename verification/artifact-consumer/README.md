@@ -12,6 +12,8 @@ check_preparation.py uses reversible target-only source-JAR fixtures: a rejected
 
 The forked consumer compares the selected version and hashes of four actually loaded module JARs against the fresh manifest. Runtime classpath inspection excludes source-project classes and known test/Java SDK/Jackson/Tomcat/JDBC fixture dependencies. It contacts no model provider or database; real PostgreSQL verification belongs to the configured backend suite.
 
+The checked-usage consumer migration now handles combine/totalTokens/validated Either values, asserts a total of ten and rejects counter overflow. Its changed identity has renewed source approval in the [usage manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic); fresh packaged execution passes in source-sample-fixes-consumer.log; earlier candidate execution alone does not verify this changed source.
+
 The executable checks public custom LlmClient and ToolAuthorizer implementations, builder-based tool execution, streamed final-answer filtering, typed provider steering, checked stop-sequence construction/configuration round-trip and actual stop-array/reasoning-effort serialization and per-tool strictness with unchanged parameters, the public completion-envelope enum codec, the additive ordinary JSON encoder with stream=false and no stream_options, exact numeric metadata codecs, permission precedence, MCP result projection and checked StorageAddress identity/codec, positive StorageRevision and resolution/hash verification of the backend companion. This is representative current-version source/packaging evidence, not exhaustive API coverage, backward binary compatibility, provider interoperability, or publication evidence.
 
 ## Candidate preparation acceptance
@@ -23,7 +25,7 @@ The manual [candidate workflow](../../.github/workflows/candidate.yml) validates
 | [Root build.sbt](../../build.sbt) | [Current test-sharing build identity](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration); candidate version behavior unchanged. |
 | [ci.yml](../../.github/workflows/ci.yml) | d865baa4dc36d52dc2c84c8e4c2c5ebab11d7b2e |
 | [candidate.yml](../../.github/workflows/candidate.yml) | 63fa41a745e21ce1f894f0009af6753b4cc20bd3 |
-| [ArtifactSmoke.scala](ArtifactSmoke.scala) | 7470d5bc6763562e5b088fcc3e669efa27c7bacb |
+| [ArtifactSmoke.scala](ArtifactSmoke.scala) | [Current checked-usage consumer identity](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic); candidate version/hash behavior unchanged. |
 | [build.sbt](build.sbt) | 166a1d10c8ba5b95088bbc070fb4f0fd3cd93b9f |
 | [prepare.py](prepare.py) | 93e90864cda955a230900c08213806315f6057d5 |
 | [check_preparation.py](check_preparation.py) | a42c275772974a31a7a5809adc4dd1a5e2cc923a |

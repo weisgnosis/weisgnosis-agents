@@ -126,7 +126,7 @@ Pass session.control.mode directly to PlanPermissionGate to avoid mirrored flags
 
 ## Current session identities
 
-Three unchanged identities from the five-file increment against 87b2d8b. Their earlier PlanSession and PlanSessionReviewSpec identities are preserved in 2a73621. The current PlanSession identity is in the location-context table; PlanSessionReviewSpec remains in the stored-session table.
+Current linked identities from the five-file increment against 87b2d8b. Their earlier PlanSession and PlanSessionReviewSpec identities are preserved in 2a73621. The current PlanSession identity is in the location-context table; PlanSessionReviewSpec remains in the stored-session table.
 
 | Source | Git blob |
 | --- | --- |
@@ -179,13 +179,13 @@ The standalone backend itself changes no session state; the stored-session integ
 
 ## Current draft-storage identities
 
-Three unchanged identities from the nine-file increment against 083617b. AgentError and AgentErrorSpec identities are preserved in 279b7a3 and replaced in the [lineage table](../subagent/README.md#current-lineage-identities). Earlier store/files identities are preserved in fd496a4; changed PlanDraftFilesSpec, LocalPlanDraftStore and PlanDraftFiles identities are preserved in f147a99 and replaced in the directory table. PlanDraftStore remains in the location table. The original storage migration's earlier AgentError, AgentErrorSpec and WorkspaceLease identities are preserved in 083617b.
+Current linked identities from the nine-file increment against 083617b. AgentError and AgentErrorSpec identities are preserved in 279b7a3 and replaced in the [lineage table](../subagent/README.md#current-lineage-identities). Earlier store/files identities are preserved in fd496a4; changed PlanDraftFilesSpec, LocalPlanDraftStore and PlanDraftFiles identities are preserved in f147a99 and replaced in the directory table. PlanDraftStore remains in the location table. The original storage migration's earlier AgentError, AgentErrorSpec and WorkspaceLease identities are preserved in 083617b.
 
 | Source | Git blob |
 | --- | --- |
-| [WorkspaceLease.scala](../storage/WorkspaceLease.scala) | 409edda77d0fcf5b8846d1cc89e3050d190d2740 |
+| [WorkspaceLease.scala](../storage/WorkspaceLease.scala) | [Current failure/cancellation scope](../storage/README.md#admitted-work-failure-and-cancellation) |
 | [LocalPlanDraftStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/LocalPlanDraftStoreSpec.scala) | 564df5e17f6c8c0998e060aea890adcf0bed5fc7 |
-| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | 631725c6b84598e9cc2b3641f0b33a7ec5b691bc |
+| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | [Current failure/cancellation identity](../storage/README.md#admitted-work-failure-and-cancellation); prior plan behavior retained. |
 
 - [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
 

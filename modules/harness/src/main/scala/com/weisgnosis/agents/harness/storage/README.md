@@ -10,6 +10,25 @@ This is internal cooperative infrastructure, not a hostile-filesystem sandbox, f
 
 - [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 520 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
 
+## Admitted-work failure and cancellation
+
+Admitted masked WorkspaceLease work now captures its complete Exit, joins its work/cleanup, then combines pending ordinary caller cancellation with a failed outcome instead of losing interruption. Typed operation failure remains present; caller masking remains respected. This changes no public API and grants no new filesystem/ownership guarantee.
+
+workspace-lease-failure-red.log reproduces the unchanged lease blob 409edda77d0fcf5b8846d1cc89e3050d190d2740 returning its typed failure without interruption (exit.isInterrupted was false). A paired WorkspaceLeaseSpec regression checks both signals after held admitted work. Current source identities are below; invariant approval and full verification are complete; this is a Scala lifecycle correction, not new Java parity.
+
+| Current lease source/spec against c198f98 | Git blob |
+| --- | --- |
+| [WorkspaceLease.scala](WorkspaceLease.scala) | 314294acc67defba99f95cd0375adde756da7c6a |
+| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | 51b8643afce455810915b758ce289e26ee598c85 |
+
+- [x] Reproduce pending cancellation loss on admitted failure before the fix.
+- [x] docs_closure independently approved the final lease source/spec FP/ZIO scope against c198f98; the reviewer authored neither file. Full Cause composition, caller interruptibility and joined ownership were inspected.
+- [x] review_invariants approved these two final lease identities against c198f98.
+- [x] workspace-lease-failure-green.log passed six focused tests in 171 milliseconds, including the unchanged regression that failed before the correction.
+- [x] source-sample-fixes-verify.log passed the final 1,514-test full verification and four packages with zero compiler warnings/failures; source-sample-fixes-preparation.log passed source/archive and restored archive/POM staging.
+- [x] Fresh standalone selected-API consumption passed; checked usage is exercised, while lease behavior remains covered by its direct lifecycle tests.
+- [x] review_fp and review_invariants approved final combined documentation against c198f98 and the unchanged reviewed identities; docs_closure independently approved lease FP/ZIO. Manual English/script/diff checks and 78-document/2,895-local-reference checks pass with zero issues.
+
 ## Versioned JSON publication
 
 [VersionedJsonStore.scala](VersionedJsonStore.scala) adds public checked StorageAddress, opaque positive StorageRevision, ExpectedRevision, ConditionalWrite and VersionedJson data plus the effectful read/compareAndSet port. Address codecs reapply exact Unicode/nonblank/512-UTF-8-byte checks; namespace serialization uses a reserved U+001F separator. The revision codec accepts only positive signed-Long JSON numbers, rejecting string/fraction/overflow coercion. Conflict changes nothing; creation starts at 1 and exact-revision updates advance without reuse. Exhausted Long.MaxValue expectations fail without publication. Cancellation/lost acknowledgement does not establish that a write did not commit.

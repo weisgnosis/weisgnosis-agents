@@ -73,6 +73,38 @@ object WorkspaceLeaseSpec extends ZIOSpecDefault:
         names      <- children(root)
       yield assertTrue(pending.isEmpty, competitor.isLeft, exit.isInterrupted, done, names.isEmpty)
     },
+    test(
+      "failed admitted work preserves its failure and pending cancellation after ownership cleanup"
+    ) {
+      for
+        root    <- temporaryDirectory
+        entered <- Promise.make[Nothing, Unit]
+        release <- Promise.make[Nothing, Unit]
+        failure = AgentError.PlanStorageError("Admitted operation failed")
+        fiber <- ZIO
+          .scoped:
+            WorkspaceLease
+              .open(root, WorkspaceOwner.Plan)
+              .flatMap(
+                _.protect(entered.succeed(()) *> release.await *> ZIO.fail(failure))
+              )
+          .forkScoped
+        _          <- entered.await
+        interrupt  <- fiber.interrupt.forkScoped
+        _          <- TestClock.adjust(0.seconds)
+        pending    <- interrupt.poll
+        competitor <- ZIO.scoped(WorkspaceLease.open(root, WorkspaceOwner.Plan)).either
+        _          <- release.succeed(())
+        exit       <- interrupt.join
+        names      <- children(root)
+      yield assertTrue(
+        pending.isEmpty,
+        competitor.isLeft,
+        exit.isInterrupted,
+        exit.causeOption.exists(_.failures == Chunk(failure)),
+        names.isEmpty
+      )
+    },
     test("typed owners retain independent fixed ownership filenames") {
       for
         root <- temporaryDirectory

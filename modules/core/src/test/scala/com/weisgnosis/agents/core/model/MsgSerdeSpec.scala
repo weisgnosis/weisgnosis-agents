@@ -43,7 +43,7 @@ object MsgSerdeSpec extends ZIOSpecDefault:
           deserialized.exists(_.usage.contains(usage)),
           deserialized.exists(_.usage.exists(_.inputTokens == 100)),
           deserialized.exists(_.usage.exists(_.outputTokens == 50)),
-          deserialized.exists(_.usage.exists(_.totalTokens == 150))
+          deserialized.exists(_.usage.exists(_.totalTokens == Right(150)))
         )
       },
       test("cachedTokensRoundTripViaJson") {

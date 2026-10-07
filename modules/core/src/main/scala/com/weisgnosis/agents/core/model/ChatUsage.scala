@@ -15,6 +15,8 @@
  */
 package com.weisgnosis.agents.core.model
 
+import com.weisgnosis.agents.core.error.AgentError
+import zio.Chunk
 import zio.json.*
 
 /**
@@ -31,14 +33,51 @@ final case class ChatUsage(
     toolUsePromptTokens: Int = 0,
     time: Double = 0.0
 ) derives JsonCodec:
-  def totalTokens: Int = inputTokens + outputTokens
+  /** Existing wire counters are bounded Int values; invalid telemetry is never saturated. */
+  def validated: Either[AgentError.InvalidMessage, ChatUsage] =
+    val counters = Chunk(
+      inputTokens,
+      outputTokens,
+      cachedTokens,
+      cacheCreationTokens,
+      reasoningTokens,
+      toolUsePromptTokens
+    )
+    Either.cond(
+      counters.forall(_ >= 0) && inputTokens.toLong + outputTokens.toLong <= Int.MaxValue &&
+        time.isFinite && time >= 0.0,
+      this,
+      ChatUsage.invalid
+    )
 
-  def combine(other: ChatUsage): ChatUsage = ChatUsage(
-    inputTokens = inputTokens + other.inputTokens,
-    outputTokens = outputTokens + other.outputTokens,
-    cachedTokens = cachedTokens + other.cachedTokens,
-    cacheCreationTokens = cacheCreationTokens + other.cacheCreationTokens,
-    reasoningTokens = reasoningTokens + other.reasoningTokens,
-    toolUsePromptTokens = toolUsePromptTokens + other.toolUsePromptTokens,
-    time = time + other.time
-  )
+  def totalTokens: Either[AgentError.InvalidMessage, Int] =
+    validated.map(value => (value.inputTokens.toLong + value.outputTokens.toLong).toInt)
+
+  def combine(other: ChatUsage): Either[AgentError.InvalidMessage, ChatUsage] =
+    for
+      _          <- validated
+      _          <- other.validated
+      input      <- ChatUsage.add(inputTokens, other.inputTokens)
+      output     <- ChatUsage.add(outputTokens, other.outputTokens)
+      cached     <- ChatUsage.add(cachedTokens, other.cachedTokens)
+      creation   <- ChatUsage.add(cacheCreationTokens, other.cacheCreationTokens)
+      reasoning  <- ChatUsage.add(reasoningTokens, other.reasoningTokens)
+      toolPrompt <- ChatUsage.add(toolUsePromptTokens, other.toolUsePromptTokens)
+      combined <- ChatUsage(
+        input,
+        output,
+        cached,
+        creation,
+        reasoning,
+        toolPrompt,
+        time + other.time
+      ).validated
+    yield combined
+
+object ChatUsage:
+  private val invalid: AgentError.InvalidMessage =
+    AgentError.InvalidMessage("Invalid or unrepresentable model usage")
+
+  private def add(left: Int, right: Int): Either[AgentError.InvalidMessage, Int] =
+    val sum = left.toLong + right.toLong
+    Either.cond(sum <= Int.MaxValue, sum.toInt, invalid)

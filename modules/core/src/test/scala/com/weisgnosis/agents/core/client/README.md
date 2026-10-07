@@ -109,4 +109,6 @@ Real loopback client/server acquisition, use and release run with a live clock. 
 | --- | --- |
 | ChatCompletionsTransportSpec | Current identity: [retry acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries). |
 | ChatCompletionsClientSpec | Current identity: [cache-usage acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding). |
-| [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | [Current ChatCompletionsTransformSpec.scala identity](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+| [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | [Current checked-usage migration identity](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
+
+Existing transport/transform/reasoning usage assertions handle checked totalTokens/combine; serde fixtures preserve the unchanged wire fields. This caller migration belongs to the [checked usage scope](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic), with completed source/full/artifact verification and final combined documentation approval.

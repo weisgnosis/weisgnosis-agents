@@ -30,15 +30,17 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Custom-client turn trust boundary](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#model-turn-trust-boundary) validates assistant role/classification before runtime truth and persistence, with reproduced malformed-output regressions.
 
-Current increment: [unpublished audited public model call](../../modules/examples/README.md#audited-public-model-call). One suspended delegation observes context/timing/outcome after request cleanup; observer termination and private failover capability limits remain explicit.
+- [x] [Audited public model call](../../modules/examples/README.md#audited-public-model-call) demonstrates one delegated request and post-cleanup observation with explicit observer/failover limits.
 
-- [x] Both independent reviewers approved the two final source/spec identities against 15047a8.
-- [x] Focused verification passed two groups.
-- [x] Full verification passed 1,512 tests with zero compiler warnings/failures and four packages.
-- [x] Archive/source admission regressions and restored archive/POM staging passed.
-- [x] Fresh standalone selected-API consumption passed; the smoke does not exercise unpublished AuditedLlmClient.
-- [x] review_fp and review_invariants approved final combined documentation against 15047a8 and the two unchanged identities; manual English/diff checks and 78-document/2,857-local-reference checks pass with zero issues.
-- [ ] Assess remaining provider/remote middleware/release gaps separately; no general middleware facade or exhaustive parity is implied.
+Current increment: [checked usage arithmetic/runtime admission](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic) and [lease failure/cancellation preservation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#admitted-work-failure-and-cancellation), the two reproduced findings from a bounded ten-file sample; this is not an exhaustive audit.
+
+- [x] Reproduce usage overflow/invalid-first-turn acceptance and pending lease cancellation loss against unchanged implementations.
+- [x] review_fp/review_invariants approved core/consumer corrections and migrations; docs_closure independently approved lease FP/ZIO and review_invariants approved the same lease pair. Exact identities are in canonical contracts.
+- [x] Final full verification passed 1,514 tests with zero compiler warnings/failures and four packages; focused evidence and exact identities are canonical.
+- [x] Source/archive admission and restored archive/POM staging passed.
+- [x] source-sample-fixes-consumer.log passed standalone formatting, clean compilation and forked execution against four fresh module hashes, exercising checked usage validation/combination/total and overflow rejection.
+- [x] review_fp and review_invariants approved final combined documentation against c198f98 and the unchanged reviewed identities; docs_closure independently approved lease FP/ZIO. Manual English/script/diff checks and 78-document/2,895-local-reference checks pass with zero issues.
+- [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
 

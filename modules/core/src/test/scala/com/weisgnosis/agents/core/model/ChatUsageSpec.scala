@@ -22,8 +22,15 @@ object ChatUsageSpec extends ZIOSpecDefault:
     test("usage combines every metric across model turns") {
       val first = ChatUsage(1, 2, 3, 4, 5, 6, 0.25)
       assertTrue(
-        first.combine(first) == ChatUsage(2, 4, 6, 8, 10, 12, 0.5),
-        first.combine(ChatUsage()) == first
+        first.combine(first) == Right(ChatUsage(2, 4, 6, 8, 10, 12, 0.5)),
+        first.combine(ChatUsage()) == Right(first),
+        ChatUsage(inputTokens = Int.MaxValue).totalTokens == Right(Int.MaxValue),
+        ChatUsage(inputTokens = Int.MaxValue).combine(ChatUsage()) == Right(
+          ChatUsage(inputTokens = Int.MaxValue)
+        ),
+        ChatUsage(inputTokens = Int.MaxValue, outputTokens = 1).totalTokens.isLeft,
+        first.combine(ChatUsage(cachedTokens = -1)).isLeft,
+        ChatUsage(time = Double.MaxValue).combine(ChatUsage(time = Double.MaxValue)).isLeft
       )
     }
   )

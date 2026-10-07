@@ -62,7 +62,18 @@ object ReActAgentSpec extends ZIOSpecDefault:
           TurnOutput.ThinkingOnly(Msg.assistant("")),
           TurnOutput.ThinkingOnly(Msg.assistant(Chunk(call, ContentBlock.Thinking("reasoning")))),
           TurnOutput.Interrupted(Msg.user("forged interruption"))
-        )
+        ) ++ Chunk(
+          ChatUsage(inputTokens = -1),
+          ChatUsage(outputTokens = -1),
+          ChatUsage(cachedTokens = -1),
+          ChatUsage(cacheCreationTokens = -1),
+          ChatUsage(reasoningTokens = -1),
+          ChatUsage(toolUsePromptTokens = -1),
+          ChatUsage(inputTokens = Int.MaxValue, outputTokens = 1),
+          ChatUsage(time = -1.0),
+          ChatUsage(time = Double.NaN),
+          ChatUsage(time = Double.PositiveInfinity)
+        ).map(usage => TurnOutput.FinalText(Msg.assistant("invalid usage").withUsage(usage)))
         for
           rejected <- ZIO.foreach(malformed): output =>
             for
@@ -108,13 +119,67 @@ object ReActAgentSpec extends ZIOSpecDefault:
               hooks == 0,
               tools == 0
             )
-          accepted <- ZIO.foreach(Chunk("", "visible")): text =>
+          accepted <- ZIO.foreach(
+            Chunk(
+              Msg.assistant(""),
+              Msg.assistant("visible"),
+              Msg.assistant("boundary").withUsage(ChatUsage(inputTokens = Int.MaxValue)),
+              Msg
+                .assistant("boundary")
+                .withUsage(ChatUsage(cachedTokens = Int.MaxValue, time = Double.MaxValue))
+            )
+          ): message =>
             for
-              client <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant(text))))
+              client <- LlmClient.mock(Chunk(TurnOutput.FinalText(message)))
               agent  <- ReActAgent.builder().model(client).build
               result <- agent.run(Msg.user("start"))
-            yield assertTrue(result.reply.text == text)
+            yield assertTrue(result.reply.text == message.text, result.usage == message.usage)
         yield (rejected ++ accepted).foldLeft(assertTrue(true))(_ && _)
+      },
+      test("accumulated usage is checked before the next completion becomes runtime truth") {
+        val pairs = Chunk(
+          ChatUsage(inputTokens = Int.MaxValue)         -> ChatUsage(inputTokens = 1),
+          ChatUsage(outputTokens = Int.MaxValue)        -> ChatUsage(outputTokens = 1),
+          ChatUsage(cachedTokens = Int.MaxValue)        -> ChatUsage(cachedTokens = 1),
+          ChatUsage(cacheCreationTokens = Int.MaxValue) -> ChatUsage(cacheCreationTokens = 1),
+          ChatUsage(reasoningTokens = Int.MaxValue)     -> ChatUsage(reasoningTokens = 1),
+          ChatUsage(toolUsePromptTokens = Int.MaxValue) -> ChatUsage(toolUsePromptTokens = 1),
+          ChatUsage(inputTokens = Int.MaxValue)         -> ChatUsage(outputTokens = 1),
+          ChatUsage(time = Double.MaxValue)             -> ChatUsage(time = Double.MaxValue)
+        )
+        ZIO
+          .foreach(pairs): (firstUsage, secondUsage) =>
+            for
+              hooks    <- Ref.make(0)
+              observed <- Ref.make(Chunk.empty[AgentEvent])
+              first = Msg.assistant(Chunk(ContentBlock.Thinking("reasoning"))).withUsage(firstUsage)
+              second = Msg.assistant("must not persist").withUsage(secondUsage)
+              model <- LlmClient.mock(
+                Chunk(TurnOutput.ThinkingOnly(first), TurnOutput.FinalText(second))
+              )
+              agent <- ReActAgent
+                .builder()
+                .model(model)
+                .maxIters(2)
+                .postReasoningHook(
+                  PostReasoningHook((_, _) => hooks.update(_ + 1).as(ReasoningDecision.Keep))
+                )
+                .build
+              outcome <- agent
+                .streamEvents(Msg.user("start"))
+                .tap(event => observed.update(_ :+ event))
+                .runDrain
+                .either
+              history   <- agent.history
+              events    <- observed.get
+              hookCount <- hooks.get
+            yield assertTrue(
+              outcome.left.exists(_.isInstanceOf[AgentError.ModelError]),
+              !history.exists(_.text == second.text),
+              hookCount == 1,
+              events.count(_.isInstanceOf[AgentEvent.ModelResponseEndEvent]) == 1
+            )
+          .map(_.foldLeft(assertTrue(true))(_ && _))
       },
       test("Should initialize ReActAgent with correct properties") {
         for

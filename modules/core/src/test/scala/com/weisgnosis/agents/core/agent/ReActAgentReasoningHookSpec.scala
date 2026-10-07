@@ -130,7 +130,7 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
         result._2 == 7,
         calls == 2,
         result._1.iterationCount == 2,
-        result._1.usage.contains(firstUsage.combine(lastUsage)),
+        result._1.usage.exists(actual => firstUsage.combine(lastUsage) == Right(actual)),
         result._1.reply.usage.contains(lastUsage),
         result._1.history.flatMap(_.toolUses).isEmpty,
         result._1.history.flatMap(_.toolResults).isEmpty,
@@ -177,7 +177,7 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
         atDispatch <- observed.get
       yield assertTrue(
         result.reply.text == "done",
-        result.usage.contains(firstUsage.combine(lastUsage)),
+        result.usage.exists(actual => firstUsage.combine(lastUsage) == Right(actual)),
         atDispatch.exists { case (released, history) =>
           released && history.lastOption.exists(_.toolUses == Chunk(lookup))
         },
@@ -207,7 +207,7 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
         result.iterationCount == 2,
         result.reply.generateReason.contains("max_iterations"),
         result.history.flatMap(_.toolUses).isEmpty,
-        result.usage.contains(firstUsage.combine(firstUsage))
+        result.usage.exists(actual => firstUsage.combine(firstUsage) == Right(actual))
       )
     },
     test("discard preserves the consumed thinking retry budget") {
@@ -410,7 +410,7 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
       yield assertTrue(
         result._2 == 7,
         count == 3,
-        result._1.usage.contains(firstUsage.combine(lastUsage)),
+        result._1.usage.exists(actual => firstUsage.combine(lastUsage) == Right(actual)),
         result._1.reply.usage.contains(lastUsage),
         result._1.history.flatMap(_.toolResults).map(_.id) == Chunk("lookup-call")
       )
@@ -463,8 +463,8 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
         agent  <- ReActAgent.make(client = client)
         events <- agent.streamEvents(Msg.user("q")).runCollect
       yield assertTrue(events.collect { case event: AgentEvent.ModelResponseEndEvent =>
-        (event.completionTokens, event.totalTokens)
-      } == Chunk((firstUsage.outputTokens, firstUsage.totalTokens)))
+        (event.completionTokens, Some(event.totalTokens))
+      } == Chunk((firstUsage.outputTokens, firstUsage.totalTokens.toOption)))
     },
     test("replacing model tools with final text prevents their execution and dangling history") {
       for

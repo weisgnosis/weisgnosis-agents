@@ -344,7 +344,7 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
       for output <- run(streamResponse(bytes(payload).rechunk(1)))
       yield assertTrue(
         output.message.text == "caf\u00e9",
-        output.message.usage.exists(_.totalTokens == 5)
+        output.message.usage.exists(_.totalTokens == Right(5))
       )
     ,
     test("assembles interleaved parallel calls before exposing executable output"):

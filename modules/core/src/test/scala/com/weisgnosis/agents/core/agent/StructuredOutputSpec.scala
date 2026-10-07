@@ -215,7 +215,7 @@ object StructuredOutputSpec extends ZIOSpecDefault:
           result._1.history.lastOption.contains(result._1.reply),
           result._1.history.flatMap(_.toolUses).map(_.id) == Chunk("ordinary"),
           result._1.history.flatMap(_.toolResults).map(_.id) == Chunk("ordinary"),
-          result._1.usage.exists(_.totalTokens == 7)
+          result._1.usage.exists(_.totalTokens == Right(7))
         )
       },
       test("testStructuredOutputWithoutNewMessages preserves existing and empty user messages") {
@@ -300,7 +300,7 @@ object StructuredOutputSpec extends ZIOSpecDefault:
             StructuredMode.SyntheticTool
           )
         yield assertTrue(
-          result._1.usage.contains(firstUsage.combine(finalUsage)),
+          result._1.usage.exists(actual => firstUsage.combine(finalUsage) == Right(actual)),
           result._1.reply.usage.contains(finalUsage),
           result._1.history.flatMap(_.usage) == Chunk(firstUsage, finalUsage),
           result._1.history.flatMap(_.toolUses).map(_.id) == Chunk("first", "second"),

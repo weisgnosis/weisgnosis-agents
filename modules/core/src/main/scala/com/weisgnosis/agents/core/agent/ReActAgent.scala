@@ -1459,12 +1459,22 @@ final class ReActAgent private (
           target.client.attemptTurn(view, tools, projectedConfig, eventHub, context)
         )
         output <- ZIO.fromEither(validateModelOutput(received))
-        _ <- usageRef
-          .update(current =>
-            output.message.chatUsage.fold(current)(usage =>
-              Some(current.fold(usage)(_.combine(usage)))
-            )
+        total <- ZIO
+          .fromEither(
+            output.message.chatUsage
+              .fold[Either[AgentError.InvalidMessage, Int]](Right(0))(_.totalTokens)
           )
+          .mapError(_ => AgentError.ModelError(0, "Invalid or unrepresentable model usage"))
+        _ <- usageRef
+          .modify: current =>
+            val next = output.message.chatUsage match
+              case None        => Right(current)
+              case Some(usage) => current.fold(usage.validated)(_.combine(usage)).map(Some(_))
+            next match
+              case Left(error)  => (Left(error), current)
+              case Right(value) => (Right(()), value)
+          .flatMap(result => ZIO.fromEither(result))
+          .mapError(_ => AgentError.ModelError(0, "Invalid or unrepresentable model usage"))
           .uninterruptible
         _ <- output match
           case _: TurnOutput.Interrupted => ZIO.unit
@@ -1474,7 +1484,7 @@ final class ReActAgent private (
                 AgentEvent.ModelResponseEndEvent(
                   target.config.model,
                   output.message.chatUsage.fold(0)(_.outputTokens),
-                  output.message.chatUsage.fold(0)(_.totalTokens),
+                  total,
                   context = Some(context)
                 )
               )

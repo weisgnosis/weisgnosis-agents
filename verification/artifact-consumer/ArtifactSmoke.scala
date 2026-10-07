@@ -29,7 +29,7 @@ import com.weisgnosis.agents.core.client.{
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, FinalAnswerFilter, ModelStreamContext}
 import com.weisgnosis.agents.core.json.ExactJson
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
+import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg}
 import com.weisgnosis.agents.core.tool.{
   Tool,
   ToolAuthorization,
@@ -172,7 +172,13 @@ object ArtifactSmoke extends ZIOAppDefault:
         _        <- verifyJar("storage-postgresql", PostgresVersionedJsonStore.getClass, manifest)
         storageAddress  <- ZIO.fromEither(StorageAddress.from(Chunk("consumer", "state"), "key"))
         storageRevision <- ZIO.fromEither(StorageRevision.fromLong(1L))
-        encoded         <- ZIO.fromEither(ExactJson.encode(Json.Num(Long.MinValue)))
+        usage <- ZIO.fromEither(
+          ChatUsage(inputTokens = 1, outputTokens = 2)
+            .combine(ChatUsage(inputTokens = 3, outputTokens = 4))
+        )
+        total   <- ZIO.fromEither(usage.totalTokens)
+        checked <- ZIO.fromEither(usage.validated)
+        encoded <- ZIO.fromEither(ExactJson.encode(Json.Num(Long.MinValue)))
         event = AgentEvent.ToolResultStartEvent(
           "call",
           "sum",
@@ -265,7 +271,8 @@ object ArtifactSmoke extends ZIOAppDefault:
           .unless(
             encoded == "-9223372036854775808" && decoded == event &&
               storageAddress.toJson.fromJson[StorageAddress] == Right(storageAddress) &&
-              storageRevision.value == 1L &&
+              storageRevision.value == 1L && total == 10 && checked == usage &&
+              ChatUsage(inputTokens = Int.MaxValue).combine(ChatUsage(inputTokens = 1)).isLeft &&
               configured.toJson.fromJson[LlmConfig] == Right(configured) &&
               CompletionEnvelopeProfile.DeltasWithFullMessageSummary.toJson
                 .fromJson[CompletionEnvelopeProfile] == Right(

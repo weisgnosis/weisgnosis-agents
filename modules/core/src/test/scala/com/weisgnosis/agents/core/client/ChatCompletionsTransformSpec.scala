@@ -174,7 +174,7 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
         released.lastOption.contains(true),
         history.lastOption.exists(message =>
           message.text == "ANSWER" && message.thinking == "reason" && message.usage.exists(
-            _.totalTokens == 30
+            _.totalTokens == Right(30)
           )
         ),
         events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent => event.delta } == Chunk(

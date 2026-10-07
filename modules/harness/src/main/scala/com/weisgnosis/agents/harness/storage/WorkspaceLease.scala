@@ -41,13 +41,16 @@ final private[harness] class WorkspaceLease private (
       gate.withPermit:
         ZIO.uninterruptible:
           for
-            state <- lifetime.get
-            _ <- ZIO
-              .fail(owner.failure("Workspace storage store scope is closed"))
-              .when(state == WorkspaceLease.Lifetime.Closed)
-            _      <- verify
-            result <- operation
-            _      <- ZIO.allowInterrupt.when(status.isInterruptible)
+            outcome <- (for
+              state <- lifetime.get
+              _ <- ZIO
+                .fail(owner.failure("Workspace storage store scope is closed"))
+                .when(state == WorkspaceLease.Lifetime.Closed)
+              _     <- verify
+              value <- operation
+            yield value).exit
+            cancellation <- ZIO.allowInterrupt.when(status.isInterruptible).exit
+            result       <- outcome.zipWith(cancellation)((value, _) => value, _ ++ _)
           yield result
 
   private def verify: IO[AgentError, Unit] =

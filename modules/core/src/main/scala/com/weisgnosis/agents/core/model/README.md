@@ -2,6 +2,37 @@
 
 Pure domain values and codecs model messages, content, roles, media sources, usage, and protocol states. Constructors and decoders never allocate randomness, inspect time, or perform I/O. ReAct interruption reconciliation emits Error observations for unfinished local calls.
 
+## Checked usage arithmetic
+
+ChatUsage.validated checks all six counters are nonnegative, input plus output fits the existing Int total, and time is finite/nonnegative. totalTokens now returns Either[AgentError.InvalidMessage, Int]; combine now returns Either[AgentError.InvalidMessage, ChatUsage]. Both operands and the result are validated, with widened counter arithmetic, checked per-field bounds and checked aggregate input/output total. Invalid telemetry is rejected without saturation. Constructors/derived codecs and wire fields remain unchanged; raw decoded values still require checked use.
+
+Migration is a source/JVM change: callers must handle typed failure instead of assuming totalTokens/combine return a value, and rebuild dependent binaries. Runtime usage accumulation validates the first observation and each combination atomically; failure retains previously accepted usage. Sanitized ModelError code zero stops before model-end publication, post-reasoning hooks or assistant persistence, without retry/fallback. Missing usage remains permitted. Event token fields remain Int.
+
+checked-usage-red.log reproduces cross-turn overflow acceptance and invalid-usage-red.log reproduces invalid first-turn telemetry against unchanged ChatUsage blob 90aaea1c5674391b69d05a25b64a6953c8e6813c and ReActAgent blob 84381d3e39c853be0e8a47ebd0a08694a4b39354. The current identities are below; final source approval and full verification are complete. checked-usage-final-focused.log passes 52 tests in 734 milliseconds but predates the final AgentRunUpdate presence assertion; the final full run below covers that identity. The bounded ten-file source sample found this and the separate WorkspaceLease cancellation defect; it is not an exhaustive quality audit or new Java method parity claim.
+
+| Source/spec approved by review_fp and review_invariants against c198f98 | Git blob |
+| --- | --- |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | fe27ee3f4e8a5ea3a01a8b043441ef39b04286ca |
+| [ChatUsage.scala](ChatUsage.scala) | b18a1476dd7e2c6d4522cf89f6483f153d592caa |
+| [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 5f52c4fe7acd454475928f20ab7634dcc28157e2 |
+| [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | 924725a21a867e314580535955a6af1bf591ec2b |
+| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | 01e27e38c791e3cc62f3a86c6366573236b1edea |
+| [ReActAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala) | 462d23a1bcbb7ab038c007924862e4273e69327c |
+| [StructuredOutputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputSpec.scala) | 79574ad1cfbfcf0fcf82a94e1f84350775caf83a |
+| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | b6679fa965afb24a765d0a335c159496fbfeaf23 |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | ed71c19ef0d99188fd4170be15de0d0c77f9b272 |
+| [ReasoningAdapterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterSpec.scala) | b59c6cb2e24f7b7e51f642abe05c685149a3ab4b |
+| [ChatUsageSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ChatUsageSpec.scala) | 591edd070fc3fb8250825d9889d5e9dd600baee8 |
+| [MsgSerdeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/MsgSerdeSpec.scala) | 7e166ab6899335e456a0a76d58f6c95cc2421d3e |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | dd874a88151159bade84be7b4386d8be68aa0d9e |
+
+- [x] Reproduce unchecked usage admission before changing arithmetic/runtime behavior.
+- [x] review_fp approved all twelve core identities plus the external consumer; review_invariants approved all fifteen Scala identities including the separate lease pair. The sorted thirteen-file core/consumer blob-path manifest SHA-256 is fa1c60d59c1f3bd2b1e19ba42d2170ece503772402182959fe62d04843152e4b.
+- [x] source-sample-fixes-verify.log exited zero: 1,514 tests (671 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures and four packages, including the final AgentRunUpdate presence oracle.
+- [x] source-sample-fixes-preparation.log passed source/archive admission regressions and restored archive/POM staging.
+- [x] source-sample-fixes-consumer.log passed standalone formatting, clean compilation and forked execution against four fresh module hashes, exercising checked usage validation/combination/total and overflow rejection.
+- [x] review_fp and review_invariants approved final combined documentation against c198f98 and the unchanged reviewed identities; docs_closure independently approved lease FP/ZIO. Manual English/script/diff checks and 78-document/2,895-local-reference checks pass with zero issues.
+
 ## Implementation
 
 - [ChatUsage](ChatUsage.scala)
@@ -72,7 +103,7 @@ Current main-source identities are listed below; the review scopes above disting
 
 | Current source | Git blob |
 | --- | --- |
-| [ChatUsage.scala](ChatUsage.scala) | 90aaea1c5674391b69d05a25b64a6953c8e6813c |
+| [ChatUsage.scala](ChatUsage.scala) | Current approved arithmetic identity in [checked usage](#checked-usage-arithmetic). |
 | [ContentBlock.scala](ContentBlock.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [GenerateReason.scala](GenerateReason.scala) | e4e6dd03a73941b19557f413be343fa4643dcf33 |
 | [JsonFields.scala](JsonFields.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
