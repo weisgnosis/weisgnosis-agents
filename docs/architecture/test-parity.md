@@ -1327,3 +1327,12 @@ Pinned SessionTranscriptWriter.java documents sessions.json updates at line 84 a
 - [x] Obtain final source/full/artifact verification for the three reviewed identities.
 - [x] review_fp and review_invariants approved final combined documentation for the three unchanged catalog/shared-helper/spec identities.
 - [ ] Define removal/pruning/migration and any broader discovery or automatic writer integration separately.
+
+## Registered transcript example composition
+
+The unpublished [HostAssembly registered selection](../../modules/examples/README.md#registered-transcript-assembly) composes existing catalog/aggregate/segment capabilities before MCP acquisition. Its actual-ReAct table uses Ref-backed conditional storage for both layouts; it does not establish PostgreSQL or provider interoperability. This is a Scala host-composition contract, not newly completed Java method parity. Upstream type=signature DTOs remain unsupported under the explicit selected reasoning/signature profile difference; this scope adds no signature shapes.
+
+- [x] Both source reviewers approved the two example identities; full verification and archive preparation passed.
+- [x] Complete fresh selected-API consumer verification; the smoke does not select Registered.
+- [x] review_fp and review_invariants approved final combined documentation for the unchanged two registered example identities against 1f4581b.
+- [ ] Assess remaining provider reasoning/signature method gaps independently.

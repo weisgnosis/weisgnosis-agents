@@ -37,7 +37,7 @@ Toolkit host construction uses a [private canonical registry and checked map mig
 
 ## Host integration
 
-The nonpublished [examples project](modules/examples/README.md) verifies scoped core/harness/MCP assembly using the existing builder and explicit host dependencies. It also supplies a bounded, explicitly enabled live-provider smoke program and payload-free lifecycle logging through existing ZIO APIs. Hosts configure logging/export and independent log privacy; default verification makes no external provider requests.
+The nonpublished [examples project](modules/examples/README.md) verifies scoped core/harness/MCP assembly using the existing builder and explicit host dependencies. Its [explicit registered transcript binding](modules/examples/README.md#registered-transcript-assembly) has final source/full/artifact verification and combined documentation approval, with known catalog selection before MCP and no inferred execution authority. It also supplies a bounded, explicitly enabled live-provider smoke program and payload-free lifecycle logging through existing ZIO APIs. Hosts configure logging/export and independent log privacy; default verification makes no external provider requests.
 
 ## Minimal local example
 

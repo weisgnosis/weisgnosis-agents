@@ -1,6 +1,6 @@
 # Example integration checks
 
-HostAssemblySpec contains two independent integration groups: selected MCP execution with authorization/history preparation/eviction/retrieval/transcript composition, and failed or cancelled assembly with joined cleanup while the caller scope remains open. The MCP peer is a deterministic in-process protocol fixture; it does not contact a provider or execute processes.
+HostAssemblySpec contains three independent integration groups, including registered aggregate/segmented selection in an actual ReAct table with Ref-backed conditional storage (not PostgreSQL evidence). Existing integration groups cover selected MCP execution with authorization/history preparation/eviction/retrieval/transcript composition, and failed or cancelled catalog/MCP assembly with joined cleanup while the caller scope remains open. The [registered scope](../../../../../../../README.md#registered-transcript-assembly) has final source/full/artifact verification and combined documentation approval. The MCP peer is a deterministic in-process protocol fixture; it does not contact a provider or execute processes.
 
 LiveProviderSmokeSpec verifies the disabled runnable path and explicit configuration using TestSystem; it never enables external requests.
 

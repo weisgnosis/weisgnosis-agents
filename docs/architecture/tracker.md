@@ -20,16 +20,21 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Explicit transcript catalog](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#explicit-transcript-session-catalog) registers checked descriptors at one known host address; global discovery and automatic writer installation remain separate.
 
-Current increment: [checked unsigned candidate preparation](../../verification/artifact-consumer/README.md#candidate-preparation-acceptance), including explicit RC coordinates, exact source admission and a manual success-only artifact workflow. It supplies no tag, signing, publication, remote execution proof or frozen ABI.
+- [x] [Checked unsigned candidate preparation](../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) verifies explicit RC coordinates, exact source archive admission and actual selected-version consumer hashes. Remote workflows, tags/signing/publication and frozen ABI remain unverified.
+- [x] Assess [remote retention/ownership limits](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#remote-retention-and-ownership-boundary) against 1f4581b with independent invariant evidence: current ports cannot safely reclaim physical objects.
+- [ ] Define all-reader/writer fencing or quiescence, namespace generation/tombstone ABA protection, enumeration/deletion and uncertain-delete recovery before physical remote pruning.
 
-- [x] review_fp and review_invariants approved the seven final source/config identities against 529aa4c.
-- [x] Reproduce source-archive and selector admission defects and verify corrected rejection/manifest invalidation; canonical preparation evidence records the RED/GREEN assertions.
-- [x] Selected-RC full verification passed 1,507 tests with zero compiler warnings/failures and four packages.
-- [x] Actual RC archive admission and restored package staging passed.
-- [x] Actual RC1 and default SNAPSHOT standalone consumer checks passed; an independent selected-version mismatch is rejected, with manifest bytes restored.
-- [x] review_fp and review_invariants approved final combined documentation against 529aa4c and the seven unchanged identities; English/script/diff checks and 78-document/2,813-local-reference checks pass with zero issues.
-- [ ] Validate remote workflow, public-provider and publication/release-baseline requirements separately.
-- [ ] Next task: assess remaining remote retention/ownership contracts, then selected provider reasoning/signature method gaps; no distributed workflow is added to the library.
+Current increment: [explicit registered transcript assembly](../../modules/examples/README.md#registered-transcript-assembly) in the unpublished example. Selection occurs before MCP; catalog membership grants no authorization, lease or history validity.
+
+- [x] Obtain final FP/ZIO source approval for the two identities.
+- [x] Obtain final invariant source approval for the same two identities.
+- [x] Focused verification passed three existing/new assembly groups.
+- [x] Full verification passed 1,508 tests with zero compiler warnings/failures and four packages.
+- [x] Archive/source admission regressions and restored archive/POM preparation passed.
+- [x] Fresh standalone selected-API consumption passed; the smoke does not select Registered.
+- [x] review_fp and review_invariants approved final combined documentation against 1f4581b and the two unchanged identities; English/script/diff checks and 78-document/2,827-local-reference checks pass with zero issues.
+- [ ] Next task: verify remaining remote memory middleware throttle/isolation combinations through a proportional shared real-PostgreSQL gate/repository fixture; broader scheduling/distributed guarantees remain separate.
+- [ ] Assess selected provider reasoning/signature gaps separately; no signature shape expansion or whole-method parity closure is claimed here.
 
 ## Current acceptance
 
@@ -214,9 +219,9 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] review_fp and review_invariants approved final alias documentation/English/link closure against 3bc1c6a and the three unchanged identities; the pinned parser text391/summary421/mixed451 bounded mappings are accepted.
 The accepted [versioned gate](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-memory-trigger-gate) maps selected pinned PeriodicGateTest adaptations (66/76), without closing broader remote coordination or middleware mappings.
 
-The current bounded segment implementation follows independently reviewed design; its final source/build/documentation gates are above. Remote session indexes/discovery, reclamation, compaction/pruning/deletion and migration remain separate unfinished work.
+The current bounded segment implementation follows independently reviewed design; its final source/build/documentation gates are above. The explicit known-address catalog is accepted; broader/global discovery, automatic writer installation, physical reclamation, compaction/pruning/deletion and migration remain separate unfinished work.
 
-Versioned remote memory has final source approval, full real-database verification and fresh packaged-consumer checks, and final documentation approval. The segmented transcript adapter has final source/full/artifact verification and combined documentation approval above. Transcript discovery/pruning/layout migration, checkpoint runtime/host installation, segmented memory layouts and migration remain unfinished. Local ports and bounded local discovery do not establish those remote ownership/recovery contracts.
+Versioned remote memory has final source approval, full real-database verification and fresh packaged-consumer checks, and final documentation approval. The segmented transcript adapter has final source/full/artifact verification and combined documentation approval above. Broader/global transcript discovery, automatic writer installation, remote pruning/layout migration, checkpoint runtime/host installation, segmented memory layouts and migration remain unfinished. Local ports and bounded local discovery do not establish those remote ownership/recovery contracts.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.
 - [x] Implement and independently review scoped HTTP POST and explicit GET requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [x] Both independent reviews approved direct host replacement after real SDK session expiry and same-send POST-body recovery after real Netty truncation. Exact identities, verification and bounded exclusions are in the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#independent-server-interoperability); cursor-based listener replay and remote-work cancellation interoperability remain separate.

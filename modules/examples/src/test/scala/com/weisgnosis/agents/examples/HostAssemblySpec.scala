@@ -23,6 +23,7 @@ import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.harness.eviction.{EvictionConfig, StoredToolResult, ToolResultStore}
 import com.weisgnosis.agents.harness.memory.CompactorConfig
 import com.weisgnosis.agents.harness.transcript.*
+import com.weisgnosis.agents.harness.storage.*
 import com.weisgnosis.agents.mcp.client.McpClient
 import com.weisgnosis.agents.mcp.protocol.*
 import com.weisgnosis.agents.mcp.transport.McpTransport
@@ -34,6 +35,9 @@ import zio.test.*
 object HostAssemblySpec extends ZIOSpecDefault:
   private enum StopCase:
     case Failure, Cancellation
+
+  private enum AssemblyStage:
+    case Catalog, Mcp
 
   private val schema: Json.Obj = Json.Obj("type" -> Json.Str("object"))
   private val settings: HostAssembly.Settings = HostAssembly.Settings(
@@ -112,7 +116,155 @@ object HostAssemblySpec extends ZIOSpecDefault:
         state.update(_.updated(key, StoredToolResult(content, path))).as(path)
       def resolve(key: String): IO[AgentError, Option[StoredToolResult]] = state.get.map(_.get(key))
 
+  private def jsonStore: UIO[VersionedJsonStore] =
+    Ref
+      .make(Map.empty[StorageAddress, VersionedJson])
+      .map: state =>
+        new VersionedJsonStore:
+          def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+            state.get.map(_.get(address))
+          def compareAndSet(
+              address: StorageAddress,
+              expected: ExpectedRevision,
+              value: Json
+          ): IO[AgentError, ConditionalWrite] =
+            state
+              .modify: current =>
+                val existing = current.get(address)
+                val matches = expected match
+                  case ExpectedRevision.Absent => existing.isEmpty
+                  case ExpectedRevision.AtRevision(revision) =>
+                    existing.exists(_.revision == revision)
+                if !matches then (Right(ConditionalWrite.Conflict), current)
+                else
+                  StorageRevision.fromLong(existing.fold(1L)(_.revision.value + 1L)) match
+                    case Left(error) => (Left(error), current)
+                    case Right(revision) =>
+                      (
+                        Right(ConditionalWrite.Applied(revision)),
+                        current.updated(address, VersionedJson(value, revision))
+                      )
+              .flatMap(ZIO.fromEither(_))
+
   def spec: Spec[TestEnvironment, Any] = suite("HostAssemblySpec")(
+    test(
+      "registered layouts record completed turns without granting registration or execution authority"
+    ) {
+      ZIO
+        .foreach(Chunk(TranscriptLayout.Aggregate, TranscriptLayout.Segmented)): layout =>
+          ZIO.scoped:
+            for
+              backend    <- jsonStore
+              location   <- ZIO.fromEither(StorageAddress.from(Chunk("example"), "transcript"))
+              index      <- ZIO.fromEither(StorageAddress.from(Chunk("example"), "catalog"))
+              id         <- ZIO.fromEither(TranscriptTargetId.fromString("session"))
+              descriptor <- ZIO.fromEither(TranscriptSession.make(id, location, layout))
+              catalog    <- ZIO.fromEither(VersionedTranscriptSessionCatalog.make(backend, index))
+              stored     <- Ref.make(Map.empty[String, StoredToolResult])
+              calls      <- Ref.make(0)
+              model = new LlmClient:
+                def streamTurn(
+                    history: Chunk[Msg],
+                    tools: Chunk[ToolDef],
+                    config: LlmConfig,
+                    eventHub: Hub[AgentEvent],
+                    context: ModelStreamContext
+                ): ZIO[Scope, AgentError, TurnOutput] =
+                  calls
+                    .update(_ + 1)
+                    .as(
+                      TurnOutput.FinalText(
+                        Msg.assistant(Chunk(ContentBlock.Text("recorded")), id = Some("answer"))
+                      )
+                    )
+              selection = HostAssembly.TranscriptSource
+                .Registered(backend, catalog, id, TranscriptSegmentLimits.default)
+              dependencies = HostAssembly.Dependencies(
+                model,
+                ToolAuthorizer.allow,
+                resultStore(stored),
+                selection,
+                _ => ZIO.succeed("unused"),
+                Toolkit.empty
+              )
+              acquisitions <- Ref.make(0)
+              attempted = Chunk(
+                registration(acquisitions.update(_ + 1) *> peer("unused", ZIO.unit))
+              )
+              missing <- HostAssembly.open(settings, dependencies, attempted).either
+              duplicateCatalog = new TranscriptSessionCatalog:
+                def sessions: IO[AgentError, Chunk[TranscriptSession]] =
+                  ZIO.succeed(Chunk(descriptor, descriptor))
+                def register(session: TranscriptSession): IO[AgentError, TranscriptRegistration] =
+                  ZIO.fail(AgentError.StorageError("Unexpected registration"))
+              duplicate <- HostAssembly
+                .open(
+                  settings,
+                  dependencies.copy(
+                    transcript = HostAssembly.TranscriptSource
+                      .Registered(backend, duplicateCatalog, id, TranscriptSegmentLimits.default)
+                  ),
+                  attempted
+                )
+                .either
+              acquired      <- acquisitions.get
+              empty         <- catalog.sessions
+              _             <- catalog.register(descriptor)
+              bindingBefore <- backend.read(index)
+              assembly      <- HostAssembly.open(settings, dependencies, Chunk.empty)
+              result <- assembly.agent
+                .run(Chunk(Msg.user(Chunk(ContentBlock.Text("start")), id = Some("input"))))
+              reopenedCatalog <- ZIO.fromEither(
+                VersionedTranscriptSessionCatalog.make(backend, index)
+              )
+              reopened <- HostAssembly.TranscriptSource
+                .Registered(backend, reopenedCatalog, id, TranscriptSegmentLimits.default)
+                .resolve
+              entries      <- reopened.entries
+              bindingAfter <- backend.read(index)
+              record       <- backend.read(location)
+              _ <- ZIO.foreachDiscard(record)(value =>
+                backend.compareAndSet(
+                  location,
+                  ExpectedRevision.AtRevision(value.revision),
+                  Json.Obj("schemaVersion" -> Json.Num(999))
+                )
+              )
+              corrupted <- HostAssembly
+                .open(settings, dependencies, Chunk.empty)
+                .flatMap(
+                  _.agent.run(Chunk(Msg.user(Chunk(ContentBlock.Text("next")), id = Some("next"))))
+                )
+                .exit
+              invoked <- calls.get
+            yield assertTrue(
+              missing.left.exists(_.isInstanceOf[AgentError.InvalidConfiguration]),
+              duplicate.left.exists(_.isInstanceOf[AgentError.InvalidConfiguration]),
+              acquired == 0,
+              empty.isEmpty,
+              bindingBefore == bindingAfter,
+              result.reply.text == "recorded",
+              entries.map(_.payload) == Chunk(
+                TranscriptPayload.Message(
+                  com.weisgnosis.agents.core.model.Role.User,
+                  "start",
+                  Chunk(TranscriptBlockType.Text)
+                ),
+                TranscriptPayload.Message(
+                  com.weisgnosis.agents.core.model.Role.Assistant,
+                  "recorded",
+                  Chunk(TranscriptBlockType.Text)
+                )
+              ),
+              entries.lastOption.flatMap(_.parentId) == entries.headOption.map(_.id),
+              record.nonEmpty,
+              corrupted.causeOption.exists(
+                _.failureOption.exists(_.isInstanceOf[AgentError.CompletionObservationError])
+              ),
+              invoked == 2
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
     test(
       "selected MCP tools use host authority, prepared history, retrievable eviction and transcript hooks"
     ) {
@@ -164,7 +316,7 @@ object HostAssemblySpec extends ZIOSpecDefault:
                 .as(ToolAuthorization.Approved(request.call.input))
             ),
             resultStore(stored),
-            transcript,
+            HostAssembly.TranscriptSource.Provided(transcript),
             history => summaries.update(_ :+ history).as("concise summary"),
             tools
           )
@@ -225,7 +377,10 @@ object HostAssemblySpec extends ZIOSpecDefault:
       "failed and cancelled assembly join owned cleanup before returning even while caller Scope stays open"
     ) {
       ZIO
-        .foreach(Chunk(StopCase.Failure, StopCase.Cancellation)): stop =>
+        .foreach(for
+          stage <- Chunk(AssemblyStage.Catalog, AssemblyStage.Mcp)
+          stop  <- Chunk(StopCase.Failure, StopCase.Cancellation)
+        yield stage -> stop): (stage, stop) =>
           ZIO.scoped:
             for
               stored         <- Ref.make(Map.empty[String, StoredToolResult])
@@ -235,17 +390,29 @@ object HostAssemblySpec extends ZIOSpecDefault:
               entered        <- Promise.make[Nothing, Unit]
               cleanupStarted <- Promise.make[Nothing, Unit]
               releaseCleanup <- Promise.make[Nothing, Unit]
-              second = ZIO.acquireRelease(ZIO.unit)(_ =>
-                cleanupStarted.succeed(()).unit *> releaseCleanup.await
-              ) *>
-                entered.succeed(()) *> (stop match
-                  case StopCase.Cancellation => ZIO.never
-                  case StopCase.Failure      => ZIO.fail(AgentError.McpError("acquisition failed")))
+              acquisitions   <- Ref.make(0)
+              backend        <- jsonStore
+              id             <- ZIO.fromEither(TranscriptTargetId.fromString("pending"))
+              expectedFailure = AgentError.StorageError("selected acquisition failed")
+              cleanup         = cleanupStarted.succeed(()).unit *> releaseCleanup.await
+              pending = entered.succeed(()) *> (stop match
+                case StopCase.Cancellation => ZIO.never
+                case StopCase.Failure      => ZIO.fail(expectedFailure))
+              second = ZIO.acquireRelease(ZIO.unit)(_ => cleanup) *> pending
+              catalog = new TranscriptSessionCatalog:
+                def sessions: IO[AgentError, Chunk[TranscriptSession]] = pending.ensuring(cleanup)
+                def register(session: TranscriptSession): IO[AgentError, TranscriptRegistration] =
+                  ZIO.fail(AgentError.StorageError("Unexpected registration"))
+              selection = stage match
+                case AssemblyStage.Mcp => HostAssembly.TranscriptSource.Provided(transcript)
+                case AssemblyStage.Catalog =>
+                  HostAssembly.TranscriptSource
+                    .Registered(backend, catalog, id, TranscriptSegmentLimits.default)
               dependencies = HostAssembly.Dependencies(
                 model,
                 ToolAuthorizer.allow,
                 resultStore(stored),
-                transcript,
+                selection,
                 _ => ZIO.succeed("unused"),
                 Toolkit.empty
               )
@@ -254,7 +421,9 @@ object HostAssemblySpec extends ZIOSpecDefault:
                   settings,
                   dependencies,
                   Chunk(
-                    registration(peer("unused", firstReleased.set(true))),
+                    registration(
+                      acquisitions.update(_ + 1) *> peer("unused", firstReleased.set(true))
+                    ),
                     registration(second).copy(name = "second")
                   )
                 )
@@ -270,14 +439,16 @@ object HostAssemblySpec extends ZIOSpecDefault:
               outcome  <- running.await
               _        <- stopping.join
               released <- firstReleased.get
+              acquired <- acquisitions.get
             yield assertTrue(
               before.isEmpty,
-              released,
+              released == (stage == AssemblyStage.Mcp),
+              acquired == (if stage == AssemblyStage.Mcp then 1 else 0),
               stop match
                 case StopCase.Cancellation => outcome.isInterrupted
                 case StopCase.Failure =>
                   outcome.causeOption
-                    .exists(_.failureOption.contains(AgentError.McpError("acquisition failed")))
+                    .exists(_.failureOption.contains(expectedFailure))
             )
         .map(_.foldLeft(assertTrue(true))(_ && _))
     }

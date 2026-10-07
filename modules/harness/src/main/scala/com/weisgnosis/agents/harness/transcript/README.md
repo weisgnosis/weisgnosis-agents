@@ -115,7 +115,7 @@ The private version-1 catalog stores schemaVersion/sessions in sorted ID order. 
 
 register returns Added after conditional publication, or Existing without writing for an exact descriptor, including at capacity. Only definite CAS Conflict permits bounded retry with the same descriptor. Backend errors, cancellation and lost acknowledgement propagate without blind retry; a write may already have committed, and a later explicit repetition can return Existing. There is no clock, randomness, scheduler or background task.
 
-Registration and transcript append are separate host operations. A descriptor may point to absent or invalid history; membership proves neither authorization, liveness/inactivity, exclusive execution nor safe retention. The host owns catalog/address policy and bounded payload growth. No automatic writer installation, global enumeration, removal, pruning, migration or transaction spanning catalog/transcript publication is supplied. Pinned SessionTranscriptWriter sessions.json update intent and WorkspaceManager.updateSessionIndex are source references only; this does not claim Java method/test parity or filesystem index-format equivalence.
+The unpublished [registered assembly example](../../../../../../../../../../modules/examples/README.md#registered-transcript-assembly) has final source/full/artifact verification and combined documentation approval; it selects one descriptor explicitly before MCP; it does not install registration or history preflight. Registration and transcript append are separate host operations. A descriptor may point to absent or invalid history; membership proves neither authorization, liveness/inactivity, exclusive execution nor safe retention. The host owns catalog/address policy and bounded payload growth. No automatic writer installation, global enumeration, removal, pruning, migration or transaction spanning catalog/transcript publication is supplied. Pinned SessionTranscriptWriter sessions.json update intent and WorkspaceManager.updateSessionIndex are source references only; this does not claim Java method/test parity or filesystem index-format equivalence.
 
 | Source/spec approved by review_fp and review_invariants against 6a7a461 | Git blob |
 | --- | --- |
@@ -128,6 +128,15 @@ Registration and transcript append are separate host operations. A descriptor ma
 - [x] transcript-session-catalog-verify.log exited zero: 1,507 tests (669 core / 726 harness / 86 MCP / 21 PostgreSQL / 5 examples), zero compiler warnings/failures and four packages.
 - [x] Four-artifact archive/POM preparation and fresh standalone selected-API consumption passed. The consumer does not construct the catalog.
 - [x] review_fp and review_invariants approved final combined documentation against 6a7a461 and the three unchanged identities; English inspection and 78-document/2,803-local-reference checks pass with zero issues.
+
+## Remote retention and ownership boundary
+
+Assessment against 1f4581b separates accepted publication from physical reclamation. The current VersionedJsonStore has no list/delete capability. A reader captures a manifest head and still needs its complete immutable predecessor chain after newer publication. An apparently invisible prepared segment may still be published by an in-flight writer. Known-address catalog membership, or any future removal, proves neither reader/writer quiescence nor safe deletion. Existing memory retention logically archives acknowledged content through CAS; it does not reclaim backend objects.
+
+Physical remote pruning remains unimplemented. A future host/backend contract must fence all readers and writers or establish quiescence, prevent address-reuse ABA through namespace generations/tombstones, provide bounded enumeration/deletion, and define recovery from uncertain delete acknowledgement. Deleting/recreating an address otherwise breaks revision-lifetime assumptions. Neither elapsed time, absence from a current head nor catalog membership is sufficient reclamation authority. No deletion or distributed workflow capability is added by this assessment.
+
+- [x] Assess current remote publication/reader/catalog ownership limits, with independent invariant review evidence against 1f4581b.
+- [ ] Define the fencing/generation/enumeration/deletion/recovery contract before implementing physical remote pruning.
 
 ## Scoped local transcript store
 

@@ -1,6 +1,6 @@
 # Example source package
 
-HostAssembly composes the existing builder with host-supplied dependencies and a scoped MCP manager. Both toolkit and group snapshots come from one installation. Local/remote name collisions fail assembly, and failed or interrupted assembly joins already acquired cleanup before returning.
+HostAssembly accepts an explicit Provided transcript or resolves one Registered catalog descriptor before MCP acquisition; no registration/history preflight or execution authority is inferred. The [registered binding contract](../../../../../../../README.md#registered-transcript-assembly) owns its two-file source/full/artifact evidence and combined documentation approval. HostAssembly composes the existing builder with host-supplied dependencies and a scoped MCP manager. Both toolkit and group snapshots come from one installation. Local/remote name collisions fail assembly, and failed or interrupted assembly joins already acquired cleanup before returning.
 
 Returned handles must remain inside their owner Scope. MCP acquisition must own its transport resources in the supplied scope. Hosts supply a read_file capability matching result-store paths, explicit authorization, transcript replay policy, and summarization. Summarizers and transcript storage must not reenter the same agent while its run lock is held. Completion-observer failure may follow successful tool side effects; callers must not automatically replay a run.
 

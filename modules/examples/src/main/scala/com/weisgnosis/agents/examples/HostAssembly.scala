@@ -22,11 +22,8 @@ import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.{ToolAuthorizer, ToolDef, ToolGroups, Toolkit}
 import com.weisgnosis.agents.harness.eviction.{EvictionConfig, ToolResultEvictor, ToolResultStore}
 import com.weisgnosis.agents.harness.memory.{CompactorConfig, ConversationCompactor}
-import com.weisgnosis.agents.harness.transcript.{
-  AnonymousTranscriptPolicy,
-  SessionTranscriptWriter,
-  TranscriptStore
-}
+import com.weisgnosis.agents.harness.storage.VersionedJsonStore
+import com.weisgnosis.agents.harness.transcript.*
 import com.weisgnosis.agents.mcp.client.{McpClient, McpClientManager}
 import com.weisgnosis.agents.mcp.protocol.McpToolDefinition
 import zio.*
@@ -35,6 +32,34 @@ import zio.*
 final case class HostAssembly(agent: ReActAgent, clients: McpClientManager)
 
 object HostAssembly:
+  /** Catalog membership supplies a binding, never authorization or execution ownership. */
+  enum TranscriptSource:
+    case Provided(store: TranscriptStore)
+    case Registered(
+        backend: VersionedJsonStore,
+        catalog: TranscriptSessionCatalog,
+        id: TranscriptTargetId,
+        limits: TranscriptSegmentLimits
+    )
+
+    private[examples] def resolve: IO[AgentError, TranscriptStore] = this match
+      case Provided(store) => ZIO.succeed(store)
+      case Registered(backend, catalog, id, limits) =>
+        catalog.sessions.flatMap: sessions =>
+          sessions.filter(_.id == id) match
+            case Chunk(session) =>
+              ZIO.fromEither(session.layout match
+                case TranscriptLayout.Aggregate =>
+                  VersionedTranscriptStore.make(backend, session.manifest, limits.maxAttempts)
+                case TranscriptLayout.Segmented =>
+                  SegmentedTranscriptStore.make(backend, session.manifest, limits))
+            case _ =>
+              ZIO.fail(
+                AgentError.InvalidConfiguration(
+                  "Registered transcript selection requires exactly one matching session"
+                )
+              )
+
   final case class Settings(
       name: String,
       model: LlmConfig,
@@ -49,7 +74,7 @@ object HostAssembly:
       model: LlmClient,
       authorizer: ToolAuthorizer,
       results: ToolResultStore,
-      transcript: TranscriptStore,
+      transcript: TranscriptSource,
       summarize: Chunk[Msg] => IO[AgentError, String],
       localTools: Toolkit
   )
@@ -83,7 +108,8 @@ object HostAssembly:
       registrations: Chunk[Registration]
   ): ZIO[Scope, AgentError, HostAssembly] =
     for
-      manager <- McpClientManager.make(groups = settings.groups)
+      transcript <- dependencies.transcript.resolve
+      manager    <- McpClientManager.make(groups = settings.groups)
       _ <- ZIO.foreachDiscard(registrations)(registration =>
         manager.register(
           registration.name,
@@ -94,7 +120,7 @@ object HostAssembly:
       )
       installation <- manager.installation
       toolkit      <- ZIO.fromEither(dependencies.localTools ++ installation.toolkit)
-      writer  = new SessionTranscriptWriter(dependencies.transcript)
+      writer  = new SessionTranscriptWriter(transcript)
       evictor = new ToolResultEvictor(dependencies.results, settings.name)
       compactor = new ConversationCompactor(
         dependencies.summarize,

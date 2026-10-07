@@ -22,6 +22,27 @@ ZIO.scoped:
 
 The example keeps policy, model and storage choices explicit. The existing builder and ports suffice for this bounded assembly; an additional supported library facade is not justified by this example. Subagent installation, maintenance scheduling and durable host recovery keep their separate contracts.
 
+## Registered transcript assembly
+
+HostAssembly.Dependencies.transcript now accepts TranscriptSource.Provided(existingStore) or Registered(backend, catalog, id, explicitLimits). Unpublished example callers supplying a store wrap it in Provided; library factory signatures/defaults are unchanged. Registered resolves exactly one matching catalog descriptor before MCP acquisition, chooses VersionedTranscriptStore with maxAttempts for Aggregate or SegmentedTranscriptStore with all checked limits for Segmented, then installs the existing offload/completion observer.
+
+Lookup failure or cancellation joins its owned cleanup before returning and acquires no MCP client. The supplied backend/catalog retain their host-defined lifetimes. Registration, history preflight, authorization, leases, automatic selection and global discovery are not installed. A descriptor may point to corrupt history that fails completion observation after model/tool work; no rollback or safe automatic replay is promised.
+
+The paired actual-ReAct table checks both layouts through shared Ref-backed conditional publication, including exact selected history/returned records. Missing/duplicate matching IDs fail assembly. The existing failure/cancellation table covers catalog and MCP acquisition stages without adding another group. This is offline composition evidence, not PostgreSQL/provider integration or upstream method parity. Provider signature shapes are unchanged; unsupported upstream type=signature DTOs remain an explicit selected-profile difference.
+
+| Source/spec under review against 1f4581b | Git blob |
+| --- | --- |
+| [HostAssembly.scala](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) | 8f01c4db654983e4d47461d366e7452eabd130c2 |
+| [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | fc212b7e36c386278a3c36437df1f706e145e94c |
+
+- [x] review_fp approved the final two source/spec identities against 1f4581b.
+- [x] review_invariants approved the same final two identities, with no unresolved findings.
+- [x] registered-transcript-final-focused.log passed three assembly groups in 662 milliseconds.
+- [x] registered-transcript-verify.log exited zero: 1,508 tests (669 core / 726 harness / 86 MCP / 21 PostgreSQL / 6 examples), zero compiler warnings/failures and four packages.
+- [x] registered-transcript-preparation.log passed source/archive admission regressions and restored archive/POM staging.
+- [x] registered-transcript-consumer.log passed fresh standalone formatting, clean compilation and forked selected-API consumption; the smoke does not select Registered.
+- [x] review_fp and review_invariants approved final combined documentation against 1f4581b and the two unchanged identities; manual English inspection, changed-script/diff checks and 78-document/2,827-local-reference checks pass with zero issues.
+
 ## Lifecycle logging
 
 [LifecycleLogging](src/main/scala/com/weisgnosis/agents/examples/LifecycleLogging.scala) consumes result-bearing events through EOF and uses existing ZIO structured logging. Wrap the assembled agent with `LifecycleLogging.run(agent, input)` inside its owner scope. It returns the complete AgentResult and preserves failure causes, cancellation, and joined cleanup. It does not retry executed turns.
@@ -35,21 +56,21 @@ ZIO.logSpan supplies logging timing context, not an OpenTelemetry span or distri
 ## Verification and acceptance
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the five identities below, including the following model request receiving the retained eviction preview. No findings remain in this scope.
-- [x] `host-assembly-verify.log` passes formatting, fatal-warning compilation, 658 core / 724 harness / 85 MCP / 3 examples tests (1,470 total), and library packaging. The three example groups cover integrated tool execution, joined failed/cancelled acquisition cleanup, and offline smoke admission.
+- [x] Current formatting, fatal-warning compilation, full tests and packaging are recorded in the [registered assembly verification](#registered-transcript-assembly). Existing integration/offline-smoke contracts retain their scoped review acceptance.
 - [ ] Run the explicitly enabled smoke against a selected compatible live endpoint; offline verification does not establish live-provider interoperability.
 
 | Reviewed file | Git blob |
 | --- | --- |
 | [build.sbt](../../build.sbt) | [Current candidate preparation identity](../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
-| [HostAssembly.scala](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) | `b520fc9338abb3531067139409d71b0bb6f2dc05` |
-| [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | `1091488cbb76edc3a7f687ea8920613ec9498145` |
+| [HostAssembly.scala](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) | [Current registered transcript scope](#registered-transcript-assembly) |
+| [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | [Current registered transcript scope](#registered-transcript-assembly) |
 | [LiveProviderSmoke.scala](src/main/scala/com/weisgnosis/agents/examples/LiveProviderSmoke.scala) | `61bffc3da29040c9ff16270b8bd9387cb845337d` |
 | [LiveProviderSmokeSpec.scala](src/test/scala/com/weisgnosis/agents/examples/LiveProviderSmokeSpec.scala) | `60092ce956893432a4415609ce95b75c05ab983c` |
 
 ## Logging acceptance
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the two logging identities below; no findings remain in this scope.
-- [x] lifecycle-logging-verify.log passes formatting, fatal-warning compilation, 658 core / 724 harness / 85 MCP / 5 examples tests (1,472 total), and library packaging. Markdown link and English prose checks pass.
+- [x] Current full verification is recorded in the [registered assembly contract](#registered-transcript-assembly); the unchanged logging identities retain their accepted redaction/correlation/lifecycle scope.
 
 | Reviewed file | Git blob |
 | --- | --- |
