@@ -31,7 +31,7 @@ The verify alias checks formatting, compiles with fatal warnings, and runs all t
 
 ## Host integration
 
-The nonpublished [examples project](modules/examples/README.md) verifies scoped core/harness/MCP assembly using the existing builder and explicit host dependencies. It also supplies a bounded, explicitly enabled live-provider smoke program; default verification makes no external provider requests.
+The nonpublished [examples project](modules/examples/README.md) verifies scoped core/harness/MCP assembly using the existing builder and explicit host dependencies. It also supplies a bounded, explicitly enabled live-provider smoke program and payload-free lifecycle logging through existing ZIO APIs. Hosts configure logging/export and independent log privacy; default verification makes no external provider requests.
 
 ## Minimal local example
 

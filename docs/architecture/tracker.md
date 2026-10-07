@@ -9,7 +9,7 @@ The numeric-integrity and typed parallel-call steering scope is accepted after f
 - [x] Correct event metadata numeric decoding with a direct private-payload JsonDecoder; the pre-fix regression recorded 40 passes/1 failure, and resume-focused.log passes 41 tests.
 - [x] Verify typed parallel_tool_calls omission/enabled/disabled values, per-target preservation and real HTTP authorization independent of provider preference; LlmConfig has thirteen fields.
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for all eighteen changed Scala identities against 417c20c, including the final correction; no findings remain in this scope.
-- [x] Run scalafmtAll scalafmtSbt and verify packageArtifacts: resume-verify.log passes 658 core / 724 harness / 85 MCP tests (1,467 total), with zero compiler warnings or failed tests. Current full repository verification, including three unpublished example groups, passes 1,470 tests in host-assembly-verify.log.
+- [x] Run scalafmtAll scalafmtSbt and verify packageArtifacts: resume-verify.log passes 658 core / 724 harness / 85 MCP tests (1,467 total), with zero compiler warnings or failed tests. Current full repository verification, including five unpublished example groups, passes 1,472 tests in lifecycle-logging-verify.log.
 - [x] Inspect all six binary/source JARs and POM scopes; the isolated resume-artifact-consumer.log clean-compiles and runs exact numeric event round-trips and typed thirteen-field configuration against the three fresh packaged artifacts.
 
 ExactJson remains opt-in and requires faithful encoder AST conversion. External dependency .toJson and legacy direct tool encoders are not globally replaced. This acceptance does not close remote storage, durable host integration, remaining parity, platform/live-provider or release work below. No remote publication or push was performed.
@@ -163,7 +163,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Complete full verification of the independently approved [exact domain/tool output](../../modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) and memory provenance/preview corrections.
 - [x] Finish independent review and verification of [typed parallel_tool_calls provider steering](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-parallel-tool-call-steering) and event metadata numeric decoding.
 - [x] Verify [scoped cross-module assembly and an explicitly enabled live smoke program](../../modules/examples/README.md#verification-and-acceptance), with final independent review and full verification. Existing builder/ports suffice for the demonstrated scope.
-- [ ] Next: assess structured logging/tracing against existing event streams and scoped hooks, defining correlation, redaction and ownership before adding an adapter.
+- [x] Both independent reviewers approved the [lifecycle logging example](../../modules/examples/README.md#logging-acceptance); full verification and packaging pass. Existing event streams and ZIO logging suffice for this scope; host-owned export/tracing remain separate.
+- [ ] Next: review public API visibility and migration contracts against packaged consumers before proposing an RC boundary.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.
@@ -203,7 +204,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 These proposed readiness checks supplement the remaining implementation/parity plan; they do not remove remote-adapter work or establish a release date or readiness percentage. Existing local SDK/Tomcat and Netty interoperability tests exercise real independent servers; public-provider validation remains separate.
 
 - [x] Assess scoped cross-module assembly using the existing builder and verify the [host example](../../modules/examples/README.md); no additional library facade is justified for its accepted scope.
-- [ ] Assess structured logging/tracing integration against existing AgentEvent streams and scoped hooks; define redaction, correlation and ownership before adding an observability adapter.
+- [x] Assess logging/tracing through the independently reviewed [lifecycle logging example](../../modules/examples/README.md#lifecycle-logging): runtime correlation, static payload-free records, EOF consumption and joined cleanup. Host logger privacy/export and OpenTelemetry bridge remain separate; no mandatory dependency is introduced.
 - [x] Add an [explicitly enabled live-provider smoke path](../../modules/examples/README.md) with bounded requests and tool calling; default verification remains offline and credential-free.
 - [ ] Validate the smoke against an explicitly selected live endpoint; the executable alone does not prove provider interoperability.
 - [ ] Review public API visibility, source/binary migration and packaged-consumer compatibility; agree the RC API boundary without claiming exhaustive upstream parity.

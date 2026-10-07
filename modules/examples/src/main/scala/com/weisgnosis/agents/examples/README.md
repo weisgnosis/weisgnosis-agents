@@ -6,4 +6,6 @@ Returned handles must remain inside their owner Scope. MCP acquisition must own 
 
 LiveProviderSmoke explicitly reads its opt-in toggle before acquiring the HTTP client. Endpoint and model are host-selected and a dedicated optional credential environment variable is used. Its harmless addition tool and model/result checks exercise provider streaming with a bounded run; no raw requests, credentials, or response bodies are logged on success. See the [module README](../../../../../../../README.md) for configuration and cost implications. Live execution is separate from ordinary verification.
 
+LifecycleLogging observes a narrow runtime-event allowlist with static messages and local correlation annotations. Its wrapper consumes EOF, preserves terminal results/failures and joins cancellation cleanup. The host owns logger configuration and independent log privacy; ZIO logging spans do not implement OpenTelemetry. See the [logging contract](../../../../../../../README.md#lifecycle-logging).
+
 These are unpublished integration examples, not additional supported library APIs. review_fp and review_invariants approved the exact [source/spec identities and verification](../../../../../../../README.md#verification-and-acceptance), with no findings. Public-provider validation remains open.

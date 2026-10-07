@@ -7,6 +7,7 @@ The reference is the clean local `agentscope-java` checkout at commit `f98a685fd
 ## Cross-module host integration
 
 - [x] Independently review and verify the [HostAssembly and offline smoke admission](../../modules/examples/README.md#verification-and-acceptance) examples. Two composed lifecycle/tool groups and one offline admission group exercise Scala host integration; they do not close additional upstream Java test methods.
+- [x] Independently review and verify the [lifecycle logging example](../../modules/examples/README.md#logging-acceptance): two bounded logging/result/cancellation groups; no additional upstream methods are closed.
 - [ ] Validate an explicitly selected live endpoint separately from deterministic repository verification.
 
 ## Typed completed tool observations

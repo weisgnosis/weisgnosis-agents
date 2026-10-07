@@ -22,6 +22,16 @@ ZIO.scoped:
 
 The example keeps policy, model and storage choices explicit. The existing builder and ports suffice for this bounded assembly; an additional supported library facade is not justified by this example. Subagent installation, maintenance scheduling and durable host recovery keep their separate contracts.
 
+## Lifecycle logging
+
+[LifecycleLogging](src/main/scala/com/weisgnosis/agents/examples/LifecycleLogging.scala) consumes result-bearing events through EOF and uses existing ZIO structured logging. Wrap the assembled agent with `LifecycleLogging.run(agent, input)` inside its owner scope. It returns the complete AgentResult and preserves failure causes, cancellation, and joined cleanup. It does not retry executed turns.
+
+The allowlist emits static agent/model/tool lifecycle messages. Runtime agent/reply/request IDs correlate events; a fresh effectful invocation_id correlates the whole wrapper invocation and terminal status. Per-event annotations do not leak a previous request ID. AgentEnd records closure, not success; terminal state is reported separately without rendering suspension data or stop reasons. Raw tool IDs/names, model names, prompts, reasoning, deltas, outputs, metadata and error causes are excluded from this adapter's records.
+
+observe accepts runtime-origin events. It is not a sanitizer for caller-forged IDs, inherited host annotations, independent runtime/third-party logs or exporter behavior. ZIO may independently log failed-fiber causes; the host configures its logger privacy boundary, levels, export, retention and access. A slow logger delays consumption and existing runtime event buffers are unbounded. Logger defects propagate with owned cleanup, so the adapter does not promise failure-free diagnostics.
+
+ZIO.logSpan supplies logging timing context, not an OpenTelemetry span or distributed tracing. Hosts can install zio-logging or a tracing bridge through their runtime/layers. This example adds no mandatory dependency, exporter, background subscriber or distributed tracing implementation.
+
 ## Verification and acceptance
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the five identities below, including the following model request receiving the retained eviction preview. No findings remain in this scope.
@@ -35,3 +45,15 @@ The example keeps policy, model and storage choices explicit. The existing build
 | [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | `1091488cbb76edc3a7f687ea8920613ec9498145` |
 | [LiveProviderSmoke.scala](src/main/scala/com/weisgnosis/agents/examples/LiveProviderSmoke.scala) | `61bffc3da29040c9ff16270b8bd9387cb845337d` |
 | [LiveProviderSmokeSpec.scala](src/test/scala/com/weisgnosis/agents/examples/LiveProviderSmokeSpec.scala) | `60092ce956893432a4415609ce95b75c05ab983c` |
+
+## Logging acceptance
+
+- [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the two logging identities below; no findings remain in this scope.
+- [x] lifecycle-logging-verify.log passes formatting, fatal-warning compilation, 658 core / 724 harness / 85 MCP / 5 examples tests (1,472 total), and library packaging. Markdown link and English prose checks pass.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [LifecycleLogging.scala](src/main/scala/com/weisgnosis/agents/examples/LifecycleLogging.scala) | `6760a231a4ebb2663ce4768536db84da2e71c3c8` |
+| [LifecycleLoggingSpec.scala](src/test/scala/com/weisgnosis/agents/examples/LifecycleLoggingSpec.scala) | `3338fa0be9ec09beafca7458309316dd05afcae0` |
+
+The paired LifecycleLoggingSpec has two contract groups: static allowlist/redaction/correlation with an actual completed run, and failure preservation plus cancellation blocked on model cleanup. These are new Scala integration checks, not additional upstream parity.

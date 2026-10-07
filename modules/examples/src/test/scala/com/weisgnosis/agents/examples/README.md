@@ -4,4 +4,6 @@ HostAssemblySpec contains two independent integration groups: selected MCP execu
 
 LiveProviderSmokeSpec verifies the disabled runnable path and explicit configuration using TestSystem; it never enables external requests.
 
+LifecycleLoggingSpec verifies payload exclusion and local correlation on example-origin records, actual terminal results, preserved failures and cancellation waiting for model cleanup. Independent ZIO failed-fiber logs are outside this adapter's privacy boundary.
+
 The fixture approval is explicit test data, not a suggested host authorization policy. No upstream parity claim applies to this new integration example. review_fp and review_invariants approved this scope with no findings; the [module acceptance](../../../../../../../README.md#verification-and-acceptance) records final identities and full verification. Live-provider validation remains separate.
