@@ -64,13 +64,14 @@ private[transcript] object TranscriptLog:
    * Prevents coercions and ignored fields; object ordering and numeric formatting are immaterial.
    * Optional fields must use the writer's omitted-field representation rather than explicit nulls.
    */
-  private def sameRepresentation(actual: Json, expected: Json): Boolean = (actual, expected) match
-    case (Json.Obj(left), Json.Obj(right)) =>
-      val values = right.toMap
-      left.size == right.size && left.forall((key, value) =>
-        values.get(key).exists(sameRepresentation(value, _))
-      )
-    case (Json.Arr(left), Json.Arr(right)) =>
-      left.size == right.size && left.zip(right).forall((a, b) => sameRepresentation(a, b))
-    case (Json.Num(left), Json.Num(right)) => left.compareTo(right) == 0
-    case _                                 => actual == expected
+  private[transcript] def sameRepresentation(actual: Json, expected: Json): Boolean =
+    (actual, expected) match
+      case (Json.Obj(left), Json.Obj(right)) =>
+        val values = right.toMap
+        left.size == right.size && left.forall((key, value) =>
+          values.get(key).exists(sameRepresentation(value, _))
+        )
+      case (Json.Arr(left), Json.Arr(right)) =>
+        left.size == right.size && left.zip(right).forall((a, b) => sameRepresentation(a, b))
+      case (Json.Num(left), Json.Num(right)) => left.compareTo(right) == 0
+      case _                                 => actual == expected

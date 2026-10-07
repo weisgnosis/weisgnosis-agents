@@ -1251,7 +1251,7 @@ The pinned BaseStore contract is in agentscope-harness/agent/filesystem/remote/s
 - [x] Verify bounded PostgresBaseStoreTest.getReturnsItem (178) and getReturnsNullWhenNotFound (193) adaptations through Option reads and exact numeric/namespace round-trips across independent real connections. Java uses mocked JDBC; Scala's PostgreSQL 16 fixture is separate integration evidence, not reproduction of those mocks.
 - [x] Verify bounded PostgresBaseStoreTest.putIfVersionInsertDuplicateReturnsFalse (261), putIfVersionUpdateSucceeds (298) and putIfVersionUpdateMismatchReturnsFalse (306) behavior through real create/update races and exact-revision reads. ConditionalWrite.Conflict replaces Boolean false; SQL exception-mocking branches are not claimed reproduced.
 - [x] Record final independent source/build/consumer-identity approval and full real-fixture verification in the [backend contract](../../modules/storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance).
-- [ ] Complete remaining remote transcript/checkpoint adapters, segmented memory layouts/migration and their recovery/ownership mappings separately; the selected versioned memory adaptation is recorded below. BaseStore unconditional put, delete, search, configurable SQL/schema/table behavior and whole-suite parity are not implemented by this prerequisite.
+- [ ] Complete remaining remote transcript segmentation/discovery/pruning/layout migration and checkpoint adapters, segmented memory layouts/migration and their recovery/ownership mappings separately; the selected versioned memory adaptation is recorded below. BaseStore unconditional put, delete, search, configurable SQL/schema/table behavior and whole-suite parity are not implemented by this prerequisite.
 
 ## Versioned remote memory adaptation
 
@@ -1260,5 +1260,15 @@ The private version-1 memory aggregate is a stronger atomic domain adaptation ov
 - [x] Three real PostgreSQL VersionedMemoryRepositorySpec groups verify independent repository reopen/isolation, competing append preservation, stale consolidation rejection, atomic retention races, strict aggregate schemas/fingerprints, actual conflict retries and ambiguous acknowledgement without replay. Existing memory suites retain shared in-memory behavior without accessor-only additions; focused evidence and final identities belong to the [remote-memory contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-remote-memory).
 - [x] Obtain final FP/ZIO/invariant source approval and full-build/package verification for this selected remote-memory scope. No additional whole upstream method is closed merely by these integration groups.
 - [x] Fresh versioned-memory-artifact-consumer.log passes standalone formatting, clean compilation and execution against four actual packaged module hashes; existing selected APIs are exercised without constructing the new repository.
-- [ ] Obtain final documentation acceptance for this selected remote-memory adaptation.
-- [ ] Complete remote transcript/checkpoint adapters, remote filesystem applicability and legacy watermark method classification separately; authenticated/exactly-once host claims remain external.
+- [x] review_fp and review_invariants approved final documentation for this selected remote-memory adaptation before bbadf13.
+- [ ] Complete remote transcript segmentation/discovery/pruning/layout migration, checkpoint adapters, remote filesystem applicability and legacy watermark method classification separately; authenticated/exactly-once host claims remain external.
+
+## Versioned remote transcript adaptation
+
+The new TranscriptStore composition reuses the existing observation/key/chain rules while publishing a single strict versioned aggregate through read/CAS. Upstream session-file and immutable-segment formats, append/delete/list/compaction APIs and complete upstream methods are not reproduced by this adaptation. Existing named local mappings remain unchanged; the new real-PostgreSQL scenarios establish only this selected remote contract.
+
+- [x] Verify independent append/reopen/namespace behavior, first-observation retention, anonymous entries and exact linked returns against actual PostgreSQL.
+- [x] Verify definite-conflict retries with fixed candidate IDs/time and rebased parents, bounded exhaustion, strict aggregate rejection and uncertain-acknowledgement propagation.
+- [x] Both reviewers approved the three final source identities; full 1,492-test verification, four-artifact inspection and fresh standalone consumption pass through the [canonical transcript manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#versioned-remote-transcript).
+- [ ] Obtain final independent documentation/English/link acceptance for this transcript scope.
+- [ ] Implement remote immutable segments, indexes/discovery and pruning under separately defined ownership/recovery contracts.

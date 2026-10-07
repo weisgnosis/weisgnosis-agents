@@ -28,7 +28,7 @@ Public transcript store APIs, file format, trust checks, lease ownership and ato
 | [StructuredOutputSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/StructuredOutputSpec.scala) | `412794e93602a061639795f9bb1ac8ec3fef597d` |
 | [LocalTranscriptStore.scala](LocalTranscriptStore.scala) | `21a05fc889fc7a1e33c57953ad1a5749041e4b7d` |
 | [SessionTranscriptWriter.scala](SessionTranscriptWriter.scala) | `a0578e096d12e39920db0524d1896fbd815c6b06` |
-| [TranscriptLog.scala](TranscriptLog.scala) | `6afc4383af9349d75896b8cd8e3176c57944fcd3` |
+| [TranscriptLog.scala](TranscriptLog.scala) | [Current remote-transcript identity](#versioned-remote-transcript) |
 | [LocalTranscriptStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptStoreSpec.scala) | `4d0fc2a79d6deff29a587de30c96acead7cdfd4b` |
 | [SessionTranscriptWriterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriterSpec.scala) | `34789a3976438638aa26fa80ec933afcddd25265` |
 | [TranscriptLogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptLogSpec.scala) | `1999df3399829e8f811bced218faab9b6bba4247` |
@@ -54,6 +54,30 @@ Current Git-normalized identities:
 | [SessionTranscriptWriterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriterSpec.scala) | [Current numeric-integrity identity](#exact-owned-numeric-output) |
 | [TranscriptEntrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptEntrySpec.scala) | 4bbae7448ce93a6cc3763e1b5dd44acf74eecb05 |
 | [TranscriptStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptStoreSpec.scala) | 9e582e4d6b8e76ddbfb943b24424dd86b4f4ad4a |
+
+## Versioned remote transcript
+
+[VersionedTranscriptStore.make](VersionedTranscriptStore.scala) is a pure checked factory returning TranscriptStore over one host-selected VersionedJsonStore and StorageAddress. maxAttempts defaults to eight and must be positive. Construction performs no storage, clock or randomness effects. Missing storage reads as an empty transcript; an empty append does not create an aggregate.
+
+Each nonempty append samples Clock.instant and candidate UUIDs once before conditional publication. The shared TranscriptState transition validates the entire batch, retains the first observation for each stable key and derives parent links from the current persistent tail. A definite ConditionalWrite.Conflict permits bounded reread/recomputation using the same timestamp/UUID candidates and new parent links. Exhaustion fails with MemoryStorageError. Successful append returns exactly the newly committed entries in order; all-duplicate batches perform no write. Anonymous drafts append on each invocation and are not idempotent.
+
+The private version-1 aggregate requires schemaVersion and entries. Before restoring the complete chain, decoding rejects duplicate JSON fields, malformed Unicode strings/object keys, unsupported versions and noncanonical DTO representations, including ignored fields and decoder coercions. Optional fields use the writer's omitted-field representation. TranscriptLog.sameRepresentation is shared only within this package; local JSONL behavior is unchanged. TranscriptState.restore rejects duplicate IDs/stable keys, broken parents, invalid stable-key/payload pairings and invalid preview claims. Encoding applies the same validation before publication. Exact decimal rendering preserves complete numeric input values; object order and equivalent numeric spelling do not determine validity.
+
+Only explicit conflicts authorize retry. Backend failures, cancellation and lost acknowledgements propagate without replay; publication may already have committed. Hosts coordinate recovery by reading persistent state. This adapter supplies no authenticated checkpoint claim, execution deduplication or exactly-once delivery. All entries live in one aggregate; every read validates the complete chain and every update replaces the complete value. Hosts must bound transcript growth and backend payload size. TranscriptStore has no deletion/retention API: immutable segments, listing/indexes, remote discovery/pruning, compaction and layout migration remain unfinished.
+
+Migration: this factory is additive. Existing TranscriptStore/in-memory/local APIs and local version-1 JSONL rows retain their contracts. The remote envelope is separate and does not automatically import local logs or reproduce upstream session-file/segment formats. Backend address/revision and uncertain-publication semantics belong to the [versioned publication contract](../storage/README.md#versioned-json-publication).
+
+| Reviewed source/spec against bbadf13 | Git blob |
+| --- | --- |
+| [VersionedTranscriptStore.scala](VersionedTranscriptStore.scala) | `a7b743c3d8ba62d69c671a408d8755c1f8a93ff6` |
+| [TranscriptLog.scala](TranscriptLog.scala) | `4e3a671c3a412954705a5af2af1b0f9593a7f74c` |
+| [VersionedTranscriptStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/VersionedTranscriptStoreSpec.scala) | `6a0c7068d7911597a2e849154d6a1815e7eaff9b` |
+
+- [x] review_fp and review_invariants approved these three final identities against bbadf13, with no unresolved findings.
+- [x] Focused verification passes 19 existing transcript regressions and all nine real-PostgreSQL groups, including three new transcript groups.
+- [x] versioned-transcript-verify.log passes formatting, fatal-warning compilation, four artifact packages and 1,492 tests: 667 core / 726 harness / 85 MCP / 9 PostgreSQL / 5 examples, with zero compiler warnings or failed tests. versioned-transcript-artifact-preparation.log passes all four archive/POM checks.
+- [x] versioned-transcript-artifact-consumer.log passes standalone formatting, clean compilation and forked execution with four loaded module hashes. Its existing selected API smoke does not construct this adapter.
+- [x] review_fp and review_invariants approved the final combined three-file/documentation scope against bbadf13 with no unresolved findings; English inspection and all 2,684 local references in 78 Markdown documents passed.
 
 ## Scoped local transcript store
 
