@@ -21,8 +21,10 @@ import com.weisgnosis.agents.core.tool.{
   AdmittedToolAccess,
   ToolAuthorization,
   ToolAuthorizationRequest,
-  ToolAuthorizer
+  ToolAuthorizer,
+  ToolPreflight
 }
+import scala.annotation.unused
 import zio.*
 
 /** Interactive approval within one invocation; authenticated delivery and durable state belong to the host. */
@@ -47,6 +49,16 @@ final class InteractivePermissionAuthorizer private (
       toolGate,
       interceptorGate.and(gate)
     )
+
+  /** Only append-only policy denials are stable across earlier tool execution in this batch. */
+  override def preflight(
+      request: ToolAuthorizationRequest,
+      @unused admittedAccess: Option[AdmittedToolAccess]
+  ): ZIO[Scope, AgentError.PermissionDenied, ToolPreflight] =
+    policyRef.get.map: current =>
+      current.authorize(request.requestId, request.call) match
+        case PermissionOutcome.Denied(_, reason) => ToolPreflight.Denied(reason)
+        case _                                   => ToolPreflight.Continue
 
   def authorize(
       request: ToolAuthorizationRequest

@@ -97,3 +97,5 @@ Approval covers recorded revisions and named contracts, not unreviewed working-t
 
 - [x] Both reviewers approved [bounded HTTP-status retries](src/main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries), preserving default single-attempt behavior, one logical invocation and joined cleanup; full verification passed.
 - [x] Both reviewers approved [scoped model failover](src/main/scala/com/weisgnosis/agents/core/agent/README.md#scoped-model-failover), preserving prepared history, active schema/tools and complete failure causes; full verification passed.
+
+The additive [ToolAuthorizer.preflight contract](../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight) supports stable terminal denials before remaining authorization. Default Continue grants no authority; live conditions remain execution-time decisions. Final source/full verification passed; artifact verification passed; final combined documentation approval passed in that contract.

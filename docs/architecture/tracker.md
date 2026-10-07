@@ -42,13 +42,14 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Thinking-only retry contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#thinking-only-retry-contract) has final test/documentation acceptance with independent retry/iteration bounds and no extra summarizing request.
 
-Current delivery scope against 0661e31: child-specific stdio environment overrides and bounded async-wrapper applicability classification. Existing production lifecycle remains unchanged. The prior checkpoint oracle remains accepted under its package contract.
+Current delivery scope against c507dad: active interactive batch preflight, with initial stable policy-denied/preparation-error observations drained before approval publication. The prior child-environment scope remains accepted under its package contract. The new contract does not cache approval, discover every future denial or supply authenticated/durable delivery.
 
-- [x] Implement immutable child-only overrides with portable, secret-safe validation.
-- [x] Verify real subprocess inheritance, overrides, unchanged parent environment and joined reaping; retain cancellation coverage.
-- [x] Obtain final FP/ZIO and invariant approval of source, tests and external-consumer change.
-- [x] Run full verification, RC1 packaging/admission and the fresh standalone consumer.
-- [x] review_fp and review_invariants approved the final thirteen-file source/documentation scope against 0661e31. Current contracts/migration, English/diff and 78-document/2,897-local-reference checks pass with zero issues; this delivery commit records closure.
+- [x] Implement occurrence-bound preparation and scoped denial-only preflight, preserving fresh normal authorization for Continue.
+- [x] Reproduce the previously unsupported Ask-first ordering on unchanged c507dad in interactive-batch-order-red.log; this is new-contract evidence, not a defect claim against an accepted profile.
+- [x] interactive-batch-plan-green.log passes 36 tests in 1.520 seconds including unchanged Plan scenarios; three independent contract groups extend existing suites. Final full verification passes 1,520 tests with zero compiler warnings/failures/ignored tests.
+- [x] review_fp and review_invariants approved the five final source/spec identities after the Plan regression correction; exact scope belongs to the permission contract.
+- [x] interactive-batch-final-verify.log passes all 1,520 tests and four RC1 packages; interactive-batch-preparation.log and interactive-batch-consumer.log pass archive admission/restoration and actual fresh four-hash external consumption.
+- [x] review_fp and review_invariants approved the final seventeen-file combined scope against c507dad. Current contracts/API/migration/parity, English/diff and 78-document/2,912-local-reference validation pass; this delivery commit records closure.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -100,7 +101,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-Current child-environment source/full/artifact checks passed; combined documentation approval for this increment and the async/base-wrapper classifications passed. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+The interactive batch-preflight scope has final independent acceptance above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
 
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.

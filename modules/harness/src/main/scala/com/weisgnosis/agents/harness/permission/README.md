@@ -6,7 +6,7 @@ PermissionEngine combines independent policy, tool, and interceptor decisions as
 
 Create PermissionRequests with make, then pass it and a publish: ToolAuthorizationRequest => UIO[Unit] callback to InteractivePermissionAuthorizer.make. Install the resulting authorizer with ReActAgent.make(toolAuthorizer = authorizer) or Builder.toolAuthorizer. Without installation, core ToolAuthorizer.allow preserves the explicit allow default. Once installed, the default empty policy asks for confirmation. Hosts resolve requests through PermissionRequests.resolve(requestId, confirmation), using the exact runtime-generated UUID delivered to publish.
 
-The published value includes model context and the original call. Every occurrence gets a distinct approval UUID even if calls reuse an ID. Publication is a narrow callback, not an unrestricted event hub. The adapter does not emit RequireUserConfirm/UserConfirmResult envelopes or implement upstream mixed-batch ordering. Awaiting approval keeps the current invocation active; approval continues the same acting phase without another model request. The configured engine-attempt timeout covers approval waiting, and cancellation still applies. Matched inline provider observations bypass local authorization. Synthetic generate_response is a local call and is also gated; a host policy must allow or confirm it.
+The published value includes model context and the original call. Every occurrence gets a distinct approval UUID even if calls reuse an ID. Publication is a narrow callback, not an unrestricted event hub. The adapter does not emit RequireUserConfirm/UserConfirmResult envelopes; its bounded initial-denial ordering is defined below. Awaiting approval keeps the current invocation active; approval continues the same acting phase without another model request. The configured engine-attempt timeout covers approval waiting, and cancellation still applies. Matched inline provider observations bypass local authorization. Synthetic generate_response is a local call and is also gated; a host policy must allow or confirm it.
 
 The authorizer owns an in-memory Ref of immutable PermissionEngine state, exposed through the effectful policy snapshot. Its lifetime belongs to the host: sharing the same instance shares confirmed rules across runs/agents. It is not serialized agent configuration, an authentication service, or a durable checkpoint. Hosts authenticate the recipient and confirmation source, keep each request associated with its actual session, and avoid calling mutating agent operations from callbacks while the run lock is held.
 
@@ -28,6 +28,35 @@ The initial policy read or final policy.modify is the decision point. Later rule
 
 Core owns exact approved-input persistence, original-input provenance, stale-content removal, and occurrence-based cancellation reconciliation. This adapter returns only an input or denial and cannot change call identity/name/state. A denied observation follows the existing result processor and correlated Start/Delta/End path.
 
+## Interactive batch preflight
+
+ToolAuthorizer.preflight is an initial denial screen returning ToolPreflight.Continue or Denied(reason). Its default Continue preserves legacy single-call authorization; it grants no approval. InteractivePermissionAuthorizer screens only current policy Deny rules, without evaluating dynamic gates, registering a Promise, publishing Ask or awaiting confirmation. Its shared policy adds rules without removing existing denials, so this early denial is monotonic. Every Continue later runs ordinary authorize afresh, including separately scoped live gates/current policy and existing confirmed-input rechecks; no gate result or approval is cached.
+
+After persisting assistant calls, ReActAgent prepares fixed arguments and one request ID/original ordinal per unresolved local occurrence. Ephemeral prepared data preserves those identities through preflight and ordinary authorization, including saved checkpoint request IDs and repeated call IDs. Provider-owned/completed occurrences are excluded. Signed-input guards and approved JSON/fixed-input validation remain authoritative.
+
+The runtime joins each preflight scope, then persists and processes initial policy-Denied/preparation-error observations through the existing result processor and correlated result events before any remaining authorization can publish Ask. Processor failure or cancellation suppresses later asks and retains existing cleanup/cause/reconciliation behavior. Remaining calls retain the configured sequential or concurrency-safe parallel execution policy. The ordering guarantee covers initial monotonic policy denials and preparation errors only. Dynamic gate decisions remain at execution-time authorization so earlier plan_enter/plan_exit operations can change later admission; fresh authorization or confirmation-time checks can deny later. Preflight is no execution lease or atomic revocation guarantee.
+
+The interactive path remains inside one invocation; it does not silently suspend/restore a checkpoint or replace interactive policy updates with ConfirmedBatchAuthorizer. A custom preflight Denied is terminal and may be recorded ahead of earlier calls: it must remain valid despite their execution or confirmations. Mutable/live conditions must Continue through ordinary authorization. Custom forwarding authorizers must explicitly forward preflight to retain the wrapped early-denial capability; default Continue alone promises no initial denial detection.
+
+Migration: ToolPreflight and the defaulted preflight extension are public additions. Existing source implementations retain their ordinary authorize method; downstream binaries and extension wrappers require compatibility assessment/rebuilding. No serialized checkpoint/configuration shape changes and no frozen ABI are claimed.
+
+review_fp and review_invariants approved the final five-file source scope against c507dad; combined documentation approval passed:
+
+| Source/spec | Final Git blob |
+| --- | --- |
+| [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | 946c1f63d9680828a752339c81443484f93ad9e3 |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | 5a342f24210d3885cf0778cfeb30f44ff274f6cb |
+| [InteractivePermissionAuthorizer.scala](InteractivePermissionAuthorizer.scala) | 58bf407ac717804ba4f7ef8712864fc406fbedbf |
+| [InteractivePermissionAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionAuthorizerSpec.scala) | 9a16a26acd21c7592f8477fc75f39d2d24389147 |
+| [InteractivePermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionIntegrationSpec.scala) | 68ca22bfdf29c865296eae5bd8b6c40f395304cf |
+
+interactive-batch-order-red.log records the previously unsupported new-contract baseline against unchanged c507dad: the Ask snapshot lacked persisted denied observations and event order differed. Dynamic gate preflight is outside the narrowed accepted target. This is additive contract evidence, not a defect claim against the previously accepted profile. Three new groups (two runtime integrations and one authorizer group) cover this extension. The earlier draft incorrectly captured dynamic Plan denials: interactive-batch-order-verify.log records six unchanged Plan test failures. Policy-only screening fixes that reproduced regression; final focused/full verification and renewed independent source approval pass.
+
+- [x] Both reviewers explicitly approved the five final identities after narrowing preflight to stable policy denials; no source findings remain.
+- [x] interactive-batch-plan-green.log passes 36 focused tests in 1.520 seconds with unchanged Plan expectations. interactive-batch-final-verify.log passes all 1,520 tests (674 core / 730 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests, and four RC1 packages. The final authorizer oracle additionally proves both dynamic gates remain untouched by preflight.
+- [x] interactive-batch-preparation.log passes exact RC1 source/POM/LICENSE admission and invalid-selector/extra/duplicate-source rejection with restoration. interactive-batch-consumer.log passes standalone formatting, clean compilation and forked public API execution against four fresh actual RC1 hashes; the unchanged custom authorizer also exercises default Continue during actual runtime dispatch.
+- [x] review_fp and review_invariants approved the final seventeen-file source/documentation scope against c507dad with no unresolved findings. Manual English inspection, diff checks and 78-document/2,912-local-reference validation pass with zero issues.
+
 ## Complete-batch checkpoint confirmations
 
 ConfirmedBatchAuthorizer supplies checked complete-batch authorization for restored before-acting checkpoints. Its checked factory binds a suspended AgentResult to a complete set of ConfirmedToolCall values, each containing the original assistant call ordinal and a ConfirmResult. Ordinals distinguish repeated IDs; completed inline provider occurrences are excluded. Missing, duplicate, unknown or inline-completed confirmations reject the batch before execution. The [supplied-result contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#supplied-results-for-suspended-batches) excludes host-supplied completed ordinals from required coverage; supplied execution observations are distinct from human confirmations.
@@ -44,10 +73,10 @@ Migration: ToolAuthorizationRequest appends optional callOrdinal, defaulting to 
 | [ConfirmResult.scala](ConfirmResult.scala) | dbae0b1f7588ec27e2aa5755f77a4a200541fb38 |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current supplied-result identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#supplied-results-for-suspended-batches) |
 | [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
-| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current interactive-preflight identity](#interactive-batch-preflight), final combined documentation approval passed; prior behavioral scope retained. |
 | [ToolHistory.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/model/ToolHistory.scala) | [Current provider-ownership identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls) |
 | [ToolHistorySpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | [Current provider-ownership identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls) |
-| [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
+| [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | [Current interactive-preflight identity](#interactive-batch-preflight), final combined documentation approval passed; prior behavioral scope retained. |
 | [ToolAuthorizerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | [Current reviewed identity](README.md#partial-checkpoint-confirmations) |
 
 Regression: `confirmed-batch-policy-red.log` reproduced stale-policy admission at authorizer `a212e408899e1833ae3c70174a2250028217f83e` with spec `2a97e9f98f87774d4ad2cfd3e66ba28cd4c065a4` (three passed, one failed, 579 ms): a Deny installed while a gate waited still allowed execution and changed history. Sampling policy after both gate scopes fixed the unchanged regression in `confirmed-batch-green.log`.
@@ -69,8 +98,8 @@ Migration: ToolAuthorization gains the codec case Deferred(reason), requiring ex
 | File | Reviewed Git blob |
 | --- | --- |
 | [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
-| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
-| [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | 54976c39acecd0e10106fad2ebd3c15408a71272 |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current interactive-preflight identity](#interactive-batch-preflight), final combined documentation approval passed; prior behavioral scope retained. |
+| [ToolAuthorizer.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/ToolAuthorizer.scala) | [Current interactive-preflight identity](#interactive-batch-preflight), final combined documentation approval passed; prior behavioral scope retained. |
 | [ConfirmedBatchAuthorizer.scala](ConfirmedBatchAuthorizer.scala) | 89d5a44f35184fcfa15480de22325697b07a4e09 |
 | [SubagentFactory.scala](../subagent/SubagentFactory.scala) | [Current host-resume identity](../subagent/README.md#host-only-session-resume) |
 | [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](README.md#checkpoint-permission-events) |
@@ -110,7 +139,7 @@ Migration: PendingActing appends default-empty permissionRequests, making nine p
 | File | Reviewed Git blob |
 | --- | --- |
 | [PendingActing.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/PendingActing.scala) | [Current provider-ownership identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls) |
-| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current request-projection identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#current-model-input-identities) |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current interactive-preflight identity](#interactive-batch-preflight), final combined documentation approval passed; prior behavioral scope retained. |
 | [PendingActingSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current provider-ownership identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls) |
 | [CheckpointPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/CheckpointPermissionIntegrationSpec.scala) | [Current CheckpointPermissionIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [PartialConfirmationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PartialConfirmationSpec.scala) | [Current strengthened event-oracle identity](#checkpoint-event-order-oracle), final documentation review passed |
@@ -144,10 +173,10 @@ The unchanged runtime integration suite retains `review_fp` and `review_harness`
 | File | Reviewed Git blob |
 | --- | --- |
 | [PermissionGate.scala](PermissionGate.scala) | `a7c5ba2384fd9eb94f42c23693ca3f07d55a8968` |
-| [InteractivePermissionAuthorizer.scala](InteractivePermissionAuthorizer.scala) | `803cef552811b3f1974d954bc6cea257e0f02d15` |
+| [InteractivePermissionAuthorizer.scala](InteractivePermissionAuthorizer.scala) | [Current interactive-preflight identity](#interactive-batch-preflight), final combined documentation approval passed; prior behavioral scope retained. |
 | [PermissionGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PermissionGateSpec.scala) | `9b5b4cd0e4d28763fe0905bc6387b8213fc3fd5f` |
-| [InteractivePermissionAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionAuthorizerSpec.scala) | `79b0aa4b4c179f1baf45a79a5dff31f0c062cbc0` |
-| [InteractivePermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionIntegrationSpec.scala), behavior preserved | [Current InteractivePermissionIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+| [InteractivePermissionAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionAuthorizerSpec.scala) | [Current interactive-preflight identity](#interactive-batch-preflight), final combined documentation approval passed; prior behavioral scope retained. |
+| [InteractivePermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/InteractivePermissionIntegrationSpec.scala), behavior preserved | [Current interactive-preflight identity](#interactive-batch-preflight), final combined documentation approval passed; prior behavioral scope retained. |
 
 ## Checkpoint event-order oracle
 

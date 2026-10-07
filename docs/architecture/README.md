@@ -23,10 +23,11 @@ Update contracts and mappings when behavior changes. Record current reviewed sco
 
 ## Current documentation acceptance
 
-Current documentation scope against 0661e31 covers immutable child-only stdio environment overrides, their JVM rebuild migration, exact source/artifact evidence and bounded classifications of seven async-wrapper plus eleven base-wrapper methods. The [environment contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#child-environment-overrides) owns four-file identities and the reproduced Unicode-collision correction. No new test groups or whole-suite parity are claimed. Existing package acceptance remains limited to its own scope.
+Current documentation scope against c507dad covers the [interactive batch preflight](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight), its additive public extension contract, bounded initial-denial ordering, preserved live authorization and current verification evidence. Prior child-environment/classification acceptance remains scoped to its package identities. Three independent groups extend existing suites; no broader permission/durable-delivery parity is granted.
 
-- [x] Both independent reviewers approved the final four source identities; full 1,517-test RC1 verification, archive admission and fresh external consumption passed.
-- [x] review_fp and review_invariants approved the final thirteen-file combined scope against 0661e31, including the unchanged four-file source manifest. Manual English/diff and 78-document/2,897-local-reference checks pass with zero issues.
+- [x] Final five-file source approval, full 1,520-test verification, four RC1 packages, archive admission and fresh external consumption passed.
+- [x] review_fp and review_invariants approved the final seventeen-file combined scope against c507dad with no unresolved findings.
+- [x] English inspection, source identities, diff checks and 78-document/2,912-local-reference validation pass with zero issues.
 
 ## Versioned remote storage
 

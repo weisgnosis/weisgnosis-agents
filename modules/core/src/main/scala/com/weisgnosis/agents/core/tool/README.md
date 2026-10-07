@@ -1,5 +1,7 @@
 # Typed tools and path validation
 
+The additive [interactive batch preflight](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight) screens initial monotonic policy denials before approval publication while retaining fresh ordinary authorization, occurrence identity and runtime-owned persistence/cleanup. ToolPreflight.Continue grants no approval; legacy authorizers default to Continue. Dynamic gates remain execution-time checks so earlier plan transitions affect later calls. Final source/full/artifact checks passed; final combined documentation approval passed.
+
 Tool keeps its input/output codecs and effectful handler together. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation.
 
 ## Provider tool-schema strictness
@@ -215,7 +217,7 @@ Custom authorizers compile without implementing the overload. To consume or forw
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ToolAuthorizer.scala](ToolAuthorizer.scala) | [Current confirmed-batch identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) |
+| [ToolAuthorizer.scala](ToolAuthorizer.scala) | [Current interactive-preflight identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight), final combined documentation approval passed; prior behavioral scope retained. |
 | [ToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | [Current confirmed-batch identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) |
 
 ## Scoped local authorization

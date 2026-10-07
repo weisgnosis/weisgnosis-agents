@@ -1237,9 +1237,11 @@ final class ReActAgent private (
         argumentPolicy =
           if assistantMsg.preservesToolArguments then ArgumentPolicy.Preserve
           else ArgumentPolicy.AllowRewrite
-        execute = (call: IndexedToolCall) =>
+        savedRequest = (ordinal: Int) =>
+          continuation.flatMap(_.permissionRequests.find(_.callOrdinal == ordinal))
+        execute = (prepared: PreparedToolCall) =>
           executeAndRecord(
-            call,
+            prepared,
             position,
             activeToolkit,
             stateRef,
@@ -1247,11 +1249,25 @@ final class ReActAgent private (
             context,
             argumentPolicy,
             progressRef,
-            continuation.flatMap(_.permissionRequests.find(_.callOrdinal == call.ordinal))
+            savedRequest(prepared.indexed.ordinal)
           )
         localPhase =
-          if allSafe then ZIO.foreachPar(pendingCalls)(execute)
-          else ZIO.foreach(pendingCalls)(execute)
+          for
+            prepared <- ZIO.foreach(pendingCalls)(call =>
+              prepareToolCall(
+                call,
+                activeToolkit,
+                context,
+                argumentPolicy,
+                savedRequest(call.ordinal)
+              )
+            )
+            initial <- ZIO.foreach(prepared.filter(_.initialObservation))(execute)
+            remaining = prepared.filterNot(_.initialObservation)
+            continued <-
+              if allSafe then ZIO.foreachPar(remaining)(execute)
+              else ZIO.foreach(remaining)(execute)
+          yield initial ++ continued
         phase = ZIO
           .foreach(inlineToProcess) { case (call, indexed) =>
             processInlineResult(call, indexed, position, context, eventHub).map(
@@ -1691,6 +1707,15 @@ final class ReActAgent private (
     case Observed(stop: Option[ActingStop])
     case Deferred(request: PendingPermissionRequest, reason: String)
 
+  private enum ToolPreparation:
+    case Failed(error: AgentError.InvalidMessage)
+    case Ready(request: PendingPermissionRequest, preflight: ToolPreflight)
+
+  final private case class PreparedToolCall(indexed: IndexedToolCall, preparation: ToolPreparation):
+    def initialObservation: Boolean = preparation match
+      case ToolPreparation.Failed(_) | ToolPreparation.Ready(_, ToolPreflight.Denied(_)) => true
+      case ToolPreparation.Ready(_, ToolPreflight.Continue)                              => false
+
   final private case class ProcessedResult(result: ContentBlock.ToolResult, stop: Option[String])
 
   final private case class ToolResultPartition(
@@ -1907,6 +1932,65 @@ final class ReActAgent private (
           )
         )
 
+  private def admittedAccess(
+      call: ContentBlock.ToolUse,
+      toolkit: Toolkit
+  ): Option[AdmittedToolAccess] =
+    toolkit
+      .resolve(call.name)
+      .map(tool =>
+        if tool.isReadOnly then AdmittedToolAccess.ReadOnly else AdmittedToolAccess.Mutating
+      )
+
+  private def prepareToolCall(
+      indexed: IndexedToolCall,
+      toolkit: Toolkit,
+      context: ModelStreamContext,
+      argumentPolicy: ArgumentPolicy,
+      savedRequest: Option[PendingPermissionRequest]
+  ): UIO[PreparedToolCall] =
+    toolkit.prepareInput(indexed.call.name, indexed.call.input) match
+      case Left(error) => ZIO.succeed(PreparedToolCall(indexed, ToolPreparation.Failed(error)))
+      case Right(input) =>
+        for
+          requestId <- savedRequest match
+            case Some(request) => ZIO.succeed(request.requestId)
+            case None          => Random.nextUUID.map(_.toString)
+          request = PendingPermissionRequest(indexed.ordinal, requestId, input)
+          screened <-
+            if changesReasoningInput(indexed.call, input, argumentPolicy) then
+              ZIO.succeed(
+                ToolPreflight.Denied("Cannot modify arguments carrying provider reasoning metadata")
+              )
+            else
+              ZIO
+                .scoped(
+                  ZIO.suspendSucceed(
+                    toolAuthorizer.preflight(
+                      ToolAuthorizationRequest(
+                        requestId,
+                        context,
+                        withToolInput(indexed.call, input),
+                        Some(indexed.ordinal)
+                      ),
+                      admittedAccess(indexed.call, toolkit)
+                    )
+                  )
+                )
+                .foldCauseZIO(
+                  cause =>
+                    if cause.isInterrupted then ZIO.refailCause(cause).orDie
+                    else
+                      ZIO.succeed(
+                        ToolPreflight.Denied(
+                          cause.failureOption.map(_.reason).getOrElse("Tool authorization failed")
+                        )
+                      )
+                  ,
+                  ZIO.succeed(_)
+                )
+        yield PreparedToolCall(indexed, ToolPreparation.Ready(request, screened))
+
   private def authorizeTool(
       call: ContentBlock.ToolUse,
       callOrdinal: Int,
@@ -1925,12 +2009,6 @@ final class ReActAgent private (
         ZIO
           .scoped(
             ZIO.suspendSucceed:
-              val admittedAccess = toolkit
-                .resolve(call.name)
-                .map(tool =>
-                  if tool.isReadOnly then AdmittedToolAccess.ReadOnly
-                  else AdmittedToolAccess.Mutating
-                )
               toolAuthorizer.authorize(
                 ToolAuthorizationRequest(
                   requestId,
@@ -1938,7 +2016,7 @@ final class ReActAgent private (
                   withToolInput(call, preparedInput),
                   Some(callOrdinal)
                 ),
-                admittedAccess
+                admittedAccess(call, toolkit)
               )
           )
           .map: result =>
@@ -1993,7 +2071,7 @@ final class ReActAgent private (
       )
 
   private def executeAndRecord(
-      indexed: IndexedToolCall,
+      prepared: PreparedToolCall,
       assistantPosition: Int,
       toolkit: Toolkit,
       stateRef: Ref[Chunk[Msg]],
@@ -2004,7 +2082,8 @@ final class ReActAgent private (
       savedRequest: Option[PendingPermissionRequest]
   ): UIO[ActingOutcome] =
     ZIO.uninterruptibleMask: restore =>
-      val call = indexed.call
+      val indexed = prepared.indexed
+      val call    = indexed.call
       val start = eventHub.publish(
         AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))
       )
@@ -2060,28 +2139,26 @@ final class ReActAgent private (
                 )
             )
           ).map(Right(_))
+      val preparedAuthorization: UIO[
+        Either[AgentError.InvalidMessage, (PendingPermissionRequest, ToolAuthorization)]
+      ] = prepared.preparation match
+        case ToolPreparation.Failed(error) => ZIO.succeed(Left(error))
+        case ToolPreparation.Ready(request, ToolPreflight.Denied(reason)) =>
+          ZIO.succeed(Right((request, ToolAuthorization.Denied(reason))))
+        case ToolPreparation.Ready(request, ToolPreflight.Continue) =>
+          restore(
+            authorizeTool(
+              call,
+              indexed.ordinal,
+              request.requestId,
+              request.input,
+              context,
+              toolkit,
+              argumentPolicy
+            )
+          ).map(decision => Right((request, decision)))
       for
-        authorization <- ZIO
-          .fromEither(toolkit.prepareInput(call.name, call.input))
-          .flatMap: input =>
-            for
-              requestId <- savedRequest match
-                case Some(request) => ZIO.succeed(request.requestId)
-                case None          => Random.nextUUID.map(_.toString)
-              request = PendingPermissionRequest(indexed.ordinal, requestId, input)
-              decision <- restore(
-                authorizeTool(
-                  call,
-                  indexed.ordinal,
-                  requestId,
-                  input,
-                  context,
-                  toolkit,
-                  argumentPolicy
-                )
-              )
-            yield (request, decision)
-          .either
+        authorization <- preparedAuthorization
         _ <- savedRequest match
           case Some(request) =>
             authorization match

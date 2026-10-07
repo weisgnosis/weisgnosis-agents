@@ -18,7 +18,7 @@ package com.weisgnosis.agents.harness.permission
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.model.ContentBlock
-import com.weisgnosis.agents.core.tool.{ToolAuthorization, ToolAuthorizationRequest}
+import com.weisgnosis.agents.core.tool.{ToolAuthorization, ToolAuthorizationRequest, ToolPreflight}
 import zio.*
 import zio.json.ast.Json
 import zio.test.*
@@ -34,6 +34,41 @@ object InteractivePermissionAuthorizerSpec extends ZIOSpecDefault:
   private val allow: PermissionRule = PermissionRule("read", PermissionBehavior.Allow)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("InteractivePermissionAuthorizerSpec")(
+    test("preflight leaves dynamic gates untouched and Continue evaluates their current state") {
+      for
+        requests  <- PermissionRequests.make
+        published <- Ref.make(0)
+        mode      <- Ref.make(PermissionBehavior.Allow)
+        visits    <- Ref.make(Chunk.empty[Json])
+        active    <- Ref.make(0)
+        gate = PermissionGate((_, input) =>
+          ZIO.acquireRelease(active.update(_ + 1))(_ => active.update(_ - 1)) *>
+            visits.update(_ :+ input) *> mode.get.map(Some(_))
+        )
+        authorizer <- InteractivePermissionAuthorizer.make(
+          requests,
+          _ => published.update(_ + 1),
+          toolGate = gate,
+          interceptorGate = gate
+        )
+        initial       <- ZIO.scoped(authorizer.preflight(request("same"), None))
+        between       <- active.get
+        beforeVisits  <- visits.get
+        _             <- mode.set(PermissionBehavior.Deny)
+        finalDecision <- ZIO.scoped(authorizer.authorize(request("same")))
+        seen          <- visits.get
+        live          <- active.get
+        notices       <- published.get
+      yield assertTrue(
+        initial == ToolPreflight.Continue,
+        between == 0,
+        live == 0,
+        finalDecision.isInstanceOf[ToolAuthorization.Denied],
+        beforeVisits.isEmpty,
+        seen == Chunk(original, original),
+        notices == 0
+      )
+    },
     test(
       "an additional gate keeps original authority and shares confirmed rules without changing the original view"
     ) {

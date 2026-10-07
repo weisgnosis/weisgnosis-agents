@@ -25,6 +25,8 @@ import zio.json.ast.Json
 import zio.test.*
 
 object InteractivePermissionIntegrationSpec extends ZIOSpecDefault:
+  private enum InitialProcessingExit:
+    case Defect, Interrupt
   private val original: Json = Json.Obj("command" -> Json.Str("read original"))
   private val modified: Json = Json.Obj("command" -> Json.Str("read approved"))
   private val call: ContentBlock.ToolUse =
@@ -33,6 +35,140 @@ object InteractivePermissionIntegrationSpec extends ZIOSpecDefault:
     Toolkit.single(Tool.make(ToolDef("read", "Read", Json.Obj()))(run))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("InteractivePermissionIntegrationSpec")(
+    test("initial denials finish processing before an Ask-first batch publishes confirmation") {
+      ZIO
+        .foreach(Chunk(ToolExecution.Sequential, ToolExecution.Parallel)): execution =>
+          for
+            requests   <- PermissionRequests.make
+            published  <- Queue.unbounded[(ToolAuthorizationRequest, Chunk[String], Chunk[Msg])]
+            agentRef   <- Ref.make(Option.empty[ReActAgent])
+            processed  <- Ref.make(Chunk.empty[String])
+            executions <- Ref.make(Chunk.empty[String])
+            authorizer <- InteractivePermissionAuthorizer.make(
+              requests,
+              value =>
+                for
+                  seen    <- processed.get
+                  host    <- agentRef.get
+                  history <- host.fold[UIO[Chunk[Msg]]](ZIO.succeed(Chunk.empty))(_.history)
+                  _       <- published.offer((value, seen, history))
+                yield (),
+              initialPolicy =
+                PermissionEngine(rules = Chunk(PermissionRule("blocked", PermissionBehavior.Deny)))
+            )
+            tools = Toolkit.single(
+              Tool.make(ToolDef("read", "Read", Json.Obj()))(_ =>
+                executions.update(_ :+ "read").as("ok")
+              )
+            )
+            allTools <- ZIO.fromEither(
+              tools.register(
+                Tool.make(ToolDef("blocked", "Blocked", Json.Obj()))(_ =>
+                  executions.update(_ :+ "blocked").as("wrong")
+                )
+              )
+            )
+            model <- LlmClient.mock(
+              Chunk(
+                TurnOutput.ToolCalls(Msg.assistant(Chunk(call, call.copy(name = "blocked")))),
+                TurnOutput.FinalText(Msg.assistant("done"))
+              )
+            )
+            processor = ToolResultProcessor(result =>
+              ZIO.acquireRelease(processed.update(_ :+ "entered"))(_ =>
+                processed.update(_ :+ "released")
+              ) *>
+                ZIO.succeed(ToolResultPayload.fromResult(result))
+            )
+            agent <- ReActAgent.make(
+              config = AgentConfig(toolExecution = execution),
+              client = model,
+              toolkit = allTools,
+              toolAuthorizer = authorizer,
+              toolResultProcessor = processor
+            )
+            _      <- agentRef.set(Some(agent))
+            run    <- agent.streamEvents(Msg.user("q")).runCollect.forkScoped
+            prompt <- published.take
+            persisted = prompt._3
+            _         <- requests.resolve(prompt._1.requestId, ConfirmResult(true))
+            events    <- run.join
+            actual    <- executions.get
+            remaining <- requests.pendingIds
+            denied = persisted.flatMap(_.toolResults)
+          yield assertTrue(
+            prompt._2 == Chunk("entered", "released"),
+            prompt._1.callOrdinal.contains(0),
+            persisted.flatMap(_.toolUses).map(_.name) == Chunk("read", "blocked"),
+            denied.map(result => result.name -> result.state) == Chunk(
+              Some("blocked") -> ToolResultState.Denied
+            ),
+            actual == Chunk("read"),
+            remaining.isEmpty,
+            events.collect { case end: AgentEvent.ToolResultEndEvent => end.name -> end.state } ==
+              Chunk("blocked" -> ToolResultState.Denied, "read" -> ToolResultState.Success)
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
+    test("failed or cancelled initial denial processing suppresses confirmation and joins cleanup") {
+      ZIO
+        .foreach(Chunk.fromArray(InitialProcessingExit.values)): ending =>
+          val defect = new IllegalStateException("initial processing failed")
+          for
+            requests  <- PermissionRequests.make
+            published <- Ref.make(0)
+            entered   <- Promise.make[Nothing, Unit]
+            release   <- Promise.make[Nothing, Unit]
+            cleaned   <- Ref.make(0)
+            authorizer <- InteractivePermissionAuthorizer.make(
+              requests,
+              _ => published.update(_ + 1),
+              initialPolicy = PermissionEngine(rules =
+                Chunk(PermissionRule("read", PermissionBehavior.Deny, Some("blocked")))
+              )
+            )
+            model <- LlmClient.mock(
+              Chunk(
+                TurnOutput.ToolCalls(
+                  Msg.assistant(
+                    Chunk(call, call.copy(input = Json.Obj("command" -> Json.Str("blocked"))))
+                  )
+                )
+              )
+            )
+            processor = ToolResultProcessor(_ =>
+              ZIO.acquireRelease(ZIO.unit)(_ => cleaned.update(_ + 1)) *>
+                entered.succeed(()).unit *> release.await *> ZIO.die(defect)
+            )
+            agent <- ReActAgent.make(
+              client = model,
+              toolkit = toolkit(_ => ZIO.succeed("must not execute")),
+              toolAuthorizer = authorizer,
+              toolResultProcessor = processor
+            )
+            run    <- agent.run(Msg.user("q")).forkScoped
+            _      <- entered.await
+            before <- published.get
+            exit <- ending match
+              case InitialProcessingExit.Interrupt => run.interrupt
+              case InitialProcessingExit.Defect    => release.succeed(()) *> run.await
+            after   <- published.get
+            cleanup <- cleaned.get
+            pending <- requests.pendingIds
+            history <- agent.history
+          yield assertTrue(
+            before == 0,
+            after == 0,
+            cleanup == 1,
+            pending.isEmpty,
+            exit.isFailure,
+            ending != InitialProcessingExit.Interrupt || exit.isInterrupted,
+            ending != InitialProcessingExit.Defect || exit.causeOption
+              .exists(_.defects == Chunk(defect)),
+            history.flatMap(_.toolResults).count(_.state == ToolResultState.Denied) == 1
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
     test("approval resumes the same tool phase with modified input and no extra reasoning request") {
       for
         requests    <- PermissionRequests.make

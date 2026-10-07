@@ -159,7 +159,7 @@ Migration: current LlmConfig has sixteen positional/Product fields and ModelRequ
 | Source/spec approved by review_fp and review_invariants against c1c95be | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5bfb7b37d7be56f81db3d769d23e5577f436c2a3 |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | 4a8654e156707431d927184ad40517da5b9a28ad |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current runtime identity](../agent/README.md); prior thinking-budget behavior retained, interactive-preflight final combined documentation approval passed. |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | 9c4283edfc7e6b211155aec109ff6677f358ad20 |
 | [ThinkingBudget.scala](ThinkingBudget.scala) | 3b9b10520a24381327ad497f22917b92ccefbf56 |

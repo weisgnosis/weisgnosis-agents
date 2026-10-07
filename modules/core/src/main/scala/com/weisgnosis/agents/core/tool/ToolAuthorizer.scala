@@ -36,6 +36,14 @@ enum ToolAuthorization derives JsonCodec:
   case Denied(reason: String)
   case Deferred(reason: String)
 
+/**
+ * Denied is terminal and may be recorded ahead of earlier calls: it must remain valid despite
+ * their execution or confirmations. Mutable/live conditions must Continue through fresh authorization.
+ */
+enum ToolPreflight derives JsonCodec:
+  case Continue
+  case Denied(reason: String)
+
 /** Transient access metadata from the admitted host tool, never from request JSON. */
 enum AdmittedToolAccess:
   case ReadOnly, Mutating
@@ -45,6 +53,16 @@ trait ToolAuthorizer:
   def authorize(
       request: ToolAuthorizationRequest
   ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization]
+
+  /**
+   * Inspect one prepared occurrence without publishing or awaiting approval. Return Denied only
+   * for stable prohibitions unaffected by earlier calls; Continue grants no authority. Each scope
+   * closes before initial denials are recorded and remaining ordinary authorization begins.
+   */
+  def preflight(
+      @unused request: ToolAuthorizationRequest,
+      @unused admittedAccess: Option[AdmittedToolAccess]
+  ): ZIO[Scope, AgentError.PermissionDenied, ToolPreflight] = ZIO.succeed(ToolPreflight.Continue)
 
   /** Existing implementations keep their single-argument decision unless they opt into this view. */
   def authorize(
