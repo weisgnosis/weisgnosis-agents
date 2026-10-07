@@ -16,7 +16,14 @@
 package consumer
 
 import com.weisgnosis.agents.core.agent.ReActAgent
-import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, ToolCallParallelism, TurnOutput}
+import com.weisgnosis.agents.core.client.{
+  ChatCompletionsRequest,
+  LlmClient,
+  LlmConfig,
+  StopSequences,
+  ToolCallParallelism,
+  TurnOutput
+}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, FinalAnswerFilter, ModelStreamContext}
 import com.weisgnosis.agents.core.json.ExactJson
@@ -152,7 +159,11 @@ object ArtifactSmoke extends ZIOAppDefault:
         )
         configured = LlmConfig(
           "packaged-model",
-          parallelToolCalls = Some(ToolCallParallelism.Disabled)
+          parallelToolCalls = Some(ToolCallParallelism.Disabled),
+          stopSequences = Some(StopSequences.one("END", "STOP"))
+        )
+        request <- ZIO.fromEither(
+          ChatCompletionsRequest.encode(Chunk(Msg.user("question")), Chunk.empty, configured)
         )
         turns <- Ref.make(0)
         client = new LlmClient:
@@ -216,7 +227,10 @@ object ArtifactSmoke extends ZIOAppDefault:
           .fail(failure("Packaged public API consumer contract failed"))
           .unless(
             encoded == "-9223372036854775808" && decoded == event &&
-              configured.toJson.fromJson[LlmConfig] == Right(configured) && decisions == Chunk(
+              configured.toJson.fromJson[LlmConfig] == Right(configured) &&
+              configured.stopSequences.exists(_.values == Chunk("END", "STOP")) &&
+              request.get("stop").contains(Json.Arr(Json.Str("END"), Json.Str("STOP"))) &&
+              decisions == Chunk(
                 "sum"
               ) &&
               events.collect { case result: AgentEvent.AgentResultEvent =>

@@ -1,6 +1,6 @@
 # Model client port and stream assembly
 
-Optional typed parallel_tool_calls steering adds a thirteenth LlmConfig field. The dedicated contract below records final independent review and verification; preceding accepted scopes retain their bounded evidence.
+Typed request settings preserve provider preferences without granting runtime authority. The contracts below record accepted source identities, migration and verification for each bounded scope.
 
 LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and returns TurnOutput. Implementations must acquire request resources in that scope. The package provides scripted clients, LlmConfig, SSE framing, strict completion-delta decoding, reasoning-history adaptation, and StreamAccumulator. ChatCompletionsTransport provides a separate scoped HTTP completion operation. ChatCompletionsClient connects it to ReAct with incremental correlated events.
 
@@ -19,6 +19,7 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [StructuredOutputCapability](StructuredOutputCapability.scala)
 - [JsonBoundary](../json/JsonBoundary.scala)
 - [ReasoningModelAdapter](ReasoningModelAdapter.scala)
+- [StopSequences](StopSequences.scala)
 - [SseParser](SseParser.scala)
 - [StreamAccumulator](StreamAccumulator.scala)
 - [TurnOutput](TurnOutput.scala)
@@ -54,20 +55,45 @@ This is a private decoder correction without public source/JVM or configuration 
 - [x] cache-usage-focused.log passes all 27 parser/client groups; existing tables were extended without adding groups.
 - [x] Formatting, verify and packageArtifacts pass in cache-usage-verify.log: 659 core / 724 harness / 85 MCP / 5 examples (1,473 total), zero compiler warnings or failed tests. Current documentation links and English prose are checked before commit.
 
+## Optional stop sequences
+
+StopSequences is an opaque immutable nonempty Chunk[String]. one(first, rest*) constructs a valid value; fromChunk returns a typed InvalidConfiguration failure for an empty collection. Its checked JSON codec uses an array and rejects empty arrays, scalar strings and nonstring entries. It preserves exact strings, whitespace, empty strings, order and duplicates; no provider-specific count limit or automatic normalization is imposed. Endpoint support remains the host's responsibility.
+
+LlmConfig.stopSequences defaults to None; absent/JSON-null configuration retains None, which omits provider stop. Some emits an array, including a singleton. Each selected primary/fallback target supplies its own value to ModelRequestSettings.stopSequences. Request projection can replace it or clear it with None; legacy history transforms retain it. HTTP retries reuse the encoded body and native/synthetic formatting retain projected settings. These are provider generation settings: the runtime does not trim output locally, bypass tool checks or infer successful completion from matching text.
+
+Migration: LlmConfig has fourteen positional/Product fields and ModelRequestSettings has seven. The appended defaults preserve ordinary omitted-argument construction and legacy configuration JSON. Adapt positional patterns/constructor method values and rebuild dependent binaries. Custom LlmClient implementations receive the typed settings and decide whether their provider supports them.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 6da631c783dcfb63393d784c5b112f7cafdd3098 |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | 1bb02e16c9af31efefca28a2b495cb0b0de4fc8f |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | 2d34171486e24e966685fc168006aba0c781389f |
+| [LlmClient.scala](LlmClient.scala) | 6800e756a2b0e13c0ccf8b40dd727ca234d80140 |
+| [StopSequences.scala](StopSequences.scala) | 07e81b7f93282be465a2db4d5eacb98bdac3dbca |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 6892db13bd13abdb0beff116a8168515a6feb2e5 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | c700ce13abc78d9f944a2c25683db60eced5db30 |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | 8570df41b7a0ca5216df2f5e22c7096fe23b7cfc |
+| [StopSequencesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StopSequencesSpec.scala) | a55a615fc899a28cc14d610af8005aaa7f72d448 |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | 463f7ab27395cdc11fee65a76eec10a99356e3d5 |
+
+- [x] review_fp and review_invariants approved the nine library/spec identities with no findings. The external consumer extension uses its final standalone formatting identity in the table.
+- [x] stop-sequences-focused.log passes 28 groups. One new paired table group covers the checked type; existing request/projection/failover tables were extended. This additive feature has no pre-fix defect claim.
+- [x] Formatting, verify and packageArtifacts pass in stop-sequences-verify.log: 660 core / 724 harness / 85 MCP / 5 examples (1,474 total), zero compiler warnings or failed tests. stop-sequences-artifact-preparation.log validates archives/POMs; stop-sequences-artifact-consumer.log clean-compiles and runs the external consumer against the fresh loaded JAR hashes. Current links and English prose are checked before commit.
+
 ## Optional parallel tool-call steering
 
 LlmConfig.parallelToolCalls is Option[ToolCallParallelism], defaulting to None. ToolCallParallelism.Enabled and Disabled encode as provider parallel_tool_calls true and false respectively; None omits the field. Explicit preferences remain present when no tools are advertised. Domain configuration uses the typed camelCase field; absent or JSON-null values decode as None, and malformed enum values fail decoding.
 
 This is a model generation preference. It does not change AgentConfig.toolExecution, admitted tools, authorization or call dispatch: a model may return multiple calls despite Disabled, and the runtime still applies its normal policies to every call. Each primary/fallback target retains its own configured preference through request settings projection; ModelRequestSettings does not expose this capability. Native/synthetic formatting and retry body reuse preserve the configured value.
 
-Migration: LlmConfig now has thirteen positional/Product fields. Existing omitted-argument construction and legacy JSON retain defaults; positional patterns and constructor method values may need adaptation, and dependent binaries must be rebuilt. Domain enum JSON is distinct from the provider Boolean wire field.
+Migration: current LlmConfig arity follows the [stop-sequence migration](#optional-stop-sequences). Existing omitted-argument construction and legacy JSON retain defaults; positional patterns and constructor method values may need adaptation, and dependent binaries must be rebuilt. Domain enum JSON is distinct from the provider Boolean wire field.
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [LlmClient.scala](LlmClient.scala) | `723346b333f919207b33ea310103d0a119b4b839` |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `d365bd51151f71bc46b8b5cc6f0e7cd6ea4bebc1` |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `62199f66a9227b8c79d05c7640e0bd29711c9d62` |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | `bf364a5eefd834537cd20a8ffa23ab5c94dc5cb1` |
+| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-stop-sequences) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current identity](#optional-stop-sequences) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](#optional-stop-sequences) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](#optional-stop-sequences) |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for these five identities, with no findings.
@@ -77,21 +103,21 @@ Migration: LlmConfig now has thirteen positional/Product fields. Existing omitte
 
 LlmConfig.seed and ModelRequestSettings.seed are Option[Long], defaulting to None. Some values, including zero and both signed 64-bit endpoints, encode as exact JSON integers under seed; None omits the field. Configuration JSON rejects fractional and out-of-Long-range seeds, while absent/null values retain None. No narrowing to Java's formatter integer range or provider reproducibility guarantee is implied.
 
-Each selected target supplies its own seed to request projection. The projected value replaces it, with None explicitly clearing it. Retries reuse the serialized body, and native/synthetic requests retain their projected settings. Seed changes no model identity, endpoint, tools, permissions or response format. Migration: LlmConfig has thirteen positional/Product fields, including the defaulted parallelToolCalls field; ModelRequestSettings has six; defaulted appended fields preserve ordinary omitted-argument construction and legacy configuration JSON. Adapt positional patterns/method values and rebuild dependent binaries.
+Each selected target supplies its own seed to request projection. The projected value replaces it, with None explicitly clearing it. Retries reuse the serialized body, and native/synthetic requests retain their projected settings. Seed changes no model identity, endpoint, tools, permissions or response format. Migration: current LlmConfig and ModelRequestSettings arities follow the [stop-sequence migration](#optional-stop-sequences); defaulted appended fields preserve ordinary omitted-argument construction and legacy configuration JSON. Adapt positional patterns/method values and rebuild dependent binaries.
 
 The HTTP request body and historical tool-argument strings use the pure [exact JSON renderer](../json/README.md). Checked AST validation still precedes rendering. This avoids the dependency's decimal corruption at a minimum-Long unscaled coefficient, including nested values and nonzero scales. It is limited to explicitly integrated output boundaries: structured closing text and local transcript output have their own [reviewed integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output). [Exact domain/tool output](../json/README.md#exact-domain-and-tool-output) covers compactor provenance/previews and checked factory execution; hosts can opt into ExactJson.encode. External dependency serialization and legacy direct tool encoding remain outside that guarantee.
 
 | Reviewed core file | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | `2ced976db41ee9b4e36332767eccd3ca10211942` |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current parallel-steering identity](#optional-parallel-tool-call-steering) |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-stop-sequences) |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-stop-sequences) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current identity](#optional-stop-sequences) |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `1a3164bbca698268544f783f8f72ea8d2861ced8` |
-| [LlmClient.scala](LlmClient.scala) | [Current parallel-steering identity](#optional-parallel-tool-call-steering) |
+| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-stop-sequences) |
 | [JsonBoundary.scala](../json/JsonBoundary.scala) | `6cf481403cc762117989e31d5e1dd2c0c1ffd3be` |
-| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | `073135e8b0f665d05b3942ed84ec504642d69d55` |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current parallel-steering identity](#optional-parallel-tool-call-steering) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current parallel-steering identity](#optional-parallel-tool-call-steering) |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-stop-sequences) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](#optional-stop-sequences) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](#optional-stop-sequences) |
 | [JsonBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/json/JsonBoundarySpec.scala) | `aca1f4ce72d66ff5f6f28ec0d13dc767a14a3800` |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the ten core identities, with no findings. The core section of `exact-json-focused-red.log` passed 34 tests in 988 ms after correction. Existing seed/config/projection/serialized-request tables and the unchanged exact-renderer regression cover omission, zero, Long endpoints, escaping, nested values, scale and stack-safe traversal.
@@ -107,14 +133,14 @@ Migration: Current LlmConfig and ModelRequestSettings arities are recorded in th
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [LlmClient.scala](LlmClient.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-stop-sequences) |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-stop-sequences) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current identity](#optional-stop-sequences) |
+| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-stop-sequences) |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-stop-sequences) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current ReActAgentModelInputSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](#optional-stop-sequences) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](#optional-stop-sequences) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these eight identities, with no findings. Existing tables cover omission, zero, endpoints, nonfinite/out-of-range values, codec defaults, projection override/clearing and validation before custom dispatch, per-target selection, retry reuse and structured requests. No new test groups were added. Focused `penalties-numeric-focused.log` passed 37 tests in 1.186 seconds.
 - [x] Formatting and full verification passed in `penalties-verify.log`, with zero compiler warnings or failures. Current aggregate evidence and environment are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) keeps seed and broader generation-option behavior separate.
@@ -129,11 +155,11 @@ Migration: LlmConfig has a defaulted toolChoice; its current positional/Product 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [LlmClient.scala](LlmClient.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current identity](#optional-stop-sequences) |
+| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-stop-sequences) |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](#optional-stop-sequences) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](#optional-stop-sequences) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Existing tables cover all choices, empty definitions, exact visibility rejection and codec defaults. The extended real HTTP cycle verifies that a returned call despite none still passes through host authorization, Specific cannot bypass host denial, and hidden Specific performs no HTTP/authorization. Controlled failover/structured requests retain each target's own choice. Focused tool-choice-focused.log passed 31 tests in 7.402 seconds; no new groups were added.
 - [x] Full scalafmtAll scalafmtSbt verify passed in tool-choice-verify.log with zero compiler warnings or failures. Current aggregate evidence is in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -148,14 +174,14 @@ Migration: the appended defaulted fields preserve ordinary omitted-argument cons
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [LlmClient.scala](LlmClient.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
+| [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-stop-sequences) |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-stop-sequences) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current identity](#optional-stop-sequences) |
+| [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-stop-sequences) |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-stop-sequences) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](#optional-stop-sequences) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](#optional-stop-sequences) |
 | [SubagentDeclaration.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclaration.scala) | bf55c6a99b8c35bfaa28bd15eb8fba2617ad9faa |
 | [SubagentDeclarationParser.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParser.scala) | 2033e68dc48552d838cf7f96b7a53d9e1a2df45c |
 | [SubagentDeclarationParserSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | 3143e211c09c6a1f58b9eaaa4afd0e88868bbfa1 |
@@ -226,8 +252,8 @@ Existing tables verify six inline MIME mappings, four image URL hints on a misle
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current identity](#optional-stop-sequences) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](#optional-stop-sequences) |
 | [MediaSource.scala](../model/MediaSource.scala) | a443433df837fc8d4eb4b714664b90b2a7bcef3c |
 | [MediaSourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/MediaSourceSpec.scala) | ac9619600ec48fe7f0c5713ae7f34c8f8c0f6ad6 |
 
@@ -271,8 +297,8 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 
 | File | Reviewed Git blob |
 | --- | --- |
-| ReActAgent.scala | Encrypted-reasoning baseline ddfd6a7af17856c6c075d9674cceb7e01c14dbc5; current identity: [acting-stop decisions](../agent/README.md#acting-stop-decisions). |
-| ChatCompletionsRequest.scala | Current identity: [user-media projection](#user-image-projection). |
+| ReActAgent.scala | [Current identity](#optional-stop-sequences) |
+| ChatCompletionsRequest.scala | [Current identity](#optional-stop-sequences) |
 | ChatCompletionsTransport.scala | Current identity: [retry acceptance](#bounded-http-status-retries). |
 | [LlmChunk.scala](LlmChunk.scala) | a35e034b66a8139d05ee1c6b1622ca19871538b1 |
 | [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 35b65c607b31f46da8213f4ffcfb12a6d7439128 |
@@ -369,7 +395,7 @@ Final formatted source identities against `06bd2e1`:
 
 | File | Git blob |
 | --- | --- |
-| LlmClient.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
+| LlmClient.scala | [Current identity](#optional-stop-sequences) |
 | [StructuredOutputCapability.scala](StructuredOutputCapability.scala) | 5b68a9b3d6c89651b05b46d42b61382987eb90ee |
 | StructuredOutputCapabilityRoutingSpec.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
 | [StructuredOutputCapabilitySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StructuredOutputCapabilitySpec.scala) | bebc0adc73b60d08e784f4dcfbdcfa46bea91ddc |

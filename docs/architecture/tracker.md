@@ -4,13 +4,13 @@ Last synchronized: 2026-10-07. Implementation is active. This document records c
 
 ## Current delivery gates
 
-The numeric-integrity and typed parallel-call steering scope is accepted after final independent review and verification. Current source/spec identities belong to the [JSON contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md#verification-and-acceptance) and [client contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-parallel-tool-call-steering).
+Current delivered scope includes exact numeric event metadata, typed provider parallel-call steering, checked Toolkit registry identity, compatible cache-usage preservation and typed stop sequences. Linked package contracts own exact source/spec identities and bounded review evidence; previous verification history belongs to Git.
 
-- [x] Correct event metadata numeric decoding with a direct private-payload JsonDecoder; the pre-fix regression recorded 40 passes/1 failure, and resume-focused.log passes 41 tests.
-- [x] Verify typed parallel_tool_calls omission/enabled/disabled values, per-target preservation and real HTTP authorization independent of provider preference; LlmConfig has thirteen fields.
-- [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for all eighteen changed Scala identities against 417c20c, including the final correction; no findings remain in this scope.
-- [x] Run scalafmtAll scalafmtSbt and verify packageArtifacts: resume-verify.log passes 658 core / 724 harness / 85 MCP tests (1,467 total), with zero compiler warnings or failed tests. Current full repository verification, including five unpublished example groups, passes 1,473 tests in cache-usage-verify.log.
-- [x] Inspect all six binary/source JARs and POM scopes; the isolated resume-artifact-consumer.log clean-compiles and runs exact numeric event round-trips and typed thirteen-field configuration against the three fresh packaged artifacts.
+- [x] review_fp and review_invariants approved the [cache-usage decoder](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding), including reproduced loss/validation defects and final documentation.
+- [x] review_fp and review_invariants approved the [typed stop-sequence implementation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences), preserving selected-target projection and runtime completion/tool authority; exact identities are recorded there.
+- [x] Format and run verify packageArtifacts: stop-sequences-verify.log passes 660 core / 724 harness / 85 MCP / 5 examples (1,474 total), zero compiler warnings or failed tests.
+- [x] Inspect all six binary/source JARs and POM scopes in stop-sequences-artifact-preparation.log; stop-sequences-artifact-consumer.log clean-compiles and runs the neutral external consumer against fresh loaded artifact hashes, including typed stop construction/configuration and wire arrays.
+- [x] Synchronize affected current contracts, migration, bounded upstream mappings and checkbox progress; review English prose and local Markdown links before commit.
 
 ExactJson remains opt-in and requires faithful encoder AST conversion. External dependency .toJson and legacy direct tool encoders are not globally replaced. This acceptance does not close remote storage, durable host integration, remaining parity, platform/live-provider or release work below. No remote publication or push was performed.
 
@@ -172,7 +172,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [x] Reconcile a concrete provider usage gap against pinned upstream: both reviewers approved strict direct-cache precedence and cache-write preservation in the [cache-usage decoder](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding), with reproduced RED and focused GREEN evidence; no new groups or public API changes.
 - [x] Full formatting, verify and packageArtifacts pass for the cache-usage scope in cache-usage-verify.log: 1,473 tests, zero compiler warnings or failed tests; current package contracts and bounded parity mapping are synchronized.
-- [ ] Next: define and implement the applicable optional stop-sequence request contract; retain other provider/media mapping, remote persistence, platform and release validation as unfinished work.
+- [x] Implement the applicable optional stop-sequence request contract, with one checked-value test group, extended request/projection/failover tables, independent source review and fresh packaged consumption.
+- [ ] Next: reconcile remaining request-parameter mappings against pinned upstream, then select the next concrete applicable implementation gap. Other provider/media, remote persistence, platform and release validation remain unfinished.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.

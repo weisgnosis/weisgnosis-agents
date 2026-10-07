@@ -45,7 +45,8 @@ final case class LlmConfig(
     frequencyPenalty: Option[Double] = None,
     presencePenalty: Option[Double] = None,
     seed: Option[Long] = None,
-    parallelToolCalls: Option[ToolCallParallelism] = None
+    parallelToolCalls: Option[ToolCallParallelism] = None,
+    stopSequences: Option[StopSequences] = None
 ) derives JsonCodec
 
 /**

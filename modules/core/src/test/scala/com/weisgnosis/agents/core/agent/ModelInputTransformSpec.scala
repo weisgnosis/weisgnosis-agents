@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.agent
 
+import com.weisgnosis.agents.core.client.StopSequences
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.model.*
@@ -78,7 +79,15 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
           history,
           "selected-model",
           tools,
-          ModelRequestSettings(0.7, Some(100), Some(0.9), Some(0.5), Some(0.3), Some(42L))
+          ModelRequestSettings(
+            0.7,
+            Some(100),
+            Some(0.9),
+            Some(0.5),
+            Some(0.3),
+            Some(42L),
+            Some(StopSequences.one("original"))
+          )
         )
       for
         calls <- Ref.make(Chunk.empty[String])
@@ -95,7 +104,15 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
             .as(
               ModelInputProjection(
                 input.history :+ Msg.user("first"),
-                ModelRequestSettings(0, Some(11), Some(0.4), Some(-2), Some(2), Some(Long.MaxValue))
+                ModelRequestSettings(
+                  0,
+                  Some(11),
+                  Some(0.4),
+                  Some(-2),
+                  Some(2),
+                  Some(Long.MaxValue),
+                  Some(StopSequences.one("projected"))
+                )
               )
             )
         second = ModelInputTransform.withRequest(first): (ctx, input) =>
@@ -109,7 +126,8 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
                   topP = None,
                   frequencyPenalty = None,
                   presencePenalty = None,
-                  seed = None
+                  seed = None,
+                  stopSequences = None
                 )
               )
             )
@@ -130,8 +148,15 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
           context -> request.copy(history = legacy),
           context -> request.copy(
             history = legacy :+ Msg.user("first"),
-            settings =
-              ModelRequestSettings(0, Some(11), Some(0.4), Some(-2), Some(2), Some(Long.MaxValue))
+            settings = ModelRequestSettings(
+              0,
+              Some(11),
+              Some(0.4),
+              Some(-2),
+              Some(2),
+              Some(Long.MaxValue),
+              Some(StopSequences.one("projected"))
+            )
           )
         ),
         result == ModelInputProjection(

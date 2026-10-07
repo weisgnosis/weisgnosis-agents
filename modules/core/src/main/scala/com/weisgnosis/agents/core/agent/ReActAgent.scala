@@ -1432,7 +1432,8 @@ final class ReActAgent private (
             target.config.topP,
             target.config.frequencyPenalty,
             target.config.presencePenalty,
-            target.config.seed
+            target.config.seed,
+            target.config.stopSequences
           )
         )
         candidate <- ZIO.scoped(
@@ -1446,7 +1447,8 @@ final class ReActAgent private (
           topP = validated.settings.topP,
           frequencyPenalty = validated.settings.frequencyPenalty,
           presencePenalty = validated.settings.presencePenalty,
-          seed = validated.settings.seed
+          seed = validated.settings.seed,
+          stopSequences = validated.settings.stopSequences
         )
         _ <- eventHub.publish(
           AgentEvent.ModelRequestStartEvent(target.config.model, 0, context = Some(context))

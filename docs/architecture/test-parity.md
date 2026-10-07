@@ -409,6 +409,11 @@ Upstream base events also have identity/time, optional source, and metadata. Thi
 
 Inline event metadata intentionally preserves the complete result map; pinned upstream inline events synthesize only serverTool=true. ReActAgentEmissionSpec verifies this Scala contract, duplicate-ID occurrence handling, and local cancellation matching. Provider continuation without inline results is covered separately by the ownership fixtures above. This emission fixture does not establish local structured tool streams or complete event ordering.
 
+## Stop-sequence request adaptation
+
+- [x] Adapt pinned OpenAIChatFormatterTest.testApplyStopParameter (530) through typed LlmConfig.stopSequences and a canonical stop array containing END and STOP. Exact strings/order are preserved; the Scala contract also checks nonempty configuration arrays, absence/null, per-target projection replacement/clearing, retries and native/synthetic formatting. These additional checks do not represent additional Java test methods. Final source identities and verification belong to the [stop-sequence contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences).
+- [ ] Complete the remaining formatter/parser inventory and applicable provider behavior; this mapping does not establish exhaustive parity or live endpoint support.
+
 ## Completion parser hardening
 
 - [x] Bounded streamed-usage adaptation of pinned OpenAIResponseParserTest.testParseDeepSeekPromptCacheHitTokens (1134): 100 input / 50 output / 60 direct cached tokens. OpenAIResponseParser.getSafeCachedTokens (86–94) supplies direct-before-nested precedence, including zero; getSafeCacheCreationTokens (104–110) supplies nested cache_write_tokens. Existing Scala parser tables add null fallback and strict validation; the HTTP scenario checks canonical history. The [cache-usage contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding) records exact review and RED/GREEN evidence. This does not implement the Java full-message envelope or close full formatter parity.

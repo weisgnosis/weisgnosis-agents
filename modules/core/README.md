@@ -4,6 +4,8 @@ Toolkit now has a private canonical-name representation; host map construction u
 
 The [cache-usage decoder](src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding) preserves compatible direct cache-hit and nested cache-write counters with strict validation and independent review; no public API migration is needed.
 
+The [typed stop-sequence contract](src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences) adds checked provider request settings and records current configuration migration; runtime completion and tool authority remain unchanged.
+
 Local artifact: `com.weisgnosis:weisgnosis-agents-core_3:0.1.0-SNAPSHOT`. Binary/source JAR and POM generation, dependency boundaries and isolated-consumer evidence are defined in the [build contract](../../project/README.md#local-artifact-packaging); no external publication is claimed.
 
 The internal forwarding lifecycle also supports [host-only retained child resume](../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume), preserving checkpoint context and joined cleanup under existing runtime ownership.

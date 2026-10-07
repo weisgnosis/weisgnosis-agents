@@ -422,6 +422,20 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
                 value.get("presence_penalty") == penalty.map(Json.Num(_))
             )
         ),
+        Chunk(
+          None,
+          Some(StopSequences.one("END")),
+          Some(StopSequences.one("END", "STOP")),
+          Some(StopSequences.one("", " ", "\n", "END", "END"))
+        ).forall(stops =>
+          val selected = config.copy(stopSequences = stops)
+          ChatCompletionsRequest
+            .encode(Chunk(Msg.user("question")), Chunk.empty, selected)
+            .exists(_.get("stop") == stops.map(value => Json.Arr(value.values.map(Json.Str(_))))) &&
+          selected.toJson.fromJson[LlmConfig] == Right(selected)
+        ),
+        """{"model":"test-model","stopSequences":null}""".fromJson[LlmConfig] == Right(config),
+        """{"model":"test-model","stopSequences":[]}""".fromJson[LlmConfig].isLeft,
         """{"model":"test-model"}""".fromJson[LlmConfig] == Right(LlmConfig("test-model")),
         Chunk(
           None,
