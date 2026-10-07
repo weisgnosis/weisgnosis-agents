@@ -812,7 +812,8 @@ The pinned upstream has no TranscriptMiddlewareTest counterpart. TranscriptMiddl
 - [x] Verify 22 core port/runtime cases and six harness completion cases, including local reopen, recovery persistence, identity policy and compactor prefix offload.
 - [x] Obtain independent FP/invariant approval against `0349b1a`; full verification passed 552 core / 264 harness tests.
 - [x] Map and implement local memory flush/consolidation triggers, isolation, throttling and asynchronous lifecycle adaptations below.
-- [ ] Complete remote trigger/isolation combinations and retention lifecycle behavior.
+- [x] Verify the [persistent gate and bounded remote trigger/isolation matrix](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration) within their accepted contracts.
+- [ ] Complete broader remote middleware and physical retention lifecycle behavior.
 - [x] Complete bounded segment adapter acceptance.
 - [x] Complete bounded explicit catalog documentation acceptance below.
 - [ ] Complete broader/global discovery separately.
@@ -874,7 +875,8 @@ MemoryConfigTest trigger behavior:
 Additional hardening covers owner separation, exact clock origin, structural identifier collisions, strict numeric decoding, simultaneous claims, policy reset, signed elapsed wraparound and backward test-clock movement. Cleanup deliberately differs from upstream age-only eviction: an active interval survives shorter retention. Fixed policies require a new gate to change intervals, deliberately resetting windows. The gate samples the monotonic clock inside its serialized transition to avoid installing timestamps captured before competing claims.
 
 - [x] Implement the four async-flush methods and the applicable async-maintenance gate behavior through owned runtime schedulers below.
-- [ ] Complete remote gates, filesystem retention and broader middleware parity.
+- [x] Complete the separately reviewed [persistent remote gate](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-memory-trigger-gate).
+- [ ] Complete broader filesystem/remote retention and middleware parity; accepted gate/matrix scopes do not close these mappings.
 
 - [x] `review_fp` and `review_harness` approved the final six-file memory-trigger increment against `73cd376` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 287 harness tests, including 23 new cases, with zero compiler warnings. No findings remain within typed finite intervals, strict numeric codecs, immutable policies, explicit shared ownership, atomic monotonic admission and active-window-safe cleanup. Scheduling, execution locks, remote authority and full memory configuration parity remain outside this scope.
 
@@ -1289,7 +1291,7 @@ The private version-1 memory aggregate is a stronger atomic domain adaptation ov
 - [x] Obtain final FP/ZIO/invariant source approval and full-build/package verification for this selected remote-memory scope. No additional whole upstream method is closed merely by these integration groups.
 - [x] Fresh versioned-memory-artifact-consumer.log passes standalone formatting, clean compilation and execution against four actual packaged module hashes; existing selected APIs are exercised without constructing the new repository.
 - [x] review_fp and review_invariants approved final documentation for this selected remote-memory adaptation before bbadf13.
-- [ ] Complete broader/global transcript discovery, remote pruning/layout migration, checkpoint adapters, remote filesystem applicability and legacy watermark method classification separately; authenticated/exactly-once host claims remain external.
+- [ ] Complete broader/global transcript discovery, remote pruning/layout migration, authenticated checkpoint runtime/host installation, remote filesystem applicability and legacy watermark method classification separately; authenticated/exactly-once host claims remain external.
 
 ## Versioned remote transcript adaptation
 
