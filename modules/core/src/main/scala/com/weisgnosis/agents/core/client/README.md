@@ -24,6 +24,26 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [StreamAccumulator](StreamAccumulator.scala)
 - [TurnOutput](TurnOutput.scala)
 
+## Scalar reasoning aliases
+
+The decoder recognizes string or JSON-null reasoning_content, reasoning and thinking. In scalar profiles, absent/null fields contribute no value, identical supplied strings emit one ThinkingDelta before visible text, and different supplied strings fail with Conflicting scalar reasoning aliases. Empty strings emit no thinking; an empty string conflicting with a nonempty string is rejected. Exact text is preserved without trimming. Malformed recognized values fail even when another alias or detailed reasoning would otherwise take precedence.
+
+OpenRouterDetails keeps reasoning_details authoritative: valid scalar aliases are ignored without duplication. Any nonempty scalar alias requires an explicit details array; an explicitly empty array is still authoritative. This rule applies to ordinary deltas and full-message SSE envelopes through the same decoder. No provider identity is inferred, and outbound replay still uses its existing configured wire representation.
+
+Migration: public signatures/configuration are unchanged. Input validation intentionally tightens the former reasoning_content-over-thinking precedence: conflicting scalar strings now fail instead of silently losing one value. Providers emitting multiple scalar fields must make their values equal, omit redundant fields, or use the explicitly supported authoritative details profile. This extension was previously outside the selected alias scope; the pre-change failure run is new-contract evidence rather than a claim that an accepted contract was defective.
+
+| Reviewed source/spec | Git blob |
+| --- | --- |
+| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | `8dd49ca8b602ae44bcdee42a51b558e884095cb9` |
+| [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | `e5ce3b8fc49bbff67ad3a6d0d19c0e412d934729` |
+| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | `74699ecd06022de8020863e050603083a08312cb` |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | `69bc307105d3a71fa5dbbbd9fd19da4c6c61781c` |
+
+- [x] review_fp and review_invariants approved these four exact identities with no findings.
+- [x] reasoning-alias-red.log records 28 passed / 4 failed against unchanged production: unsupported/malformed reasoning, conflict handling, details admission and HTTP thinking preservation failed the proposed contract. reasoning-alias-focused.log passes all 32 groups after implementation; existing tables were extended without new groups.
+- [x] Formatting and verify packageArtifacts pass in reasoning-alias-verify.log: 665 core / 724 harness / 85 MCP / 5 examples (1,479 total), zero compiler warnings or failed tests. reasoning-alias-artifact-preparation.log validates archives/POMs; reasoning-alias-artifact-consumer.log clean-compiles and runs the neutral consumer against fresh loaded JAR hashes.
+- [x] Both reviewers approved corrected final source/documentation closure. Changed prose/comments were reviewed in English; 75 Markdown documents / 2,554 local references pass with zero link issues. No temporary review report remains.
+
 ## Completion envelope profiles
 
 CompletionEnvelopeProfile.IndexedDeltas remains the default. Hosts may explicitly choose DeltasWithFullMessageSummary on ChatCompletionsClient.make or ChatCompletionsTransport.make for SSE streams containing a final object=chat.completion envelope. Selection is independent of model names and does not change request JSON or LlmConfig. Ordinary non-streaming HTTP responses remain unsupported.
@@ -41,7 +61,7 @@ Migration: the appended defaulted envelopeProfile parameter changes ChatCompleti
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `803a5b67393715be2bf060d3f01f582e96a46934` |
 | [StreamAccumulator.scala](StreamAccumulator.scala) | `3e7187b943491785d96ccb686343d8d48ff5de25` |
 | [CompletionEnvelopeDecoderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionEnvelopeDecoderSpec.scala) | `0d56b2ba1839634687b79c10a918e2048145c283` |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | `26db0c1e2b9ee4ae268477e011e29b77dfcb828e` |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#scalar-reasoning-aliases) |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | `7c3dc32221063194dc09ecd0f9a9afa8466de2cf` |
 | [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | `e17863b7a35d8044b4e6a1831bca9b04f0c45b2b` |
 
@@ -90,8 +110,8 @@ This is a private decoder correction without public source/JVM or configuration 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 3c41beccf18b36bb918ceda0c55eea4eabd5818c |
-| [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | 59fb419d7a2e2997e7a9a2df3870c19bb23edddf |
+| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | [Current identity](#scalar-reasoning-aliases) |
+| [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | [Current identity](#scalar-reasoning-aliases) |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#completion-envelope-profiles) |
 
 - [x] review_fp and review_invariants independently approved these three identities with no findings.
@@ -281,7 +301,7 @@ Normal frames require an explicit choices array. Exactly one choice with an expl
 
 Missing/JSON-null usage counts normalize to zero after the [cache-counter precedence rules](#cache-usage-decoding). Supplied counts and indexes must be nonnegative JSON integers within Int bounds; strings, fractions, overflow, and malformed nested objects fail. Non-null provider error envelopes become ModelError with status 200, representing an error carried inside an otherwise successful streaming response. Missing/empty provider messages receive a deterministic fallback. The transport preserves actual HTTP rejection status separately.
 
-Indexed function tools, text, and reasoning_content/thinking strings are supported. Non-assistant roles, nonempty refusal deltas, unsupported tool kinds, and non-null legacy function_call payloads fail explicitly. For the existing scalar profiles, reasoning_content takes precedence over thinking. Unknown extension fields remain ignored unless they contain duplicate keys; this does not establish support for response audio or other provider payloads. The explicit OpenRouterDetails profile below instead derives plaintext exclusively from its checked detail array; it preserves exact checked objects for replay.
+Indexed function tools, text, and reasoning_content/reasoning/thinking strings are supported. Non-assistant roles, nonempty refusal deltas, unsupported tool kinds, and non-null legacy function_call payloads fail explicitly. Scalar profiles follow the [equal-value coalescing and conflict contract](#scalar-reasoning-aliases). Unknown extension fields remain ignored unless they contain duplicate keys; this does not establish support for response audio or other provider payloads. The explicit OpenRouterDetails profile below instead derives plaintext exclusively from its checked detail array; it preserves exact checked objects for replay.
 
 The wire baseline uses [streamed function-call deltas](https://developers.openai.com/api/docs/guides/function-calling). Single-choice limits and strict validation are runtime policy. The accumulator enforces the completion contracts below. Indexed text/thinking/function block publication and agent HTTP integration are implemented below. The explicit Google tool-signature contract is described below; other signature formats remain separate.
 
@@ -356,7 +376,7 @@ ReasoningReplay.OpenRouterEncryptedDetails selects response decoding and all-his
 
 ReasoningDetail accepts a strict local union: encrypted requires nonblank opaque data; text requires a text string and permits an absent, null or nonblank opaque signature; summary requires a summary string, not Java's legacy text field. Empty text and summary strings are valid. Each variant permits optional id (nonblank string or null), format (nonblank string) and index (nonnegative Int JSON integer). Duplicate, unknown, misplaced or malformed fields fail. EncryptedReasoningDetail retains its narrower validation and provides toDetail. Data and signatures are neither decoded nor concatenated; IDs/indexes never infer tool identity or merge objects.
 
-ReasoningDetailsDelta retains objects in received order, including repeated IDs/indexes. Assembly stores one Thinking block at the first detail occurrence, with the exact reasoningDetails array and concatenated text/summary plaintext. Encrypted objects contribute no plaintext. Explicit [] is retained and replayed; absent/null wire fields remain absent. The general decoder treats any supplied array, including [], as authoritative over same-frame scalar reasoning_content/thinking aliases. Without an array, nonempty scalar aliases fail under OpenRouterDetails; empty strings are allowed and whitespace is nonempty. This avoids cross-frame alias deduplication and deliberately limits provider compatibility. Other profiles retain their scalar behavior. Direct accumulator callers cannot mix scalar ThinkingDelta blocks and details with nonempty plaintext in either order; opaque-only details and [] remain compatible with scalar blocks.
+ReasoningDetailsDelta retains objects in received order, including repeated IDs/indexes. Assembly stores one Thinking block at the first detail occurrence, with the exact reasoningDetails array and concatenated text/summary plaintext. Encrypted objects contribute no plaintext. Explicit [] is retained and replayed; absent/null wire fields remain absent. The general decoder treats any supplied array, including [], as authoritative over same-frame scalar reasoning_content/reasoning/thinking aliases. Without an array, nonempty scalar aliases fail under OpenRouterDetails; empty strings are allowed and whitespace is nonempty. This avoids cross-frame alias deduplication and deliberately limits provider compatibility. Other profiles retain their scalar behavior. Direct accumulator callers cannot mix scalar ThinkingDelta blocks and details with nonempty plaintext in either order; opaque-only details and [] remain compatible with scalar blocks.
 
 Selected replay validates original history and emits ordered arrays on every original assistant message, never on individual tool calls. It emits no reasoning_content and enables no other Thinking metadata. Unsupported replay profiles reject supplied arrays, including []. General detail plaintext produces one consistent Thinking event stream and canonical projection; encrypted-only details emit no Thinking events. Raw diagnostic frames remain unredacted. Google per-call signatures remain a separate host-selected format.
 
@@ -384,17 +404,17 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | [EncryptedReasoningDetail.scala](EncryptedReasoningDetail.scala) | 49a0287e2476b00943ff69f480f4ebca2ee46c37 |
 | [EncryptedReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/EncryptedReasoningDetailSpec.scala) | f6e5ec577c8f7da54c0e8f582321465cf693af16 |
 | [ReasoningDetail.scala](ReasoningDetail.scala) | 3cb2bbf21dbc02fe65b21435e962ca061eecff63 |
-| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | 99be2c6d4da164e11fe9f946bf681e5297f710ba |
+| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | [Current identity](#scalar-reasoning-aliases) |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the nine-file general-details scope at the identities above, with no open findings. Full scalafmtAll scalafmtSbt verify passed in reasoning-details-verify.log with zero compiler warnings or failed tests. Focused reasoning-details-green.log passed 39 tests in 5.262 seconds. Unchanged encrypted-reasoning contracts retain their prior acceptance; current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] Two new pure groups and the existing HTTP table cover checked variants, literal null/empty values, scalar precedence, both mixed-chunk orders, exact historical replay and canonical/event agreement. The HTTP rows retain sibling-input protection for both selected profiles. This is loopback evidence, not live OpenRouter interoperability.
-- [ ] Other provider reasoning/signature formats, non-streaming completion-message support and exhaustive upstream formatter parity remain unfinished.
+- [ ] Other provider reasoning/signature formats, ordinary non-streaming HTTP completion support and exhaustive upstream formatter parity remain unfinished.
 
 The public mixed-chunk regression in ReasoningDetailSpec 99be2c6d4da164e11fe9f946bf681e5297f710ba failed against accumulator 504510573cf7e492f3ee2fc530dd9d4e81d8397a in reasoning-details-mixing-red.log (11 passed, one failed, 5.136 seconds): both scalar/plaintext-detail orders were accepted instead of rejected. The same spec passed after the guard; opaque-only and empty-array near-misses remain permitted.
 
 ## Scoped HTTP completion
 
-ChatCompletionsTransport.make accepts an injected zio-http Client, positive CompletionTransportLimits, ReasoningReplay, ToolSignatureFormat and a default-disabled CompletionRetryPolicy. complete returns IO[AgentError, TurnOutput] and owns a separate Scope for each HTTP attempt. Success, failure, and cancellation close the attempt scope before returning or retrying; cancellation stays interruption rather than a partial successful turn. The injected client layer and its connection pool belong to the host.
+ChatCompletionsTransport.make accepts an injected zio-http Client, positive CompletionTransportLimits, ReasoningReplay, ToolSignatureFormat, a default-disabled CompletionRetryPolicy and an explicit CompletionEnvelopeProfile. complete returns IO[AgentError, TurnOutput] and owns a separate Scope for each HTTP attempt. Success, failure, and cancellation close the attempt scope before returning or retrying; cancellation stays interruption rather than a partial successful turn. The injected client layer and its connection pool belong to the host.
 
 The transport sends POST JSON with Accept: text/event-stream and an optional Authorization bearer header. It requires an absolute HTTP(S) endpoint with a host, valid port, and no user information or fragment. Invalid limits, endpoints, credentials, or request bodies fail before dispatch. Transport failures use ModelError status zero without leaking exception text. HTTP rejection keeps the actual status and a bounded raw error payload. Default behavior makes one attempt; explicit status retries are described below.
 

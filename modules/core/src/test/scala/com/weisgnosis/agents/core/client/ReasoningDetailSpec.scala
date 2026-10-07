@@ -128,7 +128,7 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
           ).isLeft
         )
       )
-      val scalarCases = Chunk("reasoning_content", "thinking").flatMap(field =>
+      val scalarCases = Chunk("reasoning_content", "reasoning", "thinking").flatMap(field =>
         Chunk("", " ", "scalar").map(value =>
           val alone = parse(frame(field -> Json.Str(value)), ReasoningReplay.OpenRouterDetails)
           val explicitEmpty = parse(

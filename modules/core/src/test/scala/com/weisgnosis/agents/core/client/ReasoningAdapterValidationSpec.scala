@@ -191,6 +191,7 @@ object ReasoningAdapterValidationSpec extends ZIOSpecDefault:
         "\"content\":42",
         "\"reasoning_content\":true",
         "\"thinking\":[]",
+        "\"reasoning\":{}",
         "\"tool_calls\":{}",
         "\"tool_calls\":[null]",
         "\"role\":7",
@@ -321,15 +322,25 @@ object ReasoningAdapterValidationSpec extends ZIOSpecDefault:
       )
       assertTrue(invalid.forall(fields => ReasoningModelAdapter.parseChunk(delta(fields)).isLeft))
     },
-    test("reasoning precedes visible text and canonical reasoning content wins its alias") {
-      val json = delta(""""reasoning_content":"reason","thinking":"alias","content":"answer"""")
+    test("scalar reasoning aliases coalesce equal values before text and reject conflicts") {
+      val fields = Chunk("reasoning_content", "reasoning", "thinking")
+      val valid = fields.map(field => s"\"$field\":\"reason\",\"content\":\"answer\"") :+
+        "\"reasoning_content\":\"reason\",\"reasoning\":\"reason\",\"thinking\":\"reason\",\"content\":\"answer\""
+      val conflicts = Chunk(
+        "\"reasoning_content\":\"first\",\"reasoning\":\"second\"",
+        "\"reasoning_content\":\"first\",\"thinking\":\"second\"",
+        "\"reasoning\":\"first\",\"thinking\":\"second\"",
+        "\"reasoning_content\":\"\",\"reasoning\":\"second\""
+      )
       assertTrue(
-        ReasoningModelAdapter.parseChunk(json) == Right(
-          Chunk(
-            LlmChunk.ThinkingDelta("reason"),
-            LlmChunk.TextDelta("answer")
+        valid.forall(fields =>
+          ReasoningModelAdapter.parseChunk(delta(fields)) == Right(
+            Chunk(LlmChunk.ThinkingDelta("reason"), LlmChunk.TextDelta("answer"))
           )
-        )
+        ),
+        conflicts.forall(fields => ReasoningModelAdapter.parseChunk(delta(fields)).isLeft),
+        ReasoningModelAdapter.parseChunk(delta("\"reasoning\":null")) == Right(Chunk.empty),
+        ReasoningModelAdapter.parseChunk(delta("\"reasoning\":\"\"")) == Right(Chunk.empty)
       )
     }
   )

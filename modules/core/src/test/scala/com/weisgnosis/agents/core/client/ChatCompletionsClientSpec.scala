@@ -657,67 +657,70 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
     ) @@ TestAspect.withLiveClock,
     test("explicit full-message envelopes preserve single-copy output, events and request cleanup"):
       val message =
-        """{"role":"assistant","reasoning_content":"reason","content":"answer","tool_calls":[{"id":"call-1","type":"function","function":{"name":"lookup","arguments":"{}"}}]}"""
+        """{"role":"assistant","reasoning":"reason","content":"answer","tool_calls":[{"id":"call-1","type":"function","function":{"name":"lookup","arguments":"{}"}}]}"""
       val summary = frame(
         s"""{"object":"chat.completion","choices":[{"index":0,"message":$message,"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":2,"completion_tokens":3}}"""
       )
       ZIO
-        .foreach(Chunk("", thinking + text + tool)): prefix =>
-          ZIO
-            .scoped:
-              for
-                closed      <- Ref.make(false)
-                transformed <- Ref.make(Chunk.empty[String])
-                hub         <- Hub.unbounded[AgentEvent]
-                queue       <- hub.subscribe
-                client <- ChatCompletionsClient.make(
-                  scripted(_ =>
-                    ZIO
-                      .addFinalizer(closed.set(true))
-                      .as(response(ZStream.succeed(prefix + summary + done)))
+        .foreach(Chunk("", thinking.replace("reasoning_content", "reasoning") + text + tool)):
+          prefix =>
+            ZIO
+              .scoped:
+                for
+                  closed      <- Ref.make(false)
+                  transformed <- Ref.make(Chunk.empty[String])
+                  hub         <- Hub.unbounded[AgentEvent]
+                  queue       <- hub.subscribe
+                  client <- ChatCompletionsClient.make(
+                    scripted(_ =>
+                      ZIO
+                        .addFinalizer(closed.set(true))
+                        .as(response(ZStream.succeed(prefix + summary + done)))
+                    ),
+                    textTransform = ModelTextTransform((_, fragment) =>
+                      transformed
+                        .update(_ :+ fragment.delta)
+                        .as(fragment.delta.toUpperCase(java.util.Locale.ROOT))
+                    ),
+                    envelopeProfile = CompletionEnvelopeProfile.DeltasWithFullMessageSummary
+                  )
+                  output <- client.streamTurn(
+                    Chunk(Msg.user("q")),
+                    Chunk.empty,
+                    config,
+                    hub,
+                    ModelStreamContext("reply", "request")
+                  )
+                  events   <- queue.takeAll
+                  inputs   <- transformed.get
+                  released <- closed.get
+                yield assertTrue(
+                  output.message.text == "ANSWER",
+                  output.message.thinking == "reason",
+                  output.message.toolUses.map(call => (call.id, call.name, call.input)) == Chunk(
+                    ("call-1", "lookup", Json.Obj())
                   ),
-                  textTransform = ModelTextTransform((_, fragment) =>
-                    transformed
-                      .update(_ :+ fragment.delta)
-                      .as(fragment.delta.toUpperCase(java.util.Locale.ROOT))
+                  output.message.usage
+                    .exists(usage => usage.inputTokens == 2 && usage.outputTokens == 3),
+                  inputs == Chunk("answer"),
+                  events.collect { case event: AgentEvent.TextBlockDeltaEvent =>
+                    event.delta
+                  } == Chunk("ANSWER"),
+                  events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
+                    event.delta
+                  } == Chunk("reason"),
+                  events.collect { case event: AgentEvent.ToolCallDeltaEvent =>
+                    event.delta
+                  } == Chunk("{}"),
+                  events.collect { case event: AgentEvent.ToolCallEndEvent =>
+                    event.callId
+                  } == Chunk(
+                    "call-1"
                   ),
-                  envelopeProfile = CompletionEnvelopeProfile.DeltasWithFullMessageSummary
+                  events.count(_.isInstanceOf[AgentEvent.TextBlockEndEvent]) == 1,
+                  events.count(_.isInstanceOf[AgentEvent.ThinkingBlockEndEvent]) == 1,
+                  released
                 )
-                output <- client.streamTurn(
-                  Chunk(Msg.user("q")),
-                  Chunk.empty,
-                  config,
-                  hub,
-                  ModelStreamContext("reply", "request")
-                )
-                events   <- queue.takeAll
-                inputs   <- transformed.get
-                released <- closed.get
-              yield assertTrue(
-                output.message.text == "ANSWER",
-                output.message.thinking == "reason",
-                output.message.toolUses.map(call => (call.id, call.name, call.input)) == Chunk(
-                  ("call-1", "lookup", Json.Obj())
-                ),
-                output.message.usage
-                  .exists(usage => usage.inputTokens == 2 && usage.outputTokens == 3),
-                inputs == Chunk("answer"),
-                events.collect { case event: AgentEvent.TextBlockDeltaEvent =>
-                  event.delta
-                } == Chunk("ANSWER"),
-                events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
-                  event.delta
-                } == Chunk("reason"),
-                events.collect { case event: AgentEvent.ToolCallDeltaEvent =>
-                  event.delta
-                } == Chunk("{}"),
-                events.collect { case event: AgentEvent.ToolCallEndEvent => event.callId } == Chunk(
-                  "call-1"
-                ),
-                events.count(_.isInstanceOf[AgentEvent.TextBlockEndEvent]) == 1,
-                events.count(_.isInstanceOf[AgentEvent.ThinkingBlockEndEvent]) == 1,
-                released
-              )
         .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
     test("buffers argument fragments until call identity exists"):

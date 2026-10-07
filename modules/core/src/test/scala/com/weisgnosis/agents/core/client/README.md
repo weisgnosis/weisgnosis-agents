@@ -1,5 +1,7 @@
 # Model client and stream verification
 
+Existing parser/detail/HTTP tables cover the [scalar reasoning aliases](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#scalar-reasoning-aliases), including exact coalescing, conflict rejection, null/empty/malformed values and authoritative details. No new groups were added; the linked contract owns current identities, changed precedence and verification.
+
 The [explicit envelope-profile contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles) owns current decoder/client/transport/accumulator identities and migration. Three pure table groups and one integration group cover full-only responses, validated summary suppression, terminal/usage preservation and exact single-copy output/events/transforms. Existing incomplete-call and missing-DONE groups also exercise the selected profile. This is bounded SSE behavior, not whole-provider or non-streaming HTTP acceptance.
 
 The [SSE frame-completion contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion) records the reproduced EOF defect, exact three-file review identities and verification. One parser table adds fragmented LF/CRLF boundary coverage; the existing transport group requires the exact EOF failure for incomplete DONE. Complete frames remain accepted. These are local protocol regressions, not a nonexistent upstream SseParser suite or complete EventSource parity.

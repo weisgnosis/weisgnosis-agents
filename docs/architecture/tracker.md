@@ -4,7 +4,7 @@ Last synchronized: 2026-10-07. Implementation is active. This document records c
 
 ## Current delivery gates
 
-Current delivered scope includes exact numeric event metadata, typed provider parallel-call steering, checked Toolkit registry identity, compatible cache-usage preservation, typed stop sequences, optional reasoning effort and per-tool provider schema strictness, plus blank-line-terminated SSE completion and an explicit full-message/summary envelope profile. Linked package contracts own exact source/spec identities and bounded review evidence; previous verification history belongs to Git.
+Current delivered scope includes exact numeric event metadata, typed provider parallel-call steering, checked Toolkit registry identity, compatible cache-usage preservation, typed stop sequences, optional reasoning effort and per-tool provider schema strictness, plus blank-line-terminated SSE completion and an explicit full-message/summary envelope profile, with checked scalar reasoning aliases. Linked package contracts own exact source/spec identities and bounded review evidence; previous verification history belongs to Git.
 
 - [x] review_fp and review_invariants approved the [cache-usage decoder](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding), including reproduced loss/validation defects and final documentation.
 - [x] review_fp and review_invariants approved the [typed stop-sequence implementation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences), preserving selected-target projection and runtime completion/tool authority; exact identities are recorded there.
@@ -12,9 +12,10 @@ Current delivered scope includes exact numeric event metadata, typed provider pa
 - [x] review_fp and review_invariants approved [per-tool provider strictness](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness), including exact tool membership and preservation through fixed wrappers and MCP binding.
 - [x] review_fp and review_invariants approved the exact [SSE EOF correction](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion); RED 19/2 and focused GREEN 21/0 are recorded there.
 - [x] review_fp and review_invariants approved all eight [envelope-profile source/spec identities](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles); focused envelope-focused.log passes 29 groups.
-- [x] Formatting and verify packageArtifacts pass in envelope-verify.log: 665 core / 724 harness / 85 MCP / 5 examples (1,479 total), zero compiler warnings or failed tests.
-- [x] envelope-artifact-preparation.log validates all archives/POMs; envelope-artifact-consumer.log clean-compiles and runs the external consumer against fresh loaded JAR hashes, including the public profile enum codec.
-- [x] Synchronize current contracts, factory migration and bounded mappings; both reviewers approved final documentation. English prose/comments and 75 Markdown documents / 2,538 local references pass review/checks; no temporary review report remains.
+- [x] review_fp and review_invariants approved all four [reasoning-alias identities](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#scalar-reasoning-aliases); focused reasoning-alias-focused.log passes 32 groups without adding groups.
+- [x] Formatting and verify packageArtifacts pass in reasoning-alias-verify.log: 665 core / 724 harness / 85 MCP / 5 examples (1,479 total), zero compiler warnings or failed tests.
+- [x] reasoning-alias-artifact-preparation.log validates all archives/POMs; reasoning-alias-artifact-consumer.log clean-compiles and runs the external consumer against fresh loaded JAR hashes.
+- [x] Synchronize current contracts, intentional scalar precedence tightening and bounded mappings; both reviewers approved corrected final documentation. English prose/comments and 75 Markdown documents / 2,554 local references pass review/checks; no temporary review report remains.
 
 ExactJson remains opt-in and requires faithful encoder AST conversion. External dependency .toJson and legacy direct tool encoders are not globally replaced. This acceptance does not close remote storage, durable host integration, remaining parity, platform/live-provider or release work below. No remote publication or push was performed.
 
@@ -182,6 +183,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Implement optional per-tool provider strictness with preserved schemas, typed true/false/omission and exact admitted tool membership; fixed wrappers and MCP bindings retain host definitions.
 - [x] Inspect selected indexed-delta parser and completed-DONE termination methods against pinned upstream; no additional applicable delta behavior was identified. The selected full-message/summary envelope methods now have their own bounded adaptation in the parity mapping.
 - [x] Implement and independently review explicit full-message-only SSE handling and summary replay suppression, preserving indexed-delta defaults and actual accumulator completion authority.
+- [x] Implement and independently review reasoning as a scalar alias, strict equal-value coalescing/conflict rejection and unchanged details authority, with existing table/HTTP coverage.
 - [ ] Next: reconcile remaining provider/media parser methods and implement the next applicable bounded contract; ordinary non-streaming HTTP remains open. Other provider/media, remote persistence, platform and release validation remain unfinished.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.

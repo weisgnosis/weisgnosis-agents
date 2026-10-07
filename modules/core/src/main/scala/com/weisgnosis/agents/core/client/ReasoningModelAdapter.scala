@@ -60,6 +60,7 @@ object ReasoningModelAdapter:
       @jsonField("reasoning_content") reasoningContent: Option[String] = None,
       @jsonField("reasoning_details") reasoningDetails: Option[Json] = None,
       thinking: Option[String] = None,
+      reasoning: Option[String] = None,
       @jsonField("tool_calls") toolCalls: Option[Chunk[ToolDelta]] = None,
       @jsonField("function_call") legacyFunctionCall: Option[Json] = None,
       role: Option[String] = None,
@@ -202,18 +203,20 @@ object ReasoningModelAdapter:
       // This selected profile uses detailed text exclusively, without cross-frame alias deduplication.
       _ <- Either.cond(
         reasoningReplay != ReasoningReplay.OpenRouterDetails || delta.reasoningDetails.nonEmpty ||
-          !(delta.reasoningContent.exists(_.nonEmpty) || delta.thinking.exists(_.nonEmpty)),
+          !(delta.reasoningContent.exists(_.nonEmpty) || delta.thinking.exists(_.nonEmpty) ||
+            delta.reasoning.exists(_.nonEmpty)),
         (),
         "OpenRouterDetails requires a reasoning_details array when scalar reasoning is supplied"
       )
-      scalar = reasoningReplay match
-        case ReasoningReplay.OpenRouterDetails => Chunk.empty
+      scalar <- reasoningReplay match
+        case ReasoningReplay.OpenRouterDetails => Right(Chunk.empty)
         case _ =>
-          Chunk.fromIterable(
-            delta.reasoningContent
-              .orElse(delta.thinking)
-              .filter(_.nonEmpty)
-              .map(LlmChunk.ThinkingDelta(_))
+          val values = Chunk.fromIterable(delta.reasoningContent) ++
+            Chunk.fromIterable(delta.reasoning) ++ Chunk.fromIterable(delta.thinking)
+          Either.cond(
+            values.distinct.size <= 1,
+            Chunk.fromIterable(values.headOption.filter(_.nonEmpty).map(LlmChunk.ThinkingDelta(_))),
+            "Conflicting scalar reasoning aliases"
           )
     yield details ++ scalar ++
       Chunk.fromIterable(delta.content.filter(_.nonEmpty).map(LlmChunk.TextDelta(_))) ++
