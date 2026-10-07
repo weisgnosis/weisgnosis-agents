@@ -1339,3 +1339,12 @@ The unpublished [HostAssembly registered selection](../../modules/examples/READM
 - [x] Complete fresh selected-API consumer verification; the smoke does not select Registered.
 - [x] review_fp and review_invariants approved final combined documentation for the unchanged two registered example identities against 1f4581b.
 - [ ] Assess remaining provider reasoning/signature method gaps independently.
+
+## Custom-client turn trust boundary
+
+The [runtime contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#model-turn-trust-boundary) validates assistant role and TurnOutput classification after client cleanup and before runtime completion/persistence. Its grouped malformed/valid fixture table reproduces a Scala extension-boundary defect; no Java method mapping or new signature representation is closed.
+
+- [x] Reproduce invalid output acceptance against the unchanged runtime with concrete history/hook/success assertions.
+- [x] Both independent reviewers approved the final two identities; final full verification covers all eight malformed/two valid rows and archive staging passes.
+- [x] Complete fresh selected-API consumer verification, including the existing custom LlmClient smoke.
+- [x] review_fp and review_invariants approved final combined documentation for the two unchanged runtime trust-boundary identities against b70aa32.

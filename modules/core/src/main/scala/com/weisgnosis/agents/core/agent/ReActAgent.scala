@@ -1455,9 +1455,10 @@ final class ReActAgent private (
         _ <- eventHub.publish(
           AgentEvent.ModelRequestStartEvent(target.config.model, 0, context = Some(context))
         )
-        output <- ZIO.scoped(
+        received <- ZIO.scoped(
           target.client.attemptTurn(view, tools, projectedConfig, eventHub, context)
         )
+        output <- ZIO.fromEither(validateModelOutput(received))
         _ <- usageRef
           .update(current =>
             output.message.chatUsage.fold(current)(usage =>
@@ -1517,6 +1518,25 @@ final class ReActAgent private (
                     case Exit.Failure(fallbackCause) =>
                       fail(exposed(cause) ++ exposed(fallbackCause))
             case _ => fail(exposed(cause))
+
+  /** Custom clients supply observations; their tags cannot grant persistence or completion authority. */
+  private def validateModelOutput(output: TurnOutput): Either[AgentError.ModelError, TurnOutput] =
+    val message = output.message
+    if message.role != Role.Assistant then
+      Left(AgentError.ModelError(0, "Model turn must contain an assistant message"))
+    else
+      val consistent = output match
+        case _: TurnOutput.ToolCalls => message.toolUses.nonEmpty
+        case _: TurnOutput.ThinkingOnly =>
+          message.toolUses.isEmpty && message.text.trim.isEmpty && message.hasReasoning
+        case _: TurnOutput.FinalText =>
+          message.toolUses.isEmpty && (message.text.trim.nonEmpty || !message.hasReasoning)
+        case _: TurnOutput.Interrupted => true
+      Either.cond(
+        consistent,
+        output,
+        AgentError.ModelError(0, "Model turn classification does not match assistant content")
+      )
 
   /** Runtime-owned request enrichment follows validation of the host's projected history. */
   private def withSkillPrompt(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =

@@ -2,7 +2,7 @@
 
 Typed request settings preserve provider preferences without granting runtime authority. The contracts below record accepted source identities, migration and verification for each bounded scope.
 
-LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and returns TurnOutput. Implementations must acquire request resources in that scope. The package provides scripted clients, LlmConfig, SSE framing, strict completion-delta decoding, reasoning-history adaptation, and StreamAccumulator. ChatCompletionsTransport provides a separate scoped HTTP completion operation. ChatCompletionsClient connects it to ReAct with incremental correlated events.
+LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and returns TurnOutput. Implementations must acquire request resources in that scope and return assistant messages with tags consistent with calls, visible text and reasoning. The runtime [trust boundary](../agent/README.md#model-turn-trust-boundary) validates returned turns after cleanup; invalid output is a fatal ModelError, not retry/fallback input. The package provides scripted clients, LlmConfig, SSE framing, strict completion-delta decoding, reasoning-history adaptation, and StreamAccumulator. ChatCompletionsTransport provides a separate scoped HTTP completion operation. ChatCompletionsClient connects it to ReAct with incremental correlated events.
 
 - [ChatCompletionsClient](ChatCompletionsClient.scala)
 - [ModelTextTransform](ModelTextTransform.scala)
@@ -158,7 +158,7 @@ Migration: LlmConfig has fifteen positional/Product fields and ModelRequestSetti
 | Reviewed file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5235e2b4b911aa548e54b86bf8401243bb0522fc |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | 70ba09d5499cfe862e814bb79b918668dc4c168e |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current trust-boundary identity](../agent/README.md#model-turn-trust-boundary) |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current Video URL identity](#user-video-url-projection) |
 | [LlmClient.scala](LlmClient.scala) | c42e38120c873babf1cff3956d35c734d65f04eb |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 3a99d8850a8fa2905f1384bf04a818f386dd00da |

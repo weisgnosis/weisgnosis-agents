@@ -1,5 +1,26 @@
 # ReAct execution and structured output
 
+## Model turn trust boundary
+
+The runtime validates every custom LlmClient TurnOutput after scoped client cleanup and before accepting usage, model-end publication, post-reasoning hooks or assistant persistence. All variants, including Interrupted, require Role.Assistant. ToolCalls requires at least one tool use. ThinkingOnly requires no calls, blank visible text and reasoning. FinalText requires no calls and either visible text or no reasoning; empty nonreasoning FinalText remains valid. Interrupted permits partial assistant content. Inline provider-hosted tool behavior is unchanged.
+
+Invalid role/classification fails with static ModelError code zero before runtime completion/persistence authority. This failure does not trigger model retry/fallback. Public signatures/codecs are unchanged; host custom clients must return consistent tags. This boundary adds no duplicate-ID, arbitrary metadata/general content validation, or retraction of events already emitted directly by a custom client.
+
+The grouped ReActAgentSpec regression derives expectations from untouched history/hooks/completion behavior. model-turn-contract-red.log reproduces malformed-turn acceptance against runtime blob 70ba09d5499cfe862e814bb79b918668dc4c168e and spec e9e1d2b6d39fc274dbe55d4306d83c1db9255711, failing concrete history/hook/success assertions. Initial model-turn-contract-green.log passes eleven focused tests in 518 milliseconds. The final grouped table contains eight malformed rows and two valid controls; the final full verification below covers every final row. This hardens a Scala extension boundary without closing a Java test method.
+
+| Source/spec approved by review_fp and review_invariants against b70aa32 | Git blob |
+| --- | --- |
+| [ReActAgent.scala](ReActAgent.scala) | 84381d3e39c853be0e8a47ebd0a08694a4b39354 |
+| [ReActAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala) | 4c5f853c2c03e25f6e1e2465cb208ec878ed681c |
+
+- [x] review_fp and review_invariants approved both final identities against b70aa32, with no unresolved findings.
+- [x] The final full run covers the refined eight-malformed/two-valid table; the earlier focused eleven-test run predates the last row.
+- [x] model-turn-contract-final-verify.log exited zero: 1,510 tests (670 core / 726 harness / 86 MCP / 22 PostgreSQL / 6 examples), zero compiler warnings/failures and four packages.
+- [x] model-turn-contract-preparation.log passed source/archive regressions and restored archive/POM staging.
+- [x] model-turn-contract-consumer.log passed fresh standalone formatting, clean compilation and forked selected-API execution; its existing custom LlmClient smoke remains valid.
+- [x] review_fp and review_invariants approved final combined documentation against b70aa32 and the two unchanged identities; manual English inspection, script/diff checks and 78-document/2,848-local-reference checks pass with zero issues.
+
+
 Toolkit construction and selection follow the [checked registry identity and migration contract](../tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
 [Runtime ordering acceptance](../client/README.md#runtime-event-ordering) records exact current lifecycle-spec identities and bounded text/thinking/tool-cycle adaptations. Fully drained invocations begin with AgentStart and end with correlated AgentEnd; early consumers abandon later output.
@@ -32,7 +53,7 @@ Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a 
 
 | Reviewed group/skill baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
 The table records the group/skill baseline. The current runtime identity is in [scoped model failover](#scoped-model-failover), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
@@ -62,7 +83,7 @@ Migration: configured skill listings move from the loader description to transie
 
 | Reviewed request-projection baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2eb319710008d11433978458c47a01d1c9eac110` |
 
 The [catalogue contract](../skill/README.md#deferred-resource-capabilities) owns current catalogue/library identities and combined verification. Existing execution, forwarding, group and permission contracts retain their scoped evidence below. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals and next work.
@@ -77,7 +98,7 @@ The protected loader retains ordinary authorization and sequential dispatch. An 
 
 | Reviewed deferred-read baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
 
 Current ReActAgent identity and execution approval are in [scoped model failover](#scoped-model-failover); the groups spec above is unchanged.
@@ -111,7 +132,7 @@ Mixed Success/Error, inline/provider batches and incomplete deferred batches do 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current provider-ownership fixture](#provider-owned-pending-calls) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this pair, including unchanged Direct behavior through the shared completed-ledger helper. Two grouped cases cover fresh/restored batches, priority and exclusion tables, structured runs, held cleanup and cancellation. Focused checks passed 19 tests in 678 ms (`all-denied-final-focused.log`), including the three existing Direct groups; full `scalafmtAll scalafmtSbt verify` passed in `all-denied-verify.log` with zero compiler warnings or failures. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
@@ -127,7 +148,7 @@ BeforeActing checkpoints may preserve a provider-only pause, with no local pendi
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [PendingActing.scala](PendingActing.scala) | bdcdb1e276a1dcbb1a86dc321c4ecdf39bdbeb4c |
 | [ToolHistory.scala](../model/ToolHistory.scala) | ba82c0b9d409c0eb444b2212c603532efa83235f |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current ReActAgentToolAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
@@ -148,7 +169,7 @@ Migration: ToolDef appends the defaulted returnMode field. Old JSON without it d
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [ToolDef.scala](../tool/ToolDef.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 | [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | [Current ReActAgentReturnDirectSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
@@ -177,7 +198,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | [Current AgentRunUpdateSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current ConfirmedBatchAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
@@ -198,7 +219,7 @@ The [ReActAgentForwardingSpec](../../../../../../../test/scala/com/weisgnosis/ag
 | Reviewed forwarding baseline | Git blob |
 | --- | --- |
 | [AgentEventForwarder.scala](AgentEventForwarder.scala) | `9198abc9f0b13f1cb1e347df0a73c57c50f6e2d1` |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [AgentEventForwarderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) | `2c0bbde7e0e5eb94f8c3f963ead3f1ed4eed37ab` |
 | [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | [Current ReActAgentForwardingSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
@@ -264,7 +285,7 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [LlmClient.scala](../client/LlmClient.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | [Current identity](../client/README.md#completion-envelope-profiles) |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
@@ -351,7 +372,7 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
@@ -378,7 +399,7 @@ Migration: PendingActing appends default-empty suppliedResults, preserving old m
 | File | Reviewed Git blob |
 | --- | --- |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
 | [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
 | [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | [Current ReActAgentSuppliedResultSpec.scala identity](../tool/README.md#checked-registry-identity) |
@@ -504,7 +525,7 @@ Migration: the default projectRequest method preserves existing ModelInputTransf
 | File | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](ModelInputTransform.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current trust-boundary identity](#model-turn-trust-boundary) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](../client/README.md#optional-frequency-and-presence-penalties) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |

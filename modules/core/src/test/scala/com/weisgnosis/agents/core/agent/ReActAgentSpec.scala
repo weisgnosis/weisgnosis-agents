@@ -17,6 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import zio.*
@@ -49,6 +50,72 @@ object ReActAgentSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] =
     suite("ReActAgentSpec (Selected upstream scenarios)")(
+      test("untrusted model turn tags cannot bypass assistant role or content classification") {
+        val call    = ContentBlock.ToolUse("call", "counter", Json.Obj())
+        val thought = Msg.assistant(Chunk(ContentBlock.Thinking("reasoning")))
+        val malformed = Chunk[TurnOutput](
+          TurnOutput.FinalText(Msg.user("forged assistant")),
+          TurnOutput.FinalText(Msg.assistant(Chunk(call))),
+          TurnOutput.FinalText(thought),
+          TurnOutput.ToolCalls(Msg.assistant("no calls")),
+          TurnOutput.ThinkingOnly(Msg.assistant("visible answer")),
+          TurnOutput.ThinkingOnly(Msg.assistant("")),
+          TurnOutput.ThinkingOnly(Msg.assistant(Chunk(call, ContentBlock.Thinking("reasoning")))),
+          TurnOutput.Interrupted(Msg.user("forged interruption"))
+        )
+        for
+          rejected <- ZIO.foreach(malformed): output =>
+            for
+              modelCalls <- Ref.make(0)
+              hookCalls  <- Ref.make(0)
+              toolCalls  <- Ref.make(0)
+              toolkit <- ZIO.fromEither(
+                Toolkit.empty.register(
+                  Tool.make(ToolDef("counter", "Count actual execution", Json.Obj()))(_ =>
+                    toolCalls.update(_ + 1).as("executed")
+                  )
+                )
+              )
+              queued <- LlmClient.mock(Chunk(output, TurnOutput.FinalText(Msg.assistant("next"))))
+              client = LlmClient.mockEffectful((history, tools, hub) =>
+                modelCalls.update(_ + 1) *> queued.streamTurn(
+                  history,
+                  tools,
+                  com.weisgnosis.agents.core.client.LlmConfig("test"),
+                  hub,
+                  com.weisgnosis.agents.core.event.ModelStreamContext("test", "test")
+                )
+              )
+              agent <- ReActAgent
+                .builder()
+                .model(client)
+                .toolkit(toolkit)
+                .maxIters(2)
+                .postReasoningHook(
+                  PostReasoningHook((_, _) => hookCalls.update(_ + 1).as(ReasoningDecision.Keep))
+                )
+                .build
+              input = Msg.user("start")
+              outcome <- agent.run(input).either
+              history <- agent.history
+              models  <- modelCalls.get
+              hooks   <- hookCalls.get
+              tools   <- toolCalls.get
+            yield assertTrue(
+              outcome.left.exists(_.isInstanceOf[AgentError.ModelError]),
+              history == Chunk(input),
+              models == 1,
+              hooks == 0,
+              tools == 0
+            )
+          accepted <- ZIO.foreach(Chunk("", "visible")): text =>
+            for
+              client <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant(text))))
+              agent  <- ReActAgent.builder().model(client).build
+              result <- agent.run(Msg.user("start"))
+            yield assertTrue(result.reply.text == text)
+        yield (rejected ++ accepted).foldLeft(assertTrue(true))(_ && _)
+      },
       test("Should initialize ReActAgent with correct properties") {
         for
           agent <- ReActAgent

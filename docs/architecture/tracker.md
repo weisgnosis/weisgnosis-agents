@@ -26,17 +26,19 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Registered transcript assembly](../../modules/examples/README.md#registered-transcript-assembly) resolves one explicit descriptor before MCP in the unpublished example; catalog membership grants no authorization, lease or history validity.
 
-Current increment: [remote memory middleware throttle integration](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration), using one shared real-PostgreSQL matrix group and eight unchanged local groups. Distinct matrix row addresses do not establish cross-scope collision or broader distributed guarantees.
+- [x] [Remote memory middleware throttle integration](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration) verifies a bounded real-PostgreSQL matrix with shared local oracle; broader remote guarantees remain separate.
 
-- [x] Obtain final FP/ZIO approval for the three source/build identities.
-- [x] Obtain final invariant source approval for the same three identities.
-- [x] Complete focused eight-local/one-PostgreSQL verification.
-- [x] Full verification passed 1,509 tests with zero compiler warnings/failures and four packages.
-- [x] Archive/source regressions and restored package/POM staging passed, including test-only fixture isolation.
-- [x] Fresh standalone selected-API consumption passed without fixture classpath/dependency leakage.
-- [x] review_fp and review_invariants approved final combined documentation against 5caa18f and the three unchanged identities; manual English/script/diff checks and 78-document/2,839-local-reference checks pass with zero issues.
-- [ ] Next task: reproduce and independently review runtime validation of custom LlmClient TurnOutput assistant role/classification before persistence/completion; no defect is established until a failing regression exists.
-- [ ] Assess remaining provider reasoning/signature and remote middleware mappings separately; no host-restart, scheduling/delivery or physical-retention claim is added.
+Current increment: [custom-client model turn trust boundary](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#model-turn-trust-boundary). A confirmed malformed-output regression failed on the unchanged runtime; the final eight-malformed/two-valid table has source approval and full verification; final combined documentation closure passed.
+
+- [x] Reproduce malformed role/classification acceptance with concrete history/hook/success assertions before changing runtime behavior.
+- [x] Both independent reviewers approved the final runtime/spec identities against b70aa32.
+- [x] Final full verification covers the refined eight-malformed/two-valid regression table.
+- [x] Final full verification passed 1,510 tests with zero compiler warnings/failures and four packages.
+- [x] Source/archive regressions and restored archive/POM staging passed.
+- [x] Fresh standalone selected-API consumption passed, including the existing custom LlmClient smoke.
+- [x] review_fp and review_invariants approved final combined documentation against b70aa32 and the two unchanged identities; manual English/script/diff checks and 78-document/2,848-local-reference checks pass with zero issues.
+- [ ] Next task: implement a bounded unpublished per-request audited LlmClient decorator with one delegated public call, suspended monotonic timing and post-request-cleanup exit observation; preserve output/cause/cancellation. It will not add a general chain/cache/retry or preserve private capability-based failover; implementation has not started.
+- [ ] Assess remaining provider/remote middleware/release gaps separately; no blanket parity or readiness claim applies.
 
 ## Current acceptance
 

@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+ReActAgentSpec adds one grouped custom-client turn contract regression for malformed role/classification and permitted controls. Scoped client cleanup completes before rejection; invalid output must not change history, run post-reasoning hooks or succeed. Final source/full/artifact verification passes; final combined documentation approval passed under the [trust-boundary manifest](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#model-turn-trust-boundary).
+
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
 The existing mixed synthetic-completion case now verifies exact minimum-Long closing text, equality with typed/metadata values, closing history identity and unchanged one-request usage/local-call pairing. [Owned numeric-output acceptance](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) records the reproduced mismatch and current runtime/spec identities.
