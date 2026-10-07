@@ -4,13 +4,14 @@ Last synchronized: 2026-10-07. Implementation is active. This document records c
 
 ## Current delivery gates
 
-Current delivered scope includes exact numeric event metadata, typed provider parallel-call steering, checked Toolkit registry identity, compatible cache-usage preservation, typed stop sequences and optional reasoning effort. Linked package contracts own exact source/spec identities and bounded review evidence; previous verification history belongs to Git.
+Current delivered scope includes exact numeric event metadata, typed provider parallel-call steering, checked Toolkit registry identity, compatible cache-usage preservation, typed stop sequences, optional reasoning effort and per-tool provider schema strictness. Linked package contracts own exact source/spec identities and bounded review evidence; previous verification history belongs to Git.
 
 - [x] review_fp and review_invariants approved the [cache-usage decoder](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding), including reproduced loss/validation defects and final documentation.
 - [x] review_fp and review_invariants approved the [typed stop-sequence implementation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences), preserving selected-target projection and runtime completion/tool authority; exact identities are recorded there.
 - [x] review_fp and review_invariants approved the [optional reasoning-effort subset](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-reasoning-effort), with exact source identities and proportional request/projection/failover tables.
-- [x] Format and run verify packageArtifacts: reasoning-effort-verify.log passes 660 core / 724 harness / 85 MCP / 5 examples (1,474 total), zero compiler warnings or failed tests.
-- [x] Inspect all six binary/source JARs and POM scopes in reasoning-effort-artifact-preparation.log; reasoning-effort-artifact-consumer.log clean-compiles and runs the neutral external consumer against fresh loaded artifact hashes, including typed stop construction/configuration and stop/reasoning-effort wire settings.
+- [x] review_fp and review_invariants approved [per-tool provider strictness](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness), including exact tool membership and preservation through fixed wrappers and MCP binding.
+- [x] Format and run verify packageArtifacts: tool-strictness-verify.log passes 660 core / 724 harness / 85 MCP / 5 examples (1,474 total), zero compiler warnings or failed tests.
+- [x] Inspect all six binary/source JARs and POM scopes in tool-strictness-artifact-preparation.log; tool-strictness-artifact-consumer.log clean-compiles and runs the neutral external consumer against fresh loaded artifact hashes, including typed stop construction/configuration, stop/reasoning-effort settings and exact per-tool strictness/schema projection.
 - [x] Synchronize affected current contracts, migration, bounded upstream mappings and checkbox progress; review English prose and local Markdown links before commit.
 
 ExactJson remains opt-in and requires faithful encoder AST conversion. External dependency .toJson and legacy direct tool encoders are not globally replaced. This acceptance does not close remote storage, durable host integration, remaining parity, platform/live-provider or release work below. No remote publication or push was performed.
@@ -176,7 +177,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Implement the applicable optional stop-sequence request contract, with one checked-value test group, extended request/projection/failover tables, independent source review and fresh packaged consumption.
 - [x] Reconcile the selected request-parameter methods in pinned OpenAIChatFormatterTest: current options/tool choice/seed/response format/stops are mapped with explicit exclusions for reflection, mutable default merging and arbitrary extra-body maps. Broader formatter/parser inventory remains open.
 - [x] Implement and independently review the optional Low/Medium/High reasoning-effort subset through target settings/projection and exact wire mapping; existing tables also check json_object format without adding groups.
-- [ ] Next: implement explicit optional function-tool strict generation from pinned testApplyToolsWithStrict, preserving schemas and runtime authority. Other provider/media, remote persistence, platform and release validation remain unfinished.
+- [x] Implement optional per-tool provider strictness with preserved schemas, typed true/false/omission and exact admitted tool membership; fixed wrappers and MCP bindings retain host definitions.
+- [ ] Next: reconcile remaining provider-profile and parser methods against pinned upstream before selecting further wire extensions. Other provider/media, remote persistence, platform and release validation remain unfinished.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.

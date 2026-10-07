@@ -29,7 +29,14 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, FinalAnswerFilter, ModelStreamContext}
 import com.weisgnosis.agents.core.json.ExactJson
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
-import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorization, ToolAuthorizer, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.tool.{
+  Tool,
+  ToolAuthorization,
+  ToolAuthorizer,
+  ToolDef,
+  ToolSchemaStrictness,
+  Toolkit
+}
 import com.weisgnosis.agents.harness.permission.{PermissionBehavior, PermissionEngine}
 import com.weisgnosis.agents.mcp.protocol.{McpCallOutcome, McpCallResult, McpContentBlock}
 import java.io.File
@@ -164,8 +171,14 @@ object ArtifactSmoke extends ZIOAppDefault:
           stopSequences = Some(StopSequences.one("END", "STOP")),
           reasoningEffort = Some(ReasoningEffort.High)
         )
+        definition = ToolDef(
+          "sum",
+          "Deterministic consumer fixture",
+          Json.Obj("type" -> Json.Str("object")),
+          schemaStrictness = Some(ToolSchemaStrictness.Strict)
+        )
         request <- ZIO.fromEither(
-          ChatCompletionsRequest.encode(Chunk(Msg.user("question")), Chunk.empty, configured)
+          ChatCompletionsRequest.encode(Chunk(Msg.user("question")), Chunk(definition), configured)
         )
         turns <- Ref.make(0)
         client = new LlmClient:
@@ -187,9 +200,7 @@ object ArtifactSmoke extends ZIOAppDefault:
         approvals <- Ref.make(Chunk.empty[String])
         toolkit <- ZIO.fromEither(
           Toolkit.empty.register(
-            Tool.make(ToolDef("sum", "Deterministic consumer fixture", Json.Obj()))(_ =>
-              ZIO.succeed("5")
-            )
+            Tool.make(definition)(_ => ZIO.succeed("5"))
           )
         )
         agent <- ReActAgent
@@ -233,6 +244,20 @@ object ArtifactSmoke extends ZIOAppDefault:
               configured.stopSequences.exists(_.values == Chunk("END", "STOP")) &&
               request.get("stop").contains(Json.Arr(Json.Str("END"), Json.Str("STOP"))) &&
               request.get("reasoning_effort").contains(Json.Str("high")) &&
+              request
+                .get("tools")
+                .flatMap(_.asArray)
+                .exists(entries =>
+                  entries.size == 1 && entries.headOption
+                    .flatMap(_.asObject)
+                    .flatMap(_.get("function"))
+                    .flatMap(_.asObject)
+                    .exists(function =>
+                      function.get("name").contains(Json.Str(definition.name)) &&
+                        function.get("strict").contains(Json.Bool(true)) &&
+                        function.get("parameters").contains(definition.parametersSchema)
+                    )
+                ) &&
               decisions == Chunk(
                 "sum"
               ) &&

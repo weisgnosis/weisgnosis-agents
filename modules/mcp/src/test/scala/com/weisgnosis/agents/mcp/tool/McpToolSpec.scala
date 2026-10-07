@@ -19,7 +19,7 @@ import com.weisgnosis.agents.core.agent.ReActAgent
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
-import com.weisgnosis.agents.core.tool.{ToolDef, Toolkit}
+import com.weisgnosis.agents.core.tool.{ToolDef, Toolkit, ToolSchemaStrictness}
 import com.weisgnosis.agents.mcp.client.McpClient
 import com.weisgnosis.agents.mcp.protocol.*
 import com.weisgnosis.agents.mcp.transport.McpTransport
@@ -34,7 +34,8 @@ object McpToolSpec extends ZIOSpecDefault:
     "Host-selected tool",
     Json.Obj("type" -> Json.Str("object")),
     isConcurrencySafe = false,
-    isReadOnly = false
+    isReadOnly = false,
+    schemaStrictness = Some(ToolSchemaStrictness.Strict)
   )
 
   final private case class Peer(client: McpClient, requests: Ref[Chunk[McpMessage.Request]])

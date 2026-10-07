@@ -6,6 +6,8 @@ The [cache-usage decoder](src/main/scala/com/weisgnosis/agents/core/client/READM
 
 The [typed stop-sequence contract](src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences) adds checked provider request settings; the [reasoning-effort contract](src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-reasoning-effort) records current configuration migration and optional generation preferences; runtime completion and tool authority remain unchanged.
 
+Optional [per-tool provider schema strictness](src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness) preserves declared schemas and records the current eight-field ToolDef migration; it adds no local validation or authorization authority.
+
 Local artifact: `com.weisgnosis:weisgnosis-agents-core_3:0.1.0-SNAPSHOT`. Binary/source JAR and POM generation, dependency boundaries and isolated-consumer evidence are defined in the [build contract](../../project/README.md#local-artifact-packaging); no external publication is claimed.
 
 The internal forwarding lifecycle also supports [host-only retained child resume](../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume), preserving checkpoint context and joined cleanup under existing runtime ownership.

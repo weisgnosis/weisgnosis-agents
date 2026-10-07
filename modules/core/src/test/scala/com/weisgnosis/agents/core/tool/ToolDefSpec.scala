@@ -23,7 +23,7 @@ import zio.test.*
 object ToolDefSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment, Any] = suite("ToolDefSpec")(
     test(
-      "legacy and null optional output schemas decode absent while descriptive schema ASTs round-trip"
+      "legacy optional metadata decodes absent while schemas and generation preferences round-trip"
     ) {
       val input = Json.Obj("type" -> Json.Str("object"))
       val legacy = Json.Obj(
@@ -51,10 +51,25 @@ object ToolDefSpec extends ZIOSpecDefault:
             val selected = definition.copy(returnMode = mode)
             selected.toJson.fromJson[ToolDef] == Right(selected)
           ),
+        Chunk(None, Some(ToolSchemaStrictness.Strict), Some(ToolSchemaStrictness.Relaxed)).forall(
+          mode =>
+            val selected = definition.copy(schemaStrictness = mode)
+            selected.toJson.fromJson[ToolDef] == Right(selected)
+        ),
+        Json
+          .Obj(legacy.fields :+ ("schemaStrictness" -> Json.Null))
+          .toJson
+          .fromJson[ToolDef] == Right(definition),
+        Json
+          .Obj(legacy.fields :+ ("schemaStrictness" -> Json.Str("unknown")))
+          .toJson
+          .fromJson[ToolDef]
+          .isLeft,
         explicitNull.toJson.fromJson[ToolDef] == Right(definition),
         definition.toJson.fromJson[Json].exists {
-          case value: Json.Obj => value.get("outputSchema").isEmpty
-          case _               => false
+          case value: Json.Obj =>
+            value.get("outputSchema").isEmpty && value.get("schemaStrictness").isEmpty
+          case _ => false
         },
         outputSchemas.forall(schema =>
           val value = definition.copy(outputSchema = Some(schema))

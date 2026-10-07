@@ -144,15 +144,15 @@ ToolDef.returnMode defaults to ToolReturnMode.Continue. Direct permits an ordina
 
 Successful direct completion preserves the full processed Tool history and appends a presentation assistant tagged ToolReturnDirect, using runtime reply identity and no promoted result-level control metadata. Output follows original call order, including repeated IDs and reversed completion. Only Text, Image, Audio, Video and Data blocks are presentational; any Thinking, ToolUse, ToolResult, Custom or Hint block declines the shortcut without dropping the observation. An entirely zero-block batch produces `(no output)`; an empty Text block remains empty, and a partially empty batch gets no placeholder. Result processors can redact content or request Stop; original unprocessed payloads never bypass them. Existing AgentResult/AgentEnd delivery remains; no additional closing TextBlock event sequence is synthesized. Provider serialization limits still apply to retained media history on a future model call.
 
-Migration: ToolDef appends the defaulted returnMode field. Old JSON without it decodes as Continue; named construction/copies retain defaults. Positional patterns/Product arity now have seven fields, and dependent binaries must be rebuilt. Restoring a checkpoint still requires exact trusted host definitions, including returnMode. ChatCompletions does not serialize this local completion policy as a provider tool-schema field.
+Migration: ToolDef appends the defaulted returnMode field. Old JSON without it decodes as Continue; named construction/copies retain defaults. Current positional/Product arity and binary migration follow the [tool strictness contract](../tool/README.md#provider-tool-schema-strictness). Restoring a checkpoint still requires exact trusted host definitions, including returnMode. ChatCompletions does not serialize this local completion policy as a provider tool-schema field.
 
 | Reviewed file | Git blob |
 | --- | --- |
 | [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
-| [ToolDef.scala](../tool/ToolDef.scala) | 8848c5c6698a13c05e4dc6fe9a8ec51710ec0708 |
+| [ToolDef.scala](../tool/ToolDef.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 | [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | [Current ReActAgentReturnDirectSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | 67e4f5c680d919c0f4a4cc1858b5c4d4d2769219 |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Three grouped runtime tests cover ordered processed output and rejection cases, live/restored/supplied/partial resumes, joined cleanup/cancellation and native/synthetic exclusion; existing tables cover codec compatibility and provider-field omission. The resumed supplied Error and mixed-mode rows verify zero local execution, exact-once processing, preserved result states/content in the actual following model request and one further request. Supplied Denied remains unsupported. Both reviewers renewed approval of the current spec; the Direct contract remains unchanged, with the runtime helper reviewed in the linked AllToolsDenied scope. Focused checks passed three groups in 599 ms (`return-direct-resume-focused.log`).
 - [x] Full `scalafmtAll scalafmtSbt verify` passed in `return-direct-resume-verify.log` with zero compiler warnings or test failures. Current totals and process-local verification settings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -270,7 +270,7 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
 | [BeforeResponseRejection.scala](../client/BeforeResponseRejection.scala) | 96121e91541c7858bd5f6f6764546cb6aa2d4bf2 |
 | [ModelTarget.scala](../client/ModelTarget.scala) | 5820bc6829e9ae0eaa81ca1bcad1d5024bba3bec |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 | [StructuredOutputCapabilityRoutingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputCapabilityRoutingSpec.scala) | 5eb368d7df046fafb4a3993711800a667675432a |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the eight exact identities above, with no findings. Focused model-failover-green.log passed 51 tests in 5.313 seconds. Full scalafmtAll scalafmtSbt verify passed in model-failover-verify.log with zero compiler warnings or failed tests. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -507,7 +507,7 @@ Migration: the default projectRequest method preserves existing ModelInputTransf
 | [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](../client/README.md#optional-frequency-and-presence-penalties) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the request-projection contract. Existing projection tables cover scoped cleanup, validated history/settings, selected-target identity and custom-client rejection. Current changed-file identities, both final reviews and verification are recorded in the [settings acceptance](../client/README.md#optional-frequency-and-presence-penalties); current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 

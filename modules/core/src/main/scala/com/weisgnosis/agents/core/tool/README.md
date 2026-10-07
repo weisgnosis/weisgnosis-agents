@@ -2,6 +2,29 @@
 
 Tool keeps its input/output codecs and effectful handler together. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation.
 
+## Provider tool-schema strictness
+
+ToolDef.schemaStrictness is an optional host-selected ToolSchemaStrictness.Strict or Relaxed preference. ChatCompletions emits tools[].function.strict as true or false respectively; None omits it. This is per-tool provider generation metadata. Parameters remain unchanged, and the setting adds no local schema-validation, authorization or successful-completion guarantee. Hosts must supply suitable schemas and compatible endpoints/fallback targets; there is no automatic model detection or compatibility-formatter suppression.
+
+Fixed-argument wrappers and MCP bindings preserve the host's full definition. Remote hints never select this setting automatically. The admitted definition snapshot retains it across targets and retries. Synthetic generate_response keeps None by default; native response_format is a separate contract and is not modified by tool strictness.
+
+Migration: ToolDef has eight positional/Product fields. Existing construction/named copy calls and legacy JSON retain the default; absent/JSON-null schemaStrictness means None. Supplied domain values use the enum codec, distinct from provider Booleans. Adapt positional patterns/constructor method values and rebuild dependent binaries.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ChatCompletionsRequest.scala](../client/ChatCompletionsRequest.scala) | d97a7ee5927a2e66bcdbe566c0b110599396278e |
+| [ToolDef.scala](ToolDef.scala) | 26657363aff7ca859fc0025610d0e3cc272e6215 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | 6c96f0457442a2f3f3baf7635f005f8eb6818812 |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | f044810dc8596f7c8bb30b5968755999079d1d30 |
+| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | db7cb8b8cfd4188a7e977bf9040ccc08975f8781 |
+| [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | 6d805de6cc291b8afc29c1e6696a3d2f81b17ca0 |
+| [McpToolSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/tool/McpToolSpec.scala) | f1a5fbc69c84c7e6bb7e9997854f303f1ea1cca3 |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | 44a39fa143d0f250d121fae4e93c840f4846aef0 |
+
+- [x] review_fp and review_invariants approved the seven library/spec identities after checking exact tool membership/counts and full definitions. Final formatted consumer review is part of combined closure.
+- [x] tool-strictness-focused.log passes 26 core / 3 MCP groups; tool-strictness-review-focused.log passes all three corrected failover groups. Existing groups were extended without increasing the total.
+- [x] Formatting, verify and packageArtifacts pass in tool-strictness-verify.log: 660 core / 724 harness / 85 MCP / 5 examples (1,474 total), zero compiler warnings or failed tests. tool-strictness-artifact-preparation.log validates fresh archives/POMs; tool-strictness-artifact-consumer.log clean-compiles and runs the neutral external consumer against fresh loaded JAR hashes, including exact tool count/name, strictness and unchanged parameters. English prose and local links are checked before commit.
+
 ## Checked registry identity
 
 Toolkit is a final class with a private representation. Every key equals its tool's declared definition.name, so advertised definitions, authorization lookup and execution share one identity. Tool.definition is a pure, stable host extension contract; mutable or effectful custom metadata violates that contract.
@@ -14,7 +37,7 @@ Migration: unchecked Toolkit(map) and new Toolkit(map), copy, generated unapply 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the complete 55-file source/spec manifest, with no unresolved findings. Final documentation closure uses the same bounded scope.
 - [x] toolkit-identity-verify.log passes formatting, fatal-warning compilation, 659 core / 724 harness / 85 MCP / 5 examples tests (1,473 total), and packaging. toolkit-artifact-preparation.log validates all three fresh distributions and toolkit-artifact-consumer.log clean-compiles/runs the external public API fixture. Focused verification passes 19 core / 27 harness / 10 MCP tests.
 
-The reviewed revision is the source/spec manifest relative to e86d62d: sort the changed Scala paths, concatenate UTF-8 lines `<git-blob> <repository-path>\n`, and compute SHA-256. The current 55-file manifest (seven production files and 48 specs) is 941238f0447200ee6ce0df7fccd50346f79babd9cba20e82ec9e8871cd5a5edf. Test fixture construction migrates without adding groups apart from the reproduced identity regression. Final approval applies only to this manifest and the recorded contracts, not all future API changes.
+The reviewed revision is the source/spec manifest for 8d898e8 relative to e86d62d: sort the changed Scala paths, concatenate UTF-8 lines `<git-blob> <repository-path>\n`, and compute SHA-256. The accepted registry 55-file manifest (seven production files and 48 specs) is 941238f0447200ee6ce0df7fccd50346f79babd9cba20e82ec9e8871cd5a5edf. Test fixture construction migrates without adding groups apart from the reproduced identity regression. Final approval applies only to this manifest and the recorded contracts, not all future API changes.
 
 | Reviewed implementation/regression | Git blob |
 | --- | --- |
@@ -61,28 +84,28 @@ Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and
 | Source/test | Reviewed Git blob |
 | --- | --- |
 | [ToolFixedArguments.scala](ToolFixedArguments.scala) | `5b0a707baa22e1407fe4d87dd7a13fcc48fed3dc` |
-| [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | [Current ToolFixedArgumentsSpec.scala identity](README.md#checked-registry-identity) |
+| [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | [Current identity](#provider-tool-schema-strictness) |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current identity](../client/README.md#encrypted-reasoning) |
 
 ## Descriptive output schemas
 
 `ToolDef.outputSchema: Option[Json]` carries an optional host-selected output schema. Toolkit snapshots and model-call tool definitions retain this AST; it does not validate returned values or grant execution authority. A host selecting an MCP tool may explicitly retain, replace or omit the remote schema. Preset input-schema projection leaves this field unchanged.
 
-The current Chat Completions encoder emits only function name, description and input parameters. It does not send outputSchema as a provider extension. Custom model clients receive the complete ToolDef and own any supported provider projection.
+The current Chat Completions encoder emits function name, description, input parameters and explicitly selected provider schema strictness. It does not send outputSchema as a provider extension. Custom model clients receive the complete ToolDef and own any supported provider projection.
 
-The derived domain codec reads an absent or explicit-null outputSchema as None and omits None when encoding. Non-null schema ASTs retain their structure; Some(Json.Null) does not round-trip as present. Existing constructors and named copies can omit the defaulted field; positional pattern matches and Product arity now have seven fields (including returnMode), and downstream binaries must be rebuilt. No schema evaluation or custom compatibility codec is introduced.
+The derived domain codec reads an absent or explicit-null outputSchema as None and omits None when encoding. Non-null schema ASTs retain their structure; Some(Json.Null) does not round-trip as present. Existing constructors and named copies can omit the defaulted field; positional pattern matches and Product arity follow the [current eight-field migration](#provider-tool-schema-strictness), and downstream binaries must be rebuilt. No schema evaluation or custom compatibility codec is introduced.
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Current core identities are linked below; current integration tests belong to the [MCP binding acceptance](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance). Formatting and full `verify` passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
 
 | Reviewed source/test | Git blob |
 | --- | --- |
-| [ToolDef.scala](ToolDef.scala) | [Current identity](../agent/README.md#host-selected-return-direct-completion) |
-| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | [Current identity](../agent/README.md#host-selected-return-direct-completion) |
-| ChatCompletionsRequestSpec.scala | Current identity: [return-direct scope](../agent/README.md#host-selected-return-direct-completion); output-schema and returnMode omission remain covered. |
+| [ToolDef.scala](ToolDef.scala) | [Current identity](#provider-tool-schema-strictness) |
+| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | [Current identity](#provider-tool-schema-strictness) |
+| ChatCompletionsRequestSpec.scala | [Current identity](#provider-tool-schema-strictness) |
 
 ## Local return mode
 
-ToolDef.returnMode is a host-selected Continue (default) or Direct policy, not model/output metadata. Only an ordinary all-local, all-Direct successful batch may return processed presentation content without another model call, after joined cleanup and approval/Stop precedence. Full Tool observations remain in history. See the [runtime contract and seven-field migration](../agent/README.md#host-selected-return-direct-completion) for exact limits, current identities and full verification.
+ToolDef.returnMode is a host-selected Continue (default) or Direct policy, not model/output metadata. Only an ordinary all-local, all-Direct successful batch may return processed presentation content without another model call, after joined cleanup and approval/Stop precedence. Full Tool observations remain in history. See the [runtime completion contract](../agent/README.md#host-selected-return-direct-completion) and [current ToolDef migration](#provider-tool-schema-strictness) for exact limits, current identities and full verification.
 
 ## Incremental execution
 

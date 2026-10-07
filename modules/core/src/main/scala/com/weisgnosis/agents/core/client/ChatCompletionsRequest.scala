@@ -18,7 +18,7 @@ package com.weisgnosis.agents.core.client
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, MediaSource, Msg, Role, ToolResultState}
-import com.weisgnosis.agents.core.tool.ToolDef
+import com.weisgnosis.agents.core.tool.{ToolDef, ToolSchemaStrictness}
 import zio.Chunk
 import zio.http.{Scheme, URL}
 import zio.json.*
@@ -178,9 +178,13 @@ object ChatCompletionsRequest:
     yield Json.Obj(
       "type" -> Json.Str("function"),
       "function" -> Json.Obj(
-        "name"        -> Json.Str(tool.name),
-        "description" -> Json.Str(tool.description),
-        "parameters"  -> tool.parametersSchema
+        Chunk(
+          "name"        -> Json.Str(tool.name),
+          "description" -> Json.Str(tool.description),
+          "parameters"  -> tool.parametersSchema
+        ) ++ Chunk.fromIterable(tool.schemaStrictness.map:
+          case ToolSchemaStrictness.Strict  => "strict" -> Json.Bool(true)
+          case ToolSchemaStrictness.Relaxed => "strict" -> Json.Bool(false))
       )
     )
 

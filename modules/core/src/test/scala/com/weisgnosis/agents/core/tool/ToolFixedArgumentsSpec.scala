@@ -64,7 +64,14 @@ object ToolFixedArgumentsSpec extends ZIOSpecDefault:
       "typed wrappers preserve handlers, observations and explicit flags through toolkit selection and merging"
     ) {
       val defn =
-        ToolDef("typed", "Typed tool", Json.Obj(), isReadOnly = false, isConcurrencySafe = true)
+        ToolDef(
+          "typed",
+          "Typed tool",
+          Json.Obj(),
+          isReadOnly = false,
+          isConcurrencySafe = true,
+          schemaStrictness = Some(ToolSchemaStrictness.Strict)
+        )
       val original = new Tool[Any, Input, Output]:
         def definition: ToolDef                 = defn
         override def isReadOnly: Boolean        = true
@@ -97,7 +104,9 @@ object ToolFixedArgumentsSpec extends ZIOSpecDefault:
         direct == Output("direct:trusted"),
         wrapped.encodeOutput(direct) == "text:direct:trusted",
         result == ToolExecutionResult("typed:context:Detached:fixed", ToolResultState.Error),
-        merged.resolve("typed").exists(_.fixedArguments == fixed),
+        merged
+          .resolve("typed")
+          .exists(tool => tool.fixedArguments == fixed && tool.definition == defn),
         merged.prepareInput("typed", Json.Obj()) == Right(Json.Obj("value" -> Json.Str("fixed"))),
         merged.validateApprovedInput("typed", Json.Obj()).isLeft,
         Tool.withFixedArguments(wrapped, fixed).isLeft,

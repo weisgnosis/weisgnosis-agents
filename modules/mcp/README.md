@@ -1,5 +1,7 @@
 # weisgnosis-agents-mcp
 
+Tool binding preserves explicit host-selected [provider schema strictness](../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness). Remote hints grant no such preference or permission authority; the linked contract records current ToolDef migration and binding fixture evidence.
+
 Toolkit now has a private canonical-name representation; host map construction uses checked fromMap, with explicit replacement/selection operations. The [registry migration and review contract](../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) records source/JVM changes, the reproduced defect and current source/spec identities. Existing module lifecycle and permission contracts remain in force.
 
 Local artifact: `com.weisgnosis:weisgnosis-agents-mcp_3:0.1.0-SNAPSHOT`. Binary/source JAR and POM generation, dependency boundaries and isolated-consumer evidence are defined in the [build contract](../../project/README.md#local-artifact-packaging); no external publication is claimed.

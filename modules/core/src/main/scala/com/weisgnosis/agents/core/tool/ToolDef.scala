@@ -22,6 +22,10 @@ import zio.json.ast.Json
 enum ToolReturnMode derives JsonCodec:
   case Continue, Direct
 
+/** Provider argument-generation preference; this does not enable local schema validation. */
+enum ToolSchemaStrictness derives JsonCodec:
+  case Strict, Relaxed
+
 /**
  * Declarative definition and JSON schema metadata of an executable tool.
  * Output schema is host-selected descriptive data; it neither validates results nor grants authority.
@@ -35,5 +39,6 @@ final case class ToolDef(
     isConcurrencySafe: Boolean = true,
     isReadOnly: Boolean = false,
     outputSchema: Option[Json] = None,
-    returnMode: ToolReturnMode = ToolReturnMode.Continue
+    returnMode: ToolReturnMode = ToolReturnMode.Continue,
+    schemaStrictness: Option[ToolSchemaStrictness] = None
 ) derives JsonCodec

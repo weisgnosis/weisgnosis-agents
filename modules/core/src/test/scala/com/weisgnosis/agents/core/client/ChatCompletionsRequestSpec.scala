@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
-import com.weisgnosis.agents.core.tool.{ToolDef, ToolReturnMode}
+import com.weisgnosis.agents.core.tool.{ToolDef, ToolReturnMode, ToolSchemaStrictness}
 import zio.Chunk
 import zio.json.*
 import zio.json.ast.Json
@@ -514,6 +514,18 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         Chunk(definition.copy(outputSchema = Some(schema), returnMode = ToolReturnMode.Direct)),
         config
       )
+      val strictness = Chunk(
+        None                               -> None,
+        Some(ToolSchemaStrictness.Strict)  -> Some(Json.Bool(true)),
+        Some(ToolSchemaStrictness.Relaxed) -> Some(Json.Bool(false))
+      )
+      val mixed = ChatCompletionsRequest.encode(
+        Chunk(Msg.user("search")),
+        strictness.zipWithIndex.map { case ((mode, _), index) =>
+          definition.copy(name = s"search_$index", schemaStrictness = mode)
+        },
+        config
+      )
       val choices: Chunk[(Option[ToolChoice], Option[Json])] = Chunk(
         None                      -> None,
         Some(ToolChoice.Auto)     -> Some(Json.Str("auto")),
@@ -576,6 +588,22 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
         },
         """{"model":"test-model","toolChoice":null}""".fromJson[LlmConfig] == Right(
           LlmConfig("test-model")
+        ),
+        mixed.exists(
+          _.get("tools")
+            .flatMap(_.asArray)
+            .exists(tools =>
+              tools.size == strictness.size && tools.zip(strictness).forall {
+                case (tool, (_, expected)) =>
+                  tool.asObject
+                    .flatMap(_.get("function"))
+                    .flatMap(_.asObject)
+                    .exists(function =>
+                      function
+                        .get("strict") == expected && function.get("parameters").contains(schema)
+                    )
+              }
+            )
         ),
         described == result,
         result.exists(

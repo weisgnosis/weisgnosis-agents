@@ -26,7 +26,13 @@ import com.weisgnosis.agents.core.agent.{
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{Msg, Role}
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolFixedArguments, Toolkit}
+import com.weisgnosis.agents.core.tool.{
+  Tool,
+  ToolDef,
+  ToolFixedArguments,
+  Toolkit,
+  ToolSchemaStrictness
+}
 import zio.*
 import zio.http.*
 import zio.json.*
@@ -55,7 +61,35 @@ object ModelFailoverSpec extends ZIOSpecDefault:
     """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"lookup-1","function":{"name":"lookup","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}"""
   ) + done
   private val lookup =
-    Tool.make(ToolDef("lookup", "Read a value", Json.Obj()))(_ => ZIO.succeed("value"))
+    Tool.make(
+      ToolDef(
+        "lookup",
+        "Read a value",
+        Json.Obj(),
+        schemaStrictness = Some(ToolSchemaStrictness.Strict)
+      )
+    )(_ => ZIO.succeed("value"))
+
+  private val lookupFunction: Json.Obj = Json.Obj(
+    "name"        -> Json.Str("lookup"),
+    "description" -> Json.Str("Read a value"),
+    "parameters"  -> Json.Obj(),
+    "strict"      -> Json.Bool(true)
+  )
+
+  private def toolFunctions(body: Json): Option[Chunk[Json.Obj]] =
+    body.asObject
+      .flatMap(_.get("tools"))
+      .flatMap(_.asArray)
+      .flatMap:
+        _.foldLeft[Option[Chunk[Json.Obj]]](Some(Chunk.empty)): (acc, tool) =>
+          for
+            functions <- acc
+            function <- tool.asObject
+              .flatMap(_.get("function"))
+              .collect:
+                case function: Json.Obj => function
+          yield functions :+ function
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ModelFailover")(
     test(
@@ -240,9 +274,23 @@ object ModelFailoverSpec extends ZIOSpecDefault:
               yield assertTrue(
                 result._2 == 7,
                 sent.size == 1,
-                sent.forall(
-                  _.asObject.exists(fields =>
+                sent.forall(body =>
+                  body.asObject.exists(fields =>
                     fields.get("response_format") == expectedFormat &&
+                      toolFunctions(body).exists(functions =>
+                        val expectedNames = mode match
+                          case StructuredMode.SyntheticTool => Chunk("generate_response", "lookup")
+                          case _                            => Chunk("lookup")
+                        functions.map(_.get("name")) == expectedNames.map(name =>
+                          Some(Json.Str(name))
+                        ) &&
+                        functions.filter(_.get("name").contains(Json.Str("lookup"))) == Chunk(
+                          lookupFunction
+                        ) &&
+                        functions
+                          .filter(_.get("name").contains(Json.Str("generate_response")))
+                          .forall(_.get("strict").isEmpty)
+                      ) &&
                       fields.get("tool_choice").contains(Json.Str("none")) &&
                       fields.get("temperature").contains(Json.Num(0.3)) &&
                       fields.get("max_tokens").contains(Json.Num(23)) &&
@@ -340,6 +388,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                 (fields.get("reasoning_effort") == (if model == "primary" then
                                                       Some(Json.Str("high"))
                                                     else None)) &&
+                toolFunctions(value).contains(Chunk(lookupFunction)) &&
                 fields.get("parallel_tool_calls").contains(Json.Bool(model == "target")) &&
                 fields.get("messages").exists(_.toJson.contains(s"request for $model"))
             )
