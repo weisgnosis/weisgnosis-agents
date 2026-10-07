@@ -14,7 +14,7 @@ resolvers := Seq(
   "workspace-artifacts" at (baseDirectory.value / "../../target/artifact-verification/repository").toURI.toString,
   Resolver.mavenCentral
 )
-libraryDependencies ++= Seq("core", "harness", "mcp").map(module =>
+libraryDependencies ++= Seq("core", "harness", "mcp", "storage-postgresql").map(module =>
   "com.weisgnosis" %% s"weisgnosis-agents-$module" % "0.1.0-SNAPSHOT"
 )
 Compile / run / fork := true

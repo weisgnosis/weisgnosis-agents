@@ -14,9 +14,11 @@ Current delivered scope includes exact numeric event metadata, typed provider pa
 - [x] review_fp and review_invariants approved all eight [envelope-profile source/spec identities](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles); focused envelope-focused.log passes 29 groups.
 - [x] review_fp and review_invariants approved all four [reasoning-alias identities](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#scalar-reasoning-aliases); focused reasoning-alias-focused.log passes 32 groups without adding groups.
 - [x] review_fp and review_invariants approved the seven [ordinary JSON source/spec identities](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions); focused verification passes 50 tests, including two new bounded integration groups.
-- [x] Formatting and verify packageArtifacts pass in nonstream-verify.log: 667 core / 724 harness / 85 MCP / 5 examples (1,481 total), zero compiler warnings or failed tests.
-- [x] nonstream-artifact-preparation.log validates archives/POMs; nonstream-artifact-consumer.log clean-compiles and runs the external consumer against fresh loaded JAR hashes.
-- [x] review_fp and review_invariants approved final ordinary JSON documentation after correcting the consumer coverage and SSE-only DONE wording; English prose and all 2,581 local references in 75 Markdown documents pass inspection. No temporary review report is retained.
+- [x] Renew independent source review and final full/artifact verification of the [PostgreSQL publication scope](../../modules/storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) after the confirmed payload-Unicode defect. The other nine source/build identities are unchanged.
+- [x] postgresql-unicode-red.log reproduces malformed payload publication; postgresql-unicode-green.log passes the unchanged three real PostgreSQL 16 groups in 2.179 seconds, including valid astral content.
+- [x] postgresql-final-verify.log passes all 1,486 tests with real PostgreSQL and all four packages, zero compiler warnings or failed tests; postgresql-final-artifact-preparation.log passes all four archive/POM inspections.
+- [x] postgresql-final-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against all four fresh module hashes, excluding the JDBC fixture driver.
+- [x] review_fp and review_invariants approved final documentation; English prose and all 2,634 local references in 78 Markdown documents pass inspection. No additional test groups or temporary review report were added.
 
 ExactJson remains opt-in and requires faithful encoder AST conversion. External dependency .toJson and legacy direct tool encoders are not globally replaced. This acceptance does not close remote storage, durable host integration, remaining parity, platform/live-provider or release work below. No remote publication or push was performed.
 
@@ -186,7 +188,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Implement and independently review explicit full-message-only SSE handling and summary replay suppression, preserving indexed-delta defaults and actual accumulator completion authority.
 - [x] Implement and independently review reasoning as a scalar alias, strict equal-value coalescing/conflict rejection and unchanged details authority, with existing table/HTTP coverage.
 - [x] Implement explicit ordinary JSON HTTP completion with full bounded EOF validation, additive factories/encoder, correlated events and joined cleanup; the linked client contract records bounded parser mappings and verification.
-- [ ] Next: define versioned remote-storage ownership/publication/recovery contracts and implement a named PostgreSQL backend with a real integration fixture. Remaining provider/media, platform and release validation stays open.
+- [x] Finish renewed FP/ZIO/invariant review and full real PostgreSQL/artifact verification of the [versioned publication prerequisite](../../modules/storage-postgresql/README.md) after the payload-Unicode correction.
+- [ ] Next: implement VersionedMemoryRepository over the reviewed publication port, sharing private aggregate transitions and exact CAS binding with the existing memory contract. Remote transcript/checkpoint adapters, provider/media, platform and release validation remain open.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.

@@ -1,5 +1,7 @@
 # weisgnosis-agents-harness
 
+The public [versioned JSON publication port](src/main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-json-publication) is an additive prerequisite with renewed independent source approval and full real-database verification after the payload-Unicode correction; the optional [PostgreSQL implementation](../storage-postgresql/README.md) is separately packaged. Remote domain adapters and exclusive workflow claims remain unfinished.
+
 Toolkit now has a private canonical-name representation; host map construction uses checked fromMap, with explicit replacement/selection operations. The [registry migration and review contract](../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) records source/JVM changes, the reproduced defect and current source/spec identities. Existing module lifecycle and permission contracts remain in force.
 
 Compactor provenance and memory argument previews preserve numeric JSON through the [reviewed exact-output boundary](../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output); review_fp and review_invariants approved this numeric scope with no findings, and full/package verification passed. Storage and lifecycle ownership are unchanged.

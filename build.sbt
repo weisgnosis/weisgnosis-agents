@@ -85,6 +85,18 @@ lazy val mcp = (project in file("modules/mcp"))
     )
   )
 
+lazy val storagePostgresql = (project in file("modules/storage-postgresql"))
+  .dependsOn(harness)
+  .settings(
+    name := "weisgnosis-agents-storage-postgresql",
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "org.postgresql" % "postgresql"   % "42.7.11"  % Test,
+      "dev.zio"       %% "zio-test"     % zioVersion % Test,
+      "dev.zio"       %% "zio-test-sbt" % zioVersion % Test
+    )
+  )
+
 lazy val examples = (project in file("modules/examples"))
   .dependsOn(core, harness, mcp)
   .settings(
@@ -98,7 +110,7 @@ lazy val examples = (project in file("modules/examples"))
   )
 
 lazy val root = (project in file("."))
-  .aggregate(core, harness, mcp, examples)
+  .aggregate(core, harness, mcp, storagePostgresql, examples)
   .settings(
     name           := "weisgnosis-agents",
     publish / skip := true
@@ -109,5 +121,6 @@ addCommandAlias(
   "packageArtifacts",
   ";core / Compile / packageBin;core / Compile / packageSrc;core / makePom" +
     ";harness / Compile / packageBin;harness / Compile / packageSrc;harness / makePom" +
-    ";mcp / Compile / packageBin;mcp / Compile / packageSrc;mcp / makePom"
+    ";mcp / Compile / packageBin;mcp / Compile / packageSrc;mcp / makePom" +
+    ";storagePostgresql / Compile / packageBin;storagePostgresql / Compile / packageSrc;storagePostgresql / makePom"
 )

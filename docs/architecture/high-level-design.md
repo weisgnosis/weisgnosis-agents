@@ -195,3 +195,7 @@ PlanDirectory separates logical workspace configuration from native paths. Local
 TaskSupervisor owns execution from creation while the attaching parent Scope owns a cancellable lease. A 30-second wait can commit promotion without restarting the task; only the host owner keeps it alive beyond the parent. Closing that owner interrupts independent workers in parallel and joins cleanup. This is process-local resource ownership, not durable task adoption or child creation authority.
 
 Host-minted SubagentSpawner capabilities now bound descendant depth at three before callback/model creation. Each callback receives its own descendant capability under the same task supervisor. Hosts control root distribution; descriptive lineage does not restore authority, tag events or imply inherited permissions.
+
+## Versioned remote storage boundary
+
+An additive public VersionedJsonStore read/CAS port and optional [PostgreSQL backend](../../modules/storage-postgresql/README.md) are with renewed independent source approval and full real-database verification after the payload-Unicode correction. They provide per-address revision publication without remote memory/transcript/checkpoint assembly or execution-claim authority. Hosts own DataSource lifetime, compatible schema deployment and I/O deadlines; admitted publication may commit before canceled acknowledgement. The named backend and real PostgreSQL fixture have their own scoped acceptance gates, separate from durable workflow replay and remaining remote adapters.

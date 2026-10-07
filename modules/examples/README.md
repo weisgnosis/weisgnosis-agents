@@ -40,7 +40,7 @@ ZIO.logSpan supplies logging timing context, not an OpenTelemetry span or distri
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [build.sbt](../../build.sbt) | `0540b2b595f7d69e8f0836ddec9317d2c3492828` |
+| [build.sbt](../../build.sbt) | [Current storage identity](../storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) |
 | [HostAssembly.scala](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) | `b520fc9338abb3531067139409d71b0bb6f2dc05` |
 | [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | `1091488cbb76edc3a7f687ea8920613ec9498145` |
 | [LiveProviderSmoke.scala](src/main/scala/com/weisgnosis/agents/examples/LiveProviderSmoke.scala) | `61bffc3da29040c9ff16270b8bd9387cb845337d` |

@@ -44,7 +44,7 @@ Migration: the three new public helpers are additive; prior public factory/encod
 | [CompletionEnvelopeDecoder.scala](CompletionEnvelopeDecoder.scala) | `464a7d3c69a2b7b7b847f38580d81b62a7db6534` |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `047d556fb36d1db13fd2861bbca7b756f220b749` |
 | [ChatCompletionsNonStreamingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsNonStreamingSpec.scala) | `1a9ecf7cc350750d1697a7393b0d35f73981ec1f` |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | `25451c691659322f0dc6de8812c6f246068faedc` |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current storage identity](../../../../../../../../../storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved the seven exact identities with no findings.
 - [x] Focused verification passes 50 tests. Two new integration groups cover ordinary text/tool/reasoning turns and eligible HTTP-status retry, rejection before transforms/events, bounded EOF and joined failure/cancellation cleanup; existing request tables cover stream=false and absent stream_options.

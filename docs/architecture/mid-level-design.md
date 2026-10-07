@@ -237,3 +237,7 @@ PlanContext combines one PlanSessionSnapshot with optional immutable PlanLocatio
 ## Plan directory preparation
 
 PlanDirectory normalizes outer whitespace and forward slashes, validates every segment and defaults blank/slash-only input to plans. The factory resolves its immutable segments against a canonical workspace, reuses normal trust/sensitive checks, verifies strict path-component containment and opens the exact validated files capability under the shared lease.
+
+## Versioned remote publication prerequisite
+
+The public harness [VersionedJsonStore port](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-json-publication) and optional [PostgreSQL backend](../../modules/storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md) provide per-address read/CAS with renewed independent source approval and full real-database verification after the payload-Unicode correction. Exact UTF-8 namespace bounds, positive revision transitions, host schema/DataSource ownership and masked admitted-work cancellation are explicit. This prerequisite does not implement remote daily-memory/transcript/checkpoint adapters, distributed maintenance or exclusive host execution claims. Those remain roadmap/host contracts. No blanket RC or binary-compatibility acceptance is established.

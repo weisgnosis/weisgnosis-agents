@@ -1,12 +1,13 @@
 # Module index
 
-The three library modules produce separately consumable binary/source JARs and POMs through `sbt packageArtifacts`; [build acceptance](../project/README.md#local-artifact-packaging) records coordinates, dependency scopes and local consumer evidence. Package READMEs describe available source or explicitly label planned designs. Consult the [tracker](../docs/architecture/tracker.md) and [parity audit](../docs/architecture/test-parity.md) for reviewed scope and remaining integration.
+The four library modules produce separately consumable binary/source JARs and POMs through `sbt packageArtifacts`; [build acceptance](../project/README.md#local-artifact-packaging) records coordinates, dependency scopes and local consumer evidence. Package READMEs describe available source or explicitly label planned designs. Consult the [tracker](../docs/architecture/tracker.md) and [parity audit](../docs/architecture/test-parity.md) for reviewed scope and remaining integration.
 
 | Module | Current status |
 | --- | --- |
 | [core](core/README.md) | Immutable models, typed events/tools and completed observation payloads, canonical path checks, advisory command screening, scoped model clients, streaming and ReAct execution |
 | [harness](harness/README.md) | Memory/transcript storage and maintenance, compaction/eviction, interactive permissions, reviewed plan sessions and controls, scoped task/resource ownership, configured child factories, bounded execution registries, host-held reusable sessions, bounded host session membership and opt-in spawn/send/task/cancel tools |
 | [mcp](mcp/README.md) | Checked payloads, bounded correlation, scoped RPC ownership and direct-process stdio with bounded framing; initialized 2025-06-18 capability-checked list/call, joined deadlines and bounded optional outbound cancellation are reviewed; manual Toolkit binding preserves host authority and typed results; bounded scoped management and HTTP transport with explicit GET, bounded same-send continuation, bounded listener resumption and explicit session termination are reviewed; broader transport recovery and manager policies remain pending |
+| [storage-postgresql](storage-postgresql/README.md) | Optional versioned JSON CAS prerequisite over a host DataSource; payload-Unicode regression, renewed source review and full real-database verification pass; fresh four-artifact consumer verification passes; final documentation closure remains pending. Remote domain adapters and exclusive host claims remain unfinished. |
 
 The additional nonpublished [examples](examples/README.md) project compiles and tests host composition across all three libraries. It includes an explicitly enabled live smoke program; ordinary verification stays offline.
 

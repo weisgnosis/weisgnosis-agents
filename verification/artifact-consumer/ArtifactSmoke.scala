@@ -38,8 +38,10 @@ import com.weisgnosis.agents.core.tool.{
   ToolSchemaStrictness,
   Toolkit
 }
+import com.weisgnosis.agents.harness.storage.{StorageAddress, StorageRevision}
 import com.weisgnosis.agents.harness.permission.{PermissionBehavior, PermissionEngine}
 import com.weisgnosis.agents.mcp.protocol.{McpCallOutcome, McpCallResult, McpContentBlock}
+import com.weisgnosis.agents.storage.postgresql.PostgresVersionedJsonStore
 import java.io.File
 import java.util.regex.Pattern
 import java.nio.charset.StandardCharsets
@@ -133,7 +135,8 @@ object ArtifactSmoke extends ZIOAppDefault:
             "mcp-json-jackson2-",
             "jackson-",
             "tomcat-",
-            "slf4j-jdk14-"
+            "slf4j-jdk14-",
+            "postgresql-"
           )
           Chunk
             .fromArray(raw.split(Pattern.quote(File.pathSeparator)))
@@ -156,7 +159,10 @@ object ArtifactSmoke extends ZIOAppDefault:
         _        <- verifyJar("core", ReActAgent.getClass, manifest)
         _        <- verifyJar("harness", PermissionEngine.getClass, manifest)
         _        <- verifyJar("mcp", McpCallResult.getClass, manifest)
-        encoded  <- ZIO.fromEither(ExactJson.encode(Json.Num(Long.MinValue)))
+        _        <- verifyJar("storage-postgresql", PostgresVersionedJsonStore.getClass, manifest)
+        storageAddress  <- ZIO.fromEither(StorageAddress.from(Chunk("consumer", "state"), "key"))
+        storageRevision <- ZIO.fromEither(StorageRevision.fromLong(1L))
+        encoded         <- ZIO.fromEither(ExactJson.encode(Json.Num(Long.MinValue)))
         event = AgentEvent.ToolResultStartEvent(
           "call",
           "sum",
@@ -248,6 +254,8 @@ object ArtifactSmoke extends ZIOAppDefault:
           .fail(failure("Packaged public API consumer contract failed"))
           .unless(
             encoded == "-9223372036854775808" && decoded == event &&
+              storageAddress.toJson.fromJson[StorageAddress] == Right(storageAddress) &&
+              storageRevision.value == 1L &&
               configured.toJson.fromJson[LlmConfig] == Right(configured) &&
               CompletionEnvelopeProfile.DeltasWithFullMessageSummary.toJson
                 .fromJson[CompletionEnvelopeProfile] == Right(

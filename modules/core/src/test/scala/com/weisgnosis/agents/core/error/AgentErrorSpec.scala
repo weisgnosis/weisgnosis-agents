@@ -65,10 +65,13 @@ object AgentErrorSpec extends ZIOSpecDefault:
       )
     },
     test("memory storage errors retain their typed message and JSON representation") {
-      val error = AgentError.MemoryStorageError("daily ownership unavailable")
+      val error   = AgentError.MemoryStorageError("daily ownership unavailable")
+      val storage = AgentError.StorageError("conditional publication unavailable")
       assertTrue(
         error.toJson.fromJson[AgentError.MemoryStorageError] == Right(error),
-        error.getMessage == error.message
+        error.getMessage == error.message,
+        storage.toJson.fromJson[AgentError.StorageError] == Right(storage),
+        storage.getMessage == storage.message
       )
     }
   )

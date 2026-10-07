@@ -9,3 +9,9 @@ These are independent instances in one JVM. Cross-process contention and dynamic
 Plan ownership extends the fixed-name test and adds typed verification/release-defect and cancellation cases. The [plan storage contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/plan/README.md#standalone-draft-storage) records the new scope; prior memory/transcript behavior remains covered by the existing suites.
 
 - [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 520 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
+
+## Checked versioned storage values
+
+[VersionedJsonStoreSpec](VersionedJsonStoreSpec.scala) adds two proportional groups for exact namespace/key identity and Unicode/UTF-8 bounds, plus positive revision numeric codecs and malformed inputs. Backend atomicity and cancellation require the separate [real PostgreSQL suite](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/README.md); these pure tests do not prove database behavior.
+
+- [x] review_fp and review_invariants approved the exact source/spec identities and full verification passes; evidence belongs to the [public port contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-json-publication).

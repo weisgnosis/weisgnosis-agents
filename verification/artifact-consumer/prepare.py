@@ -9,12 +9,12 @@ import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
 
-MODULES = ("core", "harness", "mcp")
+MODULES = ("core", "harness", "mcp", "storage-postgresql")
 VERSION = "0.1.0-SNAPSHOT"
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 TEST_ONLY = frozenset((
     "zio-test_3", "zio-test-sbt_3", "mcp-core", "mcp-json-jackson2",
-    "tomcat-embed-core", "slf4j-jdk14",
+    "tomcat-embed-core", "slf4j-jdk14", "postgresql",
 ))
 
 
@@ -57,13 +57,14 @@ def inspect(root, module, destination):
     require(tree.findtext("m:version", namespaces=NS) == VERSION, module + " version")
     dependencies = tree.findall("m:dependencies/m:dependency", NS)
     if module != "core":
+        parent = "harness" if module == "storage-postgresql" else "core"
         require(any(
             dependency.findtext("m:groupId", namespaces=NS) == "com.weisgnosis"
-            and dependency.findtext("m:artifactId", namespaces=NS) == "weisgnosis-agents-core_3"
+            and dependency.findtext("m:artifactId", namespaces=NS) == "weisgnosis-agents-" + parent + "_3"
             and dependency.findtext("m:version", namespaces=NS) == VERSION
             and dependency.findtext("m:scope", default="compile", namespaces=NS) == "compile"
             for dependency in dependencies
-        ), module + " missing matching compile core dependency")
+        ), module + " missing matching compile parent dependency")
     for dependency in dependencies:
         name = dependency.findtext("m:artifactId", namespaces=NS)
         scope = dependency.findtext("m:scope", default="compile", namespaces=NS)

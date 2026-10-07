@@ -1,4 +1,4 @@
-# Internal workspace ownership
+# Storage contracts
 
 WorkspaceLease shares cooperative ownership machinery between local memory, transcript and plan-draft backends. WorkspaceOwner.Memory selects .daily-writer.lease; Transcript selects .transcript-writer.lease; Plan selects .plan-writer.lease. These fixed names describe independent payload domains, not competing locks for the same files. Callers validate the canonical host-controlled directory before acquisition.
 
@@ -9,3 +9,11 @@ This is internal cooperative infrastructure, not a hostile-filesystem sandbox, f
 - [x] `review_fp` and `review_harness` approved the final 14-file local transcript increment against `e4dfc67` on 2026-09-29. Twenty-seven new tests reproduced and fixed Unicode surrogate splitting; full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 258 harness tests with zero compiler warnings. No findings remain within shared cooperative ownership, strict complete-log validation, atomic batch replacement, reopen/deduplication, and Unicode-safe previews. Remote segments, Java layout/wire equivalence, hostile mutation, fsync/power-loss durability, and automatic turn scheduling remain excluded.
 
 - [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 520 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
+
+## Versioned JSON publication
+
+[VersionedJsonStore.scala](VersionedJsonStore.scala) adds public checked StorageAddress, opaque positive StorageRevision, ExpectedRevision, ConditionalWrite and VersionedJson data plus the effectful read/compareAndSet port. Address codecs reapply exact Unicode/nonblank/512-UTF-8-byte checks; namespace serialization uses a reserved U+001F separator. The revision codec accepts only positive signed-Long JSON numbers, rejecting string/fraction/overflow coercion. Conflict changes nothing; creation starts at 1 and exact-revision updates advance without reuse. Exhausted Long.MaxValue expectations fail without publication. Cancellation/lost acknowledgement does not establish that a write did not commit.
+
+The optional [PostgreSQL backend](../../../../../../../../../storage-postgresql/README.md) is a separately packaged implementation. This prerequisite does not implement remote daily-memory, transcript or checkpoint adapters, deletion/search, multi-address transactions or exclusive host execution claims. Existing WorkspaceLease remains private cooperative local infrastructure; this new public storage port does not turn local leases into distributed locks.
+
+- [x] review_fp and review_invariants approved this additive public port and its named backend; full verification with real PostgreSQL passes. The [backend manifest](../../../../../../../../../storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) records exact identities, verification and pending final delivery gates. Existing workspace ownership scopes remain unchanged.
