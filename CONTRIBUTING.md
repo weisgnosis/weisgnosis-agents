@@ -33,6 +33,8 @@ Never claim subagent review unless it actually ran. Never label a suite exhausti
 
 Update affected root/module/package READMEs, architecture contracts, tracker, test mappings, and migration notes. Prefer source links over duplicated implementations. Mark roadmap systems and host responsibilities explicitly.
 
+The pre-RC compatibility boundary and required dependent rebuilds are defined in the [build contract](project/README.md#compatibility-policy). The [external artifact consumer](verification/artifact-consumer/README.md) verifies selected public extension points against freshly packaged JARs, separately from source-project tests. Passing it establishes current integration behavior, not binary compatibility with a prior release or exhaustive public API coverage.
+
 Review changed prose and comments for English and neutral terminology. Check local Markdown links. Unicode screening is supplemental evidence, not proof of natural-language correctness.
 
 Use focused Conventional Commit messages and the PR checklist. CI provisions the [official sbt runner](https://github.com/sbt/setup-sbt) before verification and artifact generation.

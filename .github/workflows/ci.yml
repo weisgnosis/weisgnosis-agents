@@ -27,3 +27,15 @@ jobs:
 
       - name: Verify Formatting, Compilation, Tests, and Packages
         run: sbt verify packageArtifacts
+
+      - name: Setup Python for Artifact Inspection
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Inspect and Stage Fresh Packaged Artifacts
+        run: python verification/artifact-consumer/prepare.py
+
+      - name: Verify External Packaged API Consumer
+        working-directory: verification/artifact-consumer
+        run: sbt scalafmtCheckAll scalafmtSbtCheck compile run
