@@ -75,6 +75,16 @@ The existing six McpClientSpec groups now exercise independent initialization/re
 - [x] mcp-selected-deadlines-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh RC1 module hashes, including the checked deadline API probe.
 - [x] review_fp and review_invariants approved the final eleven-file combined scope against a13b71e with no unresolved findings; manual English, changed-script/diff and 78-document/3,001-local-reference checks pass.
 
+## Builder applicability inventory
+
+The [finite builder inventory](../../../../../../../../../../docs/architecture/test-parity.md#finite-core-mcp-builder-applicability) accounts for every one of the 120 pinned McpClientBuilderTest declarations by exact name/line. It distinguishes available typed configuration and lifecycle behavior from Java mutable/fluent/sync/null/helper assertion shapes and selected-profile differences. Optional elicitation, arbitrary protocol negotiation, dynamic customization and broader cache/invalidation contracts remain unfinished; no whole-builder or whole-MCP parity is claimed.
+
+This four-document scope against be458fe changes no production, test or consumer source. The accepted source identities remain those of cab1196 and the canonical independent-deadline manifest above; its verification, packaged-source inspection and actual fresh-hash consumer evidence remain applicable. No redundant test run is claimed for this documentation-only classification.
+
+- [x] Inspect all 120 declarations and their builder implementation boundaries; account for each declaration exactly once.
+- [x] review_fp and review_invariants independently approved this final four-document scope against be458fe with no findings.
+- [x] Manual English review, changed-script/diff checks and 78-document/3,006-local-reference validation pass.
+
 ## Initialized client contract
 
 - `open(transport, clientInfo, deadline = 30.seconds)` creates an owned connection in the caller's scope. The host acquires the transport first. The deadline must be positive and finite; invalid values start no reader. Initialization advertises empty optional client capabilities, requires the exact selected revision, and publishes the client only after `notifications/initialized` finishes sending. Failed or interrupted initialization closes and joins the connection immediately.

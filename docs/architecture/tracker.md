@@ -62,12 +62,13 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] Accept the finite 24 compaction/eviction applicability decisions and documented backend limits; broader platform/security/crash guarantees remain separate.
 
-Current delivery: [independent MCP initialization/request deadlines](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines) against a13b71e.
+- [x] [Independent MCP deadlines](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines) retain final scoped source/verification/artifact/documentation acceptance.
 
-- [x] Both reviewers approved the three final source identities; six focused groups and full 1,526-test RC1/package verification pass.
-- [x] Fresh archive/source/POM preparation passes.
-- [x] mcp-selected-deadlines-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh RC1 module hashes.
-- [x] review_fp and review_invariants approved the final eleven-file combined scope against a13b71e with no unresolved findings; English/diff and 78-document/3,001-local-reference checks pass.
+Current delivery: [finite MCP builder applicability](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#builder-applicability-inventory) against be458fe; source/test/consumer remain unchanged.
+
+- [x] Inspect all 120 declared methods and account for each exact name/line once, separating supported configuration from API/profile differences.
+- [x] review_fp and review_invariants approved the final four-document classification against be458fe; English/diff checks and 78-document/3,006-local-reference validation pass.
+- [ ] Define optional elicitation, additional version negotiation and any justified dynamic request customization separately; classification does not implement these capabilities.
 - [ ] Diagnose the unexplained PostgreSQL acquisition failure in external-tools-final-verify.log; sanitized diagnostics and successful rechecks do not establish its cause.
 
 ## Current acceptance

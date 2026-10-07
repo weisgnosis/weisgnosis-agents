@@ -23,10 +23,9 @@ Update contracts and mappings when behavior changes. Record current reviewed sco
 
 ## Current documentation acceptance
 
-Current documentation scope against 75265e0 reconciles the finite [compaction/eviction applicability inventory](test-parity.md) with the existing [compactor acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#current-review-acceptance). All 24 methods have bounded decisions; documented backend limits remain distinct from unfinished platform/security/crash and broader middleware guarantees. Source and tests are unchanged, retaining their canonical scoped acceptance and verification.
+Current documentation scope against be458fe classifies all 120 pinned MCP builder declarations under the [canonical applicability inventory](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#builder-applicability-inventory). Available configuration and lifecycle contracts remain distinct from Java API shapes and unsupported optional profiles. Production, tests and consumer source are unchanged; accepted source identities and verification remain scoped to their package contracts. The finite compaction/eviction classification retains its existing acceptance.
 
-- [x] review_fp and review_invariants approved this four-document reconciliation against 75265e0 with no unresolved findings; existing source acceptance is unchanged.
-- [x] Manual English inspection, changed-script/diff checks and 78-document/2,989-local-reference checks pass; source and tests are unchanged.
+- [x] review_fp and review_invariants approved this four-document classification against be458fe with no findings; English/diff checks and 78-document/3,006-local-reference validation pass.
 
 ## Versioned remote storage
 
