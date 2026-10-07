@@ -37,18 +37,40 @@ object ReActAgentEventSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ReActAgent event lifecycle")(
     test("success emits one correlated boundary pair per run with fresh identity") {
-      for
-        model  <- LlmClient.mock(Chunk.fill(2)(TurnOutput.FinalText(Msg.assistant("done"))))
-        agent  <- ReActAgent.make(client = model)
-        first  <- agent.streamEvents(Msg.user("first")).runCollect
-        second <- agent.streamEvents(Msg.user("second")).runCollect
-      yield assertTrue(
-        paired(first),
-        paired(second),
-        first.collect { case event: AgentEvent.AgentStartEvent => event.replyId } !=
-          second.collect { case event: AgentEvent.AgentStartEvent => event.replyId }
-      )
-    },
+      ZIO
+        .foreach(Chunk("done", "")): text =>
+          for
+            model  <- LlmClient.mock(Chunk.fill(2)(TurnOutput.FinalText(Msg.assistant(text))))
+            agent  <- ReActAgent.make(client = model)
+            first  <- agent.streamWithResult(Msg.user("first")).runCollect
+            second <- agent.streamWithResult(Msg.user("second")).runCollect
+            checks = Chunk(first, second).map: updates =>
+              val events  = updates.collect { case AgentRunUpdate.Event(event) => event }
+              val results = updates.collect { case AgentRunUpdate.Result(result) => result }
+              val phases = events.collect:
+                case _: AgentEvent.AgentStartEvent  => "start"
+                case _: AgentEvent.AgentResultEvent => "result"
+                case _: AgentEvent.AgentEndEvent    => "end"
+              assertTrue(
+                paired(events),
+                phases == Chunk("start", "result", "end"),
+                results.map(_.state) == Chunk(AgentRunState.Completed),
+                results.map(_.reply.text) == Chunk(text),
+                events.collect { case event: AgentEvent.AgentResultEvent => event.result } ==
+                  results.map(_.reply),
+                updates.lastOption.exists:
+                  case AgentRunUpdate.Result(_) => true
+                  case _                        => false
+              )
+          yield checks.foldLeft(assertTrue(true))(_ && _) && assertTrue(
+            first.collect { case AgentRunUpdate.Event(event: AgentEvent.AgentStartEvent) =>
+              event.replyId
+            } != second.collect { case AgentRunUpdate.Event(event: AgentEvent.AgentStartEvent) =>
+              event.replyId
+            }
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    } @@ TestAspect.timeout(5.seconds),
     test("buffered model events drain in order before correlated completion") {
       val deltas = Chunk
         .fromIterable(0 until 512)

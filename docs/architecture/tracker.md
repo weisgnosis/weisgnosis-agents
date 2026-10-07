@@ -66,12 +66,13 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] Accept the finite 120-method MCP builder applicability classification, retaining unsupported optional capability gates separately.
 
-Current accepted delivery: [shell startup-default defect](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#shell-startup-defaults) against de8b21f.
+- [x] [Shell startup-default correction](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#shell-startup-defaults) retains final scoped acceptance.
 
-- [x] Reproduce omitted sensitive filenames on unchanged PathSafety with permitted near-misses in existing tables.
-- [x] review_fp and review_invariants approve the final source/spec identities; focused eight-group and full 1,526-test verification pass without warnings/failures/ignored.
-- [x] Fresh artifact preparation and standalone consumer pass against the changed production source.
-- [x] review_fp and review_invariants approve the final six-file combined scope; English/diff checks and 78-document/3,011-local-reference validation pass.
+Current accepted delivery: [empty-text stream completion evidence](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#empty-text-stream-completion) against 4e82fb6; production/build/consumer unchanged.
+
+- [x] Extend the existing successful-stream group with empty/nonempty rows, exact terminal/boundary assertions and a bounded liveness guard; no new groups.
+- [x] review_fp and review_invariants approve the final spec identity; focused eight-group and full 1,526-test verification pass without warnings/failures/ignored.
+- [x] review_fp and review_invariants approve the final six-file combined scope; English/diff checks and 78-document/3,016-local-reference validation pass.
 - [ ] Define optional elicitation, additional version negotiation and any justified dynamic request customization separately; classification does not implement these capabilities.
 - [ ] Diagnose the unexplained PostgreSQL acquisition failure in external-tools-final-verify.log; sanitized diagnostics and successful rechecks do not establish its cause.
 
@@ -142,7 +143,8 @@ The explicit known-address transcript catalog and unpublished registered assembl
 - [x] The accepted MCP protocol/client/tool/transport packages provide checked 2025-06-18 envelopes, bounded discovery/RPC ownership, direct-process stdio, HTTP JSON/SSE, explicit host replacement and scoped manager installation within their linked contracts. Remaining interoperability and broader protocol behavior are not inferred from that scope.
 - [x] Plan inventory methods have bounded adaptations, including opt-in child installation and retained named-session restrictions; Java middleware/API shapes and automatic flags remain deliberate differences.
 - [x] MemoryExtractor supports explicit primary or dedicated host clients; this is not a string-ID registry or new upstream test mapping.
-- [ ] Complete applicable core/harness method mappings and remaining structured-output, lifecycle and event-ordering gaps, including broader provider multimodal projection, other provider signature/tool metadata, event adapters, broader HITL delivery and richer subagent attribution.
+- [x] Map all eighteen selected structured-output methods through verified contracts or explicit typed adaptations; broader profiles and hooks remain separate.
+- [ ] Complete applicable core/harness method mappings and remaining broader structured-output profiles, lifecycle and event-ordering contracts, including broader provider multimodal projection, other provider signature/tool metadata, event adapters, broader HITL delivery and richer subagent attribution.
 - [ ] Implement durable host persistence, authenticated delivery and idempotent checkpoint claims around the accepted complete-batch ConfirmResult adapter; partial confirmation has final independent acceptance.
 - [ ] Define string-ID model registry selection only under a separate host contract; broader/global transcript discovery, remote pruning/layout migration, checkpoint runtime/host installation, broader/global session discovery and automatic host scheduling remain unfinished; known-address catalog selection is accepted only under its explicit contract.
 - [ ] Validate platform-specific symlink/junction behavior and provide a secure storage backend if untrusted workspace support is required. Canonical checks are not an atomic filesystem sandbox; crash/fsync durability and hostile mutation isolation are not claimed.

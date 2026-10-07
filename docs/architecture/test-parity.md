@@ -609,6 +609,8 @@ The pinned source `agentscope-core/src/test/java/io/agentscope/core/agent/ReActA
 
 ## Live model stream adaptation
 
+- [x] AgentStreamingTest.testReActAgentStreamCompletesWhenModelReturnsEmptyText (256): the strengthened existing [successful-stream group](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#empty-text-stream-completion) requires EOF completion and exact Completed/runtime boundary results for empty nonreasoning text, retaining same-agent reuse. Both independent source/documentation approvals and focused/full checks pass. Legacy first REASONING/isLast envelope and exact two-second timing are not adopted; no other streaming method is classified by this scope.
+
 - [x] ChatCompletionsClientSpec scenarios verify incremental publication, real HTTP tool cycles, request/reply correlation, late tool identity, incomplete/malformed input, and cancellation.
 - [x] Three ModelStreamPublisherSpec scenarios verify indexed text/thinking, interleaved tool deltas, and validated complete ending batches; two ModelStreamContextSpec scenarios cover all sixteen affected event variants and legacy payloads.
 - [x] Verify completed local tool results with request provenance, persistence before publication, and per-call start/delta/end ordering.

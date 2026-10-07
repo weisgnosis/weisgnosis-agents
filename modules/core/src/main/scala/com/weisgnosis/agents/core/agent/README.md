@@ -8,6 +8,22 @@ Selected request settings also carry a checked optional [thinking budget](../cli
 
 The [interrupted transformed-progress correction](../client/README.md#interrupted-transformed-progress) has final source approval and focused verification; full/artifact verification passes; final combined documentation acceptance passed after reproduced history loss. Only validated request-local progress may be accepted after joined interruption-only cleanup; compound failures remain failures and external cancellation remains interrupted.
 
+## Empty-text stream completion
+
+The existing successful-stream group in ReActAgentEventSpec now covers both `FinalText("done")` and empty nonreasoning `FinalText("")`. Each row fully drains two successive same-agent `streamWithResult` invocations to EOF, preserving the gate-reuse/fresh-identity checks. Each invocation must emit exactly one correlated runtime Start/Result/End sequence and one trailing Completed result whose reply equals the result event and retains the expected visible text. A five-second test timeout bounds a possible EOF hang; it does not assert upstream wall-clock timing.
+
+This is a bounded runtime-intent adaptation of pinned AgentStreamingTest.testReActAgentStreamCompletesWhenModelReturnsEmptyText (256). Its legacy first REASONING/isLast envelope is deliberately outside the typed event contract. Production, public APIs and test-group counts are unchanged; this is additional liveness evidence, not a reproduced defect or classification of the other streaming methods.
+
+| Test-only scope against 4e82fb6 | Git blob |
+| --- | --- |
+| [ReActAgentEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEventSpec.scala) | 4879fcfe99172f6af32daac5a66fade2f2da43ba |
+
+- [x] review_fp and review_invariants independently approved the final formatted test identity against 4e82fb6 with no findings.
+- [x] empty-stream-focused.log passes all eight existing groups in 515 ms. empty-stream-verify.log passes 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored.
+- [x] review_fp and review_invariants approved the final six-file combined scope against 4e82fb6 with no findings. Manual English review, changed-script/diff checks and 78-document/3,016-local-reference validation pass.
+
+Unchanged production/build/consumer retain their accepted artifact evidence; this test-only scope does not claim regenerated packages or a new ZIP snapshot.
+
 ## External execution checkpoints
 
 The accepted [external binding scope](../tool/README.md#external-tool-bindings) distinguishes external execution from permission waiting. AwaitingResults retains completed occurrence/history positions, current group state, saved Stop, exact externalRequests inputs and an externalTools binding-kind manifest. Mixed batches retain separate permissionRequests; only those publish Ask. The assistant call is persisted before acting, and approved argument edits are persisted before dispatch. External waiting contributes no placeholder Tool message or successful result event.

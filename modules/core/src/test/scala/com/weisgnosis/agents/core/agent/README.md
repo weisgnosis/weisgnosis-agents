@@ -49,7 +49,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [ReActAgentToolResultProcessorSpec](ReActAgentToolResultProcessorSpec.scala)
 - [ReActAgentToolEventSpec](ReActAgentToolEventSpec.scala)
 - [ReActAgentEmissionSpec](ReActAgentEmissionSpec.scala)
-- [ReActAgentEventSpec](ReActAgentEventSpec.scala)
+- [ReActAgentEventSpec](ReActAgentEventSpec.scala): the existing success group now checks fully drained empty/nonempty results, same-agent reuse and exact correlated boundary/result counts under a five-second liveness guard. Current identity, approved source/documentation scope and passing focused/full evidence belong to [empty-text stream completion](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#empty-text-stream-completion).
 - [ReActAgentInterruptSpec](ReActAgentInterruptSpec.scala)
 - [ReActAgentLifecycleSpec](ReActAgentLifecycleSpec.scala)
 - [ReActAgentSpec](ReActAgentSpec.scala)

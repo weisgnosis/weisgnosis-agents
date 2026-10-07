@@ -123,7 +123,7 @@ ReActAgentEventSpec checks AgentStart first and the matching AgentEnd last for f
 
 | Reviewed spec | Git blob |
 | --- | --- |
-| [ReActAgentEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEventSpec.scala) | `e2991912ecc419178a41373ae9b56d7467314faf` |
+| [ReActAgentEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEventSpec.scala) | [Current empty-text stream test identity](../agent/README.md#empty-text-stream-completion); prior runtime ordering scope retained, renewed test source review and full verification pass; combined documentation acceptance approved. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no findings. Existing groups were strengthened; no production behavior or test-group count changed. Focused `event-order-focused.log` passed seventeen tests in 7.747 seconds.
