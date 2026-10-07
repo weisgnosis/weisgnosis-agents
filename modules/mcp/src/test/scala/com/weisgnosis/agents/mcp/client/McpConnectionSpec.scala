@@ -324,6 +324,44 @@ object McpConnectionSpec extends ZIOSpecDefault:
           yield result && assertTrue(scopeExit.causeOption.exists(_.defects.contains(defect)))
         .map(results => results.foldLeft(assertTrue(true))(_ && _))
     },
+    test(
+      "terminal failure during failing-send cleanup retains one cause without owned cancellation"
+    ) {
+      ZIO.scoped:
+        for
+          duplex    <- wire
+          cleanup   <- Promise.make[Nothing, Unit]
+          cancelled <- Promise.make[Nothing, Unit]
+          release   <- Promise.make[Nothing, Unit]
+          cause = Cause
+            .fail(AgentError.McpSessionExpired())
+            .annotated(Map("request-origin" -> "resource-regression"))
+            .spanned(List(LogSpan("failing-send", 1L)))
+          connection <- McpConnection.make(duplex.transport:
+            case _: McpMessage.Request =>
+              ZIO
+                .failCause(cause)
+                .ensuring(
+                  cleanup.succeed(()).unit *>
+                    ZIO.interruptible(ZIO.never).exit *>
+                    cancelled.succeed(()).unit *> release.await
+                )
+            case _ => ZIO.unit)
+          request <- connection.request("failing-send").forkScoped
+          _       <- duplex.nextRequest
+          _       <- cleanup.await
+          _       <- duplex.received.offer(Take.failCause(cause))
+          _       <- cancelled.await
+          before  <- request.poll
+          _       <- release.succeed(())
+          exit    <- request.await
+        yield assertTrue(
+          before.isEmpty,
+          exit.causeOption.contains(cause),
+          exit.causeOption.exists(_.annotations == cause.annotations),
+          exit.causeOption.exists(_.spans == cause.spans)
+        )
+    },
     test("acquisition in an already closed parent scope cannot start borrowed transport activity") {
       for
         parent <- Scope.make

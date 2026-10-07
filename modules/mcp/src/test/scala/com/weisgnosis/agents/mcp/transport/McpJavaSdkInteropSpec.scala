@@ -22,7 +22,7 @@ import com.weisgnosis.agents.mcp.client.{McpClient, McpClientManager}
 import com.weisgnosis.agents.mcp.protocol.*
 import com.weisgnosis.agents.mcp.tool.McpTool
 import io.modelcontextprotocol.json.McpJsonMapper
-import io.modelcontextprotocol.server.{McpAsyncServer, McpServer}
+import io.modelcontextprotocol.server.{McpAsyncServer, McpServer, McpServerFeatures}
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider
 import io.modelcontextprotocol.spec.McpSchema
 import java.nio.file.{Files, Path}
@@ -184,13 +184,35 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
               .isError(true)
               .build()
           )
+          val resource = McpSchema.Resource
+            .builder()
+            .uri("memory://fixture/project")
+            .name("Project context")
+            .mimeType("text/plain")
+            .build()
+          val resourceResult = Mono.just(
+            new McpSchema.ReadResourceResult(
+              java.util.List.of[McpSchema.ResourceContents](
+                new McpSchema.TextResourceContents(
+                  "memory://fixture/project",
+                  "text/plain",
+                  "Context from Java SDK"
+                )
+              )
+            )
+          )
           val sdk = McpServer
             .async(provider)
             .jsonMapper(mapper)
             .serverInfo("java-sdk-peer", "0.17.2")
-            .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
+            .capabilities(
+              McpSchema.ServerCapabilities.builder().tools(false).resources(false, true).build()
+            )
             .toolCall(greeting, (_, _) => success)
             .toolCall(rejection, (_, _) => failure)
+            .resources(
+              new McpServerFeatures.AsyncResourceSpecification(resource, (_, _) => resourceResult)
+            )
             .build()
           tomcat.setBaseDir(directory.toString)
           tomcat.setPort(0)
@@ -218,9 +240,12 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
             http      <- ZIO.service[Client]
             exchanges <- Ref.make(Chunk.empty[Exchange])
             recorded = recording(http, exchanges)
-            transport <- McpStreamableHttpTransport.open(recorded, peer.endpoint)
-            client    <- McpClient.open(transport, McpImplementation("scala-interop", "1"))
-            page      <- client.listToolsPage()
+            transport         <- McpStreamableHttpTransport.open(recorded, peer.endpoint)
+            client            <- McpClient.open(transport, McpImplementation("scala-interop", "1"))
+            page              <- client.listToolsPage()
+            resources         <- client.discoverResources(1, 1)
+            resourceTemplates <- client.listResourceTemplatesPage()
+            context           <- client.readResource("memory://fixture/project")
             remote <- ZIO
               .fromOption(page.tools.find(_.name == "greet"))
               .orElseFail(AgentError.McpError("SDK greeting was not discovered"))
@@ -261,6 +286,10 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
             assertTrue(
               client.initialization.serverInfo == McpImplementation("java-sdk-peer", "0.17.2"),
               client.initialization.capabilities.tools.nonEmpty,
+              client.initialization.capabilities.resources.exists(_.listChanged.contains(true)),
+              resources.map(_.uri) == Chunk("memory://fixture/project"),
+              resourceTemplates.items.isEmpty,
+              context.contents.map(_.body) == Chunk(McpResourceBody.Text("Context from Java SDK")),
               page.tools.map(_.name).toSet == Set("greet", "reject"),
               greeting.outcome == McpCallOutcome.Success,
               greeting.content.map(_.block) == Chunk(McpContentBlock.Text("Hello from Java SDK")),
@@ -449,6 +478,7 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
             session <- ZIO
               .fromOption(initialized.flatMap(_.session).headOption)
               .orElseFail(AgentError.McpError("SDK listener session was not observed"))
+            resourceChanges <- client.observeResourceChanges
             rounds <- ZIO.foreach(Chunk(0, 1)): index =>
               ZIO.scoped:
                 for
@@ -467,12 +497,19 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
                   notification <- messages.take.repeatUntil:
                     case McpMessage.Notification("notifications/tools/list_changed", _) => true
                     case _                                                              => false
-                  running   <- listener.poll
-                  cancelled <- listener.interrupt
-                  closed    <- closedGets.get
-                  greeting  <- client.callTool("greet", Some(Json.Obj()))
+                  _ <- ZIO
+                    .attemptBlocking(
+                      peer.sdk.notifyResourcesListChanged().block(java.time.Duration.ofSeconds(5))
+                    )
+                    .unit
+                  resourceChange <- resourceChanges.take(1).runCollect
+                  running        <- listener.poll
+                  cancelled      <- listener.interrupt
+                  closed         <- closedGets.get
+                  greeting       <- client.callTool("greet", Some(Json.Obj()))
                 yield assertTrue(
                   notification == McpMessage.Notification("notifications/tools/list_changed"),
+                  resourceChange == Chunk(McpResourceChange.ListChanged(None)),
                   running.isEmpty,
                   cancelled.isInterruptedOnly,
                   closed == index + 1,

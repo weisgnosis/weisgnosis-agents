@@ -1,5 +1,7 @@
 # Typed tools and path validation: verification
 
+[ToolSchemaValidatorSpec](ToolSchemaValidatorSpec.scala) groups standards constraints/exact-number neighbors, normalization/original-input preservation, and invalid schema/reference acquisition. Reproduced failures include permissive decoder admission, tiny divisor underflow, percent-encoded pointer selection and malformed UTF-8 aliasing through reference keywords. The [current schema contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns final review and verification status.
+
 ## Failure fixtures
 
 This test-only scope against e9158e6 adds bounded executable adaptations for ToolExecutorTest.testToolErrorWithoutInterruptSpecialCase (306) and testConcurrentToolExecutionWithErrors (364). Production, public APIs and test-group counts are unchanged; this is added contract evidence rather than a reproduced production defect.

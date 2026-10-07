@@ -14,7 +14,7 @@ These are specification-derived tests, not claimed one-to-one mappings to AgentS
 
 ## Initialization payload tests
 
-[McpInitializationSpec](McpInitializationSpec.scala) adds four grouped tests for the explicitly selected 2025-06-18 revision. This payload-only scope is accepted with the review and verification evidence linked below.
+[McpInitializationSpec](McpInitializationSpec.scala) contains five grouped tests for the explicitly selected 2025-06-18 revision, including the independent resource capability matrix. The current expanded scope and remaining acceptance gates are recorded in the linked resource contract.
 
 | Test | Coverage |
 | --- | --- |
@@ -22,6 +22,12 @@ These are specification-derived tests, not claimed one-to-one mappings to AgentS
 | Capability projection | Absent versus present tools, absent/false/true listChanged, retained extension fields, instructions, and object `_meta` |
 | Checked result boundary | Required fields, malformed/null known optionals, and recursive duplicate rejection |
 | Exact revision | Reject other revisions and malformed version fields without fallback |
+
+## Resource protocol tests
+
+[McpResourcesSpec](McpResourcesSpec.scala) groups independent request-shape, retained resource/template/read payload, and malformed-boundary contracts. [McpInitializationSpec](McpInitializationSpec.scala) adds a table of independent absent/false/true resource capability flags and malformed flag rejection. The [resource client contract](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) records the current FP/ZIO and invariant approvals and 29-group focused verification, with full verification, package preparation and the fresh artifact consumer passing; final combined documentation approval passed against 1441a97.
+
+The original HLD promises resource servers, while the pinned AgentScope Java client wrapper only exposes tool discovery/invocation. These resource method expectations come from the MCP resource specification; existing upstream embedded-resource conversion cases map separately to McpCallResultSpec and do not substitute for resource discovery/read tests.
 
 ## Tool request and list-result tests
 

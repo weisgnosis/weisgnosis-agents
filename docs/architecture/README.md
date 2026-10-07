@@ -1,5 +1,7 @@
 # Current architecture contracts
 
+Current [schema admission](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) and [MCP resource APIs](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) have finite source/spec review evidence. Their completion does not waive other schema dialects, legacy SSE, embedded-resource projection or the original host cutover.
+
 Explicit [ordinary JSON completion](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions) complements default SSE through additive client/transport factories and a pure request encoder. Full bounded EOF validation precedes transforms/events; existing request ownership, tool authority and cleanup contracts apply.
 
 - [High-level design](high-level-design.md): runtime authority, module boundaries and host responsibilities.

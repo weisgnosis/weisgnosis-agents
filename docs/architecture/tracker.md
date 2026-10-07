@@ -7,10 +7,10 @@ Last synchronized: 2026-10-08. The original six-phase plan is the completion con
 - [x] Phase 0: architecture, engineering rules and build foundation exist and are enforced through verification and independent review.
 - [x] Phase 1 implementation: immutable messages/content, typed errors and event hierarchy exist with paired codecs/specifications and recorded finite mappings.
 - [ ] Phase 1 parity closure: complete remaining event method classification and any resulting applicable behavior gaps; component availability does not close the whole phase.
-- [ ] Phase 2: complete tool/client behavior and applicable upstream parity. Declared JSON Schema constraints are not yet enforced by runtime tool admission; provider/transport applicability remains incomplete.
+- [ ] Phase 2: complete tool/client behavior and applicable upstream parity. Draft 2020-12 schema admission is implemented; other declared drafts and remaining method applicability stay open; provider/transport applicability remains incomplete.
 - [ ] Phase 3: close remaining ReAct lifecycle/interruption/hook method mappings. Existing runtime behavior has scoped acceptance; whole-phase parity has not been established.
 - [ ] Phase 4: complete remaining harness/permission/memory/transcript applicability and integration obligations. Existing compaction, eviction, memory, permission and Plan implementations are accepted only within their linked contracts.
-- [ ] Phase 5: finish MCP resources, older protocol/legacy SSE compatibility, model-facing background task listing and remaining subagent/MCP behavior mappings.
+- [ ] Phase 5: finish embedded-resource projection, older protocol/legacy SSE compatibility, model-facing background task listing and remaining subagent/MCP behavior mappings.
 - [ ] Phase 6: perform the originally planned WeisGnosis OS cutover, including WeisGnosisAgentProvider, replacement of legacy host glue and Temporal Activity end-to-end verification. These are host/product changes; library ports and examples do not complete this phase.
 
 The repository does not currently support a defensible whole-plan completion percentage. The pinned inventory contains 2,473 annotated Java core test declarations, with only named finite inventories classified. Test totals, source lines and available module counts cannot supply the missing denominator. The [parity audit](test-parity.md) owns detailed method evidence.
@@ -21,14 +21,18 @@ Execute the following sequence without changing the original scope:
 
 - [x] Recheck the accepted implementation independently: current full verification, packaged consumption, compiled guide applications and one authorized live tool-calling run have concrete evidence below.
 - [ ] Complete the original-obligation inventory at method level, separating actual missing behavior from API-shape adaptations and explicit host integration; classify every retained obligation before claiming total completion.
-- [ ] Implement runtime JSON Schema validation using pinned upstream Draft 2020-12 semantics, including optional-null normalization. Enforce it before local execution and external suspension, preserve required nulls, resolve references safely and avoid unpromised coercion/default injection. ToolValidator.java and ToolExecutor.java are the behavioral references; typed decoding alone is insufficient.
-- [ ] Implement MCP resource capability negotiation, checked listing/templates/reading, bounded discovery and the required subscription/notification lifecycle. Tool results containing embedded resources do not implement resource-server APIs.
+- [x] Implement and independently review runtime JSON Schema validation under the pinned upstream default Draft 2020-12 semantics, including optional-null normalization. Full verification and fresh packaged consumption pass. Enforce it before local execution and external suspension, preserve required nulls, resolve references safely and avoid unpromised coercion/default injection. ToolValidator.java and ToolExecutor.java are the behavioral references; typed decoding alone is insufficient.
+- [x] Implement and independently review MCP resource capability negotiation, checked listing/templates/reading, bounded discovery and subscription/notification lifecycle. Full verification and packaged consumption pass. Tool results containing embedded resources do not implement resource-server APIs.
 - [ ] Implement the originally promised MCP 2024-11-05 compatibility and legacy HTTP/SSE transport: endpoint-event negotiation, advertised POST routing, inbound message events and scoped cancellation/cleanup. Current 2025-06-18 Streamable HTTP does not supply these semantics.
 - [ ] Add the originally promised model-facing task listing over the selected owned registry, with bounded projection and no global discovery or new task authority. Existing inspect/cancel tools and host-only registry.list do not provide this model capability.
 - [ ] Verify result-eviction inspection through the host-installed read_file capability, as required by the original integration contract.
-- [ ] Obtain final independent FP/ZIO and invariant reviews, proportionate contract/regression coverage, current documentation and full verification for each increment before acceptance.
+- [x] Obtain independent final FP/ZIO and invariant source approvals, proportionate contract/regression coverage and full verification for the current schema/resource increment.
+- [x] Both reviewers approved final combined documentation for the verified current increment against 1441a97. Apply the same gates to every subsequent task.
 
-Three resource protocol drafts were preserved under ignored `target/paused-mcp-resource-draft` when work was redirected to this controlling-plan correction. They are not installed, compiled, accepted or counted as progress. Resume their source implementation only through the same review gates.
+Current increment implements Draft 2020-12 schema admission and MCP resource APIs. Schema constraints, exact numeric handling, strict local reference encoding and observer termination have reproduced regression evidence. Both independent reviewers approved the twenty implementation/spec identities plus the packaged consumer. Full verification passes 1,540 tests and four RC1 packages; fresh archive admission and standalone consumer pass. Final combined documentation review passed against 1441a97. No whole-plan completion is claimed.
+
+- [ ] Complete declared-dialect applicability beyond the current Draft 2020-12 profile; the upstream registry also recognizes other standard drafts. Preserve exact numeric/reference checks when implementing them.
+- [ ] Complete embedded MCP resource projection: upstream text/image/binary descriptions remain distinct from the current retained Custom payload. See the [resource projection gap](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity).
 
 ## Remaining effort
 
@@ -36,18 +40,18 @@ These are provisional engineering effort ranges, including implementation, propo
 
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
-| Runtime JSON Schema admission and optional-null normalization | 23-51 hours | Standards-backed evaluator selection/integration, local references/composition, exact numeric semantics and admission boundaries. Includes 3-6 hours of contract/evaluator assessment and 20-45 hours of implementation/verification/review. |
-| MCP resource-server APIs and lifecycle | 8-14 hours | Notification/subscription ownership, delivery bounds and independent interoperability. |
+| Remaining schema dialect/method applicability | 4-10 hours | Default Draft 2020-12 admission is implemented and verified. Other declared drafts need equivalent numeric/reference protection and meaningful finite method evidence. |
+| Embedded MCP resource visible projection | 2-4 hours | Preserve visible text/image/binary descriptions as well as exact retained wire metadata. |
 | Older MCP revision and legacy HTTP/SSE | 14-28 hours | Separate endpoint negotiation/routing, authentication/URI safety, joined cancellation and independent legacy-server compatibility. |
 | Model-facing background task listing | 2-4 hours | Selected-registry visibility, bounded output and ownership-safe integration. |
-| **Subtotal: four identified original library gaps** | **47-97 hours** | Excludes unclassified applicable methods, host cutover and external release work. |
+| **Subtotal: identified remaining library work** | **22-46 hours** | Excludes unclassified applicable methods, host cutover and external release work. |
 
 - [x] Obtain independent resource/legacy estimates and an invariant-focused risk assessment; these ranges retain integration uncertainty instead of treating drafts as completed features.
 - [ ] Complete the remaining method-applicability inventory and estimate the resulting concrete implementation backlog. No whole-plan total is asserted before this work identifies what remains.
 - [ ] Estimate and execute the original product cutover against its host sources and deployment contract; no product implementation or cutover is claimed here.
 - [ ] Estimate external CI/distribution work after the repository, destination and operational setup exist; these are not assumed zero-cost tasks.
 
-The newly fetched upstream leading-BOM parser compatibility change is an additional 2-4 engineering hours, separate from the four original gaps. The [27-commit delta](test-parity.md#upstream-delta-checked-on-2026-10-08) also requires applicability decisions for search, provider replay/formatting, middleware lifecycle, tracing and persistence behavior. Classification does not implement or waive them.
+The newly fetched upstream leading-BOM parser compatibility change is an additional 2-4 engineering hours, separate from the remaining original obligations. The [27-commit delta](test-parity.md#upstream-delta-checked-on-2026-10-08) also requires applicability decisions for search, provider replay/formatting, middleware lifecycle, tracing and persistence behavior. Classification does not implement or waive them.
 
 ## Current delivery gates
 
@@ -62,11 +66,11 @@ The newly fetched upstream leading-BOM parser compatibility change is an additio
 
 ## Current acceptance
 
-Accepted source baseline: `2f2754a5e59f180953f6de0073341211c9155054`. review_fp and review_invariants approved its 19-file increment: six exact Scala identities in the memory/PostgreSQL manifests and thirteen Markdown files. Both also verified the local unsigned ZIP identity; this establishes neither signing/publication nor whole-plan completion.
+Current schema/resource increment is independently accepted against `1441a9717cb055520c0fc5f636ede1f9c0978b6d`. review_fp and review_invariants approved twenty exact implementation/spec/build identities, the standalone consumer and twenty-seven changed Markdown files. The [schema admission manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) and [MCP resource manifest](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) own exact current scope and source identities. This establishes neither whole-plan completion nor publication.
 
-publication-cold-verify.log passes 1,527 tests: 680 core, 731 harness, 86 MCP, 22 actual PostgreSQL and 8 examples. There are zero failed/ignored tests or compiler warnings. Formatting, compilation and four RC1 packages pass on a newly created empty PostgreSQL 16 database. publication-preparation.log and publication-consumer.log pass source/POM/LICENSE admission, negative archive cases and fresh standalone selected-public-API consumption. publication-guide.log compiles all three complete guide applications with fatal warnings and executes ScriptedAgent successfully.
+schema-resources-final-verify.log passes 1,540 tests: 685 core, 731 harness, 94 MCP, 22 actual PostgreSQL and 8 examples. There are zero failed/ignored tests or compiler warnings. Formatting, compilation and four RC1 packages pass on a newly created empty PostgreSQL 16 database. schema-resources-preparation.log passes source/POM/LICENSE admission and negative archive cases. schema-resources-consumer-green.log passes fresh standalone four-hash consumption, including actual schema rejection/acceptance. The disposable database container was stopped after verification.
 
-An independent subagent rerun in plan-control-verify.log also exits zero with the same 1,527 tests, zero warnings/failures/ignored and four RC1 packages on another newly created empty PostgreSQL 16 fixture; its owned container was stopped after verification.
+The compiled publication guide retains its separate accepted evidence: publication-guide.log compiles all three complete applications with fatal warnings and executes ScriptedAgent successfully. This is not a new live-provider or whole-plan parity claim.
 
 The separately retained earlier PostgreSQL connection-acquisition failure still has no established cause. The diagnosed cold-schema catalog race and its successful correction do not explain that older failure. Keep correlation of sanitized SQLSTATE, operation stage and server evidence open on recurrence.
 
@@ -76,7 +80,7 @@ Current exact source identities and reviewer evidence belong to [core](../../mod
 
 ### Core
 
-Immutable model/events/errors, exact JSON, typed local/external tools, fixed arguments, correlated streaming, ordinary JSON completion, checked usage, explicit provider profiles, bounded failover, structured output and scoped ReAct/checkpoint execution are available. Missing schema admission and broader method/profile obligations remain open above.
+Immutable model/events/errors, exact JSON, typed local/external tools, fixed arguments, correlated streaming, ordinary JSON completion, checked usage, explicit provider profiles, bounded failover, structured output and scoped ReAct/checkpoint execution are available. Draft 2020-12 schema admission is implemented under the linked scoped review; other declared drafts and broader method/profile obligations remain open above.
 
 ### Harness
 

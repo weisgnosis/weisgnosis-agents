@@ -1,6 +1,6 @@
 # com.weisgnosis.agents.mcp.protocol
 
-[McpMessage](McpMessage.scala) implements the common JSON-RPC envelope shape used by MCP. The API is pure and has no transport, generated identifiers, method dispatch, or negotiated-version state. The bounded envelope scope is accepted. [McpInitialization](McpInitialization.scala) adds pure 2025-06-18 initialization helpers accepted within the documented payload scope; selected runtime integration is accepted separately in the [client contract](../client/README.md).
+[McpMessage](McpMessage.scala) implements the common JSON-RPC envelope shape used by MCP. The API is pure and has no transport, generated identifiers, method dispatch, or negotiated-version state. The bounded envelope scope is accepted. [McpInitialization](McpInitialization.scala) supplies pure 2025-06-18 initialization helpers. The current resource capability extension is governed by the [eleven-file resource scope and remaining acceptance gates](../client/README.md#resource-client-contract).
 
 ## Types and wire contract
 
@@ -45,15 +45,23 @@ encode validates the envelope and renders all nested numeric values with the sha
 
 ## 2025-06-18 initialization helpers
 
-[McpInitialization](McpInitialization.scala) implements payload construction and checked result projection for exactly `2025-06-18`, following that revision's [lifecycle specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle). This payload-only scope is independently reviewed and accepted as recorded below.
+[McpInitialization](McpInitialization.scala) implements payload construction and checked result projection for exactly `2025-06-18`, following that revision's [lifecycle specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle). The prior tool-capability contract remains in force; the resource capability extension has current FP/ZIO and invariant approvals and focused verification, with remaining final gates recorded in the [resource contract](../client/README.md#resource-client-contract).
 
 - `protocolVersion` is the fixed revision string. `request(id, clientInfo)` returns `Either[AgentError.InvalidMessage, McpMessage.Request]`, validates the supplied ID through the envelope boundary, and advertises empty client capabilities.
 - `initialized` is the constant `notifications/initialized` notification with no identity or params.
 - `readResult(Json.Obj)` returns `Either[AgentError.DeserializationError, McpInitializationResult]`. It accepts only the exact selected version, required implementation name/version strings, and a required capabilities object. Known optional fields reject explicit JSON null and malformed types; recursive duplicate keys are rejected before projection.
 - `McpImplementation` has name/version and optional title, with a derived wire-data codec. The checked result reader validates optional title itself. The result has optional instructions and object `_meta`; these remain remote data, with no prompt or authority installation.
-- Server `tools` and its `listChanged` flag preserve absence separately from a present object and explicit false. Unknown server/tool capability fields remain in `extensions`, excluding the separately typed `tools`/`listChanged` fields. Unknown outer result and serverInfo fields are ignored by this projection. No implicit result codec claims lossless round-trip behavior.
+- Server `tools`/`resources` and their optional flags preserve absence separately from a present object and explicit false. Unknown server/tool capability fields remain in `extensions`, excluding the separately typed capability fields. Unknown outer result and serverInfo fields are ignored by this projection. No implicit result codec claims lossless round-trip behavior.
 
 These helpers allocate no identities and implement no runtime, correlation, ordering enforcement, handshake, or negotiated-version state. MCP 2026-07-28 has no `initialize` method and is not accepted by this revision-specific result reader. Unsupported revisions fail without fallback.
+
+## 2025-06-18 resource requests and results
+
+[McpResources](McpResources.scala) adds checked list, template-list, read, subscribe and unsubscribe builders and resource notification projections. The [resource client contract](../client/README.md#resource-client-contract) owns the current eleven-file manifest, FP/ZIO and invariant approvals and focused verification for this added scope; full verification, package preparation and the fresh artifact consumer passed. Combined documentation approval remains pending.
+
+Resource definitions retain URI/name, optional title/description/MIME type/nonnegative integer size, checked annotations, object `_meta` and unknown extensions. Templates retain `uriTemplate` and descriptive fields without expansion. Pages preserve ordered duplicates, opaque cursors, metadata and extensions. Reads reuse the existing text/blob resource body model, including both representations when supplied. Binary strings, URIs and timestamps are retained without local interpretation. Known malformed/null fields and duplicate keys anywhere in the AST fail before projection; no implicit codec bypasses these checked readers.
+
+Initialization projects independent optional `resources.subscribe` and `resources.listChanged` flags, preserving absent/false/true and unknown resource capability extensions. The separately typed `resources` capability is removed from outer extensions. Tool capability behavior and exact revision validation remain unchanged.
 
 ## 2025-06-18 tool requests and list results
 
@@ -82,21 +90,21 @@ Known optional fields reject explicit null or malformed types. URI, base64 data,
 Accepted scope: the four message cases, checked wire/AST conversion, strict envelope/error fields, recursive duplicate rejection, complete-document decoding, optional null error data, and guarded signed 256-bit IDs/error codes. The accepted initialization scope is limited to the fixed 2025-06-18 request, initialized notification, implementation identity, and checked result/capability projection described above. The accepted tool scope adds 2025-06-18 list/call request construction, one-page ordered list parsing, limited schema-shape checks, and untrusted annotations/extensions. The accepted call-result scope adds the five content variants, embedded text/blob preservation, typed success/error outcome, structuredContent, annotations, metadata, and extensions described above. Other method/version contracts, format validation, core content conversion, output-schema evaluation, transport, correlation, runtime lifecycle/ordering, and tool adapters remain excluded.
 
 - [x] Five grouped [McpProtocolSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) tests pass for integer bounds, identities, notifications, responses, and strict boundaries.
-- [x] `path_review` and `current_docs` approved the unchanged initialization/tool/call-result scopes below. The changed envelope pair has its current reviewers and identities in [exact rendering](#exact-envelope-rendering).
-- [x] The unchanged initialization/tool/call-result contracts retain their scoped verification in `mcp-call-result-verify.log`. Current envelope review and full verification are recorded in [exact rendering](#exact-envelope-rendering).
+- [x] `review_fp` and `review_invariants` approved the current initialization/resource/shared-call-result helper sources in the [resource manifest](../client/README.md#resource-client-contract). Unchanged tool request/result contracts retain their separate scoped approval; the envelope pair has its current reviewers and identities in [exact rendering](#exact-envelope-rendering).
+- [x] Current initialization/resource/shared-helper assertions pass within the 29-group focused run recorded in the resource manifest; full verification, package preparation and the fresh artifact consumer passed for this expanded scope; final combined documentation approval passed against 1441a97. Unchanged tool/call-result suites retain their documented prior verification.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
 | [McpMessage.scala](McpMessage.scala) | [Current envelope identity](#exact-envelope-rendering) |
 | [McpProtocolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolSpec.scala) | [Current envelope identity](#exact-envelope-rendering) |
-| [McpInitialization.scala](McpInitialization.scala) | `ccfe85505e6fce523e255bb0b9cc4619e4af477e` |
-| [McpInitializationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) | `a2937c98c7ddd00c94afca7f50925237f3d9fe6a` |
+| [McpInitialization.scala](McpInitialization.scala) | [Current resource/connection manifest](../client/README.md#resource-client-contract) |
+| [McpInitializationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) | [Current resource/connection manifest](../client/README.md#resource-client-contract) |
 | [McpTools.scala](McpTools.scala) | `91819dd4870965c2f335e6f254ba240374beaa74` |
 | [McpToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpToolsSpec.scala) | `e4aca1b1c6beb9ace6ae91a7cd97d7e647f10d87` |
-| [McpCallResult.scala](McpCallResult.scala) | `5a3765724d731816f0728845ba9a58edf855e175` |
+| [McpCallResult.scala](McpCallResult.scala) | [Current resource/connection manifest](../client/README.md#resource-client-contract) |
 | [McpCallResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpCallResultSpec.scala) | `a39d1d929ae233f45e2ebed661f451654f1b5db2` |
 
-- [x] Four grouped [McpInitializationSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) tests pass for request/notification shape, capability projection, malformed fields, and exact revision handling.
+- [x] Five grouped [McpInitializationSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) tests pass for request/notification shape, tool/resource capability projection, malformed fields, and exact revision handling.
 
 - [x] Four grouped [McpToolsSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpToolsSpec.scala) tests pass for request shape, retained definitions, malformed known fields, and recursive duplicate rejection.
 

@@ -116,7 +116,7 @@ object HttpToolAgent extends ZIOAppDefault:
     ).provide(Client.default)
 ```
 
-The `JsonDecoder[SumInput]` validates input before typed execution. The schema describes provider-facing parameters; it is not an arbitrary JSON Schema evaluator. The model can choose not to call the tool. For an executable live check that asserts a tool cycle and consumes events to EOF, use the existing [LiveProviderSmoke](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveProviderSmoke.scala) with its [explicit opt-in configuration](../modules/examples/README.md).
+Declared Draft 2020-12 constraints are checked by [runtime schema admission](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) before fresh authorization and execution; `JsonDecoder[SumInput]` then validates typed input. Provider strictness is a separate generation preference. Optional-null normalization is validation-only and does not rewrite dispatched arguments. The model can choose not to call the tool. For an executable live check that asserts a tool cycle and consumes events to EOF, use the existing [LiveProviderSmoke](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveProviderSmoke.scala) with its [explicit opt-in configuration](../modules/examples/README.md).
 
 Use `ChatCompletionsClient.makeNonStreaming` only when the selected endpoint supports the ordinary JSON mode described in the [client contract](../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions). Reasoning, tool signatures and media extensions require their documented compatible-endpoint selections; no provider detection is performed.
 

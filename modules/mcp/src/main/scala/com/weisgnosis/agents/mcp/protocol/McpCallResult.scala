@@ -153,7 +153,7 @@ object McpCallResult:
       size        <- optional(fields, "size", integralSize)
     yield McpResourceLink(uri, name, title, description, mime, size)
 
-  private def resourceContents(value: Json): Either[String, McpResourceContents] =
+  private[mcp] def resourceContents(value: Json): Either[String, McpResourceContents] =
     for
       fields <- objectValue(value, "resource")
       uri    <- required(fields, "uri").flatMap(string(_, "resource.uri"))
@@ -174,7 +174,7 @@ object McpCallResult:
       extensions(fields, Set("uri", "text", "blob", "mimeType", "_meta"))
     )
 
-  private def readAnnotations(value: Json): Either[String, McpAnnotations] =
+  private[mcp] def readAnnotations(value: Json): Either[String, McpAnnotations] =
     for
       fields   <- objectValue(value, "annotations")
       audience <- optional(fields, "audience", array(_, "audience", role))

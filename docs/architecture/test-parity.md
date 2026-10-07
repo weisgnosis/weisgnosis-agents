@@ -1536,8 +1536,10 @@ The publication audit on 2026-10-08 compares the initial tiered plan at `6fe93a5
 
 - [x] Implement core domain/runtime, typed tool dispatch, interruption recovery, compaction/eviction, permission, Plan and subagent capabilities within the linked method-level mappings and explicit ownership adaptations. This is component availability, not whole-suite or whole-port parity.
 - [x] Implement scoped MCP tool discovery, typed call observations and explicit Toolkit installation under the selected 2025-06-18 profile; the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md) records actual lifecycle and ownership limits.
-- [ ] Implement the original HLD section 3.1 JSON Schema admission promise. Existing [typed decoding](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/ToolBinding.scala) does not enforce declared constraints. Pinned ToolValidator selects Draft 2020-12 and normalizes optional null fields; validation precedes both local execution and external suspension.
-- [ ] Implement the original HLD section 3.3 resource-server promise. Current accepted MCP supports tools, not resource listing/reading/subscriptions; paused protocol drafts are not transferred or accepted behavior.
+- [x] Both reviewers approved final combined documentation for the implemented Draft 2020-12 schema-admission increment; independent source reviews, full verification and fresh artifact consumption pass. The [current schema contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns exact behavior, migration and regression evidence.
+- [ ] Complete remaining ToolValidator method applicability and declared-dialect behavior beyond the default Draft 2020-12 profile; no other standard draft is silently waived.
+- [x] Both reviewers approved final combined documentation for original HLD section 3.3 resource APIs. Full verification and fresh artifact consumption pass. The ten MCP resource source/test files have both independent source approvals; the current [resource contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) records exact identities and bounded evidence.
+- [ ] Complete embedded resource projection for the five pinned McpContentConverterTest text/image/binary-description cases; retaining Custom payloads is not equivalent visible conversion.
 - [ ] Implement the original MCP 2024-11-05+/SSE promise alongside existing 2025-06-18 Streamable HTTP. Older protocol negotiation, endpoint-event POST routing and legacy SSE are not implemented.
 - [ ] Implement the original model-facing background task listing requirement; selected registry.list is host-only and installed tools currently provide spawn/inspect/cancel.
 - [ ] Complete the remaining applicable upstream method inventories and substantive behavior gaps. Later API exclusions need behavioral justification; Pure FP does not inherently prohibit immutable caches, schema evaluation or equivalent semantic capabilities.
@@ -1545,6 +1547,25 @@ The publication audit on 2026-10-08 compares the initial tiered plan at `6fe93a5
 - [x] review_fp and review_invariants approved this original-plan classification and the compiled publication guide in the final 19-file scope against 24a9980. Approval records the gaps; it does not approve removal of promised capabilities.
 
 Existing deliberate differences retain their method-specific rationale. Counts elsewhere apply only to named finite inventories; no exhaustive count or completion percentage is inferred for the entire upstream repository. Upstream pin changes require a separately reviewed delta inventory.
+
+## Runtime schema admission: finite evidence
+
+Pinned ToolValidatorTest is not fully classified or fully ported by this increment. Scala validates immutable ASTs rather than Java nullable content strings or generated mutable beans. Toolkit schema admission is distinct from typed decoding and provider strictness.
+
+| Pinned method | Current executable evidence | Scope |
+| --- | --- | --- |
+| testRootDefsRefResolution (621) | ToolSchemaValidatorSpec local pointer/reference and nested child cases | Root $defs resolution and validation-only nested normalization; no claim for generated schema placement. |
+| testGeneratedBeanSchema_ExplicitNullOptionalField (727) | Optional-null group with an original-input recording tool | Declared optional nulls are pruned only for validation; original AST dispatch is preserved. Java bean generation is replaced by compile-time codecs/explicit schema. |
+| testGeneratedBeanSchema_ExplicitNullRequiredField (738) | Required integer-null rejection | Required nulls survive normalization and fail their declared type. |
+| testPatternMismatch/testPatternMatch (487/510) | Valid abc and invalid a1 neighbors in the constraint table | Same independent string pattern contract. |
+| testValidArrayItems (538) | Integer array [1,2] with valid minItems/uniqueness | Valid item checking; invalid item-type and complete method inventory remain to classify. |
+| ToolExecutor external admission ordering | ReActAgentExternalToolSpec invalid initial/rewrite table and issued legacy-wait group | Schema-invalid but decoder-valid arguments cannot become new host dispatch. Already issued authenticated legacy work can finish without reinterpretation. |
+
+- [x] Both final independent source approvals and full verification pass for this finite schema scope.
+- [x] review_fp and review_invariants approved the final combined documentation for this finite scope against 1441a97.
+- [ ] Complete the remaining ToolValidator method-level inventory and meaningful uncovered contracts; do not infer exhaustive parity from the evaluator dependency.
+
+MCP resource list/templates/read/subscribe/unsubscribe and typed change notifications implement original HLD 3.3 plus the selected MCP resource wire contract. Pinned McpClientWrapper exposes initialize/listTools/callTool/getCachedTool/close, with no resource-server methods; resource APIs are not fabricated wrapper method parity. Actual Java SDK HTTP interop verifies listing, reading, empty templates and list_changed. Controlled wire fixtures verify subscriptions/updated events and cancellation; no live external resource server is claimed.
 
 ## Upstream delta checked on 2026-10-08
 

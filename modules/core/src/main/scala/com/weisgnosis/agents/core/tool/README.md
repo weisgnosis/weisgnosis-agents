@@ -4,9 +4,43 @@ The additive [interactive batch preflight](../../../../../../../../../harness/sr
 
 Tool keeps its input/output codecs and effectful handler together. [External bindings](#external-tool-bindings) add an explicit declaration-only capability with final scoped acceptance. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation.
 
+## Runtime schema admission
+
+Toolkit.validateSchemaInput is an explicit ZIO effect. A request-owned NetworkNT 2.0.4 evaluator checks the declared Draft 2020-12 schema and argument constraints before fresh ReAct preflight/authorization, standalone local execution and external suspension. Approved argument edits are checked again. Invalid initial arguments produce Error observations; invalid approved edits are Denied. Empty schemas retain unconstrained admission, with duplicate-key JSON validation still enforced. Provider strictness remains an independent generation preference.
+
+Optional declared object properties whose value is JSON null are removed only from a private validation view. Required nulls and unknown properties remain; nested properties, object additionalProperties and items follow the pinned ToolValidator normalization behavior. The decoder, invocation context, persisted approved history and external request retain exact original prepared/approved arguments. No coercion, default injection or automatic schema repair occurs.
+
+Numeric evaluation uses exact decimal nodes, including mathematically integral values and tiny positive multipleOf divisors. Local pointer references are decoded as strict UTF-8 URI fragments before JSON Pointer lookup; $ref and $dynamicRef share checked canonicalization at schema-bearing keywords. const, enum and examples remain instance data. Only bundled standard meta-schema resources may load; external network, filesystem and classpath reference acquisition is denied. This is schema admission, not a CPU sandbox or a filesystem security boundary.
+
+Trusted AwaitingResults checkpoints describe previously issued external work. They retain saved exact input and accept supplied completion without retrospective schema reinterpretation, authorization or execution. Fresh BeforeActing/AwaitingApproval work and new authorization edits receive current admission checks. Hosts own authentication, exclusive execution and checkpoint migration.
+
+Migration: declared constraints now reject arguments formerly accepted by a permissive decoder. Initial validation errors may appear in history before executable siblings complete; consumers correlate observations by occurrence/ID rather than assuming invocation arrival order. Toolkit.validateSchemaInput is additive; direct typed Tool.execute calls remain a trusted typed API. Other declared schema drafts remain an explicit unfinished original-plan applicability item, not a waived obligation.
+
+review_fp and review_invariants independently approved the eleven identities below against 1441a97, including the standalone consumer. Approval is bounded to Draft 2020-12 admission, original-input preservation, issued-work compatibility, exact references/numbers and the correlated integration assertions. Other declared drafts and remaining method applicability stay open in the tracker.
+
+| Current source/spec/consumer | Git blob |
+| --- | --- |
+| [build.sbt](../../../../../../../../../../build.sbt) | `bd60c941c3c71586b02a10d9e738958c0ecd7411` |
+| [ToolSchemaValidator.scala](ToolSchemaValidator.scala) | `8dbe3019d2e3c079a5b8878de422ee89b68c47e7` |
+| [Toolkit.scala](Toolkit.scala) | `5e539478bce0721851eff926595e99b435f8ee3b` |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | `e8238759c0ba058bd326fb94b5bad5a073ea942c` |
+| [ToolSchemaValidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolSchemaValidatorSpec.scala) | `af979378d9fa2e189f2979bb33283a1d4875ce80` |
+| [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | `1da01f75b2e896af276c22584d5dda3eee2fb376` |
+| [ReActAgentExternalToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentExternalToolSpec.scala) | `99a1e0b677e4871d2e73212761a94fd1445f0bad` |
+| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2ef2dc9e6b21c8a0be334b05deb7195bf71b0586` |
+| [SubagentDeclarationSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | `55b8a9c2308e1d2626218f76016891482c1856c5` |
+| [McpClientManagerSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `dac7464726f3c8c17c338ab413bd239201682ae0` |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | `212988aed44a63d0f4f21afb077c141eb450c336` |
+
+- [x] Both independent final source reviews approved the exact schema/runtime/integration/consumer scope with no unresolved findings.
+- [x] schema-admission-red.log reproduces permissive decoder execution; schema-evaluator-exact-red.log reproduces tiny-divisor underflow. schema-pointer-red.log, schema-encoded-slash-red-mcp-final.log, schema-invalid-reference-red.log and schema-dynamic-reference-red.log reproduce distinct reference failures before correction. Assertions derive from schema constraints and URI semantics, not current implementation output.
+- [x] schema-resources-final-verify.log passes formatting, compilation with fatal warnings, 1,540 tests (685 core / 731 harness / 94 MCP / 22 fresh PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages.
+- [x] schema-resources-preparation.log passes fresh archive/POM/LICENSE admission and reversible rejection cases. schema-resources-consumer.log records the obsolete Jackson classpath rejection; schema-resources-consumer-green.log passes fresh standalone formatting/clean compilation/forked execution and the actual valid/invalid packaged schema probe. JVM/SLF4J diagnostic notices are distinct from compiler warnings.
+- [x] review_fp and review_invariants approved the final combined scope against 1441a97 with unchanged source identities; English and local-link checks pass.
+
 ## External tool bindings
 
-ToolBinding distinguishes Local executable tools from checked External declarations in one immutable Toolkit registry. Local bindings delegate definition, read-only/concurrency overrides and fixed arguments to their actual Tool. External bindings have no handler or fixed-argument injection. The ToolBinding.external factory captures the compile-time JsonDecoder for the selected argument type and checks the declaration; its decoder validates arguments, while parametersSchema remains provider-facing metadata rather than an arbitrary JSON Schema validator.
+ToolBinding distinguishes Local executable tools from checked External declarations in one immutable Toolkit registry. Local bindings delegate definition, read-only/concurrency overrides and fixed arguments to their actual Tool. External bindings have no handler or fixed-argument injection. The ToolBinding.external factory captures the compile-time JsonDecoder for the selected argument type and checks the declaration; its decoder and the independent [runtime schema admission](#runtime-schema-admission) check both validate arguments. parametersSchema is both provider-facing metadata and the local admission contract.
 
 Runtime dispatch validates external arguments before authorization and validates approved arguments again. Malformed input becomes an ordinary Error observation. Valid admitted runtime dispatch becomes pending external execution, without a fake Tool result or result events. Legacy Toolkit.executeSafe does not hand work to a host: it returns an explicit Error for an external binding. Decoder defects normalize at suspended effect boundaries while interruption remains cancellation.
 
@@ -19,11 +53,11 @@ review_fp and external_invariant_review approved the final ten-file source scope
 | Frozen source/spec/consumer file | Git blob |
 | --- | --- |
 | [PendingActing.scala](../agent/PendingActing.scala) | `0ed479897fa65972fcf16df203aa93903f9576e5` |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | `f136bfb303335a413f0e02b3555d157737f0ebf6` |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current schema admission manifest](#runtime-schema-admission) |
 | [ToolBinding.scala](ToolBinding.scala) | `c574ff46ee3496281427a4be7779da42c9d196af` |
-| [Toolkit.scala](Toolkit.scala) | `b935f926da972f10eed4afa83807c88767c3157d` |
+| [Toolkit.scala](Toolkit.scala) | [Current schema admission manifest](#runtime-schema-admission) |
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | `96c2c6f1e7fec3b30eb83cdddf2421a0428ccbd8` |
-| [ReActAgentExternalToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentExternalToolSpec.scala) | `a426acc1c6c49fe182434c5ab14526f437cb91b4` |
+| [ReActAgentExternalToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentExternalToolSpec.scala) | [Current schema admission manifest](#runtime-schema-admission) |
 | [ToolBindingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolBindingSpec.scala) | `87b21c337ffbed8bf6c7d69fffe47364ceb6ba1c` |
 | [ToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolGroupsSpec.scala) | `d693808018737ea93abf2825b744e99c412cd2c1` |
 | [ToolkitSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolkitSpec.scala) | `cd735ace343c4d6091bf3dab7ac5cb2f2976fe35` |

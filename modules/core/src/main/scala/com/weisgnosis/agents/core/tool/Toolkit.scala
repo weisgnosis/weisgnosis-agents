@@ -79,6 +79,14 @@ final class Toolkit private (val tools: Map[String, ToolBinding]):
         _.fixedArguments.validateApproved(input)
       )
 
+  /** Validate a private normalization view; preserve exact prepared/approved dispatch input. */
+  def validateSchemaInput(name: String, input: Json): IO[AgentError.InvalidMessage, Unit] =
+    tools
+      .get(name)
+      .fold[IO[AgentError.InvalidMessage, Unit]](ZIO.unit)(binding =>
+        ToolSchemaValidator.validate(binding.definition.parametersSchema, input)
+      )
+
   /** Tool failures and defects are observations; interruption remains cancellation. */
   def executeSafe(name: String, rawArgs: Json): UIO[ToolExecutionResult] =
     executeSafe(name, rawArgs, ToolInvocation.Detached)
@@ -123,6 +131,7 @@ final class Toolkit private (val tools: Map[String, ToolBinding]):
           ZIO.suspendSucceed:
             ZIO
               .fromEither(external.validateInput(rawArgs))
+              .zipLeft(validateSchemaInput(name, rawArgs))
               .as(Toolkit.Dispatch.AwaitingExternal(rawArgs))
               .catchAllCause: cause =>
                 if cause.isInterrupted then ZIO.refailCause(cause).orDie
@@ -156,15 +165,17 @@ final class Toolkit private (val tools: Map[String, ToolBinding]):
           ZIO.scoped:
             ZIO.suspendSucceed:
               ZIO
-                .fromEither(
-                  tool.fixedArguments.prepare(input).left.map(_.message).flatMap(tool.decodeInput)
-                )
-                .mapError(error =>
-                  AgentError.ToolExecutionError(
-                    tool.definition.name,
-                    s"Invalid arguments for '${tool.definition.name}': $error"
-                  )
-                )
+                .fromEither(tool.fixedArguments.prepare(input))
+                .flatMap: prepared =>
+                  ToolSchemaValidator.validate(tool.definition.parametersSchema, prepared) *>
+                    ZIO
+                      .fromEither(tool.decodeInput(prepared))
+                      .mapError(error =>
+                        AgentError.ToolExecutionError(
+                          tool.definition.name,
+                          s"Invalid arguments for '${tool.definition.name}': $error"
+                        )
+                      )
                 .flatMap: decoded =>
                   consume(
                     tool.streamWithContext(decoded, invocation),

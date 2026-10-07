@@ -1,5 +1,7 @@
 # ReAct execution and structured output
 
+Fresh tool calls and approved argument edits receive [runtime schema admission](../tool/README.md#runtime-schema-admission). Previously issued external AwaitingResults checkpoints retain exact admitted input/completion; restoring them does not retrospectively reauthorize or reinterpret old dispatch. The linked contract owns current review and verification status.
+
 The additive [interactive batch preflight](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight) screens initial monotonic policy denials before approval publication while retaining fresh ordinary authorization, occurrence identity and runtime-owned persistence/cleanup. ToolPreflight.Continue grants no approval; legacy authorizers default to Continue. Dynamic gates remain execution-time checks so earlier plan transitions affect later calls. Final source/full/artifact checks passed; final combined documentation approval passed.
 
 Runtime usage telemetry also crosses a [checked arithmetic boundary](../model/README.md#checked-usage-arithmetic): first-turn invalid values and accumulated overflow fail before end events/hooks/persistence, retaining prior accepted usage. This scope has final source/full/artifact verification and final combined documentation approval; usage arithmetic retains its separately accepted behavior.

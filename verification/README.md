@@ -1,5 +1,7 @@
 # Distribution verification
 
+The consumer also executes packaged valid/invalid schema-admission neighbors and verifies the production evaluator dependency. The [current schema acceptance](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns the exact consumer source and verification evidence.
+
 The [artifact consumer](artifact-consumer/README.md) checks four freshly generated library distributions from an external host namespace, including checked stop-sequence construction, configuration round-trip and stop/reasoning-effort request serialization and per-tool schema strictness. It also checks storage address/revision data and resolves/hashes the optional PostgreSQL backend companion without constructing a DataSource/backend or contacting a database; real database behavior belongs to its separately configured integration suite. It is a standalone unpublished fixture so project-class dependencies cannot substitute for packaged artifacts. CI runs it after normal repository verification and packaging; remote CI execution and publication remain separate gates.
 
 [Candidate preparation](artifact-consumer/README.md#candidate-preparation-acceptance) adds bounded RC selection, exact source archive admission and reversible target-only regressions. The manual workflow uploads verified unsigned artifacts/source metadata only after its checks pass; local selected-version/hash verification and combined documentation approval pass, and remote execution, tags, signing and publication remain separate gates.

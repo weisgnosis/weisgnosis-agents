@@ -1,5 +1,7 @@
 # weisgnosis-agents-mcp
 
+[Resource access](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) adds resource/template discovery, reads, capability-gated subscriptions and scoped typed change observation. The current eleven-file scope has independent FP/ZIO and invariant approval and 29 focused passing MCP groups; the corrected manager assertion also has both independent approvals. Full verification, package preparation and the fresh artifact consumer passed; combined documentation approval passed against 1441a97. It does not close the separate original legacy SSE/revision-support obligations.
+
 The [independent deadline overload](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines) preserves the uniform Duration API while selecting checked handshake and request budgets separately. Source/full/package/preparation verification passes; fresh consumer verification passes; final combined documentation acceptance is approved.
 
 [McpMetadata.merge](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#ordered-metadata-merge) adds checked explicit host composition with later top-level precedence; final source/full/archive checks pass; fresh consumer verification passes; final documentation approval passed. It acquires no ambient context and preserves both existing omission gates and final runtime call-ID overlay.
@@ -59,6 +61,8 @@ Child-specific [stdio environment overrides](src/main/scala/com/weisgnosis/agent
 These are specification-derived protocol and ZIO ownership tests. AgentScope Java delegates its wire machinery to MCP Java SDK 0.17.2. Three [independent SDK HTTP groups](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#independent-server-interoperability) exercise the unchanged SDK provider over real loopback, including direct-client and manager replacement after expiry, plus local listener cancellation and explicit same-session cursorless re-listening. A separate real Netty check exercises one same-send POST-body truncation recovery. These checks do not close whole upstream client-wrapper methods or establish full server conformance, remote-work cancellation or cursor-based listener replay.
 
 ## Remaining work
+
+- [ ] Complete the pinned upstream embedded-resource model-facing projection behaviors: text resources as visible text, image blobs as image content, and other/absent-MIME blobs as descriptive text. Current McpCallResultSpec/McpToolSpec verify lossless typed parsing and `mcp/resource` Custom payload retention; this does not establish literal parity with McpContentConverterTest's five embedded-resource conversion methods. The [tool contract](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity) records exact methods and current limits.
 
 - [x] Implement scoped HTTP POST and explicit GET for the selected 2025-06-18 contract.
 - [x] Both reviewers approved explicit raw-SSE-body-I/O continuation/listener policies and full verification passed.

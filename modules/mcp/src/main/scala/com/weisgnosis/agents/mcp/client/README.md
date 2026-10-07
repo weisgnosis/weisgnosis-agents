@@ -2,7 +2,51 @@
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
-[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. HTTP POST and explicit GET connectivity has a separate [transport contract](../transport/README.md#http-contract).
+[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery/invocation and resource access over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. HTTP POST and explicit GET connectivity has a separate [transport contract](../transport/README.md#http-contract).
+
+## Resource client contract
+
+Resource access implements the original HLD's resource-server requirement for the selected revision, following the [MCP resource specification](https://modelcontextprotocol.io/specification/2025-06-18/server/resources). All eleven source/test files below have independent FP/ZIO and invariant approval, including the manager assertion correction. Full repository verification, package preparation and the fresh artifact consumer passed. Final combined documentation approval passed against 1441a97; previous tool-only approval does not accept this expanded scope.
+
+`listResourcesPage(cursor, meta)` and `listResourceTemplatesPage(cursor, meta)` return checked `McpResourcePage` values. `readResource(uri, meta)` returns ordered text/binary contents with metadata and extension fields. These methods require an advertised `resources` capability; unknown experimental fields never grant it. URI selectors and templates remain opaque remote data, never local file access or implicit context installation. The host selects resources and owns permission checks before making requests.
+
+`discoverResources(maxPages, maxResources, meta)` and `discoverResourceTemplates(maxPages, maxTemplates, meta)` require positive bounds, traverse sequentially, preserve ordered duplicates and opaque cursors (including empty cursors), reject repeated cursors and exceeded page/item bounds, and publish no partial result on failure. Each page/read/subscription operation uses the existing request deadline and joined cancellation. Remote errors retain code, message and absent-versus-present data through `McpRemoteError`.
+
+`subscribeResource(uri, meta)` and `unsubscribeResource(uri, meta)` additionally require `resources.subscribe = true`. The host explicitly unsubscribes while the client remains open. Client lifetime owns local observation, not remote work cancellation or a durable subscription registry.
+
+Acquire `observeResourceChanges` within a `Scope` before subscribing to register a local observer without a race. Its returned stream receives typed `Updated` and `ListChanged` hints; the convenience `resourceChanges` stream registers when consumed. Only notifications enabled by the advertised capability flags are delivered. There is no replay for late observers and no resource cache. Each observer has a bounded 64-event buffer. Overflow at any observer permanently fails all current and future resource observers for this client; ordinary RPC correlation remains usable. A host requiring new notification observation must acquire a fresh client. Malformed recognized resource notifications likewise fail observers. Connection termination preserves its cause in the observation stream. Explicit client closure fails current observation with the connection-closed cause; releasing an observer's own scope makes later use fail with an observer-closed error instead of waiting forever. Client/scope closure releases both the connection and observation resources. Host HTTP applications still run the transport's explicit GET listener to receive server-initiated traffic.
+
+The resource integration exposed a previously present terminal-cause race in the connection supervisor. A failing send could already be unwinding its finalizer when reader termination selected the same cause; joining that child added the owner's cancellation to the public failure. The deterministic held-finalizer regression recorded eight passing connection groups and one failure in `schema-green-mcp-connection-red.log`: expected one `McpSessionExpired` cause, observed that failure followed by the supervisor's interruption. The corrected stack-safe join removes only interruption leaves attributed to that exact owning fiber, retaining unrelated cancellation and independent failures/cleanup defects with their traces, annotations and log spans. The same regression checks this provenance explicitly. The accepted and pre-fix `execute`/`supervise`/`combine` blocks were byte-identical (SHA-256 `3a1d32b7b1109236d636a9ec8e72def02c176d3e28bd0babfa96aee78d2acbd1`); the new deterministic scenario has not separately executed against the original accepted checkout.
+
+`McpServerCapabilities` adds a trailing defaulted `resources` field. Existing two-argument construction remains source-compatible; positional patterns and dependent binaries require rebuilding. Shared resource contents and annotation projection reuse the existing checked call-result helpers without adding an unchecked implicit codec.
+
+- [x] `schema-mcp-focused-green.log` passes 29 focused MCP groups, including resource protocol/client behavior, exact terminal-cause/provenance regression and real Java SDK loopback resource routes/list changes, with zero failures or compiler warnings.
+- [x] `schema-mcp-review-green.log` passes all 29 focused MCP groups after the explicit client/observer-scope closure correction, including real SDK resource routes/list changes, with zero failures or compiler warnings.
+- [x] `review_invariants` approved the exact eleven source/test blobs below with no unresolved invariant findings in this resource/connection scope.
+- [x] `review_fp` approved these same eleven final source/test blobs for FP/ZIO correctness with no unresolved findings.
+- [x] `review_fp` and `review_invariants` explicitly approved the corrected manager assertion at `dac7464726f3c8c17c338ab413bd239201682ae0` after formatting and successful verification.
+- [x] review_fp and review_invariants approved the final combined current contracts, identities and verification evidence against 1441a97.
+- [x] `schema-resources-final-verify.log` records full formatting and fatal-warning verification: 1,540 passing tests, no failures or ignored tests, including fresh PostgreSQL integration, and four RC1 packages. No compiler warnings occurred.
+- [x] `schema-resources-preparation.log` passes package preparation and selector/source-archive checks.
+- [x] `schema-resources-consumer-green.log` records clean compilation and a forked external consumer against the four freshly verified package hashes, including the schema acceptance/rejection probe. The external consumer has separate root-owned FP/ZIO and invariant approval; it is not part of this eleven-file MCP manifest.
+
+The manager integration assertion now compares the complete sorted call-ID/result-state sequence. Schema rejection is persisted before local execution, so arrival order is not its contract; exact identities, result states and cardinality remain checked. Full verification exposed the previous order assumption in `schema-resources-full-verify.log`. No manager production behavior changed.
+
+Current reviewed scope is resource capabilities and checked projections, resource discovery/read/subscription APIs, bounded local observation and termination, identity-specific connection cause normalization, and their focused controlled-port/real SDK tests. It does not accept legacy SSE/revision negotiation, embedded-resource visible projection parity, exhaustive wrapper parity, or durable host integration.
+
+| Current reviewed file | Git blob |
+| --- | --- |
+| [McpClient.scala](McpClient.scala) | `85285c450e974ecd2e5fcd048b1bae660645a68b` |
+| [McpConnection.scala](McpConnection.scala) | `9cb7efab061d56b3ca9f8e610dd29e7874faea36` |
+| [McpResources.scala](../protocol/McpResources.scala) | `527aee48e9ca9dd562b5069ddc60321f2a6d1fae` |
+| [McpInitialization.scala](../protocol/McpInitialization.scala) | `98994f67ee94005007a94a07e437be32eb8770e7` |
+| [McpCallResult.scala](../protocol/McpCallResult.scala) | `8bf6f992bd3a9a5398efe67e9ba803a076b700f4` |
+| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `713d1a460f16d8915c0a12393e59c96fe18f4685` |
+| [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `caa269749f4e8a8847e64517fb1dbfb1ef6821a7` |
+| [McpResourcesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpResourcesSpec.scala) | `0a3e73d48a05f94eda0c6b49844c4d68dc432fc9` |
+| [McpInitializationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) | `ea5b58c6368b41be895bc0085e164f5777e3444e` |
+| [McpJavaSdkInteropSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) | `76091ec1c3c8dd6be88b4279accb9011e8be50c3` |
+| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `dac7464726f3c8c17c338ab413bd239201682ae0` |
 
 ## Scoped manager contract
 
@@ -21,7 +65,7 @@ Selected bindings can also attach core fixed arguments, prepared before runtime 
 This scope includes checked shallow defaults and root properties/required exclusion through selected bindings. Core/harness provide selected skill loading, child snapshots and opt-in Plan admission as separate host-installed capabilities. Remaining ambient metadata propagation, broader schema rewriting/evaluation, discovery caches and notification invalidation are unfinished. It does not make discovery an atomic server snapshot or broaden the selected 2025-06-18 protocol support. The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries) maps bounded adaptations and intentional differences.
 
 - [x] Implement bounded registration, immutable Toolkit publication and joined removal/closure with six grouped contract tests, including grouped installation and explicit host recovery.
-- [x] Obtain independent FP/ZIO and invariant approvals for the current manager implementation and recovery spec; the scoped review identities are recorded below.
+- [x] The unchanged manager implementation retains independent FP/ZIO and invariant approval. The changed integration assertion has renewed approval and verification in the [resource manifest](#resource-client-contract).
 - [x] Pass formatting and full fatal-warning verification recorded below.
 
 ## Explicit host recovery after session expiry
@@ -45,12 +89,12 @@ The host passes both installation fields to ReActAgent. The existing `toolkit` v
 
 Custom managers inherit an ungrouped installation from their existing toolkit and a typed unsupported grouped-registration result that does not acquire a client. Existing registration calls remain ungrouped. The appended defaulted make parameter preserves ordinary source calls; dependent binaries require rebuilding.
 
-- [x] `path_review` and `current_docs` approved the unchanged manager implementation and grouped-installation contracts. The current spec additionally has `registry_contract`/`current_docs` approval for [explicit host recovery](#explicit-host-recovery-after-session-expiry); full `mcp-session-expiry-verify.log` verification passed. Current identities are below; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns repository totals.
+- [x] `path_review` and `current_docs` approved the unchanged manager implementation and grouped-installation contracts. The host-recovery contract retains its previous `registry_contract`/`current_docs` approval. The changed manager assertion has renewed `review_fp`/`review_invariants` approval and full verification in the [current resource manifest](#resource-client-contract). Current identities are below; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns repository totals.
 
 | Reviewed file | Git blob identity |
 | --- | --- |
 | [McpClientManager.scala](McpClientManager.scala) | [Current McpClientManager.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
-| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `c1b2c2a7dcea3363f414127a34c22214064ead6a` |
+| [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | [Current approved assertion scope](#resource-client-contract) |
 
 - [ ] Complete ambient metadata, discovery caching and durable activation separately.
 
@@ -60,20 +104,9 @@ Custom managers inherit an ungrouped installation from their existing toolkit an
 
 The initialization budget includes the initialize exchange, validated result and `notifications/initialized` send. The request budget applies separately to each list/call operation and each discovery page, not to the whole traversal. A timeout triggers cancellation; returning still joins owned cleanup, which may exceed either budget. Caller interruption and independent cleanup causes remain preserved. Bound-tool metadata resolution precedes the client request and remains outside that request budget. The host still owns the borrowed transport and can supply either overload through the existing manager acquisition effect. No retry, cache, reconnect or transport ownership change is introduced.
 
-The existing six McpClientSpec groups now exercise independent initialization/request budgets, initialized-notification timing, later discovery pages and joined cleanup alongside the unchanged uniform overload. The standalone consumer constructs checked deadlines, rejects zero and calls the new overload through a controlled failing initialization; it does not contact an external MCP server. This is bounded adaptation of pinned McpClientBuilderTest.testTimeout (141) and testInitializationTimeout (149), whose Java assertions only check builder construction, not whole builder-suite parity.
+The existing McpClientSpec groups exercise independent initialization/request budgets, initialized-notification timing, later discovery pages and joined cleanup alongside the unchanged uniform overload. The standalone consumer constructs checked deadlines, rejects zero and calls the new overload through a controlled failing initialization; it does not contact an external MCP server. This is bounded adaptation of pinned McpClientBuilderTest.testTimeout (141) and testInitializationTimeout (149), whose Java assertions only check builder construction, not whole builder-suite parity.
 
-| Reviewed file against a13b71e | Git blob |
-| --- | --- |
-| [McpClient.scala](McpClient.scala) | 3bafd6e6b5a54b7886c981af33d77b8c5781d6ac |
-| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | 9834e0d99ea61264eb4e973c9865551611c81f79 |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | 79e5a37dbbf34538e41aaed92a87decd37763aa6 |
-
-- [x] review_fp and review_invariants independently approved the three final source identities against a13b71e with no unresolved findings.
-- [x] mcp-selected-deadlines-focused.log passes six existing groups, zero failed/ignored, in 1.197 seconds.
-- [x] mcp-selected-deadlines-verify.log passes 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages.
-- [x] mcp-selected-deadlines-preparation.log passes fresh exact source/POM/LICENSE inspection and reversible archive/selector rejection checks.
-- [x] mcp-selected-deadlines-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh RC1 module hashes, including the checked deadline API probe.
-- [x] review_fp and review_invariants approved the final eleven-file combined scope against a13b71e with no unresolved findings; manual English, changed-script/diff and 78-document/3,001-local-reference checks pass.
+Current McpClient/McpClientSpec identities and both source reviewers are recorded in the [resource/connection manifest](#resource-client-contract). Existing separate deadline assertions pass within its current 29-group focused run. Full repository and fresh artifact-consumer verification pass under that manifest; final combined documentation acceptance passed against 1441a97.
 
 ## Builder applicability inventory
 
@@ -147,8 +180,8 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 - [x] Explicit metadata, checked defaults and fixed arguments retain their [binding acceptance](../tool/README.md#verification-and-acceptance). Current manager source/spec identities, including output-schema selection and malformed fixed-argument rollback, are consolidated in [grouped installation](#grouped-installation).
 
 - [x] Five grouped [McpRequestsSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) tests establish registry contracts; `path_review` and `current_docs` approved their recorded identities with no findings.
-- [x] Eight grouped [McpConnectionSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) tests pass for immediate/out-of-order replies, cancellation, complete causes, closed-parent startup, control dispatch, concurrent closure and terminal errors.
-- [x] Full scalafmtAll scalafmtSbt verify passed in signature-mcp-verify.log with zero compiler warnings or failures for guarded reservation. path_review approved FP/ZIO correctness and current_docs approved invariants for the current connection/spec identities below. Focused mcp-admission-focused.log passed 26 tests in 4.510 seconds, including the unchanged HTTP expiry assertion. The prior tool-signature-verify.log failed that existing assertion against connection 1539cd9ad9e9d09d0cd996facad89b361280dbd9: expected exactly McpSessionExpired, observed an additional registry-closed McpError and internal interruption. This was an observed race, not a deterministically forced schedule. The strengthened connection assertion checks exact terminal Cause and no subsequent send; it is contract coverage, not the failing-before-fix fixture. No API or retry change is introduced.
+- [x] Nine grouped [McpConnectionSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) tests pass for immediate/out-of-order replies, cancellation, complete causes, closed-parent startup, control dispatch, concurrent closure and terminal errors.
+- [x] Guarded reservation and terminal rejection retain their contracts. The current connection/spec review identities, deterministic cause/provenance regressions and focused verification are consolidated in the [resource manifest](#resource-client-contract).
 
 - [x] `path_review` independently approved FP/ZIO correctness and `current_docs` independently approved invariants for the final connection/port/spec identities below, with no unresolved findings.
 - [x] `path_review` approved final FP/ZIO correctness and `current_docs` approved final invariants for the client, builder overload, remote error codec and associated tests at the identities below, with no findings. Six client groups and actual stdio initialization/list/call integration pass. Both reviewers also approved bounded discovery at the recorded final identities, with no findings.
@@ -162,11 +195,11 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 | [McpRequestsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) | `11c2b93a9f4eb7f48ae949e11774c8a1c40a7405` |
 | [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | [Current error acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) |
 | [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | [Current error acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) |
-| [McpConnection.scala](McpConnection.scala) | `1d056049de8b406d8338b911eb3385338d6c46bc` |
+| [McpConnection.scala](McpConnection.scala) | [Current resource/connection manifest](#resource-client-contract) |
 | [McpTransport.scala](../transport/McpTransport.scala) | `477e8e6e7f2c2e4caded85f6a447230731729184` |
-| [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `7130bc705b77f68c51ae7745fc5c5560626aed35` |
-| [McpClient.scala](McpClient.scala) | [Current independent-deadline identity](#independent-deadlines); prior initialized-client scope retained. |
-| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | [Current independent-deadline identity](#independent-deadlines); prior initialized-client scope retained. |
+| [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | [Current resource/connection manifest](#resource-client-contract) |
+| [McpClient.scala](McpClient.scala) | [Current resource/connection manifest](#resource-client-contract); prior tool/deadline contracts retained. |
+| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | [Current resource/connection manifest](#resource-client-contract); prior tool/deadline contracts retained. |
 
 ## Remaining work
 

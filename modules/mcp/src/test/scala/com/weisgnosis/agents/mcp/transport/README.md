@@ -15,6 +15,8 @@ The paired suites verify the [framing, stdio and HTTP contracts](../../../../../
 
 The complete-cause fixture uses a direct ZChannel and verifies the unframed baseline before framing. The local ZIO Streams 2.1.26 fromZIO-based failCause constructor reduced the original mixed fixture cause before it reached production code; this was a fixture correction, not a reproduced framing defect. Termination-failure cleanup sequencing was reviewed by inspection; the real-process fixtures do not induce OS permission failures or simulate process-tree containment.
 
+The current [resource client extension](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) extends the existing Java SDK loopback groups with resource discovery/read/template routes and typed list-change delivery. The 29-group focused run passed and the linked eleven-file scope has FP/ZIO and invariant approvals; full verification, package preparation and the fresh artifact consumer passed. Combined documentation approval remains pending.
+
 ## Acceptance and remaining tests
 
 - [x] `registry_contract` and `current_docs` approved typed expiry for captured-session POST/continuation/listener 404, with stateless rejection and DELETE AlreadyExpired kept distinct. Full `mcp-session-expiry-verify.log` verification passed; current hashes and evidence are in the source contract.

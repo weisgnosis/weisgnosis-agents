@@ -1,5 +1,7 @@
 # MCP tool binding verification
 
+The [embedded resource projection parity task](../../../../../../../main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity) remains open. Current tests prove resource payload retention as Custom content, not the pinned Java converter's visible text/image/binary-description behaviors.
+
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
 [McpToolSpec](McpToolSpec.scala) contains three grouped integration scenarios using an initialized client and controlled borrowed transport:

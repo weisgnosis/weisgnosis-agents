@@ -31,7 +31,7 @@ import com.weisgnosis.agents.core.client.{
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, FinalAnswerFilter, ModelStreamContext}
 import com.weisgnosis.agents.core.json.ExactJson
-import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, MediaSource, Msg}
+import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, MediaSource, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.{
   Tool,
   ToolBinding,
@@ -69,6 +69,30 @@ object ArtifactSmoke extends ZIOAppDefault:
   final private case class Manifest(version: String, sha256: Map[String, String]) derives JsonCodec
 
   final private case class ExternalInput(value: String) derives JsonCodec
+
+  private def verifySchemaAdmission: IO[AgentError, Unit] =
+    for
+      executions <- Ref.make(0)
+      tool = Tool.make(
+        ToolDef(
+          "schema_probe",
+          "Packaged schema admission",
+          Json.Obj(
+            "type"    -> Json.Str("integer"),
+            "minimum" -> Json.Num(2)
+          )
+        )
+      )(_ => executions.update(_ + 1).as("accepted"))
+      registry = Toolkit.single(tool)
+      rejected <- registry.executeSafe("schema_probe", Json.Num(1))
+      accepted <- registry.executeSafe("schema_probe", Json.Num(2))
+      count    <- executions.get
+      _ <- ZIO
+        .fail(failure("Packaged schema admission or transitive evaluator failed"))
+        .unless(
+          rejected.state == ToolResultState.Error && accepted.state == ToolResultState.Success && count == 1
+        )
+    yield ()
 
   private def verifyMcpDeadlines: ZIO[Scope, AgentError, Unit] =
     val failure = AgentError.McpError("packaged initialization probe")
@@ -214,7 +238,6 @@ object ArtifactSmoke extends ZIOAppDefault:
             "zio-test-sbt_3-",
             "mcp-core-",
             "mcp-json-jackson2-",
-            "jackson-",
             "tomcat-",
             "slf4j-jdk14-",
             "postgresql-"
@@ -237,6 +260,7 @@ object ArtifactSmoke extends ZIOAppDefault:
       for
         manifest <- loadManifest
         _        <- verifyClasspath
+        _        <- verifySchemaAdmission
         _        <- verifyExternalBinding
         _        <- verifyMcpDeadlines
         _        <- verifyJar("core", ReActAgent.getClass, manifest)

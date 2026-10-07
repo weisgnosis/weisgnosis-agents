@@ -456,14 +456,15 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
               )
           ),
           ran == Chunk("a" -> Json.Obj("tenant" -> Json.Str("host")), "b" -> Json.Obj()),
-          result.history.flatMap(_.toolResults).map(_.state) == Chunk(
-            ToolResultState.Error,
-            ToolResultState.Success,
-            ToolResultState.Error,
-            ToolResultState.Success,
-            ToolResultState.Success,
-            ToolResultState.Success,
-            ToolResultState.Error
+          result.history.flatMap(_.toolResults).size == 7,
+          result.history.flatMap(_.toolResults).map(value => value.id -> value.state).toMap == Map(
+            "missing"     -> ToolResultState.Error,
+            "first"       -> ToolResultState.Success,
+            "too-soon"    -> ToolResultState.Error,
+            "second"      -> ToolResultState.Success,
+            "first-tool"  -> ToolResultState.Success,
+            "second-tool" -> ToolResultState.Success,
+            "omitted"     -> ToolResultState.Error
           ),
           result.history
             .flatMap(_.toolResults)
@@ -577,7 +578,7 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
           result.history.flatMap(_.toolResults).map(_.state) == Chunk.fill(invalid.size)(
             ToolResultState.Error
           ) ++
-            Chunk(ToolResultState.Denied, ToolResultState.Denied, ToolResultState.Success),
+            Chunk(ToolResultState.Error, ToolResultState.Denied, ToolResultState.Success),
           mismatch.isFailure,
           externalMismatch.isFailure,
           collisionExit.causeOption
@@ -837,7 +838,7 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
           ),
           result.history.flatMap(_.toolResults).map(_.state) ==
             Chunk.fill(invalid.size)(ToolResultState.Error) ++ Chunk(
-              ToolResultState.Denied,
+              ToolResultState.Error,
               ToolResultState.Denied,
               ToolResultState.Success,
               ToolResultState.Success

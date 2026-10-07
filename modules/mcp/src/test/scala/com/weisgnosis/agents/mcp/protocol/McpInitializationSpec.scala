@@ -112,6 +112,33 @@ object McpInitializationSpec extends ZIOSpecDefault:
           .exists(_.capabilities.tools.nonEmpty)
       ) && checks.reduceOption(_ && _).getOrElse(assertTrue(false))
     },
+    test("resource capability flags are independent and malformed known flags fail closed") {
+      val checks = for
+        subscribe <- Chunk(None, Some(false), Some(true))
+        changed   <- Chunk(None, Some(false), Some(true))
+      yield
+        val flags = Json.Obj(
+          Chunk.fromIterable(subscribe.map(flag => "subscribe" -> Json.Bool(flag))) ++
+            Chunk.fromIterable(changed.map(flag => "listChanged" -> Json.Bool(flag)))
+        )
+        McpInitialization
+          .readResult(result(Json.Obj("resources" -> flags)))
+          .exists(parsed =>
+            parsed.capabilities.resources
+              .exists(value => value.subscribe == subscribe && value.listChanged == changed)
+          )
+      val invalid = Chunk(Json.Null, Json.Str("true"), Json.Num(1))
+      assertTrue(
+        checks.forall(identity),
+        McpInitialization.readResult(result()).exists(_.capabilities.resources.isEmpty),
+        invalid.forall(flag =>
+          McpInitialization
+            .readResult(result(Json.Obj("resources" -> Json.Obj("subscribe" -> flag))))
+            .isLeft
+        ),
+        McpInitialization.readResult(result(Json.Obj("resources" -> Json.Null))).isLeft
+      )
+    },
     test("known fields fail closed for missing null malformed and duplicate representations") {
       val missing = Chunk("protocolVersion", "capabilities", "serverInfo").map: field =>
         Json.Obj(result().fields.filterNot(_._1 == field))

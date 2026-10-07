@@ -25,7 +25,7 @@ import zio.json.ast.Json
  * Scoped RPC ownership over a borrowed transport; no initialization, version negotiation or deadlines.
  * Interrupted issued requests enqueue best-effort cancellation notifications; delivery
  * is connection-owned and may be dropped when its control queue is full. Incoming notifications are
- * ignored, including server cancellation:
+ * ignored by the public factory, including server cancellation:
  * server request identities never grant authority to cancel this connection's outbound requests.
  * Owned sends, the incoming stream, and their finalizers must not close their own connection.
  */
@@ -60,6 +60,16 @@ object McpConnection:
       capacity: Int = 64,
       controlCapacity: Int = 16
   ): ZIO[Scope, AgentError, McpConnection] =
+    observed(transport, capacity, controlCapacity, _ => ZIO.unit, _ => ZIO.unit)
+
+  /** Internal observers perform bounded local publication only; they never await remote work. */
+  private[mcp] def observed(
+      transport: McpTransport,
+      capacity: Int,
+      controlCapacity: Int,
+      observeNotification: McpMessage.Notification => UIO[Unit],
+      observeStop: Cause[AgentError] => UIO[Unit]
+  ): ZIO[Scope, AgentError, McpConnection] =
     if capacity <= 0 || controlCapacity <= 0 then
       ZIO.fail(AgentError.InvalidConfiguration("MCP connection capacities must be positive"))
     else
@@ -87,7 +97,9 @@ object McpConnection:
             controls,
             background,
             closing,
-            closed
+            closed,
+            observeNotification,
+            observeStop
           )
           _ <- ZIO.addFinalizer(live.close)
           _ <- live.start
@@ -105,7 +117,9 @@ object McpConnection:
       controls: Queue[McpMessage],
       background: Ref[Chunk[Fiber.Runtime[AgentError, Any]]],
       closing: Ref[Closing],
-      closed: Promise[Nothing, Exit[Nothing, Unit]]
+      closed: Promise[Nothing, Exit[Nothing, Unit]],
+      observeNotification: McpMessage.Notification => UIO[Unit],
+      observeStop: Cause[AgentError] => UIO[Unit]
   ) extends McpConnection:
     def request(method: String, params: Option[Json.Obj]): IO[AgentError, McpRequests.Reply] =
       request(id => Right(McpMessage.Request(id, method, params)))
@@ -203,7 +217,7 @@ object McpConnection:
           result <- observed match
             case Exit.Success(exit) => exit
             case Exit.Failure(cause) =>
-              worker.interrupt.flatMap(exit => ZIO.refailCause(combine(cause, exit)))
+              cancelAndFail(worker, cause)
         yield result
 
     /** The owned worker supervises its action even if its public caller no longer waits. */
@@ -222,21 +236,44 @@ object McpConnection:
             result <- observed match
               case Exit.Success(Observation.Completed(exit)) => exit
               case Exit.Success(Observation.Stopped(cause)) =>
-                action.interrupt.flatMap(exit => ZIO.refailCause(combine(cause, exit)))
+                cancelAndFail(action, cause)
               case Exit.Failure(cause) =>
-                action.interrupt.flatMap(exit => ZIO.refailCause(combine(cause, exit)))
+                cancelAndFail(action, cause)
           yield result
 
+    /** Cancel and join the owned fiber, retaining the identity of this cleanup interrupter. */
+    private def cancelAndFail[A](
+        fiber: Fiber[AgentError, A],
+        cause: Cause[AgentError]
+    ): IO[AgentError, A] =
+      ZIO.fiberId.flatMap: interrupter =>
+        fiber.interrupt.flatMap(exit => ZIO.refailCause(combine(cause, exit, interrupter)))
+
     /**
-     * The first observed completion wins. A terminal/cancellation winner retains any independent
-     * action failure, but does not repeat a terminal cause already delivered by the request registry.
-     * Pure interruption from cancelling the losing action adds no second failure to that winner.
+     * Remove only the interruption issued by this owner while joining the loser. Independent
+     * interruption, typed failures and cleanup defects remain part of the completed cause.
      */
-    private def combine[A](cause: Cause[AgentError], exit: Exit[AgentError, A]): Cause[AgentError] =
+    private def combine[A](
+        cause: Cause[AgentError],
+        exit: Exit[AgentError, A],
+        interrupter: FiberId
+    ): Cause[AgentError] =
       exit match
-        case Exit.Failure(observed) if observed.contains(cause)    => observed
-        case Exit.Failure(observed) if !observed.isInterruptedOnly => cause ++ observed
-        case _                                                     => cause
+        case Exit.Failure(observed) =>
+          val independent = observed.foldLog[Cause[AgentError]](
+            Cause.empty,
+            (error, trace, spans, annotations) =>
+              Cause.fail(error, trace).spanned(spans).annotated(annotations),
+            (defect, trace, spans, annotations) =>
+              Cause.die(defect, trace).spanned(spans).annotated(annotations),
+            (id, trace, spans, annotations) =>
+              if id == interrupter then Cause.empty
+              else Cause.interrupt(id, trace).spanned(spans).annotated(annotations)
+          )(_ ++ _, _ && _, (value, stackless) => Cause.Stackless(value, stackless))
+          if independent.contains(cause) then independent
+          else if independent.isEmpty then cause
+          else cause ++ independent
+        case _ => cause
 
     /** Publish once, then signal services without joining; self-interruption cannot stop fan-out. */
     private def stop(cause: Cause[AgentError]): UIO[Unit] =
@@ -246,7 +283,9 @@ object McpConnection:
             case Admission.Stopped(_) => ZIO.succeed(Chunk.empty[Fiber.Runtime[AgentError, Any]])
             case Admission.Open =>
               admission.set(Admission.Stopped(cause)) *>
-                requests.failAll(cause) *> terminal.succeed(cause) *> background.get)
+                requests.failAll(cause) *> terminal.succeed(cause) *> observeStop(
+                  cause
+                ) *> background.get)
           interrupter <- ZIO.fiberId
           _           <- ZIO.foreachDiscard(services)(_.interruptAsFork(interrupter))
         yield ()
@@ -269,8 +308,8 @@ object McpConnection:
           case Some(_) => requests.complete(reply).unit
           case None =>
             stop(Cause.fail(AgentError.McpError("MCP received an uncorrelated protocol error")))
-      case McpMessage.Request(id, method, _) => control(id, method)
-      case _: McpMessage.Notification        => ZIO.unit
+      case McpMessage.Request(id, method, _)     => control(id, method)
+      case notification: McpMessage.Notification => observeNotification(notification)
 
     def start: UIO[Unit] =
       for

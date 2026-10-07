@@ -237,9 +237,12 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
               observations = result.history.flatMap(_.toolResults)
             yield assertTrue(
               runtime.skills.definitions.map(_.id).toSet == expected,
-              observations.map(_.state) == ids.map(id =>
-                if expected.contains(id) then ToolResultState.Success else ToolResultState.Error
-              ),
+              observations.map(value => value.id -> value.state).sortBy(_._1) == ids
+                .map(id =>
+                  id -> (if expected.contains(id) then ToolResultState.Success
+                         else ToolResultState.Error)
+                )
+                .sortBy(_._1),
               observations.filter(_.state == ToolResultState.Success).map(_.outputText) ==
                 ids.filter(expected.contains).map(id => s"Content $id"),
               catalog.definitions.map(_.id) == ids

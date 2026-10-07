@@ -1,5 +1,7 @@
 # core: test package index
 
+The [schema-admission suites](tool/README.md) cover contract neighbors and reproduced numeric/reference failures; agent integration covers fresh handoff versus trusted issued-work completion.
+
 - [agent](agent/README.md)
 - [client](client/README.md)
 - [event](event/README.md)

@@ -28,7 +28,9 @@ import zio.test.*
 object ReActAgentExternalToolSpec extends ZIOSpecDefault:
   final private case class Arguments(value: String) derives JsonCodec
   private enum Admission:
-    case Valid, ValidRewrite, Invalid, Inactive, InvalidRewrite, Denied, Deferred
+    case Valid, ValidRewrite, Invalid, SchemaInvalid, Inactive, InvalidRewrite,
+      SchemaInvalidRewrite,
+      Denied, Deferred
 
   private val definition: ToolDef        = ToolDef("external", "External execution", Json.Obj())
   private def input(value: String): Json = Json.Obj("value" -> Json.Str(value))
@@ -51,7 +53,13 @@ object ReActAgentExternalToolSpec extends ZIOSpecDefault:
       ZIO
         .foreach(Chunk.fromIterable(Admission.values)): mode =>
           for
-            binding <- ZIO.fromEither(ToolBinding.external[Arguments](definition))
+            schema <- ZIO.fromEither(
+              """{"type":"object","properties":{"value":{"enum":["original","edited"]}},"required":["value"],"additionalProperties":false}"""
+                .fromJson[Json]
+            )
+            binding <- ZIO.fromEither(
+              ToolBinding.external[Arguments](definition.copy(parametersSchema = schema))
+            )
             groups <- ZIO.fromEither(
               ToolGroups.empty.register(
                 ToolGroup(
@@ -71,6 +79,8 @@ object ReActAgentExternalToolSpec extends ZIOSpecDefault:
                 .as(mode match
                   case Admission.InvalidRewrite =>
                     ToolAuthorization.Approved(Json.Obj("value" -> Json.Num(1)))
+                  case Admission.SchemaInvalidRewrite =>
+                    ToolAuthorization.Approved(input("rejected"))
                   case Admission.ValidRewrite => ToolAuthorization.Approved(input("edited"))
                   case Admission.Inactive     => ToolAuthorization.Deferred("Inactive must not ask")
                   case Admission.Denied       => ToolAuthorization.Denied("Host denied")
@@ -87,6 +97,7 @@ object ReActAgentExternalToolSpec extends ZIOSpecDefault:
                         Chunk(
                           if mode == Admission.Invalid then
                             call("external").copy(input = Json.Obj("value" -> Json.Num(1)))
+                          else if mode == Admission.SchemaInvalid then call("external", "rejected")
                           else call("external")
                         )
                       )
@@ -129,7 +140,9 @@ object ReActAgentExternalToolSpec extends ZIOSpecDefault:
             if waiting then result.state.isInstanceOf[AgentRunState.Suspended]
             else result.state == AgentRunState.Completed,
             requests == (if waiting then 1 else 2),
-            decisions == (if mode == Admission.Invalid || mode == Admission.Inactive then 0 else 1),
+            decisions == (if mode == Admission.Invalid || mode == Admission.SchemaInvalid || mode == Admission.Inactive
+                          then 0
+                          else 1),
             if waiting then results.isEmpty
             else
               results.map(result => (result.id, result.name, result.state)) == Chunk(
@@ -137,8 +150,9 @@ object ReActAgentExternalToolSpec extends ZIOSpecDefault:
                   "same",
                   Some("external"),
                   mode match
-                    case Admission.Invalid | Admission.Inactive => ToolResultState.Error
-                    case _                                      => ToolResultState.Denied
+                    case Admission.Invalid | Admission.SchemaInvalid | Admission.Inactive =>
+                      ToolResultState.Error
+                    case _ => ToolResultState.Denied
                 )
               )
             ,
@@ -171,6 +185,67 @@ object ReActAgentExternalToolSpec extends ZIOSpecDefault:
             else rewritten.isEmpty
           )
         .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test("trusted already-issued external waits retain pre-validator input and accept completion"):
+      for
+        schema <- ZIO.fromEither(
+          """{"type":"object","properties":{"value":{"enum":["original"]}},"required":["value"]}"""
+            .fromJson[Json]
+        )
+        binding <- ZIO.fromEither(
+          ToolBinding.external[Arguments](definition.copy(parametersSchema = schema))
+        )
+        asks     <- Ref.make(0)
+        requests <- Ref.make(0)
+        client = LlmClient.mockEffectful((_, _, _) =>
+          requests
+            .getAndUpdate(_ + 1)
+            .map(index =>
+              if index == 0 then TurnOutput.ToolCalls(Msg.assistant(Chunk(call("external"))))
+              else TurnOutput.FinalText(Msg.assistant("done"))
+            )
+        )
+        authorizer = ToolAuthorizer(request =>
+          asks.update(_ + 1).as(ToolAuthorization.Approved(request.call.input))
+        )
+        initial <- ReActAgent.make(
+          toolkit = Toolkit.single(binding),
+          client = client,
+          toolAuthorizer = authorizer
+        )
+        issued <- initial.run(Msg.user("execute"))
+        saved  <- pending(issued)
+        // Represents authenticated data issued by a version without schema admission.
+        legacyInput = input("legacy")
+        legacyReply <- ZIO.fromEither(issued.reply.withContent(Chunk(call("external", "legacy"))))
+        legacy = issued.copy(
+          reply = legacyReply,
+          history = issued.history.updated(saved.assistantPosition, legacyReply),
+          state = AgentRunState.Suspended(
+            saved.copy(externalRequests = Chunk(PendingExternalCall(0, legacyInput)))
+          )
+        )
+        fresh <- ReActAgent.make(
+          toolkit = Toolkit.single(binding),
+          client = client,
+          toolAuthorizer = authorizer
+        )
+        _         <- fresh.restore(legacy)
+        waiting   <- fresh.resume()
+        unchanged <- pending(waiting)
+        completed <- fresh.resume(
+          Chunk(SuppliedToolResult(0, ToolExecutionResult("legacy result")))
+        )
+        decisions     <- asks.get
+        modelRequests <- requests.get
+      yield assertTrue(
+        unchanged.externalRequests == Chunk(PendingExternalCall(0, legacyInput)),
+        completed.state == AgentRunState.Completed,
+        completed.history.flatMap(_.toolUses).map(_.input) == Chunk(legacyInput),
+        completed.history.flatMap(_.toolResults).map(_.text) == Chunk("legacy result"),
+        decisions == 1,
+        modelRequests == 2
+      )
     ,
     test("mixed waits preserve occurrence identity across partial resume and binding restoration"):
       ZIO

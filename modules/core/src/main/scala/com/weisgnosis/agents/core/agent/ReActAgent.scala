@@ -2045,6 +2045,25 @@ final class ReActAgent private (
           )
       )
 
+  private def validateToolInput(
+      name: String,
+      input: Json,
+      registry: Toolkit
+  ): UIO[Either[AgentError.InvalidMessage, Unit]] =
+    ZIO
+      .suspendSucceed(
+        registry.validateSchemaInput(name, input) *>
+          ZIO.fromEither(registry.validateExternalInput(name, input))
+      )
+      .either
+      .catchAllCause(cause =>
+        if cause.isInterrupted then ZIO.refailCause(cause)
+        else
+          ZIO.succeed(
+            Left(AgentError.InvalidMessage(s"Tool argument validation failed: $name"))
+          )
+      )
+
   private def admittedAccess(
       call: ContentBlock.ToolUse,
       toolkit: Toolkit
@@ -2069,7 +2088,7 @@ final class ReActAgent private (
     prepared match
       case Left(error) => ZIO.succeed(PreparedToolCall(indexed, ToolPreparation.Failed(error)))
       case Right(input) =>
-        validateExternal(indexed.call.name, input, toolkit).flatMap:
+        validateToolInput(indexed.call.name, input, toolkit).flatMap:
           case Left(error) => ZIO.succeed(PreparedToolCall(indexed, ToolPreparation.Failed(error)))
           case Right(_) =>
             prepareValidatedToolCall(indexed, toolkit, context, argumentPolicy, savedRequest, input)
@@ -2149,27 +2168,33 @@ final class ReActAgent private (
                 admittedAccess(call, toolkit)
               )
           )
-          .map: result =>
+          .flatMap: result =>
             result match
               case ToolAuthorization.Approved(input) =>
                 JsonBoundary.validate(input) match
-                  case Left(error) => ToolAuthorization.Denied(s"Invalid approved input: $error")
+                  case Left(error) =>
+                    ZIO.succeed(ToolAuthorization.Denied(s"Invalid approved input: $error"))
                   case Right(_) if changesReasoningInput(call, input, argumentPolicy) =>
-                    ToolAuthorization.Denied(
-                      "Cannot modify arguments carrying provider reasoning metadata"
+                    ZIO.succeed(
+                      ToolAuthorization.Denied(
+                        "Cannot modify arguments carrying provider reasoning metadata"
+                      )
                     )
                   case Right(_) =>
-                    toolkit
-                      .validateApprovedInput(call.name, input)
-                      .flatMap(_ => toolkit.validateExternalInput(call.name, input))
-                      .fold(
-                        error =>
-                          ToolAuthorization.Denied(s"Invalid approved input: ${error.message}"),
-                        _ => result
-                      )
+                    (ZIO.fromEither(
+                      toolkit
+                        .validateApprovedInput(call.name, input)
+                        .flatMap(_ => toolkit.validateExternalInput(call.name, input))
+                    ) *> toolkit.validateSchemaInput(call.name, input)).fold(
+                      error =>
+                        ToolAuthorization.Denied(s"Invalid approved input: ${error.message}"),
+                      _ => result
+                    )
               case ToolAuthorization.Deferred(reason) if reason.trim.isEmpty =>
-                ToolAuthorization.Denied("Deferred authorization requires a nonblank reason")
-              case _ => result
+                ZIO.succeed(
+                  ToolAuthorization.Denied("Deferred authorization requires a nonblank reason")
+                )
+              case _ => ZIO.succeed(result)
     decision.foldCauseZIO(
       cause =>
         if cause.isInterrupted then ZIO.refailCause(cause).orDie

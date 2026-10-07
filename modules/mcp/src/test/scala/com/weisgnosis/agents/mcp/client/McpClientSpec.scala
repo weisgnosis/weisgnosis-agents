@@ -67,7 +67,7 @@ object McpClientSpec extends ZIOSpecDefault:
 
   private enum DeadlineCase:
     case InitializeTimeout, InitializeCancelled, CallTimeout, CallCancelled,
-      DiscoveryTimeout, DiscoveryCancelled
+      DiscoveryTimeout, DiscoveryCancelled, ResourceTimeout, ResourceCancelled
 
   private enum DeadlinePhase:
     case Initialization, Request
@@ -159,7 +159,12 @@ object McpClientSpec extends ZIOSpecDefault:
         case request @ McpMessage.Request(_, "initialize", _) =>
           mode match
             case DeadlineCase.InitializeTimeout | DeadlineCase.InitializeCancelled => blocked
-            case _ => peer.reply(request, initialization())
+            case _ =>
+              peer.reply(
+                request,
+                initialization(Json.Obj("tools" -> Json.Obj(), "resources" -> Json.Obj()))
+              )
+        case McpMessage.Request(_, "resources/read", _)          => blocked
         case McpMessage.Request(_, "tools/call", _)              => blocked
         case request @ McpMessage.Request(_, "tools/list", None) => peer.reply(request, tools)
         case McpMessage.Request(_, "tools/list", _)              => blocked
@@ -169,12 +174,17 @@ object McpClientSpec extends ZIOSpecDefault:
           McpClient.open(transport, identity, 1.second).unit
         case DeadlineCase.DiscoveryTimeout | DeadlineCase.DiscoveryCancelled =>
           McpClient.open(transport, identity, 1.second).flatMap(_.discoverTools(2, 2)).unit
+        case DeadlineCase.ResourceTimeout | DeadlineCase.ResourceCancelled =>
+          McpClient
+            .open(transport, identity, 1.second)
+            .flatMap(_.readResource("memory://blocked"))
+            .unit
         case _ => McpClient.open(transport, identity, 1.second).flatMap(_.callTool("blocked")).unit
       ).forkScoped
       _ <- entered.await
       completion <- (mode match
         case DeadlineCase.InitializeTimeout | DeadlineCase.CallTimeout |
-            DeadlineCase.DiscoveryTimeout =>
+            DeadlineCase.DiscoveryTimeout | DeadlineCase.ResourceTimeout =>
           TestClock.adjust(1.second) *> operation.await
         case _ => operation.interrupt
       ).forkScoped
@@ -188,7 +198,7 @@ object McpClientSpec extends ZIOSpecDefault:
         case _                          => false)
       expectedOutcome = mode match
         case DeadlineCase.InitializeTimeout | DeadlineCase.CallTimeout |
-            DeadlineCase.DiscoveryTimeout =>
+            DeadlineCase.DiscoveryTimeout | DeadlineCase.ResourceTimeout =>
           timedOut
         case _ => exit.isInterrupted && !timedOut
       expectedClosure = mode match
@@ -423,6 +433,198 @@ object McpClientSpec extends ZIOSpecDefault:
               result.isFailure,
               count == expectedRequests,
               remotePreserved == expectedRemote
+            )
+          .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
+    test(
+      "resource discovery, reads and subscriptions share correlation, metadata and scoped notifications"
+    ) {
+      ZIO.scoped:
+        for
+          peer <- wire
+          metadata = Json.Obj("trace" -> Json.Str("resource"))
+          client <- McpClient.open(
+            peer.transport {
+              case request @ McpMessage.Request(_, "initialize", _) =>
+                peer.reply(
+                  request,
+                  initialization(
+                    Json.Obj(
+                      "resources" -> Json.Obj(
+                        "subscribe"   -> Json.Bool(true),
+                        "listChanged" -> Json.Bool(true)
+                      )
+                    )
+                  )
+                )
+              case request @ McpMessage.Request(_, "resources/list", params) =>
+                val first = params.flatMap(_.get("cursor")).isEmpty
+                peer.reply(
+                  request,
+                  Json.Obj(
+                    Chunk(
+                      "resources" -> Json.Arr(
+                        Json.Obj(
+                          "uri"  -> Json.Str("memory://project"),
+                          "name" -> Json.Str("Project")
+                        )
+                      )
+                    ) ++
+                      Chunk.fromIterable(Option.when(first)("nextCursor" -> Json.Str("")))
+                  )
+                )
+              case request @ McpMessage.Request(_, "resources/templates/list", _) =>
+                peer.reply(
+                  request,
+                  Json.Obj(
+                    "resourceTemplates" -> Json.Arr(
+                      Json.Obj(
+                        "uriTemplate" -> Json.Str("memory://{name}"),
+                        "name"        -> Json.Str("Memory")
+                      )
+                    )
+                  )
+                )
+              case request @ McpMessage.Request(_, "resources/read", _) =>
+                peer.reply(
+                  request,
+                  Json.Obj(
+                    "contents" -> Json.Arr(
+                      Json.Obj("uri" -> Json.Str("memory://project"), "text" -> Json.Str("context"))
+                    )
+                  )
+                )
+              case request @ McpMessage.Request(_, "resources/subscribe", _) =>
+                peer.receive(
+                  McpMessage.Notification(
+                    "notifications/resources/updated",
+                    Some(Json.Obj("uri" -> Json.Str("memory://project")))
+                  )
+                ) *>
+                  peer.reply(request, Json.Obj())
+              case request @ McpMessage.Request(_, "resources/unsubscribe", _) =>
+                peer.reply(request, Json.Obj())
+              case _: McpMessage.Notification => ZIO.unit
+              case _ => ZIO.fail(AgentError.McpError("Unexpected resource fixture request"))
+            },
+            identity
+          )
+          observer  <- client.observeResourceChanges
+          listed    <- client.discoverResources(2, 2, Some(metadata))
+          templates <- client.discoverResourceTemplates(1, 1, Some(metadata))
+          read      <- client.readResource("memory://project", Some(metadata))
+          _         <- client.subscribeResource("memory://project", Some(metadata))
+          change    <- observer.runHead
+          _         <- client.unsubscribeResource("memory://project", Some(metadata))
+          sent      <- peer.sent.get
+          resourceRequests = sent.collect:
+            case request: McpMessage.Request if request.method.startsWith("resources/") => request
+        yield assertTrue(
+          listed.map(_.uri) == Chunk("memory://project", "memory://project"),
+          templates.map(_.uriTemplate) == Chunk("memory://{name}"),
+          read.contents.map(_.body) == Chunk(McpResourceBody.Text("context")),
+          change.contains(McpResourceChange.Updated("memory://project", None)),
+          resourceRequests.size == 6,
+          resourceRequests.forall(_.params.flatMap(_.get("_meta")).contains(metadata))
+        )
+    },
+    test(
+      "resource gates and pagination reject locally or at exact bounded traversal without partial publication"
+    ) {
+      ZIO.scoped:
+        ZIO
+          .foreach(Chunk("absent", "no-subscriptions", "cycle", "items", "pages", "invalid")):
+            scenario =>
+              for
+                peer <- wire
+                client <- McpClient.open(
+                  peer.transport {
+                    case request @ McpMessage.Request(_, "initialize", _) =>
+                      peer.reply(
+                        request,
+                        initialization(
+                          if scenario == "absent" then Json.Obj()
+                          else Json.Obj("resources" -> Json.Obj())
+                        )
+                      )
+                    case request @ McpMessage.Request(_, "resources/list", _) =>
+                      peer.reply(
+                        request,
+                        Json.Obj(
+                          "resources" -> Json.Arr(
+                            Json.Obj("uri" -> Json.Str("r"), "name" -> Json.Str("R"))
+                          ),
+                          "nextCursor" -> Json.Str("same")
+                        )
+                      )
+                    case _: McpMessage.Notification => ZIO.unit
+                    case _ => ZIO.fail(AgentError.McpError("Unexpected resource gate request"))
+                  },
+                  identity
+                )
+                before <- peer.sent.get
+                result <- (scenario match
+                  case "absent"           => client.readResource("r").unit
+                  case "no-subscriptions" => client.subscribeResource("r")
+                  case "cycle"            => client.discoverResources(3, 3).unit
+                  case "items"            => client.discoverResources(3, 1).unit
+                  case "pages"            => client.discoverResources(1, 3).unit
+                  case _                  => client.discoverResources(0, 1).unit
+                ).exit
+                after <- peer.sent.get
+                local = Set("absent", "no-subscriptions", "invalid").contains(scenario)
+              yield assertTrue(result.isFailure, !local || after == before)
+          .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
+    test(
+      "notification overflow, malformed updates and connection closure preserve explicit observer failures"
+    ) {
+      ZIO.scoped:
+        ZIO
+          .foreach(Chunk("overflow", "malformed", "closed", "observer-closed")): scenario =>
+            for
+              peer <- wire
+              client <- McpClient.open(
+                peer.transport {
+                  case request @ McpMessage.Request(_, "initialize", _) =>
+                    peer.reply(
+                      request,
+                      initialization(
+                        Json.Obj("resources" -> Json.Obj("subscribe" -> Json.Bool(true)))
+                      )
+                    )
+                  case request @ McpMessage.Request(_, "resources/read", _) =>
+                    peer.reply(request, Json.Obj("contents" -> Json.Arr()))
+                  case _: McpMessage.Notification => ZIO.unit
+                  case _ => ZIO.fail(AgentError.McpError("Unexpected observer fixture request"))
+                },
+                identity
+              )
+              observerScope <- Scope.make
+              _             <- ZIO.addFinalizer(observerScope.close(Exit.unit))
+              observer <- client.observeResourceChanges
+                .provideEnvironment(ZEnvironment[Scope](observerScope))
+              notification = McpMessage.Notification(
+                "notifications/resources/updated",
+                Option.when(scenario == "overflow")(Json.Obj("uri" -> Json.Str("r")))
+              )
+              count =
+                if scenario == "overflow" then 65
+                else if Set("closed", "observer-closed").contains(scenario) then 0
+                else 1
+              _ <- ZIO.foreachDiscard(0 until count)(_ => peer.receive(notification))
+              // Correlated reply proves all preceding notifications passed through the same reader.
+              result <- client.readResource("r")
+              _      <- ZIO.when(scenario == "closed")(client.close)
+              _      <- ZIO.when(scenario == "observer-closed")(observerScope.close(Exit.unit))
+              failed <- observer.runDrain.exit
+            yield assertTrue(
+              result.contents.isEmpty,
+              failed.isFailure,
+              scenario != "closed" || failed.causeOption
+                .exists(_.failures.contains(AgentError.McpError("MCP connection closed"))),
+              scenario != "observer-closed" || failed.causeOption
+                .exists(_.failures.contains(AgentError.McpError("MCP resource observer closed")))
             )
           .map(_.foldLeft(assertTrue(true))(_ && _))
     },

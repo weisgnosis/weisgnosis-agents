@@ -221,12 +221,15 @@ object McpClientManagerSpec extends ZIOSpecDefault:
             Some(Json.Obj("tenant" -> Json.Str("host"))),
             Some(Json.Obj())
           ),
-          result.history.flatMap(_.toolResults).map(_.state) == Chunk(
-            ToolResultState.Success,
-            ToolResultState.Success,
-            ToolResultState.Error,
-            ToolResultState.Success,
-            ToolResultState.Error
+          result.history
+            .flatMap(_.toolResults)
+            .map(value => value.id -> value.state)
+            .sortBy(_._1) == Chunk(
+            "activate"  -> ToolResultState.Success,
+            "fixed"     -> ToolResultState.Success,
+            "forbidden" -> ToolResultState.Error,
+            "hidden"    -> ToolResultState.Error,
+            "plain"     -> ToolResultState.Success
           ),
           current.groups.activeNames.isEmpty,
           current.groups.groups == installed.groups.groups

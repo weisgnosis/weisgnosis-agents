@@ -1,11 +1,12 @@
-val scala3Version                  = "3.9.0"
-val zioVersion                     = "2.1.26"
-val zioJsonVersion                 = "0.9.1"
-val zioHttpVersion                 = "3.11.3"
-val snakeYamlEngineVersion: String = "3.1.1"
-val mcpJavaSdkVersion: String      = "0.17.2"
-val tomcatVersion: String          = "11.0.18"
-val slf4jVersion: String           = "2.0.16"
+val scala3Version                      = "3.9.0"
+val zioVersion                         = "2.1.26"
+val zioJsonVersion                     = "0.9.1"
+val zioHttpVersion                     = "3.11.3"
+val jsonSchemaValidatorVersion: String = "2.0.4"
+val snakeYamlEngineVersion: String     = "3.1.1"
+val mcpJavaSdkVersion: String          = "0.17.2"
+val tomcatVersion: String              = "11.0.18"
+val slf4jVersion: String               = "2.0.16"
 
 ThisBuild / scalaVersion := scala3Version
 ThisBuild / version := {
@@ -46,12 +47,13 @@ lazy val core = (project in file("modules/core"))
     name := "weisgnosis-agents-core",
     commonSettings,
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"          % zioVersion,
-      "dev.zio" %% "zio-streams"  % zioVersion,
-      "dev.zio" %% "zio-json"     % zioJsonVersion,
-      "dev.zio" %% "zio-http"     % zioHttpVersion,
-      "dev.zio" %% "zio-test"     % zioVersion % Test,
-      "dev.zio" %% "zio-test-sbt" % zioVersion % Test
+      "dev.zio"      %% "zio"                   % zioVersion,
+      "dev.zio"      %% "zio-streams"           % zioVersion,
+      "dev.zio"      %% "zio-json"              % zioJsonVersion,
+      "dev.zio"      %% "zio-http"              % zioHttpVersion,
+      "com.networknt" % "json-schema-validator" % jsonSchemaValidatorVersion,
+      "dev.zio"      %% "zio-test"              % zioVersion % Test,
+      "dev.zio"      %% "zio-test-sbt"          % zioVersion % Test
     )
   )
 

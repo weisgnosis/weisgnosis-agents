@@ -42,6 +42,43 @@ object ToolExecutionSpec extends ZIOSpecDefault:
   private val toolkit = Toolkit.single(addTool).updated(failingTool)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolExecutionSpec")(
+    test("declared schema constraints reject decoder-valid arguments before execution") {
+      val schema = Json.Obj(
+        "type" -> Json.Str("object"),
+        "properties" -> Json.Obj(
+          "n" -> Json.Obj(
+            "type"    -> Json.Str("integer"),
+            "minimum" -> Json.Num(2),
+            "maximum" -> Json.Num(5),
+            "enum"    -> Json.Arr(Json.Num(2), Json.Num(4))
+          )
+        ),
+        "required"             -> Json.Arr(Json.Str("n")),
+        "additionalProperties" -> Json.Bool(false)
+      )
+      val cases = Chunk(
+        Json.Obj("n" -> Json.Num(2))                             -> ToolResultState.Success,
+        Json.Obj("n" -> Json.Num(4))                             -> ToolResultState.Success,
+        Json.Obj("n" -> Json.Num(1))                             -> ToolResultState.Error,
+        Json.Obj("n" -> Json.Num(3))                             -> ToolResultState.Error,
+        Json.Obj("n" -> Json.Num(6))                             -> ToolResultState.Error,
+        Json.Obj("n" -> Json.Num(2), "extra" -> Json.Bool(true)) -> ToolResultState.Error
+      )
+      ZIO
+        .foreach(cases): (input, expected) =>
+          for
+            calls <- Ref.make(0)
+            tool = Tool.make(ToolDef("constrained", "Checked arguments", schema))(_ =>
+              calls.update(_ + 1).as("executed")
+            )
+            result <- Toolkit.single(tool).executeSafe("constrained", input)
+            count  <- calls.get
+          yield assertTrue(
+            result.state == expected,
+            count == (if expected == ToolResultState.Success then 1 else 0)
+          )
+        .map(results => results.foldLeft(assertTrue(true))(_ && _))
+    },
     test(
       "typed tool projections retain payloads and codecs while reserving runtime lifecycle states"
     ) {

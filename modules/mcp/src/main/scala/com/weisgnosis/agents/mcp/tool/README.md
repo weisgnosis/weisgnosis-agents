@@ -8,6 +8,14 @@ ToolDef supplies the local alias, description, schema, read-only declaration and
 
 A host may explicitly retain, omit or replace a remote output schema in ToolDef.outputSchema. Binding and preset projection preserve the selected AST through Toolkit to custom model clients; the manager never adopts it automatically. It is descriptive only, and the current Chat Completions encoder omits it. See the [core contract and migration](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#descriptive-output-schemas).
 
+## Embedded resource projection parity
+
+The pinned AgentScope Java reference `f98a685fdc4589f81e626e1686ac2c63d14a2304` has five relevant McpContentConverterTest methods: `testConvertContent_EmbeddedResource_TextResource` (line 311), `testConvertContent_EmbeddedResource_BlobResource_Image` (326), `testConvertContent_EmbeddedResource_BlobResource_NonImage` (339), `testConvertContent_EmbeddedResource_BlobResource_NullMimeType` (357), and `testBlobResource_ImageMimeTypeVariations` (470).
+
+Current [McpTool](McpTool.scala) retains embedded resource bodies, URI, MIME type, metadata and extensions in `ContentBlock.Custom("mcp/resource", ...)`. The checked protocol preserves text/blob variants and the binding suite checks retained Custom content. This preserves remote payload data but does not reproduce Java's visible TextBlock/ImageBlock conversion or binary-description behavior. The new [resource client APIs](../client/README.md#resource-client-contract) independently implement resource discovery/read/subscription and do not close this tool-result projection gap.
+
+- [ ] Implement and independently verify visible text/image/binary-description projection for these five upstream behaviors while preserving resource data and host authority. This original transfer obligation remains open; existing tool-binding acceptance applies to its documented current projection only.
+
 ## Preset arguments and schema projection
 
 [McpToolPresets](McpToolPresets.scala) is an immutable checked value. `make` validates the complete defaults before storing them; `merge` validates the complete supplied input before a shallow input-wins merge. Supplied JSON null and nested objects replace their defaults; nested objects are not merged. Invalid duplicate keys cannot disappear through overwriting. `empty` preserves arguments without adding defaults.

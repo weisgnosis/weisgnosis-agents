@@ -21,6 +21,7 @@ import com.weisgnosis.agents.mcp.tool.McpToolMetadataPropagation
 import com.weisgnosis.agents.mcp.transport.McpTransport
 import zio.*
 import zio.json.ast.Json
+import zio.stream.ZStream
 
 /**
  * Initialized 2025-06-18 client over a borrowed transport. The host retains transport ownership.
@@ -35,7 +36,9 @@ final class McpClient private (
     val initialization: McpInitializationResult,
     connection: McpConnection,
     deadline: Duration,
-    boundToolMetadata: Ref[McpToolMetadataPropagation]
+    boundToolMetadata: Ref[McpToolMetadataPropagation],
+    resourceEvents: Hub[McpResourceChange],
+    resourceFailure: Promise[Nothing, Cause[AgentError]]
 ):
   /**
    * Each bound invocation snapshots this restriction before its resolver. Changing it does not revoke
@@ -107,7 +110,142 @@ final class McpClient private (
       "tools/call"
     )
 
-  def close: UIO[Unit] = connection.close
+  def listResourcesPage(
+      cursor: Option[String] = None,
+      meta: Option[Json.Obj] = None
+  ): IO[AgentError, McpResourcePage[McpResourceDefinition]] =
+    resourceRequest("resources/list", id => McpResources.listRequest(id, cursor, meta))
+      .flatMap(value => ZIO.fromEither(McpResources.readListResult(value)))
+
+  def listResourceTemplatesPage(
+      cursor: Option[String] = None,
+      meta: Option[Json.Obj] = None
+  ): IO[AgentError, McpResourcePage[McpResourceTemplate]] =
+    resourceRequest(
+      "resources/templates/list",
+      id => McpResources.templatesRequest(id, cursor, meta)
+    )
+      .flatMap(value => ZIO.fromEither(McpResources.readTemplatesResult(value)))
+
+  def readResource(
+      uri: String,
+      meta: Option[Json.Obj] = None
+  ): IO[AgentError, McpReadResourceResult] =
+    resourceRequest("resources/read", id => McpResources.readRequest(id, uri, meta))
+      .flatMap(value => ZIO.fromEither(McpResources.readResult(value)))
+
+  /** Preserve ordered duplicates; cursors are opaque and each page owns its request deadline. */
+  def discoverResources(
+      maxPages: Int,
+      maxResources: Int,
+      meta: Option[Json.Obj] = None
+  ): IO[AgentError, Chunk[McpResourceDefinition]] =
+    discoverResourcePages(maxPages, maxResources, cursor => listResourcesPage(cursor, meta))
+
+  def discoverResourceTemplates(
+      maxPages: Int,
+      maxTemplates: Int,
+      meta: Option[Json.Obj] = None
+  ): IO[AgentError, Chunk[McpResourceTemplate]] =
+    discoverResourcePages(maxPages, maxTemplates, cursor => listResourceTemplatesPage(cursor, meta))
+
+  /** Requires advertised subscriptions; ownership of explicit unsubscribe belongs to the host. */
+  def subscribeResource(uri: String, meta: Option[Json.Obj] = None): IO[AgentError, Unit] =
+    requireResourceSubscriptions *>
+      resourceRequest("resources/subscribe", id => McpResources.subscribeRequest(id, uri, meta))
+        .flatMap(value => ZIO.fromEither(McpClient.emptyResult(value)))
+
+  def unsubscribeResource(uri: String, meta: Option[Json.Obj] = None): IO[AgentError, Unit] =
+    requireResourceSubscriptions *>
+      resourceRequest("resources/unsubscribe", id => McpResources.unsubscribeRequest(id, uri, meta))
+        .flatMap(value => ZIO.fromEither(McpClient.emptyResult(value)))
+
+  /**
+   * Connection-local hints, not a replay log or a resource cache. Start consumption before subscribing.
+   * A slow observer exceeding the 64-event buffer fails explicitly; RPC correlation remains usable.
+   * Malformed resource notifications also fail observers. Closing this client ends the stream.
+   */
+  def resourceChanges: ZStream[Any, AgentError, McpResourceChange] =
+    ZStream.unwrapScoped(observeResourceChanges)
+
+  /** Acquire the observer before sending subscribe requests, avoiding a local registration race. */
+  def observeResourceChanges: ZIO[Scope, AgentError, ZStream[Any, AgentError, McpResourceChange]] =
+    for
+      _        <- requireResources
+      released <- Promise.make[Nothing, Unit]
+      _        <- ZIO.addFinalizer(released.succeed(()).unit)
+      queue    <- resourceEvents.subscribe
+    yield ZStream
+      .fromQueue(queue)
+      .filter:
+        case _: McpResourceChange.ListChanged =>
+          initialization.capabilities.resources.exists(_.listChanged.contains(true))
+        case _: McpResourceChange.Updated =>
+          initialization.capabilities.resources.exists(_.subscribe.contains(true))
+      .merge(
+        ZStream.fromZIO(
+          resourceFailure.await
+            .raceFirst(
+              released.await.as(Cause.fail(AgentError.McpError("MCP resource observer closed")))
+            )
+            .flatMap(ZIO.refailCause(_))
+        )
+      )
+
+  def close: UIO[Unit] = connection.close.ensuring(resourceEvents.shutdown)
+
+  private def resourceRequest(
+      operation: String,
+      build: McpRequestId => Either[AgentError.InvalidMessage, McpMessage.Request]
+  ): IO[AgentError, Json.Obj] =
+    McpClient.withDeadline(
+      requireResources *> connection.request(build).flatMap(McpClient.payload),
+      deadline,
+      operation
+    )
+
+  private def requireResources: IO[AgentError, Unit] =
+    ZIO
+      .fail(AgentError.McpError("MCP server did not advertise the resources capability"))
+      .when(initialization.capabilities.resources.isEmpty)
+      .unit
+
+  private def requireResourceSubscriptions: IO[AgentError, Unit] =
+    requireResources *> ZIO
+      .fail(AgentError.McpError("MCP server did not advertise resource subscriptions"))
+      .unless(initialization.capabilities.resources.exists(_.subscribe.contains(true)))
+      .unit
+
+  private def discoverResourcePages[A](
+      maxPages: Int,
+      maxItems: Int,
+      fetch: Option[String] => IO[AgentError, McpResourcePage[A]]
+  ): IO[AgentError, Chunk[A]] =
+    def loop(
+        cursor: Option[String],
+        seen: Set[String],
+        pages: Int,
+        accumulated: Chunk[A]
+    ): IO[AgentError, Chunk[A]] =
+      fetch(cursor).flatMap: page =>
+        if page.items.size > maxItems - accumulated.size then
+          ZIO.fail(AgentError.McpError("MCP resource discovery item limit exceeded"))
+        else
+          val items = accumulated ++ page.items
+          page.nextCursor match
+            case None => ZIO.succeed(items)
+            case Some(next) if seen.contains(next) =>
+              ZIO.fail(AgentError.McpError("MCP resource discovery repeated a cursor"))
+            case Some(_) if pages >= maxPages =>
+              ZIO.fail(AgentError.McpError("MCP resource discovery page limit exceeded"))
+            case Some(next) => loop(Some(next), seen + next, pages + 1, items)
+    if maxPages <= 0 || maxItems <= 0 then
+      ZIO.fail(
+        AgentError.InvalidConfiguration(
+          "MCP resource discovery page and item limits must be positive"
+        )
+      )
+    else loop(None, Set.empty, 1, Chunk.empty)
 
   private def requireTools: IO[AgentError, Unit] =
     ZIO
@@ -159,10 +297,19 @@ object McpClient:
   ): ZIO[Scope, AgentError, McpClient] =
     ZIO.uninterruptibleMask: restore =>
       for
-        connection <- McpConnection.make(transport)
+        events    <- ZIO.acquireRelease(Hub.dropping[McpResourceChange](64))(_.shutdown)
+        failure   <- Promise.make[Nothing, Cause[AgentError]]
+        resources <- Ref.make(Option.empty[McpResourceCapabilities])
+        connection <- McpConnection.observed(
+          transport,
+          64,
+          16,
+          notification => observeResourceNotification(notification, resources, events, failure),
+          cause => failure.succeed(cause).unit
+        )
         initialized <- restore(
           withDeadline(
-            initialize(connection, clientInfo),
+            initialize(connection, clientInfo, resources),
             deadlines.initialization,
             "initialization"
           )
@@ -171,7 +318,9 @@ object McpClient:
           case Exit.Success(result) =>
             Ref
               .make(McpToolMetadataPropagation.Allow)
-              .map(mode => new McpClient(result, connection, deadlines.request, mode))
+              .map(mode =>
+                new McpClient(result, connection, deadlines.request, mode, events, failure)
+              )
           case Exit.Failure(cause) =>
             connection.close.exit.flatMap:
               case Exit.Success(_) => ZIO.refailCause(cause)
@@ -181,14 +330,55 @@ object McpClient:
 
   private def initialize(
       connection: McpConnection,
-      clientInfo: McpImplementation
+      clientInfo: McpImplementation,
+      resources: Ref[Option[McpResourceCapabilities]]
   ): IO[AgentError, McpInitializationResult] =
     for
       reply  <- connection.request(id => McpInitialization.request(id, clientInfo))
       value  <- payload(reply)
       result <- ZIO.fromEither(McpInitialization.readResult(value))
+      _      <- resources.set(result.capabilities.resources)
       _      <- connection.notify(McpInitialization.initialized)
     yield result
+
+  private def observeResourceNotification(
+      notification: McpMessage.Notification,
+      resources: Ref[Option[McpResourceCapabilities]],
+      events: Hub[McpResourceChange],
+      failure: Promise[Nothing, Cause[AgentError]]
+  ): UIO[Unit] =
+    resources.get.flatMap: capabilities =>
+      val enabled = notification.method match
+        case "notifications/resources/list_changed" =>
+          capabilities.exists(_.listChanged.contains(true))
+        case "notifications/resources/updated" => capabilities.exists(_.subscribe.contains(true))
+        case _                                 => false
+      if !enabled then ZIO.unit
+      else
+        McpResources.readChange(notification) match
+          case Left(error) => failure.succeed(Cause.fail(error)).unit
+          case Right(None) => ZIO.unit
+          case Right(Some(change)) =>
+            events
+              .publish(change)
+              .flatMap:
+                case true => ZIO.unit
+                case false =>
+                  failure
+                    .succeed(
+                      Cause.fail(AgentError.McpError("MCP resource notification buffer exceeded"))
+                    )
+                    .unit
+
+  private def emptyResult(value: Json.Obj): Either[AgentError.DeserializationError, Unit] =
+    com.weisgnosis.agents.core.json.JsonBoundary
+      .validate(value)
+      .flatMap: _ =>
+        value.get("_meta") match
+          case None | Some(_: Json.Obj) => Right(())
+          case _                        => Left("Result _meta must be an object")
+      .left
+      .map(AgentError.DeserializationError(_))
 
   private def payload(reply: McpRequests.Reply): IO[AgentError, Json.Obj] = reply match
     case McpMessage.Success(_, result) => ZIO.succeed(result)

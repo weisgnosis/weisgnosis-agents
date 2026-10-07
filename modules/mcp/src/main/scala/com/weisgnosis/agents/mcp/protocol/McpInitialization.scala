@@ -27,7 +27,17 @@ final case class McpImplementation(name: String, version: String, title: Option[
 
 final case class McpToolCapabilities(listChanged: Option[Boolean], extensions: Json.Obj)
 
-final case class McpServerCapabilities(tools: Option[McpToolCapabilities], extensions: Json.Obj)
+final case class McpResourceCapabilities(
+    subscribe: Option[Boolean],
+    listChanged: Option[Boolean],
+    extensions: Json.Obj
+)
+
+final case class McpServerCapabilities(
+    tools: Option[McpToolCapabilities],
+    extensions: Json.Obj,
+    resources: Option[McpResourceCapabilities] = None
+)
 
 final case class McpInitializationResult(
     serverInfo: McpImplementation,
@@ -97,9 +107,28 @@ object McpInitialization:
 
   private def serverCapabilities(value: Json): Either[String, McpServerCapabilities] =
     for
-      fields <- objectValue(value, "capabilities")
-      tools  <- optional(fields, "tools", toolCapabilities)
-    yield McpServerCapabilities(tools, extensions(fields, "tools"))
+      fields    <- objectValue(value, "capabilities")
+      tools     <- optional(fields, "tools", toolCapabilities)
+      resources <- optional(fields, "resources", resourceCapabilities)
+    yield McpServerCapabilities(
+      tools,
+      Json.Obj(fields.fields.filterNot(entry => Set("tools", "resources").contains(entry._1))),
+      resources
+    )
+
+  private def resourceCapabilities(value: Json): Either[String, McpResourceCapabilities] =
+    def flag(raw: Json): Either[String, Boolean] = raw match
+      case Json.Bool(value) => Right(value)
+      case _                => Left("Resource capability flags must be booleans")
+    for
+      fields      <- objectValue(value, "capabilities.resources")
+      subscribe   <- optional(fields, "subscribe", flag)
+      listChanged <- optional(fields, "listChanged", flag)
+    yield McpResourceCapabilities(
+      subscribe,
+      listChanged,
+      Json.Obj(fields.fields.filterNot(entry => Set("subscribe", "listChanged").contains(entry._1)))
+    )
 
   private def toolCapabilities(value: Json): Either[String, McpToolCapabilities] =
     for

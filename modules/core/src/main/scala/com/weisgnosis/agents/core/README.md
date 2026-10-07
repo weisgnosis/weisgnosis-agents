@@ -1,5 +1,7 @@
 # core: source package index
 
+The [runtime schema contract](tool/README.md#runtime-schema-admission) records effectful Draft 2020-12 admission, exact input preservation, migration and current review evidence.
+
 - [agent](agent/README.md)
 - [client](client/README.md)
 - [error](error/README.md)
