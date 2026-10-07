@@ -16,7 +16,7 @@ checked-usage-red.log reproduces cross-turn overflow acceptance and invalid-usag
 | [ChatUsage.scala](ChatUsage.scala) | b18a1476dd7e2c6d4522cf89f6483f153d592caa |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 5f52c4fe7acd454475928f20ab7634dcc28157e2 |
 | [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | 924725a21a867e314580535955a6af1bf591ec2b |
-| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | 01e27e38c791e3cc62f3a86c6366573236b1edea |
+| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current hook-reuse test identity](../agent/README.md#hook-error-gate-reuse); source/full verification passed, final documentation acceptance pending; prior checked-usage scope retained. |
 | [ReActAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala) | 462d23a1bcbb7ab038c007924862e4273e69327c |
 | [StructuredOutputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputSpec.scala) | 79574ad1cfbfcf0fcf82a94e1f84350775caf83a |
 | [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | b6679fa965afb24a765d0a335c159496fbfeaf23 |

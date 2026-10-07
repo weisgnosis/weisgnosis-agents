@@ -289,23 +289,38 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
         history.map(_.text) == Chunk("q")
       )
     },
-    test("hook errors retain provenance and never retry native structured output") {
+    test("hook errors retain provenance without retry and release the gate for the next run") {
       val error = AgentError.ReasoningHookError("host policy failed")
       for
         calls  <- Ref.make(0)
-        closed <- Ref.make(false)
+        closed <- Ref.make(0)
         client = LlmClient.mockEffectful((_, _, _) =>
           calls.update(_ + 1).as(TurnOutput.FinalText(Msg.assistant("7")))
         )
         agent <- ReActAgent.make(
           client = client,
-          postReasoningHook =
-            PostReasoningHook((_, _) => ZIO.addFinalizer(closed.set(true)) *> ZIO.fail(error))
+          postReasoningHook = PostReasoningHook((_, _) =>
+            ZIO.addFinalizer(closed.update(_ + 1)) *> calls.get.flatMap(count =>
+              if count == 1 then ZIO.fail(error)
+              else ZIO.succeed(ReasoningDecision.Keep)
+            )
+          )
         )
-        result   <- agent.runStructured[Int](Chunk(Msg.user("q")), schema).either
-        count    <- calls.get
-        released <- closed.get
-      yield assertTrue(result == Left(error), count == 1, released)
+        result              <- agent.runStructured[Int](Chunk(Msg.user("q")), schema).either
+        countBeforeRetry    <- calls.get
+        releasedBeforeRetry <- closed.get
+        next                <- agent.runStructured[Int](Chunk(Msg.user("next")), schema)
+        count               <- calls.get
+        released            <- closed.get
+      yield assertTrue(
+        result == Left(error),
+        countBeforeRetry == 1,
+        releasedBeforeRetry == 1,
+        next._2 == 7,
+        next._1.reply.getStructuredData[Int] == Right(7),
+        count == 2,
+        released == 2
+      )
     },
     test(
       "cooperative cancellation closes a pending hook without persisting or executing its model tools"

@@ -445,6 +445,21 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 
 - [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope.
 
+## Hook-error gate reuse
+
+The existing ReActAgentReasoningHookSpec typed-error group now runs the same agent again after its first post-reasoning hook fails. It checks the exact original typed error without an automatic retry, completed first-hook cleanup before the second invocation, then successful structured completion. Model-call and cleanup counts advance from one after the failed invocation to two after the successful invocation. The existing 20-second suite timeout bounds a leaked serialization gate. No production implementation or test group is added.
+
+This is a bounded intent adaptation of pinned ReActAgentMiddlewareIntegrationTest.serializeOnKeyGateReleasedAfterMiddlewareError (line 474): a failed host extension must not retain the same agent's serialization gate. Java's AgentStart middleware exception, Reactor subscription/cancellation, onion middleware and mutable callback APIs are not reproduced. The test does not establish arbitrary event rewriting, null/throw behavior or general middleware parity, and no production defect/RED claim is made.
+
+| Reviewed test against dcacd72 | Git blob |
+| --- | --- |
+| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | `7f78f63366f4c64bb58360348d98fd7c049edcf1` |
+
+- [x] review_fp and review_invariants approved the exact final test identity against dcacd72, with no unresolved findings.
+- [x] hook-reuse-focused.log passes all 19 tests with zero failures/ignored tests in 534 ms; no group was added.
+- [x] hook-reuse-verify.log passes all 1,522 tests (676 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests and four RC1 packages. hook-reuse-preparation.log passes exact archive/POM/license checks and reversible rejection fixtures. Production/build/consumer sources are unchanged; no new consumer API validation is claimed.
+- [x] review_fp and review_invariants approved the final six-file combined scope against dcacd72. English inspected; git diff --check and 78-document/2,942-local-reference checks pass. No unresolved findings remain in this scope.
+
 ## Current post-reasoning identities
 
 Baseline post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. The current hook and runtime identities belong to [before-acting suspension](#before-acting-suspension-and-restoration); unchanged error contracts remain separate.
@@ -454,7 +469,7 @@ Baseline post-reasoning identities from the scope against `2a400e0`; commit `885
 | [PostReasoningHook.scala](PostReasoningHook.scala) | [Current identity](#before-acting-suspension-and-restoration) |
 | [StructuredOutput.scala](StructuredOutput.scala) | 5d6d81c944530f8ff7094733abfc21885729e456 |
 | [PostReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PostReasoningHookSpec.scala) | 0a024cbdaf20b5a7d3be015b30a60c07118310ab |
-| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
+| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current hook-reuse test identity](#hook-error-gate-reuse); source/full verification passed; final documentation acceptance pending; prior behavioral scope retained. |
 
 ## Local-result processing boundary
 

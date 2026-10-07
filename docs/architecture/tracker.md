@@ -46,12 +46,14 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Opaque signature details](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details) has final scoped acceptance with strict profile isolation and literal all-historical replay.
 
-Current delivery scope: explicit [inline video projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#inline-video-projection) against bfe53a1; other MIME types, roles and Data inference remain unsupported.
+- [x] [Inline video projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#inline-video-projection) has final scoped acceptance for explicit video/webm and video/mp4; broader MIME types, Data inference and live interoperability remain open.
 
-- [x] Both reviewers approved the exact final two-file scope; 20 focused tests pass in 390 ms with no added groups.
-- [x] inline-video-final-verify.log passes 1,522 tests (676 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests and four RC1 packages; inline-video-preparation.log passes exact archive checks and reversible rejection fixtures.
-- [x] inline-video-consumer.log passes standalone formatting, clean compilation and forked selected-API consumption against four fresh loaded module hashes; the unchanged smoke does not directly exercise inline video.
-- [x] review_fp and review_invariants approved the final ten-file combined scope against bfe53a1; English/diff and 78-document/2,937-local-reference checks pass.
+Current delivery scope against dcacd72: strengthen the existing [hook-error gate reuse test](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#hook-error-gate-reuse), without production changes or added groups.
+
+- [x] Both reviewers approved the exact test identity recorded in the canonical hook-reuse contract.
+- [x] hook-reuse-focused.log verifies all 19 tests with zero failures/ignored tests in 534 ms, including exact typed failure/cleanup and second successful same-agent invocation.
+- [x] hook-reuse-verify.log passes all 1,522 tests (676 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests and four RC1 packages; hook-reuse-preparation.log passes exact archive/rejection checks. Production/build/consumer sources are unchanged.
+- [x] review_fp and review_invariants approved the final six-file combined scope against dcacd72; bounded mapping/English/diff and 78-document/2,942-local-reference checks pass.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -103,7 +105,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-Complete the explicit inline video projection and its independent verification gates above. Then select the next bounded increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+Complete the hook-error gate reuse test and its independent verification gates above. Then select the next bounded increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
 
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.

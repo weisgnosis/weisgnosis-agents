@@ -106,13 +106,15 @@ The [client capability table](../../../../../../../main/scala/com/weisgnosis/age
 
 ## Post-reasoning verification
 
+The [hook-error gate reuse contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#hook-error-gate-reuse) owns the current ReActAgentReasoningHookSpec identity. Both independent reviewers approved the strengthened existing group, and hook-reuse-focused.log passes all 19 tests in 534 ms with zero failures/ignored tests. The typed failure completes cleanup before a second same-agent invocation succeeds; exact call/cleanup counts exclude an automatic retry. Full hook-reuse-verify.log passes all 1,522 tests with zero compiler warnings/failures/ignored tests and four RC1 packages; hook-reuse-preparation.log passes archive validation. Only final combined documentation approval remains pending. No production change or test group is added.
+
 Three PostReasoningHookSpec tests verify decision/error codecs, suspended callbacks/default Keep, and compile-time exclusion of provider errors. Nineteen ReActAgentReasoningHookSpec tests verify canonical/legacy usage ownership, typed discard continuation, replacement classification and persistence, iteration/thinking bounds, interrupted-output bypass, invalid roles/errors, scoped cleanup, cancellation/timeout, cross-attempt accounting, input-usage exclusion, invocation reset, correlated final publication, and single-transfer synthetic history. The mixed legacy/canonical usage regression failed before the residual-history correction.
 
 - [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope.
 
 The upstream null-message scenario is adapted to typed Discard followed by a valid capture. It establishes safe continuation without dispatching discarded calls, not nullable-hook API equivalence. General middleware and other legacy hook operations remain outside this scope.
 
-The [agent table](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) records unchanged post-reasoning identities; commit `8850a60` preserves all six identities from that increment.
+The [agent table](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md) links current post-reasoning identities; commit `8850a60` preserves all six identities from that increment.
 
 ## Shared-Toolkit destination isolation
 
