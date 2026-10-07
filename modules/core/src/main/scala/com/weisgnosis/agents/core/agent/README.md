@@ -40,6 +40,23 @@ ReActAgent retains history and serializes runs. Model requests receive their own
 - [StructuredOutput](StructuredOutput.scala)
 - [TurnCompletionObserver](TurnCompletionObserver.scala)
 
+
+## Thinking-only retry contract
+
+Thinking-only replies with blank visible text and no calls append one synthetic user reminder named system before the next request. Retry and iteration budgets are independent. For repeated thinking-only replies with sufficient iteration budget, retries 0/1/2 produce exactly 1/2/3 calls and 0/1/2 reminders; a larger retry budget with maxIterations=2 produces two calls/two reminders and max_iterations. There is no extra summarizing request. Visible answers do not consume thinking retries, and reasoning with a tool call enters acting rather than the empty-response loop.
+
+The existing five-group ReActAgentThinkingRetrySpec now directly verifies reminder-dependent model behavior, role/name/metadata, exact request/reminder bounds and separate maximum-iteration precedence. This is test-only contract strengthening: production behavior and group count are unchanged, and no defect RED claim is made.
+
+| Source/spec approved by review_fp and review_invariants against 8792744 | Git blob |
+| --- | --- |
+| [ReActAgentThinkingRetrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentThinkingRetrySpec.scala) | b3ba2ecf4760a9e4ff4768436571994851170bf0 |
+
+- [x] Both independent reviewers approved the exact final test identity with no unresolved findings.
+- [x] thinking-retry-contract-focused.log passed five tests in 410 milliseconds.
+- [x] thinking-retry-contract-verify.log exited zero: 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests. Production/build/consumer are unchanged from accepted 8792744 packaging and fresh-consumer evidence; no artifact repeat is required for this test-only scope.
+- [x] review_fp and review_invariants approved the final combined five-file test/documentation scope against 8792744, with ReActAgentThinkingRetrySpec blob b3ba2ecf4760a9e4ff4768436571994851170bf0 unchanged. Manual English inspection, diff checks and 78-document/2,878-local-reference validation pass with zero issues; full verification above passed all 1,517 tests.
+
+
 ## Run-owned tool-group activation
 
 The optional `toolGroups` construction dependency uses the [immutable group registry](../tool/README.md#host-selected-tool-groups) as initial configuration. Each public ordinary or structured invocation owns fresh activation state. Structured native-to-synthetic fallback shares that invocation's state; a later public invocation starts from the configured defaults. Retained history does not restore group activation.

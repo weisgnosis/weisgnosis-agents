@@ -38,14 +38,14 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Checked thinking-budget endpoint preference](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-thinking-budget) has final scoped acceptance; compatible endpoints remain host-selected and no local token limit is supplied.
 
-Current delivery scope: [explicit tool-image result projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-image-result-projection) against 6997fc6. TextOnly remains default; compatible-endpoint ImageParts is a bounded extension, not universal provider support.
+- [x] [Explicit tool-image projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-image-result-projection) has final scoped acceptance; default TextOnly and compatible-endpoint limits remain explicit.
 
-- [x] review_fp and review_invariants approved six final source/spec identities against 6997fc6.
-- [x] tool-image-closed-focused.log passed 37 tests in 3.715 seconds; standalone consumer formatting passed.
-- [x] tool-image-verify.log passed RC1 verification: 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures and four packages.
-- [x] tool-image-preparation.log passed exact archive admission and restored source/POM/LICENSE staging.
-- [x] tool-image-consumer.log passed standalone formatting, clean compilation and forked selected-API execution against four fresh actual RC1 module hashes, including ImageParts and checked usage/budget.
-- [x] review_fp and review_invariants approved the final combined 14-file diff against 6997fc6, with six source identities unchanged (manifest 67fa6c52a67649ebc64f6c070e1059c4ff50508fd062359f5db35affe569e8a1). Manual English inspection, diff checks and 78-document/2,874-local-reference validation pass with zero issues.
+Current delivery scope: [thinking-only retry contract tests](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#thinking-only-retry-contract) against 8792744. No production changes or new groups; independent retry/iteration limits intentionally omit Java's extra summarizing request.
+
+- [x] review_fp and review_invariants approved the final paired test identity.
+- [x] thinking-retry-contract-focused.log passed five tests in 410 milliseconds.
+- [x] thinking-retry-contract-verify.log passed 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests; unchanged production/build/consumer retain accepted 8792744 artifact evidence.
+- [x] review_fp and review_invariants approved the final combined five-file test/documentation scope against 8792744, with ReActAgentThinkingRetrySpec blob b3ba2ecf4760a9e4ff4768436571994851170bf0 unchanged. Manual English inspection, diff checks and 78-document/2,878-local-reference validation pass with zero issues; full verification above passed all 1,517 tests.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -97,7 +97,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-The bounded explicit tool-image profile has final independent acceptance and RC1 verification above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+The thinking-only retry test contract has full verification and final independent documentation acceptance above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
 
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.

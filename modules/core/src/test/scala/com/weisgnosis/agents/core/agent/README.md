@@ -49,7 +49,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 - [ReActAgentInterruptSpec](ReActAgentInterruptSpec.scala)
 - [ReActAgentLifecycleSpec](ReActAgentLifecycleSpec.scala)
 - [ReActAgentSpec](ReActAgentSpec.scala)
-- [ReActAgentThinkingRetrySpec](ReActAgentThinkingRetrySpec.scala)
+- [ReActAgentThinkingRetrySpec](ReActAgentThinkingRetrySpec.scala): five existing groups now directly enforce reminder-dependent retry and exact independent retry/iteration bounds under the [reviewed test scope](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#thinking-only-retry-contract). Source/focused/full checks pass; final combined documentation approval passed.
 - [StructuredCompletionSpec](StructuredCompletionSpec.scala)
 - [StructuredOutputDynamicSpec](StructuredOutputDynamicSpec.scala)
 - [StructuredJsonBoundarySpec](StructuredJsonBoundarySpec.scala)

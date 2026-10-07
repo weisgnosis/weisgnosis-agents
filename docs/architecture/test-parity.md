@@ -49,7 +49,7 @@ The unchanged Toolkit blob `79be10c316f676da5d96977419e5be4caf02886f` lost a cle
 - [x] Reproduce and correct incomplete core SSE frame dispatch at EOF, including truncated DONE accepted as completion. The [scoped contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion) records exact independent review identities and RED/GREEN evidence. This is a protocol regression derived from the EOF contract, not a new upstream whole-method mapping. OpenAIStreamTerminationTest.streamCompletesOnDoneSentinelWithoutWaitingForConnectionClose (line 91) maps to the existing transport open-tail/cleanup test; it does not test incomplete EOF framing.
 - [ ] Complete remaining provider scenarios and exhaustive upstream transport mapping.
 - [ ] Complete ReAct and interruption scenario mappings, including lifecycle hooks not yet implemented.
-- [ ] Complete the thinking-only empty-response scenario mapping.
+- [x] Classify the five pinned thinking-only empty-response methods under the bounded test contract below; exact Java assertion equivalence and broader lifecycle parity are not implied.
 - [x] Cover empty-input structured runs, signed thinking preservation, full reply usage, and immediate repeated calls.
 - [x] Close all eighteen structured-output method mappings through verified contracts or explicit typed adaptations; broader middleware/hook behavior remains separate work.
 - [ ] Complete compaction/eviction mappings and document storage-backend applicability.
@@ -66,6 +66,18 @@ Existing suites cover selected scenarios only. No unchecked mapping task is sati
 - LlmClient has scripted clients and ChatCompletionsClient for scoped HTTP completion with validated incremental correlated events. Provider extensions and exhaustive mapping remain pending.
 
 - [x] Both reviewers approved the bounded OpenAIMessageConverterTest.testToolMessageWithMultimodalResult (887) source adaptation; full RC1/archive/fresh-consumer checks pass. Final combined documentation approval passed in the linked tool-image scope. Explicit successful Text/Image tool projection preserves original role/ID/order; testToolMessageWithoutResultBlock (916) invented-ID fallback remains intentionally excluded.
+
+## Thinking-only empty-response methods
+
+Pinned ReActAgentEmptyResponseRetryTest methods map to the existing five-group Scala suite under the [exact reviewed test identity](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#thinking-only-retry-contract):
+
+- [x] retriesThinkingOnlyFinalResponse (71): model output now depends on the last synthetic reminder; two iterations and exactly one correctly named/typed reminder are asserted.
+- [x] loopIsBoundedByMaxIters (99): bounded intent is adapted with independent retry/iteration budgets, exact calls/reminders and max_iterations. Java's extra summarizing request is intentionally omitted, so its whole assertion sequence is not reproduced.
+- [x] blankTextTriggersRetry (120): reasoning with blank visible text produces one reminder and a second turn.
+- [x] toolCallResponsesAreNotRetried (135): reasoning plus a tool call enters acting without a synthetic reminder.
+- [x] textResponsesAreNotRetried (151): visible text completes in one iteration without a reminder.
+- [x] Full verification passed under the linked test-only contract; no production change or reproduced-defect claim is made.
+- [x] Both reviewers approved final combined documentation in the linked test-only contract.
 
 ## Completion criterion
 

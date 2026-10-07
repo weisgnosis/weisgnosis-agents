@@ -33,7 +33,9 @@ object ReActAgentThinkingRetrySpec extends ZIOSpecDefault:
       test("Thinking-only final response loops back and the retry carries a reminder") {
         val mockClient = LlmClient.mockEffectful { (history, _, _) =>
           val hasReminder =
-            history.exists(m => m.isSynthetic && m.reminderKind.contains("empty_response"))
+            history.lastOption.exists(m =>
+              m.isSynthetic && m.reminderKind.contains("empty_response")
+            )
           if !hasReminder then
             // First turn: thinking only
             val thinkingMsg = Msg.assistant(
@@ -53,15 +55,18 @@ object ReActAgentThinkingRetrySpec extends ZIOSpecDefault:
             .model(mockClient)
             .maxIters(10)
             .build
-          reply   <- agent.call(Msg.user("hello"))
+          result  <- agent.run(Msg.user("hello"))
           history <- agent.history
           reminderOpt = history.find(m =>
             m.isSynthetic && m.reminderKind.contains("empty_response")
           )
         yield assertTrue(
-          reply.text == "Here is the visible final answer.",
+          result.reply.text == "Here is the visible final answer.",
+          result.iterationCount == 2,
+          history.count(_.reminderKind.contains("empty_response")) == 1,
           reminderOpt.isDefined,
           reminderOpt.exists(_.role == Role.User),
+          reminderOpt.exists(_.name.contains("system")),
           reminderOpt.exists(_.text.startsWith("<system-reminder>")),
           reminderOpt.exists(_.text.contains("Your previous reply had empty content"))
         )
@@ -108,26 +113,38 @@ object ReActAgentThinkingRetrySpec extends ZIOSpecDefault:
         yield assertTrue(result.iterationCount == 1, !result.history.exists(_.isSynthetic))
       },
       test("A model that keeps returning thinking-only stops at retry limit") {
-        val infiniteThinkingClient = LlmClient.mockFunction { (_, _) =>
-          val thinkingMsg = Msg.assistant(
-            content = Chunk(ContentBlock.Thinking("Thinking forever...")),
-            name = None
-          )
-          TurnOutput.ThinkingOnly(thinkingMsg)
-        }
-
-        for
-          agent <- ReActAgent
-            .builder()
-            .name("test-asst")
-            .model(infiniteThinkingClient)
-            .maxIters(5)
-            .build
-          result <- agent.run(Msg.user("hello"))
-        yield assertTrue(
-          result.reply.generateReason.contains("empty_response") || result.reply.generateReason
-            .contains("max_iterations"),
-          result.iterationCount <= 5
+        val thinkingMsg = Msg.assistant(
+          content = Chunk(ContentBlock.Thinking("Thinking forever...")),
+          name = None
         )
+
+        val policies = Chunk(
+          (0, 5, 1, "empty_response"),
+          (1, 5, 2, "empty_response"),
+          (2, 5, 3, "empty_response"),
+          (5, 2, 2, "max_iterations")
+        )
+        ZIO
+          .foreach(policies): (retries, iterations, expectedCalls, reason) =>
+            for
+              calls <- Ref.make(0)
+              client = LlmClient.mockEffectful((_, _, _) =>
+                calls.update(_ + 1).as(TurnOutput.ThinkingOnly(thinkingMsg))
+              )
+              agent <- ReActAgent.make(
+                client = client,
+                config = AgentConfig(maxIterations = iterations, emptyThinkingRetryLimit = retries)
+              )
+              result <- agent.run(Msg.user("hello"))
+              count  <- calls.get
+            yield assertTrue(
+              count == expectedCalls,
+              result.iterationCount == expectedCalls,
+              result.reply.generateReason.contains(reason),
+              result.history.count(
+                _.reminderKind.contains("empty_response")
+              ) == (if reason == "empty_response" then retries else expectedCalls)
+            )
+          .map(_.foldLeft(assertTrue(true))(_ && _))
       }
     )
