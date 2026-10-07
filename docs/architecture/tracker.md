@@ -24,17 +24,19 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 - [x] Assess [remote retention/ownership limits](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#remote-retention-and-ownership-boundary) against 1f4581b with independent invariant evidence: current ports cannot safely reclaim physical objects.
 - [ ] Define all-reader/writer fencing or quiescence, namespace generation/tombstone ABA protection, enumeration/deletion and uncertain-delete recovery before physical remote pruning.
 
-Current increment: [explicit registered transcript assembly](../../modules/examples/README.md#registered-transcript-assembly) in the unpublished example. Selection occurs before MCP; catalog membership grants no authorization, lease or history validity.
+- [x] [Registered transcript assembly](../../modules/examples/README.md#registered-transcript-assembly) resolves one explicit descriptor before MCP in the unpublished example; catalog membership grants no authorization, lease or history validity.
 
-- [x] Obtain final FP/ZIO source approval for the two identities.
-- [x] Obtain final invariant source approval for the same two identities.
-- [x] Focused verification passed three existing/new assembly groups.
-- [x] Full verification passed 1,508 tests with zero compiler warnings/failures and four packages.
-- [x] Archive/source admission regressions and restored archive/POM preparation passed.
-- [x] Fresh standalone selected-API consumption passed; the smoke does not select Registered.
-- [x] review_fp and review_invariants approved final combined documentation against 1f4581b and the two unchanged identities; English/script/diff checks and 78-document/2,827-local-reference checks pass with zero issues.
-- [ ] Next task: verify remaining remote memory middleware throttle/isolation combinations through a proportional shared real-PostgreSQL gate/repository fixture; broader scheduling/distributed guarantees remain separate.
-- [ ] Assess selected provider reasoning/signature gaps separately; no signature shape expansion or whole-method parity closure is claimed here.
+Current increment: [remote memory middleware throttle integration](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration), using one shared real-PostgreSQL matrix group and eight unchanged local groups. Distinct matrix row addresses do not establish cross-scope collision or broader distributed guarantees.
+
+- [x] Obtain final FP/ZIO approval for the three source/build identities.
+- [x] Obtain final invariant source approval for the same three identities.
+- [x] Complete focused eight-local/one-PostgreSQL verification.
+- [x] Full verification passed 1,509 tests with zero compiler warnings/failures and four packages.
+- [x] Archive/source regressions and restored package/POM staging passed, including test-only fixture isolation.
+- [x] Fresh standalone selected-API consumption passed without fixture classpath/dependency leakage.
+- [x] review_fp and review_invariants approved final combined documentation against 5caa18f and the three unchanged identities; manual English/script/diff checks and 78-document/2,839-local-reference checks pass with zero issues.
+- [ ] Next task: reproduce and independently review runtime validation of custom LlmClient TurnOutput assistant role/classification before persistence/completion; no defect is established until a failing regression exists.
+- [ ] Assess remaining provider reasoning/signature and remote middleware mappings separately; no host-restart, scheduling/delivery or physical-retention claim is added.
 
 ## Current acceptance
 

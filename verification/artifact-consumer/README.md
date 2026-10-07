@@ -20,7 +20,7 @@ The manual [candidate workflow](../../.github/workflows/candidate.yml) validates
 
 | Source/config approved by review_fp and review_invariants against 529aa4c | Git blob |
 | --- | --- |
-| [Root build.sbt](../../build.sbt) | da753b3655de97ab0c65ad900a337d7a3e7c467f |
+| [Root build.sbt](../../build.sbt) | [Current test-sharing build identity](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration); candidate version behavior unchanged. |
 | [ci.yml](../../.github/workflows/ci.yml) | d865baa4dc36d52dc2c84c8e4c2c5ebab11d7b2e |
 | [candidate.yml](../../.github/workflows/candidate.yml) | 63fa41a745e21ce1f894f0009af6753b4cc20bd3 |
 | [ArtifactSmoke.scala](ArtifactSmoke.scala) | 7470d5bc6763562e5b088fcc3e669efa27c7bacb |

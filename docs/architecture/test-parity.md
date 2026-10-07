@@ -861,7 +861,7 @@ MemoryMiddlewareThrottleIsolationTest:
 
 - [x] flushAndMaintenanceHaveIndependentWindows, local admission-only adaptation: all eight scope/order combinations are verified with typed operation keys.
 - [x] MemoryLifecycleIsolationSpec now verifies all eight local middleware reconstruction and background consolidator assertions with real schedulers/consolidation, 1-hour Flush versus 24-hour Maintenance, both orders, four scopes, exact extraction/report counts, committed curated state and queue quiescence. Rebuilt adapters share the original gate.
-- [ ] Its eight store-backed combinations remain pending with remote coordination.
+- [x] Verify the bounded store-backed adaptation: one real-PostgreSQL group runs the same four-scope/two-order oracle with independent backend/reopened gate bindings and persisted curated checks. Distinct row addresses do not prove cross-scope collisions; the [three-file contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration) owns completed source/full/preparation/consumer evidence; final combined documentation acceptance passed.
 
 MemoryConfigTest trigger behavior:
 
@@ -919,7 +919,10 @@ A test-scope ownership review finding was corrected with acquireRelease so early
 - [x] Exercise all four consolidation outcomes, gate suppression/failure, no-input throttle consumption, coalescing, successful-completion hooks, failed/cancelled exits and closed/full/registration failures.
 - [x] Verify local persisted commit after report failure and owner reopen.
 - [x] Implement bounded host-controlled local transcript discovery for existing maintenance; source-level adaptation and limits are recorded below.
-- [ ] Implement the eight remote matrix combinations under a concrete remote storage/ownership contract; local discovery does not establish remote parity.
+- [x] Verify the bounded eight-combination remote throttle adaptation above.
+- [x] Complete fresh selected-API consumer verification without fixture dependency leakage.
+- [x] review_fp and review_invariants approved final combined documentation for that bounded scope against 5caa18f.
+- [ ] Complete broader remote maintenance/retention and ownership mappings separately.
 
 - [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
 

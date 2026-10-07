@@ -123,6 +123,26 @@ The previous MemoryExtractor comment identity is preserved in `46c6174`; its cur
 | [MemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRepositorySpec.scala) | 090804a4d20f01d838c8d7e381175287374cadc2 |
 | [MemoryConsolidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidatorSpec.scala) | 49f460b8ba9e77b202e146b50a0c6b9b561445b1 |
 
+## Remote middleware throttle integration
+
+The shared MemoryLifecycleIsolationSpec oracle now runs unchanged eight local scope/order groups and one real-PostgreSQL group covering four scopes in both flush/maintenance orders. Each remote row uses a versioned repository and independent backend bindings to the same per-row gate address, including a reopened gate with rebuilt schedulers. Exact extractor/report counts, curated content and queue-idle assertions are shared; reopened repository reads verify persisted curated content.
+
+Distinct row addresses isolate the cases; they do not prove cross-scope collision handling. This bounded adaptation verifies middleware throttle/reconstruction combinations, not host restart, distributed scheduling, delivery, physical retention or broader middleware parity. Production API behavior is unchanged. storagePostgresql test compilation borrows the harness test oracle through compile->compile;test->test; fixture types remain private[agents] test infrastructure and do not enter production artifacts.
+
+| Source/build approved by review_fp and review_invariants against 5caa18f | Git blob |
+| --- | --- |
+| [build.sbt](../../../../../../../../../../build.sbt) | d6d7eec1c3f36494d1be44d5fe420faf50391b99 |
+| [Harness MemoryLifecycleIsolationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryLifecycleIsolationSpec.scala) | f2c942c2811b9755e9a30df88e0e47f2675fcd1e |
+| [PostgreSQL MemoryLifecycleIsolationSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/MemoryLifecycleIsolationSpec.scala) | 291785b68ce0935c0af15c60cec55b784b230210 |
+
+- [x] review_fp approved the final three source/build identities against 5caa18f.
+- [x] review_invariants approved the same three final identities, with no unresolved findings.
+- [x] remote-memory-lifecycle-focused.log passed eight local groups in 444 milliseconds and one actual PostgreSQL group in 2.414 seconds.
+- [x] remote-memory-lifecycle-verify.log exited zero: 1,509 tests (669 core / 726 harness / 86 MCP / 22 PostgreSQL / 6 examples), zero compiler warnings/failures and four packages.
+- [x] remote-memory-lifecycle-preparation.log passed source/archive regressions and restored package/POM staging, including the test-only fixture dependency boundary.
+- [x] remote-memory-lifecycle-consumer.log passed fresh standalone formatting, clean compilation and forked selected-API execution without fixture classpath/dependency leakage.
+- [x] review_fp and review_invariants approved final combined documentation against 5caa18f and the three unchanged identities; manual English review, script/diff checks and 78-document/2,839-local-reference checks pass with zero issues.
+
 ## Versioned remote memory
 
 [VersionedMemoryRepository.make](VersionedMemoryRepository.scala) is a pure checked factory returning the existing MemoryRepository capabilities over one host-selected VersionedJsonStore and StorageAddress. maxAttempts defaults to eight and must be positive. Construction performs no read/write or initial curated publication; an absent aggregate means empty memory. Daily, consolidation and retention ports share the same whole-aggregate authority. [MemoryRepositoryState](MemoryRepositoryState.scala) contains private immutable transitions reused by MemoryRepository.inMemory and this adapter; process-local public signatures and revision semantics remain unchanged.
@@ -334,13 +354,13 @@ This scheduler performs consolidation only. Explicit acknowledged-daily archival
 
 ## Current consolidation/composition identities
 
-Unchanged harness identities from the consolidation/composition increment against `3e817e3`; the changed scheduler identity is preserved in b3d2723 and indexed in the maintenance table below. MemoryMaintenanceScheduler also changed for coordinator support; its previous identity is preserved in b86fd14. Independent acceptance of the earlier scope is recorded below.
+Current linked harness identities from the consolidation/composition increment against `3e817e3`; the changed scheduler identity is preserved in b3d2723 and indexed in the maintenance table below. MemoryMaintenanceScheduler also changed for coordinator support; its previous identity is preserved in b86fd14. Independent acceptance of the earlier scope is recorded below.
 
 | Source | Git blob |
 | --- | --- |
 | [MemoryConsolidationSchedulerLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidationSchedulerLifecycleSpec.scala) | 52cb68b9d9151cfca1924e09337af6f86f2df965 |
 | [MemoryConsolidationSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidationSchedulerSpec.scala) | 978a32d2c3a77dd93cc9b6e01a1e8213c1dcf5bd |
-| [MemoryLifecycleIsolationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryLifecycleIsolationSpec.scala) | b2834aa19526dc9a4c55b7ec2334b08abd7cc096 |
+| [MemoryLifecycleIsolationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryLifecycleIsolationSpec.scala) | [Current shared oracle identity](#remote-middleware-throttle-integration) |
 | [MemorySchedulerCompositionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemorySchedulerCompositionSpec.scala) | 09dce79b7ea16b2e64c7c2720ad7a76feb28723a |
 
 - [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.

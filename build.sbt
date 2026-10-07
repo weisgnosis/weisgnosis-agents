@@ -95,7 +95,7 @@ lazy val mcp = (project in file("modules/mcp"))
   )
 
 lazy val storagePostgresql = (project in file("modules/storage-postgresql"))
-  .dependsOn(harness)
+  .dependsOn(harness % "compile->compile;test->test")
   .settings(
     name := "weisgnosis-agents-storage-postgresql",
     commonSettings,

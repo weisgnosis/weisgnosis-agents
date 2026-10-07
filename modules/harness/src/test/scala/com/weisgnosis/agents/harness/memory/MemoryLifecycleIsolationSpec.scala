@@ -22,7 +22,7 @@ import zio.*
 import zio.test.*
 
 object MemoryLifecycleIsolationSpec extends ZIOSpecDefault:
-  private enum Order:
+  private[agents] enum Order:
     case FlushFirst, MaintenanceFirst
 
   private def accepted(submission: MemoryTaskSubmission): IO[AgentError, MemoryTaskTicket] =
@@ -42,6 +42,78 @@ object MemoryLifecycleIsolationSpec extends ZIOSpecDefault:
   private def maintain(scheduler: MemoryConsolidationScheduler): IO[AgentError, MemoryTaskOutcome] =
     scheduler.submit.flatMap(accepted).flatMap(_.await)
 
+  private[agents] def policy: IO[AgentError.InvalidConfiguration, MemoryTriggerPolicy] =
+    for
+      flushInterval       <- ZIO.fromEither(MemoryInterval.fromDuration(1.hour))
+      maintenanceInterval <- ZIO.fromEither(MemoryInterval.fromDuration(24.hours))
+    yield MemoryTriggerPolicy(
+      MemoryTrigger.Throttled(flushInterval),
+      MemoryTrigger.Throttled(maintenanceInterval)
+    )
+
+  /** One shared behavioral oracle for local and independently reconstructed persistent authorities. */
+  private[agents] def exercise(
+      repository: MemoryRepository,
+      gate: MemoryTriggerGate,
+      rebuiltGate: MemoryTriggerGate,
+      scope: MemoryScope,
+      order: Order
+  ): ZIO[Scope, AgentError, TestResult] =
+    for
+      _           <- repository.daily.appendDaily(LocalDate.of(2026, 9, 29), "seed fact")
+      queue       <- MemoryTaskQueue.open()
+      flushes     <- Ref.make(0)
+      extractions <- Ref.make(0)
+      reports     <- Ref.make(Chunk.empty[ConsolidationResult])
+      manager <- MemoryFlushManager.make(
+        repository.daily,
+        MemoryExtractor(_ => flushes.update(_ + 1).as("NO_REPLY"))
+      )
+      consolidator <- MemoryConsolidator.make(
+        repository.consolidation,
+        MemoryExtractor(_ => extractions.update(_ + 1).as("curated seed"))
+      )
+      firstFlush <- MemoryFlushScheduler.make(queue, gate, scope, manager)
+      firstMaintenance <- MemoryConsolidationScheduler.make(
+        queue,
+        gate,
+        scope,
+        consolidator,
+        result => reports.update(_ :+ result)
+      )
+      initial <- order match
+        case Order.FlushFirst       => flush(firstFlush).zip(maintain(firstMaintenance))
+        case Order.MaintenanceFirst => maintain(firstMaintenance).zip(flush(firstFlush))
+      repeatedFlush       <- flush(firstFlush)
+      repeatedMaintenance <- maintain(firstMaintenance)
+      rebuiltFlush        <- MemoryFlushScheduler.make(queue, rebuiltGate, scope, manager)
+      rebuiltMaintenance <- MemoryConsolidationScheduler.make(
+        queue,
+        rebuiltGate,
+        scope,
+        consolidator,
+        result => reports.update(_ :+ result)
+      )
+      finalFlush       <- flush(rebuiltFlush)
+      finalMaintenance <- maintain(rebuiltMaintenance)
+      _                <- queue.awaitIdle
+      flushCount       <- flushes.get
+      extractionCount  <- extractions.get
+      results          <- reports.get
+      curated          <- repository.daily.readCurated
+    yield assertTrue(
+      initial == (
+        MemoryTaskOutcome.Completed(Exit.unit),
+        MemoryTaskOutcome.Completed(Exit.unit)
+      ),
+      List(repeatedFlush, repeatedMaintenance, finalFlush, finalMaintenance)
+        .forall(_ == MemoryTaskOutcome.Completed(Exit.unit)),
+      flushCount == 1,
+      extractionCount == 1,
+      results == Chunk(ConsolidationResult.Committed),
+      curated.contains("curated seed")
+    )
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("MemoryLifecycleIsolationSpec")(
     List(
       MemoryScope.User(Some("user")),
@@ -52,68 +124,11 @@ object MemoryLifecycleIsolationSpec extends ZIOSpecDefault:
       Order.values.toList.map(order =>
         test(s"flushAndMaintenanceHaveIndependentWindows: $scope / $order") {
           for
-            repository    <- MemoryRepository.inMemory()
-            _             <- repository.daily.appendDaily(LocalDate.of(2026, 9, 29), "seed fact")
-            queue         <- MemoryTaskQueue.open()
-            flushInterval <- ZIO.fromEither(MemoryInterval.fromDuration(1.hour))
-            maintenanceInterval <- ZIO.fromEither(MemoryInterval.fromDuration(24.hours))
-            gate <- MemoryTriggerGate.inMemory(
-              MemoryTriggerPolicy(
-                MemoryTrigger.Throttled(flushInterval),
-                MemoryTrigger.Throttled(maintenanceInterval)
-              )
-            )
-            flushes     <- Ref.make(0)
-            extractions <- Ref.make(0)
-            reports     <- Ref.make(Chunk.empty[ConsolidationResult])
-            manager <- MemoryFlushManager.make(
-              repository.daily,
-              MemoryExtractor(_ => flushes.update(_ + 1).as("NO_REPLY"))
-            )
-            consolidator <- MemoryConsolidator.make(
-              repository.consolidation,
-              MemoryExtractor(_ => extractions.update(_ + 1).as("curated seed"))
-            )
-            firstFlush <- MemoryFlushScheduler.make(queue, gate, scope, manager)
-            firstMaintenance <- MemoryConsolidationScheduler.make(
-              queue,
-              gate,
-              scope,
-              consolidator,
-              result => reports.update(_ :+ result)
-            )
-            initial <- order match
-              case Order.FlushFirst       => flush(firstFlush).zip(maintain(firstMaintenance))
-              case Order.MaintenanceFirst => maintain(firstMaintenance).zip(flush(firstFlush))
-            repeatedFlush       <- flush(firstFlush)
-            repeatedMaintenance <- maintain(firstMaintenance)
-            rebuiltFlush        <- MemoryFlushScheduler.make(queue, gate, scope, manager)
-            rebuiltMaintenance <- MemoryConsolidationScheduler.make(
-              queue,
-              gate,
-              scope,
-              consolidator,
-              result => reports.update(_ :+ result)
-            )
-            finalFlush       <- flush(rebuiltFlush)
-            finalMaintenance <- maintain(rebuiltMaintenance)
-            _                <- queue.awaitIdle
-            flushCount       <- flushes.get
-            extractionCount  <- extractions.get
-            results          <- reports.get
-            curated          <- repository.daily.readCurated
-          yield assertTrue(
-            initial == (
-              MemoryTaskOutcome.Completed(Exit.unit),
-              MemoryTaskOutcome.Completed(Exit.unit)
-            ),
-            List(repeatedFlush, repeatedMaintenance, finalFlush, finalMaintenance)
-              .forall(_ == MemoryTaskOutcome.Completed(Exit.unit)),
-            flushCount == 1,
-            extractionCount == 1,
-            results == Chunk(ConsolidationResult.Committed),
-            curated.contains("curated seed")
-          )
+            repository <- MemoryRepository.inMemory()
+            selected   <- policy
+            gate       <- MemoryTriggerGate.inMemory(selected)
+            result     <- exercise(repository, gate, gate, scope, order)
+          yield result
         }
       )
     )*
