@@ -1,6 +1,6 @@
 # Shared JSON boundaries
 
-WIP pause: The reviewed twelve-file baseline below passed full verification. ExactJsonSpec was subsequently extended to four tool-result event metadata variants; that regression failed, and the corresponding latest AgentEvent correction is unverified. Final combined documentation closure remains pending.
+The exact-output scope below has final independent FP/ZIO and invariant approval, including numeric metadata decoding for all four tool-result event variants.
 
 [JsonBoundary](JsonBoundary.scala) is library-internal (private[agents]) and pure. decode parses one complete JSON document and rejects duplicate object keys throughout the tree. validate checks an immutable AST without changing its representation. Both return Either[String, Json]; neither evaluates JSON Schema or imposes a size limit.
 
@@ -10,7 +10,7 @@ ChatCompletions uses render for complete HTTP bodies and historical tool-argumen
 
 ## Exact domain and tool output
 
-[ExactJson.encode](ExactJson.scala) is a public pure `Either[AgentError.InvalidMessage, String]` boundary. It obtains the encoder's JSON AST, rejects recursive duplicate members, then renders exact numeric values. Reviewed round-trips cover suspended AgentResult checkpoints and AgentResultEvent payloads containing JSON. Other event metadata decoders are under investigation; no all-event metadata round-trip guarantee is established. A custom encoder must supply a faithful toJsonAST: this helper cannot recover values already changed by that encoder. It does not add schema validation, storage, authentication or checkpoint authority.
+[ExactJson.encode](ExactJson.scala) is a public pure `Either[AgentError.InvalidMessage, String]` boundary. It obtains the encoder's JSON AST, rejects recursive duplicate members, then renders exact numeric values. The explicit round-trip scope covers suspended AgentResult checkpoints, AgentResultEvent payloads and ToolResultStart/Delta/End/DataDelta metadata containing JSON. Unrelated event variants are not claimed newly audited. A custom encoder must supply a faithful toJsonAST: this helper cannot recover values already changed by that encoder. It does not add schema validation, storage, authentication or checkpoint authority.
 
 Message and Thinking/ToolUse/ToolResult metadata decoders retain JSON object values directly, avoiding the dependency Map decoder's AST-to-text conversion. Missing/null metadata still becomes empty; malformed nonobjects still fail; duplicate map keys retain the existing last-wins behavior. This decoding change does not introduce duplicate rejection or new metadata authority.
 
@@ -20,16 +20,17 @@ Compactor retained-user strings and unsigned argument previews, and daily-memory
 
 ## Verification and acceptance
 
-- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the twelve identities below, including direct metadata extraction and the unchanged memory regression. No findings remain in this scope.
-- [x] Focused exact-output-final-focused.log passed 42 core tests in 576 ms and 41 harness tests in 383 ms. Two ExactJson groups cover exact checkpoint/AgentResultEvent/block round-trips, duplicate rejection and failed AST conversion; existing tool and memory groups add numeric regressions without new lifecycle fixtures.
-- [x] Formatting, verify and packageArtifacts passed in exact-output-verify.log. Archive/POM checks and an isolated packaged consumer executing ExactJson also passed (artifact-inspection-green.log and exact-output-artifact-consumer.log). Current repository totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the thirteen identities below, including direct event metadata extraction and unchanged memory regressions. No findings remain within this scope.
+- [x] Focused resume-focused.log passed 41 core tests in 8.172 seconds, including numeric checkpoint/event metadata, runtime lifecycle and request/client/failover suites. Existing event serde/payload/type suites also passed in the full run. Two ExactJson groups cover exact checkpoint/event/block round-trips, metadata compatibility, duplicate rejection and failed AST conversion. Existing tool and memory groups retain numeric regressions without new lifecycle fixtures.
+- [x] Full formatting, verify and packageArtifacts passed in resume-verify.log, with zero compiler warnings or failed tests. Six-JAR license/source and POM inspection passed; resume-artifact-consumer.log clean-compiled and ran numeric event metadata round-trips against fresh packaged JARs. Current repository totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
-The pre-fix memory-numeric-red.log recorded 38 passes/3 failures in provenance, pruning and extraction previews; tool-numeric-red.log recorded 6 passes/1 failure in factory output. metadata-numeric-red.log recorded 1 pass/1 failure in checkpoint/block metadata after exact rendering alone: the dependency Map decoder reserialized numeric AST values. Direct object extraction closes that additional loss. Expected numeric literals are independent of the writer under test. These are Scala numeric-integrity regressions, not additional whole-method upstream parity claims.
+The pre-fix memory-numeric-red.log recorded 38 passes/3 failures in provenance, pruning and extraction previews; tool-numeric-red.log recorded 6 passes/1 failure in factory output. metadata-numeric-red.log recorded 1 pass/1 failure in checkpoint/block metadata after exact rendering alone: the dependency Map decoder reserialized numeric AST values. resume-event-metadata-red.log then recorded 40 passes/1 failed numeric event round-trip because a generic JsonCodec wrapper did not override the dependency's direct Map decoder. An explicit private-payload JsonDecoder extracts object members directly; the focused run above verifies the correction. Expected numeric literals are independent of the writer under test. These are Scala numeric-integrity regressions, not additional whole-method upstream parity claims.
 
 | Reviewed file | Git blob |
 | --- | --- |
 | [ExactJson.scala](ExactJson.scala) | `f9150a264f59c9c20590878b6195fda9b350c033` |
-| [ExactJsonSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/json/ExactJsonSpec.scala) | `666b84a020d3b5ae3af98609e07a04153d4c5d42` |
+| [ExactJsonSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/json/ExactJsonSpec.scala) | `4c14c2b3502ba9ef52e77c078b1c9d6243d082a0` |
+| [AgentEvent.scala](../event/AgentEvent.scala) | `cc125e0fc50072a765f32f2cc4d26a63b8650bf6` |
 | [JsonFields.scala](../model/JsonFields.scala) | `44095275fbccc029af1ec29ee9ee387a388d4422` |
 | [Msg.scala](../model/Msg.scala) | `2f12a84f6f668f652dff6311088b842af6c495c7` |
 | [ContentBlock.scala](../model/ContentBlock.scala) | `d4b186534f6874b67bab02e2d0d37dec097ecf09` |

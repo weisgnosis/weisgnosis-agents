@@ -30,7 +30,7 @@ The [admitted-access contract](../../../../../../../main/scala/com/weisgnosis/ag
 - [x] `path_review` and `current_docs` approved the exact [source/spec identities](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#invocation-event-capability); focused tests and full verification passed. This additive contract has no reproduced pre-existing behavioral defect claim.
 - [x] Separate [harness integration evidence](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/README.md) covers child attribution, forwarding and promotion.
 
-The [exact output acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) records current ToolExecutionSpec and checked runtime encoding identities. Existing cancellation assertions remain unchanged; no numeric guarantee is added to legacy direct encodeOutput calls.
+The [exact output acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) records current ToolExecutionSpec and checked runtime encoding identities, final review_fp/review_invariants approval and full verification. Existing cancellation assertions remain unchanged; no numeric guarantee is added to legacy direct encodeOutput calls.
 
 ## Typed observation evidence
 

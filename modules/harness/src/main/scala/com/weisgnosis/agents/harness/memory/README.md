@@ -12,7 +12,7 @@ Older text output is pruned while retaining non-text blocks and execution metada
 
 Prior summaries enter summarization once but never raw-memory flushing. A replacement summary is coalesced with an initial retained user turn, with validated provenance for later flushing. System messages are preserved. Typed hook/summarizer failures propagate, cancellation remains cancellation, and completed external flush/offload effects cannot be rolled back.
 
-Retained-user provenance and numeric argument previews use [exact JSON boundaries](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output). Conversion errors fail preparation before a candidate is returned; message/block metadata decodes directly without numeric text conversion. The reviewed regression preserves provenance through later extraction exactly once. This does not change protected arguments, pruning limits, hook ownership or flush ordering.
+Retained-user provenance and numeric argument previews use [exact JSON boundaries](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output). Conversion errors fail preparation before a candidate is returned; message/block metadata decodes directly without numeric text conversion. review_fp and review_invariants approved the linked exact-output source/spec identities with no findings; full formatting, verification, packaging and packaged-consumer checks passed. The regression preserves provenance through later extraction exactly once. This does not change protected arguments, pruning limits, hook ownership or flush ordering.
 
 ## Implementation
 

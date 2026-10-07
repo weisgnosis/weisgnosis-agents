@@ -90,7 +90,7 @@ Migration: String `ToolExecutionResult(...)` constructors and the `output` text 
 
 Interrupted compound causes are refailed with `orDie`: interruption and cleanup defects survive, while typed Throwable leaves become defects to retain the UIO contract. Ordinary non-interrupted failures and defects remain Error observations.
 
-The additive encodeResultChecked returns Either[AgentError, ToolExecutionResult]. Its default preserves custom encodeResult projections; fromFunction uses ExactJson and fixed wrappers forward it. Toolkit normalizes encoding failures/defects after joined cleanup without swallowing interruption. Legacy direct encodeOutput and encodeResult calls are unchanged. There is no new abstract-method requirement; rebuild dependent binaries. [Exact output acceptance](../json/README.md#exact-domain-and-tool-output) owns current Tool/Toolkit/ToolExecutionSpec identities and the numeric regression.
+The additive encodeResultChecked returns Either[AgentError, ToolExecutionResult]. Its default preserves custom encodeResult projections; fromFunction uses ExactJson and fixed wrappers forward it. Toolkit normalizes encoding failures/defects after joined cleanup without swallowing interruption. Legacy direct encodeOutput and encodeResult calls are unchanged. There is no new abstract-method requirement; rebuild dependent binaries. review_fp and review_invariants approved this exact runtime encoding scope with no findings. [Exact output acceptance](../json/README.md#verification-and-acceptance) owns current Tool/Toolkit/ToolExecutionSpec identities, the numeric regression and full/package verification.
 
 ## Invocation event capability
 

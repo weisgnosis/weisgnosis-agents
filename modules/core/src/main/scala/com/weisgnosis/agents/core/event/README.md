@@ -1,6 +1,6 @@
 # Typed agent event payloads
 
-WIP pause: The current WIP adds a local metadata codec for four tool-result event payloads. Its regression failed before the correction; the latest correction has not yet been compiled, tested or independently approved.
+Four tool-result event metadata decoders retain numeric AST leaves directly. review_fp and review_invariants approved the final correction with no findings; the [JSON acceptance](../json/README.md#verification-and-acceptance) records exact source/spec identities and full verification.
 
 Generic PermissionAskEvent and PermissionDecisionEvent runtime integration is accepted in the [checkpoint contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events). Ask follows successful batch cleanup and precedes RequestStop; a recorded resumed authorization decision precedes tool Start. UUID correlation is data, not evidence of a human response; event codecs are unchanged.
 
@@ -41,7 +41,7 @@ Thinking, raw diagnostic frames, tool/result events and AgentResult pass unchang
 
 All 39 concrete/base codecs encode the same object with exactly one lowercase event discriminator. Concrete decoders also read legacy untagged payloads; a supplied tag must match. Base decoding requires a unique valid tag. Missing required fields, malformed tags, and duplicate discriminators fail. Immutable source updates preserve every other field.
 
-ToolResultStartEvent, ToolResultDeltaEvent, ToolResultEndEvent, and ToolResultDataDeltaEvent retain immutable metadata independently of source. Empty metadata is the default. Inline provider text/data events now preserve complete result metadata in output order; processed completed local output blocks retain metadata; provider multimodal projection remains pending; incremental local execution has separate accepted runtime evidence below. Isolated private payload derivation and a suspended root codec prevent encoder cycles; there is no silent AST encoding fallback.
+ToolResultStartEvent, ToolResultDeltaEvent, ToolResultEndEvent, and ToolResultDataDeltaEvent retain immutable metadata independently of source. Their private payload decoder extracts object members directly without an AST-to-text round-trip; missing/JSON-null metadata defaults to empty, malformed nonobjects fail and duplicate map keys retain last-wins behavior. Exact numeric host serialization remains opt-in through [ExactJson.encode](../json/README.md#exact-domain-and-tool-output). Inline provider text/data events now preserve complete result metadata in output order; processed completed local output blocks retain metadata; provider multimodal projection remains pending; incremental local execution has separate accepted runtime evidence below. Isolated private payload derivation and a suspended root codec prevent encoder cycles; there is no silent AST encoding fallback.
 
 ## Additional payloads
 
@@ -84,7 +84,7 @@ The [parity mapping](../../../../../../../../../../docs/architecture/test-parity
 
 | File | Git blob |
 | --- | --- |
-| [AgentEvent.scala](AgentEvent.scala) | 189673e0cd692fe7fddf8db5e586bd50a122796f |
+| [AgentEvent.scala](AgentEvent.scala) | [Current numeric-metadata identity](../json/README.md#verification-and-acceptance) |
 | [AgentEventType.scala](AgentEventType.scala) | 7d3238de6b51d9bb9df817dd4f866b91c993654c |
 | [AgentEventSerdeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/AgentEventSerdeSpec.scala) | e03c43bdbaf2d97c4e43d32ba3f2aa0c8700d46f |
 | [AgentEventPayloadSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/AgentEventPayloadSpec.scala) | 0912c9e7f25e7e90440caeeb8aa3314eaa61488c |

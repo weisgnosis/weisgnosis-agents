@@ -609,7 +609,9 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
                 results = history.flatMap(_.toolResults)
               yield assertTrue(
                 bodies.size == 2,
-                bodies.forall(_.asObject.exists(_.get("parallel_tool_calls").contains(Json.Bool(false)))),
+                bodies.forall(
+                  _.asObject.exists(_.get("parallel_tool_calls").contains(Json.Bool(false)))
+                ),
                 inputs == Chunk(Json.Obj()),
                 replayed.size == 1,
                 replayed.forall(_.get("reasoning_details").contains(expected)),

@@ -57,7 +57,7 @@ MediaSource.Url carries an optional descriptive mimeType encoded as mime_type. M
 
 MediaSource.Url and Base64 share the same tagged encoding through concrete and base types, with strict unique discriminators and no AST encoding fallback. Concrete decoders retain legacy untagged input; nested media sources require a tag. Base64 emits media_type and accepts mediaType only when the canonical field is absent; supplying both fails. Concrete source JSON now includes type, so consumers must allow this added field.
 
-Msg, ContentBlock and JsonFields have current numeric-decoding approval in the [exact output acceptance](../json/README.md#exact-domain-and-tool-output). Other model contracts retain their stated scopes.
+review_fp and review_invariants approved current numeric decoding for Msg, ContentBlock and JsonFields with no findings; [exact output acceptance](../json/README.md#verification-and-acceptance) records the source identities and full verification. Other model contracts retain their stated scopes.
 
 ## Current acceptance and remaining work
 

@@ -4,6 +4,8 @@ Generic PermissionAskEvent and PermissionDecisionEvent runtime integration is ac
 
 The existing RequestStop codec is unchanged. [Acting-stop runtime tests](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) exercise host authority and publication after completed observations; the event payload alone grants no stop, cancellation or resume authority. Both independent reviews and full verification passed for this bounded integration.
 
+[ExactJsonSpec](../json/ExactJsonSpec.scala) additionally verifies exact numeric metadata across all four tool-result event variants and missing/null/nonobject compatibility; current decoder identities and final verification belong to the [JSON contract](../../../../../../../main/scala/com/weisgnosis/agents/core/json/README.md#verification-and-acceptance).
+
 These suites verify payload codecs and selected runtime boundaries. They do not establish exhaustive event integration or Java wire compatibility.
 
 - [ModelStreamContextSpec](ModelStreamContextSpec.scala)

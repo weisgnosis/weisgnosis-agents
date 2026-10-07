@@ -64,20 +64,31 @@ object ExactJsonSpec extends ZIOSpecDefault:
         AgentEvent.AgentResultEvent(assistant),
         AgentEvent.ToolResultStartEvent("call", "read", metadata = metadata),
         AgentEvent.ToolResultDeltaEvent("call", "part", metadata = metadata),
-        AgentEvent.ToolResultEndEvent("call", "read", "done", ToolResultState.Success, metadata = metadata),
-        AgentEvent.ToolResultDataDeltaEvent("reply", "call", "read", ContentBlock.Text("done"), metadata = metadata)
+        AgentEvent
+          .ToolResultEndEvent("call", "read", "done", ToolResultState.Success, metadata = metadata),
+        AgentEvent.ToolResultDataDeltaEvent(
+          "reply",
+          "call",
+          "read",
+          ContentBlock.Text("done"),
+          metadata = metadata
+        )
       )
       assertTrue(
         ExactJson.encode(input) == Right(
           """{"values":[-9223372036854775808,-9223372036854775.808]}"""
         ),
         ExactJson.encode(checkpoint).flatMap(_.fromJson[AgentResult]) == Right(checkpoint),
-        events.forall(event => ExactJson.encode(event).flatMap(_.fromJson[AgentEvent]) == Right(event)),
+        events.forall(event =>
+          ExactJson.encode(event).flatMap(_.fromJson[AgentEvent]) == Right(event)
+        ),
         Chunk(
           """{"event":"tool_result_start","callId":"call","name":"read"}""",
           """{"event":"tool_result_start","callId":"call","name":"read","metadata":null}"""
         ).forall(_.fromJson[AgentEvent] == Right(AgentEvent.ToolResultStartEvent("call", "read"))),
-        """{"event":"tool_result_start","callId":"call","name":"read","metadata":[]}""".fromJson[AgentEvent].isLeft,
+        """{"event":"tool_result_start","callId":"call","name":"read","metadata":[]}"""
+          .fromJson[AgentEvent]
+          .isLeft,
         blocks.forall(block =>
           ExactJson.encode(block).flatMap(_.fromJson[ContentBlock]) == Right(block)
         )

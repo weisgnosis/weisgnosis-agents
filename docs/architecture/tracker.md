@@ -1,19 +1,18 @@
 # Architecture implementation tracker
 
-Last synchronized: 2026-10-05. Implementation is paused at the user's request. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
+Last synchronized: 2026-10-07. Implementation is active. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
 
-## Pause and resume checkpoint
+## Current delivery gates
 
-Work paused on 2026-10-05 at the user's request. The preliminary WIP commit preserves all current source and documentation; it is not final acceptance. The last fully accepted commit before this checkpoint is `417c20c`. The existing unrelated stash remains untouched.
+The numeric-integrity and typed parallel-call steering scope is accepted after final independent review and verification. Current source/spec identities belong to the [JSON contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md#verification-and-acceptance) and [client contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-parallel-tool-call-steering).
 
-- [x] Preserve the reviewed exact-output baseline: `exact-output-verify.log` passed 658 core / 724 harness / 85 MCP tests (1,467 total), plus packaging and a separate packaged consumer. The twelve reviewed baseline identities are in the [JSON contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md#verification-and-acceptance).
-- [x] Reproduce additional event metadata loss: `event-metadata-red.log` passed one group and failed one against the unchanged event codec; four tool-result event variants use a Map AST decoding path that reserializes numbers.
-- [ ] First on resume: format and compile the latest `AgentEvent.PayloadCodecs` local metadata codec, then run ExactJsonSpec and existing event codec suites. The final eight-line event codec correction has not been compiled, tested or independently approved. ExactJsonSpec was extended after the previously verified baseline.
-- [ ] Verify the five-file `parallel_tool_calls` draft (LlmConfig, ChatCompletionsRequest and three existing client specs). Invariant source review is available, but final FP/ZIO review and behavioral verification remain open. The draft appends the thirteenth LlmConfig field; the accepted twelve-field migration text predates it.
-- [ ] Obtain final independent FP/ZIO and invariant approvals of the complete final diff, including event metadata and parallel steering. Then reconcile current README identities, migration notes and parity mappings; current document updates remain draft closure material for this WIP snapshot.
-- [ ] Run `sbt scalafmtAll scalafmtSbt` and `sbt verify packageArtifacts`, check English prose/local Markdown links, and commit an accepted follow-up. Do not describe the WIP revision as passing all checks.
+- [x] Correct event metadata numeric decoding with a direct private-payload JsonDecoder; the pre-fix regression recorded 40 passes/1 failure, and resume-focused.log passes 41 tests.
+- [x] Verify typed parallel_tool_calls omission/enabled/disabled values, per-target preservation and real HTTP authorization independent of provider preference; LlmConfig has thirteen fields.
+- [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for all eighteen changed Scala identities against 417c20c, including the final correction; no findings remain in this scope.
+- [x] Run scalafmtAll scalafmtSbt and verify packageArtifacts: resume-verify.log passes 658 core / 724 harness / 85 MCP tests (1,467 total), with zero compiler warnings or failed tests.
+- [x] Inspect all six binary/source JARs and POM scopes; the isolated resume-artifact-consumer.log clean-compiles and runs exact numeric event round-trips and typed thirteen-field configuration against the three fresh packaged artifacts.
 
-The public ExactJson helper is opt-in and requires faithful encoder AST conversion. It does not globally replace dependency `.toJson` calls or legacy direct tool encoders. Remote storage, durable host integration, remaining upstream mappings, platform/live-provider validation and release gates remain open below. No remote publication or push was performed.
+ExactJson remains opt-in and requires faithful encoder AST conversion. External dependency .toJson and legacy direct tool encoders are not globally replaced. This acceptance does not close remote storage, durable host integration, remaining parity, platform/live-provider or release work below. No remote publication or push was performed.
 
 ## Current acceptance
 
@@ -35,7 +34,7 @@ The public ExactJson helper is opt-in and requires faithful encoder AST conversi
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full formatting and `verify` passed: 658 core / 724 harness / 85 MCP tests (1,467 total), zero compiler warnings or failures. Evidence: `exact-output-verify.log` (including packageArtifacts); compile task 5 seconds and test task 24 seconds. This run used process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx1024m -Xss16m -XX:ActiveProcessorCount=2` and `sbt --mem 1024`.
+- [x] Full formatting and `verify` passed: 658 core / 724 harness / 85 MCP tests (1,467 total), zero compiler warnings or failed tests. Evidence: `resume-verify.log` (including packageArtifacts), archive/POM inspection and `resume-artifact-consumer.log`. This run used process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx1024m -Xss16m -XX:ActiveProcessorCount=2` and `sbt --mem 1024`.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -162,7 +161,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Both independent reviews and full verification passed for [exact optional seed and ChatCompletions rendering](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-seed-and-exact-request-rendering) and [MCP envelope numeric integrity](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/protocol/README.md#exact-envelope-rendering). These do not globally replace derived JSON codecs.
 - [x] Both reviewers approved [exact structured/transcript numeric output](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output); full verification passed without new groups.
 - [x] Complete full verification of the independently approved [exact domain/tool output](../../modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) and memory provenance/preview corrections.
-- [ ] Next: implement and independently review optional typed parallel_tool_calls provider steering, separate from local execution policy.
+- [x] Finish independent review and verification of [typed parallel_tool_calls provider steering](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-parallel-tool-call-steering) and event metadata numeric decoding.
+- [ ] Next: assess scoped cross-module assembly using the existing builder and document the justified RC assembly boundary; preserve the remaining adapter/parity plan below.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.
@@ -196,6 +196,18 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [x] Implement bounded HTTP JSON/SSE body framing with strict UTF-8, all SSE line endings, incomplete-event discard, complete causes and demand-preserving decoding. Both reviewers approved the exact [transport identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#verification-and-acceptance); the HTTP adapter has separate bounded acceptance.
 - [ ] Define remaining ambient metadata propagation, broader schema transformation and discovery caching separately; bounded manager acceptance does not close these upstream contracts.
 - [ ] Validate live end-to-end cancellation, resource release and operational controls, confirm remote CI, and complete release/API compatibility and production acceptance.
+
+## Release-candidate readiness assessment
+
+These proposed readiness checks supplement the remaining implementation/parity plan; they do not remove remote-adapter work or establish a release date or readiness percentage. Existing local SDK/Tomcat and Netty interoperability tests exercise real independent servers; public-provider validation remains separate.
+
+- [ ] Assess scoped cross-module assembly ergonomics using the existing immutable ReActAgent.builder and effectful Builder.build; document a complete host assembly example before deciding whether an additional preset is justified.
+- [ ] Assess structured logging/tracing integration against existing AgentEvent streams and scoped hooks; define redaction, correlation and ownership before adding an observability adapter.
+- [ ] Add an explicitly enabled live-provider smoke path with bounded requests, tool calling and joined cleanup; default tests must remain deterministic and credential-free.
+- [ ] Review public API visibility, source/binary migration and packaged-consumer compatibility; agree the RC API boundary without claiming exhaustive upstream parity.
+- [ ] Validate remote CI and the release/publication pipeline, versioning, licensing and host/migration documentation before tagging or publishing an RC.
+
+Durable workflow replay, authentication, UI, distributed execution and idempotent checkpoint claims belong to hosts. Library remote memory/transcript/checkpoint adapters and their ownership/recovery contracts remain unfinished work above; host responsibility is not a reason to mark those adapters complete.
 
 ## Verification and contracts
 

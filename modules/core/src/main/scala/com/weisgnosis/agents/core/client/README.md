@@ -1,6 +1,6 @@
 # Model client port and stream assembly
 
-WIP pause: The current WIP adds optional typed parallel_tool_calls steering and a thirteenth LlmConfig field. Behavioral verification and final FP/ZIO review are pending; accepted migration entries below describe the preceding reviewed scope.
+Optional typed parallel_tool_calls steering adds a thirteenth LlmConfig field. The dedicated contract below records final independent review and verification; preceding accepted scopes retain their bounded evidence.
 
 LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and returns TurnOutput. Implementations must acquire request resources in that scope. The package provides scripted clients, LlmConfig, SSE framing, strict completion-delta decoding, reasoning-history adaptation, and StreamAccumulator. ChatCompletionsTransport provides a separate scoped HTTP completion operation. ChatCompletionsClient connects it to ReAct with incremental correlated events.
 
@@ -32,16 +32,35 @@ ReActAgentEventSpec checks AgentStart first and the matching AgentEnd last for f
 | Reviewed spec | Git blob |
 | --- | --- |
 | [ReActAgentEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEventSpec.scala) | `e2991912ecc419178a41373ae9b56d7467314faf` |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | `a885b877f0e2c6c8481a9ed3164a0cb6af4a083e` |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current parallel-steering identity](#optional-parallel-tool-call-steering) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no findings. Existing groups were strengthened; no production behavior or test-group count changed. Focused `event-order-focused.log` passed seventeen tests in 7.747 seconds.
 - [x] Formatting and full verification passed in `event-order-verify.log`, with zero compiler warnings or failures. Current totals and environment belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
+## Optional parallel tool-call steering
+
+LlmConfig.parallelToolCalls is Option[ToolCallParallelism], defaulting to None. ToolCallParallelism.Enabled and Disabled encode as provider parallel_tool_calls true and false respectively; None omits the field. Explicit preferences remain present when no tools are advertised. Domain configuration uses the typed camelCase field; absent or JSON-null values decode as None, and malformed enum values fail decoding.
+
+This is a model generation preference. It does not change AgentConfig.toolExecution, admitted tools, authorization or call dispatch: a model may return multiple calls despite Disabled, and the runtime still applies its normal policies to every call. Each primary/fallback target retains its own configured preference through request settings projection; ModelRequestSettings does not expose this capability. Native/synthetic formatting and retry body reuse preserve the configured value.
+
+Migration: LlmConfig now has thirteen positional/Product fields. Existing omitted-argument construction and legacy JSON retain defaults; positional patterns and constructor method values may need adaptation, and dependent binaries must be rebuilt. Domain enum JSON is distinct from the provider Boolean wire field.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [LlmClient.scala](LlmClient.scala) | `723346b333f919207b33ea310103d0a119b4b839` |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `d365bd51151f71bc46b8b5cc6f0e7cd6ea4bebc1` |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `62199f66a9227b8c79d05c7640e0bd29711c9d62` |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | `bf364a5eefd834537cd20a8ffa23ab5c94dc5cb1` |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | `32d0109e304f8889dffe08ada779136be0462cb9` |
+
+- [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for these five identities, with no findings.
+- [x] resume-focused.log passed 41 core tests in 8.172 seconds, including existing request/config/failover tables and the actual HTTP authorization cycle. Full formatting, verify and packageArtifacts passed in resume-verify.log; an isolated packaged consumer exercised typed configuration in resume-artifact-consumer.log. No new test groups or live-provider compliance claim are implied.
 
 ## Optional seed and exact request rendering
 
 LlmConfig.seed and ModelRequestSettings.seed are Option[Long], defaulting to None. Some values, including zero and both signed 64-bit endpoints, encode as exact JSON integers under seed; None omits the field. Configuration JSON rejects fractional and out-of-Long-range seeds, while absent/null values retain None. No narrowing to Java's formatter integer range or provider reproducibility guarantee is implied.
 
-Each selected target supplies its own seed to request projection. The projected value replaces it, with None explicitly clearing it. Retries reuse the serialized body, and native/synthetic requests retain their projected settings. Seed changes no model identity, endpoint, tools, permissions or response format. Migration: LlmConfig has twelve positional/Product fields and ModelRequestSettings has six; defaulted appended fields preserve ordinary omitted-argument construction and legacy configuration JSON. Adapt positional patterns/method values and rebuild dependent binaries.
+Each selected target supplies its own seed to request projection. The projected value replaces it, with None explicitly clearing it. Retries reuse the serialized body, and native/synthetic requests retain their projected settings. Seed changes no model identity, endpoint, tools, permissions or response format. Migration: LlmConfig has thirteen positional/Product fields, including the defaulted parallelToolCalls field; ModelRequestSettings has six; defaulted appended fields preserve ordinary omitted-argument construction and legacy configuration JSON. Adapt positional patterns/method values and rebuild dependent binaries.
 
 The HTTP request body and historical tool-argument strings use the pure [exact JSON renderer](../json/README.md). Checked AST validation still precedes rendering. This avoids the dependency's decimal corruption at a minimum-Long unscaled coefficient, including nested values and nonzero scales. It is limited to explicitly integrated output boundaries: structured closing text and local transcript output have their own [reviewed integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output). [Exact domain/tool output](../json/README.md#exact-domain-and-tool-output) covers compactor provenance/previews and checked factory execution; hosts can opt into ExactJson.encode. External dependency serialization and legacy direct tool encoding remain outside that guarantee.
 
@@ -49,13 +68,13 @@ The HTTP request body and historical tool-argument strings use the pure [exact J
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | `2ced976db41ee9b4e36332767eccd3ca10211942` |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `b6c6b3089f7ef242376e1dc9db9866d607fffa91` |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current parallel-steering identity](#optional-parallel-tool-call-steering) |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `1a3164bbca698268544f783f8f72ea8d2861ced8` |
-| [LlmClient.scala](LlmClient.scala) | `473e36399db1aa56fa1d33b7229c3ee3b6d194ad` |
+| [LlmClient.scala](LlmClient.scala) | [Current parallel-steering identity](#optional-parallel-tool-call-steering) |
 | [JsonBoundary.scala](../json/JsonBoundary.scala) | `6cf481403cc762117989e31d5e1dd2c0c1ffd3be` |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | `073135e8b0f665d05b3942ed84ec504642d69d55` |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `c54573623cd4f2db600ccfd75a93ed6c957101e4` |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | `ab2bdf2a53acf444077829486bf2581c1785a23b` |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current parallel-steering identity](#optional-parallel-tool-call-steering) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current parallel-steering identity](#optional-parallel-tool-call-steering) |
 | [JsonBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/json/JsonBoundarySpec.scala) | `aca1f4ce72d66ff5f6f28ec0d13dc767a14a3800` |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the ten core identities, with no findings. The core section of `exact-json-focused-red.log` passed 34 tests in 988 ms after correction. Existing seed/config/projection/serialized-request tables and the unchanged exact-renderer regression cover omission, zero, Long endpoints, escaping, nested values, scale and stack-safe traversal.
