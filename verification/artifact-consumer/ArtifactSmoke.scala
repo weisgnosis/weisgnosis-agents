@@ -43,6 +43,7 @@ import com.weisgnosis.agents.core.tool.{
 import com.weisgnosis.agents.harness.storage.{StorageAddress, StorageRevision}
 import com.weisgnosis.agents.harness.permission.{PermissionBehavior, PermissionEngine}
 import com.weisgnosis.agents.mcp.protocol.{McpCallOutcome, McpCallResult, McpContentBlock}
+import com.weisgnosis.agents.mcp.transport.McpStdioTransport
 import com.weisgnosis.agents.storage.postgresql.PostgresVersionedJsonStore
 import java.io.File
 import java.util.regex.Pattern
@@ -172,6 +173,21 @@ object ArtifactSmoke extends ZIOAppDefault:
         _        <- verifyJar("harness", PermissionEngine.getClass, manifest)
         _        <- verifyJar("mcp", McpCallResult.getClass, manifest)
         _        <- verifyJar("storage-postgresql", PostgresVersionedJsonStore.getClass, manifest)
+        invalidEnvironment <- ZIO
+          .scoped(
+            McpStdioTransport.open(
+              Chunk("must-not-start"),
+              environment = Map("invalid=name" -> "private-value")
+            )
+          )
+          .exit
+        _ <- ZIO
+          .fail(failure("Packaged stdio environment validation failed"))
+          .unless(
+            invalidEnvironment.causeOption.exists(_.failures.exists:
+              case _: AgentError.InvalidConfiguration => true
+              case _                                  => false)
+          )
         storageAddress  <- ZIO.fromEither(StorageAddress.from(Chunk("consumer", "state"), "key"))
         storageRevision <- ZIO.fromEither(StorageRevision.fromLong(1L))
         usage <- ZIO.fromEither(

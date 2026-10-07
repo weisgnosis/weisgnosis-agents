@@ -42,13 +42,13 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Thinking-only retry contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#thinking-only-retry-contract) has final test/documentation acceptance with independent retry/iteration bounds and no extra summarizing request.
 
-Current delivery scope: bounded [upstream API applicability classification](test-parity.md) against 2e16c3f, covering all sixteen synchronous MCP wrapper methods, selected subagent API differences and checkpoint denied-before-Ask ordering. One existing checkpoint event-order test group is strengthened; no production behavior or group count changes. Broader caching/schema/transport, durable host/reuse and post-lease event contracts remain open.
+Current delivery scope against 0661e31: child-specific stdio environment overrides and bounded async-wrapper applicability classification. Existing production lifecycle remains unchanged. The prior checkpoint oracle remains accepted under its package contract.
 
-- [x] review_fp and review_invariants approved exact PartialConfirmationSpec blob 529f0dbba249dd552365ed699fbab540ab9a0b0e against 2e16c3f.
-- [x] review_fp and review_invariants approved the final combined eight-file test/documentation scope against 2e16c3f, with PartialConfirmationSpec blob 529f0dbba249dd552365ed699fbab540ab9a0b0e unchanged. Full verification passed all 1,517 tests with zero compiler warnings/failures/ignored tests. Manual English inspection, diff checks and 78-document/2,885-local-reference validation pass with zero issues.
-- [x] checkpoint-order-contract-focused.log passed four tests in 1.110 seconds.
-- [x] checkpoint-order-contract-verify.log passed 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests; unchanged production/build/consumer retain scoped accepted RC artifact evidence.
-- [x] English inspection and local Markdown/diff validation passed for the accepted bounded scope.
+- [x] Implement immutable child-only overrides with portable, secret-safe validation.
+- [x] Verify real subprocess inheritance, overrides, unchanged parent environment and joined reaping; retain cancellation coverage.
+- [x] Obtain final FP/ZIO and invariant approval of source, tests and external-consumer change.
+- [x] Run full verification, RC1 packaging/admission and the fresh standalone consumer.
+- [x] review_fp and review_invariants approved the final thirteen-file source/documentation scope against 0661e31. Current contracts/migration, English/diff and 78-document/2,897-local-reference checks pass with zero issues; this delivery commit records closure.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -100,7 +100,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-The current bounded applicability classification has final independent documentation acceptance above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+Current child-environment source/full/artifact checks passed; combined documentation approval for this increment and the async/base-wrapper classifications passed. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
 
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.

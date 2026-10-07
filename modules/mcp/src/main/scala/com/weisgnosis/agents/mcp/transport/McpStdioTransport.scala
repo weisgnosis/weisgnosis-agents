@@ -17,6 +17,7 @@ package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.mcp.protocol.McpMessage
+import scala.jdk.CollectionConverters.*
 import zio.*
 import zio.stream.{ZChannel, ZStream}
 
@@ -34,7 +35,8 @@ object McpStdioTransport:
   def open(
       command: Chunk[String],
       maxFrameBytes: Int = 1048576,
-      stderr: StderrPolicy = StderrPolicy.Discard
+      stderr: StderrPolicy = StderrPolicy.Discard,
+      environment: Map[String, String] = Map.empty
   ): ZIO[Scope, AgentError, McpTransport] =
     if command.headOption.forall(_.trim.isEmpty) || maxFrameBytes <= 0 then
       ZIO.fail(
@@ -42,6 +44,13 @@ object McpStdioTransport:
           "MCP stdio requires an executable and a positive frame limit"
         )
       )
+    else if environment.keys.exists(key =>
+        environment.keys.exists(other => key != other && key.equalsIgnoreCase(other))
+      ) ||
+      !environment.forall((key, value) =>
+        key.nonEmpty && !key.contains('=') && !key.contains('\u0000') && !value.contains('\u0000')
+      )
+    then ZIO.fail(AgentError.InvalidConfiguration("MCP stdio environment overrides are invalid"))
     else
       for
         writes   <- Semaphore.make(1)
@@ -56,9 +65,30 @@ object McpStdioTransport:
               val _ = builder.redirectError(stderr match
                 case StderrPolicy.Discard => ProcessBuilder.Redirect.DISCARD
                 case StderrPolicy.Inherit => ProcessBuilder.Redirect.INHERIT)
-              builder.start()
+              builder
             }
-            .mapError(ioError("start", _))
+            .mapError(ioError("configure", _))
+            .flatMap(builder =>
+              ZIO
+                .attemptBlocking:
+                  val target  = builder.environment()
+                  val windows = java.lang.System.getProperty("os.name", "").startsWith("Windows")
+                  environment.foreach: (key, value) =>
+                    val selectedKey =
+                      if windows then
+                        target
+                          .keySet()
+                          .iterator()
+                          .asScala
+                          .find(_.equalsIgnoreCase(key))
+                          .getOrElse(key)
+                      else key
+                    val _ = target.put(selectedKey, value)
+                .mapError(_ =>
+                  AgentError.InvalidConfiguration("MCP stdio environment overrides are invalid")
+                ) *>
+                ZIO.attemptBlocking(builder.start()).mapError(ioError("start", _))
+            )
             .map(process =>
               new Live(process, maxFrameBytes, writes, reader, terminal, closing, closed)
             )

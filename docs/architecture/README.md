@@ -23,10 +23,10 @@ Update contracts and mappings when behavior changes. Record current reviewed sco
 
 ## Current documentation acceptance
 
-Current documentation scope against 2e16c3f classifies all sixteen pinned synchronous MCP wrapper methods, selected subagent identity/context/event API differences and checkpoint-path denied-before-Ask ordering. The associated [checkpoint event-order oracle](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-event-order-oracle) strengthens one existing test group; production behavior and group count are unchanged, and no whole-suite parity is granted. Existing source/package acceptance remains scoped to its own identities.
+Current documentation scope against 0661e31 covers immutable child-only stdio environment overrides, their JVM rebuild migration, exact source/artifact evidence and bounded classifications of seven async-wrapper plus eleven base-wrapper methods. The [environment contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#child-environment-overrides) owns four-file identities and the reproduced Unicode-collision correction. No new test groups or whole-suite parity are claimed. Existing package acceptance remains limited to its own scope.
 
-- [x] review_fp and review_invariants approved the final combined eight-file test/documentation scope against 2e16c3f, with PartialConfirmationSpec blob 529f0dbba249dd552365ed699fbab540ab9a0b0e unchanged. Full verification passed all 1,517 tests with zero compiler warnings/failures/ignored tests. Manual English inspection, diff checks and 78-document/2,885-local-reference validation pass with zero issues.
-- [x] English inspection and local Markdown/diff validation passed for the accepted bounded scope.
+- [x] Both independent reviewers approved the final four source identities; full 1,517-test RC1 verification, archive admission and fresh external consumption passed.
+- [x] review_fp and review_invariants approved the final thirteen-file combined scope against 0661e31, including the unchanged four-file source manifest. Manual English/diff and 78-document/2,897-local-reference checks pass with zero issues.
 
 ## Versioned remote storage
 

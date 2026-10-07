@@ -12,13 +12,37 @@ A generic port may recover from a local send failure only if framing remains int
 
 ## Stdio contract
 
-- `open(command, maxFrameBytes = 1048576, stderr = Discard)` accepts a host-selected argument vector, rejects an empty/blank executable and nonpositive frame limit, and starts the process inside scoped blocking acquisition. It does not insert a shell. A shell explicitly supplied in the vector remains a host capability.
-- `StderrPolicy.Discard | Inherit` redirects diagnostics separately from protocol stdout. No unread stderr pipe, log capture, or stdout merging is used. Environment and working directory are inherited; no overrides are exposed.
+- `open(command, maxFrameBytes = 1048576, stderr = Discard, environment = Map.empty)` accepts a host-selected argument vector, rejects an empty/blank executable and nonpositive frame limit, and starts the process inside scoped blocking acquisition. It does not insert a shell. A shell explicitly supplied in the vector remains a host capability.
+- `StderrPolicy.Discard | Inherit` redirects diagnostics separately from protocol stdout. No unread stderr pipe, log capture, or stdout merging is used. Working directory and environment are inherited; explicit [child-only environment overrides](#child-environment-overrides) replace selected child values.
 - Incoming is single-use. A second consumer is rejected without acquiring the first consumer's release action. EOF, failure, cancellation or early consumption ends that reader and terminates the direct process. IO failures retain an operation label and exception class/message as typed McpError diagnostics.
 - Outbound validation/encoding happens before write admission. One semaphore holds the complete frame write and flush. Cancelling a waiter for that permit does not poison the channel. Failure/interruption once writing is admitted publishes the first terminal cause before aborting, so subsequent pipe EOF cannot mask it. Later sends reject the terminated channel.
 - Cancellation of native pipe I/O uses an explicit process termination action rather than relying on thread interruption. Cleanup force-terminates and waits for the direct child, then closes all three streams. Stream closes are attempted even when termination fails; concurrent cleanup callers share its complete outcome. Scope release also performs this cleanup.
 
-This is direct-process ownership, not a process-tree sandbox. Descendant processes and inherited handles remain host/server responsibilities. The adapter has no graceful-shutdown timeout, reconnect policy, custom environment/directory support, protocol initialization, request deadlines or self-originated cancellation notifications; it can carry the connection-owned notifications described below. A selected executable is trusted host configuration, not untrusted model output.
+This is direct-process ownership, not a process-tree sandbox. Descendant processes and inherited handles remain host/server responsibilities. The adapter has no graceful-shutdown timeout, reconnect policy, working-directory overrides, protocol initialization, request deadlines or self-originated cancellation notifications; it can carry the connection-owned notifications described below. A selected executable is trusted host configuration, not untrusted model output.
+
+
+## Child environment overrides
+
+The appended immutable environment map overrides selected inherited variables only in the direct child. Empty maps retain inheritance; empty values are preserved. Keys must be nonempty and contain neither equals signs nor NUL; values must not contain NUL. Override names that compare equal with String.equalsIgnoreCase are rejected on every platform, including Unicode case aliases. Windows updates the inherited key spelling; other platforms retain case-sensitive inherited names. This conservative override collision rule is portable admission policy, not a claim of identical native environment rules across operating systems.
+
+All native environment access/mutation is suspended at the ProcessBuilder adapter boundary before process start. Configuration failures use a static InvalidConfiguration message containing no supplied keys or values. The parent environment is never modified. Hosts select and protect environment values; these overrides grant no sandbox, secret storage, working-directory control or descendant-process ownership.
+
+Migration: omitted/named Scala source calls retain their defaults. The appended parameter changes the JVM method signature and method-value arity; rebuild consumers and update explicitly typed function values. Existing send/read/cancellation/cleanup contracts are unchanged.
+
+| Source reviewed by review_fp and review_invariants against 0661e31 | Git blob |
+| --- | --- |
+| [McpStdioTransport.scala](McpStdioTransport.scala) | 94432115725a5705bbdc40f4cb5b27c0ed25ec4f |
+| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | bd0c93573944684fcc2b1125ae890ec2bddb4680 |
+| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | 2b43e15000c86f82de55bc40082433428574bb7c |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | cf26febe7f8ebd6b4efaca8dd7a4c05384e018df |
+
+- [x] Both independent reviewers approved the final four-file source scope with no unresolved findings; manifest SHA-256 706b2f52662ada4e9b8aeeba1ec1b9dab20f29b3c485fb79837d30c9cdf9b77d.
+- [x] stdio-environment-collision-red.log records the sixth invalid-environment row failing against draft transport blob 5232b2b0887bed572897d9ef9827e3fdd868b83b: Locale-based folding admitted I/dotless-I aliases. The corrected comparison matches key selection; stdio-environment-collision-green.log passes all three groups in 1.604 seconds.
+- [x] Existing real-process groups now observe inherited PATH replacement, another retained inherited value, added/empty values, unchanged parent and joined reaping. Existing read/write cancellation coverage remains; no new group was added.
+- [x] stdio-environment-final-verify.log passed all 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests, and four RC1 packages. stdio-environment-preparation.log passed exact source/POM/LICENSE admission, invalid-selector/extra/duplicate-entry rejection and restored archives. stdio-environment-consumer.log passed standalone formatting, clean compilation and forked execution against four actual fresh RC1 hashes, including the new named environment parameter and pre-launch typed rejection.
+- [x] review_fp and review_invariants approved the final combined thirteen-file source/documentation scope against 0661e31 with no unresolved findings. Manual English inspection, diff checks and 78-document/2,897-local-reference validation pass with zero issues.
+
+This bounded adaptation of pinned McpClientBuilderTest.testStdioTransport_WithEnvironmentVariables (74) does not implement the mutable builder, complete-wrapper assertions, automatic discovery caching or every platform/process configuration.
 
 ## Framing contract
 
@@ -141,9 +165,9 @@ The [test-only build dependencies](../../../../../../../../../../project/README.
 | [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | `42b24326cffdf77fd19d2aa14e90a183a73300c2` |
 | [McpStdioFraming.scala](McpStdioFraming.scala) | `76545199289183041d814f27de01eae0a2c2d33c` |
 | [McpStdioFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioFramingSpec.scala) | `83db8decf53febdb299190ac7a9c1237e039ae85` |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | `8b6aad5870714b280e6a6a693cb759cbf98c8c8a` |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | `ffc6fd6b7c6ea614e12bf569b586050bd167344b` |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | `c5bfdbb4902ecfe599efa82f742a3fdae9ec0c77` |
+| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current child-environment identity](#child-environment-overrides); prior lifecycle scope retained. |
+| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current child-environment identity](#child-environment-overrides); prior lifecycle scope retained. |
+| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current child-environment identity](#child-environment-overrides); prior lifecycle scope retained. |
 
 The port/connection acceptance is recorded separately in the [client contract](../client/README.md#verification-and-acceptance). Stdio tests exercise a local JVM peer; they do not establish complete MCP revision support or interoperability with every server/platform.
 

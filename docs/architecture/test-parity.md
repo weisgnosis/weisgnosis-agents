@@ -1252,8 +1252,30 @@ Evidence: [McpClientSpec](../../modules/mcp/src/test/scala/com/weisgnosis/agents
 | testClose_MultipleCallsSafe (296) | McpConnectionSpec at 382-440 verifies concurrent shared cleanup/same cause and automatic Scope closure; mutable flags differ. |
 | testCallTool_WithNullArguments (309) | McpToolsSpec at 32 distinguishes Option.None omission from an empty object; McpStdioTransportSpec at 137-145 verifies an omitted-argument call. Java null itself is excluded. |
 
-These MCP classifications inspect existing contracts/tests only; the separate checkpoint ordering oracle is strengthened within one existing group. Other SDK wrappers/builders, broader transport interoperability, caching and schema transformation remain open; final documentation acceptance passed.
-- [ ] Complete other SDK wrapper/builder suite mappings and remaining discovery-cache/transport contracts; all sixteen synchronous wrapper methods are classified above, without whole-wrapper assertion equivalence.
+The seven pinned McpAsyncClientWrapperTest methods have the same bounded applicability: testConstructor (51) replaces an uninitialized wrapper with scoped open; testInitialize_Success (58) maps handshake/publication but excludes automatic cache assertions; testInitialize_AlreadyInitialized (105) has no repeated-initialization API; testListTools_Success (131) and testCallTool_Success (155) map initialized outcomes; testGetCachedTool (180) excludes automatic cache/null lookup; testClose_Success (192) maps joined owned cleanup without mutable flag/cache assertions. Reactor/SDK delegate identity is not reproduced. Immutable discovery caching remains possible but is not supplied by these adaptations.
+
+The eleven pinned McpClientWrapperTest methods exercise a test subclass with mutable initialization/cache fields. Their bounded classifications use the client/connection/stdio evidence linked above have final independent classification approval within the thirteen-file scope against 0661e31:
+
+| Pinned base-wrapper method (line) | Current applicability and evidence |
+| --- | --- |
+| testGetName (41) | Java wrapper-local name differs from explicit host manager registration identity; no wrapper getName API is claimed. |
+| testInitializedFlag_DefaultFalse (46) | An uninitialized public wrapper/flag is excluded by McpClient's private constructor and public scoped open. |
+| testInitializedFlag_AfterInitialize (51) | McpClientSpec at 160 verifies successful handshake before publication; mutable flag assertions differ. |
+| testCachedTools_EmptyByDefault (57) | Direct mutable cache exposure is excluded; no equivalent automatic empty cache is claimed. |
+| testGetCachedTool_NonExistent (63) | Nullable cached lookup is excluded; explicit discovery is not that lookup contract. |
+| testGetCachedTool_Exists (68) | Direct cache insertion/retrieval is excluded; bounded discovery does not claim automatic caching. |
+| testCachedTools_MultipleTools (88) | Mutable cache size/direct insertion assertions are excluded; broader immutable caching/invalidation remains open. |
+| testConcurrentAccess_CachedTools (118) | The Java body inserts/reads one cache entry without concurrent tasks; its mutable-map contract is excluded and establishes no concurrency adaptation. |
+| testClose (136) | McpConnectionSpec at 382-440 and stdio process reaping provide bounded joined-cleanup evidence; mutable flag/cache clearing differs. |
+| testClose_MultipleCallsSafe (147) | Shared/repeated owned cleanup and identical failure replay are covered by McpConnectionSpec at 382-440; Java flag assertions differ. |
+| testInitialize_Idempotent (159) | Repeated initialization of an existing wrapper is absent; reopening acquires a fresh initialized connection rather than reusing mutable state. |
+
+- [x] review_fp and review_invariants approved all eleven base-wrapper applicability classifications against 0661e31. Pure FP permits immutable caches; these classifications do not close the remaining discovery-cache/invalidation contract.
+
+- [x] review_fp and review_invariants approved the seven async-wrapper classifications and bounded child-environment adaptation against 0661e31, after final source/full/artifact verification.
+- [x] Adapt McpClientBuilderTest.testStdioTransport_WithEnvironmentVariables (74) through immutable child-specific environment overrides, actual subprocess observation and unchanged-parent/reaping checks. This is new configuration support, not evidence of an existing runtime defect.
+- [ ] Complete remaining core builder method mappings; the eleven base-wrapper classifications above await final review separately; the inventory contains 120 builder methods and does not imply their implementation or exclusion. The current client intentionally uses one positive finite configured deadline for initialization and each request. Independent initialization deadlines, arbitrary version lists, elicitation and dynamic request customization require separate selected contracts. Legacy two-endpoint SSE differs from the selected Streamable HTTP transport; borrowed HTTP client customization belongs to the host.
+- [ ] Complete remaining discovery-cache, schema and broader transport contracts; classified wrapper methods do not establish whole-wrapper assertion equivalence.
 - [x] Five request-registry groups cover atomic abandonment observers and exact callback-cause preservation, out-of-order correlation and remote error data, capacity and scoped release, actual waiting-fiber cancellation versus completed replies, and owner/terminal closure. Live failed request scopes preserve compound domain causes and project foreign typed failures without losing defects or interruption. This ZIO ownership foundation does not close upstream connection methods or establish transport cleanup.
 
 - [x] Eight [McpConnectionSpec](../../modules/mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) groups pass against an in-memory borrowed port: checked out-of-order RPC, isolated send failures, bounded operations and server-control replies, directional notification handling, caller/terminal cleanup, and shared close with cleanup-defect replay. Both reviewers approved the final bounded scope and full verification passed; exact identities and evidence are in the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance). These tests do not implement a concrete transport or close upstream initialization/discovery methods.

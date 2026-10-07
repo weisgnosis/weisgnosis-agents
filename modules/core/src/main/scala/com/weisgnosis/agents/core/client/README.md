@@ -398,7 +398,7 @@ review_fp and review_invariants approved the six final source/spec identities ag
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | e88411433c5929bf43f5f5d1e39556261edb1669 |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | 431f604355c87db35e4cad74e1765dd3947d599f |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | 0a44028ab15b2225cfb9205506409d7cfb7dca06 |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | 480972345a43d46ed6f4d172623723e7a9b9c421 |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current environment consumer identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance); prior behavioral scope retained. |
 
 Two new grouped regressions cover pure request projection/rejection and both scripted HTTP client response modes, including the complete assistant-call/tool-result message array. Pinned OpenAIMessageConverterTest.testToolMessageWithMultimodalResult (887) supplies bounded projection intent; testToolMessageWithoutResultBlock (916) fallback/invented-ID behavior remains excluded.
 

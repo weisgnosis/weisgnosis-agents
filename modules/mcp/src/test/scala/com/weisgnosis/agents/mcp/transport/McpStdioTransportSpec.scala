@@ -69,10 +69,22 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
       .attempt(ProcessHandle.of(pid).toScala.exists(_.isAlive))
       .mapError(error => AgentError.McpError(error.toString))
 
-  private def peer(mode: String): ZIO[Scope, AgentError, Peer] =
+  private def environmentValue(name: String): IO[AgentError, Option[String]] =
+    ZIO
+      .attempt(Option(java.lang.System.getenv(name)))
+      .mapError(error => AgentError.McpError(error.getClass.getName))
+
+  private def peer(
+      mode: String,
+      environment: Map[String, String] = Map.empty
+  ): ZIO[Scope, AgentError, Peer] =
     for
-      arguments    <- command(mode)
-      underlying   <- McpStdioTransport.open(arguments, maxFrameBytes = 16 * 1024 * 1024)
+      arguments <- command(mode)
+      underlying <- McpStdioTransport.open(
+        arguments,
+        maxFrameBytes = 16 * 1024 * 1024,
+        environment = environment
+      )
       ready        <- Promise.make[AgentError, Long]
       writeStarted <- Promise.make[Nothing, Unit]
       observed = new McpTransport:
@@ -100,7 +112,19 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
       for
         outcome <- ZIO.scoped:
           for
-            server       <- peer("echo")
+            os <- property("os.name")
+            inheritedKey = if os.startsWith("Windows") then "SystemRoot" else "HOME"
+            inherited      <- environmentValue(inheritedKey)
+            parentPath     <- environmentValue("PATH")
+            parentOverride <- environmentValue("WEISGNOSIS_MCP_STDIO_TEST_OVERRIDE")
+            server <- peer(
+              "echo",
+              Map(
+                "PATH"                               -> "child-only-path",
+                "WEISGNOSIS_MCP_STDIO_TEST_OVERRIDE" -> "child-only-value",
+                "WEISGNOSIS_MCP_STDIO_TEST_EMPTY"    -> ""
+              )
+            )
             connection   <- McpConnection.make(server.transport)
             pid          <- server.ready.await
             running      <- alive(pid)
@@ -113,10 +137,37 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
               .exit
             methods = Chunk("one", "two", "three")
             replies <- ZIO.foreachPar(methods)(connection.request(_))
+            childEnvironment <- connection.request(
+              "environment",
+              Some(
+                Json.Obj(
+                  "inherited" -> Json.Str(inheritedKey),
+                  "path"      -> Json.Str("PATH"),
+                  "override"  -> Json.Str("WEISGNOSIS_MCP_STDIO_TEST_OVERRIDE"),
+                  "empty"     -> Json.Str("WEISGNOSIS_MCP_STDIO_TEST_EMPTY")
+                )
+              )
+            )
+            parentPathAfter     <- environmentValue("PATH")
+            parentOverrideAfter <- environmentValue("WEISGNOSIS_MCP_STDIO_TEST_OVERRIDE")
           yield (
             pid,
             assertTrue(
               running,
+              inherited.nonEmpty,
+              parentPath.nonEmpty,
+              parentPathAfter == parentPath,
+              parentOverrideAfter == parentOverride,
+              childEnvironment match
+                case McpMessage.Success(_, result) =>
+                  result == Json.Obj(
+                    "inherited" -> inherited.fold[Json](Json.Null)(Json.Str(_)),
+                    "path"      -> Json.Str("child-only-path"),
+                    "override"  -> Json.Str("child-only-value"),
+                    "empty"     -> Json.Str("")
+                  )
+                case _ => false
+              ,
               secondReader.isFailure,
               invalid.isFailure,
               replies
@@ -153,6 +204,26 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
         invalid         <- ZIO.scoped(McpStdioTransport.open(Chunk.empty)).exit
         emptyExecutable <- ZIO.scoped(McpStdioTransport.open(Chunk(""))).exit
         invalidLimit <- ZIO.scoped(McpStdioTransport.open(Chunk("unused"), maxFrameBytes = 0)).exit
+        invalidEnvironments <- ZIO.foreach(
+          Chunk(
+            Map(""                 -> "private-value"),
+            Map("INVALID=KEY"      -> "private-value"),
+            Map("INVALID\u0000KEY" -> "private-value"),
+            Map("VALID"            -> "private\u0000value"),
+            Map("PATH"             -> "private-one", "path"   -> "private-two"),
+            Map("I"                -> "private-one", "\u0131" -> "private-two")
+          )
+        ): overrides =>
+          ZIO
+            .scoped(McpStdioTransport.open(Chunk("unused"), environment = overrides))
+            .exit
+            .map:
+              case Exit.Failure(cause) =>
+                cause.failureOption.exists:
+                  case AgentError.InvalidConfiguration(message) =>
+                    message == "MCP stdio environment overrides are invalid"
+                  case _ => false
+              case Exit.Success(_) => false
         results <- ZIO.foreach(Chunk("malformed", "eof")): mode =>
           for
             outcome <- ZIO.scoped:
@@ -165,7 +236,12 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
             remains <- alive(outcome._1)
           yield assertTrue(outcome._2.isFailure, !remains)
       yield results.foldLeft(
-        assertTrue(invalid.isFailure, emptyExecutable.isFailure, invalidLimit.isFailure)
+        assertTrue(
+          invalid.isFailure,
+          emptyExecutable.isFailure,
+          invalidLimit.isFailure,
+          invalidEnvironments.forall(identity)
+        )
       )(_ && _)
     },
     test(

@@ -36,6 +36,17 @@ object McpStdioPeer extends ZIOAppDefault:
   private def echo: IO[AgentError, Nothing] =
     readMessage
       .flatMap:
+        case McpMessage.Request(id, "environment", Some(params)) =>
+          ZIO
+            .foreach(params.fields): (field, key) =>
+              key match
+                case Json.Str(name) =>
+                  ZIO
+                    .attempt(Option(java.lang.System.getenv(name)))
+                    .mapError(failure)
+                    .map(value => field -> value.fold[Json](Json.Null)(Json.Str(_)))
+                case _ => ZIO.fail(AgentError.McpError("Invalid test environment key"))
+            .flatMap(fields => emit(McpMessage.Success(id, Json.Obj(fields))))
         case McpMessage.Request(id, method, _) =>
           emit(McpMessage.Success(id, Json.Obj("method" -> Json.Str(method))))
         case _: McpMessage.Notification => ZIO.unit
