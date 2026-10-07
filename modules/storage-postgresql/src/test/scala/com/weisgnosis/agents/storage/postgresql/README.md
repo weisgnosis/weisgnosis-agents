@@ -6,14 +6,11 @@ Set WEISGNOSIS_POSTGRES_URL, WEISGNOSIS_POSTGRES_USER and WEISGNOSIS_POSTGRES_PA
 
 CI provisions PostgreSQL 16 and enables the suite without any LLM/provider request. The [backend contract](../../../../../../../main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) owns current reviewed identities, verification and limitations. Remote CI execution must still be confirmed independently.
 
-- [x] postgresql-unicode-green.log passes all three real PostgreSQL 16 groups in 2.179 seconds against the unchanged Unicode RED spec.
-- [x] Both reviewers renewed final source/spec approval; postgresql-final-verify.log passes all 1,486 tests, including this enabled real-database suite.
-- [x] Fresh consumer verification passes through postgresql-final-artifact-consumer.log.
-- [x] Both independent reviewers approved final documentation through the linked contract; English prose and local links pass inspection.
+The existing backend-failure group additionally requires real read-only transaction SQLSTATE=25006 and retained exception class without fixture payload, options, URL or namespace disclosure. The [current diagnostic acceptance](../../../../../../../main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) records the unchanged-production RED, both final source approvals and passing focused checks; full verification/artifact checks pass and final combined documentation acceptance is approved. No test group is added, and this new diagnostic requirement does not explain an earlier acquisition failure.
 
 ## Remote memory integration
 
-[PostgresFixture](PostgresFixture.scala) shares scoped JDBC fixture helpers between the existing backend suite and [VersionedMemoryRepositorySpec](VersionedMemoryRepositorySpec.scala). The existing backend test bodies are unchanged; live random namespace generation prevents independent suites from sharing deterministic test namespaces. Three new grouped contracts exercise the actual PostgreSQL store through independently constructed repositories and validate malformed aggregate rejection, valid near-misses, genuine CAS conflict retries and lost acknowledgements. The wrappers delegate actual storage operations; they do not substitute in-memory persistence for remote evidence.
+[PostgresFixture](PostgresFixture.scala) shares scoped JDBC fixture helpers between the existing backend suite and [VersionedMemoryRepositorySpec](VersionedMemoryRepositorySpec.scala). The shared fixture preserves live random namespace generation, preventing independent suites from sharing deterministic test namespaces. Three new grouped contracts exercise the actual PostgreSQL store through independently constructed repositories and validate malformed aggregate rejection, valid near-misses, genuine CAS conflict retries and lost acknowledgements. The wrappers delegate actual storage operations; they do not substitute in-memory persistence for remote evidence.
 
 - [x] review_fp and review_invariants approved all six source/fixture identities; versioned-memory-verify.log passes 1,489 tests including six actual PostgreSQL groups. Evidence belongs to the [remote-memory manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-remote-memory).
 

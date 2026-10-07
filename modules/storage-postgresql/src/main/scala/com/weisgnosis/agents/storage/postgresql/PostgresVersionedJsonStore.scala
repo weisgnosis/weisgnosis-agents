@@ -194,6 +194,16 @@ final class PostgresVersionedJsonStore private (
       .mapError:
         case sql: SQLException if Option(sql.getSQLState).contains("22003") =>
           AgentError.StorageError("PostgreSQL storage numeric revision limit exceeded")
+        case sql: SQLException =>
+          val state = Option(sql.getSQLState).filter(value =>
+            value.length == 5 && value.forall(character =>
+              (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9')
+            )
+          )
+          val classification = state.fold("")(value => s", SQLSTATE=$value")
+          AgentError.StorageError(
+            s"PostgreSQL storage operation failed (${sql.getClass.getSimpleName}$classification)"
+          )
         case failure =>
           AgentError.StorageError(
             s"PostgreSQL storage operation failed (${failure.getClass.getSimpleName})"

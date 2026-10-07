@@ -12,30 +12,29 @@ Admitted JDBC operations and resource cleanup are masked and joined, then an int
 
 This is a per-address conditional publication prerequisite. Remote memory/transcript/checkpoint assembly, multi-address transactions, durable workflow replay, authentication and exclusive execution claims remain separate contracts.
 
+## Sanitized diagnostics
+
+Direct SQLException failures retain only their exception class and an optional SQLSTATE whose spelling is exactly five uppercase ASCII letters/digits. Missing or malformed states are omitted. SQLSTATE 22003 keeps the existing specific numeric-revision-limit message, with priority over generic classification. Non-SQL failures remain class-only. Driver messages, SQL text, URLs, credentials, cause chains and arbitrary diagnostics are not copied. This adds no retry, connection recovery or public error-case/signature change.
+
+review_fp and review_invariants approved the two exact diagnostic source/spec identities below; full verification/artifact checks pass and final combined documentation acceptance is approved. It does not establish the cause of the earlier unexplained PostgreSQL acquisition failure; that investigation remains open.
+
 ## Verification and acceptance
 
-| Reviewed source/build | Git blob |
+The current bounded increment against 2598250 strengthens sanitized diagnostics and the existing real PostgreSQL backend-failure group. Existing address/CAS/Unicode/cancellation contracts above remain separately accepted; changed identities require renewed approval.
+
+| Current implementation/regression | Git blob |
 | --- | --- |
-| [ci.yml](../../../../../../../../../../.github/workflows/ci.yml) | [Current candidate preparation identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
-| [build.sbt](../../../../../../../../../../build.sbt) | [Current candidate preparation identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
-| [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | `a27cfd268bc615a5c0211fd3c0388add55a13e1d` |
-| [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | `dcfd9032e358a9a2b87c197119ab24d5b093e84f` |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current candidate preparation identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
-| [build.sbt](../../../../../../../../../../verification/artifact-consumer/build.sbt) | [Current candidate preparation identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
-| [prepare.py](../../../../../../../../../../verification/artifact-consumer/prepare.py) | [Current candidate preparation identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
-| [VersionedJsonStore.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/storage/VersionedJsonStore.scala) | `5ae24e788910c42092ed764d7830e47e1d7fb27f` |
-| [VersionedJsonStoreSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/storage/VersionedJsonStoreSpec.scala) | `c977075cf98640a121d9405ece4c19f097417843` |
-| [PostgresVersionedJsonStore.scala](PostgresVersionedJsonStore.scala) | `6d1b55318fce559cba03a5ee8b90570610c43301` |
-| [PostgresVersionedJsonStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/storage/postgresql/PostgresVersionedJsonStoreSpec.scala) | [Current shared-fixture identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-remote-memory) |
+| [PostgresVersionedJsonStore.scala](PostgresVersionedJsonStore.scala) | `3fb019e16e7808427ef5d8792f7525e34547e0bc` |
+| [PostgresVersionedJsonStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/storage/postgresql/PostgresVersionedJsonStoreSpec.scala) | `e681d076c61fe42c2982b9eee0a7dc5876d032a5` |
 
+The [shared fixture identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-remote-memory) retains scoped JDBC ownership and live random namespace isolation. Driver/pool deployment remains host-owned; [candidate preparation](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) validates actual packages rather than establishing a published ABI.
 
-- [x] review_fp and review_invariants renewed approval of all eleven final source/spec/build identities, including the payload-Unicode correction, with no unresolved findings.
-- [x] postgresql-unicode-green.log passes all three real PostgreSQL 16 groups in 2.179 seconds, including valid astral keys/values and rejection of malformed payload Unicode without publication. Existing groups were extended; no test groups were added.
-- [x] postgresql-final-verify.log passes formatting, fatal-warning compilation, all four artifact packages and 1,486 tests: 667 core / 726 harness / 85 MCP / 3 PostgreSQL / 5 examples, with zero compiler warnings or failed tests.
-- [x] postgresql-final-artifact-preparation.log validates eight archives/four POMs, exact sources and dependency scopes.
-- [x] postgresql-final-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh actual module JAR hashes, with no PostgreSQL JDBC fixture dependency on the runtime classpath.
-- [x] review_fp and review_invariants approved final source/documentation closure; English prose and all 2,634 local references in 78 Markdown documents pass inspection.
+- [x] postgres-diagnostics-red.log records two passes/one failed group against unchanged backend 6d1b55318fce559cba03a5ee8b90570610c43301: the real read-only transaction produced class-only StorageError without required SQLSTATE=25006. This is a newly selected diagnostic capability gap, not proof of the earlier connection failure's cause.
+- [x] review_fp approved FP/ZIO correctness and review_invariants approved invariants for the two exact formatted source/spec identities against 2598250, with no unresolved source findings.
+- [x] postgres-diagnostics-green.log passes all three real PostgreSQL groups with zero failed/ignored in 2.335 seconds, including safe SQLSTATE=25006 from the actual read-only transaction.
+- [x] postgres-diagnostics-verify.log passes 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages.
+- [x] postgres-diagnostics-preparation.log passes exact source/POM/LICENSE staging and reversible invalid-selector/extra/duplicate source-archive rejection; postgres-diagnostics-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh actual RC1 module hashes. The unchanged selected consumer does not separately trigger the new database diagnostic.
+- [x] review_fp and review_invariants approved the final nine-file combined scope against 2598250 with no unresolved findings; manual English inspection, changed-script/diff checks and 78-document/2,978-local-reference checks pass.
+- [ ] Diagnose the separately retained unexplained connection acquisition failure; subsequent successful isolated/full runs do not identify its cause.
 
-The real PostgreSQL 16 regression postgresql-cancellation-audit-live.log recorded two passes/one failed group against backend blob 399693f80c86cb07898ff67c1e1e356e409e4972 and unchanged spec db7b3faca89b9e842c8ef0a366121eb024d71596. Cancellation incorrectly returned Applied(2), and canceled query timeout retained StorageError without interruption. The public contract requires interrupted acknowledgement after joined cleanup, preserving an independent timeout failure while allowing the committed revision to remain. postgresql-cancellation-green.log passes the same three groups against corrected backend 39bc9dbcf9f9895337714718863c0efb1947b6a2 and unchanged spec, in 2.120 seconds. The current final Unicode correction has the renewed acceptance gates above.
-
-The payload Unicode regression postgresql-unicode-red.log recorded two passes/one failed group against backend 39bc9dbcf9f9895337714718863c0efb1947b6a2 and spec 122844ce4110c0812bb7d100e714c645cc6e2188: malformed string values/object keys were published instead of producing StorageError with the address remaining absent. postgresql-unicode-green.log passes that unchanged spec against final backend 6d1b55318fce559cba03a5ee8b90570610c43301. Expected rejection follows exact Unicode preservation, independently of the JDBC encoder's replacement behavior.
+Regression expectations remain contract-derived: cancellation acknowledges interruption only after joined cleanup and preserves an independent timeout failure even when a write committed; malformed payload Unicode produces StorageError without publication, while valid astral keys/values and escaped controls remain intact. These behaviors are exercised in the existing three-group suite without treating cancellation as rollback or driver replacement encoding as valid storage.

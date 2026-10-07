@@ -222,7 +222,13 @@ object PostgresVersionedJsonStoreSpec extends ZIOSpecDefault:
             ),
             timeoutSessions == 0L,
             rejected.causeOption.exists(
-              _.failureOption.exists(_.isInstanceOf[AgentError.StorageError])
+              _.failureOption.exists:
+                case error: AgentError.StorageError =>
+                  error.message.contains("SQLSTATE=25006") &&
+                  error.message.contains("PSQLException") &&
+                  !Chunk("forbidden", "default_transaction_read_only", "jdbc:postgresql:", name)
+                    .exists(error.message.contains)
+                case _ => false
             ),
             duplicate.isFailure,
             malformedUnicode.forall(identity),

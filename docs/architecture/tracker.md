@@ -54,16 +54,17 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] Reconcile the two pinned Plan propagation methods with the existing explicit child installation contract; final four-document approval remains scoped to unchanged source at fbce6de.
 
-Current delivery scope against db39101: checked external ToolBinding registration and occurrence-aware external execution checkpoints, without local external handlers or approval conflation.
+- [x] [External tool bindings](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#external-tool-bindings) and their finite twelve-method classification have final scoped acceptance; two unmapped fixtures remain visible in parity.
 
-- [x] Inspect pinned ToolExecutor schema-only suspension, pre-suspension argument validation and inactive-group rejection; identify the explicit missing capability.
-- [x] review_fp and external_invariant_review approved all ten final source/spec/consumer identities against db39101; no unresolved source findings remain.
-- [x] external-tools-focused.log passes 25 tests, zero failed/ignored, in 845 ms; exact current source identities belong to the canonical tool binding contract.
-- [x] external-tools-release-verify.log passes all 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored. Four RC1 packages come from external-tools-verify.log with unchanged production, validated by archive preparation and fresh four-hash consumption after the test-only oracle refinement; the intervening acquisition failure remains recorded separately.
-- [x] external-tools-preparation.log and external-tools-consumer.log passed fresh RC1 archive/POM/source validation and standalone four-hash public suspension/resume consumption.
-- [ ] Diagnose the unexplained PostgreSQL connection acquisition failure in external-tools-final-verify.log; isolated recovery does not establish its cause.
-- [x] review_fp and external_invariant_review approved the final combined 24-file scope against db39101; English/diff and 78-document/2,985-local-reference checks pass.
-- [ ] Assess the next remaining applicable finite inventory and genuine provider/remote middleware/release gaps; full-plan completion remains unclaimed.
+Current delivery scope against 2598250: sanitized PostgreSQL SQLSTATE diagnostics, without retry/recovery or error/API shape changes.
+
+- [x] Strengthen the existing real read-only-transaction assertion and record unchanged-production RED: missing SQLSTATE=25006, two passes/one failed group.
+- [x] review_fp and review_invariants approved both exact formatted diagnostic source/spec identities against 2598250; no unresolved source findings remain.
+- [x] postgres-diagnostics-green.log passes all three existing real PostgreSQL groups, zero failed/ignored, in 2.335 seconds.
+- [x] postgres-diagnostics-verify.log passes 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages.
+- [x] postgres-diagnostics-preparation.log and postgres-diagnostics-consumer.log pass fresh exact archive/POM/LICENSE validation, reversible rejection fixtures and standalone actual four-hash consumption.
+- [x] review_fp and review_invariants approved the final nine-file combined scope against 2598250 with no unresolved findings; manual English inspection, changed-script/diff checks and 78-document/2,978-local-reference checks pass.
+- [ ] Diagnose the unexplained PostgreSQL acquisition failure in external-tools-final-verify.log; the diagnostic capability and successful rechecks do not establish its cause.
 
 ## Current acceptance
 
@@ -114,7 +115,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-Diagnose the retained unexplained PostgreSQL acquisition failure, then assess the two remaining nested-error/mixed-concurrency ToolExecutor fixtures and other applicable [method-level parity inventory](test-parity.md). The external-tool source increment and twelve-method classification have final bounded acceptance; authorization deferral remains a separate contract.
+Complete the bounded sanitized SQLSTATE diagnostic increment and continue diagnosing the retained unexplained PostgreSQL acquisition failure, then assess the two remaining nested-error/mixed-concurrency ToolExecutor fixtures and other applicable [method-level parity inventory](test-parity.md). The external-tool source increment and twelve-method classification have final bounded acceptance; authorization deferral remains a separate contract.
 
 - [x] Complete independent acceptance of the finite pinned Plan propagation classification against current explicit child installation.
 - [x] Accept the bounded external-tool execution contract and finite twelve-method classification after source/spec verification and final independent review.

@@ -73,6 +73,8 @@ The MCP candidate adds the pure checked [McpMetadata.merge](../modules/mcp/src/m
 
 The existing ReasoningDetail factory/codec signatures retain their selected-profile boundary while adding a checked [legacy summary text alias](../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#summary-text-alias), with equal dual strings coalesced once and malformed/conflicting fields rejected. Literal replay is unchanged; final source/full/artifact checks pass; final documentation approval passed.
 
+The PostgreSQL [sanitized diagnostic increment](../modules/storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#sanitized-diagnostics) changes bounded StorageError message classification only; public error cases, signatures and retry behavior remain unchanged. Both final source approvals and full RC1/package/artifact/consumer verification pass; final combined documentation acceptance is approved.
+
 ## Remote storage API and artifact boundary
 
 storagePostgresql is the fourth separately consumable library in root aggregation/packageArtifacts, producing binary/source JARs and a POM. Its host-DataSource backend has no production JDBC driver/pool dependency; CI configures a PostgreSQL 16 service fixture. The current production inventory is 63 core, 102 harness, 17 MCP and one storage-postgresql Scala file. The earlier signature inventory describes its assessed revision; the additive contracts below do not establish a frozen release ABI.
