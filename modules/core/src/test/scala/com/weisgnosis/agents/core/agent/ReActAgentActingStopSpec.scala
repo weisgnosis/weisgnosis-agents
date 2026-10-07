@@ -72,13 +72,10 @@ object ReActAgentActingStopSpec extends ZIOSpecDefault:
           )
           agent <- ReActAgent.make(
             client = client,
-            toolkit = Toolkit(
-              Map(
-                "slow"   -> tool("slow", fastProcessed.await.as("slow")),
-                "fast"   -> tool("fast", ZIO.succeed("fast")),
-                "remote" -> tool("remote", remoteExecutions.update(_ + 1).as("unexpected"))
-              )
-            ),
+            toolkit = Toolkit
+              .single(tool("slow", fastProcessed.await.as("slow")))
+              .updated(tool("fast", ZIO.succeed("fast")))
+              .updated(tool("remote", remoteExecutions.update(_ + 1).as("unexpected"))),
             toolResultProcessor = processor
           )
           updates     <- agent.streamWithResult(Msg.user("run tools")).runCollect
@@ -150,7 +147,7 @@ object ReActAgentActingStopSpec extends ZIOSpecDefault:
             client = LlmClient.mockFunction((_, _) =>
               TurnOutput.ToolCalls(Msg.assistant(Chunk(call("lookup"))))
             ),
-            toolkit = Toolkit(Map("lookup" -> tool("lookup", ZIO.succeed("persisted")))),
+            toolkit = Toolkit.single(tool("lookup", ZIO.succeed("persisted"))),
             toolResultProcessor = processor
           )
           result <- (for
@@ -207,7 +204,7 @@ object ReActAgentActingStopSpec extends ZIOSpecDefault:
                   calls.update(_ + 1).as(TurnOutput.ToolCalls(Msg.assistant(Chunk(request))))
                 ),
                 llmConfig = LlmConfig("test", structuredOutputCapability = capability),
-                toolkit = Toolkit(Map("lookup" -> tool("lookup", ZIO.succeed("observation")))),
+                toolkit = Toolkit.single(tool("lookup", ZIO.succeed("observation"))),
                 toolResultProcessor = ToolResultProcessor.deciding(result =>
                   ZIO.succeed(
                     ToolResultDecision.Stop(ToolResultPayload.fromResult(result), "host stop")

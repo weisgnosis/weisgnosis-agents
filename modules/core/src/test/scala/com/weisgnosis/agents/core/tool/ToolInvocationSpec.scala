@@ -84,7 +84,7 @@ object ToolInvocationSpec extends ZIOSpecDefault:
         agent <- ReActAgent.make(
           config = AgentConfig(toolExecution = ToolExecution.Sequential),
           client = client,
-          toolkit = Toolkit(Map("inspect" -> tool)),
+          toolkit = Toolkit.single(tool),
           toolAuthorizer = ToolAuthorizer(_ => ZIO.succeed(ToolAuthorization.Approved(approved))),
           toolResultProcessor = ToolResultProcessor(result =>
             invocations.get
@@ -131,7 +131,7 @@ object ToolInvocationSpec extends ZIOSpecDefault:
           ordinary.update(_ + 1).as("ordinary"),
           (_, invocation) => contexts.update(_ :+ invocation).as("contextual")
         )
-        tools = Toolkit(Map("inspect" -> custom))
+        tools = Toolkit.single(custom)
         detached <- tools.executeSafe("inspect", Json.Obj())
         client   <- model(Chunk(call))
         denied <- ReActAgent
@@ -145,11 +145,8 @@ object ToolInvocationSpec extends ZIOSpecDefault:
         legacy <- ReActAgent
           .make(
             client = legacyClient,
-            toolkit = Toolkit(
-              Map(
-                "inspect" -> Tool.make(custom.definition)(_ => ordinary.update(_ + 1).as("legacy"))
-              )
-            )
+            toolkit =
+              Toolkit.single(Tool.make(custom.definition)(_ => ordinary.update(_ + 1).as("legacy")))
           )
           .flatMap(_.run(Msg.user("inspect")))
         count    <- ordinary.get
@@ -191,7 +188,7 @@ object ToolInvocationSpec extends ZIOSpecDefault:
                 )
         )
         client <- model(Chunk(call))
-        agent  <- ReActAgent.make(client = client, toolkit = Toolkit(Map("inspect" -> tool)))
+        agent  <- ReActAgent.make(client = client, toolkit = Toolkit.single(tool))
         cancellation <- ZIO.scoped {
           (for
             cancelled    <- agent.run(Msg.user("inspect")).forkScoped

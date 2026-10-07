@@ -4,6 +4,11 @@ The engineering target is one paired Scala test for every applicable upstream be
 
 The reference is the clean local `agentscope-java` checkout at commit `f98a685fdc4589f81e626e1686ac2c63d14a2304`, verified on 2026-09-29. Upstream Java implementation details are translated into Scala domain behavior, not copied as imperative APIs. Updating this pin requires a new inventory and review of changed scenarios.
 
+## Toolkit binding identity
+
+- [x] Reproduce the raw Toolkit key/name mismatch against unchanged code: approval of allowed dispatched forbidden in toolkit-identity-red.log (3 passes/1 failure). This is a Scala registry defect, not an additional upstream method mapping.
+- [x] Obtain final FP/ZIO/invariant approval and full verification for the [private registry and 55-file source/spec migration](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). One regression group adds malformed rejection and permitted canonical execution; existing merge cases distinguish explicit replacement from collision rejection.
+
 ## Cross-module host integration
 
 - [x] Independently review and verify the [HostAssembly and offline smoke admission](../../modules/examples/README.md#verification-and-acceptance) examples. Two composed lifecycle/tool groups and one offline admission group exercise Scala host integration; they do not close additional upstream Java test methods.

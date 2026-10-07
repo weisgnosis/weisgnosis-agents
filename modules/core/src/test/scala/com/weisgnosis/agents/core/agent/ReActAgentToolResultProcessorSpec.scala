@@ -63,7 +63,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
               .set(history.flatMap(_.toolResults))
               .as(TurnOutput.FinalText(Msg.assistant("done")))
         )
-        agent    <- ReActAgent.make(client = model, toolkit = Toolkit(Map("lookup" -> typed)))
+        agent    <- ReActAgent.make(client = model, toolkit = Toolkit.single(typed))
         events   <- agent.streamEvents(Msg.user("q")).runCollect
         history  <- agent.history
         received <- observed.get
@@ -123,7 +123,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         agent <- ReActAgent
           .builder()
           .model(model)
-          .toolkit(Toolkit(Map("lookup" -> tool("lookup"))))
+          .toolkit(Toolkit.single(tool("lookup")))
           .toolResultProcessor(processor)
           .build
         _        <- agentRef.set(Some(agent))
@@ -167,7 +167,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("lookup" -> failing)),
+          toolkit = Toolkit.single(failing),
           toolResultProcessor = processor
         )
         result   <- agent.run(Msg.user("q"))
@@ -202,7 +202,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         agent <- ReActAgent.make(
           config = AgentConfig(toolExecution = ToolExecution.Sequential),
           client = client,
-          toolkit = Toolkit(Map("first" -> first, "second" -> second)),
+          toolkit = Toolkit.single(first).updated(second),
           toolResultProcessor = processor
         )
         fiber    <- agent.streamEvents(Msg.user("q")).runCollect.forkScoped
@@ -237,7 +237,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("lookup" -> tool("lookup"))),
+          toolkit = Toolkit.single(tool("lookup")),
           toolResultProcessor = processor
         )
         fiber    <- agent.run(Msg.user("q")).forkScoped
@@ -276,7 +276,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("first" -> tool("first"), "second" -> second)),
+          toolkit = Toolkit.single(tool("first")).updated(second),
           toolResultProcessor = processor
         )
         events <- agent
@@ -337,7 +337,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         agent <- ReActAgent.make(
           config = AgentConfig(toolExecution = ToolExecution.Sequential),
           client = client,
-          toolkit = Toolkit(Map("first" -> first, "second" -> second)),
+          toolkit = Toolkit.single(first).updated(second),
           toolResultProcessor =
             ToolResultProcessor(_ => ZIO.addFinalizer(closed.set(true)) *> ZIO.die(defect))
         )
@@ -377,7 +377,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         client <- LlmClient.mock(Chunk(output(call("first", "first"), call("second", "second"))))
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("first" -> tool("first"), "second" -> sibling)),
+          toolkit = Toolkit.single(tool("first")).updated(sibling),
           toolResultProcessor = ToolResultProcessor(_ => entered.await *> ZIO.die(defect))
         )
         exit     <- agent.run(Msg.user("q")).exit
@@ -401,7 +401,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         agent <- ReActAgent.make(
           config = AgentConfig(toolExecution = ToolExecution.Sequential),
           client = client,
-          toolkit = Toolkit(Map("first" -> tool("first"), "second" -> tool("second"))),
+          toolkit = Toolkit.single(tool("first")).updated(tool("second")),
           toolResultProcessor = ToolResultProcessor(_ =>
             ZIO
               .addFinalizer(ZIO.die(defect))
@@ -433,7 +433,7 @@ object ReActAgentToolResultProcessorSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("lookup" -> tool("lookup"))),
+          toolkit = Toolkit.single(tool("lookup")),
           toolResultProcessor = first.andThen(second)
         )
         result   <- agent.run(Msg.user("q"))

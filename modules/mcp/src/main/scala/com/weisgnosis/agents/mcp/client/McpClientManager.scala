@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.client
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolGroups, Toolkit}
+import com.weisgnosis.agents.core.tool.{ToolDef, ToolGroups, Toolkit}
 import com.weisgnosis.agents.mcp.protocol.McpToolDefinition
 import com.weisgnosis.agents.mcp.tool.{McpTool, McpToolBinding}
 import scala.annotation.unused
@@ -198,11 +198,7 @@ object McpClientManager:
         })
 
     private def toolsFor(values: Chunk[(Entry, Toolkit)]): Toolkit =
-      Toolkit(
-        values.foldLeft(Map.empty[String, Tool[Any, ?, ?]])((tools, value) =>
-          tools ++ value._2.tools
-        )
-      )
+      values.foldLeft(Toolkit.empty)((tools, value) => tools.overlay(value._2))
 
     private def addMemberships(
         current: ToolGroups,

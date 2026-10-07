@@ -169,7 +169,7 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("lookup" -> tool)),
+          toolkit = Toolkit.single(tool),
           postReasoningHook = hook
         )
         _          <- agentRef.set(Some(agent))
@@ -197,7 +197,7 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
         agent <- ReActAgent.make(
           config = AgentConfig(maxIterations = 2),
           client = client,
-          toolkit = Toolkit(Map("lookup" -> tool)),
+          toolkit = Toolkit.single(tool),
           postReasoningHook = PostReasoningHook((_, _) => ZIO.succeed(ReasoningDecision.Discard))
         )
         result     <- agent.run(Msg.user("q"))
@@ -325,7 +325,7 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("lookup" -> tool)),
+          toolkit = Toolkit.single(tool),
           postReasoningHook = hook
         )
         fiber    <- agent.run(Msg.user("q")).forkScoped
@@ -399,7 +399,7 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
         tool = Tool.make(ToolDef("lookup", "Read a value", Json.Obj()))(_ => ZIO.succeed("7"))
         agent <- ReActAgent.make(
           client = model,
-          toolkit = Toolkit(Map("lookup" -> tool)),
+          toolkit = Toolkit.single(tool),
           llmConfig = LlmConfig(
             "configured",
             structuredOutputCapability = StructuredOutputCapability.Native()
@@ -475,7 +475,7 @@ object ReActAgentReasoningHookSpec extends ZIOSpecDefault:
         client <- LlmClient.mock(Chunk(TurnOutput.ToolCalls(Msg.assistant(Chunk(lookup)))))
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("lookup" -> tool)),
+          toolkit = Toolkit.single(tool),
           postReasoningHook = PostReasoningHook((_, _) =>
             ZIO.succeed(ReasoningDecision.Replace(Msg.assistant("accepted")))
           )

@@ -167,7 +167,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
                   client <- ChatCompletionsClient.make(http)
                   agent <- ReActAgent.make(
                     client = client,
-                    toolkit = Toolkit(Map("lookup" -> lookup)),
+                    toolkit = Toolkit.single(lookup),
                     toolGroups = Some(groups),
                     toolAuthorizer = ToolAuthorizer(request =>
                       authorized
@@ -404,7 +404,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
               .make(http, toolSignatureFormat = ToolSignatureFormat.GoogleExtraContent)
             agent <- ReActAgent.make(
               client = client,
-              toolkit = Toolkit(Map("lookup" -> lookup)),
+              toolkit = Toolkit.single(lookup),
               toolAuthorizer = authorizer,
               llmConfig = config.copy(endpoint = s"http://127.0.0.1:$port/completion")
             )
@@ -580,7 +580,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
                   .make(http, reasoningReplay = profile)
                 agent <- ReActAgent.make(
                   client = client,
-                  toolkit = Toolkit(Map("lookup" -> lookup)),
+                  toolkit = Toolkit.single(lookup),
                   toolAuthorizer = authorizer,
                   // The provider ignores this preference; both calls still require authorization.
                   llmConfig = config.copy(
@@ -703,7 +703,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("lookup" -> lookup)),
+          toolkit = Toolkit.single(lookup),
           llmConfig = config
         )
         result <- agent

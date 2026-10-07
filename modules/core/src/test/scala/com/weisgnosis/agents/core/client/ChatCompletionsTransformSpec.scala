@@ -154,7 +154,7 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("lookup" -> lookup)),
+          toolkit = Toolkit.single(lookup),
           llmConfig = config
         )
         events <- agent

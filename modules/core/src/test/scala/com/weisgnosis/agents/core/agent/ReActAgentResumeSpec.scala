@@ -89,13 +89,10 @@ object ReActAgentResumeSpec extends ZIOSpecDefault:
                           )
                       )
               )
-              toolkit = Toolkit(
-                Map(
-                  "one"    -> tool("one", executed.update(_ :+ "one").as("one")),
-                  "two"    -> tool("two", executed.update(_ :+ "two").as("two")),
-                  "remote" -> tool("remote", executed.update(_ :+ "unexpected remote").as("remote"))
-                )
-              )
+              toolkit = Toolkit
+                .single(tool("one", executed.update(_ :+ "one").as("one")))
+                .updated(tool("two", executed.update(_ :+ "two").as("two")))
+                .updated(tool("remote", executed.update(_ :+ "unexpected remote").as("remote")))
               hook = PostReasoningHook((context, message) =>
                 hooks.update(_ + 1) *> pause(context, message)
               )
@@ -187,7 +184,7 @@ object ReActAgentResumeSpec extends ZIOSpecDefault:
           modelCalls <- Ref.make(0)
           executions <- Ref.make(0)
           hidden  = tool("hidden", executions.update(_ + 1).as("hidden"))
-          toolkit = Toolkit(Map("hidden" -> hidden))
+          toolkit = Toolkit.single(hidden)
           groups <- ZIO.fromEither(
             ToolGroups.empty.register(
               ToolGroup(
@@ -254,12 +251,8 @@ object ReActAgentResumeSpec extends ZIOSpecDefault:
           boundedHistory <- bounded.history
           changed <- ReActAgent.make(
             client = client,
-            toolkit = Toolkit(
-              Map(
-                "hidden" -> Tool.make(hidden.definition.copy(description = "Changed"))(_ =>
-                  ZIO.succeed("bad")
-                )
-              )
+            toolkit = Toolkit.single(
+              Tool.make(hidden.definition.copy(description = "Changed"))(_ => ZIO.succeed("bad"))
             ),
             toolGroups = Some(groups)
           )
@@ -430,12 +423,9 @@ object ReActAgentResumeSpec extends ZIOSpecDefault:
             agent <- ReActAgent.make(
               config = AgentConfig(toolExecution = ToolExecution.Sequential),
               client = client,
-              toolkit = Toolkit(
-                Map(
-                  "one" -> tool("one", executed.update(_ :+ "one").as("completed")),
-                  "two" -> tool("two", executed.update(_ :+ "two").as("unexpected"))
-                )
-              ),
+              toolkit = Toolkit
+                .single(tool("one", executed.update(_ :+ "one").as("completed")))
+                .updated(tool("two", executed.update(_ :+ "two").as("unexpected"))),
               toolAuthorizer = ToolAuthorizer(request =>
                 ZIO.succeed(
                   if request.callOrdinal.contains(0) then
@@ -491,7 +481,7 @@ object ReActAgentResumeSpec extends ZIOSpecDefault:
           )
           agent <- ReActAgent.make(
             client = client,
-            toolkit = Toolkit(Map("one" -> blocked)),
+            toolkit = Toolkit.single(blocked),
             postReasoningHook = pause
           )
           suspended <- agent.run(Msg.user("q"))

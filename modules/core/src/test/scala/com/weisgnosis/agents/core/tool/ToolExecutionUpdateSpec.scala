@@ -41,7 +41,7 @@ object ToolExecutionUpdateSpec extends ZIOSpecDefault:
     ): ZStream[Any, Throwable, ToolExecutionUpdate[String]] = updates
     def encodeOutput(out: String): String = out
 
-  private def toolkit(tool: Tool[Any, ?, ?]): Toolkit = Toolkit(Map("stream" -> tool))
+  private def toolkit(tool: Tool[Any, ?, ?]): Toolkit = Toolkit.single(tool)
 
   def spec: Spec[TestEnvironment, Any] = suite("ToolExecutionUpdateSpec")(
     test(
@@ -52,7 +52,7 @@ object ToolExecutionUpdateSpec extends ZIOSpecDefault:
         legacy = Tool.make(ToolDef("legacy", "Legacy", Json.Obj()))(_ =>
           executions.update(_ + 1).as("legacy result")
         )
-        legacyResult <- Toolkit(Map("legacy" -> legacy)).executeSafe("legacy", Json.Obj())
+        legacyResult <- Toolkit.single(legacy).executeSafe("legacy", Json.Obj())
         count        <- executions.get
         closed       <- Promise.make[Nothing, Unit]
         seen         <- Ref.make(Chunk.empty[ToolResultPayload])
@@ -174,7 +174,7 @@ object ToolExecutionUpdateSpec extends ZIOSpecDefault:
       val legacy =
         Tool.make(ToolDef("legacy", "Mixed cause", Json.Obj()))(_ => ZIO.refailCause(mixed))
       for
-        legacyExit <- Toolkit(Map("legacy" -> legacy)).executeSafe("legacy", Json.Obj()).exit
+        legacyExit <- Toolkit.single(legacy).executeSafe("legacy", Json.Obj()).exit
         streamExit <- toolkit(streaming(ZStream.fromChannel(ZChannel.refailCause(mixed))))
           .executeSafe("stream", Json.Obj())
           .exit

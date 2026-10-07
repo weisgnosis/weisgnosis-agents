@@ -46,7 +46,7 @@ object ReActAgentSuppliedResultSpec extends ZIOSpecDefault:
     )
   )
   private def toolkit(run: Json => UIO[String]): Toolkit =
-    Toolkit(Map("read" -> Tool.make(ToolDef("read", "Read", Json.Obj()))(run)))
+    Toolkit.single(Tool.make(ToolDef("read", "Read", Json.Obj()))(run))
   private def supplied(index: Int): SuppliedToolResult =
     SuppliedToolResult(index, ToolExecutionResult(s"provided-$index"))
 

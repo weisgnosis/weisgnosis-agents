@@ -54,7 +54,7 @@ object CheckpointPermissionIntegrationSpec extends ZIOSpecDefault:
                 )
                 .map(name -> _)
             )
-            toolkit = Toolkit(tools.toMap)
+            toolkit = tools.foldLeft(Toolkit.empty)((current, entry) => current.updated(entry._2))
             policy = PermissionEngine(
               Chunk(
                 PermissionRule("read", PermissionBehavior.Allow),

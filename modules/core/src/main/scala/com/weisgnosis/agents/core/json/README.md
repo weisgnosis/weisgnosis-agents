@@ -35,8 +35,8 @@ The pre-fix memory-numeric-red.log recorded 38 passes/3 failures in provenance, 
 | [Msg.scala](../model/Msg.scala) | `2f12a84f6f668f652dff6311088b842af6c495c7` |
 | [ContentBlock.scala](../model/ContentBlock.scala) | `d4b186534f6874b67bab02e2d0d37dec097ecf09` |
 | [Tool.scala](../tool/Tool.scala) | `e460c1179d8ed7ce1b21be6fa2915a577d39ec1c` |
-| [Toolkit.scala](../tool/Toolkit.scala) | `7a6789a12bd958ae507b2d6d12eefa4583d29797` |
-| [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | `084ece699eb700ab7d7fce9fae3bd83651933e6f` |
+| [Toolkit.scala](../tool/Toolkit.scala) | [Current identity and registry migration](../tool/README.md#checked-registry-identity); numeric encoding contract is unchanged. |
+| [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | [Current ToolExecutionSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | `e926e44021ee976bfaf0b3cc2da107fc23eb6b8e` |
 | [MemoryFlushManager.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManager.scala) | `fb233e5ec1822773c25c717132f7aca79b34cecb` |
 | [ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | `52fb3f9cd12dae969cae67d13a809830ac5a0f32` |

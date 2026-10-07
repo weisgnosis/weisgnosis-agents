@@ -55,7 +55,7 @@ Unchanged identities from the scope against `cc8fa7b`; commit `3718e18` preserve
 | --- | --- |
 | [HistoryPreparerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/HistoryPreparerSpec.scala) | 087459eab0ad56b15ee3c53fe81667505bff6a71 |
 | [ToolResultEvictor.scala](ToolResultEvictor.scala) | 9821483cf3f617f55ffa3487df357c4967365f20 |
-| [ToolResultEvictorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorIntegrationSpec.scala) | de74b515f7915dab886ef995dd18e5d9fb4e4a3b |
+| [ToolResultEvictorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorIntegrationSpec.scala) | [Current ToolResultEvictorIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [ToolResultEvictorRecognitionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorRecognitionSpec.scala) | 4c81fae29456c429589d6d8f646ac8f6d2ce96c0 |
 | [ToolResultEvictorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorSpec.scala) | c59677db41b87de222575f446a5d6212be87668a |
 | [ToolResultStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultStoreSpec.scala) | 5b8bf8b5d152f9741dcc4339430a9eacf74983d2 |

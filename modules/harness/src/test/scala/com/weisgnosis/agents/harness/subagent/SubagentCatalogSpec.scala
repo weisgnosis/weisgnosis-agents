@@ -132,15 +132,13 @@ object SubagentCatalogSpec extends ZIOSpecDefault:
               else
                 ZIO.succeed(TurnOutput.FinalText(Msg.assistant(name + ":" + prompts.mkString("|"))))
             )),
-            Toolkit(
-              Chunk("read", "hidden")
-                .map(tool =>
-                  tool -> Tool.make(
-                    ToolDef(tool, "Record execution", Json.Obj())
-                  )(_ => executed.update(_ :+ s"$name:$tool").as("done"))
-                )
-                .toMap
-            )
+            Chunk("read", "hidden")
+              .map(tool =>
+                Tool.make(
+                  ToolDef(tool, "Record execution", Json.Obj())
+                )(_ => executed.update(_ :+ s"$name:$tool").as("done"))
+              )
+              .foldLeft(Toolkit.empty)(_.updated(_))
           )
         )
         catalog <- SubagentCatalog.open(parent, entries)

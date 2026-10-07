@@ -48,7 +48,7 @@ Previous implementation/hardening approvals remain in Git through `52da827`. Cur
 | Source | Blob identity |
 | --- | --- |
 | [ConversationCompactorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) |
-| [ConversationCompactorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorIntegrationSpec.scala) | 09c7ace7c4c4180baaf754774afa0e08a3be39fc |
+| [ConversationCompactorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorIntegrationSpec.scala) | [Current ConversationCompactorIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 
 ## Daily-memory extraction
 

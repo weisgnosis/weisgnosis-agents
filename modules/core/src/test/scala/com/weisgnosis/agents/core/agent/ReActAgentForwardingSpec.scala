@@ -74,7 +74,7 @@ object ReActAgentForwardingSpec extends ZIOSpecDefault:
                 else TurnOutput.FinalText(reply)
               )
           ),
-          toolkit = Toolkit(Map("progress" -> tool)),
+          toolkit = Toolkit.single(tool),
           completionObserver = TurnCompletionObserver(value => observed.update(_ :+ value))
         )
         result      <- agent.runForwarding(Msg.user("work"), destination, "child")

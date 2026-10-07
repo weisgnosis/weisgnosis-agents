@@ -54,13 +54,9 @@ object SubagentFactorySpec extends ZIOSpecDefault:
   private val failure: AgentError = AgentError.InvalidConfiguration("fixture failure")
 
   private def toolkit(names: String*): Toolkit =
-    Toolkit(
-      names
-        .map(name =>
-          name -> Tool.make(ToolDef(name, "Factory fixture", Json.Obj()))(_ => ZIO.succeed(name))
-        )
-        .toMap
-    )
+    names
+      .map(name => Tool.make(ToolDef(name, "Factory fixture", Json.Obj()))(_ => ZIO.succeed(name)))
+      .foldLeft(Toolkit.empty)(_.updated(_))
 
   private def factory(
       inherited: Toolkit = Toolkit.empty,
@@ -106,7 +102,7 @@ object SubagentFactorySpec extends ZIOSpecDefault:
       executions.update(_ :+ input).as("executed")
     )
     factory(
-      inherited = Toolkit(Map("probe" -> probe)),
+      inherited = Toolkit.single(probe),
       client = _ =>
         LlmClient.mock(
           Chunk(
@@ -442,7 +438,7 @@ object SubagentFactorySpec extends ZIOSpecDefault:
             write = Tool.make(ToolDef("write_file", "Observe forbidden dispatch", Json.Obj()))(_ =>
               executions.update(_ + 1).as("written")
             )
-            automatic = registered.copy(tools = registered.tools.updated("write_file", write))
+            automatic = registered.updated(write)
             configured <- factory(
               inherited,
               parent,
@@ -507,7 +503,7 @@ object SubagentFactorySpec extends ZIOSpecDefault:
           executions.update(_ + 1).as("written")
         )
         configured <- factory(
-          inherited = Toolkit(Map("write" -> tool)),
+          inherited = Toolkit.single(tool),
           client = _ =>
             LlmClient.mock(
               Chunk(

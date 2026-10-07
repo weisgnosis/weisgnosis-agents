@@ -68,13 +68,11 @@ object PlanPermissionIntegrationSpec extends ZIOSpecDefault:
       def encodeOutput(out: String): String = out
 
   private def toolkit(names: Chunk[String], run: (String, Json) => UIO[String]): Toolkit =
-    Toolkit(
-      names
-        .map(name =>
-          name -> Tool.make(ToolDef(name, "Host capability", Json.Obj()))(value => run(name, value))
-        )
-        .toMap
-    )
+    names
+      .map(name =>
+        Tool.make(ToolDef(name, "Host capability", Json.Obj()))(value => run(name, value))
+      )
+      .foldLeft(Toolkit.empty)(_.updated(_))
 
   private def agent(
       calls: Chunk[ContentBlock.ToolUse],

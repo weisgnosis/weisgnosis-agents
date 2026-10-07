@@ -75,16 +75,18 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
                 case _               => Chunk(ContentBlock.Text("second"))
               mode =
                 if batch == Batch.Default then ToolReturnMode.Continue else ToolReturnMode.Direct
-              tools = Toolkit(
-                Map(
-                  "first" -> tool(
+              tools = Toolkit
+                .single(
+                  tool(
                     "first",
                     mode,
                     secondProcessed.await.as(
                       ToolExecutionResult(ToolResultPayload(firstOutput), ToolResultState.Success)
                     )
-                  ),
-                  "second" -> tool(
+                  )
+                )
+                .updated(
+                  tool(
                     "second",
                     if batch == Batch.Mixed then ToolReturnMode.Continue else mode,
                     ZIO.succeed(
@@ -96,7 +98,6 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
                     )
                   )
                 )
-              )
               inline: Chunk[ContentBlock] =
                 if batch == Batch.Inline then
                   Chunk(
@@ -213,18 +214,16 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
             firstState =
               if entry == Entry.SuppliedError then ToolResultState.Error
               else ToolResultState.Success
-            tools = Toolkit(
-              Chunk("first", "second")
-                .map(name =>
-                  name -> tool(
-                    name,
-                    if entry == Entry.SuppliedMixed && name == "second" then ToolReturnMode.Continue
-                    else ToolReturnMode.Direct,
-                    executions.update(_ :+ name).as(ToolExecutionResult(name))
-                  )
+            tools = Chunk("first", "second")
+              .map(name =>
+                tool(
+                  name,
+                  if entry == Entry.SuppliedMixed && name == "second" then ToolReturnMode.Continue
+                  else ToolReturnMode.Direct,
+                  executions.update(_ :+ name).as(ToolExecutionResult(name))
                 )
-                .toMap
-            )
+              )
+              .foldLeft(Toolkit.empty)(_.updated(_))
             client = LlmClient.mockEffectful((history, _, _) =>
               modelHistory.update(_ :+ history) *> calls
                 .getAndUpdate(_ + 1)
@@ -284,10 +283,10 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
                 yield result
             rejectedHost <- ReActAgent.make(
               client = client,
-              toolkit = Toolkit(
-                tools.tools.map((name, value) =>
-                  name -> tool(
-                    name,
+              toolkit = tools.tools.values.foldLeft(Toolkit.empty)((current, value) =>
+                current.updated(
+                  tool(
+                    value.definition.name,
                     ToolReturnMode.Continue,
                     ZIO.succeed(ToolExecutionResult(value.definition.name))
                   )
@@ -369,13 +368,11 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
               client = LlmClient.mockFunction((_, _) =>
                 TurnOutput.ToolCalls(Msg.assistant(Chunk(call("first"))))
               ),
-              toolkit = Toolkit(
-                Map(
-                  "first" -> tool(
-                    "first",
-                    ToolReturnMode.Direct,
-                    ZIO.succeed(ToolExecutionResult("raw"))
-                  )
+              toolkit = Toolkit.single(
+                tool(
+                  "first",
+                  ToolReturnMode.Direct,
+                  ZIO.succeed(ToolExecutionResult("raw"))
                 )
               ),
               toolResultProcessor = ToolResultProcessor(result =>
@@ -452,13 +449,11 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
                       case _ => TurnOutput.FinalText(Msg.assistant("{\"value\":7}"))
             ),
             llmConfig = LlmConfig("structured", structuredOutputCapability = capability),
-            toolkit = Toolkit(
-              Map(
-                "first" -> tool(
-                  "first",
-                  ToolReturnMode.Direct,
-                  ZIO.succeed(ToolExecutionResult("observation"))
-                )
+            toolkit = Toolkit.single(
+              tool(
+                "first",
+                ToolReturnMode.Direct,
+                ZIO.succeed(ToolExecutionResult("observation"))
               )
             )
           )

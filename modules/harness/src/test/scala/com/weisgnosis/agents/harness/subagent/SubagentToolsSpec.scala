@@ -411,7 +411,7 @@ object SubagentToolsSpec extends ZIOSpecDefault:
           executions.update(_ + 1).as("executed")
         )
         configured <- factory(
-          _ => ZIO.succeed(Toolkit(Map("forbidden" -> forbidden))),
+          _ => ZIO.succeed(Toolkit.single(forbidden)),
           _ =>
             ZIO.succeed(
               LlmClient.mockEffectful((history, tools, _) =>

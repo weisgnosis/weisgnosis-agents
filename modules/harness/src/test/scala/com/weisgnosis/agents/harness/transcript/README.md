@@ -1,5 +1,7 @@
 # Session transcript verification
 
+Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+
 - [TranscriptEntrySpec](TranscriptEntrySpec.scala): two codec/structural-key cases.
 - [TranscriptStoreSpec](TranscriptStoreSpec.scala): seven cases for duplicate gaps, first-observation retention, anonymous replay, store isolation, lazy recording time, deterministic UUID-collision batch rollback, concurrent overlapping batches, and empty input.
 - [SessionTranscriptWriterSpec](SessionTranscriptWriterSpec.scala): thirteen cases for overlapping histories, structured tool payloads, image/empty placeholders, absent/blank IDs, summaries, thinking/context filtering, repeated tools/delimiters, exact 500/501 and 1,000/1,001 preview boundaries, non-text output, compactor ordering, typed errors, and cancellation cleanup.

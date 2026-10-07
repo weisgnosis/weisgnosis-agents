@@ -85,7 +85,7 @@ object ToolFixedArgumentsSpec extends ZIOSpecDefault:
         fixed   <- ZIO.fromEither(ToolFixedArguments.make(Json.Obj("value" -> Json.Str("fixed"))))
         wrapped <- ZIO.fromEither(Tool.withFixedArguments(original, fixed))
         registered <- ZIO.fromEither(Toolkit(wrapped))
-        selected = Toolkit(registered.tools.filter { case (name, _) => name == "typed" })
+        selected = registered.filterNames(_ == "typed")
         merged <- ZIO.fromEither(Toolkit.empty ++ selected)
         direct <- wrapped.execute(Input("trusted"))
         result <- merged.executeSafe("typed", Json.Obj("value" -> Json.Str("model")))

@@ -67,7 +67,7 @@ object SubagentSpawnerAgentSpec extends ZIOSpecDefault:
           TurnOutput.FinalText(Msg.assistant(s"finished depth ${spawner.depth}"))
         )
       )
-      agent  <- ReActAgent.make(client = client, toolkit = Toolkit(Map("spawn_child" -> tool)))
+      agent  <- ReActAgent.make(client = client, toolkit = Toolkit.single(tool))
       _      <- agents.update(_ :+ (spawner.depth, agent))
       result <- agent.run(Msg.user("delegate the next bounded child"))
     yield result

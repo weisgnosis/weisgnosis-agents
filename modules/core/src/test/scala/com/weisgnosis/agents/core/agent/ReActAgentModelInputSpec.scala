@@ -194,12 +194,8 @@ object ReActAgentModelInputSpec extends ZIOSpecDefault:
       for
         entered <- Promise.make[Nothing, Unit]
         client  <- LlmClient.mock(Chunk(TurnOutput.ToolCalls(Msg.assistant(Chunk(call)))))
-        toolkit = Toolkit(
-          Map(
-            "lookup" -> Tool.make(ToolDef("lookup", "Lookup", Json.Obj()))(_ =>
-              entered.succeed(()) *> ZIO.never
-            )
-          )
+        toolkit = Toolkit.single(
+          Tool.make(ToolDef("lookup", "Lookup", Json.Obj()))(_ => entered.succeed(()) *> ZIO.never)
         )
         agent <- ReActAgent.make(
           client = client,

@@ -84,15 +84,13 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
     )
 
   private def probes(names: Chunk[String], executed: Ref[Chunk[(String, Json)]]): Toolkit =
-    Toolkit(
-      names
-        .map(name =>
-          name -> Tool.make(ToolDef(name, "Record admitted execution", Json.Obj()))(input =>
-            executed.update(_ :+ (name, input)).as("executed")
-          )
+    names
+      .map(name =>
+        Tool.make(ToolDef(name, "Record admitted execution", Json.Obj()))(input =>
+          executed.update(_ :+ (name, input)).as("executed")
         )
-        .toMap
-    )
+      )
+      .foldLeft(Toolkit.empty)(_.updated(_))
 
   private def scripted(calls: Chunk[ContentBlock.ToolUse]): UIO[LlmClient] =
     LlmClient.mock(
@@ -214,14 +212,13 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
             fixed
           )
         )
-        base = Toolkit(
-          Map(
-            "probe" -> probe,
-            "filtered" -> Tool.make(
+        base = Toolkit
+          .single(probe)
+          .updated(
+            Tool.make(
               ToolDef("filtered", "Must remain excluded", Json.Obj())
             )(_ => executed.update(_ :+ Json.Str("unexpected")).as("wrong"))
           )
-        )
         construction = SubagentConstruction.root(
           root,
           SubagentToolBoundary(denied = Set("filtered")),
@@ -309,20 +306,18 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
                   ),
               skillSelection = SubagentSkillSelection.Only(Set("first"))
             ).map(grandchild =>
-              Toolkit(
-                Map(
-                  "delegate" -> Tool.make(
-                    ToolDef("delegate", "Run selected descendants", Json.Obj(), isReadOnly = true)
-                  )(_ =>
-                    ZIO
-                      .scoped(
-                        ZIO.foreachDiscard(1 to 2)(_ =>
-                          run(grandchild, child.spawner)
-                            .flatMap(result => results.update(_ :+ result))
-                        )
+              Toolkit.single(
+                Tool.make(
+                  ToolDef("delegate", "Run selected descendants", Json.Obj(), isReadOnly = true)
+                )(_ =>
+                  ZIO
+                    .scoped(
+                      ZIO.foreachDiscard(1 to 2)(_ =>
+                        run(grandchild, child.spawner)
+                          .flatMap(result => results.update(_ :+ result))
                       )
-                      .as("delegated")
-                  )
+                    )
+                    .as("delegated")
                 )
               )
             ),
@@ -440,15 +435,13 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
                 policy.get,
                 parentMode.get
               )
-              tools = Toolkit(
-                Chunk("read", "write")
-                  .map(name =>
-                    name -> Tool.make(
-                      ToolDef(name, "Child access probe", Json.Obj(), isReadOnly = name == "read")
-                    )(_ => executed.update(_ :+ name).as("executed"))
-                  )
-                  .toMap
-              )
+              tools = Chunk("read", "write")
+                .map(name =>
+                  Tool.make(
+                    ToolDef(name, "Child access probe", Json.Obj(), isReadOnly = name == "read")
+                  )(_ => executed.update(_ :+ name).as("executed"))
+                )
+                .foldLeft(Toolkit.empty)(_.updated(_))
               client = LlmClient.mockEffectful((history, _, _) =>
                 ZIO.succeed(
                   if history.lastOption.exists(_.role == Role.User) then
@@ -548,15 +541,12 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
                   )
                 )
             ).map(grandchild =>
-              Toolkit(
-                Map(
-                  "delegate" -> Tool.make(ToolDef("delegate", "Run a nested child", Json.Obj()))(
-                    _ =>
-                      ZIO
-                        .scoped(run(grandchild, child.spawner))
-                        .tap(result => grandResult.set(Some(result)))
-                        .as("delegated")
-                  )
+              Toolkit.single(
+                Tool.make(ToolDef("delegate", "Run a nested child", Json.Obj()))(_ =>
+                  ZIO
+                    .scoped(run(grandchild, child.spawner))
+                    .tap(result => grandResult.set(Some(result)))
+                    .as("delegated")
                 )
               )
             ),
@@ -769,7 +759,7 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
         invalid <- factory(
           construction,
           initialize,
-          (_, _) => ZIO.succeed(Toolkit(Map("mismatched" -> readTool))),
+          (_, _) => ZIO.fromEither(Toolkit.fromMap(Map("mismatched" -> readTool))),
           _ => laterEffects.update(_ + 1).as(model)
         )
         rejected         <- run(invalid, root).exit

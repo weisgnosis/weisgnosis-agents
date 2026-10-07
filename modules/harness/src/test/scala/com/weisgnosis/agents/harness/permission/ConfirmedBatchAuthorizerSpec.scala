@@ -59,7 +59,7 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
             policyReads <- Ref.make(0)
             gatesClosed <- Ref.make(0)
             accesses    <- Ref.make(Chunk.empty[Option[AdmittedToolAccess]])
-            tools  = Toolkit(Map("read" -> readTool(input => inputs.update(_ :+ input).as("ok"))))
+            tools  = Toolkit.single(readTool(input => inputs.update(_ :+ input).as("ok")))
             inline = call.copy(name = "remote").withServerTool(true)
             saved <- checkpoint(
               Msg.assistant(
@@ -179,11 +179,9 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
               ToolFixedArguments.make(Json.Obj("host" -> Json.Str("trusted")))
             )
             bound <- ZIO.fromEither(Tool.withFixedArguments(raw, fixed))
-            tools = Toolkit(
-              Map(
-                "read" -> (if guard == Guard.Prepared || guard == Guard.FixedEdit then bound
-                           else raw)
-              )
+            tools = Toolkit.single(
+              if guard == Guard.Prepared || guard == Guard.FixedEdit then bound
+              else raw
             )
             selected =
               if guard == Guard.SignedEdit then
@@ -250,7 +248,7 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
     ):
       for
         reads <- Ref.make(0)
-        saved <- checkpoint(Msg.assistant(Chunk(call)), Toolkit())
+        saved <- checkpoint(Msg.assistant(Chunk(call)), Toolkit.empty)
         value <- pending(saved)
         valid  = Chunk(ConfirmedToolCall(0, ConfirmResult(true)))
         policy = reads.update(_ + 1).as(PermissionEngine())
@@ -320,7 +318,7 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
           for
             executions <- Ref.make(0)
             calls      <- Ref.make(0)
-            tools = Toolkit(Map("read" -> readTool(_ => executions.update(_ + 1).as("unexpected"))))
+            tools = Toolkit.single(readTool(_ => executions.update(_ + 1).as("unexpected")))
             saved <- checkpoint(Msg.assistant(Chunk(call)), tools)
             value <- pending(saved)
             authorizer <- ConfirmedBatchAuthorizer.make(
@@ -375,7 +373,7 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
           executions <- Ref.make(0)
           modelCalls <- Ref.make(0)
           defect = new IllegalStateException("gate cleanup failed")
-          tools  = Toolkit(Map("read" -> readTool(_ => executions.update(_ + 1).as("unexpected"))))
+          tools  = Toolkit.single(readTool(_ => executions.update(_ + 1).as("unexpected")))
           saved <- checkpoint(Msg.assistant(Chunk(call)), tools)
           gate = PermissionGate((_, _) =>
             ZIO.addFinalizer(cleaning.succeed(()) *> release.await *> ZIO.die(defect)) *>

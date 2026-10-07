@@ -195,7 +195,7 @@ object SubagentForwardingSpec extends ZIOSpecDefault:
                   yield "parent joined"
         observer <- ReActAgent.make(
           client = model("observer complete", Some(invoke("observe_parent", "work")), requests),
-          toolkit = Toolkit(Map("observe_parent" -> relay))
+          toolkit = Toolkit.single(relay)
         )
         assertion <- ZIO.scoped:
           (for

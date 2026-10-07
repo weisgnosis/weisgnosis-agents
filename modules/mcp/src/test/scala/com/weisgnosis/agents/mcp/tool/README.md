@@ -1,5 +1,7 @@
 # MCP tool binding verification
 
+Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+
 [McpToolSpec](McpToolSpec.scala) contains three grouped integration scenarios using an initialized client and controlled borrowed transport:
 
 - Fixed remote routing through an actual ReAct continuation preserves host ToolDef authority, all five content variants, structured data, independent metadata/extension levels and all resource bodies. Error state survives while runtime identity/control metadata remains protected.

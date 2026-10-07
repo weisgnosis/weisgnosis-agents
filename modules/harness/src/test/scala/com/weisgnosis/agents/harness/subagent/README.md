@@ -1,5 +1,7 @@
 # Scoped child execution verification
 
+Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+
 The [current contracts and acceptance](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md) define accepted supervision, shared resource ownership, reusable host-held sessions, bounded host session membership, lineage, configured construction, bounded registry, live parent denial and model-facing spawn/send/task controls. Directory-bound model routing and opt-in policy-aware child construction are available; inline declarations and the general-purpose preset are available. Existing declaration tables verify topP inheritance/override and old JSON defaults; [current acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-nucleus-sampling) owns the reviewed identities and full verification.
 
 ## Current suites

@@ -38,15 +38,13 @@ object PlanInheritedPermissionSpec extends ZIOSpecDefault:
   )
 
   private def probes(names: Chunk[String], executed: Ref[Chunk[(String, Json)]]): Toolkit =
-    Toolkit(
-      names
-        .map(name =>
-          name -> Tool.make(ToolDef(name, "Record admitted execution", Json.Obj()))(input =>
-            executed.update(_ :+ (name, input)).as("executed")
-          )
+    names
+      .map(name =>
+        Tool.make(ToolDef(name, "Record admitted execution", Json.Obj()))(input =>
+          executed.update(_ :+ (name, input)).as("executed")
         )
-        .toMap
-    )
+      )
+      .foldLeft(Toolkit.empty)(_.updated(_))
 
   private def start(
       calls: Chunk[ContentBlock.ToolUse],

@@ -542,15 +542,15 @@ final class ReActAgent private (
   ):
     def snapshot: UIO[Toolkit] =
       activation match
-        case None => ZIO.succeed(Toolkit(base.tools ++ controls.tools))
+        case None => ZIO.succeed(base.overlay(controls))
         case Some(current) =>
           current.get.map: groups =>
             val selected = groups.select(base)
             val describedControls =
               if controls.contains("reset_equipped_tools") then
-                controls.tools.updated("reset_equipped_tools", resetEquippedTools(current, groups))
-              else controls.tools
-            Toolkit(selected.tools ++ describedControls)
+                controls.updated(resetEquippedTools(current, groups))
+              else controls
+            selected.overlay(describedControls)
 
     def withControl(tool: Tool[Any, ?, ?]): Either[AgentError, RunTools] =
       base

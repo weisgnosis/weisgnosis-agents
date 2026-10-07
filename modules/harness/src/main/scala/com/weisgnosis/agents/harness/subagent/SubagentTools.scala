@@ -148,7 +148,7 @@ object SubagentTools:
       Access.Control,
       value => uuid("task_id", value).map(SubagentTaskId(_))
     )((registry, id, _) => cancelTask(registry, id))
-    Toolkit(Map(invocation.name -> invoke, "agent_task" -> inspect, "agent_cancel" -> cancel))
+    Toolkit.single(invoke).updated(inspect).updated(cancel)
 
   /** Route only to ready memberships in this host-selected directory; no creation authority. */
   def forDirectory(directory: SubagentSessionDirectory): Toolkit =
@@ -179,7 +179,7 @@ object SubagentTools:
       Access.Control,
       value => uuid("task_id", value).map(SubagentTaskId(_))
     )((registry, id, _) => cancelTask(registry, id))
-    Toolkit(Map("agent_send" -> send, "agent_task" -> inspect, "agent_cancel" -> cancel))
+    Toolkit.single(send).updated(inspect).updated(cancel)
 
   private enum Observation[+A]:
     case Success(value: A)
@@ -232,7 +232,7 @@ object SubagentTools:
       ),
       taskIdInput
     )((id, _) => cancelTask(registry, id).flatMap(respond("agent_cancel", _)))
-    Toolkit(Map(invocation.name -> invoke, "agent_task" -> inspect, "agent_cancel" -> cancel))
+    Toolkit.single(invoke).updated(inspect).updated(cancel)
 
   private def submit(
       registry: SubagentTaskRegistry,

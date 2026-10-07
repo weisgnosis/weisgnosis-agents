@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+
 The existing mixed synthetic-completion case now verifies exact minimum-Long closing text, equality with typed/metadata values, closing history identity and unchanged one-request usage/local-call pairing. [Owned numeric-output acceptance](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) records the reproduced mismatch and current runtime/spec identities.
 
 [Runtime ordering acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#runtime-event-ordering) records exact current lifecycle-spec identities and bounded text/thinking/tool-cycle adaptations. Fully drained invocations begin with AgentStart and end with correlated AgentEnd; early consumers abandon later output.

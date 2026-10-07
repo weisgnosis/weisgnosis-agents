@@ -36,7 +36,7 @@ object PartialConfirmationSpec extends ZIOSpecDefault:
   private def call(value: String): ContentBlock.ToolUse =
     ContentBlock.ToolUse("same", "read", input(value))
   private def toolkit(run: Json => UIO[String]): Toolkit =
-    Toolkit(Map("read" -> Tool.make(ToolDef("read", "Read", Json.Obj(), isReadOnly = true))(run)))
+    Toolkit.single(Tool.make(ToolDef("read", "Read", Json.Obj(), isReadOnly = true))(run))
   private def decoded(result: AgentResult): IO[AgentError, AgentResult] =
     ZIO.fromEither(result.toJson.fromJson[AgentResult].left.map(AgentError.DeserializationError(_)))
 

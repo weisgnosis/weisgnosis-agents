@@ -137,7 +137,7 @@ final class ToolGroups private (entries: Map[String, ToolGroup]):
       .filter(_.activation == ToolGroupActivation.Active)
       .flatMap(_.tools)
       .toSet
-    Toolkit(toolkit.tools.filter((name, _) => !grouped.contains(name) || active.contains(name)))
+    toolkit.filterNames(name => !grouped.contains(name) || active.contains(name))
 
   private def replace(names: Set[String], affected: Set[String]): ToolGroups =
     val updated = entries.map: (name, value) =>

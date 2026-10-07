@@ -36,7 +36,7 @@ object ReActAgentCompletionInterruptSpec extends ZIOSpecDefault:
       def encodeOutput(value: String): String          = value
       def execute(input: Json): ZIO[Any, Throwable, String] =
         (entered.succeed(()) *> ZIO.never).ensuring(cleanup)
-    Toolkit(Map("wait" -> tool))
+    Toolkit.single(tool)
 
   private def recovered(history: Chunk[Msg]): Boolean =
     ToolHistory.inspect(history).isComplete && history

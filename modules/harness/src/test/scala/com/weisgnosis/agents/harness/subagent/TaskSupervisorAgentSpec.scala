@@ -55,7 +55,7 @@ object TaskSupervisorAgentSpec extends ZIOSpecDefault:
           TurnOutput.FinalText(Msg.assistant("finished child"))
         )
       )
-      agent <- ReActAgent.make(client = client, toolkit = Toolkit(Map("work" -> tool)))
+      agent <- ReActAgent.make(client = client, toolkit = Toolkit.single(tool))
     yield agent
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("TaskSupervisorAgentSpec")(

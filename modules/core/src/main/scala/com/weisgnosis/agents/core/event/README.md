@@ -32,7 +32,7 @@ Thinking, raw diagnostic frames, tool/result events and AgentResult pass unchang
 | Reviewed file | Git blob |
 | --- | --- |
 | [FinalAnswerFilter.scala](FinalAnswerFilter.scala) | `9040027e6836ab3694c3a389c3f55de0589ef0e1` |
-| [FinalAnswerFilterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/FinalAnswerFilterSpec.scala) | `b34b9d40430e14a5b4362beb5fed9197f1dc91b7` |
+| [FinalAnswerFilterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/FinalAnswerFilterSpec.scala) | [Current FinalAnswerFilterSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this pair and removal of the redundant primitive-stream suite, with no findings. Three grouped tests cover isolation/global limits and reset behavior, an actual HTTP tool cycle retaining history/diagnostics/results, and exact failure causes plus joined held cancellation. Existing all-variant serde and actual runtime/forwarding suites retain source-tagging and delivery coverage. Focused `final-answer-filter-final-focused.log` passed three tests in 3.389 seconds.
 - [x] Full formatting, `verify` and `packageArtifacts` passed in `final-answer-filter-verify.log`, with zero compiler warnings or failures. Packaged consumer execution also exercised the new filter; [build acceptance](../../../../../../../../../../project/README.md#local-artifact-packaging) records artifact boundaries, and the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.

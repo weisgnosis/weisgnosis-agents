@@ -64,11 +64,9 @@ object PlanInputIntegrationSpec extends ZIOSpecDefault:
               else TurnOutput.FinalText(Msg.assistant("done"))
             )
         )
-        toolkit = Toolkit(
-          Map(
-            "read" -> Tool.make(ToolDef("read", "Read", Json.Obj()))(_ =>
-              entered.succeed(()) *> release.await.as("observation")
-            )
+        toolkit = Toolkit.single(
+          Tool.make(ToolDef("read", "Read", Json.Obj()))(_ =>
+            entered.succeed(()) *> release.await.as("observation")
           )
         )
         runtime <- ReActAgent.make(
@@ -142,12 +140,8 @@ object PlanInputIntegrationSpec extends ZIOSpecDefault:
               else ZIO.succeed(TurnOutput.FinalText(Msg.assistant("blocked")))
             )
         )
-        toolkit = Toolkit(
-          Map(
-            "write" -> Tool.make(ToolDef("write", "Write", Json.Obj()))(_ =>
-              executed.update(_ + 1).as("wrong")
-            )
-          )
+        toolkit = Toolkit.single(
+          Tool.make(ToolDef("write", "Write", Json.Obj()))(_ => executed.update(_ + 1).as("wrong"))
         )
         runtime <- ReActAgent.make(
           client = client,

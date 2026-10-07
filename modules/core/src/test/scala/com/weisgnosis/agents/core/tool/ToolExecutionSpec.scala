@@ -39,9 +39,7 @@ object ToolExecutionSpec extends ZIOSpecDefault:
       ZIO.fail(new RuntimeException("Simulated tool crash"))
     }
 
-  private val toolkit = Toolkit(
-    Map(addTool.definition.name -> addTool, failingTool.definition.name -> failingTool)
-  )
+  private val toolkit = Toolkit.single(addTool).updated(failingTool)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolExecutionSpec")(
     test(
@@ -64,7 +62,8 @@ object ToolExecutionSpec extends ZIOSpecDefault:
             def execute(input: Json): UIO[ToolExecutionResult] = ZIO.succeed(projected)
             def encodeOutput(out: ToolExecutionResult): String = out.output
             override def encodeResult(out: ToolExecutionResult): ToolExecutionResult = out
-          Toolkit(Map("typed" -> typed))
+          Toolkit
+            .single(typed)
             .executeSafe("typed", Json.Obj())
             .map: result =>
               val expected = state match
@@ -82,7 +81,7 @@ object ToolExecutionSpec extends ZIOSpecDefault:
       val defective = Tool.make(ToolDef("defect", "Defective tool", Json.Obj()))(_ =>
         ZIO.die(AgentError.ToolExecutionError("defect", "internal failure"))
       )
-      val toolkit = Toolkit(Map("defect" -> defective))
+      val toolkit = Toolkit.single(defective)
       for result <- toolkit.executeSafe("defect", Json.Obj())
       yield assertTrue(
         result.state == ToolResultState.Error,
@@ -101,11 +100,11 @@ object ToolExecutionSpec extends ZIOSpecDefault:
       )
       for
         res     <- toolkit.executeSafe("add", validArgs)
-        exact   <- Toolkit(Map("numeric" -> numericTool)).executeSafe("numeric", Json.Obj())
+        exact   <- Toolkit.single(numericTool).executeSafe("numeric", Json.Obj())
         fixed   <- ZIO.fromEither(ToolFixedArguments.make(Json.Obj("tenant" -> Json.Str("host"))))
         wrapped <- ZIO.fromEither(Tool.withFixedArguments(numericTool, fixed))
-        wrappedExact <- Toolkit(Map("numeric" -> wrapped)).executeSafe("numeric", Json.Obj())
-        invalid <- Toolkit(Map("duplicate" -> duplicateTool)).executeSafe("duplicate", Json.Obj())
+        wrappedExact <- Toolkit.single(wrapped).executeSafe("numeric", Json.Obj())
+        invalid      <- Toolkit.single(duplicateTool).executeSafe("duplicate", Json.Obj())
       yield assertTrue(
         res.state == ToolResultState.Success,
         res.output == "42",
@@ -150,7 +149,7 @@ object ToolExecutionSpec extends ZIOSpecDefault:
           (entered.succeed(()) *> ZIO.never)
             .ensuring(cleanup.succeed(()).unit *> release.await *> ZIO.die(defect))
         }
-        slowTk = Toolkit(Map("slow" -> slowTool))
+        slowTk = Toolkit.single(slowTool)
         fiber        <- slowTk.executeSafe("slow", Json.Obj()).forkScoped
         _            <- entered.await
         cancelling   <- fiber.interrupt.forkScoped
@@ -168,14 +167,14 @@ object ToolExecutionSpec extends ZIOSpecDefault:
               value <- child.join
             yield value
         }
-        inner <- Toolkit(Map("inner" -> innerTool)).executeSafe("inner", Json.Obj()).exit
+        inner <- Toolkit.single(innerTool).executeSafe("inner", Json.Obj()).exit
         typedFailure = AgentError.ToolExecutionError("mixed", "failure during interruption")
         mixedTool = Tool.make(ToolDef("mixed", "Compound cancellation cause", Json.Obj()))(_ =>
           ZIO.fiberId.flatMap(id =>
             ZIO.refailCause(Cause.fail(typedFailure) ++ Cause.interrupt(id))
           )
         )
-        mixed <- Toolkit(Map("mixed" -> mixedTool)).executeSafe("mixed", Json.Obj()).exit
+        mixed <- Toolkit.single(mixedTool).executeSafe("mixed", Json.Obj()).exit
       yield assertTrue(
         pending.isEmpty,
         exit.isInterrupted,

@@ -47,7 +47,7 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           AgentConfig(toolExecution = ToolExecution.Sequential),
-          Toolkit(Map(completed.definition.name -> completed, hanging.definition.name -> hanging)),
+          Toolkit.single(completed).updated(hanging),
           model
         )
         fiber       <- agent.run(Msg.user("work")).forkScoped

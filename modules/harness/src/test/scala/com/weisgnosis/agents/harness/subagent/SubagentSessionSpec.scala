@@ -123,7 +123,7 @@ object SubagentSessionSpec extends ZIOSpecDefault:
           originalCalls.update(_ :+ input).as("original")
         )
         originalFactory <- factory(
-          child => sources.update(_ :+ child.source).as(Toolkit(Map("lookup" -> originalTool))),
+          child => sources.update(_ :+ child.source).as(Toolkit.single(originalTool)),
           _ =>
             ZIO.succeed(
               LlmClient.mockEffectful((_, _, _) =>
@@ -170,7 +170,7 @@ object SubagentSessionSpec extends ZIOSpecDefault:
         currentCalls   <- Ref.make(0)
         currentTool = Tool.make(definition)(_ => currentCalls.update(_ + 1).as("must not execute"))
         currentFactory <- factory(
-          child => sources.update(_ :+ child.source).as(Toolkit(Map("lookup" -> currentTool))),
+          child => sources.update(_ :+ child.source).as(Toolkit.single(currentTool)),
           _ =>
             ZIO
               .acquireRelease(acquired.update(_ + 1))(_ => released.update(_ + 1))
@@ -234,7 +234,7 @@ object SubagentSessionSpec extends ZIOSpecDefault:
         definition = ToolDef("lookup", "Original host definition", Json.Obj())
         lookup     = Tool.make(definition)(_ => ZIO.succeed("unused"))
         sourceFactory <- factory(
-          _ => ZIO.succeed(Toolkit(Map("lookup" -> lookup))),
+          _ => ZIO.succeed(Toolkit.single(lookup)),
           _ =>
             LlmClient.mock(
               Chunk(
@@ -269,7 +269,7 @@ object SubagentSessionSpec extends ZIOSpecDefault:
               _ =>
                 ZIO
                   .acquireRelease(ZIO.unit)(_ => cleanup.update(_ :+ "registration"))
-                  .as(Toolkit(Map("lookup" -> Tool.make(selected)(_ => ZIO.succeed("unused"))))),
+                  .as(Toolkit.single(Tool.make(selected)(_ => ZIO.succeed("unused")))),
               _ =>
                 ZIO
                   .acquireRelease(ZIO.unit)(_ =>
@@ -332,7 +332,7 @@ object SubagentSessionSpec extends ZIOSpecDefault:
                 executed.update(_ :+ input).as("local")
               )
               configured <- factory(
-                _ => ZIO.succeed(Toolkit(Map("lookup" -> lookup))),
+                _ => ZIO.succeed(Toolkit.single(lookup)),
                 _ =>
                   ZIO.succeed(
                     LlmClient.mockEffectful((_, _, _) =>
@@ -455,7 +455,7 @@ object SubagentSessionSpec extends ZIOSpecDefault:
             .ensuring(cleaning.succeed(()) *> release.await *> cleaned.set(true) *> ZIO.die(defect))
         )
         configured <- factory(
-          _ => ZIO.succeed(Toolkit(Map("lookup" -> lookup))),
+          _ => ZIO.succeed(Toolkit.single(lookup)),
           _ =>
             ZIO.succeed(
               LlmClient.mockEffectful((_, _, _) =>
@@ -497,7 +497,7 @@ object SubagentSessionSpec extends ZIOSpecDefault:
                     _  <- session.executions.await(id)
                   yield "joined"
         observer <- ReActAgent.make(
-          toolkit = Toolkit(Map("resume_child" -> relay)),
+          toolkit = Toolkit.single(relay),
           client = LlmClient.mockEffectful((history, _, _) =>
             ZIO.succeed(
               if history.lastOption.exists(_.role == Role.User) then
@@ -573,7 +573,7 @@ object SubagentSessionSpec extends ZIOSpecDefault:
           ZIO.succeed("forbidden")
         )
         configured <- factory(
-          child => lineage.succeed(child).as(Toolkit(Map("forbidden" -> forbidden))),
+          child => lineage.succeed(child).as(Toolkit.single(forbidden)),
           _ =>
             ZIO
               .acquireRelease(built.update(_ + 1))(_ => released.update(_ + 1))
@@ -689,7 +689,7 @@ object SubagentSessionSpec extends ZIOSpecDefault:
           executed.update(_ + 1).as("written")
         )
         base <- factory(
-          _ => ZIO.succeed(Toolkit(Map("write" -> write))),
+          _ => ZIO.succeed(Toolkit.single(write)),
           _ =>
             ZIO.succeed(
               LlmClient.mockEffectful((history, _, _) =>

@@ -44,7 +44,7 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
   private val call: ContentBlock.ToolUse =
     ContentBlock.ToolUse("call", "lookup", originalInput, Some("cached arguments"))
   private def toolkit(run: Json => UIO[String]): Toolkit =
-    Toolkit(Map("lookup" -> Tool.make(ToolDef("lookup", "Read", Json.Obj()))(run)))
+    Toolkit.single(Tool.make(ToolDef("lookup", "Read", Json.Obj()))(run))
   private def client(calls: Chunk[ContentBlock.ToolUse]): UIO[LlmClient] =
     LlmClient.mock(
       Chunk(TurnOutput.ToolCalls(Msg.assistant(calls)), TurnOutput.FinalText(Msg.assistant("done")))
@@ -137,7 +137,7 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
             )
             make = ReActAgent.make(
               client = model,
-              toolkit = Toolkit(Map("lookup" -> bound)),
+              toolkit = Toolkit.single(bound),
               toolAuthorizer = authorizer,
               toolResultProcessor = processor,
               llmConfig = LlmConfig(
@@ -353,7 +353,7 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
           .builder()
           .model(model)
           .toolAuthorizer(authorizer)
-          .toolkit(Toolkit(Map("lookup" -> bound)))
+          .toolkit(Toolkit.single(bound))
           .build
         _          <- agentRef.set(Some(agent))
         result     <- agent.run(Msg.user("q"))
@@ -465,7 +465,7 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
               )
               agent <- ReActAgent.make(
                 client = model,
-                toolkit = Toolkit(Map("lookup" -> bound)),
+                toolkit = Toolkit.single(bound),
                 toolAuthorizer = ToolAuthorizer(_ => requests.update(_ + 1).as(decision))
               )
               result <- agent.run(Msg.user("q"))
@@ -620,7 +620,7 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
         model <- client(Chunk(call))
         agent <- ReActAgent.make(
           client = model,
-          toolkit = Toolkit(Map("lookup" -> bound)),
+          toolkit = Toolkit.single(bound),
           toolAuthorizer = ToolAuthorizer(_ =>
             ZIO.addFinalizer(closed.set(true)) *> entered.succeed(()) *> ZIO.never
           )

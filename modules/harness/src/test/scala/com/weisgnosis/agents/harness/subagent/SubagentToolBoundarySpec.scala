@@ -58,20 +58,19 @@ object SubagentToolBoundarySpec extends ZIOSpecDefault:
     },
     test("excluded collisions and malformed keys fail deterministically before filtering") {
       val boundary  = SubagentToolBoundary(SubagentToolSelection.Only(Set.empty))
-      val inherited = Toolkit(Map("z" -> tool("z"), "a" -> tool("a")))
-      val collision = boundary.assemble(inherited, Toolkit(Map("z" -> tool("z"), "a" -> tool("a"))))
-      val malformed = Toolkit(Map("z" -> tool("wrong-z"), "a" -> tool("wrong-a")))
+      val inherited = Toolkit.single(tool("z")).updated(tool("a"))
+      val collision = boundary.assemble(inherited, Toolkit.single(tool("z")).updated(tool("a")))
+      val malformed = Toolkit.fromMap(Map("z" -> tool("wrong-z"), "a" -> tool("wrong-a")))
       val expectedMismatch = Left(
         AgentError.InvalidConfiguration(
-          "Toolkit key 'a' does not match its declared tool name 'wrong-a'"
+          "Tool registry key 'a' differs from declared name 'wrong-a'"
         )
       )
       assertTrue(
         collision == Left(
           AgentError.ToolExecutionError("a", "Tool collision: 'a' is already registered")
         ),
-        boundary.assemble(malformed, Toolkit.empty) == expectedMismatch,
-        boundary.assemble(inherited, malformed) == expectedMismatch,
+        malformed == expectedMismatch,
         inherited.tools.keySet == Set("a", "z")
       )
     }

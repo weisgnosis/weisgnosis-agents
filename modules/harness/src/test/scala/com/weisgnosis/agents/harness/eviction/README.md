@@ -1,5 +1,7 @@
 # Large tool result offloading verification
 
+Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+
 - [ToolResultEvictorSpec](ToolResultEvictorSpec.scala)
 - [ToolResultEvictorIntegrationSpec](ToolResultEvictorIntegrationSpec.scala)
 - [ToolResultStoreSpec](ToolResultStoreSpec.scala)

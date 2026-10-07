@@ -43,27 +43,9 @@ final case class SubagentToolBoundary(
     SubagentToolBoundary(selection.intersect(child.selection), denied ++ child.denied)
 
   def assemble(inherited: Toolkit, registered: Toolkit): Either[AgentError, Toolkit] =
-    for
-      _ <- validateNames(inherited)
-      _ <- validateNames(registered)
-      combined <- registered.tools.toList
-        .sortBy(_._1)
-        .foldLeft[Either[AgentError, Toolkit]](Right(inherited)) { case (assembled, (_, tool)) =>
-          assembled.flatMap(_.register(tool))
-        }
-    yield Toolkit(combined.tools.filter { case (name, _) =>
-      selection.contains(name) && !denied.contains(name)
-    })
-
-  private def validateNames(toolkit: Toolkit): Either[AgentError, Unit] =
-    toolkit.tools.toList.sortBy(_._1).foldLeft[Either[AgentError, Unit]](Right(())) {
-      case (checked, (key, tool)) =>
-        checked.flatMap: _ =>
-          Either.cond(
-            key == tool.definition.name,
-            (),
-            AgentError.InvalidConfiguration(
-              s"Toolkit key '$key' does not match its declared tool name '${tool.definition.name}'"
-            )
-          )
-    }
+    registered.tools.toList
+      .sortBy(_._1)
+      .foldLeft[Either[AgentError, Toolkit]](Right(inherited)) { case (assembled, (_, tool)) =>
+        assembled.flatMap(_.register(tool))
+      }
+      .map(_.filterNames(name => selection.contains(name) && !denied.contains(name)))

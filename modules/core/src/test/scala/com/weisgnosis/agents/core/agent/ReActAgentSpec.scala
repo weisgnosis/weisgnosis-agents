@@ -106,7 +106,7 @@ object ReActAgentSpec extends ZIOSpecDefault:
       },
       test("Should call tools when requested by model") {
         val calcTool = createCalculatorTool()
-        val toolkit  = Toolkit(Map(calcTool.definition.name -> calcTool))
+        val toolkit  = Toolkit.single(calcTool)
 
         val mockClient = LlmClient.mockEffectful { (history, _, _) =>
           val hasToolResult = history.exists(_.role == Role.Tool)
@@ -145,7 +145,7 @@ object ReActAgentSpec extends ZIOSpecDefault:
       },
       test("Should execute multiple tools in acting phase") {
         val calcTool = createCalculatorTool()
-        val toolkit  = Toolkit(Map(calcTool.definition.name -> calcTool))
+        val toolkit  = Toolkit.single(calcTool)
 
         val mockClient = LlmClient.mockEffectful { (history, _, _) =>
           val toolResults = history.flatMap(_.toolResults)
@@ -194,7 +194,7 @@ object ReActAgentSpec extends ZIOSpecDefault:
           def execute(input: Json): ZIO[Any, Throwable, String] =
             ZIO.fail(new RuntimeException("Simulated hardware failure"))
 
-        val toolkit = Toolkit(Map(errorTool.definition.name -> errorTool))
+        val toolkit = Toolkit.single(errorTool)
 
         val mockClient = LlmClient.mockEffectful { (history, _, _) =>
           val hasToolResult = history.exists(_.role == Role.Tool)

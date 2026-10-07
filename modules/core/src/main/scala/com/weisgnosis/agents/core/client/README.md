@@ -51,7 +51,7 @@ Migration: LlmConfig now has thirteen positional/Product fields. Existing omitte
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `d365bd51151f71bc46b8b5cc6f0e7cd6ea4bebc1` |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `62199f66a9227b8c79d05c7640e0bd29711c9d62` |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | `bf364a5eefd834537cd20a8ffa23ab5c94dc5cb1` |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | `32d0109e304f8889dffe08ada779136be0462cb9` |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current ChatCompletionsClientSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for these five identities, with no findings.
 - [x] resume-focused.log passed 41 core tests in 8.172 seconds, including existing request/config/failover tables and the actual HTTP authorization cycle. Full formatting, verify and packageArtifacts passed in resume-verify.log; an isolated packaged consumer exercised typed configuration in resume-artifact-consumer.log. No new test groups or live-provider compliance claim are implied.
@@ -95,7 +95,7 @@ Migration: Current LlmConfig and ModelRequestSettings arities are recorded in th
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 | [LlmClient.scala](LlmClient.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | `38a956d56d49bfd0a1c41b046f04646c2519eb93` |
+| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current ReActAgentModelInputSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 
@@ -142,7 +142,7 @@ Migration: the appended defaulted fields preserve ordinary omitted-argument cons
 | [SubagentDeclaration.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclaration.scala) | bf55c6a99b8c35bfaa28bd15eb8fba2617ad9faa |
 | [SubagentDeclarationParser.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParser.scala) | 2033e68dc48552d838cf7f96b7a53d9e1a2df45c |
 | [SubagentDeclarationParserSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | 3143e211c09c6a1f58b9eaaa4afd0e88868bbfa1 |
-| [SubagentDeclarationSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | e4939bf0e57bdc01b018a87b6afdd8197a0ed310 |
+| [SubagentDeclarationSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | [Current SubagentDeclarationSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these twelve identities, with no findings. Existing tables cover omission/endpoints, strict invalid values, original invalid custom-client configuration, per-target projection and clearing in serialized requests, declaration inheritance/override, JSON compatibility and YAML alias conflicts. The scope extends existing test groups. Focused top-p-focused.log passed 37 core tests in 1.023 seconds and seven harness tests in 485 ms; full scalafmtAll scalafmtSbt verify passed in top-p-verify.log with zero compiler warnings or failures. Current aggregate evidence is in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
@@ -262,8 +262,8 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 8873f07ca50be4f4881bd6cd3ff05e4b50741b0d |
 | [StreamAccumulator.scala](StreamAccumulator.scala) | 1a01caa33dd0bfbefac53cf4697c6168d73c2a79 |
 | [Msg.scala](../model/Msg.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
-| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | fbf31dcaeb77162c6354047cb299c7773ff7e461 |
-| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | 4ce0c254250b9428990dd24e6a0e6310d41cb867 |
+| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current ReActAgentReasoningHookSpec.scala identity](../tool/README.md#checked-registry-identity) |
+| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current ReActAgentToolAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | ChatCompletionsClientSpec.scala | Current identity: [ordering acceptance](#runtime-event-ordering). |
 | [ReasoningAdapterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterSpec.scala) | 1f17e10621d99b2cd79f0382f7c4cc7255b68cf0 |
 | [StreamAccumulatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorSpec.scala) | e90bd63fa63fa74f395d557a5199093dc77f8954 |
@@ -369,7 +369,7 @@ Unchanged text-transformation contracts retain acceptance against `02b4654`; cur
 | --- | --- |
 | [ModelTextTransform.scala](ModelTextTransform.scala) | b07cec74ae6bd35945b8558c2f9bb067df7a2555 |
 | [ModelTextTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelTextTransformSpec.scala) | dcdd1fef54fb9dd166171ce5b21682a9019a4fe3 |
-| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | 396f6d75c01bcaac54750a0d5df97c219a4b8c31 |
+| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | [Current ChatCompletionsTransformSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
 The ReActAgent capability identity is preserved in `02b4654`, and the AgentError text-transformation identity in `2a400e0`. Their subsequent post-reasoning changes have current identities in the [agent acceptance](../agent/README.md).
 

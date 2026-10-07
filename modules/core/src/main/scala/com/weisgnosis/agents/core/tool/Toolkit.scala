@@ -22,14 +22,31 @@ import zio.json.ast.Json
 import zio.stream.ZStream
 
 /** Immutable registration and existentially typed execution without runtime casts. */
-final case class Toolkit(tools: Map[String, Tool[Any, ?, ?]] = Map.empty):
+final class Toolkit private (val tools: Map[String, Tool[Any, ?, ?]]):
   def register(tool: Tool[Any, ?, ?]): Either[AgentError, Toolkit] =
     val name = tool.definition.name
     if tools.contains(name) then
       Left(AgentError.ToolExecutionError(name, s"Tool collision: '$name' is already registered"))
-    else Right(copy(tools = tools.updated(name, tool)))
+    else Right(updated(tool))
 
   def withTool(tool: Tool[Any, ?, ?]): Either[AgentError, Toolkit] = register(tool)
+
+  /** Explicit host replacement by the tool's declared name; register rejects collisions instead. */
+  def updated(tool: Tool[Any, ?, ?]): Toolkit =
+    new Toolkit(tools.updated(tool.definition.name, tool))
+
+  /** Explicit right-side precedence between two already valid registries. */
+  def overlay(other: Toolkit): Toolkit = new Toolkit(tools ++ other.tools)
+
+  /** Select exact registered values without reconstructing or renaming bindings. */
+  def filterNames(keep: String => Boolean): Toolkit =
+    new Toolkit(tools.filter((name, _) => keep(name)))
+
+  override def equals(other: Any): Boolean = other match
+    case value: Toolkit => tools == value.tools
+    case _              => false
+
+  override def hashCode(): Int = tools.hashCode()
 
   def ++(other: Toolkit): Either[AgentError, Toolkit] =
     other.tools.values.foldLeft[Either[AgentError, Toolkit]](Right(this)) { (result, tool) =>
@@ -190,7 +207,22 @@ object Toolkit:
       progress: ProgressDisposition
   )
 
-  val empty: Toolkit = Toolkit()
+  val empty: Toolkit = new Toolkit(Map.empty)
+
+  def apply(): Toolkit = empty
+
+  def single(tool: Tool[Any, ?, ?]): Toolkit = new Toolkit(Map(tool.definition.name -> tool))
+
+  /** Host-supplied keys must match declared names; aliases require an explicitly renamed tool. */
+  def fromMap(tools: Map[String, Tool[Any, ?, ?]]): Either[AgentError, Toolkit] =
+    tools.toList.sortBy(_._1).find((name, tool) => name != tool.definition.name) match
+      case Some((name, tool)) =>
+        Left(
+          AgentError.InvalidConfiguration(
+            s"Tool registry key '$name' differs from declared name '${tool.definition.name}'"
+          )
+        )
+      case None => Right(new Toolkit(tools))
 
   def apply(first: Tool[Any, ?, ?], rest: Tool[Any, ?, ?]*): Either[AgentError, Toolkit] =
     (first +: rest).foldLeft[Either[AgentError, Toolkit]](Right(empty)) { (result, tool) =>

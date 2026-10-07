@@ -62,7 +62,7 @@ object PlanTools:
           outcome <- review.await
         yield PlanToolResult.ReviewSettled(outcome)
     )
-    Toolkit(Map("plan_enter" -> enter, "plan_write" -> write, "plan_exit" -> exit))
+    Toolkit.single(enter).updated(write).updated(exit)
 
   private def definition(
       name: String,

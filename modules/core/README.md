@@ -1,5 +1,7 @@
 # weisgnosis-agents-core
 
+Toolkit now has a private canonical-name representation; host map construction uses checked fromMap, with explicit replacement/selection operations. The [registry migration and review contract](src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) records source/JVM changes, the reproduced defect and current source/spec identities. Existing module lifecycle and permission contracts remain in force.
+
 Local artifact: `com.weisgnosis:weisgnosis-agents-core_3:0.1.0-SNAPSHOT`. Binary/source JAR and POM generation, dependency boundaries and isolated-consumer evidence are defined in the [build contract](../../project/README.md#local-artifact-packaging); no external publication is claimed.
 
 The internal forwarding lifecycle also supports [host-only retained child resume](../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume), preserving checkpoint context and joined cleanup under existing runtime ownership.

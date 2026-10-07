@@ -24,7 +24,7 @@ Public transcript store APIs, file format, trust checks, lease ownership and ato
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | `2f0661bccccd07554c776a069c1a7a7a8d39ed3b` |
+| [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current ReActAgent.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [StructuredOutputSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/StructuredOutputSpec.scala) | `412794e93602a061639795f9bb1ac8ec3fef597d` |
 | [LocalTranscriptStore.scala](LocalTranscriptStore.scala) | `21a05fc889fc7a1e33c57953ad1a5749041e4b7d` |
 | [SessionTranscriptWriter.scala](SessionTranscriptWriter.scala) | `a0578e096d12e39920db0524d1896fbd815c6b06` |

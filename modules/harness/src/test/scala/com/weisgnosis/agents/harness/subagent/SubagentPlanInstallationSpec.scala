@@ -93,15 +93,11 @@ object SubagentPlanInstallationSpec extends ZIOSpecDefault:
       reviews
     )
 
-  private def tools(executed: Ref[Chunk[String]]): Toolkit = Toolkit(
-    Chunk("shell", "mutate")
-      .map(name =>
-        name -> Tool.make(ToolDef(name, name, Json.Obj()))(_ =>
-          executed.update(_ :+ name).as("executed")
-        )
-      )
-      .toMap
-  )
+  private def tools(executed: Ref[Chunk[String]]): Toolkit = Chunk("shell", "mutate")
+    .map(name =>
+      Tool.make(ToolDef(name, name, Json.Obj()))(_ => executed.update(_ :+ name).as("executed"))
+    )
+    .foldLeft(Toolkit.empty)(_.updated(_))
 
   private def call(id: String, name: String, input: Json = Json.Obj()): ContentBlock.ToolUse =
     ContentBlock.ToolUse(id, name, input)
@@ -281,12 +277,10 @@ object SubagentPlanInstallationSpec extends ZIOSpecDefault:
               registrations
                 .update(_ + 1)
                 .as(
-                  Toolkit(
-                    Map(
-                      "plan_enter" -> Tool.make(
-                        ToolDef("plan_enter", "Conflicting host tool", Json.Obj())
-                      )(_ => ZIO.succeed("unused"))
-                    )
+                  Toolkit.single(
+                    Tool.make(
+                      ToolDef("plan_enter", "Conflicting host tool", Json.Obj())
+                    )(_ => ZIO.succeed("unused"))
                   )
                 ),
             _ => clients.update(_ + 1) *> LlmClient.mock(Chunk.empty)

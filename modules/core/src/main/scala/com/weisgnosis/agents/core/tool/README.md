@@ -2,6 +2,31 @@
 
 Tool keeps its input/output codecs and effectful handler together. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation.
 
+## Checked registry identity
+
+Toolkit is a final class with a private representation. Every key equals its tool's declared definition.name, so advertised definitions, authorization lookup and execution share one identity. Tool.definition is a pure, stable host extension contract; mutable or effectful custom metadata violates that contract.
+
+Use Toolkit.fromMap for a host-supplied immutable map; it returns Either[AgentError, Toolkit] and rejects the first lexical key/name mismatch as InvalidConfiguration. It never silently renames, drops or dispatches a mismatched binding. Single-tool construction uses Toolkit.single. updated explicitly inserts or replaces by declared name; overlay explicitly gives the right registry precedence. register, withTool, checked tool-varargs construction and ++ continue rejecting collisions. filterNames retains exact values and their policies/resources. These operations grant no model permission or resource ownership.
+
+Migration: unchecked Toolkit(map) and new Toolkit(map), copy, generated unapply and Product reconstruction are removed. Lift fromMap through ZIO.fromEither at effectful configuration boundaries. Use single/updated for deliberate pure construction/replacement, overlay for deliberate replacement merges, and filterNames for selection. Toolkit(), empty, the immutable tools read view, checked registration/merge and map-based equality/hash semantics remain available. Rebuild dependent binaries; this is a source/JVM migration, not a new persisted checkpoint format.
+
+- [x] Reproduce the defect on unchanged Toolkit 7a6789a12bd958ae507b2d6d12eefa4583d29797 with ToolkitSpec f660e0b18de521c5b75e17ff7278e5e2107d888a: toolkit-identity-red.log records 3 passes/1 failure; approval named allowed, but the swapped map executed forbidden. The regression now checks typed rejection before a registry exists and canonical permitted execution. Existing merge coverage also distinguishes replacement precedence from collision rejection; only one regression group is added.
+- [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the complete 55-file source/spec manifest, with no unresolved findings. Final documentation closure uses the same bounded scope.
+- [x] toolkit-identity-verify.log passes formatting, fatal-warning compilation, 659 core / 724 harness / 85 MCP / 5 examples tests (1,473 total), and packaging. toolkit-artifact-preparation.log validates all three fresh distributions and toolkit-artifact-consumer.log clean-compiles/runs the external public API fixture. Focused verification passes 19 core / 27 harness / 10 MCP tests.
+
+The reviewed revision is the source/spec manifest relative to e86d62d: sort the changed Scala paths, concatenate UTF-8 lines `<git-blob> <repository-path>\n`, and compute SHA-256. The current 55-file manifest (seven production files and 48 specs) is 941238f0447200ee6ce0df7fccd50346f79babd9cba20e82ec9e8871cd5a5edf. Test fixture construction migrates without adding groups apart from the reproduced identity regression. Final approval applies only to this manifest and the recorded contracts, not all future API changes.
+
+| Reviewed implementation/regression | Git blob |
+| --- | --- |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | `da0c6d2ff1959bb9a92297d7ec6fc57e397afa44` |
+| [ToolGroups.scala](ToolGroups.scala) | `19e6c47357dcce6407735ed3eaeba79e3fa57ba3` |
+| [Toolkit.scala](Toolkit.scala) | `a2fc53c7691d0f74db95f37d3208f5e39815901c` |
+| [ToolkitSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolkitSpec.scala) | `4b0a774270914646ee1ea8cf152b776e3ed94e44` |
+| [PlanTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/PlanTools.scala) | `53deca1258aa4b97fcb134be126adef098f8b317` |
+| [SubagentToolBoundary.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundary.scala) | `0178268ff550d56b5acb5e1d9e78973309097eb4` |
+| [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | `d3f46f380d07fd9b4d6cdee35e35895fd20e3ed9` |
+| [McpClientManager.scala](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/client/McpClientManager.scala) | `bdb26179f6891de577c3e234c702a7585692da6e` |
+
 ## Host-selected tool groups
 
 `ToolGroups` is an immutable registry of named `ToolGroup` declarations. Activation is `Active` or `Inactive`; scope is `Meta` (eligible for agent-managed selection) or `External` (host-managed). Registration and updates return checked values without acquiring resources or changing existing registries. Names are exact and must be nonblank. Batch activation validates every requested group before producing a replacement; unknown names fail instead of partially updating or silently skipping them.
@@ -12,7 +37,7 @@ Tool keeps its input/output codecs and effectful handler together. Toolkit regis
 
 Removing groups or membership reports `newlyUngrouped` names alongside the next registry. Removing the last membership makes a retained tool available as ungrouped. A host that wants to remove those tools must also prune its Toolkit; group removal performs no disposal or capability revocation. Group selection does not replace permission policy.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for [ToolGroups.scala](ToolGroups.scala), blob `43d6517ae7940fbacf714e0e03512cacd5ff5e6f`, and [ToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolGroupsSpec.scala), blob `64db7b416f38bced4792c2eb653da87a74850626`, with no findings. Five grouped contracts cover sorted/empty/scoped notes, atomic transitions, scope separation, membership/removal and policy preservation, and actual ReAct snapshot visibility/dispatch.
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for ToolGroups (current source identity: [checked registry migration](#checked-registry-identity)), and [ToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolGroupsSpec.scala), blob `64db7b416f38bced4792c2eb653da87a74850626`, with no findings. Five grouped contracts cover sorted/empty/scoped notes, atomic transitions, scope separation, membership/removal and policy preservation, and actual ReAct snapshot visibility/dispatch.
 - [x] Formatting and full `verify` passed in `tool-group-notes-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals.
 The runtime installs an optional [run-owned activation adapter](../agent/README.md#run-owned-tool-group-activation) over this foundation.
 
@@ -36,7 +61,7 @@ Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and
 | Source/test | Reviewed Git blob |
 | --- | --- |
 | [ToolFixedArguments.scala](ToolFixedArguments.scala) | `5b0a707baa22e1407fe4d87dd7a13fcc48fed3dc` |
-| [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | `367654171296e5aabdc3e0d448822c2eb583a336` |
+| [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | [Current ToolFixedArgumentsSpec.scala identity](README.md#checked-registry-identity) |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current identity](../client/README.md#encrypted-reasoning) |
 
 ## Descriptive output schemas
@@ -77,7 +102,7 @@ Migration: streamWithContext is a defaulted source-compatible method, but depend
 | [Toolkit.scala](Toolkit.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [ToolExecutionUpdate.scala](ToolExecutionUpdate.scala) | `36f338a5d77db0660a283be80b709fb67ec10391` |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](../agent/README.md#acting-stop-decisions) |
-| [ToolExecutionUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionUpdateSpec.scala) | `7db9194fc19f472c34ecd1a552403692f28bc32a` |
+| [ToolExecutionUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionUpdateSpec.scala) | [Current ToolExecutionUpdateSpec.scala identity](README.md#checked-registry-identity) |
 | [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) | Current fixture identity and verification: [shared-Toolkit isolation](../agent/README.md#shared-toolkit-destination-isolation). |
 
 ## Typed execution observations
@@ -106,7 +131,7 @@ ReAct creates `Active(context, call, callOrdinal, events)` only for approved loc
 | Reviewed file | Git blob |
 | --- | --- |
 | [ToolInvocation.scala](ToolInvocation.scala) | `afaab56599f0bbb22efa95852bafb3938812aff9` |
-| [ToolInvocationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolInvocationSpec.scala) | `d43067266a986355091c9057ac55f9771b2947e8` |
+| [ToolInvocationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolInvocationSpec.scala) | [Current ToolInvocationSpec.scala identity](README.md#checked-registry-identity) |
 
 ## Implementation
 
@@ -136,7 +161,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 | --- | --- |
 | [ToolExecutionResult.scala](ToolExecutionResult.scala) | 1c3e999a1363e6a042a0c83186006fda2060992f |
 | [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
-| [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 703c7abec55bb3b4ea5d429ecefa76c9f1557b16 |
+| [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | [Current ReActAgentToolResultProcessorSpec.scala identity](README.md#checked-registry-identity) |
 
 The table records unchanged typed-result components. Current Tool and Toolkit identities are recorded under [incremental execution](#incremental-execution); current ReActAgent identity is in [acting-stop decisions](../agent/README.md#acting-stop-decisions); separate invocation and [direct event forwarding](../agent/README.md#direct-event-forwarding) contracts retain their scoped evidence. Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
 

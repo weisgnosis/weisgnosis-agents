@@ -1,5 +1,7 @@
 # Scoped child execution and sessions
 
+Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+
 [TaskSupervisor](TaskSupervisor.scala), [SupervisedTask](SupervisedTask.scala) and [SubagentSpawner](SubagentSpawner.scala) provide host-owned execution and runtime lineage. [SubagentFactory](SubagentFactory.scala) assembles fresh configured ReAct children with a final [static tool boundary](SubagentToolBoundary.scala) and optional live parent-denial inheritance. [SubagentTaskRegistry](SubagentTaskRegistry.scala) adds bounded task admission and inspection; [SubagentSessionDirectory](SubagentSessionDirectory.scala) supplies bounded host membership for acquired sessions. These APIs are accepted within the exact reviewed scope below.
 
 ## Ownership, cancellation and promotion
@@ -40,7 +42,7 @@ The spawner's context and retained-child helpers have the current session-catalo
 | --- | --- |
 | [SubagentSpawner.scala](SubagentSpawner.scala) | `910ddfabb5f6b5b3e36025425feb5bfec423612f` |
 | [SubagentSpawnerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSpawnerSpec.scala) | `b2866e1bab047dc31f463a1f809d45fe4676b7ba` |
-| [SubagentSpawnerAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSpawnerAgentSpec.scala) | `56b59a7fa9a7af22f4d63b8578533a068312cd21` |
+| [SubagentSpawnerAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSpawnerAgentSpec.scala) | [Current SubagentSpawnerAgentSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | [Current error identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) |
 | [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | `b564c375448d4a6789dc2e45f9261c02a8075650` |
 
@@ -48,7 +50,7 @@ The spawner's context and retained-child helpers have the current session-catalo
 
 `SubagentFactory.make` validates AgentConfig and combines host-supplied parent and child boundaries without acquiring resources. `narrowed` returns an immutable factory whose selection is intersected and denials accumulated. Exact tool names are used. `AllAvailable` means all tools present at construction, including automatic registrations; `Only(Set.empty)` permits none. Unknown selected names do not create tools.
 
-`build` suspends the registration callback, validates inherited and registered map keys against declared names, merges all registrations with collision rejection, and only then applies the static filter before client acquisition and `ReActAgent.make`. Invalid keys are checked in lexical key order, inherited before registered. Registration collisions are checked in lexical key order even for excluded names. The inherited Toolkit is immutable. Tool existential types are preserved without casts.
+`build` suspends the registration callback, merges all registrations with collision rejection, and only then applies the static filter before client acquisition and `ReActAgent.make`. Toolkit construction now establishes canonical key/name identity; raw host maps fail through checked fromMap before reaching the factory. Registration collisions are checked in lexical key order even for excluded names. The inherited Toolkit is immutable. Tool existential types are preserved without casts.
 
 Each build creates fresh runtime/history state with the supplied AgentConfig, LlmConfig and ToolAuthorizer. The authorizer still controls actual execution of statically available tools. Static filtering is separate from the explicit live denial wrapper described below. Host callbacks are trusted adapters and must suspend external work, translate boundary failures and acquire resources with scoped combinators.
 
@@ -137,7 +139,7 @@ Migration: existing SubagentPermissions constructor calls retain Disabled behavi
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [SubagentPlanInstallationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentPlanInstallationSpec.scala) | `fb8c7ddbde20714add34d47e77dec43f0e09632b` |
+| [SubagentPlanInstallationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentPlanInstallationSpec.scala) | [Current SubagentPlanInstallationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 
 ### Child skill snapshots
 
@@ -198,7 +200,7 @@ Migration: `openRestored` is additive; `open`, retained catalog construction and
 | Reviewed source | Git blob |
 | --- | --- |
 | [SubagentSession.scala](SubagentSession.scala) | `3f3ef7a63508f40dd896376fc04dcf13b10d12f2` |
-| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | `bb529004fb95d37ad6b852eddefc1311b4072963` |
+| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current SubagentSessionSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no open findings. Two new grouped tests cover JSON-restored partial/supplied observations with current parent denial, fresh lineage, empty records and no execution before resume; invalid state/changed bindings, held cleanup, initialization cause and exact caller-close defect replay. Focused `child-restore-final-focused.log` passed fifteen tests in 885 ms.
 - [x] Full `scalafmtAll scalafmtSbt verify` passed in `child-restore-verify.log`, with zero compiler warnings or failures. Current totals and environment belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -351,7 +353,7 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | Reviewed source | Git blob |
 | --- | --- |
 | [SubagentCatalog.scala](SubagentCatalog.scala) | `fd4bb5846275c82ded15994123b299408f537e94` |
-| [SubagentCatalogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentCatalogSpec.scala) | `1659fa0d628ea35c1d394da92d953ec4ee391c21` |
+| [SubagentCatalogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentCatalogSpec.scala) | [Current SubagentCatalogSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentDeclaration.scala](SubagentDeclaration.scala) | [Current topP scope identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-nucleus-sampling) |
 | [SubagentDeclarationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | [Current topP scope identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-nucleus-sampling) |
 | [SubagentSessionDirectory.scala](SubagentSessionDirectory.scala) | `5f924361cc657e128abe057354aa260848d67035` |
@@ -364,18 +366,18 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentExecutionPolicy.scala](SubagentExecutionPolicy.scala) | `df95802fbd98e3db0d5e64fe958f812b6f470003` |
 | [SubagentExecutionPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentExecutionPolicySpec.scala) | `ccab2966d1d868250b00eed9150138e3a5df69f1` |
 | [SubagentTools.scala](SubagentTools.scala) | [Current checkpoint-pattern identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) |
-| [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | `1af49c26a4586eab5d95bceacb5091cb089781d5` |
+| [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | [Current SubagentForwardingSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | [Current acting-stop identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current host-resume identity](#host-only-session-resume) |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `6670f66d25c04131fa7f5e50e982b0775142acc7` |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | [Current SubagentTaskRegistrySpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentConstruction.scala](SubagentConstruction.scala) | `381703a6f1f92239110db9ce5bbec5d208047c52` |
-| [SubagentConstructionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) | `1ece182d43038473274d5bfa5c4bb2c9c5c664c2` |
+| [SubagentConstructionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) | [Current SubagentConstructionSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentFactory.scala](SubagentFactory.scala) | [Current host-resume identity](#host-only-session-resume) |
-| [SubagentFactorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentFactorySpec.scala) | `e7c0567f3b7cd873cb5f6ff39042a99152464e87` |
-| [SubagentToolBoundary.scala](SubagentToolBoundary.scala), unchanged accepted boundary | `f2e7df236e266050c733d1974bed02f42119efea` |
-| [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala), unchanged accepted boundary tests | `20d9c69ced9d6c68c6307ba0961a0b5703aeef1f` |
+| [SubagentFactorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentFactorySpec.scala) | [Current SubagentFactorySpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+| [SubagentToolBoundary.scala](SubagentToolBoundary.scala) | [Current SubagentToolBoundary.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+| [SubagentToolBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundarySpec.scala) | [Current SubagentToolBoundarySpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 
 Inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and automatic event delivery after promotion remain outside this accepted scope. The host-resume tests cover ordinary-send rejection while suspended.
 

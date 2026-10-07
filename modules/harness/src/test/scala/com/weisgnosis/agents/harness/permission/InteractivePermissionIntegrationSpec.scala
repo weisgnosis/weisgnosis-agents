@@ -30,7 +30,7 @@ object InteractivePermissionIntegrationSpec extends ZIOSpecDefault:
   private val call: ContentBlock.ToolUse =
     ContentBlock.ToolUse("call", "read", original, Some("old raw arguments"))
   private def toolkit(run: Json => UIO[String]): Toolkit =
-    Toolkit(Map("read" -> Tool.make(ToolDef("read", "Read", Json.Obj()))(run)))
+    Toolkit.single(Tool.make(ToolDef("read", "Read", Json.Obj()))(run))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("InteractivePermissionIntegrationSpec")(
     test("approval resumes the same tool phase with modified input and no extra reasoning request") {

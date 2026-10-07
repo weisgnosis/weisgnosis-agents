@@ -85,7 +85,7 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
           )
           agent <- ReActAgent.make(
             client = client,
-            toolkit = Toolkit(Map("lookup" -> streamingTool("lookup", result, updates)))
+            toolkit = Toolkit.single(streamingTool("lookup", result, updates))
           )
           events <- agent
             .streamEvents(Msg.user("q"))
@@ -163,8 +163,7 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
                 call.copy(name = "ordinary")
               )
             ),
-            toolkit =
-              Toolkit(Map("streaming" -> streaming, "other" -> other, "ordinary" -> ordinary))
+            toolkit = Toolkit.single(streaming).updated(other).updated(ordinary)
           )
           events <- agent
             .streamEvents(Msg.user("q"))
@@ -219,7 +218,7 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
                   ),
                   ToolExecutionUpdate.Completed(s"done-$input")
                 )
-          toolkit = Toolkit(Map("lookup" -> shared))
+          toolkit = Toolkit.single(shared)
           agents <- ZIO.foreach(Chunk("A", "B"))(label =>
             ReActAgent
               .make(
@@ -285,7 +284,7 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
         snapshots <- Ref.make(Chunk.empty[(AgentEvent, Chunk[Msg])])
         agent <- ReActAgent.make(
           client = model(Chunk(call)),
-          toolkit = Toolkit(Map("lookup" -> lookup))
+          toolkit = Toolkit.single(lookup)
         )
         events <- agent
           .streamEvents(Msg.user("q"))
@@ -325,7 +324,7 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
       for
         agent <- ReActAgent.make(
           client = model(Chunk(call)),
-          toolkit = Toolkit(Map("lookup" -> lookup))
+          toolkit = Toolkit.single(lookup)
         )
         events  <- agent.streamEvents(Msg.user("q")).runCollect
         history <- agent.history
@@ -349,7 +348,7 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
       for
         agent <- ReActAgent.make(
           client = model(Chunk(call)),
-          toolkit = Toolkit(Map("lookup" -> lookup))
+          toolkit = Toolkit.single(lookup)
         )
         events <- agent.streamEvents(Msg.user("q")).runCollect
       yield assertTrue(
@@ -373,7 +372,7 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
             client = model(
               Chunk(call.copy(id = "a", name = "first"), call.copy(id = "b", name = "second"))
             ),
-            toolkit = Toolkit(Map("first" -> first, "second" -> second))
+            toolkit = Toolkit.single(first).updated(second)
           )
           events <- agent
             .streamEvents(Msg.user("q"))
@@ -418,7 +417,7 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
           agent <- ReActAgent.make(
             client =
               model(Chunk(call.copy(id = "a", name = "fast"), call.copy(id = "b", name = "slow"))),
-            toolkit = Toolkit(Map("fast" -> completed, "slow" -> pending))
+            toolkit = Toolkit.single(completed).updated(pending)
           )
           events <- agent
             .streamEvents(Msg.user("q"))
@@ -452,7 +451,7 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
             TurnOutput.FinalText(Msg.assistant("done"))
           )
         )
-        agent  <- ReActAgent.make(client = client, toolkit = Toolkit(Map("lookup" -> lookup)))
+        agent  <- ReActAgent.make(client = client, toolkit = Toolkit.single(lookup))
         events <- agent.streamEvents(Msg.user("q")).runCollect
         contexts = events.collect { case event: AgentEvent.ToolResultEndEvent =>
           event.context

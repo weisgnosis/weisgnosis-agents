@@ -30,9 +30,8 @@ object ConversationCompactorIntegrationSpec extends ZIOSpecDefault:
   private val config: CompactorConfig =
     CompactorConfig(triggerTokens = 2, keepTokens = 2, preserveTailMessages = 2, protectTokens = 0)
   private def call(id: String): ContentBlock.ToolUse = ContentBlock.ToolUse(id, "read", Json.Obj())
-  private def toolkit(run: UIO[String]): Toolkit = Toolkit(
-    Map("read" -> Tool.make(ToolDef("read", "Read", Json.Obj()))(_ => run))
-  )
+  private def toolkit(run: UIO[String]): Toolkit =
+    Toolkit.single(Tool.make(ToolDef("read", "Read", Json.Obj()))(_ => run))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ConversationCompactorIntegrationSpec")(
     test("compaction shrinking history cannot hide current in-flight calls during interruption") {

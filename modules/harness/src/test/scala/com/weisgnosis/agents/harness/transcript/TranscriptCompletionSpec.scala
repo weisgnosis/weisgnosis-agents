@@ -130,7 +130,7 @@ object TranscriptCompletionSpec extends ZIOSpecDefault:
             )
             agent <- ReActAgent.make(
               client = client,
-              toolkit = Toolkit(Map("wait" -> tool)),
+              toolkit = Toolkit.single(tool),
               completionObserver = new SessionTranscriptWriter(store).completionObserver(
                 AnonymousTranscriptPolicy.RecordEachSnapshot
               )

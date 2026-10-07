@@ -135,11 +135,9 @@ object ToolResultEvictorHistorySpec extends ZIOSpecDefault:
                 TurnOutput.ThinkingOnly(Msg.assistant(Chunk(ContentBlock.Thinking("thinking"))))
               case _ => TurnOutput.FinalText(Msg.assistant("done"))
         )
-        toolkit = Toolkit(
-          Map(
-            "lookup" -> Tool.make(ToolDef("lookup", "Lookup", Json.Obj()))(_ =>
-              executions.update(_ + 1).as(large)
-            )
+        toolkit = Toolkit.single(
+          Tool.make(ToolDef("lookup", "Lookup", Json.Obj()))(_ =>
+            executions.update(_ + 1).as(large)
           )
         )
         agent <- ReActAgent.make(

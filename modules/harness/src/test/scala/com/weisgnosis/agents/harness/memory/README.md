@@ -1,5 +1,7 @@
 # Conversation compaction verification
 
+Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+
 Existing compactor/flush groups now verify exact nested numeric retained-user provenance through a later extraction, pruning head/tail text and extraction argument previews. The [current exact-output acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) records the reproduced failures, final identities, review_fp/review_invariants approval and full verification.
 
 - [ConversationCompactorSpec](ConversationCompactorSpec.scala): pair-safe cutoff tests, including same-ID/name local crossing and completed-prefix controls beside unresolved provider calls, plus summary/flush/tail routing, repeated compaction, user provenance, pruning, unchanged below-trigger history, and typed/interrupted hooks.

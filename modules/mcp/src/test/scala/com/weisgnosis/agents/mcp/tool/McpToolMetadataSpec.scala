@@ -393,7 +393,7 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
             McpToolMetadata.Propagate(_ => ZIO.fail(failure))
           )
           direct      <- failed.execute(Json.Obj()).exit
-          observation <- Toolkit(Map("local" -> failed)).executeSafe("local", Json.Obj())
+          observation <- Toolkit.single(failed).executeSafe("local", Json.Obj())
           malformed = McpTool.bind(
             server.client,
             "remote",
@@ -406,7 +406,7 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
               )
             )
           )
-          invalid  <- Toolkit(Map("local" -> malformed)).executeSafe("local", Json.Obj())
+          invalid  <- Toolkit.single(malformed).executeSafe("local", Json.Obj())
           entered  <- Promise.make[Nothing, Unit]
           cleaning <- Promise.make[Nothing, Unit]
           release  <- Promise.make[Nothing, Unit]
@@ -423,7 +423,8 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
           )
           cancellation <- ZIO.scoped:
             (for
-              running <- Toolkit(Map("local" -> cancelled))
+              running <- Toolkit
+                .single(cancelled)
                 .executeSafe("local", Json.Obj())
                 .forkScoped
               _        <- entered.await

@@ -1,5 +1,7 @@
 # com.weisgnosis.agents.mcp.client
 
+Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+
 [McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery and invocation over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. HTTP POST and explicit GET connectivity has a separate [transport contract](../transport/README.md#http-contract).
 
 ## Scoped manager contract
@@ -47,7 +49,7 @@ Custom managers inherit an ungrouped installation from their existing toolkit an
 
 | Reviewed file | Git blob identity |
 | --- | --- |
-| [McpClientManager.scala](McpClientManager.scala) | `7e940e964c3c99755d510aaddf27a9d3f8adef1c` |
+| [McpClientManager.scala](McpClientManager.scala) | [Current McpClientManager.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `c1b2c2a7dcea3363f414127a34c22214064ead6a` |
 
 - [ ] Complete ambient metadata, discovery caching and durable activation separately.

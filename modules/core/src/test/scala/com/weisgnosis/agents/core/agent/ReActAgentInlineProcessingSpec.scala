@@ -110,7 +110,7 @@ object ReActAgentInlineProcessingSpec extends ZIOSpecDefault:
         tool = Tool.make(ToolDef("local", "Local", Json.Obj()))(_ => ZIO.succeed("raw local"))
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("local" -> tool)),
+          toolkit = Toolkit.single(tool),
           toolResultProcessor = ToolResultProcessor(result =>
             processed
               .update(_ :+ result.text)

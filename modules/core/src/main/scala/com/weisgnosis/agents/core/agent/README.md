@@ -1,5 +1,7 @@
 # ReAct execution and structured output
 
+Toolkit construction and selection follow the [checked registry identity and migration contract](../tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+
 [Runtime ordering acceptance](../client/README.md#runtime-event-ordering) records exact current lifecycle-spec identities and bounded text/thinking/tool-cycle adaptations. Fully drained invocations begin with AgentStart and end with correlated AgentEnd; early consumers abandon later output.
 
 ReActAgent retains history and serializes runs. Model requests receive their own Scope, closed before the next request. Assistant tool calls are persisted before dispatch. Completed observations survive cancellation; unfinished local occurrences receive Error observations followed by one recovery message for the run. Thinking-only responses trigger bounded synthetic reminders. AgentConfig uses ToolExecution and a five-minute timeout; AgentResult uses AgentRunState and optional ChatUsage.
@@ -99,7 +101,7 @@ Final-delta suppression is local to each execution occurrence, including repeate
 
 Concurrent independently owned agents can share the same Tool and immutable Toolkit while retaining separate incremental-event destinations and canonical histories. The shared fixture holds both executions between their first and second progress chunks, then checks exact per-agent deltas/final results and distinct request/reply contexts despite identical tool-call IDs. This is not support for concurrent runs on one Scala agent; no production API or implementation changed.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) at `b634d0f0d15cc56b27a2040d0eb925722af7c609`, with no findings. Focused verification passed nine tests in 417 ms (`shared-toolkit-focused.log`); full `scalafmtAll scalafmtSbt verify` passed in `shared-toolkit-verify.log` with zero compiler warnings or failures. Current repository totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) at [Current ReActAgentToolEventSpec.scala identity](../tool/README.md#checked-registry-identity), with no findings. Focused verification passed nine tests in 417 ms (`shared-toolkit-focused.log`); full `scalafmtAll scalafmtSbt verify` passed in `shared-toolkit-verify.log` with zero compiler warnings or failures. Current repository totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 ## All-tools-denied observation
 
@@ -128,7 +130,7 @@ BeforeActing checkpoints may preserve a provider-only pause, with no local pendi
 | [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [PendingActing.scala](PendingActing.scala) | bdcdb1e276a1dcbb1a86dc321c4ecdf39bdbeb4c |
 | [ToolHistory.scala](../model/ToolHistory.scala) | ba82c0b9d409c0eb444b2212c603532efa83235f |
-| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | f3382b5f930c7810c3193d9a027df04382b9707b |
+| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current ReActAgentToolAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | 349c047eebb15bcfb2b4c2113714047384780597 |
 | [ToolHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | 2ff6291ca75b49770c0a337da5488608f8fa040e |
 | [ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
@@ -148,7 +150,7 @@ Migration: ToolDef appends the defaulted returnMode field. Old JSON without it d
 | --- | --- |
 | [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [ToolDef.scala](../tool/ToolDef.scala) | 8848c5c6698a13c05e4dc6fe9a8ec51710ec0708 |
-| [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | e9de09814ad62b90d3592fdf8d205de7d5bfd935 |
+| [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | [Current ReActAgentReturnDirectSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | 67e4f5c680d919c0f4a4cc1858b5c4d4d2769219 |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
 
@@ -176,8 +178,8 @@ Early consumers cancel and join owned execution but abandon later output, includ
 | Reviewed file | Git blob |
 | --- | --- |
 | [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
-| [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 8e28a12574d17faab954663516b2fb9529de34e5 |
-| [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | e8270b178be3f6d4dd90868be6555025bac07939 |
+| [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | [Current AgentRunUpdateSpec.scala identity](../tool/README.md#checked-registry-identity) |
+| [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current ConfirmedBatchAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
 [AgentRunUpdate.scala](AgentRunUpdate.scala) retains its accepted identity `e441b9614dba3364da17b6b4780c3a6fae002396`; its ADT and codec policy are unchanged. Existing ordinary/structured scenarios retain full-value, cooperative interruption and terminal ordering coverage. The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
 
@@ -187,7 +189,7 @@ The package-visible `runForwarding(messages, destination, source)` and `resumeFo
 
 The host-selected source prefixes any existing nested source with `/`; reply/request identities remain unchanged. Source labels are diagnostic data, not authentication. A closed destination drops publication without cancelling execution. Delivery remains unbounded, with no replay or backpressure. These internal ordinary-run primitives support the reviewed [host-only child resume](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume); they add no structured child execution.
 
-The unchanged [ReActAgentForwardingSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) exposed the previous competing-consumer race in `local-skill-verify.log`: against ReActAgent blob `0fbbe1a282f1740efcb96b05d3d4befb39f44f4c`, the final event was ModelResponseEnd rather than the expected AgentEnd. The fix changes delivery ownership, not the regression expectation. Its existing three groups retain result, attribution, compound-cause and cancellation coverage.
+The [ReActAgentForwardingSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) exposed the previous competing-consumer race in `local-skill-verify.log`: against ReActAgent blob `0fbbe1a282f1740efcb96b05d3d4befb39f44f4c`, the final event was ModelResponseEnd rather than the expected AgentEnd. The fix changes delivery ownership, not the regression expectation. Its existing three groups retain result, attribution, compound-cause and cancellation coverage.
 
 [AgentEventForwarderSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) adds three barrier-based groups for held-prefix/queued-suffix order, empty and claimed-only shutdown, exact delivery defects, and cancellation joining held publication. The focused helper/integration/stream run passed 27 tests in 522 ms.
 
@@ -198,7 +200,7 @@ The unchanged [ReActAgentForwardingSpec](../../../../../../../test/scala/com/wei
 | [AgentEventForwarder.scala](AgentEventForwarder.scala) | `9198abc9f0b13f1cb1e347df0a73c57c50f6e2d1` |
 | [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [AgentEventForwarderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) | `2c0bbde7e0e5eb94f8c3f963ead3f1ed4eed37ab` |
-| [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | `9c602ab087cb78362035043bf07181b0aa108f89` |
+| [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | [Current ReActAgentForwardingSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
 - [x] The separately reviewed [harness adapters](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#scoped-child-event-forwarding) install this primitive for owned spawn/send operations with task attribution and per-invocation leases.
 
@@ -232,9 +234,9 @@ Migration: processDecision is a concrete additive method and deciding is an opt-
 | [AgentErrorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | d54380b0026082045e870169362ef81dfe3abd2f |
 | [ToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolResultProcessorSpec.scala) | 79dc47e7a7d411978aed8d7361e02d351bd2c894 |
 | [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | [Current identity](#before-acting-suspension-and-restoration) |
-| [SubagentToolsSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | bc13a74044ad3d6e5bfd92efb0eda362dae71bb4 |
-| [ReActAgentActingStopSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentActingStopSpec.scala) | d6bd7f1768f9abc1e6178f758010d1677b750d1d |
-| [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | a96798914868b8698405643d4f5f15618748bf14 |
+| [SubagentToolsSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | [Current SubagentToolsSpec.scala identity](../tool/README.md#checked-registry-identity) |
+| [ReActAgentActingStopSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentActingStopSpec.scala) | [Current ReActAgentActingStopSpec.scala identity](../tool/README.md#checked-registry-identity) |
+| [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | [Current ReActAgentInlineProcessingSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current identity](#current-model-input-identities) |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the acting-stop scope (unchanged identities above and runtime baseline e9f789c2de31afa312c01e04ec1d464efbcb441f), with no findings. Full scalafmtAll scalafmtSbt verify passed in acting-stop-accepted-verify.log with zero compiler warnings or failed tests. Focused acting-stop-origin-green.log passed 39 core tests in 568 ms and eight harness tests in 519 ms. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -354,7 +356,7 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [SubagentSession.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentSession.scala) | [Current host-resume identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume) |
-| [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | 00499f82e283cc106944c67c4dd5fdc8ed38c298 |
+| [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | [Current SubagentTools.scala identity](../tool/README.md#checked-registry-identity) |
 
 Regression evidence: `acting-resume-focused.log` reproduced extraction-induced masked acting at runtime `eb8ce2db4c836637d7e65e5c255dc78ec24783a9` with spec `88e8b60711a27a8b5d6cd302218c38a8258692ad` (six passed, four timed out); restoring interruptibility before the shared acting phase passed unchanged expectations in `acting-resume-green.log`. `acting-resume-bounds-red.log` reproduced acceptance beyond the host budget and Int.MaxValue overflow at runtime `279b921866d4a8143a55a77cc3077933cfd4b253` with spec `1a5e0f8e51f1c04715bb3a41671970994830a365` (four passed, one failed): iteration became negative and one unexpected model request occurred. Host-budget validation and the pre-increment limit check passed the unchanged regression in `acting-resume-bounds-green.log`; final tables also verify thinking-only rejection and inline metadata preservation.
 
@@ -379,7 +381,7 @@ Migration: PendingActing appends default-empty suppliedResults, preserving old m
 | [ReActAgent.scala](ReActAgent.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
 | [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
 | [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
-| [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | 544ba0673471232ce7fa0b45fc88e002a887b917 |
+| [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | [Current ReActAgentSuppliedResultSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ConfirmedBatchAuthorizer.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizer.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current identity](#result-bearing-streams) |
 
@@ -475,7 +477,7 @@ Unchanged identities from the seven-file scope against `2b99226`; commit `cc8fa7
 | [Msg.scala](../model/Msg.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [ToolResultProcessor.scala](../tool/ToolResultProcessor.scala) | [Current identity](#acting-stop-decisions) |
 | [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | [Current identity](#acting-stop-decisions) |
-| [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | 9c76a00f1c3309520ed0823ff91e8c6ac49b3be8 |
+| [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | [Current ReActAgentToolResultProcessorSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
 Superseded history/eviction source identities remain in `cc8fa7b`; changed identities are in the [eviction table](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/eviction/README.md).
 
@@ -511,7 +513,7 @@ Migration: the default projectRequest method preserves existing ModelInputTransf
 
 Two new unit groups cover lazy legacy composition and checked intermediate history/settings. Existing runtime tables cover invalid projection/configuration before dispatch, joined cancellation and complete cleanup causes. The failover suite uses the real completion adapter with controlled HTTP drivers to inspect serialized per-target history/settings, retry reuse, unchanged schemas/tool definitions and fixed-argument execution. It adds no new real socket server or live-provider evidence. General interception, changed tool authority and mutable Java hook APIs are outside this scope.
 
-Unchanged HistoryPreparer (088d1464febe6be050ce43856305a0efe3b7f0e5) and ToolResultEvictorHistorySpec (3070eb8d3caf57c99243fb7675b5fbbe8d7f25e8) retain their separately reviewed history/eviction contracts. Current compactor and memory error identities belong to the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
+HistoryPreparer (088d1464febe6be050ce43856305a0efe3b7f0e5) retains its separately reviewed history contract. ToolResultEvictorHistorySpec retains its eviction behavior; its [current construction-migration identity](../tool/README.md#checked-registry-identity) is recorded in the reviewed manifest. Current compactor and memory error identities belong to the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
 
 ## Required turn completion observation
 
@@ -533,14 +535,14 @@ The current ReActAgent identity is recorded under [result-bearing streams](#resu
 
 ## Current completion-observer identities
 
-Four unchanged identities from the eight-file scope against `0349b1a`; changed observer identities are recorded below, with their previous versions preserved in `3e817e3`:
+Completion contracts retain their reviewed behavior; migrated fixture identities link to the current registry manifest:
 
 | File | Git blob |
 | --- | --- |
-| [ReActAgentCompletionInterruptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionInterruptSpec.scala) | c26004f7c289c66638e725857bc2225acb7e1a03 |
+| [ReActAgentCompletionInterruptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionInterruptSpec.scala) | [Current ReActAgentCompletionInterruptSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ReActAgentCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionSpec.scala) | 2b6f5f8edad11ad0023c15c5905d9d69136e908f |
 | [SessionTranscriptWriter.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
-| [TranscriptCompletionSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/transcript/TranscriptCompletionSpec.scala) | 5a6a1a89ff46ae70df874db6b7826154a84065b5 |
+| [TranscriptCompletionSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/transcript/TranscriptCompletionSpec.scala) | [Current TranscriptCompletionSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
 - [x] `review_docs` approved completion-observer documentation against `0349b1a`, including exact identities, late cancellation, early-stream error visibility, explicit anonymous policy, compactor offload and remaining lifecycle work. Required verification, local Markdown links, script checks and git diff --check passed for this reviewed scope.
 

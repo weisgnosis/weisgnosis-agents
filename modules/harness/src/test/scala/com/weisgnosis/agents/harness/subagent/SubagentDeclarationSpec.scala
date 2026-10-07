@@ -65,15 +65,13 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
     yield SubagentPermissions(authorizer, plan.control, Map("write" -> PlanToolAccess.Mutation))
 
   private def tools(names: Chunk[String], executed: Ref[Chunk[String]]): Toolkit =
-    Toolkit(
-      names
-        .map(name =>
-          name -> Tool.make(ToolDef(name, "Record execution", Json.Obj()))(_ =>
-            executed.update(_ :+ name).as("done")
-          )
+    names
+      .map(name =>
+        Tool.make(ToolDef(name, "Record execution", Json.Obj()))(_ =>
+          executed.update(_ :+ name).as("done")
         )
-        .toMap
-    )
+      )
+      .foldLeft(Toolkit.empty)(_.updated(_))
 
   private def client(
       observe: (Chunk[Msg], Chunk[ToolDef], LlmConfig) => UIO[Unit],

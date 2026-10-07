@@ -179,7 +179,7 @@ object FinalAnswerFilterSpec extends ZIOSpecDefault:
             agent <- ReActAgent.make(
               client = client,
               llmConfig = LlmConfig("model", endpoint = s"http://127.0.0.1:$port/completion"),
-              toolkit = Toolkit(Map("lookup" -> lookup))
+              toolkit = Toolkit.single(lookup)
             )
             pipeline <- ZIO.fromEither(FinalAnswerFilter.make())
             events   <- agent.streamEvents(Msg.user("question")).via(pipeline).runCollect

@@ -1,5 +1,7 @@
 # Plan-mode admission foundations
 
+Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+
 [PlanShellInspection.inspect](PlanShellInspection.scala) is a pure, conservative POSIX command-shape inspector. It accepts at most 4,096 characters from ASCII letters, digits, spaces and `_./-`, then applies a command-specific positive grammar. All other characters, including tabs/newlines, quotes, escapes, redirects, pipes, substitutions, separators and glob syntax, fail with a typed ShellRejection.
 
 | Program | Supported arguments |
@@ -95,12 +97,12 @@ This is a host adapter rather than automatic factory wiring. It does not registe
 | --- | --- |
 | [PlanMode.scala](PlanMode.scala) | 8ee5910af797c790f08ac61cfa0cf7f4cf03ab38 |
 | [PlanPermissionGate.scala](PlanPermissionGate.scala) | b56772173cf6027f441a5adbc8b5cb352856f2d4 |
-| [PlanInheritedPermissionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInheritedPermissionSpec.scala) | f3ea0134c152a784c2fec24835390f9e50af3e3c |
+| [PlanInheritedPermissionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInheritedPermissionSpec.scala) | [Current PlanInheritedPermissionSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [PlanShellInspection.scala](PlanShellInspection.scala) | 9bcbef0da418bba1707d018ee653ff5700045b61 |
 | [PosixReadCommand.scala](PosixReadCommand.scala) | b1279b9d804743bc8e9df9fc46f0f4fd44a4bee9 |
 | [PlanModeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanModeSpec.scala) | 269fe9cba0e22e4bfbda8735ed9d4dc7b43c1e52 |
 | [PlanPermissionGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionGateSpec.scala) | ae9f03e2d791c575d0703986401a3d1addc83cbe |
-| [PlanPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionIntegrationSpec.scala) | 2d9673202a395638baae3df3971ca9f3eee5c780 |
+| [PlanPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionIntegrationSpec.scala) | [Current PlanPermissionIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [PlanShellInspectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanShellInspectionSpec.scala) | 06263d26f34e47b65a869298ac9d3db515d0fe7c |
 
 - [x] Retain `review_fp`, `review_harness` and `review_docs` acceptance against `0ad16e5` for unchanged typed classifications, exact command input and ordinary admission integration.
@@ -155,7 +157,7 @@ Two unchanged identities from the five-file increment against 132a81a; PlanInput
 | Source | Git blob |
 | --- | --- |
 | [PlanInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputTransformSpec.scala) | a63dee4e6d8d1258c2f020fce788f07547a2c230 |
-| [PlanInputIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputIntegrationSpec.scala) | aef817a3b44b424ce94894e4fb412d54b6753d03 |
+| [PlanInputIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputIntegrationSpec.scala) | [Current PlanInputIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 
 - [x] `review_fp` and `review_harness` approved the final five-file plan-input increment against `132a81a` on 2026-09-29. No findings remain within truthful snapshot rendering, request-only projection, final-user coalescing, preserved canonical/system/tool history and live gate authority. Files/restoration and automatic tool/UI/child integration are excluded.
 
@@ -252,7 +254,7 @@ Final formatted seven-file increment against bfca341.
 | --- | --- |
 | [PlanReviewPublisher.scala](PlanReviewPublisher.scala) | ae1ef6ba98941228500602a494defe7cfa3ab92e |
 | [PlanToolResult.scala](PlanToolResult.scala) | 5d816a3438c938b1df1e5e3afb2924f9dc742018 |
-| [PlanTools.scala](PlanTools.scala) | b4319d9c0bef3e8a6861a8a22ffff30364b75398 |
+| [PlanTools.scala](PlanTools.scala) | [Current PlanTools.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [PlanReviewPublisherSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanReviewPublisherSpec.scala) | 417dd96dfb195dd28a65fbdda7bc6ac2288ea058 |
 | [PlanToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolResultSpec.scala) | c910dc8c1d439941a31bbbe448c864a05a3021ee |
 | [PlanToolsIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolsIntegrationSpec.scala) | 6977f7ece6a49a632721a56b9b7268e23ac2a3c1 |

@@ -31,6 +31,8 @@ sbt verify packageArtifacts
 
 The verify alias checks formatting, compiles with fatal warnings, and runs all tests. See [CONTRIBUTING.md](CONTRIBUTING.md) for semantic review and documentation requirements.
 
+Toolkit host construction uses a [private canonical registry and checked map migration](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity); unchecked map/copy/Product construction is removed.
+
 ## Host integration
 
 The nonpublished [examples project](modules/examples/README.md) verifies scoped core/harness/MCP assembly using the existing builder and explicit host dependencies. It also supplies a bounded, explicitly enabled live-provider smoke program and payload-free lifecycle logging through existing ZIO APIs. Hosts configure logging/export and independent log privacy; default verification makes no external provider requests.

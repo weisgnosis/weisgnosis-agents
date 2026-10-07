@@ -31,11 +31,8 @@ object ToolResultEvictorIntegrationSpec extends ZIOSpecDefault:
   private val large: String              = "A" * 2000 + "M" * 76001 + "Z" * 2000
   private val call: ContentBlock.ToolUse = ContentBlock.ToolUse("call", "lookup", Json.Obj())
   private val firstTurn: TurnOutput      = TurnOutput.ToolCalls(Msg.assistant(Chunk(call)))
-  private val toolkit: Toolkit = Toolkit(
-    Map(
-      "lookup" -> Tool.make(ToolDef("lookup", "Read output", Json.Obj()))(_ => ZIO.succeed(large))
-    )
-  )
+  private val toolkit: Toolkit =
+    Toolkit.single(Tool.make(ToolDef("lookup", "Read output", Json.Obj()))(_ => ZIO.succeed(large)))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolResultEvictorIntegrationSpec")(
     test(
@@ -109,7 +106,7 @@ object ToolResultEvictorIntegrationSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = client,
-          toolkit = Toolkit(Map("lookup" -> local)),
+          toolkit = Toolkit.single(local),
           toolResultProcessor = new ToolResultEvictor(store).processor()
         )
         events  <- agent.streamEvents(Msg.user("q")).runCollect
@@ -250,7 +247,7 @@ object ToolResultEvictorIntegrationSpec extends ZIOSpecDefault:
         )
         agent <- ReActAgent.make(
           client = model,
-          toolkit = Toolkit(Map("lookup" -> changing)),
+          toolkit = Toolkit.single(changing),
           toolResultProcessor = new ToolResultEvictor(store).processor()
         )
         result <- agent.run(Msg.user("q"))

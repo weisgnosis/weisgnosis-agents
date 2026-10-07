@@ -68,8 +68,8 @@ object AgentRunUpdateSpec extends ZIOSpecDefault:
               else TurnOutput.FinalText(Msg.assistant("done").withUsage(lastUsage))
             )
         )
-        tools = Toolkit(
-          Map("echo" -> Tool.make(ToolDef("echo", "Echo", Json.Obj()))(_ => ZIO.succeed("echoed")))
+        tools = Toolkit.single(
+          Tool.make(ToolDef("echo", "Echo", Json.Obj()))(_ => ZIO.succeed("echoed"))
         )
         agent <- ReActAgent.make(
           client = model,
@@ -329,7 +329,7 @@ object AgentRunUpdateSpec extends ZIOSpecDefault:
               )
               agent <- ReActAgent.make(
                 client = client,
-                toolkit = Toolkit(Map("read" -> tool)),
+                toolkit = Toolkit.single(tool),
                 postReasoningHook =
                   PostReasoningHook((_, _) => ZIO.succeed(ReasoningDecision.Suspend("review"))),
                 completionObserver = TurnCompletionObserver(_ => observed.update(_ + 1))

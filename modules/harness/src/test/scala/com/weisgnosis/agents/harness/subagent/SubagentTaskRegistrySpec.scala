@@ -215,7 +215,7 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
           ZIO.succeed("forbidden")
         )
         configured <- factory(
-          _ => builds.update(_ + 1).as(Toolkit(Map("forbidden" -> forbidden))),
+          _ => builds.update(_ + 1).as(Toolkit.single(forbidden)),
           _ =>
             ZIO.succeed(
               LlmClient.mockEffectful((history, tools, _) =>
