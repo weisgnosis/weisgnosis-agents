@@ -32,6 +32,10 @@ enum ToolChoice derives JsonCodec:
 enum ToolCallParallelism derives JsonCodec:
   case Enabled, Disabled
 
+/** Provider reasoning preference only; it grants no runtime execution or completion authority. */
+enum ReasoningEffort derives JsonCodec:
+  case Low, Medium, High
+
 final case class LlmConfig(
     model: String,
     endpoint: String = "https://api.openai.com/v1/chat/completions",
@@ -46,7 +50,8 @@ final case class LlmConfig(
     presencePenalty: Option[Double] = None,
     seed: Option[Long] = None,
     parallelToolCalls: Option[ToolCallParallelism] = None,
-    stopSequences: Option[StopSequences] = None
+    stopSequences: Option[StopSequences] = None,
+    reasoningEffort: Option[ReasoningEffort] = None
 ) derives JsonCodec
 
 /**

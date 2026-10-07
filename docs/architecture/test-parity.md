@@ -409,6 +409,16 @@ Upstream base events also have identity/time, optional source, and metadata. Thi
 
 Inline event metadata intentionally preserves the complete result map; pinned upstream inline events synthesize only serverTool=true. ReActAgentEmissionSpec verifies this Scala contract, duplicate-ID occurrence handling, and local cancellation matching. Provider continuation without inline results is covered separately by the ownership fixtures above. This emission fixture does not establish local structured tool streams or complete event ordering.
 
+## Selected request-parameter mappings
+
+- [x] OpenAIChatFormatterTest.testApplyOptions (138): existing Scala request/failover tables adapt temperature, token limit, topP, penalties and exact signed seed. testApplyOptionsWithNull (165) is represented by immutable defaults and optional values; Java's two-options fallback merge is intentionally not reproduced.
+- [x] testApplyToolChoice (201), Auto (215), None (228), Required (722), testNoToolChoiceWithoutTools (736) and WithEmptyTools (747): checked choices and empty-tool cases have existing request-table coverage. testDefaultAutoForNullToolChoice (762) is an explicit difference: Scala None omits tool_choice; explicit Auto emits auto with tools.
+- [x] testSeedWithinRange (674), AtMaxValue (687), ExceedingRange (701): existing signed-Long table covers exact boundary serialization; Java integer narrowing is intentionally excluded.
+- [x] testApplyResponseFormat (551): existing object pass-through now explicitly checks json_object alongside native json_schema and omission. WithClass (571) reflection/class identity is excluded; compile-time codecs and supplied schemas replace it.
+- [x] testApplyReasoningEffortFromField (404), WithDefault (416), FromDefaultOnly (431): bounded wire-value adaptation through typed Low/Medium/High and optional target configuration/projection. The [reasoning-effort contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-reasoning-effort) records exact review and verification. Java's mutable field/default merge is not claimed.
+- [ ] Implement optional function-tool strict generation from testApplyToolsWithStrict (348); current omission covers only unset strictness in WithNullStrict (368).
+- [ ] Define provider-specific thinking-budget contracts separately before mapping methods at 444–497. Arbitrary extra-body map storage/merging and nullable mutation helpers at 388, 513, 607, 624 and 647 remain outside the typed request API; this bounded inventory does not claim their adaptation or full formatter parity.
+
 ## Stop-sequence request adaptation
 
 - [x] Adapt pinned OpenAIChatFormatterTest.testApplyStopParameter (530) through typed LlmConfig.stopSequences and a canonical stop array containing END and STOP. Exact strings/order are preserved; the Scala contract also checks nonempty configuration arrays, absence/null, per-target projection replacement/clearing, retries and native/synthetic formatting. These additional checks do not represent additional Java test methods. Final source identities and verification belong to the [stop-sequence contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences).

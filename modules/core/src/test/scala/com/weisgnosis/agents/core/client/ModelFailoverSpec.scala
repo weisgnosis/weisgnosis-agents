@@ -108,7 +108,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
               frequencyPenalty = Some(0.5),
               presencePenalty = Some(-0.5),
               seed = Some(2147483648L),
-              stopSequences = Some(StopSequences.one("primary-original"))
+              stopSequences = Some(StopSequences.one("primary-original")),
+              reasoningEffort = Some(ReasoningEffort.Low)
             ),
             toolkit = toolkit,
             fallback = Some(
@@ -122,6 +123,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   presencePenalty = Some(0.3),
                   seed = Some(Long.MaxValue),
                   stopSequences = Some(StopSequences.one("target-original")),
+                  reasoningEffort = Some(ReasoningEffort.Medium),
                   toolChoice = Some(ToolChoice.Specific("lookup")),
                   parallelToolCalls = Some(ToolCallParallelism.Enabled),
                   responseFormat = Some(Json.Obj("unused" -> Json.Bool(true)))
@@ -147,7 +149,9 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                         seed = if request.model == "primary" then Some(Long.MinValue) else None,
                         stopSequences =
                           if request.model == "primary" then Some(StopSequences.one("END", "STOP"))
-                          else None
+                          else None,
+                        reasoningEffort =
+                          if request.model == "primary" then Some(ReasoningEffort.High) else None
                       )
                     )
                   )
@@ -197,7 +201,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                             frequencyPenalty = Some(0.2),
                             presencePenalty = Some(-0.2),
                             seed = Some(0L),
-                            stopSequences = Some(StopSequences.one("structured"))
+                            stopSequences = Some(StopSequences.one("structured")),
+                            reasoningEffort = Some(ReasoningEffort.Medium)
                           )
                         )
                       )
@@ -242,6 +247,7 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                       fields.get("temperature").contains(Json.Num(0.3)) &&
                       fields.get("max_tokens").contains(Json.Num(23)) &&
                       fields.get("stop").contains(Json.Arr(Json.Str("structured"))) &&
+                      fields.get("reasoning_effort").contains(Json.Str("medium")) &&
                       fields.get("frequency_penalty").contains(Json.Num(0.2)) &&
                       fields.get("presence_penalty").contains(Json.Num(-0.2)) &&
                       fields
@@ -274,7 +280,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                    Some(0.5),
                    Some(-0.5),
                    Some(2147483648L),
-                   Some(StopSequences.one("primary-original"))
+                   Some(StopSequences.one("primary-original")),
+                   Some(ReasoningEffort.Low)
                  )
                else
                  ModelRequestSettings(
@@ -284,7 +291,8 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                    Some(-0.3),
                    Some(0.3),
                    Some(Long.MaxValue),
-                   Some(StopSequences.one("target-original"))
+                   Some(StopSequences.one("target-original")),
+                   Some(ReasoningEffort.Medium)
                  ))
           },
           requests.forall { case (model, value) =>
@@ -329,6 +337,9 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                 (fields.get("stop") == (if model == "primary" then
                                           Some(Json.Arr(Json.Str("END"), Json.Str("STOP")))
                                         else None)) &&
+                (fields.get("reasoning_effort") == (if model == "primary" then
+                                                      Some(Json.Str("high"))
+                                                    else None)) &&
                 fields.get("parallel_tool_calls").contains(Json.Bool(model == "target")) &&
                 fields.get("messages").exists(_.toJson.contains(s"request for $model"))
             )

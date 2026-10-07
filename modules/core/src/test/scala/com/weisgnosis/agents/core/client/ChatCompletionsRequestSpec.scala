@@ -434,6 +434,30 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
             .exists(_.get("stop") == stops.map(value => Json.Arr(value.values.map(Json.Str(_))))) &&
           selected.toJson.fromJson[LlmConfig] == Right(selected)
         ),
+        Chunk(
+          None                         -> None,
+          Some(ReasoningEffort.Low)    -> Some(Json.Str("low")),
+          Some(ReasoningEffort.Medium) -> Some(Json.Str("medium")),
+          Some(ReasoningEffort.High)   -> Some(Json.Str("high"))
+        ).forall { case (effort, expected) =>
+          val selected = config.copy(reasoningEffort = effort)
+          selected.toJson.fromJson[LlmConfig] == Right(selected) &&
+          ChatCompletionsRequest
+            .encode(Chunk(Msg.user("question")), Chunk.empty, selected)
+            .exists(_.get("reasoning_effort") == expected)
+        },
+        """{"model":"test-model","reasoningEffort":null}""".fromJson[LlmConfig] == Right(config),
+        """{"model":"test-model","reasoningEffort":"unknown"}""".fromJson[LlmConfig].isLeft,
+        Chunk(None, Some(Json.Obj("type" -> Json.Str("json_object"))), Some(format)).forall(
+          format =>
+            ChatCompletionsRequest
+              .encode(
+                Chunk(Msg.user("question")),
+                Chunk.empty,
+                config.copy(responseFormat = format)
+              )
+              .exists(_.get("response_format") == format)
+        ),
         """{"model":"test-model","stopSequences":null}""".fromJson[LlmConfig] == Right(config),
         """{"model":"test-model","stopSequences":[]}""".fromJson[LlmConfig].isLeft,
         """{"model":"test-model"}""".fromJson[LlmConfig] == Right(LlmConfig("test-model")),

@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.client.StopSequences
+import com.weisgnosis.agents.core.client.{ReasoningEffort, StopSequences}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.model.*
@@ -86,7 +86,8 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
             Some(0.5),
             Some(0.3),
             Some(42L),
-            Some(StopSequences.one("original"))
+            Some(StopSequences.one("original")),
+            Some(ReasoningEffort.Low)
           )
         )
       for
@@ -111,7 +112,8 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
                   Some(-2),
                   Some(2),
                   Some(Long.MaxValue),
-                  Some(StopSequences.one("projected"))
+                  Some(StopSequences.one("projected")),
+                  Some(ReasoningEffort.High)
                 )
               )
             )
@@ -127,7 +129,8 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
                   frequencyPenalty = None,
                   presencePenalty = None,
                   seed = None,
-                  stopSequences = None
+                  stopSequences = None,
+                  reasoningEffort = None
                 )
               )
             )
@@ -155,7 +158,8 @@ object ModelInputTransformSpec extends ZIOSpecDefault:
               Some(-2),
               Some(2),
               Some(Long.MaxValue),
-              Some(StopSequences.one("projected"))
+              Some(StopSequences.one("projected")),
+              Some(ReasoningEffort.High)
             )
           )
         ),

@@ -165,6 +165,6 @@ TurnCompletionObserverSpec now has six tests, including three added composition 
 
 - [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
 
-## Selected stop-sequence settings
+## Selected generation settings
 
-The existing ModelFailoverSpec request table checks each target's stop-sequence snapshot, projection replacement/clearing and serialized request preservation. The paired checked-value suite and exact reviewed identities belong to the [client contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences). Local completion and cancellation behavior remain governed by the existing runtime contracts.
+The existing ModelFailoverSpec request table checks each target's stop-sequence and reasoning-effort snapshot, projection replacement/clearing and serialized request preservation. The paired checked-value suite and exact reviewed identities belong to the [client contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#optional-reasoning-effort). Local completion and cancellation behavior remain governed by the existing runtime contracts.

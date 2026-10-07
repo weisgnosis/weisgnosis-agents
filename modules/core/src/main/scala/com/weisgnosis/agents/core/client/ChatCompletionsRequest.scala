@@ -105,6 +105,10 @@ object ChatCompletionsRequest:
           Chunk.fromIterable(
             config.stopSequences.map(value => "stop" -> Json.Arr(value.values.map(Json.Str(_))))
           ) ++
+          Chunk.fromIterable(config.reasoningEffort.map:
+            case ReasoningEffort.Low    => "reasoning_effort" -> Json.Str("low")
+            case ReasoningEffort.Medium => "reasoning_effort" -> Json.Str("medium")
+            case ReasoningEffort.High   => "reasoning_effort" -> Json.Str("high")) ++
           Chunk.fromIterable(config.parallelToolCalls.map:
             case ToolCallParallelism.Enabled  => "parallel_tool_calls" -> Json.Bool(true)
             case ToolCallParallelism.Disabled => "parallel_tool_calls" -> Json.Bool(false)) ++

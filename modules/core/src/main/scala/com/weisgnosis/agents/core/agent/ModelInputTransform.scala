@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.client.StopSequences
+import com.weisgnosis.agents.core.client.{ReasoningEffort, StopSequences}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.model.Msg
@@ -30,7 +30,8 @@ final case class ModelRequestSettings(
     frequencyPenalty: Option[Double] = None,
     presencePenalty: Option[Double] = None,
     seed: Option[Long] = None,
-    stopSequences: Option[StopSequences] = None
+    stopSequences: Option[StopSequences] = None,
+    reasoningEffort: Option[ReasoningEffort] = None
 )
 
 final case class ModelRequestInput(

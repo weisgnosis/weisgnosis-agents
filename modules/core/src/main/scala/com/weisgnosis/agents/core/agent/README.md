@@ -32,7 +32,7 @@ Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a 
 
 | Reviewed group/skill baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
 The table records the group/skill baseline. The current runtime identity is in [scoped model failover](#scoped-model-failover), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
@@ -62,7 +62,7 @@ Migration: configured skill listings move from the loader description to transie
 
 | Reviewed request-projection baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2eb319710008d11433978458c47a01d1c9eac110` |
 
 The [catalogue contract](../skill/README.md#deferred-resource-capabilities) owns current catalogue/library identities and combined verification. Existing execution, forwarding, group and permission contracts retain their scoped evidence below. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals and next work.
@@ -77,7 +77,7 @@ The protected loader retains ordinary authorization and sequential dispatch. An 
 
 | Reviewed deferred-read baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
 
 Current ReActAgent identity and execution approval are in [scoped model failover](#scoped-model-failover); the groups spec above is unchanged.
@@ -111,7 +111,7 @@ Mixed Success/Error, inline/provider batches and incomplete deferred batches do 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current provider-ownership fixture](#provider-owned-pending-calls) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this pair, including unchanged Direct behavior through the shared completed-ledger helper. Two grouped cases cover fresh/restored batches, priority and exclusion tables, structured runs, held cleanup and cancellation. Focused checks passed 19 tests in 678 ms (`all-denied-final-focused.log`), including the three existing Direct groups; full `scalafmtAll scalafmtSbt verify` passed in `all-denied-verify.log` with zero compiler warnings or failures. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
@@ -127,7 +127,7 @@ BeforeActing checkpoints may preserve a provider-only pause, with no local pendi
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [PendingActing.scala](PendingActing.scala) | bdcdb1e276a1dcbb1a86dc321c4ecdf39bdbeb4c |
 | [ToolHistory.scala](../model/ToolHistory.scala) | ba82c0b9d409c0eb444b2212c603532efa83235f |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current ReActAgentToolAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
@@ -148,11 +148,11 @@ Migration: ToolDef appends the defaulted returnMode field. Old JSON without it d
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ToolDef.scala](../tool/ToolDef.scala) | 8848c5c6698a13c05e4dc6fe9a8ec51710ec0708 |
 | [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | [Current ReActAgentReturnDirectSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | 67e4f5c680d919c0f4a4cc1858b5c4d4d2769219 |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Three grouped runtime tests cover ordered processed output and rejection cases, live/restored/supplied/partial resumes, joined cleanup/cancellation and native/synthetic exclusion; existing tables cover codec compatibility and provider-field omission. The resumed supplied Error and mixed-mode rows verify zero local execution, exact-once processing, preserved result states/content in the actual following model request and one further request. Supplied Denied remains unsupported. Both reviewers renewed approval of the current spec; the Direct contract remains unchanged, with the runtime helper reviewed in the linked AllToolsDenied scope. Focused checks passed three groups in 599 ms (`return-direct-resume-focused.log`).
 - [x] Full `scalafmtAll scalafmtSbt verify` passed in `return-direct-resume-verify.log` with zero compiler warnings or test failures. Current totals and process-local verification settings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -177,7 +177,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | [Current AgentRunUpdateSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current ConfirmedBatchAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
@@ -198,7 +198,7 @@ The [ReActAgentForwardingSpec](../../../../../../../test/scala/com/weisgnosis/ag
 | Reviewed forwarding baseline | Git blob |
 | --- | --- |
 | [AgentEventForwarder.scala](AgentEventForwarder.scala) | `9198abc9f0b13f1cb1e347df0a73c57c50f6e2d1` |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [AgentEventForwarderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) | `2c0bbde7e0e5eb94f8c3f963ead3f1ed4eed37ab` |
 | [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | [Current ReActAgentForwardingSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
@@ -227,7 +227,7 @@ Migration: processDecision is a concrete additive method and deciding is an opt-
 | Reviewed file | Git blob |
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | [Current identity](#before-acting-suspension-and-restoration) |
-| ReActAgent.scala | [Current identity](../client/README.md#optional-stop-sequences) |
+| ReActAgent.scala | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [AgentError.scala](../error/AgentError.scala) | 595899f138addfb459d8845f57806bb4a1d2eca6 |
 | [ToolResultProcessor.scala](../tool/ToolResultProcessor.scala) | bf23b2d700291b38545f9c0ed9f57826ac9c5158 |
 | [AgentResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentResultSpec.scala) | a94ecf5e07e816c1b53bbb2532ad251a111cc064 |
@@ -264,13 +264,13 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
-| [LlmClient.scala](../client/LlmClient.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [LlmClient.scala](../client/LlmClient.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | 41fe7ee22d997bb6e190d89df49d72747fce9f20 |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
 | [BeforeResponseRejection.scala](../client/BeforeResponseRejection.scala) | 96121e91541c7858bd5f6f6764546cb6aa2d4bf2 |
 | [ModelTarget.scala](../client/ModelTarget.scala) | 5820bc6829e9ae0eaa81ca1bcad1d5024bba3bec |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [StructuredOutputCapabilityRoutingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputCapabilityRoutingSpec.scala) | 5eb368d7df046fafb4a3993711800a667675432a |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the eight exact identities above, with no findings. Focused model-failover-green.log passed 51 tests in 5.313 seconds. Full scalafmtAll scalafmtSbt verify passed in model-failover-verify.log with zero compiler warnings or failed tests. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -351,7 +351,7 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
@@ -378,7 +378,7 @@ Migration: PendingActing appends default-empty suppliedResults, preserving old m
 | File | Reviewed Git blob |
 | --- | --- |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
 | [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
 | [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | [Current ReActAgentSuppliedResultSpec.scala identity](../tool/README.md#checked-registry-identity) |
@@ -489,9 +489,9 @@ Superseded model-input scope identities remain in `40f6f05`; changed identities 
 
 ## Request-only model history
 
-ModelInputTransform is distinct from HistoryPreparer: it returns a transient request view without canonical write authority. Existing apply(context, history) implementations remain valid; default projectRequest invokes that legacy callback once and retains the selected target's settings. ModelRequestInput contains prepared history, the selected model name, admitted tool definitions and ModelRequestSettings(temperature, maxTokens, topP, frequencyPenalty, presencePenalty, seed, stopSequences). It contains no client, credentials, endpoint or capability declarations. ModelInputProjection returns only history and settings; it cannot replace tools, the model, client or response format.
+ModelInputTransform is distinct from HistoryPreparer: it returns a transient request view without canonical write authority. Existing apply(context, history) implementations remain valid; default projectRequest invokes that legacy callback once and retains the selected target's settings. ModelRequestInput contains prepared history, the selected model name, admitted tool definitions and ModelRequestSettings(temperature, maxTokens, topP, frequencyPenalty, presencePenalty, seed, stopSequences, reasoningEffort). It contains no client, credentials, endpoint or capability declarations. ModelInputProjection returns only history and settings; it cannot replace tools, the model, client or response format.
 
-ModelInputTransform.withRequest(base)(project) adds selected-request behavior to an explicit base. Standalone apply still delegates only to the legacy base. projectRequest runs the base and added callback once, validates each intermediate history/settings before the next stage, and shares the caller's scope. Runtime execution closes the projection scope before final validation, request events and client dispatch. Temperature must be finite in [0, 2]; maxTokens must be absent or positive; optional topP must be finite in [0, 1], and optional frequencyPenalty/presencePenalty must be finite in [-2, 2]. Seed is an optional signed 64-bit integer. Stop sequences are an optional checked nonempty collection preserving exact strings. Projected None clears each optional selected-target value; [stop-sequence contract](../client/README.md#optional-stop-sequences) owns current settings identities and arity migration. Existing HistoryRewrite rules preserve exact ordered system messages and complete occurrence-aware call/result pairs. Structural validation is not semantic fidelity or full provider grammar validation.
+ModelInputTransform.withRequest(base)(project) adds selected-request behavior to an explicit base. Standalone apply still delegates only to the legacy base. projectRequest runs the base and added callback once, validates each intermediate history/settings before the next stage, and shares the caller's scope. Runtime execution closes the projection scope before final validation, request events and client dispatch. Temperature must be finite in [0, 2]; maxTokens must be absent or positive; optional topP must be finite in [0, 1], and optional frequencyPenalty/presencePenalty must be finite in [-2, 2]. Seed is an optional signed 64-bit integer. Stop sequences are an optional checked nonempty collection preserving exact strings. Reasoning effort is an optional typed provider generation preference. Projected None clears each optional selected-target value; [reasoning-effort contract](../client/README.md#optional-reasoning-effort) owns current settings identities and arity migration. Existing HistoryRewrite rules preserve exact ordered system messages and complete occurrence-aware call/result pairs. Structural validation is not semantic fidelity or full provider grammar validation.
 
 Every actual selected model attempt starts from prepared canonical history and its own configured settings, with a fresh request context. This includes explicit model failover and native/synthetic attempts. The admitted tool snapshot and active response format remain unchanged. Request-only skill projection follows validation. Built-in HTTP status retries reuse the serialized request and do not rerun projection. Projected history/settings never replace canonical history, configuration, recovery positions, usage or tool authority. Newly injected content is not automatically evicted.
 
@@ -503,11 +503,11 @@ Migration: the default projectRequest method preserves existing ModelInputTransf
 
 | File | Git blob |
 | --- | --- |
-| [ModelInputTransform.scala](ModelInputTransform.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
-| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
+| [ModelInputTransform.scala](ModelInputTransform.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
+| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](../client/README.md#optional-frequency-and-presence-penalties) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../client/README.md#optional-stop-sequences) |
+| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the request-projection contract. Existing projection tables cover scoped cleanup, validated history/settings, selected-target identity and custom-client rejection. Current changed-file identities, both final reviews and verification are recorded in the [settings acceptance](../client/README.md#optional-frequency-and-presence-penalties); current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 

@@ -20,6 +20,7 @@ import com.weisgnosis.agents.core.client.{
   ChatCompletionsRequest,
   LlmClient,
   LlmConfig,
+  ReasoningEffort,
   StopSequences,
   ToolCallParallelism,
   TurnOutput
@@ -160,7 +161,8 @@ object ArtifactSmoke extends ZIOAppDefault:
         configured = LlmConfig(
           "packaged-model",
           parallelToolCalls = Some(ToolCallParallelism.Disabled),
-          stopSequences = Some(StopSequences.one("END", "STOP"))
+          stopSequences = Some(StopSequences.one("END", "STOP")),
+          reasoningEffort = Some(ReasoningEffort.High)
         )
         request <- ZIO.fromEither(
           ChatCompletionsRequest.encode(Chunk(Msg.user("question")), Chunk.empty, configured)
@@ -230,6 +232,7 @@ object ArtifactSmoke extends ZIOAppDefault:
               configured.toJson.fromJson[LlmConfig] == Right(configured) &&
               configured.stopSequences.exists(_.values == Chunk("END", "STOP")) &&
               request.get("stop").contains(Json.Arr(Json.Str("END"), Json.Str("STOP"))) &&
+              request.get("reasoning_effort").contains(Json.Str("high")) &&
               decisions == Chunk(
                 "sum"
               ) &&
