@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+The accepted [failure-fixture scope](../tool/README.md#failure-fixtures) extends existing parallel execution evidence with exact mixed Error/Success terminal events and history, without production changes or new test groups. Final source approvals and focused/full verification pass; final combined documentation acceptance is approved.
+
 The [external execution checkpoint scope](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#external-execution-checkpoints) is accepted within the named scope. [ReActAgentExternalToolSpec](ReActAgentExternalToolSpec.scala) supplies three proportional actual-runtime groups covering mixed execution, checked ordinal resume and lifecycle/authority boundaries; final documentation acceptance passed.
 
 ReActAgentSpec adds one grouped custom-client turn contract regression for malformed role/classification and permitted controls. Scoped client cleanup completes before rejection; invalid output must not change history, run post-reasoning hooks or succeed. Final source/full/artifact verification passes; final combined documentation approval passed under the [trust-boundary manifest](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#model-turn-trust-boundary).

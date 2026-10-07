@@ -385,7 +385,51 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
           starts = events.collect { case event: AgentEvent.ToolResultStartEvent => event }
           deltas = events.collect { case event: AgentEvent.ToolResultDeltaEvent => event }
           ends   = events.collect { case event: AgentEvent.ToolResultEndEvent => event }
+          attempts <- Ref.make(0)
+          flaky = Tool.make(ToolDef("flaky", "First invocation fails", Json.Obj()))(_ =>
+            attempts
+              .getAndUpdate(_ + 1)
+              .flatMap:
+                case 0 => ZIO.fail(new RuntimeException("first invocation failed"))
+                case _ => ZIO.succeed("flaky success")
+          )
+          mixedAgent <- ReActAgent.make(
+            client = model(
+              Chunk(
+                call.copy(id = "flaky-a", name = "flaky"),
+                call.copy(id = "flaky-b", name = "flaky"),
+                call.copy(id = "independent", name = "second")
+              )
+            ),
+            toolkit = Toolkit.single(flaky).updated(second),
+            config = AgentConfig(toolExecution = ToolExecution.Parallel)
+          )
+          mixedEvents  <- mixedAgent.streamEvents(Msg.user("q")).runCollect
+          mixedHistory <- mixedAgent.history
+          attempted    <- attempts.get
+          mixedEnds    = mixedEvents.collect { case event: AgentEvent.ToolResultEndEvent => event }
+          mixedResults = mixedHistory.flatMap(_.toolResults)
         yield assertTrue(
+          attempted == 2,
+          mixedEnds.map(_.callId).toSet == Set("flaky-a", "flaky-b", "independent"),
+          mixedEnds.size == 3,
+          mixedResults.size == 3,
+          mixedResults.map(_.id).toSet == mixedEnds.map(_.callId).toSet,
+          mixedEnds.count(_.state == ToolResultState.Error) == 1,
+          mixedEnds.count(_.state == ToolResultState.Success) == 2,
+          mixedResults.forall(result =>
+            mixedEnds.exists(event =>
+              event.callId == result.id && event.state == result.state && event.output == result.text
+            )
+          ),
+          mixedEnds.exists(event =>
+            event.callId == "independent" && event.output == "second result"
+          ),
+          mixedEnds.exists(event =>
+            event.state == ToolResultState.Error && event.output.contains("first invocation failed")
+          ),
+          mixedEnds.exists(event => event.output == "flaky success"),
+          mixedEvents.exists(_.isInstanceOf[AgentEvent.AgentResultEvent]),
           starts.map(_.callId).toSet == Set("a", "b"),
           ends.map(_.callId) == Chunk("b", "a"),
           deltas.map(_.callId) == ends.map(_.callId),

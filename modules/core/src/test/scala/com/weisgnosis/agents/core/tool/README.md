@@ -1,5 +1,21 @@
 # Typed tools and path validation: verification
 
+## Failure fixtures
+
+This test-only scope against e9158e6 adds bounded executable adaptations for ToolExecutorTest.testToolErrorWithoutInterruptSpecialCase (306) and testConcurrentToolExecutionWithErrors (364). Production, public APIs and test-group counts are unchanged; this is added contract evidence rather than a reproduced production defect.
+
+The existing ToolExecutionSpec failure group requires a RuntimeException containing InterruptedException to return an ordinary Error observation. A nested exception object is not ZIO cancellation; existing actual interruption/cleanup coverage remains separate. The existing ReActAgentToolEventSpec parallel group runs two atomic attempts of one failing-then-successful tool beside an independent success. It requires the exact three IDs, one Error/two Success observations, matching terminal event/history states and outputs, and terminal agent delivery without assuming which competing call fails.
+
+| Current regression file | Git blob |
+| --- | --- |
+| [ToolExecutionSpec.scala](ToolExecutionSpec.scala) | `ca56a5eb986bbada610c968a0b333a9f1cb53100` |
+| [ReActAgentToolEventSpec.scala](../agent/ReActAgentToolEventSpec.scala) | `85fadab704bc20ba342f09ec10a1c85a1d9e91b9` |
+
+- [x] review_fp and review_invariants approved both exact final test identities against e9158e6 with no unresolved source findings.
+- [x] tool-executor-error-fixtures-focused.log passes 16 tests, zero failed/ignored, in 604 ms; formatting and fatal-warning compilation pass.
+- [x] tool-executor-error-fixtures-verify.log passes formatting, fatal-warning compilation and 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero failures or ignored tests. Production and packaged consumer sources are unchanged from e9158e6; this verify-only run does not regenerate packages.
+- [x] review_fp and review_invariants approved the final nine-file combined scope against e9158e6 with no unresolved findings; English/diff and 78-document/2,985-local-reference checks pass.
+
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
 - [x] Both independent reviewers approved fixed-argument preparation and runtime integration; full verification passed. The [current acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#fixed-raw-arguments) records exact scope and identities.

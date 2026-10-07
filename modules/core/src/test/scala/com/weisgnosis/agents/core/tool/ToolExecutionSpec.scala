@@ -132,13 +132,29 @@ object ToolExecutionSpec extends ZIOSpecDefault:
         res.output.contains("not found in toolkit")
       )
     },
-    test("Tool execution failure returns ToolResultState.Error with cause") {
-      for res <- toolkit.executeSafe("fail", Json.Obj())
-      yield assertTrue(
-        res.state == ToolResultState.Error,
-        res.output.contains("Simulated tool crash")
+    test("Tool execution failure returns ToolResultState.Error with cause"):
+      val failures = Chunk(
+        new RuntimeException("Simulated tool crash"),
+        new RuntimeException("Execution error", new InterruptedException("nested interrupt"))
       )
-    },
+      ZIO
+        .foreach(failures): failure =>
+          val tool = Tool.make(ToolDef("fail", "Fails with an ordinary Throwable", Json.Obj()))(_ =>
+            ZIO.fail(failure)
+          )
+          Toolkit
+            .single(tool)
+            .executeSafe("fail", Json.Obj())
+            .exit
+            .map: exit =>
+              assertTrue(exit match
+                case Exit.Success(result) =>
+                  result.state == ToolResultState.Error &&
+                  result.output.contains("Execution failed for 'fail'") &&
+                  result.output.contains(failure.getMessage)
+                case Exit.Failure(_) => false)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("interruption joins tool cleanup and preserves its defect") {
       for
         entered <- Promise.make[Nothing, Unit]

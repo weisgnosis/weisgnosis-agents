@@ -35,6 +35,8 @@ review_fp and external_invariant_review approved the final ten-file source scope
 - [x] external-tools-preparation.log passed exact source/POM/LICENSE and reversible archive-admission checks; external-tools-consumer.log passed standalone formatting, clean compilation and forked public external-tool suspension/resume against four fresh actual RC1 module hashes.
 - [x] review_fp and external_invariant_review approved the final combined 24-file source/test/consumer/documentation scope against db39101, with no unresolved findings in that scope. English/diff inspection and 78-document/2,985-local-reference checks pass with zero issues.
 
+The [test-only failure fixtures](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#failure-fixtures) add nested-exception and mixed-parallel evidence with final scoped acceptance; the accepted external-binding manifest above remains unchanged.
+
 ## Provider tool-schema strictness
 
 ToolDef.schemaStrictness is an optional host-selected ToolSchemaStrictness.Strict or Relaxed preference. ChatCompletions emits tools[].function.strict as true or false respectively; None omits it. This is per-tool provider generation metadata. Parameters remain unchanged, and the setting adds no local schema-validation, authorization or successful-completion guarantee. Hosts must supply suitable schemas and compatible endpoints/fallback targets; there is no automatic model detection or compatibility-formatter suppression.
@@ -159,7 +161,7 @@ Migration: streamWithContext is a defaulted source-compatible method, but depend
 | [ToolExecutionUpdate.scala](ToolExecutionUpdate.scala) | `36f338a5d77db0660a283be80b709fb67ec10391` |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](../agent/README.md#acting-stop-decisions) |
 | [ToolExecutionUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionUpdateSpec.scala) | [Current ToolExecutionUpdateSpec.scala identity](README.md#checked-registry-identity) |
-| [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) | Current fixture identity and verification: [shared-Toolkit isolation](../agent/README.md#shared-toolkit-destination-isolation). |
+| [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) | [Current failure-fixture identity](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#failure-fixtures); final source approvals and focused/full verification pass; final combined documentation acceptance approved; prior behavioral scope retained. |
 
 ## Typed execution observations
 
@@ -216,7 +218,7 @@ See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md)
 | Typed-result source/test | Reviewed Git blob |
 | --- | --- |
 | [ToolExecutionResult.scala](ToolExecutionResult.scala) | 1c3e999a1363e6a042a0c83186006fda2060992f |
-| [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
+| [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | [Current failure-fixture identity](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#failure-fixtures); final source approvals and focused/full verification pass; final combined documentation acceptance approved; prior behavioral scope retained. |
 | [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | [Current ReActAgentToolResultProcessorSpec.scala identity](README.md#checked-registry-identity) |
 
 The table records unchanged typed-result components. Current Tool and Toolkit identities are recorded under [incremental execution](#incremental-execution); current ReActAgent identity is in [acting-stop decisions](../agent/README.md#acting-stop-decisions); separate invocation and [direct event forwarding](../agent/README.md#direct-event-forwarding) contracts retain their scoped evidence. Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
