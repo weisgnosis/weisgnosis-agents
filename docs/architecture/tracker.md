@@ -36,14 +36,14 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] Reconcile living architecture documentation against c1c95be with independent review; current package boundaries and every unfinished blocker remain explicit.
 
-Current increment: [checked thinking-budget endpoint preference](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-thinking-budget), source-based on c1c95be. It supplies no local token limit or automatic provider compatibility.
+- [x] [Checked thinking-budget endpoint preference](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-thinking-budget) has final scoped acceptance; compatible endpoints remain host-selected and no local token limit is supplied.
 
-- [x] review_fp and review_invariants approved the nine final source/spec identities.
-- [x] Focused verification passed 28 tests.
-- [x] Full verification passed 1,515 tests with zero compiler warnings/failures and four packages.
-- [x] Source/archive admission and restored archive/POM staging passed.
-- [x] Fresh standalone selected-API consumption passed, including exact budget 4096 in both encoders and configuration round-trip.
-- [x] review_fp and review_invariants approved final combined documentation against c1c95be and the nine unchanged identities. Manual English inspection, changed-script/diff checks and 78-document/2,845-local-reference checks pass with zero issues.
+Current delivery scope: unsigned 0.1.0-RC1 validation from clean source revision 609e75c. This validates current sources and selected public consumption without freezing an ABI, completing upstream parity or publishing a release.
+
+- [x] current-rc-verify.log passed 1,515 tests (672 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures and four packages.
+- [x] current-rc-preparation.log passed rejected-selector/extra-source/duplicate-source regressions and restored archive/POM staging.
+- [x] current-rc-consumer.log passed standalone formatting, clean compilation and forked execution against four fresh actual RC1 module hashes.
+- [x] review_fp and review_invariants approved current-source RC validation documentation against 609e75c; manual English inspection, diff checks and 78-document/2,852-local-reference validation pass with zero issues.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -95,7 +95,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-The current documentation reconciliation and bounded thinking-budget scope have final independent acceptance. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+Current-source RC validation has passed its local build/artifact/consumer gates; final combined documentation approval passed above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
 
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.
@@ -120,7 +120,7 @@ The explicit known-address transcript catalog and unpublished registered assembl
 
 ## Release-candidate readiness assessment
 
-These proposed readiness checks supplement the remaining implementation/parity plan; they do not remove remote-adapter work or establish a release date or readiness percentage. Existing local SDK/Tomcat and Netty interoperability tests exercise real independent servers; public-provider validation remains separate.
+These readiness checks supplement the remaining implementation/parity plan; they do not remove remote-adapter work or establish a release date or readiness percentage. Existing local SDK/Tomcat and Netty interoperability tests exercise real independent servers; public-provider validation remains separate.
 
 - [x] Assess scoped cross-module assembly using the existing builder and verify the [host example](../../modules/examples/README.md); no additional library facade is justified for its accepted scope.
 - [x] Assess logging/tracing through the independently reviewed [lifecycle logging example](../../modules/examples/README.md#lifecycle-logging): runtime correlation, static payload-free records, EOF consumption and joined cleanup. Host logger privacy/export and OpenTelemetry bridge remain separate; no mandatory dependency is introduced.
@@ -130,6 +130,8 @@ These proposed readiness checks supplement the remaining implementation/parity p
 - [x] Record the current [public API candidate inventory](../../project/README.md#first-rc-api-candidate), restricted implementation boundaries and extension obligations after the signature assessment and Toolkit correction.
 - [ ] Freeze the actual RC release baseline; current source consumption is not a published binary compatibility baseline.
 - [ ] Validate remote CI and the release/publication pipeline, versioning, licensing and host/migration documentation before tagging or publishing an RC.
+
+No Git remote is configured, and WEISGNOSIS_LIVE_SMOKE, WEISGNOSIS_LIVE_ENDPOINT, WEISGNOSIS_LIVE_MODEL and WEISGNOSIS_LIVE_API_KEY are unset; no remote workflow or public-provider validation was performed. Local RC validation does not close the unchecked release gates.
 
 Durable workflow replay, authentication, UI, distributed execution and idempotent checkpoint claims belong to hosts. The selected versioned memory adapter is implemented above; broader/global transcript discovery, remote pruning/layout migration, checkpoint runtime/host installation and their remaining ownership/recovery contracts remain unfinished; host responsibility is not a reason to mark those adapters complete.
 
