@@ -8,7 +8,7 @@ The example installs result eviction before context compaction, offloads compact
 
 LiveProviderSmoke is an explicitly opt-in runnable program for a host-selected Chat Completions endpoint. Ordinary tests and verification remain offline. Before running it, set WEISGNOSIS_LIVE_SMOKE to exactly enabled, WEISGNOSIS_LIVE_ENDPOINT to the full endpoint URL, and WEISGNOSIS_LIVE_MODEL to the explicit model identifier. WEISGNOSIS_LIVE_API_KEY is required when the endpoint requires bearer authentication and may be omitted for an endpoint that does not require it; no ambient provider credential is read. Keep credentials in the process environment, never in tracked files or command history.
 
-Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveProviderSmoke"` from the repository root. An enabled run sends provider requests and may incur charges. It permits three model iterations, 1,024 output tokens per request, a one-minute run deadline, and a one-MiB response bound. The check requires one successful addition-tool execution, streamed visible text, and the exact final reply 5. Logs report only aggregate validation counts. No external endpoint has been validated by the offline suite.
+Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveProviderSmoke"` from the repository root. An enabled run sends provider requests and may incur charges. It permits three model iterations, 1,024 output tokens per request, a one-minute run deadline, and a one-MiB response bound. The check requires one successful addition-tool execution, streamed visible text, and the exact final reply 5. Logs report only aggregate validation counts. Offline verification does not validate an external endpoint; the separately authorized [live run](#live-endpoint-verification) below supplies bounded evidence.
 
 ## Scoped host usage
 
@@ -79,7 +79,7 @@ ZIO.logSpan supplies logging timing context, not an OpenTelemetry span or distri
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the five identities below, including the following model request receiving the retained eviction preview. No findings remain in this scope.
 - [x] Current formatting, fatal-warning compilation, full tests and packaging are recorded in the [audited-client verification](#audited-public-model-call). Existing integration/offline-smoke contracts retain their scoped review acceptance.
-- [ ] Run the explicitly enabled smoke against a selected compatible live endpoint; offline verification does not establish live-provider interoperability.
+- [x] Run the explicitly enabled smoke against one catalog-selected live endpoint; exact [run evidence](#live-endpoint-verification) is separate from offline verification and broader interoperability.
 
 | Reviewed file | Git blob |
 | --- | --- |
@@ -100,3 +100,16 @@ ZIO.logSpan supplies logging timing context, not an OpenTelemetry span or distri
 | [LifecycleLoggingSpec.scala](src/test/scala/com/weisgnosis/agents/examples/LifecycleLoggingSpec.scala) | `3338fa0be9ec09beafca7458309316dd05afcae0` |
 
 The paired LifecycleLoggingSpec has two contract groups: static allowlist/redaction/correlation with an actual completed run, and failure preservation plus cancellation blocked on model cleanup. These are new Scala integration checks, not additional upstream parity.
+
+## Live endpoint verification
+
+On 2026-10-08 an authorized authenticated endpoint returned a loaded Chat Completions model through its catalog. LiveProviderSmoke was run with the catalog-selected qwen3.8-27b identifier and the existing limits above. `live-provider-first.log` records success at 2026-10-07T20:21:09Z, with process exit zero: exactly one successful smoke_sum(2,3) execution, three visible text deltas, fully consumed SSE and authoritative AgentRunState.Completed reply 5. The UTC timestamp precedes the local calendar date.
+
+Reviewed unchanged smoke source: `LiveProviderSmoke.scala` = `61bffc3da29040c9ff16270b8bd9387cb845337d`, from baseline `2f2754a`. Credentials remain process-local; no token, authenticated URL or response payload is copied into repository deliverables. The model identifier records this one observation and is not a default or a capability guarantee.
+
+- [x] Run the existing smoke against the authorized real server and record its successful exit and aggregate assertions.
+- [x] review_fp and review_invariants independently inspect the actual log and unchanged completion/tool assertions.
+- [x] review_fp and review_invariants approved the final three-document live-evidence and controlling-plan correction against 2f2754a, with this unchanged source identity and no unresolved finding.
+- [ ] Validate required live cancellation, ordinary JSON completion, structured output, subagent/MCP chains and additional selected profiles separately; none is established by this smoke.
+
+This run does not test embeddings, reranking, decision/image APIs, schema admission, retry/failover, media or durable host recovery. Model-generated answer text alone is never the completion oracle.

@@ -1,209 +1,123 @@
 # Architecture implementation tracker
 
-Last synchronized: 2026-10-08. Implementation is active. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
+Last synchronized: 2026-10-08. The original six-phase plan is the completion contract. The plans at `6fe93a5` and audited `c9adcb4` are the reference for promised behavior. The selected release-candidate checklist is a verification subset, never a substitute for that plan. No promised capability is removed or waived by describing a narrower current API.
+
+## Controlling original plan
+
+- [x] Phase 0: architecture, engineering rules and build foundation exist and are enforced through verification and independent review.
+- [x] Phase 1 implementation: immutable messages/content, typed errors and event hierarchy exist with paired codecs/specifications and recorded finite mappings.
+- [ ] Phase 1 parity closure: complete remaining event method classification and any resulting applicable behavior gaps; component availability does not close the whole phase.
+- [ ] Phase 2: complete tool/client behavior and applicable upstream parity. Declared JSON Schema constraints are not yet enforced by runtime tool admission; provider/transport applicability remains incomplete.
+- [ ] Phase 3: close remaining ReAct lifecycle/interruption/hook method mappings. Existing runtime behavior has scoped acceptance; whole-phase parity has not been established.
+- [ ] Phase 4: complete remaining harness/permission/memory/transcript applicability and integration obligations. Existing compaction, eviction, memory, permission and Plan implementations are accepted only within their linked contracts.
+- [ ] Phase 5: finish MCP resources, older protocol/legacy SSE compatibility, model-facing background task listing and remaining subagent/MCP behavior mappings.
+- [ ] Phase 6: perform the originally planned WeisGnosis OS cutover, including WeisGnosisAgentProvider, replacement of legacy host glue and Temporal Activity end-to-end verification. These are host/product changes; library ports and examples do not complete this phase.
+
+The repository does not currently support a defensible whole-plan completion percentage. The pinned inventory contains 2,473 annotated Java core test declarations, with only named finite inventories classified. Test totals, source lines and available module counts cannot supply the missing denominator. The [parity audit](test-parity.md) owns detailed method evidence.
+
+## Immediate next work
+
+Execute the following sequence without changing the original scope:
+
+- [x] Recheck the accepted implementation independently: current full verification, packaged consumption, compiled guide applications and one authorized live tool-calling run have concrete evidence below.
+- [ ] Complete the original-obligation inventory at method level, separating actual missing behavior from API-shape adaptations and explicit host integration; classify every retained obligation before claiming total completion.
+- [ ] Implement runtime JSON Schema validation using pinned upstream Draft 2020-12 semantics, including optional-null normalization. Enforce it before local execution and external suspension, preserve required nulls, resolve references safely and avoid unpromised coercion/default injection. ToolValidator.java and ToolExecutor.java are the behavioral references; typed decoding alone is insufficient.
+- [ ] Implement MCP resource capability negotiation, checked listing/templates/reading, bounded discovery and the required subscription/notification lifecycle. Tool results containing embedded resources do not implement resource-server APIs.
+- [ ] Implement the originally promised MCP 2024-11-05 compatibility and legacy HTTP/SSE transport: endpoint-event negotiation, advertised POST routing, inbound message events and scoped cancellation/cleanup. Current 2025-06-18 Streamable HTTP does not supply these semantics.
+- [ ] Add the originally promised model-facing task listing over the selected owned registry, with bounded projection and no global discovery or new task authority. Existing inspect/cancel tools and host-only registry.list do not provide this model capability.
+- [ ] Verify result-eviction inspection through the host-installed read_file capability, as required by the original integration contract.
+- [ ] Obtain final independent FP/ZIO and invariant reviews, proportionate contract/regression coverage, current documentation and full verification for each increment before acceptance.
+
+Three resource protocol drafts were preserved under ignored `target/paused-mcp-resource-draft` when work was redirected to this controlling-plan correction. They are not installed, compiled, accepted or counted as progress. Resume their source implementation only through the same review gates.
+
+## Remaining effort
+
+These are provisional engineering effort ranges, including implementation, proportionate verification, independent review/corrections and documentation. They are not elapsed wall-clock forecasts, token estimates or a quote for the entire original plan. Concurrent agents can overlap independent work; integration and final review remain sequential gates.
+
+| Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
+| --- | --- | --- |
+| Runtime JSON Schema admission and optional-null normalization | 23-51 hours | Standards-backed evaluator selection/integration, local references/composition, exact numeric semantics and admission boundaries. Includes 3-6 hours of contract/evaluator assessment and 20-45 hours of implementation/verification/review. |
+| MCP resource-server APIs and lifecycle | 8-14 hours | Notification/subscription ownership, delivery bounds and independent interoperability. |
+| Older MCP revision and legacy HTTP/SSE | 14-28 hours | Separate endpoint negotiation/routing, authentication/URI safety, joined cancellation and independent legacy-server compatibility. |
+| Model-facing background task listing | 2-4 hours | Selected-registry visibility, bounded output and ownership-safe integration. |
+| **Subtotal: four identified original library gaps** | **47-97 hours** | Excludes unclassified applicable methods, host cutover and external release work. |
+
+- [x] Obtain independent resource/legacy estimates and an invariant-focused risk assessment; these ranges retain integration uncertainty instead of treating drafts as completed features.
+- [ ] Complete the remaining method-applicability inventory and estimate the resulting concrete implementation backlog. No whole-plan total is asserted before this work identifies what remains.
+- [ ] Estimate and execute the original product cutover against its host sources and deployment contract; no product implementation or cutover is claimed here.
+- [ ] Estimate external CI/distribution work after the repository, destination and operational setup exist; these are not assumed zero-cost tasks.
+
+The newly fetched upstream leading-BOM parser compatibility change is an additional 2-4 engineering hours, separate from the four original gaps. The [27-commit delta](test-parity.md#upstream-delta-checked-on-2026-10-08) also requires applicability decisions for search, provider replay/formatting, middleware lifecycle, tracing and persistence behavior. Classification does not implement or waive them.
 
 ## Current delivery gates
 
-Acceptance is scoped to the identities, contracts and evidence in linked package READMEs. These capabilities do not establish exhaustive upstream parity, a frozen release ABI or completion of host integration. Previous delivery narratives and test totals belong in Git.
-
-- [x] [Exact domain/event/tool JSON](../../modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) preserves accepted numeric boundaries and metadata decoding.
-- [x] [Provider request controls](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md) include typed parallel-call steering, cache usage, stop sequences, reasoning effort and per-tool strictness within their separate reviewed scopes.
-- [x] [Completion profiles](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles), SSE framing, scalar aliases and explicit ordinary JSON completion retain validated runtime completion authority.
-- [x] [User Video URL projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-video-url-projection) supports explicitly compatible endpoints; [summary text aliases](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#summary-text-alias) preserve strict selected-detail replay.
-- [x] [Checked JSON publication/PostgreSQL](../../modules/storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) provides bounded per-address CAS with explicit schema, Unicode and cancellation contracts.
-- [x] [Versioned memory](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-remote-memory), [transcript](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#versioned-remote-transcript) and [acting checkpoints](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-acting-checkpoints) have final scoped review/verification; host authentication, execution claims and replay remain separate.
-- [x] [Ordered MCP metadata merge](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#ordered-metadata-merge) preserves exact AST values, checked precedence and existing omission/runtime identity controls.
-
-- [x] [Persistent memory admission](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-memory-trigger-gate) has final scoped review/verification with explicit trusted-clock/policy/address and uncertain-acknowledgement limits.
-
-- [x] [Immutable transcript publication](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments) provides bounded complete-chain restoration with host-owned manifest/subtree and explicit orphan/uncertain-acknowledgement limits.
-
-- [x] [Explicit transcript catalog](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#explicit-transcript-session-catalog) registers checked descriptors at one known host address; global discovery and automatic writer installation remain separate.
-
-- [x] [Checked unsigned candidate preparation](../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) verifies explicit RC coordinates, exact source archive admission and actual selected-version consumer hashes. Remote workflows, tags/signing/publication and frozen ABI remain unverified.
-- [x] Assess [remote retention/ownership limits](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#remote-retention-and-ownership-boundary) against 1f4581b with independent invariant evidence: current ports cannot safely reclaim physical objects.
-- [ ] Define all-reader/writer fencing or quiescence, namespace generation/tombstone ABA protection, enumeration/deletion and uncertain-delete recovery before physical remote pruning.
-
-- [x] [Registered transcript assembly](../../modules/examples/README.md#registered-transcript-assembly) resolves one explicit descriptor before MCP in the unpublished example; catalog membership grants no authorization, lease or history validity.
-
-- [x] [Remote memory middleware throttle integration](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration) verifies a bounded real-PostgreSQL matrix with shared local oracle; broader remote guarantees remain separate.
-
-- [x] [Custom-client turn trust boundary](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#model-turn-trust-boundary) validates assistant role/classification before runtime truth and persistence, with reproduced malformed-output regressions.
-
-- [x] [Audited public model call](../../modules/examples/README.md#audited-public-model-call) demonstrates one delegated request and post-cleanup observation with explicit observer/failover limits.
-
-- [x] [Checked usage arithmetic/runtime admission](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic) rejects invalid/overflowing telemetry without replacing accepted usage; [lease cancellation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#admitted-work-failure-and-cancellation) preserves admitted failure plus pending interruption. Public arithmetic callers follow the recorded migration.
-
-- [x] Reconcile living architecture documentation against c1c95be with independent review; current package boundaries and every unfinished blocker remain explicit.
-
-- [x] [Checked thinking-budget endpoint preference](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-thinking-budget) has final scoped acceptance; compatible endpoints remain host-selected and no local token limit is supplied.
-
-- [x] [Explicit tool-image projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-image-result-projection) has final scoped acceptance; default TextOnly and compatible-endpoint limits remain explicit.
-
-- [x] [Thinking-only retry contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#thinking-only-retry-contract) has final test/documentation acceptance with independent retry/iteration bounds and no extra summarizing request.
-
-- [x] [Interactive batch preflight](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight) has final scoped acceptance for stable initial policy denials/preparation errors before Ask; normal authorization remains fresh and dynamic gates remain execution-time decisions.
-
-- [x] [Opaque signature details](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details) has final scoped acceptance with strict profile isolation and literal all-historical replay.
-
-- [x] [Inline video projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#inline-video-projection) has final scoped acceptance for explicit video/webm and video/mp4; broader MIME types, Data inference and live interoperability remain open.
-
-- [x] [Hook-error gate reuse](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#hook-error-gate-reuse) has final scoped test/documentation acceptance for a second successful same-agent invocation after typed hook failure.
-
-- [x] [Interrupted transformed-progress recovery](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#interrupted-transformed-progress) has final scoped acceptance after reproduced canonical-history loss; interrupted causes and failed cleanup retain their distinct boundaries.
-
-- [x] Reconcile the two pinned Plan propagation methods with the existing explicit child installation contract; final four-document approval remains scoped to unchanged source at fbce6de.
-
-- [x] [External tool bindings](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#external-tool-bindings) and their finite twelve-method classification have final scoped acceptance; the separate failure-fixture extension has final scoped acceptance.
-
-- [x] [Sanitized PostgreSQL diagnostics](../../modules/storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) retain checked SQLSTATE/class data with final scoped acceptance.
-
-- [x] [Nested-error and mixed-parallel failure fixtures](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/README.md#failure-fixtures) have final scoped test/documentation acceptance without production changes.
-
-- [x] Accept the finite 24 compaction/eviction applicability decisions and documented backend limits; broader platform/security/crash guarantees remain separate.
-
-- [x] [Independent MCP deadlines](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines) retain final scoped source/verification/artifact/documentation acceptance.
-
-- [x] Accept the finite 120-method MCP builder applicability classification, retaining unsupported optional capability gates separately.
-
-- [x] [Shell startup-default correction](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#shell-startup-defaults) retains final scoped acceptance.
-
-Current accepted delivery: [empty-text stream completion evidence](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#empty-text-stream-completion) against 4e82fb6; production/build/consumer unchanged.
-
-- [x] Extend the existing successful-stream group with empty/nonempty rows, exact terminal/boundary assertions and a bounded liveness guard; no new groups.
-- [x] review_fp and review_invariants approve the final spec identity; focused eight-group and full 1,526-test verification pass without warnings/failures/ignored.
-- [x] review_fp and review_invariants approve the final six-file combined scope; English/diff checks and 78-document/3,016-local-reference validation pass.
-- [ ] Define optional elicitation, additional version negotiation and any justified dynamic request customization separately; classification does not implement these capabilities.
-- [ ] Diagnose the unexplained PostgreSQL acquisition failure in external-tools-final-verify.log; sanitized diagnostics and successful rechecks do not establish its cause.
+- [x] Immutable domain/events, checked exact JSON/usage, typed tool bindings and scoped ReAct execution have accepted source/spec scopes.
+- [x] Reasoning/chunk assembly, interruption reconciliation, thinking-only loopback and native/synthetic structured output have accepted selected contracts.
+- [x] Compaction preserves occurrence-aware call/result pairs, summary deduplication and raw-user provenance. [Overflow-safe estimates](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#overflow-safe-token-estimates) preserve trigger/cutoff authority.
+- [x] Eviction, daily/curated memory, local/remote transcript adapters, interactive/checkpoint permissions and Plan governance have accepted explicit ownership boundaries.
+- [x] Scoped subagents, promotion, retained sessions, task registry/inbox and explicitly installed child policies are implemented; model-facing enumeration remains open above.
+- [x] MCP 2025-06-18 tool discovery/calls, stdio and Streamable HTTP have accepted selected transport/client/tool contracts.
+- [x] Optional PostgreSQL CAS and composed storage adapters pass actual database verification. [Cold-schema fixture provisioning](../../modules/storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/README.md#cold-schema-provisioning) is serialized separately from concurrent DML; production schema provisioning remains host-owned.
+- [x] Four RC1 module artifacts, exact source-archive admission and an independent external consumer pass local verification.
 
 ## Current acceptance
 
-Acceptance is limited to each package's reviewed identities, behavior and evidence. Current source/spec manifests and reviewer names belong to the [core runtime](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md), [tools](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md), [skills](../../modules/core/src/main/scala/com/weisgnosis/agents/core/skill/README.md), [memory](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md), [transcripts](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md), [permissions](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md), [subagents](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md), [plans](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md) and [MCP packages](../../modules/mcp/README.md). These links replace historical delivery narratives; they do not widen scoped approval to unfinished mappings.
+Accepted source baseline: `2f2754a5e59f180953f6de0073341211c9155054`. review_fp and review_invariants approved its 19-file increment: six exact Scala identities in the memory/PostgreSQL manifests and thirteen Markdown files. Both also verified the local unsigned ZIP identity; this establishes neither signing/publication nor whole-plan completion.
+
+publication-cold-verify.log passes 1,527 tests: 680 core, 731 harness, 86 MCP, 22 actual PostgreSQL and 8 examples. There are zero failed/ignored tests or compiler warnings. Formatting, compilation and four RC1 packages pass on a newly created empty PostgreSQL 16 database. publication-preparation.log and publication-consumer.log pass source/POM/LICENSE admission, negative archive cases and fresh standalone selected-public-API consumption. publication-guide.log compiles all three complete guide applications with fatal warnings and executes ScriptedAgent successfully.
+
+An independent subagent rerun in plan-control-verify.log also exits zero with the same 1,527 tests, zero warnings/failures/ignored and four RC1 packages on another newly created empty PostgreSQL 16 fixture; its owned container was stopped after verification.
+
+The separately retained earlier PostgreSQL connection-acquisition failure still has no established cause. The diagnosed cold-schema catalog race and its successful correction do not explain that older failure. Keep correlation of sanitized SQLSTATE, operation stage and server evidence open on recurrence.
+
+Current exact source identities and reviewer evidence belong to [core](../../modules/core/README.md), [harness](../../modules/harness/README.md), [MCP](../../modules/mcp/README.md), [PostgreSQL](../../modules/storage-postgresql/README.md) and their package READMEs. Acceptance never extends to unfinished behavior automatically.
 
 ## Available capabilities
 
 ### Core
 
-- [x] Immutable messages, typed errors, compile-time JSON codecs, 39 event variants, typed tools and immutable registration.
-- [x] Accept typed Success/Error result payloads, runtime-owned identity/control metadata and cancellation-cause preservation after final independent review and verification. Provider multimodal serialization remains separate.
-- [x] Both reviewers approved [incremental local execution](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution): provisional events stay out of history; one final value requires EOF and cleanup; final-delta suppression is occurrence-local, and cancellation retains full causes. Exact six-file identities and reproduced draft-consumer evidence are recorded in the linked contract.
-- [x] ReAct execution with persisted local calls, occurrence-aware results, interruption recovery, bounded thinking-only retries, native/synthetic structured output and scoped authorization.
-- [x] Scripted clients and scoped text/user-media/function HTTP completion, strict SSE parsing, indexed argument assembly and correlated incremental events; dispatch requires validated stream completion.
-- [x] Scoped result processing, history preparation, request-only projection, completion observers and typed generation reasons.
-- [x] Parent-traversal rejection and canonical path screening. Portable filesystem storage requires explicit host ownership; advisory lexical command screening does not authorize execution.
+Immutable model/events/errors, exact JSON, typed local/external tools, fixed arguments, correlated streaming, ordinary JSON completion, checked usage, explicit provider profiles, bounded failover, structured output and scoped ReAct/checkpoint execution are available. Missing schema admission and broader method/profile obligations remain open above.
 
 ### Harness
 
-- [x] Bounded inline SKILL.md parsing with required string name/description, exact body preservation, ordered inert JSON metadata and positive collection-depth limits; typed resources and activation bindings remain host-owned.
-- [x] Pair-safe compaction, merged summaries, retained user provenance, token estimation and opt-in local/inline result eviction with 80,000-character offloading and 2,000-character previews.
-- [x] Immutable permission priorities, interactive Promise-based confirmation, current-policy/input rechecks and serializable durable approval data.
-- [x] Explicit permission-gate composition preserves priority, separate sequential resource scopes and failure/cancellation causes; immutable authorizer views retain shared policy/confirmation authority and rerun added gates against confirmed input.
-- [x] Daily-memory extraction, in-memory and cooperative local stores, budgeted consolidation and recoverable local publication. Daily writers target `memory/YYYY-MM-DD.md`; only the consolidator writes curated `MEMORY.md` within 4,000 configured-counter tokens.
-- [x] Typed transcripts, opt-in completion recording, shared monotonic triggers, bounded scoped task queues, pending conversation coalescing and completion-triggered flush.
-- [x] Configured maintenance with acknowledged daily archival, explicit ordered transcript pruning, calendar retention, immutable budgets and literal prompt templates.
-- [x] Conservative static plan inspection and opt-in live admission; exact-draft in-memory review, request-only context, scoped stored publication, strict model-facing plan controls and validated workspace-relative directories. Reopened drafts do not restore approval.
-- [x] Scoped task supervision, cancellation leases and same-execution promotion after a 30-second wait per `awaitOrPromote` invocation. Runtime-owned lineage admits descendants through depth three and rejects depth four before identity allocation or callbacks.
-
-- [x] Supervisor-owned typed resources outlive initialization and completed turns. Caller/supervisor closure joins initialization and nested running, queued and promoted workers before releasing resources; competing closers share completion and cleanup defects.
-
-- [x] Configured factories build fresh children with final static filtering after inherited and automatic registration, deterministic assembly diagnostics, preserved authorizers and supervisor-owned execution.
-
-- [x] Host-held child sessions retain one configured runtime/history, filtered toolkit and lineage across serialized sends with separate execution IDs. Queued cancellation leaves history unchanged; live injected denial/plan gates remain effective, and session closure joins promoted descendants before resource release.
-
-- [x] Bounded host session directory registers acquired resources without transferring their original lifetime. Removal hides lookup and retains capacity until cleanup completes; explicit and host closure join all owned cleanup and share its outcome. Rejection preserves caller ownership.
-
-- [x] Bounded task registry with lookup, waiting/promotion, cancellation and completed-record removal; registry closure cancels and joins promoted work. Capacity bounds records, not retained result bytes.
-- [x] Optional live parent-denial inheritance preserves child policy and rereads parent rules against approved input; external parent gates and atomic post-decision revocation are excluded.
-
-- [x] Opt-in model-facing controls: make supplies `agent_spawn`/`agent_task`/`agent_cancel` for a fresh-child registry; forSession supplies `agent_send`/`agent_task`/`agent_cancel` for one host-held session. Strict prompt-only invocation, isolated task lookup, bounded result projection and scoped wait/promotion/cancellation preserve the fixed capability.
-- [x] Both reviewers approved the [host execution policy](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-execution-policy): checked positive waits through ten minutes cancel and join on timeout without promotion, while default 30-second promotion and original overloads remain. The contract records four current identities, full verification and the reproduced cancellation-handoff correction.
-- [x] Directory-bound send/task/cancel accepts strict session/task identifiers, preserves isolated histories and selected IDs in success/error observations, and joins cancellation during removal. Models cannot construct, register or remove sessions; membership lookup is not atomic revocation.
-- [x] Opt-in SubagentConstruction initializes scoped child permissions and automatically carries effective static boundaries, live ancestor denials and ancestor/child Plan into descendant factories. Factory derivatives propagate; retained sessions keep live policy without copied approvals. Raw host callbacks remain explicit.
-- [x] Host-installed inherited plan gate: either parent or child Plan mode restricts execution, including confirmation rechecks, without copying approval state.
-
-The host installs these capabilities explicitly. It owns background supervisor scopes, trusted filesystem ancestors, authenticated approval delivery, provider settings and operational monitoring. Durable approval values and conditional checkpoint data storage do not supply authenticated host delivery or an exclusive resume claim. Root distribution and retained raw spawner capabilities remain trusted-host responsibilities.
-
-## Immediate next work
-
-The shell startup-default correction and empty-text stream evidence have final scoped acceptance. Remaining selected RC work is the live/remote/release checklist below. The retained PostgreSQL acquisition failure remains unexplained after fixture/source/server-log inspection; on recurrence, correlate sanitized SQLSTATE and operation stage with server/session evidence. Assess other applicable [method-level parity inventory](test-parity.md). The external-tool source increment and twelve-method classification have final bounded acceptance; authorization deferral remains a separate contract.
-
-- [x] Complete independent acceptance of the finite pinned Plan propagation classification against current explicit child installation.
-- [x] Accept the bounded external-tool execution contract and finite twelve-method classification after source/spec verification and final independent review.
-- [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
-- [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.
-- [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.
-- [ ] Define durable host reuse/recovery and post-promotion event delivery separately, with explicit lifetime and retention contracts.
-
-MCP recovery intentionally excludes automatic cursorless reconnect, unowned subscriptions, in-place session mutation and POST replay. Captured-session 404 alone produces typed expiry; SDK 400-expiry behavior is not adopted. Hosts serialize joined removal and fresh initialization/discovery/selection. These differences do not imply a missing automatic recovery API or full upstream parity.
-
-The explicit known-address transcript catalog and unpublished registered assembly example are accepted; broader/global discovery, automatic registration/selection, physical reclamation, compaction/pruning/deletion and layout migration remain unfinished. Bounded remote memory/checkpoint data ports do not establish authenticated delivery, execution ownership or host restart recovery.
+Pair-safe compaction/pruning, offload, bounded memory/transcript publication, known-address catalog discovery, trigger admission, interactive/deferred permissions, Plan tools, skills and owned subagent/session/task capabilities are available. Filesystem ancestors, background supervisor scopes, authenticated approval delivery and exclusive durable execution remain explicitly host-owned. Their presence does not prove original product integration.
 
 ## Remaining integration and parity
 
-- [x] The accepted MCP protocol/client/tool/transport packages provide checked 2025-06-18 envelopes, bounded discovery/RPC ownership, direct-process stdio, HTTP JSON/SSE, explicit host replacement and scoped manager installation within their linked contracts. Remaining interoperability and broader protocol behavior are not inferred from that scope.
-- [x] Plan inventory methods have bounded adaptations, including opt-in child installation and retained named-session restrictions; Java middleware/API shapes and automatic flags remain deliberate differences.
-- [x] MemoryExtractor supports explicit primary or dedicated host clients; this is not a string-ID registry or new upstream test mapping.
-- [x] Map all eighteen selected structured-output methods through verified contracts or explicit typed adaptations; broader profiles and hooks remain separate.
-- [ ] Complete applicable core/harness method mappings and remaining broader structured-output profiles, lifecycle and event-ordering contracts, including broader provider multimodal projection, other provider signature/tool metadata, event adapters, broader HITL delivery and richer subagent attribution.
-- [ ] Implement durable host persistence, authenticated delivery and idempotent checkpoint claims around the accepted complete-batch ConfirmResult adapter; partial confirmation has final independent acceptance.
-- [ ] Define string-ID model registry selection only under a separate host contract; broader/global transcript discovery, remote pruning/layout migration, checkpoint runtime/host installation, broader/global session discovery and automatic host scheduling remain unfinished; known-address catalog selection is accepted only under its explicit contract.
-- [ ] Validate platform-specific symlink/junction behavior and provide a secure storage backend if untrusted workspace support is required. Canonical checks are not an atomic filesystem sandbox; crash/fsync durability and hostile mutation isolation are not claimed.
-- [ ] Define remaining ambient metadata propagation, broader schema transformation and discovery caching separately; bounded manager acceptance does not close these upstream contracts.
-- [ ] Validate live end-to-end cancellation, resource release and operational controls, confirm remote CI, and complete release/API compatibility and production acceptance.
+- [ ] Complete the applicable upstream method mappings for clients/providers, ReAct lifecycle/hooks/events, permission delivery and richer subagent behavior; retain every original semantic obligation until implemented and independently accepted.
+- [ ] Complete original host persistence, authenticated delivery, exclusive checkpoint claims and idempotency integration; serializable data is insufficient by itself.
+- [ ] Complete remaining selected remote-adapter discovery/pruning/layout-migration contracts. Physical deletion requires all-reader/writer fencing or quiescence, generation/tombstone ABA protection, enumeration and uncertain-delete recovery; current CAS alone cannot safely provide them.
+- [ ] Complete string-ID model selection, ambient metadata propagation, discovery caching and broader schema/provider transformations where applicable to the retained upstream scope; Pure FP is not a reason to exclude their behavior.
+- [ ] Verify platform-specific symlink/junction behavior and the actual supported trust model. Canonical path checks are not an atomic filesystem sandbox; hostile mutation and crash/fsync guarantees are not established.
+- [ ] Verify live cancellation/resource release and additional required completion/media/structured-output profiles. The successful bounded smoke below does not cover those paths.
 
 ## Release-candidate readiness assessment
 
-These readiness checks supplement the remaining implementation/parity plan; they do not remove remote-adapter work or establish a release date or readiness percentage. Existing local SDK/Tomcat and Netty interoperability tests exercise real independent servers; public-provider validation remains separate.
+This checklist records release checks within the controlling original plan. It cannot redefine completion or waive absent functionality.
 
-- [x] Assess scoped cross-module assembly using the existing builder and verify the [host example](../../modules/examples/README.md); no additional library facade is justified for its accepted scope.
-- [x] Assess logging/tracing through the independently reviewed [lifecycle logging example](../../modules/examples/README.md#lifecycle-logging): runtime correlation, static payload-free records, EOF consumption and joined cleanup. Host logger privacy/export and OpenTelemetry bridge remain separate; no mandatory dependency is introduced.
-- [x] Add an [explicitly enabled live-provider smoke path](../../modules/examples/README.md) with bounded requests and tool calling; default verification remains offline and credential-free.
-- [ ] Validate the smoke against an explicitly selected live endpoint; the executable alone does not prove provider interoperability.
-- [x] Define the [development compatibility policy](../../project/README.md#compatibility-policy), retain package migration notes and verify selected public contracts from an independently built external artifact consumer with final review.
-- [x] Record the current [public API candidate inventory](../../project/README.md#first-rc-api-candidate), restricted implementation boundaries and extension obligations after the signature assessment and Toolkit correction.
-- [ ] Freeze the actual RC release baseline; current source consumption is not a published binary compatibility baseline.
-- [x] Verify local RC coordinates, four-module binary/source/POM packaging, licensing and selected host/migration contracts through fresh archive admission and the independent consumer; the [startup-default scope](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#shell-startup-defaults) owns current production/artifact evidence.
-- [x] Implement checked manual unsigned candidate preparation/upload; this supplies no tag, signing or publication destination.
-- [ ] Execute and validate the actual remote CI and manual candidate workflows against an explicitly configured repository.
-- [ ] Define the release distribution destination, credentials and signing/publication contract, then implement and validate that pipeline before tagging or publishing.
-- [x] review_fp and review_invariants approved this three-document RC-readiness clarification against 2a92a0b with no findings; English/diff and 78-document/3,020-local-reference checks pass. Production, tests, build and workflows are unchanged.
+- [x] Verify builder-based host composition, lifecycle logging and selected public APIs through the examples and external artifact consumer.
+- [x] Provide explicitly enabled live-provider smoke execution while keeping normal verification offline.
+- [x] On 2026-10-08, discover a loaded chat model from the authorized server catalog and run LiveProviderSmoke successfully with qwen3.8-27b: one smoke_sum(2,3) execution, three visible text deltas, fully consumed stream and authoritative Completed reply 5. live-provider-first.log and process exit zero are evidence for this exact run only.
+- [ ] Verify additional required live contracts, including cancellation, structured output and actual host chains, without using model text as the completion oracle.
+- [x] Verify current local packaging/licensing/archive admission and selected API consumption; current sources are not a frozen published binary compatibility baseline.
+- [ ] Freeze actual release coordinates/API compatibility only after the original library obligations are closed.
+- [ ] Configure and confirm actual remote CI and the manual candidate workflow; no Git remote is currently configured.
+- [ ] Define and verify the actual distribution destination, credentials/signing and publication pipeline before tagging/publishing.
 
-No Git remote is configured, and WEISGNOSIS_LIVE_SMOKE, WEISGNOSIS_LIVE_ENDPOINT, WEISGNOSIS_LIVE_MODEL and WEISGNOSIS_LIVE_API_KEY are unset; no remote workflow or public-provider validation was performed. Local RC validation does not close the unchecked release gates.
-
-Durable workflow replay, authentication, UI, distributed execution and idempotent checkpoint claims belong to hosts. The selected versioned memory adapter is implemented above; broader/global transcript discovery, remote pruning/layout migration, checkpoint runtime/host installation and their remaining ownership/recovery contracts remain unfinished; host responsibility is not a reason to mark those adapters complete.
+Credentials were supplied only to the authorized test process and are absent from repository deliverables. The server catalog selects the tested model; no live model name is introduced as a production default. Embeddings, reranking, decision and image endpoints are separate APIs and are not covered by this Chat Completions run.
 
 ## Verification and contracts
 
-Run `sbt scalafmtAll scalafmtSbt` and `sbt verify packageArtifacts` with JDK 21. Verification requires zero compiler warnings and failed tests. Each behavioral increment also requires independent FP/ZIO and invariant review, current package contracts and test mappings, English prose and valid local links under [AGENTS.md](../../AGENTS.md).
+Run `sbt scalafmtAll scalafmtSbt` and `sbt verify packageArtifacts` with JDK 21. One sbt process runs at a time on this host. Current verification uses process-local JAVA_TOOL_OPTIONS=-Xms64m -Xmx1024m -Xss16m -XX:ActiveProcessorCount=2 and sbt --mem 1024; these are host settings.
 
-On the current Windows host, use one sbt process at a time. Current verification uses process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx1024m -Xss16m -XX:ActiveProcessorCount=2` and sbt `--mem 1024`. These are host settings, not repository defaults.
-
-TaskSupervisor lifecycle changes must preserve its parallel outer owner scope, sequential worker scopes and explicit worker-owner completion closure; direct `forkIn` into the parallel owner previously caused self-join on immediate completion. Tests cover full Exit observation and cancellation cleanup. Resource closure must retain the first closer's Exit for finalizers and share its complete cleanup outcome with concurrent/repeated closers. Custom TaskSupervisor implementations must implement both `own` and `ownRetained` with their distinct caller-lease contracts; delegating only `attach` is insufficient.
-
-- [Core module and tests](../../modules/core/README.md)
-- [Harness module and tests](../../modules/harness/README.md)
-- [Subagent contracts](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md)
-- [Plan contracts](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md)
-- [MCP module and remaining integration](../../modules/mcp/README.md)
-- [Phase 4 contracts](phase-4-implementation.md)
-- [Test parity audit](test-parity.md)
-- [High-level design](high-level-design.md), [mid-level design](mid-level-design.md), [low-level design](low-level-design.md)
+Behavior changes require concrete contract evidence, RED-before-fix for reproduced defects, proportional tests, two independent final reviews, current English contracts/READMEs, valid local links and zero warnings/failures. Cancellation must join owned cleanup and preserve full causes. Supervisor ownership/promotion and host durable execution remain distinct contracts. Follow [AGENTS.md](../../AGENTS.md), [CONTRIBUTING.md](../../CONTRIBUTING.md) and the [parity audit](test-parity.md).
 
 ## Publication documentation audit
 
-Current audit date: 2026-10-08. review_fp and review_invariants approved the final 19-file increment against `24a9980`: six exact Scala source/test identities in the overflow/provisioning manifests and thirteen Markdown files. Acceptance covers the guide, original-plan reconciliation and finite upstream classification; it does not certify exhaustive code quality or transfer.
+The [getting-started guide](../getting-started.md), simplified root navigation, corrected architecture examples and original-plan/upstream reconciliation have bounded acceptance at 2f2754a. All three complete applications compile against fresh artifacts; HTTP/MCP examples were compiled without starting external processes/requests. The later authorized live run above is separate evidence.
 
-- [x] Inspect the original tiered plan and audited corrections, current implementation contracts and public documentation entry points; identify stale tool-image/discovery/API descriptions and missing newcomer navigation.
-- [x] Draft a [getting-started guide](../getting-started.md) with local unpublished installation, complete scripted/HTTP/tool/MCP examples and explicit host ownership boundaries; simplify root navigation and remove superseded approval narratives.
-- [x] Make [original-plan disposition](test-parity.md#original-plan-disposition) visible without claiming generic JSON Schema evaluation, MCP resources/older SSE or product cutover complete.
-- [x] Inspect the fetched [27-commit upstream delta](test-parity.md#upstream-delta-checked-on-2026-10-08) from the unchanged pin to `fbbc2b631691743ec6f2cdad50b1b6f9fba46c09`; classification does not repin or establish new implementation parity.
-- [x] Obtain both independent reviews of the finite upstream classification without repinning or claiming implementation parity.
-- [ ] Determine and implement applicable transfers, including the current leading-BOM skill compatibility gap; retain other behavior/profile decisions explicitly.
-- [x] publication-guide.log compiles all three extracted complete guide applications against fresh RC1 artifacts under fatal warnings and executes ScriptedAgent successfully; HTTP and MCP examples were compiled without starting external requests/processes.
-- [x] Obtain final FP/ZIO and invariant-focused approval from review_fp and review_invariants; resolve overflow, cold-schema provisioning and all reported documentation currentness findings.
-- [x] Check final English prose, changed UTF-8/script text and local Markdown links; 79 documents and 3,010 references pass without issues. Reviewed source identities remain unchanged.
-- [ ] Resolve the original-plan semantic scope decisions and remaining applicable transfers; a readable guide does not complete the port.
-
-Current verification: publication-cold-verify.log passes 1,527 tests (680 core / 731 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages on a new empty database. publication-preparation.log and publication-consumer.log pass archive admission and fresh standalone consumption.
-
-Next task: resolve the unchecked original-plan transfers and new upstream applicability work. External publication remains a separate gate. The substantive original-plan and live/remote/release gates remain separate unfinished work.
+- [x] review_fp and review_invariants accepted the publication correction scope and its exact source identities, compiled examples and local artifact evidence.
+- [x] Inspect maintained directories for README coverage and changed prose for English/UTF-8; current public guide and contracts have concrete entry routes.
+- [x] Check 79 Markdown files and 3,010 local references with zero issues at the accepted publication baseline.
+- [x] review_fp and review_invariants approved the final three-document controlling-plan/live-evidence/effort scope against 2f2754a, with unchanged source and no unresolved finding. No approval waives original obligations or establishes a whole-plan completion percentage.
+- [ ] Complete the original implementation, parity, host and external release obligations above. Documentation clarity is not implementation completion.
