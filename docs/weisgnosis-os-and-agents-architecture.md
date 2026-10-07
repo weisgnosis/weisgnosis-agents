@@ -170,17 +170,13 @@ verdict:
 
 ---
 
-## 7. Library Implementation Map in `weisgnosis-agents`
+## 7. Library implementation boundary
 
-`weisgnosis-agents` is designed to support this architecture seamlessly:
-1. **`weisgnosis-agents-core`:**
-   - Domain models: `Msg`, `Role`, `ContentBlock`, and 31 `AgentEvent` cases.
-   - Streaming SSE client supporting thinking token streaming and vendor-neutral endpoints.
-   - Pure ReAct engine with dangling tool reconciliation (`ToolResultBlock(INTERRUPTED)`).
-   - Structured proposals: `AgentProposal(assertions, artifacts, toolTraces)`.
-2. **`weisgnosis-agents-harness`:**
-   - Tool result offloading (`ToolResultEvictor`).
-   - Conversation compaction (`ConversationCompactor`) protecting atomic tool turns.
-   - Plan mode governance (`PlanMode`) enforcing read-only constraints until approved.
-3. **`weisgnosis-agents-mcp`:**
-   - Native ZIO MCP client (Stdio / SSE) fully adhering to JSON-RPC 2.0 specifications.
+This document describes a target host architecture, not an implemented WeisGnosis OS integration. Current library APIs are indexed in the [getting-started guide](getting-started.md) and [module documentation](../modules/README.md).
+
+- **Core:** immutable messages and 39 typed event variants, scoped ReAct execution, checked completion/usage, local and external tool bindings, Chat Completions SSE/ordinary JSON clients and selected structured-output/reasoning profiles. Interruption synthesizes Error observations for unfinished local calls; it does not introduce an Interrupted tool-result state.
+- **Harness:** compaction, tool-output offload, memory/transcript capabilities, permission/checkpoint adapters, Plan governance and scoped subagents. These capabilities require explicit installation and host-owned lifetimes.
+- **MCP:** checked 2025-06-18 tool discovery and calls over stdio/Streamable HTTP. Resources, older protocol/legacy SSE support and broader protocol behavior remain outside the implemented selected profile.
+- **Optional PostgreSQL adapter:** conditional JSON publication backs bounded domain adapters. The host owns DataSource/schema, authenticated checkpoint claims, workflow replay and execution idempotency.
+
+`AgentProposal`, WorkItem acceptance, evidence graphs and Temporal orchestration in earlier sections are host designs, not exported library types or verified production integration. The [original-plan disposition](architecture/test-parity.md#original-plan-disposition) keeps unresolved transfer obligations separate from the locally verified RC subset. The [tracker](architecture/tracker.md#publication-documentation-audit) records final scoped acceptance of this documentation reconciliation.

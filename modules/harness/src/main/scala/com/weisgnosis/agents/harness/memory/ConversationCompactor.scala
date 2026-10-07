@@ -79,7 +79,7 @@ final class ConversationCompactor(
 
   private def tokenBoundary(history: Chunk[Msg], keep: Long): Int =
     val suffix =
-      history.map(message => counter.count(message).max(0L)).toVector.scanRight(0L)(_ + _)
+      history.map(counter.count).toVector.scanRight(0L)(TokenCounter.addEstimates)
     @annotation.tailrec
     def search(low: Int, high: Int): Int =
       if low >= high then low

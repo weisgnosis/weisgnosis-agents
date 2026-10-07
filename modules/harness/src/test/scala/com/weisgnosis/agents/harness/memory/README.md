@@ -6,7 +6,7 @@ Existing compactor/flush groups now verify exact nested numeric retained-user pr
 
 - [ConversationCompactorSpec](ConversationCompactorSpec.scala): pair-safe cutoff tests, including same-ID/name local crossing and completed-prefix controls beside unresolved provider calls, plus summary/flush/tail routing, repeated compaction, user provenance, pruning, unchanged below-trigger history, and typed/interrupted hooks.
 - [ConversationCompactorIntegrationSpec](ConversationCompactorIntegrationSpec.scala): 12 tests for canonical history installation, shrinking-history recovery, failure policy, preparation/downstream cancellation, mixed cleanup causes, and separate-agent isolation.
-- [TokenCounterSpec](TokenCounterSpec.scala): deterministic additive estimation.
+- [TokenCounterSpec](TokenCounterSpec.scala): exact representable estimates and conservative overflow ceiling.
 
 The [method mapping](../../../../../../../../../../docs/architecture/test-parity.md#compaction-method-applicability) accounts for seven upstream compactor and ten middleware methods. It distinguishes tested adaptations, deliberate failure-policy divergences, and the inapplicable cyclic-Throwable mechanism. The concurrent tests coordinate entry and release with Promise; each agent owns a separate history. No timing sleeps or shared-agent multi-session claims are involved.
 
@@ -15,8 +15,8 @@ Existing hardening regressions retain occurrence pairing, inline/local isolation
 ## Current review acceptance
 
 - [x] `review_fp` and `review_harness` approved both changed compactor suites against `52da827` on 2026-09-29; no findings remain in this scope.
-- [x] Full formatting, fatal-warning compilation, and verification passed 529 core / 114 harness tests, including all 39 compactor cases. Thirteen cases were added and existing routing assertions strengthened.
-- [ ] Add transcript and scheduling suites with their implementations; local consolidation acceptance follows below.
+- [x] Existing pair/provenance/summary contracts retain their scoped acceptance; the [overflow correction](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md#overflow-safe-token-estimates) owns current source/spec identities and completed source/full/artifact verification and final combined approval by review_fp and review_invariants against 24a9980.
+- [x] Transcript and memory scheduling implementations have their paired suites under the [transcript contracts](../transcript/README.md) and memory lifecycle sections below; this does not establish durable host scheduling.
 
 Exact current test identities and failure/ownership contracts are maintained in the [memory README](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md). Prior acceptance remains in Git through `52da827`. Run `sbt "harness / test"` or repository-wide `sbt verify`.
 

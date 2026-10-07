@@ -58,3 +58,5 @@ Approval covers recorded revisions and named contracts. Remaining host integrati
 
 - [x] `registry_contract` and `current_docs` approved opt-in [child Plan installation](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#child-plan-installation), preserving child-local review and live ancestor restrictions. The linked Plan contract records five current identities and full verification; authenticated UI/durable restoration remain separate.
 Active interactive [batch preflight](src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight) has final scoped source/documentation acceptance. The runtime drains initial stable policy-denied observations before any approval callback; Continue reruns live authorization. This does not supply durable/authenticated host delivery or order denials introduced by later policy changes.
+
+Token estimation uses an explicit conservative overflow ceiling; current source/review and verification evidence belongs to the [memory contract](src/main/scala/com/weisgnosis/agents/harness/memory/README.md#overflow-safe-token-estimates).

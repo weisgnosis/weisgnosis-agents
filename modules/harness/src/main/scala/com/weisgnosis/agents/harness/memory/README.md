@@ -36,6 +36,25 @@ A compactor can be shared, subject to its injected dependencies' concurrency con
 
 ToolResultEvictor.preparer can precede ConversationCompactor.preparer via HistoryPreparer.andThen. Changed stages are validated before the next runs; runtime commits once after scope cleanup. See the [eviction contract and migration](../eviction/README.md).
 
+## Overflow-safe token estimates
+
+TokenCounter is a pure estimator, distinct from exact model-usage telemetry. History estimates are additive while representable and cap at Long.MaxValue beyond that range. The same checked nonnegative addition computes compactor suffix estimates, preserving monotone cutoff selection. All compactor trigger/keep/protect budgets are Int values, so the ceiling preserves their comparisons with exact unbounded nonnegative sums. Existing negative history normalization is unchanged; custom per-message estimates must still be nonnegative. Public signatures are unchanged. Callers must not interpret a capped estimate as an exact usage count.
+
+The reproduced public-extension defect wrapped valid large sums into negative values, skipped required compaction and selected cutoff zero instead of three. publication-counter-red.log records 27 passing and two failing tests against unchanged TokenCounter 3951f2451d1170834859cd32dff26233a03f8970 and ConversationCompactor e926e44021ee976bfaf0b3cc2da107fc23eb6b8e. The existing counter table now checks empty, ordinary, exact-maximum and overflow estimates; one new compactor group checks actual summarization admission, prefix and retained tail.
+
+| Source/spec against 24a9980 | Git blob |
+| --- | --- |
+| [TokenCounter.scala](TokenCounter.scala) | 8c478f39062ba97823464cd518308c940203e56e |
+| [ConversationCompactor.scala](ConversationCompactor.scala) | 403f1085677e686fa7a8544cea660f34f6e37a9f |
+| [TokenCounterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/TokenCounterSpec.scala) | d2f46f9ff1802172ed8119d56c7b7cf35f546ec9 |
+| [ConversationCompactorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | 271ecfe13ff0ce8b18dfcf51e747c9b9063c238a |
+
+- [x] review_fp and review_invariants independently approve these four final source identities with no findings.
+- [x] publication-counter-green.log passes 29 tests, zero failed/ignored, in 327 ms after the reproduced RED.
+- [x] publication-cold-verify.log passes full formatting/compile/test and four RC1 packages: 1,527 tests (680 core / 731 harness / 86 MCP / 22 actual PostgreSQL / 8 examples), zero failed/ignored or compiler warnings.
+- [x] publication-preparation.log passes exact archive admission and invalid-selector/extra/duplicate-source rejection; publication-consumer.log passes standalone formatting, clean compilation and selected-public-API execution against fresh packaged artifacts.
+- [x] review_fp and review_invariants approved the final combined 19-file increment against 24a9980, including the four exact identities above and the PostgreSQL fixture correction/publication documentation. No unresolved finding remains within this scope; broader transfer and release gates remain open.
+
 ## Current review acceptance
 
 - [x] `review_fp` and `review_harness` approved the two test-file diff against `52da827` on 2026-09-29, with no findings. Thirteen additional cases and strengthened existing assertions cover exact summary/flush/tail routing, short-circuiting, preparation and downstream cancellation, mixed causes, and separate-agent isolation.
@@ -54,7 +73,7 @@ Previous implementation/hardening approvals remain in Git through `52da827`. Cur
 
 | Source | Blob identity |
 | --- | --- |
-| [ConversationCompactorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) |
+| [ConversationCompactorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](#overflow-safe-token-estimates); prior compaction scope retained. |
 | [ConversationCompactorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorIntegrationSpec.scala) | [Current ConversationCompactorIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 
 ## Daily-memory extraction
@@ -75,7 +94,7 @@ Current daily-memory Git-normalized source identities; prior compactor implement
 
 | Source | Blob identity |
 | --- | --- |
-| [ConversationCompactor.scala](ConversationCompactor.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) |
+| [ConversationCompactor.scala](ConversationCompactor.scala) | [Current identity](#overflow-safe-token-estimates); prior daily-memory scope retained. |
 | [DailyMemoryStore.scala](DailyMemoryStore.scala) | 204a494090531403e1a7b2f3108787770a9bd5a0 |
 | [MemoryExtractorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryExtractorSpec.scala) | 2db567e78995479fd0c733f1346db8720d5df566 |
 | [MemoryFlushManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerSpec.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) |
@@ -167,7 +186,7 @@ Migration: the factory is additive, and existing MemoryRepository.inMemory/sourc
 | [MemoryRepository.scala](MemoryRepository.scala) | `3684ec420d865e7b981d95a5e9b1e3ea30b31937` |
 | [MemoryRepositoryState.scala](MemoryRepositoryState.scala) | `cac4e5ddd9af76b567138c4c764049200d73ace3` |
 | [VersionedMemoryRepository.scala](VersionedMemoryRepository.scala) | `8695ca654d6cfd9678a80e0617a523f9748cec5c` |
-| [PostgresFixture.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresFixture.scala) | `c83790ecd9056955fb1bfa96388270f64d545528` |
+| [PostgresFixture.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresFixture.scala) | [Current fixture identity](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/README.md#cold-schema-provisioning) |
 | [PostgresVersionedJsonStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresVersionedJsonStoreSpec.scala) | `17635a16f964462743c96964ea965e4cb3c4b4e2` |
 | [VersionedMemoryRepositorySpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/VersionedMemoryRepositorySpec.scala) | `14b5e250ca9d39bc4b60db3792e6ff5b51ef05e6` |
 

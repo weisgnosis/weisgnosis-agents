@@ -78,6 +78,20 @@ private[postgresql] object PostgresFixture:
           statement.executeUpdate()
       yield ()
 
+  // Only schema provisioning is serialized; namespace-isolated test operations remain concurrent.
+  private def initialize(
+      source: PGSimpleDataSource,
+      backend: PostgresVersionedJsonStore
+  ): IO[AgentError, Unit] =
+    connection(source): current =>
+      for
+        statement <- lease(current.prepareStatement("SELECT pg_advisory_lock(178215, 1)"))
+        _ <- lease:
+          statement.setQueryTimeout(5)
+          statement.executeQuery()
+        _ <- backend.initialize
+      yield ()
+
   def fixture[A](
       use: (PGSimpleDataSource, PostgresVersionedJsonStore, String) => IO[AgentError, A]
   ): IO[AgentError, A] =
@@ -85,7 +99,7 @@ private[postgresql] object PostgresFixture:
       name    <- namespace
       source  <- dataSource(name)
       backend <- store(source)
-      _       <- backend.initialize
+      _       <- initialize(source, backend)
       result <- use(source, backend, name).ensuring(
         update(
           source,

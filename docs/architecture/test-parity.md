@@ -20,7 +20,7 @@ The reference is the clean local `agentscope-java` checkout at commit `f98a685fd
 
 The [exact-output regression scope](../../modules/core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) preserves nested numeric provenance, tool observations and opt-in checkpoint/event JSON, including direct metadata decoding. These reproduce dependency-boundary defects; they do not close additional upstream methods or promise all custom codecs are repaired.
 
-The current core prerequisite exposes Tool.encodeResult, payload/state ToolExecutionResult and runtime-protected result publication. Existing String tools retain Success by default; only Success/Error may be projected by tools. ToolExecutionSpec covers payload/codecs, unsupported states and cancellation cleanup; the agent integration checks ordered typed history/events and protected metadata. These are local extension contracts, not completion of the upstream MCP adapter or tool matrix. ChatCompletions defaults to rejecting non-text tool output; the bounded explicit [tool-image projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-image-result-projection) remains under review.
+The current core prerequisite exposes Tool.encodeResult, payload/state ToolExecutionResult and runtime-protected result publication. Existing String tools retain Success by default; only Success/Error may be projected by tools. ToolExecutionSpec covers payload/codecs, unsupported states and cancellation cleanup; the agent integration checks ordered typed history/events and protected metadata. These are local extension contracts, not completion of the upstream MCP adapter or tool matrix. ChatCompletions defaults to rejecting non-text tool output; the bounded explicit [tool-image projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-image-result-projection) has final scoped acceptance.
 
 The unchanged Toolkit blob `79be10c316f676da5d96977419e5be4caf02886f` lost a cleanup defect when a tool joined its actually interrupted owned child: `tool-inner-cancellation-red.log` records the failed defect-preservation assertion. The external-cancellation baseline passed. Re-failing the compound cause preserves interruption and defects while mapping typed Throwable leaves to defects for the UIO boundary.
 
@@ -1529,3 +1529,51 @@ The [usage arithmetic/runtime boundary](../../modules/core/src/main/scala/com/we
 - [x] Complete final source approval, focused/full verification and archive preparation for both corrections.
 - [x] source-sample-fixes-consumer.log passed standalone formatting, clean compilation and forked execution against four fresh module hashes, exercising checked usage validation/combination/total and overflow rejection.
 - [x] Final combined documentation approval passed for checked usage/caller migration and lease cancellation against c198f98, with unchanged reviewed identities.
+
+## Original-plan disposition
+
+The publication audit on 2026-10-08 compares the initial tiered plan at `6fe93a5` and its audited correction at `c9adcb4` with current source contracts. The selected RC checklist is not a replacement for the original transfer scope. Classification below does not approve removing a promised capability; unresolved scope decisions remain unchecked.
+
+- [x] Implement core domain/runtime, typed tool dispatch, interruption recovery, compaction/eviction, permission, Plan and subagent capabilities within the linked method-level mappings and explicit ownership adaptations. This is component availability, not whole-suite or whole-port parity.
+- [x] Implement scoped MCP tool discovery, typed call observations and explicit Toolkit installation under the selected 2025-06-18 profile; the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md) records actual lifecycle and ownership limits.
+- [ ] Resolve the original HLD section 3.1 promise of JSON Schema validation against the implemented [compile-time decoder contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/ToolBinding.scala): schema ASTs describe provider parameters, while decoders validate typed inputs. Implement broader evaluation if retained, or obtain explicit acceptance of a semantic scope change; documenting the difference is insufficient.
+- [ ] Resolve the original HLD section 3.3 resource-server promise. Current MCP supports tools, not resource listing/reading/subscriptions; no resource-server transfer is claimed.
+- [ ] Resolve the original MCP 2024-11-05+/SSE promise against exact 2025-06-18 Streamable HTTP support. Older protocol negotiation and legacy SSE are not implemented; modern transport support alone does not close this original compatibility scope.
+- [ ] Complete the remaining applicable upstream method inventories and substantive behavior gaps. Later API exclusions need behavioral justification; Pure FP does not inherently prohibit immutable caches, schema evaluation or equivalent semantic capabilities.
+- [ ] Complete or explicitly retain the original Phase 6 WeisGnosis OS production-cutover obligation as host integration work. Library data ports, examples and local artifact consumption do not prove authenticated durable execution or actual product cutover.
+- [x] review_fp and review_invariants approved this original-plan classification and the compiled publication guide in the final 19-file scope against 24a9980. Approval records the gaps; it does not approve removal of promised capabilities.
+
+Existing deliberate differences retain their method-specific rationale. Counts elsewhere apply only to named finite inventories; no exhaustive count or completion percentage is inferred for the entire upstream repository. Upstream pin changes require a separately reviewed delta inventory.
+
+## Upstream delta checked on 2026-10-08
+
+The local upstream checkout and existing method mappings remain pinned to `f98a685fdc4589f81e626e1686ac2c63d14a2304`. A fetch of `origin/main` on 2026-10-08 found `fbbc2b631691743ec6f2cdad50b1b6f9fba46c09`, exactly 27 commits ahead. No checkout or parity repin occurred. The [primary comparison](https://github.com/agentscope-ai/agentscope-java/compare/f98a685fdc4589f81e626e1686ac2c63d14a2304...fbbc2b631691743ec6f2cdad50b1b6f9fba46c09) defines this finite delta. Upstream tag `v2.0.3` resolves to `1b8e3dcd`, already an ancestor of the pin; it is not a new release after this baseline.
+
+Every commit in the delta is accounted for once below. Inspection/classification is not implementation or executable parity. Differences outside existing Scala profiles are not silently accepted exclusions from the original transfer plan.
+
+| Commits | Count | Source change and current applicability |
+| --- | --- | --- |
+| `9c8b10d4`, `b68a8b0a` | 2 | JDBC schema creation/validation and skill repository consolidation. Scala's selected PostgreSQL CAS backend neither verifies an existing schema nor implements a JDBC skill repository; assess retained persistence scope separately. |
+| `3a6baf6c`, `88553194`, `01da9e6f` | 3 | JDBC documentation, agent coding instructions and message JavaDoc. Documentation/process changes are not new runtime transfer evidence. |
+| `52570626` | 1 | Sandbox edit command fixes generated Python escaping. No corresponding generated Python edit adapter exists in the selected Scala filesystem contracts. |
+| `325f33d6` | 1 | Optional keyword matching modes for memory/session search. No equivalent model-facing search-mode capability is implemented; applicability remains to be decided. |
+| `9343ff0a` | 1 | DeepSeek formatter preserves every assistant's reasoning and backfills missing traces with empty reasoning_content. Scala's explicit selected replay policies do not supply this vendor-specific backfill; latest-assistant replay is a different profile, not equivalent coverage. |
+| `14608668` | 1 | OpenAI provider accepts OPENAI_BASE_URL. Scala receives an explicit endpoint in LlmConfig; the host may read environment configuration. No automatic environment-alias behavior is claimed. |
+| `9b611928` | 1 | Caller-owned OpenTelemetry SDK injection. The Scala logging example uses existing ZIO logging and host export; no equivalent OpenTelemetry middleware/SDK binding is implemented. |
+| `a5be7610` | 1 | Judge extension probability rounding tolerance. No corresponding judge client exists in the selected library. |
+| `3478329b` | 1 | DashScope reasoning-effort wire projection. Scala's checked Chat Completions preference does not implement this separate provider protocol. |
+| `addf82b8`, `e9721285` | 2 | Declared middleware participation and agent-state-ready callbacks. Existing explicit Scala ports replace some middleware uses; full participation/state-ready behavior needs a separate applicability assessment, not an automatic middleware-chain clone. |
+| `c8ea6029` | 1 | DeepSeek model context-window registry update. Scala has no automatic model registry/context-window inference to update. |
+| `2c503d88`, `fbbc2b63` | 2 | Optional leading UTF-8 BOM in shared skill/declaration parsing and workspace examples. The current Scala parser deliberately rejects a leading BOM; this is an applicable new compatibility gap under assessment, not already transferred. |
+| `91550713` | 1 | Gemini media URL extension parsing. Scala does not infer MIME from URL extensions or implement the Gemini formatter; no equivalent provider coverage is claimed. |
+| `860b9287` | 1 | Streaming transport retry classification and retry suppression after nonempty response content. Scala's strict pre-success-response retry/failover boundary is different and does not permit replay after successful-body admission; do not widen retries implicitly. |
+| `a3798a8f` | 1 | Anthropic responses tolerate missing message IDs. No Anthropic Messages parser is implemented by the selected Chat Completions client. |
+| `d5cc463e`, `b4dda79c`, `9172dc5d`, `68f25d27`, `9e43ed83` | 5 | Anthropic, Guava, Bailian, OpenTelemetry and OpenAI dependency updates. These are not Scala dependency requirements or behavioral parity evidence; no automatic bump is justified. |
+| `c0d69deb` | 1 | MiniMax formatter honors disabled tool choice. Scala explicitly serializes ToolChoice.None but has no MiniMax-specific tools-removal formatter; assess endpoint requirements before claiming equivalence. |
+| `e05d45e0` | 1 | Harness builder inherits state-save ConflictPolicy. Scala uses explicit CAS expectations/conflict results and host execution ownership, not an automatic last-writer-wins agent-state policy. |
+
+- [x] Inspect and account for all 27 fetched commits while preserving the existing pin and original-plan checklist.
+- [x] review_fp and review_invariants approved this finite source-applicability classification in the final 19-file scope against 24a9980; every commit is accounted for, with no repin or new executable parity claim.
+- [ ] Assess and implement the applicable leading-BOM skill compatibility change with proportional regression coverage and independent review.
+- [ ] Decide retained applicability of the remaining new behavior: search modes, provider-specific replay/formatting, middleware lifecycle, tracing and persistence configuration. No unimplemented capability is closed by classifying its commit.
+- [ ] Review changed upstream test methods before any future repin or broader parity claim; the current pinned method counts do not include these additions.

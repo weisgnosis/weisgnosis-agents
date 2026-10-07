@@ -36,6 +36,34 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
     new ConversationCompactor(_ => ZIO.succeed("summary"), config, counter)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ConversationCompactorSpec")(
+    test("large nonnegative estimates preserve trigger and retained-tail authority") {
+      val history = Chunk(
+        Msg.user("one"),
+        Msg.assistant("one"),
+        Msg.user("huge"),
+        Msg.assistant("tail")
+      )
+      val custom = new TokenCounter:
+        def count(message: Msg): Long = if message.text == "huge" then Long.MaxValue else 1L
+      val settings = config.copy(keepTokens = 1, preserveTailMessages = 1)
+      for
+        summarized <- Ref.make(Chunk.empty[Msg])
+        engine = new ConversationCompactor(
+          messages => summarized.set(messages).as("summary"),
+          settings,
+          custom
+        )
+        cutoff = engine.calculateCutoffIndex(history, settings)
+        result <- engine.compactIfNeeded(history)
+        prefix <- summarized.get
+      yield assertTrue(
+        cutoff == 3,
+        prefix == history.take(3),
+        result.size == 2,
+        result.headOption.exists(ConversationCompactor.isSummary),
+        result.lastOption == history.lastOption
+      )
+    },
     test("cutoff moves backward to preserve the assistant and all parallel results") {
       val history = Chunk(
         Msg.user("old"),

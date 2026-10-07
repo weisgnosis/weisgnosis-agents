@@ -36,8 +36,9 @@ final class PostgresVersionedJsonStore private (
   import PostgresVersionedJsonStore.*
 
   /**
-   * Explicit idempotent DDL, not verification of an existing table. The host must supply this exact
-   * compatible schema; construction and ordinary reads/writes never initialize it.
+   * Explicit repeatable DDL, not verification of an existing table or concurrent migration. The host
+   * must serialize initial provisioning and supply this exact compatible schema; construction and
+   * ordinary reads/writes never initialize it.
    */
   def initialize: IO[AgentError, Unit] = withConnection: connection =>
     for

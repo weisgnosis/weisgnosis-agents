@@ -1,6 +1,6 @@
 # Architecture implementation tracker
 
-Last synchronized: 2026-10-07. Implementation is active. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
+Last synchronized: 2026-10-08. Implementation is active. This document records current capabilities and remaining work; review history belongs in Git. Available components do not imply complete host integration or exhaustive upstream parity.
 
 ## Current delivery gates
 
@@ -188,3 +188,22 @@ TaskSupervisor lifecycle changes must preserve its parallel outer owner scope, s
 - [Phase 4 contracts](phase-4-implementation.md)
 - [Test parity audit](test-parity.md)
 - [High-level design](high-level-design.md), [mid-level design](mid-level-design.md), [low-level design](low-level-design.md)
+
+## Publication documentation audit
+
+Current audit date: 2026-10-08. review_fp and review_invariants approved the final 19-file increment against `24a9980`: six exact Scala source/test identities in the overflow/provisioning manifests and thirteen Markdown files. Acceptance covers the guide, original-plan reconciliation and finite upstream classification; it does not certify exhaustive code quality or transfer.
+
+- [x] Inspect the original tiered plan and audited corrections, current implementation contracts and public documentation entry points; identify stale tool-image/discovery/API descriptions and missing newcomer navigation.
+- [x] Draft a [getting-started guide](../getting-started.md) with local unpublished installation, complete scripted/HTTP/tool/MCP examples and explicit host ownership boundaries; simplify root navigation and remove superseded approval narratives.
+- [x] Make [original-plan disposition](test-parity.md#original-plan-disposition) visible without claiming generic JSON Schema evaluation, MCP resources/older SSE or product cutover complete.
+- [x] Inspect the fetched [27-commit upstream delta](test-parity.md#upstream-delta-checked-on-2026-10-08) from the unchanged pin to `fbbc2b631691743ec6f2cdad50b1b6f9fba46c09`; classification does not repin or establish new implementation parity.
+- [x] Obtain both independent reviews of the finite upstream classification without repinning or claiming implementation parity.
+- [ ] Determine and implement applicable transfers, including the current leading-BOM skill compatibility gap; retain other behavior/profile decisions explicitly.
+- [x] publication-guide.log compiles all three extracted complete guide applications against fresh RC1 artifacts under fatal warnings and executes ScriptedAgent successfully; HTTP and MCP examples were compiled without starting external requests/processes.
+- [x] Obtain final FP/ZIO and invariant-focused approval from review_fp and review_invariants; resolve overflow, cold-schema provisioning and all reported documentation currentness findings.
+- [x] Check final English prose, changed UTF-8/script text and local Markdown links; 79 documents and 3,010 references pass without issues. Reviewed source identities remain unchanged.
+- [ ] Resolve the original-plan semantic scope decisions and remaining applicable transfers; a readable guide does not complete the port.
+
+Current verification: publication-cold-verify.log passes 1,527 tests (680 core / 731 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages on a new empty database. publication-preparation.log and publication-consumer.log pass archive admission and fresh standalone consumption.
+
+Next task: resolve the unchecked original-plan transfers and new upstream applicability work. External publication remains a separate gate. The substantive original-plan and live/remote/release gates remain separate unfinished work.

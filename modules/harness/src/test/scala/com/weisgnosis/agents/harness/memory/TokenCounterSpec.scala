@@ -21,11 +21,26 @@ import zio.test.*
 
 object TokenCounterSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment, Any] = suite("TokenCounterSpec")(
-    test("estimates are nonnegative and additive") {
+    test("estimates add exactly within range and cap conservatively on overflow") {
       val first   = Msg.user("hello")
       val second  = Msg.assistant("world")
       val counter = TokenCounter.approximate
+      val custom = new TokenCounter:
+        def count(message: Msg): Long = message.text match
+          case "huge"   => Long.MaxValue
+          case "almost" => Long.MaxValue - 1L
+          case _        => 1L
+      val cases = Chunk(
+        Chunk.empty[Msg]                       -> 0L,
+        Chunk(Msg.user("huge"))                -> Long.MaxValue,
+        Chunk(Msg.user("huge"), first)         -> Long.MaxValue,
+        Chunk(first, Msg.user("huge"), second) -> Long.MaxValue,
+        Chunk(Msg.user("almost"))              -> (Long.MaxValue - 1L),
+        Chunk(first, Msg.user("almost"))       -> Long.MaxValue,
+        Chunk(first, second)                   -> 2L
+      )
       assertTrue(
+        cases.map((history, _) => custom.count(history)) == cases.map(_._2),
         counter.count(Chunk.empty[Msg]) == 0L,
         counter.count(first) > 0L,
         counter.count(Chunk(first, second)) == counter.count(first) + counter.count(second)

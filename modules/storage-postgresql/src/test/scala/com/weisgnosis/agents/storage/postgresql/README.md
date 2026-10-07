@@ -37,3 +37,17 @@ The existing backend-failure group additionally requires real read-only transact
 ## Remote memory middleware integration
 
 [MemoryLifecycleIsolationSpec](MemoryLifecycleIsolationSpec.scala) runs one real-PostgreSQL group for four scope variants in both flush/maintenance orders, sharing the harness test oracle and fixture. Independent backend/reopened gate bindings exercise the same per-row gate address; exact extraction/report/curated/idle checks and reopened curated data are required. Separate row addresses do not prove cross-scope collision behavior. No host-restart, distributed scheduling/delivery or physical-retention guarantee is claimed. The [three-file manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#remote-middleware-throttle-integration) owns completed source/full/artifact evidence and final combined documentation approval.
+
+## Cold-schema provisioning
+
+All fixture users serialize schema creation through one advisory key on an explicitly scoped, nonpooled `PGSimpleDataSource` connection. The five-second lock query acquisition is masked and joined before release; result set, statement and physical session close on failure or interruption. Only provisioning is serialized: namespace-isolated DML and contention tests remain concurrent. No retry hides DDL or DML failures.
+
+Current source identities: `PostgresFixture.scala` = `7157739ce2456b1065f2cb6124489d2c2c12a049`; initializer Scaladoc = `011378263397a578d1b9c00d27d1b7010b1ae5c1`.
+
+- [x] Reproduce the race on a newly created PostgreSQL 16 database before the correction: publication-verify.log records 21 passing PostgreSQL groups and one failed transcript group, SQLSTATE=23505. publication-postgresql-server.log identifies concurrent CREATE TABLE and pg_type_typname_nsp_index, establishing a catalog-creation race.
+- [x] review_fp and review_invariants inspected scoped lock ownership and initialization-only serialization; both approved the exact two identities above after inspecting the fresh cold-schema result.
+- [x] publication-cold-verify.log passes full formatting/compile/test and four RC1 packages on another newly created empty PostgreSQL 16 database: 1,527 tests including all 22 PostgreSQL groups, zero failed/ignored or compiler warnings.
+- [x] publication-preparation.log and publication-consumer.log pass fresh four-artifact archive admission and standalone selected-public-API formatting, clean compilation and execution.
+- [x] review_fp and review_invariants approved the final combined 19-file increment against 24a9980, including these exact two identities, corrected provisioning contracts and current evidence. No unresolved finding remains in this scope.
+
+This diagnosed creation-stage race does not explain the earlier unexplained connection-acquisition failure.
