@@ -61,7 +61,7 @@ Current Git-normalized identities:
 
 Each nonempty append samples Clock.instant and candidate UUIDs once before conditional publication. The shared TranscriptState transition validates the entire batch, retains the first observation for each stable key and derives parent links from the current persistent tail. A definite ConditionalWrite.Conflict permits bounded reread/recomputation using the same timestamp/UUID candidates and new parent links. Exhaustion fails with MemoryStorageError. Successful append returns exactly the newly committed entries in order; all-duplicate batches perform no write. Anonymous drafts append on each invocation and are not idempotent.
 
-The private version-1 aggregate requires schemaVersion and entries. Before restoring the complete chain, decoding rejects duplicate JSON fields, malformed Unicode strings/object keys, unsupported versions and noncanonical DTO representations, including ignored fields and decoder coercions. Optional fields use the writer's omitted-field representation. TranscriptLog.sameRepresentation is shared only within this package; local JSONL behavior is unchanged. TranscriptState.restore rejects duplicate IDs/stable keys, broken parents, invalid stable-key/payload pairings and invalid preview claims. Encoding applies the same validation before publication. Exact decimal rendering preserves complete numeric input values; object order and equivalent numeric spelling do not determine validity.
+The private version-1 aggregate requires schemaVersion and entries. Before restoring the complete chain, decoding rejects duplicate JSON fields, malformed Unicode strings/object keys, unsupported versions and noncanonical DTO representations, including ignored fields and decoder coercions. Optional fields use the writer's omitted-field representation. The restricted JsonBoundary.sameRepresentation helper is shared with checkpoint persistence; local JSONL behavior is unchanged. TranscriptState.restore rejects duplicate IDs/stable keys, broken parents, invalid stable-key/payload pairings and invalid preview claims. Encoding applies the same validation before publication. Exact decimal rendering preserves complete numeric input values; object order and equivalent numeric spelling do not determine validity.
 
 Only explicit conflicts authorize retry. Backend failures, cancellation and lost acknowledgements propagate without replay; publication may already have committed. Hosts coordinate recovery by reading persistent state. This adapter supplies no authenticated checkpoint claim, execution deduplication or exactly-once delivery. All entries live in one aggregate; every read validates the complete chain and every update replaces the complete value. Hosts must bound transcript growth and backend payload size. TranscriptStore has no deletion/retention API: immutable segments, listing/indexes, remote discovery/pruning, compaction and layout migration remain unfinished.
 
@@ -69,8 +69,8 @@ Migration: this factory is additive. Existing TranscriptStore/in-memory/local AP
 
 | Reviewed source/spec against bbadf13 | Git blob |
 | --- | --- |
-| [VersionedTranscriptStore.scala](VersionedTranscriptStore.scala) | `a7b743c3d8ba62d69c671a408d8755c1f8a93ff6` |
-| [TranscriptLog.scala](TranscriptLog.scala) | `4e3a671c3a412954705a5af2af1b0f9593a7f74c` |
+| [VersionedTranscriptStore.scala](VersionedTranscriptStore.scala) | [Current shared-helper identity](../storage/README.md#versioned-acting-checkpoints) |
+| [TranscriptLog.scala](TranscriptLog.scala) | [Current shared-helper identity](../storage/README.md#versioned-acting-checkpoints) |
 | [VersionedTranscriptStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/VersionedTranscriptStoreSpec.scala) | `6a0c7068d7911597a2e849154d6a1815e7eaff9b` |
 
 - [x] review_fp and review_invariants approved these three final identities against bbadf13, with no unresolved findings.

@@ -1251,7 +1251,7 @@ The pinned BaseStore contract is in agentscope-harness/agent/filesystem/remote/s
 - [x] Verify bounded PostgresBaseStoreTest.getReturnsItem (178) and getReturnsNullWhenNotFound (193) adaptations through Option reads and exact numeric/namespace round-trips across independent real connections. Java uses mocked JDBC; Scala's PostgreSQL 16 fixture is separate integration evidence, not reproduction of those mocks.
 - [x] Verify bounded PostgresBaseStoreTest.putIfVersionInsertDuplicateReturnsFalse (261), putIfVersionUpdateSucceeds (298) and putIfVersionUpdateMismatchReturnsFalse (306) behavior through real create/update races and exact-revision reads. ConditionalWrite.Conflict replaces Boolean false; SQL exception-mocking branches are not claimed reproduced.
 - [x] Record final independent source/build/consumer-identity approval and full real-fixture verification in the [backend contract](../../modules/storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance).
-- [ ] Complete remaining remote transcript segmentation/discovery/pruning/layout migration and checkpoint adapters, segmented memory layouts/migration and their recovery/ownership mappings separately; the selected versioned memory adaptation is recorded below. BaseStore unconditional put, delete, search, configurable SQL/schema/table behavior and whole-suite parity are not implemented by this prerequisite.
+- [ ] Complete remaining remote transcript segmentation/discovery/pruning/layout migration and checkpoint runtime/host installation, segmented memory layouts/migration and their recovery/ownership mappings separately; the selected versioned memory adaptation is recorded below. BaseStore unconditional put, delete, search, configurable SQL/schema/table behavior and whole-suite parity are not implemented by this prerequisite.
 
 ## Versioned remote memory adaptation
 
@@ -1270,5 +1270,15 @@ The new TranscriptStore composition reuses the existing observation/key/chain ru
 - [x] Verify independent append/reopen/namespace behavior, first-observation retention, anonymous entries and exact linked returns against actual PostgreSQL.
 - [x] Verify definite-conflict retries with fixed candidate IDs/time and rebased parents, bounded exhaustion, strict aggregate rejection and uncertain-acknowledgement propagation.
 - [x] Both reviewers approved the three final source identities; full 1,492-test verification, four-artifact inspection and fresh standalone consumption pass through the [canonical transcript manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#versioned-remote-transcript).
-- [ ] Obtain final independent documentation/English/link acceptance for this transcript scope.
+- [x] review_fp and review_invariants approved final transcript documentation/English/link closure before b7488cc.
 - [ ] Implement remote immutable segments, indexes/discovery and pruning under separately defined ownership/recovery contracts.
+
+## Conditional acting-checkpoint persistence
+
+The selected storage adaptation persists one strictly validated suspended AgentResult and returns its publication revision. save performs one host-expected CAS; it is not an exclusive execution claim or upstream workflow/database port. Runtime restore still validates current bindings and iteration limits. Existing checkpoint lifecycle mappings remain unchanged; no whole upstream checkpoint method is newly closed by this adapter.
+
+- [x] Verify real PostgreSQL publication/reopen and resumed execution through current host bindings.
+- [x] Verify strict persisted-state rejection, conditional conflicts and uncertain acknowledgements without automatic retry.
+- [x] Both reviewers approved the seven final source/spec identities; full verification, archive inspection and fresh artifact consumption pass through the [checkpoint manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-acting-checkpoints).
+- [x] review_fp and review_invariants approved final checkpoint documentation/English/link closure against b7488cc and the seven unchanged identities.
+- [ ] Define remaining authenticated delivery/exclusive execution at the host boundary and remote transcript segmentation/discovery/pruning separately.

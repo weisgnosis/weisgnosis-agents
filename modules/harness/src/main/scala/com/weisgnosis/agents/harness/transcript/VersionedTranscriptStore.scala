@@ -103,7 +103,7 @@ object VersionedTranscriptStore:
     for
       validated <- JsonBoundary.validate(value).left.map(AgentError.MemoryStorageError.apply)
       _ <- Either.cond(
-        validUnicode(validated),
+        JsonBoundary.validUnicode(validated),
         (),
         AgentError.MemoryStorageError("Transcript contains malformed Unicode")
       )
@@ -114,28 +114,9 @@ object VersionedTranscriptStore:
         .map(AgentError.MemoryStorageError.apply)
       canonical <- payload.toJsonAST.left.map(AgentError.MemoryStorageError.apply)
       _ <- Either.cond(
-        payload.schemaVersion == 1 && TranscriptLog.sameRepresentation(validated, canonical),
+        payload.schemaVersion == 1 && JsonBoundary.sameRepresentation(validated, canonical),
         (),
         AgentError.MemoryStorageError("Unsupported or noncanonical transcript aggregate")
       )
       state <- TranscriptState.restore(payload.entries)
     yield state
-
-  private def validUnicode(value: Json): Boolean =
-    def validText(text: String): Boolean =
-      text.indices.forall: index =>
-        val character = text.charAt(index)
-        if Character.isHighSurrogate(character) then
-          text.lift(index + 1).exists(Character.isLowSurrogate)
-        else if Character.isLowSurrogate(character) then
-          text.lift(index - 1).exists(Character.isHighSurrogate)
-        else true
-    @annotation.tailrec
-    def loop(pending: List[Json]): Boolean = pending match
-      case Nil                    => true
-      case Json.Str(text) :: rest => validText(text) && loop(rest)
-      case Json.Obj(fields) :: rest =>
-        fields.forall((key, _) => validText(key)) && loop(fields.map(_._2).toList ::: rest)
-      case Json.Arr(values) :: rest => loop(values.toList ::: rest)
-      case _ :: rest                => loop(rest)
-    loop(List(value))

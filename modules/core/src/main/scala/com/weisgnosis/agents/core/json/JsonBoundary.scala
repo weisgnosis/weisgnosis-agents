@@ -40,6 +40,42 @@ private[agents] object JsonBoundary:
   def validate(value: Json): Either[String, Json] =
     uniqueFields(value).map(_ => value)
 
+  /**
+   * Prevents coercions and ignored fields; object ordering and numeric formatting are immaterial.
+   * Optional fields must use the writer's omitted-field representation rather than explicit nulls.
+   */
+  def sameRepresentation(actual: Json, expected: Json): Boolean =
+    (actual, expected) match
+      case (Json.Obj(left), Json.Obj(right)) =>
+        val values = right.toMap
+        left.size == right.size && left.forall((key, value) =>
+          values.get(key).exists(sameRepresentation(value, _))
+        )
+      case (Json.Arr(left), Json.Arr(right)) =>
+        left.size == right.size && left.zip(right).forall((a, b) => sameRepresentation(a, b))
+      case (Json.Num(left), Json.Num(right)) => left.compareTo(right) == 0
+      case _                                 => actual == expected
+
+  /** Separately invoked validation; unique-field validation does not impose Unicode policy. */
+  def validUnicode(value: Json): Boolean =
+    def validText(text: String): Boolean =
+      text.indices.forall: index =>
+        val character = text.charAt(index)
+        if Character.isHighSurrogate(character) then
+          text.lift(index + 1).exists(Character.isLowSurrogate)
+        else if Character.isLowSurrogate(character) then
+          text.lift(index - 1).exists(Character.isHighSurrogate)
+        else true
+    @annotation.tailrec
+    def loop(pending: List[Json]): Boolean = pending match
+      case Nil                    => true
+      case Json.Str(text) :: rest => validText(text) && loop(rest)
+      case Json.Obj(fields) :: rest =>
+        fields.forall((key, _) => validText(key)) && loop(fields.map(_._2).toList ::: rest)
+      case Json.Arr(values) :: rest => loop(values.toList ::: rest)
+      case _ :: rest                => loop(rest)
+    loop(List(value))
+
   /** Exact decimal rendering avoids the dependency's minimum-Long unscaled-value overflow. */
   def render(value: Json): String =
     @annotation.tailrec

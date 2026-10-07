@@ -105,4 +105,39 @@ object JsonBoundarySpec extends ZIOSpecDefault:
         JsonBoundary.decode(expected) == Right(nested),
         JsonBoundary.render(deep) == "[" * depth + "null" + "]" * depth
       )
+    ,
+    test("canonical representation comparison ignores object order and numeric spelling only"):
+      val expected = Json.Obj("value" -> Json.Num(1), "items" -> Json.Arr(Json.Str("one")))
+      val reordered =
+        Json.Obj("items" -> Json.Arr(Json.Str("one")), "value" -> Json.Num(BigDecimal("1.00")))
+      val invalid = Chunk(
+        Json.Obj("value" -> Json.Str("1"), "items" -> Json.Arr(Json.Str("one"))),
+        Json.Obj("value" -> Json.Num(1)),
+        Json.Obj(expected.fields :+ ("extra" -> Json.Null)),
+        Json.Obj("value" -> Json.Num(1), "items"   -> Json.Arr(Json.Str("one"), Json.Str("two")))
+      )
+      assertTrue(
+        JsonBoundary.sameRepresentation(reordered, expected),
+        invalid.forall(value => !JsonBoundary.sameRepresentation(value, expected)),
+        !JsonBoundary.sameRepresentation(
+          Json.Arr(Json.Num(1), Json.Num(2)),
+          Json.Arr(Json.Num(2), Json.Num(1))
+        )
+      )
+    ,
+    test(
+      "Unicode validation checks nested values and keys without changing general AST validation"
+    ):
+      val invalid = "bad " + 0xd800.toChar
+      val malformed = Chunk(
+        Json.Str(invalid),
+        Json.Obj(invalid -> Json.Null),
+        Json.Arr(Json.Obj("nested" -> Json.Str(invalid)))
+      )
+      val valid = Json.Obj("valid \ud83d\ude80" -> Json.Arr(Json.Str("text \ud83d\ude80")))
+      assertTrue(
+        JsonBoundary.validUnicode(valid),
+        malformed.forall(value => !JsonBoundary.validUnicode(value)),
+        malformed.forall(JsonBoundary.validate(_).isRight)
+      )
   )
