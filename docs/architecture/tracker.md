@@ -168,8 +168,9 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Inspect public signature boundaries across 59 core / 93 harness / 16 MCP production files. No restricted-type leaks were found in the inspected boundaries; core review found an unchecked Toolkit key/name identity blocker.
 - [x] Reproduce the Toolkit blocker against unchanged implementation: toolkit-identity-red.log records 3 passes/1 failure, with the forbidden handler executed after only the allowed name was approved.
 - [x] Both independent reviewers approved the [private Toolkit representation and 55-file source/spec migration](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity); full verification and fresh external artifact consumption pass. Source/JVM migration and replacement/collision policy are explicit.
-- [ ] Next: define the first-RC API candidate boundary from the inspected signatures, while retaining unfinished provider/remote/platform/release gates.
-- [ ] Define the remaining RC compatibility boundary; signature assessment and selected consumer coverage do not establish a blanket API freeze.
+- [x] Define the [first-RC API candidate](../../project/README.md#first-rc-api-candidate) from the inspected public signatures and accepted Toolkit correction, with explicit internal/unpublished boundaries and existing extension ownership obligations.
+- [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
+- [ ] Next: reconcile remaining provider/media and upstream method gaps into concrete implementation contracts; retain remote persistence, platform and release validation as unfinished work.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.
@@ -213,7 +214,8 @@ These proposed readiness checks supplement the remaining implementation/parity p
 - [x] Add an [explicitly enabled live-provider smoke path](../../modules/examples/README.md) with bounded requests and tool calling; default verification remains offline and credential-free.
 - [ ] Validate the smoke against an explicitly selected live endpoint; the executable alone does not prove provider interoperability.
 - [x] Define the [development compatibility policy](../../project/README.md#compatibility-policy), retain package migration notes and verify selected public contracts from an independently built external artifact consumer with final review.
-- [ ] Complete remaining public API visibility/compatibility inventory and agree the RC API boundary; current source consumption is not a published binary baseline.
+- [x] Record the current [public API candidate inventory](../../project/README.md#first-rc-api-candidate), restricted implementation boundaries and extension obligations after the signature assessment and Toolkit correction.
+- [ ] Freeze the actual RC release baseline; current source consumption is not a published binary compatibility baseline.
 - [ ] Validate remote CI and the release/publication pipeline, versioning, licensing and host/migration documentation before tagging or publishing an RC.
 
 Durable workflow replay, authentication, UI, distributed execution and idempotent checkpoint claims belong to hosts. Library remote memory/transcript/checkpoint adapters and their ownership/recovery contracts remain unfinished work above; host responsibility is not a reason to mark those adapters complete.

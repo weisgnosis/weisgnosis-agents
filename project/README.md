@@ -36,3 +36,20 @@ The [client migration](../modules/core/src/main/scala/com/weisgnosis/agents/core
 
 - [x] Both independent reviewers approved the tracked external consumer and workflow extension at the [six recorded identities](../verification/artifact-consumer/README.md); standalone formatting, compilation and forked execution pass. This establishes selected current public API consumption, not exhaustive visibility or compatibility coverage.
 - [ ] Confirm remote CI, agree release coordinates and an actual published compatibility baseline before release compatibility claims.
+
+## First RC API candidate
+
+The current candidate is the documented public surface of the three library artifacts at source revision 8d898e8. Signature assessment covered 59 core, 93 harness and 16 MCP production files. review_fp inspected core, assembly_example inspected harness, and review_invariants inspected MCP; no restricted implementation type was found leaking through the inspected public signatures. The discovered Toolkit construction blocker was reproduced, corrected and independently accepted under the [registry manifest](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity).
+
+| Artifact | Candidate host contracts | Internal boundary |
+| --- | --- | --- |
+| [core](../modules/core/README.md) | Documented model, error, event, tool, skill, client and agent APIs, plus opt-in ExactJson | Restricted JSON validators, model-attempt rejection markers and private runtime state are excluded. |
+| [harness](../modules/harness/README.md) | Documented eviction, memory, permission, plan, skill, subagent and transcript APIs | The storage package and restricted store/supervisor implementation state are excluded. |
+| [mcp](../modules/mcp/README.md) | Documented protocol, client, tool and transport APIs, including public low-level extension ports | Restricted connection/manager/transport state is excluded. |
+
+Examples and the external consumer are unpublished integration aids. Public low-level MCP ports are intentional extension points: their borrowed-resource, ordering, cancellation and reentrancy obligations remain part of their package contracts. Public protocol data constructors do not replace checked wire conversion. Local stores, in-memory approval and retained sessions keep their documented trust/lifetime limits; this candidate does not add remote persistence or durable workflow authority.
+
+This inventory defines a candidate boundary, not an RC tag, frozen binary ABI, exhaustive behavior proof or completion of remaining parity. Until a release baseline exists, source/JVM/wire changes require explicit package migration notes, renewed scoped review and fresh consumer verification. A future frozen release must identify exact tagged sources and published coordinates; current SNAPSHOT evidence cannot substitute for that baseline.
+
+- [x] Inspect the current public signature boundary and close the discovered Toolkit blocker with final source review and verification.
+- [ ] Freeze/tag the first release contract and validate the remote workflow, selected live-provider interoperability and publication requirements; remaining implementation/parity work stays in the [tracker](../docs/architecture/tracker.md).
