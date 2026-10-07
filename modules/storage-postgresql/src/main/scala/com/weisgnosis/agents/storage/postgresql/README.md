@@ -26,7 +26,7 @@ This is a per-address conditional publication prerequisite. Remote memory/transc
 | [VersionedJsonStore.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/storage/VersionedJsonStore.scala) | `5ae24e788910c42092ed764d7830e47e1d7fb27f` |
 | [VersionedJsonStoreSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/storage/VersionedJsonStoreSpec.scala) | `c977075cf98640a121d9405ece4c19f097417843` |
 | [PostgresVersionedJsonStore.scala](PostgresVersionedJsonStore.scala) | `6d1b55318fce559cba03a5ee8b90570610c43301` |
-| [PostgresVersionedJsonStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/storage/postgresql/PostgresVersionedJsonStoreSpec.scala) | `122844ce4110c0812bb7d100e714c645cc6e2188` |
+| [PostgresVersionedJsonStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/storage/postgresql/PostgresVersionedJsonStoreSpec.scala) | [Current shared-fixture identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-remote-memory) |
 
 
 - [x] review_fp and review_invariants renewed approval of all eleven final source/spec/build identities, including the payload-Unicode correction, with no unresolved findings.

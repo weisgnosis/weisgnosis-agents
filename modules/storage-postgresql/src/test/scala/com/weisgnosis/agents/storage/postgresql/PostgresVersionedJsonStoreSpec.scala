@@ -18,104 +18,12 @@ package com.weisgnosis.agents.storage.postgresql
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.harness.storage.*
-import java.sql.Connection
-import javax.sql.DataSource
-import org.postgresql.ds.PGSimpleDataSource
 import zio.*
 import zio.json.ast.Json
 import zio.test.*
 
 object PostgresVersionedJsonStoreSpec extends ZIOSpecDefault:
-  private def blocking[A](operation: => A): IO[AgentError, A] =
-    ZIO.attemptBlocking(operation).mapError(_ => AgentError.StorageError("Fixture JDBC failure"))
-
-  private def lease[A <: AutoCloseable](resource: => A): ZIO[Scope, AgentError, A] =
-    ZIO.acquireRelease(blocking(resource))(value => blocking(value.close()).orDie)
-
-  private def required(name: String): IO[AgentError, String] =
-    System
-      .env(name)
-      .mapError(_ => AgentError.StorageError("Fixture environment unavailable"))
-      .someOrFail(AgentError.StorageError(s"Missing fixture environment: $name"))
-
-  private def dataSource(
-      application: String,
-      options: Option[String] = None
-  ): IO[AgentError, PGSimpleDataSource] =
-    for
-      url      <- required("WEISGNOSIS_POSTGRES_URL")
-      user     <- required("WEISGNOSIS_POSTGRES_USER")
-      password <- required("WEISGNOSIS_POSTGRES_PASSWORD")
-      source <- blocking:
-        val configured = new PGSimpleDataSource()
-        configured.setURL(url)
-        configured.setUser(user)
-        configured.setPassword(password)
-        configured.setApplicationName(application)
-        configured.setConnectTimeout(5)
-        configured.setSocketTimeout(10)
-        options.foreach(configured.setOptions)
-        configured
-    yield source
-
-  private def store(source: DataSource): IO[AgentError, PostgresVersionedJsonStore] =
-    ZIO.fromEither(PostgresVersionedJsonStore.make(source, queryTimeoutSeconds = 5))
-
-  private def address(namespace: String, key: String): IO[AgentError, StorageAddress] =
-    ZIO.fromEither(StorageAddress.from(Chunk(namespace), key))
-
-  private def namespace: UIO[String] = Random.nextUUID.map(id => s"fixture-$id")
-
-  private def connection[A](source: DataSource)(
-      use: Connection => ZIO[Scope, AgentError, A]
-  ): IO[AgentError, A] =
-    ZIO.scoped(lease(source.getConnection).flatMap(use))
-
-  private def update(source: DataSource, sql: String, values: Chunk[String]): IO[AgentError, Unit] =
-    connection(source): current =>
-      for
-        statement <- lease(current.prepareStatement(sql))
-        _ <- blocking:
-          statement.setQueryTimeout(5)
-          values.zipWithIndex.foreach((value, index) => statement.setString(index + 1, value))
-          statement.executeUpdate()
-      yield ()
-
-  private def fixture[A](
-      use: (PGSimpleDataSource, PostgresVersionedJsonStore, String) => IO[AgentError, A]
-  ): IO[AgentError, A] =
-    for
-      name    <- namespace
-      source  <- dataSource(name)
-      backend <- store(source)
-      _       <- backend.initialize
-      result <- use(source, backend, name).ensuring(
-        update(
-          source,
-          "DELETE FROM public.weisgnosis_versioned_json WHERE namespace_path LIKE ?",
-          Chunk(name + "%")
-        ).orDie
-      )
-    yield result
-
-  private def sessions(
-      source: DataSource,
-      application: String,
-      lockedOnly: Boolean
-  ): IO[AgentError, Long] =
-    connection(source): current =>
-      for
-        statement <- lease(
-          current.prepareStatement(
-            "SELECT count(*) FROM pg_stat_activity WHERE application_name = ? AND (? = false OR wait_event_type = 'Lock')"
-          )
-        )
-        _ <- blocking:
-          statement.setString(1, application)
-          statement.setBoolean(2, lockedOnly)
-        rows  <- lease(statement.executeQuery())
-        count <- blocking(if rows.next() then rows.getLong(1) else 0L)
-      yield count
+  import PostgresFixture.*
 
   def spec: Spec[TestEnvironment, Any] = suite("PostgresVersionedJsonStoreSpec")(
     test(
@@ -328,7 +236,7 @@ object PostgresVersionedJsonStoreSpec extends ZIOSpecDefault:
               _.failureOption.exists(_.isInstanceOf[AgentError.StorageError])
             )
           )
-  ) @@ TestAspect.sequential @@ TestAspect.withLiveSystem @@ TestAspect.withLiveClock @@ TestAspect
+  ) @@ TestAspect.sequential @@ TestAspect.withLiveRandom @@ TestAspect.withLiveSystem @@ TestAspect.withLiveClock @@ TestAspect
     .timeout(
       30.seconds
     ) @@ TestAspect.ifEnvSet("WEISGNOSIS_POSTGRES_URL")

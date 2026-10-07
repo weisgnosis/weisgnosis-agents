@@ -62,7 +62,7 @@ One Clock instant and explicit zone (UTC default) bind the context lookup, entry
 
 - [x] `review_fp` and `review_harness` approved the seven-file daily-memory extraction increment against `738b216` on 2026-09-29. No findings remain within the injected-store capability, scoped client extraction, provenance/date handling, one-manager serialization, and compactor integration. Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new tests. Filesystem persistence, cross-manager/process guarantees, consolidation, watermarks, and transcript offloading are excluded.
 - [x] Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new daily-memory tests and all 39 compactor regressions.
-- [ ] Add remote memory storage, remote transcript offloading and automatic scheduling; explicit local watermark migration is described below.
+- [ ] Add remote transcript offloading and remaining scheduling integrations; bounded versioned remote memory is available below; explicit local watermark migration is described below.
 
 Current daily-memory Git-normalized source identities; prior compactor implementation identity is preserved in `738b216`:
 
@@ -88,7 +88,7 @@ The protocol uses the Java [CREATE_NEW contract](https://docs.oracle.com/en/java
 
 - [x] `review_fp` and `review_harness` approved the final seven-file local daily-memory backend against `d1a4cf2` on 2026-09-29. Nineteen added tests exposed and corrected pending cancellation being reported as success after admitted work. Full formatting/fatal-warning verification passed 530 core / 154 harness tests. Acceptance covers cooperative ownership, scoped cleanup, day-derived paths, atomic replacement, and typed storage errors on the tested Windows filesystem. Crash durability, exactly-once delivery, hostile mutation protection, dynamic symlink/junction behavior, and automatic stale-lease recovery are excluded.
 - [ ] Verify cross-process contention and dynamic symlink/junction cases on each supported platform; the current executable contention checks use independent store instances in one JVM.
-- [ ] Implement transcript/scheduling services and remote memory storage. The earlier daily-only increment added no new upstream method-parity claim.
+- [ ] Complete remaining remote transcript/scheduling integrations; bounded versioned remote memory is available below. The earlier daily-only increment added no new upstream method-parity claim.
 
 Current local-backend Git-normalized identities:
 
@@ -122,6 +122,34 @@ The previous MemoryExtractor comment identity is preserved in `46c6174`; its cur
 | [MemoryExtractor.scala](MemoryExtractor.scala) | fe620774f366965032f4582046b8fc79282ec164 |
 | [MemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRepositorySpec.scala) | 090804a4d20f01d838c8d7e381175287374cadc2 |
 | [MemoryConsolidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidatorSpec.scala) | 49f460b8ba9e77b202e146b50a0c6b9b561445b1 |
+
+## Versioned remote memory
+
+[VersionedMemoryRepository.make](VersionedMemoryRepository.scala) is a pure checked factory returning the existing MemoryRepository capabilities over one host-selected VersionedJsonStore and StorageAddress. maxAttempts defaults to eight and must be positive. Construction performs no read/write or initial curated publication; an absent aggregate means empty memory. Daily, consolidation and retention ports share the same whole-aggregate authority. [MemoryRepositoryState](MemoryRepositoryState.scala) contains private immutable transitions reused by MemoryRepository.inMemory and this adapter; process-local public signatures and revision semantics remain unchanged.
+
+The private version-1 payload requires exactly schemaVersion, curated, daily, acknowledged and archived. curated is a string or explicit JSON null; all three collections are required arrays. Daily/acknowledged records require exactly day/content; archive records require exactly archive/content, with day/fingerprint in the nested archive identity. Missing/unknown/duplicate fields, unsupported versions, duplicate day/archive identities, empty ledger/archive content, malformed Unicode and incorrect archive content fingerprints fail with MemoryStorageError. Acknowledgements must reference a current day and match its content prefix; full changed ledgers remain pending after later appends. Acknowledged/archive progress requires present curated content. The private payload does not change public model codecs or import legacy local checkpoint/timestamp formats.
+
+Snapshots read and validate one persistent revision. Consolidation commit publishes curated content and acknowledgement atomically only against that exact snapshot revision; stale summary output returns Conflict and is never rebased onto later inputs. Append and acknowledged-only retention may reread/recompute only after an explicit ConditionalWrite.Conflict, up to maxAttempts; exhaustion fails. Underlying failures, lost acknowledgements and interruption do not authorize blind replay. A write may have committed before its acknowledgement fails. Hosts must inspect persistent state and coordinate any semantic retry; this adapter does not supply request deduplication, authenticated checkpoints or exactly-once workflow claims.
+
+One aggregate contains all daily entries, acknowledgements and archives. Each read validates the complete snapshot and hashes every archive; updates conditionally replace the whole value. This design suits host-bounded memory collections. It does not provide paged archives, unbounded-history scalability or multi-address distributed transactions. Host-selected backend size/availability limits and retention policy remain explicit integration responsibilities.
+
+Migration: the factory is additive, and existing MemoryRepository.inMemory/source calls remain unchanged. Remote version 1 is a separate private aggregate format; local journal/checkpoint data is not migrated automatically. StorageError from the backend remains typed; invalid aggregate/domain consistency failures use MemoryStorageError. PostgreSQL schema/DataSource ownership and cancellation limits belong to the [named backend contract](../../../../../../../../../storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md). Remote transcript/checkpoint adapters and authenticated execution claims remain unfinished.
+
+| Reviewed source/spec | Git blob |
+| --- | --- |
+| [MemoryRepository.scala](MemoryRepository.scala) | `3684ec420d865e7b981d95a5e9b1e3ea30b31937` |
+| [MemoryRepositoryState.scala](MemoryRepositoryState.scala) | `cac4e5ddd9af76b567138c4c764049200d73ace3` |
+| [VersionedMemoryRepository.scala](VersionedMemoryRepository.scala) | `8695ca654d6cfd9678a80e0617a523f9748cec5c` |
+| [PostgresFixture.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresFixture.scala) | `c83790ecd9056955fb1bfa96388270f64d545528` |
+| [PostgresVersionedJsonStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresVersionedJsonStoreSpec.scala) | `17635a16f964462743c96964ea965e4cb3c4b4e2` |
+| [VersionedMemoryRepositorySpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/VersionedMemoryRepositorySpec.scala) | `14b5e250ca9d39bc4b60db3792e6ff5b51ef05e6` |
+
+- [x] review_fp approved FP/ZIO correctness of these six final identities with no findings.
+- [x] review_invariants approved the same six final identities and bounded memory/publication contracts with no findings.
+- [x] versioned-memory-nested-green.log passes all six PostgreSQL groups in 2.237 seconds; three are new remote-memory groups. The existing 55 memory tests passed separately after the shared-transition refactor.
+- [x] versioned-memory-verify.log passes formatting, fatal-warning compilation, four artifact packages and 1,489 tests: 667 core / 726 harness / 85 MCP / 6 PostgreSQL / 5 examples, with zero compiler warnings or failed tests. versioned-memory-artifact-preparation.log validates all four archives/POM/source sets.
+- [x] versioned-memory-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh packaged JAR hashes. The consumer exercises its existing selected APIs; it does not construct this repository.
+- [x] review_fp and review_invariants approved these final six identities and the combined documentation scope against b1b3848, with no unresolved findings. English inspection and all 2,661 local references in 78 Markdown documents passed.
 
 ## Recoverable local consolidation
 
@@ -318,7 +346,7 @@ Final formatted seven-file increment against `b2ab23e`; independent acceptance i
 | [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | Current identity: [explicit watermark migration](#explicit-watermark-migration) |
 | [MemoryFiles.scala](MemoryFiles.scala) | 1b1bf9a91f118c1b99d2f891ad6c2a58b41b831d |
 | [MemoryJournal.scala](MemoryJournal.scala) | cc8f693e7fda49876f11ff07e842716ead0828d6 |
-| [MemoryRepository.scala](MemoryRepository.scala) | 8a209e9cbba1d7b3e3692eac81b494655624f24c |
+| [MemoryRepository.scala](MemoryRepository.scala) | [Current shared-transition identity](#versioned-remote-memory) |
 | [DailyMemoryRetentionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/DailyMemoryRetentionSpec.scala) | 87ca3e833ba23868dfdbe59f66dbe7ad6d47c5df |
 | [LocalDailyMemoryRetentionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryRetentionSpec.scala) | 8a6b13eb2f2736f869bb99be1c8cabeba74c4449 |
 

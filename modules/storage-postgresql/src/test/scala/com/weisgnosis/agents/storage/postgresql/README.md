@@ -10,3 +10,9 @@ CI provisions PostgreSQL 16 and enables the suite without any LLM/provider reque
 - [x] Both reviewers renewed final source/spec approval; postgresql-final-verify.log passes all 1,486 tests, including this enabled real-database suite.
 - [x] Fresh consumer verification passes through postgresql-final-artifact-consumer.log.
 - [x] Both independent reviewers approved final documentation through the linked contract; English prose and local links pass inspection.
+
+## Remote memory integration
+
+[PostgresFixture](PostgresFixture.scala) shares scoped JDBC fixture helpers between the existing backend suite and [VersionedMemoryRepositorySpec](VersionedMemoryRepositorySpec.scala). The existing backend test bodies are unchanged; live random namespace generation prevents independent suites from sharing deterministic test namespaces. Three new grouped contracts exercise the actual PostgreSQL store through independently constructed repositories and validate malformed aggregate rejection, valid near-misses, genuine CAS conflict retries and lost acknowledgements. The wrappers delegate actual storage operations; they do not substitute in-memory persistence for remote evidence.
+
+- [x] review_fp and review_invariants approved all six source/fixture identities; versioned-memory-verify.log passes 1,489 tests including six actual PostgreSQL groups. Evidence belongs to the [remote-memory manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-remote-memory).

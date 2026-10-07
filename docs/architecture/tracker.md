@@ -20,6 +20,11 @@ Current delivered scope includes exact numeric event metadata, typed provider pa
 - [x] postgresql-final-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against all four fresh module hashes, excluding the JDBC fixture driver.
 - [x] review_fp and review_invariants approved final documentation; English prose and all 2,634 local references in 78 Markdown documents pass inspection. No additional test groups or temporary review report were added.
 
+- [x] review_fp and review_invariants approved the six final [versioned remote-memory identities](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-remote-memory), including shared transitions, strict aggregate validation and reused real-database fixtures.
+- [x] versioned-memory-verify.log passes formatting, fatal-warning compilation, four packages and 1,489 tests: 667 core / 726 harness / 85 MCP / 6 PostgreSQL / 5 examples. versioned-memory-artifact-preparation.log validates fresh archives/POM/source content; no compiler warnings or failed tests remain.
+- [x] versioned-memory-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh packaged JAR hashes; its existing selected API smoke does not construct the new repository.
+- [x] review_fp and review_invariants approved final versioned remote-memory documentation; English inspection and all 2,661 local references in 78 Markdown documents passed.
+
 ExactJson remains opt-in and requires faithful encoder AST conversion. External dependency .toJson and legacy direct tool encoders are not globally replaced. This acceptance does not close remote storage, durable host integration, remaining parity, platform/live-provider or release work below. No remote publication or push was performed.
 
 ## Current acceptance
@@ -189,9 +194,10 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Implement and independently review reasoning as a scalar alias, strict equal-value coalescing/conflict rejection and unchanged details authority, with existing table/HTTP coverage.
 - [x] Implement explicit ordinary JSON HTTP completion with full bounded EOF validation, additive factories/encoder, correlated events and joined cleanup; the linked client contract records bounded parser mappings and verification.
 - [x] Finish renewed FP/ZIO/invariant review and full real PostgreSQL/artifact verification of the [versioned publication prerequisite](../../modules/storage-postgresql/README.md) after the payload-Unicode correction.
-- [ ] Next: implement VersionedMemoryRepository over the reviewed publication port, sharing private aggregate transitions and exact CAS binding with the existing memory contract. Remote transcript/checkpoint adapters, provider/media, platform and release validation remain open.
+- [x] Finish VersionedMemoryRepository source review and full verification, including shared private aggregate transitions, strict version-1 validation and actual PostgreSQL memory races; consumer/documentation closure remains above.
+- [ ] Next: implement the remote transcript adapter over reviewed versioned publication, with explicit append/replay/retention contracts. Checkpoint adapters, provider/media, platform and release validation remain open.
 
-Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
+Versioned remote memory has final source approval, full real-database verification and fresh packaged-consumer checks; final documentation approval remains pending. Remote transcript/checkpoint adapters, segmented memory layouts and migration remain unfinished. Local ports and bounded local discovery do not establish those remote ownership/recovery contracts.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.
 - [x] Implement and independently review scoped HTTP POST and explicit GET requests with bounded JSON/SSE responses and session-header handling for 2025-06-18.
 - [x] Both independent reviews approved direct host replacement after real SDK session expiry and same-send POST-body recovery after real Netty truncation. Exact identities, verification and bounded exclusions are in the [transport contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#independent-server-interoperability); cursor-based listener replay and remote-work cancellation interoperability remain separate.
@@ -207,7 +213,7 @@ The accepted resource primitive, child session, factory, registry, task tools an
 - [x] All fourteen Plan inventory methods have bounded adaptations, including opt-in child installation and retained named-session restrictions. Java middleware/API shapes, automatic flag copying and unrestricted shell bypass are intentionally excluded; authenticated UI and durable approval restoration remain unfinished.
 - [ ] Implement durable host persistence, authenticated delivery and idempotent checkpoint claims around the accepted complete-batch ConfirmResult adapter; partial confirmation has final independent acceptance.
 - [x] Support host-selected primary or dedicated memory clients through the existing injected MemoryExtractor; this is a deliberate assembly adaptation, not a new registry API or upstream test-method claim.
-- [ ] Define string-ID model registry selection only under a separate host contract; remote memory/transcript adapters, remote session discovery and automatic scheduling remain unfinished.
+- [ ] Define string-ID model registry selection only under a separate host contract; remaining remote transcript/checkpoint adapters, remote session discovery and automatic scheduling remain unfinished.
 - [ ] Validate platform-specific symlink/junction behavior and provide a secure storage backend if untrusted workspace support is required. Canonical checks are not an atomic filesystem sandbox; crash/fsync durability and hostile mutation isolation are not claimed.
 - [x] Implement checked common MCP JSON-RPC envelopes with exclusive message variants, strict fields, recursive duplicate rejection and bounded lossless numeric identities.
 - [x] Implement bounded scoped MCP request correlation with monotonic IDs, transactional settlement, cancellation cleanup and typed McpError lifecycle failures. Both reviewers approved the [client scope and identities](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance).
@@ -237,7 +243,7 @@ These proposed readiness checks supplement the remaining implementation/parity p
 - [ ] Freeze the actual RC release baseline; current source consumption is not a published binary compatibility baseline.
 - [ ] Validate remote CI and the release/publication pipeline, versioning, licensing and host/migration documentation before tagging or publishing an RC.
 
-Durable workflow replay, authentication, UI, distributed execution and idempotent checkpoint claims belong to hosts. Library remote memory/transcript/checkpoint adapters and their ownership/recovery contracts remain unfinished work above; host responsibility is not a reason to mark those adapters complete.
+Durable workflow replay, authentication, UI, distributed execution and idempotent checkpoint claims belong to hosts. The selected versioned memory adapter is implemented above; remote transcript/checkpoint adapters and their ownership/recovery contracts remain unfinished; host responsibility is not a reason to mark those adapters complete.
 
 ## Verification and contracts
 
