@@ -48,12 +48,15 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Inline video projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#inline-video-projection) has final scoped acceptance for explicit video/webm and video/mp4; broader MIME types, Data inference and live interoperability remain open.
 
-Current delivery scope against dcacd72: strengthen the existing [hook-error gate reuse test](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#hook-error-gate-reuse), without production changes or added groups.
+- [x] [Hook-error gate reuse](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#hook-error-gate-reuse) has final scoped test/documentation acceptance for a second successful same-agent invocation after typed hook failure.
 
-- [x] Both reviewers approved the exact test identity recorded in the canonical hook-reuse contract.
-- [x] hook-reuse-focused.log verifies all 19 tests with zero failures/ignored tests in 534 ms, including exact typed failure/cleanup and second successful same-agent invocation.
-- [x] hook-reuse-verify.log passes all 1,522 tests (676 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests and four RC1 packages; hook-reuse-preparation.log passes exact archive/rejection checks. Production/build/consumer sources are unchanged.
-- [x] review_fp and review_invariants approved the final six-file combined scope against dcacd72; bounded mapping/English/diff and 78-document/2,942-local-reference checks pass.
+Current delivery scope against 23a3bec: correct [interrupted transformed-progress history loss](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#interrupted-transformed-progress), preserving validated partial text without treating cancellation as completion.
+
+- [x] transformed-partial-red.log reproduces published transformed text missing from canonical history on unchanged production: eight tests pass, one fails.
+- [x] Finish producer/runtime progress and reviewed five-row cancellation/first-later typed-failure assertions; transformed-partial-green.log passes 14 tests with zero failures/ignored tests in 3.669 seconds, without new groups.
+- [x] review_fp and review_invariants approved the exact final five-file source/spec scope against 23a3bec, with no unresolved source findings.
+- [x] transformed-partial-verify.log passes 1,522 tests (676 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests and four RC1 packages; transformed-partial-preparation.log and transformed-partial-consumer.log pass current exact archives and fresh selected-API consumption.
+- [x] review_fp and review_invariants approved the final eighteen-file combined scope against 23a3bec with no unresolved findings; English/migration/diff and 78-document/2,958-local-reference checks pass.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -105,8 +108,9 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-Complete the hook-error gate reuse test and its independent verification gates above. Then select the next bounded increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+The transformed partial-history correction has final scoped acceptance above. Next, classify the finite pinned Plan propagation methods against existing child-installation/session tests, then continue the remaining applicable [method-level parity inventory](test-parity.md); do not infer new features or broader host authority from Java API differences.
 
+- [ ] Complete finite pinned Plan propagation classification against current scoped child/session behavior, then select the next applicable inventory gap.
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.

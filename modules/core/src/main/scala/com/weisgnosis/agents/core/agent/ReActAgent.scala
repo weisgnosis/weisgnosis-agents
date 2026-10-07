@@ -1109,7 +1109,8 @@ final class ReActAgent private (
                   requestConfig,
                   replyId,
                   eventHub,
-                  usageRef
+                  usageRef,
+                  progressRef
                 )
               ).flatMap:
                 case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
@@ -1430,122 +1431,170 @@ final class ReActAgent private (
       requestConfig: LlmConfig,
       replyId: String,
       eventHub: Hub[AgentEvent],
-      usageRef: Ref[Option[ChatUsage]]
+      usageRef: Ref[Option[ChatUsage]],
+      progressRef: Ref[RunProgress]
   ): IO[AgentError, (TurnOutput, ModelStreamContext)] =
-    def invoke(
-        target: ModelTarget
-    ): IO[AgentError | BeforeResponseRejection, (TurnOutput, ModelStreamContext)] =
-      for
-        requestId <- Random.nextUUID.map(_.toString)
-        context = ModelStreamContext(replyId, requestId)
-        request = ModelRequestInput(
-          history,
-          target.config.model,
-          tools,
-          ModelRequestSettings(
-            target.config.temperature,
-            target.config.maxTokens,
-            target.config.topP,
-            target.config.frequencyPenalty,
-            target.config.presencePenalty,
-            target.config.seed,
-            target.config.stopSequences,
-            target.config.reasoningEffort,
-            target.config.thinkingBudget
-          )
-        )
-        candidate <- ZIO.scoped(
-          ZIO.suspendSucceed(modelInputTransform.projectRequest(context, request))
-        )
-        validated <- ZIO.fromEither(ModelInputTransform.validateProjection(history, candidate))
-        view      <- ZIO.fromEither(withSkillPrompt(validated.history))
-        projectedConfig = target.config.copy(
-          temperature = validated.settings.temperature,
-          maxTokens = validated.settings.maxTokens,
-          topP = validated.settings.topP,
-          frequencyPenalty = validated.settings.frequencyPenalty,
-          presencePenalty = validated.settings.presencePenalty,
-          seed = validated.settings.seed,
-          stopSequences = validated.settings.stopSequences,
-          reasoningEffort = validated.settings.reasoningEffort,
-          thinkingBudget = validated.settings.thinkingBudget
-        )
-        _ <- eventHub.publish(
-          AgentEvent.ModelRequestStartEvent(target.config.model, 0, context = Some(context))
-        )
-        received <- ZIO.scoped(
-          target.client.attemptTurn(view, tools, projectedConfig, eventHub, context)
-        )
-        output <- ZIO.fromEither(validateModelOutput(received))
-        total <- ZIO
-          .fromEither(
-            output.message.chatUsage
-              .fold[Either[AgentError.InvalidMessage, Int]](Right(0))(_.totalTokens)
-          )
-          .mapError(_ => AgentError.ModelError(0, "Invalid or unrepresentable model usage"))
-        _ <- usageRef
-          .modify: current =>
-            val next = output.message.chatUsage match
-              case None        => Right(current)
-              case Some(usage) => current.fold(usage.validated)(_.combine(usage)).map(Some(_))
-            next match
-              case Left(error)  => (Left(error), current)
-              case Right(value) => (Right(()), value)
-          .flatMap(result => ZIO.fromEither(result))
-          .mapError(_ => AgentError.ModelError(0, "Invalid or unrepresentable model usage"))
-          .uninterruptible
-        _ <- output match
-          case _: TurnOutput.Interrupted => ZIO.unit
-          case _ =>
-            eventHub
-              .publish(
-                AgentEvent.ModelResponseEndEvent(
-                  target.config.model,
-                  output.message.chatUsage.fold(0)(_.outputTokens),
-                  total,
-                  context = Some(context)
+    Ref
+      .make[Option[TurnOutput.Interrupted]](None)
+      .flatMap: partialRef =>
+        def preservePartial: IO[AgentError, Unit] =
+          partialRef
+            .getAndSet(None)
+            .flatMap:
+              case Some(partial) if partial.message.content.nonEmpty =>
+                for
+                  output <- ZIO.fromEither(validateModelOutput(partial))
+                  _      <- admitModelUsage(output, usageRef)
+                  _      <- persistAssistant(output.message, progressRef)
+                yield ()
+              case _ => ZIO.unit
+
+        def receive(
+            request: IO[AgentError | BeforeResponseRejection, TurnOutput]
+        ): IO[AgentError | BeforeResponseRejection, TurnOutput] =
+          ZIO.uninterruptibleMask: restore =>
+            restore(request).exit.flatMap:
+              case Exit.Success(output) => restore(ZIO.succeed(output))
+              case Exit.Failure(cause) =>
+                if cause.isInterruptedOnly then
+                  preservePartial.exit.flatMap:
+                    case Exit.Success(_)             => ZIO.refailCause(cause)
+                    case Exit.Failure(recoveryCause) => ZIO.refailCause(cause ++ recoveryCause)
+                else ZIO.refailCause(cause)
+
+        def invoke(
+            target: ModelTarget
+        ): IO[AgentError | BeforeResponseRejection, (TurnOutput, ModelStreamContext)] =
+          for
+            _         <- partialRef.set(None)
+            requestId <- Random.nextUUID.map(_.toString)
+            context = ModelStreamContext(replyId, requestId)
+            request = ModelRequestInput(
+              history,
+              target.config.model,
+              tools,
+              ModelRequestSettings(
+                target.config.temperature,
+                target.config.maxTokens,
+                target.config.topP,
+                target.config.frequencyPenalty,
+                target.config.presencePenalty,
+                target.config.seed,
+                target.config.stopSequences,
+                target.config.reasoningEffort,
+                target.config.thinkingBudget
+              )
+            )
+            candidate <- ZIO.scoped(
+              ZIO.suspendSucceed(modelInputTransform.projectRequest(context, request))
+            )
+            validated <- ZIO.fromEither(ModelInputTransform.validateProjection(history, candidate))
+            view      <- ZIO.fromEither(withSkillPrompt(validated.history))
+            projectedConfig = target.config.copy(
+              temperature = validated.settings.temperature,
+              maxTokens = validated.settings.maxTokens,
+              topP = validated.settings.topP,
+              frequencyPenalty = validated.settings.frequencyPenalty,
+              presencePenalty = validated.settings.presencePenalty,
+              seed = validated.settings.seed,
+              stopSequences = validated.settings.stopSequences,
+              reasoningEffort = validated.settings.reasoningEffort,
+              thinkingBudget = validated.settings.thinkingBudget
+            )
+            _ <- eventHub.publish(
+              AgentEvent.ModelRequestStartEvent(target.config.model, 0, context = Some(context))
+            )
+            received <- receive(
+              ZIO.scoped(
+                target.client.attemptTurnWithProgress(
+                  view,
+                  tools,
+                  projectedConfig,
+                  eventHub,
+                  context,
+                  partialRef.set
                 )
               )
-              .unit
-      yield (output, context)
+            )
+            output <- ZIO.fromEither(validateModelOutput(received))
+            total  <- admitModelUsage(output, usageRef)
+            _ <- output match
+              case _: TurnOutput.Interrupted => ZIO.unit
+              case _ =>
+                eventHub
+                  .publish(
+                    AgentEvent.ModelResponseEndEvent(
+                      target.config.model,
+                      output.message.chatUsage.fold(0)(_.outputTokens),
+                      total,
+                      context = Some(context)
+                    )
+                  )
+                  .unit
+          yield (output, context)
 
-    def exposed(cause: Cause[AgentError | BeforeResponseRejection]): Cause[AgentError] =
-      cause.map:
-        case rejection: BeforeResponseRejection => rejection.original
-        case error: AgentError                  => error
+        def exposed(cause: Cause[AgentError | BeforeResponseRejection]): Cause[AgentError] =
+          cause.map:
+            case rejection: BeforeResponseRejection => rejection.original
+            case error: AgentError                  => error
 
-    val compatible = fallback
-      .filter(target =>
-        requestConfig.responseFormat.isEmpty || (target.config.structuredOutputCapability match
-          case StructuredOutputCapability.Native(support) =>
-            tools.isEmpty || support == NativeToolSupport.Supported
-          case _ => false)
-      )
-      .map(target =>
-        target.copy(config = target.config.copy(responseFormat = requestConfig.responseFormat))
-      )
+        val compatible = fallback
+          .filter(target =>
+            requestConfig.responseFormat.isEmpty || (target.config.structuredOutputCapability match
+              case StructuredOutputCapability.Native(support) =>
+                tools.isEmpty || support == NativeToolSupport.Supported
+              case _ => false)
+          )
+          .map(target =>
+            target.copy(config = target.config.copy(responseFormat = requestConfig.responseFormat))
+          )
 
-    ZIO.uninterruptibleMask: restore =>
-      def fail(cause: Cause[AgentError]): IO[AgentError, Nothing] =
-        if cause.isInterrupted then ZIO.refailCause(cause)
-        else
-          restore(ZIO.unit).exit.flatMap:
-            case Exit.Success(_)            => ZIO.refailCause(cause)
-            case Exit.Failure(interruption) => ZIO.refailCause(cause ++ interruption)
+        ZIO.uninterruptibleMask: restore =>
+          def fail(cause: Cause[AgentError]): IO[AgentError, Nothing] =
+            if cause.isInterrupted then ZIO.refailCause(cause)
+            else
+              restore(ZIO.unit).exit.flatMap:
+                case Exit.Success(_)            => ZIO.refailCause(cause)
+                case Exit.Failure(interruption) => ZIO.refailCause(cause ++ interruption)
 
-      restore(invoke(ModelTarget(client, requestConfig))).exit.flatMap:
-        case Exit.Success(output) => restore(ZIO.succeed(output))
-        case Exit.Failure(cause) =>
-          cause match
-            case Cause.Fail(_: BeforeResponseRejection, _) =>
-              compatible match
-                case None => fail(exposed(cause))
-                case Some(target) =>
-                  restore(invoke(target)).exit.flatMap:
-                    case Exit.Success(output) => restore(ZIO.succeed(output))
-                    case Exit.Failure(fallbackCause) =>
-                      fail(exposed(cause) ++ exposed(fallbackCause))
-            case _ => fail(exposed(cause))
+          restore(invoke(ModelTarget(client, requestConfig))).exit.flatMap:
+            case Exit.Success(output) => restore(ZIO.succeed(output))
+            case Exit.Failure(cause) =>
+              cause match
+                case Cause.Fail(_: BeforeResponseRejection, _) =>
+                  compatible match
+                    case None => fail(exposed(cause))
+                    case Some(target) =>
+                      restore(invoke(target)).exit.flatMap:
+                        case Exit.Success(output) => restore(ZIO.succeed(output))
+                        case Exit.Failure(fallbackCause) =>
+                          fail(exposed(cause) ++ exposed(fallbackCause))
+                case _ => fail(exposed(cause))
+
+  /** Checked telemetry admission is shared by completed turns and recovered partial observations. */
+  private def admitModelUsage(
+      output: TurnOutput,
+      usageRef: Ref[Option[ChatUsage]]
+  ): IO[AgentError, Int] =
+    for
+      total <- ZIO
+        .fromEither(
+          output.message.chatUsage
+            .fold[Either[AgentError.InvalidMessage, Int]](Right(0))(_.totalTokens)
+        )
+        .mapError(_ => AgentError.ModelError(0, "Invalid or unrepresentable model usage"))
+      _ <- usageRef
+        .modify: current =>
+          val next = output.message.chatUsage match
+            case None        => Right(current)
+            case Some(usage) => current.fold(usage.validated)(_.combine(usage)).map(Some(_))
+          next match
+            case Left(error)  => (Left(error), current)
+            case Right(value) => (Right(()), value)
+        .flatMap(result => ZIO.fromEither(result))
+        .mapError(_ => AgentError.ModelError(0, "Invalid or unrepresentable model usage"))
+        .uninterruptible
+    yield total
 
   /** Custom clients supply observations; their tags cannot grant persistence or completion authority. */
   private def validateModelOutput(output: TurnOutput): Either[AgentError.ModelError, TurnOutput] =

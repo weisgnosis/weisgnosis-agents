@@ -640,6 +640,8 @@ The two newly completed mapped methods are native-with-tools Auto selection and 
 
 This increment closes one previously pending upstream method through a documented typed adaptation. Fourteen local tests do not represent fourteen upstream methods. The Auto retry regression failed before narrowing callback failures to TextTransformationError. Raw ModelResponseChunk payloads remain original diagnostics; visible text is transformed before runtime assembly. The provider protocol and completion checks cannot be modified through this interface.
 
+- [x] ReActAgentMiddlewareIntegrationTest.transformedTextIsUsedForPartialMessageWhenModelCallIsInterrupted (425): the strengthened existing cancellation group reproduces missing transformed partial history on unchanged 23a3bec. The [request-local progress correction](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#interrupted-transformed-progress) has final source approval and transformed-partial-green.log verification of the bounded transformed-history intent and cancellation/failure boundaries; full/artifact checks pass; final combined documentation approval passed. Generic middleware/event rewriting and live-provider behavior are not inferred.
+
 ## Post-reasoning decisions and accounting
 
 - [x] Verify three policy/codec tests and nineteen runtime scenarios, including typed discard for the final previously pending structured-output method.

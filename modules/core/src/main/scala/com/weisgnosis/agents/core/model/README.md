@@ -12,14 +12,14 @@ checked-usage-red.log reproduces cross-turn overflow acceptance and invalid-usag
 
 | Source/spec approved by review_fp and review_invariants against c198f98 | Git blob |
 | --- | --- |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](../client/README.md#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior checked-usage scope retained. |
 | [ChatUsage.scala](ChatUsage.scala) | b18a1476dd7e2c6d4522cf89f6483f153d592caa |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 5f52c4fe7acd454475928f20ab7634dcc28157e2 |
 | [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | 924725a21a867e314580535955a6af1bf591ec2b |
-| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current hook-reuse test identity](../agent/README.md#hook-error-gate-reuse); source/full verification passed, final documentation acceptance pending; prior checked-usage scope retained. |
+| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current hook-reuse test identity](../agent/README.md#hook-error-gate-reuse); source/full verification passed, final documentation acceptance passed; prior checked-usage scope retained. |
 | [ReActAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala) | 462d23a1bcbb7ab038c007924862e4273e69327c |
 | [StructuredOutputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputSpec.scala) | 79574ad1cfbfcf0fcf82a94e1f84350775caf83a |
-| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | b6679fa965afb24a765d0a335c159496fbfeaf23 |
+| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior checked-usage scope retained. |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | ed71c19ef0d99188fd4170be15de0d0c77f9b272 |
 | [ReasoningAdapterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterSpec.scala) | b59c6cb2e24f7b7e51f642abe05c685149a3ab4b |
 | [ChatUsageSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ChatUsageSpec.scala) | 591edd070fc3fb8250825d9889d5e9dd600baee8 |

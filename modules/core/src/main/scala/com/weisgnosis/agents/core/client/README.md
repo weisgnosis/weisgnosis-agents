@@ -39,9 +39,9 @@ Migration: the three new public helpers are additive; prior public factory/encod
 
 | Reviewed source/spec | Git blob |
 | --- | --- |
-| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [CompletionEnvelopeDecoder.scala](CompletionEnvelopeDecoder.scala) | `464a7d3c69a2b7b7b847f38580d81b62a7db6534` |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsNonStreamingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsNonStreamingSpec.scala) | [Current summary-alias identity](#summary-text-alias) |
@@ -84,8 +84,8 @@ Migration: the appended defaulted envelopeProfile parameter changes ChatCompleti
 | Reviewed source/spec | Git blob |
 | --- | --- |
 | [CompletionEnvelopeDecoder.scala](CompletionEnvelopeDecoder.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
-| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [StreamAccumulator.scala](StreamAccumulator.scala) | `3e7187b943491785d96ccb686343d8d48ff5de25` |
 | [CompletionEnvelopeDecoderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionEnvelopeDecoderSpec.scala) | `0d56b2ba1839634687b79c10a918e2048145c283` |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#scalar-reasoning-aliases) |
@@ -159,9 +159,9 @@ Migration: current LlmConfig has sixteen positional/Product fields and ModelRequ
 | Source/spec approved by review_fp and review_invariants against c1c95be | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5bfb7b37d7be56f81db3d769d23e5577f436c2a3 |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current runtime identity](../agent/README.md); prior thinking-budget behavior retained, interactive-preflight final combined documentation approval passed. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
-| [LlmClient.scala](LlmClient.scala) | 9c4283edfc7e6b211155aec109ff6677f358ad20 |
+| [LlmClient.scala](LlmClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ThinkingBudget.scala](ThinkingBudget.scala) | 3b9b10520a24381327ad497f22917b92ccefbf56 |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | 3fbe7668f40375aaf86cab7f344cd0358af1ad2b |
@@ -188,9 +188,9 @@ Migration: current arities are sixteen LlmConfig fields and nine ModelRequestSet
 | Reviewed file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
-| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 3a99d8850a8fa2905f1384bf04a818f386dd00da |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
@@ -211,9 +211,9 @@ Migration: current LlmConfig and ModelRequestSettings arities follow the [reason
 | Reviewed file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
-| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [StopSequences.scala](StopSequences.scala) | 07e81b7f93282be465a2db4d5eacb98bdac3dbca |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
@@ -235,7 +235,7 @@ Migration: current LlmConfig arity follows the [stop-sequence migration](#option
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
@@ -255,10 +255,10 @@ The HTTP request body and historical tool-argument strings use the pure [exact J
 | Reviewed core file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
-| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [JsonBoundary.scala](../json/JsonBoundary.scala) | `6cf481403cc762117989e31d5e1dd2c0c1ffd3be` |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
@@ -279,9 +279,9 @@ Migration: Current LlmConfig and ModelRequestSettings arities are recorded in th
 | Reviewed file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
-| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current ReActAgentModelInputSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
@@ -301,7 +301,7 @@ Migration: LlmConfig has a defaulted toolChoice; its current positional/Product 
 | Reviewed file | Git blob |
 | --- | --- |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
-| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
@@ -320,9 +320,9 @@ Migration: the appended defaulted fields preserve ordinary omitted-argument cons
 | Reviewed file | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
-| [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [LlmClient.scala](LlmClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
@@ -394,8 +394,8 @@ review_fp and review_invariants approved the six final source/spec identities ag
 | Source/spec | Final Git blob |
 | --- | --- |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
-| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | 8c3448eec7da105ae2f7cb922fb38d6f6331f4e8 |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | e88411433c5929bf43f5f5d1e39556261edb1669 |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current inline-video identity](#inline-video-projection); source/focused/full/package approval passed; consumer verification passed; final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | 0a44028ab15b2225cfb9205506409d7cfb7dca06 |
 | [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current environment consumer identity](../../../../../../../../../../verification/artifact-consumer/README.md#candidate-preparation-acceptance); prior behavioral scope retained. |
@@ -489,7 +489,7 @@ Unchanged signature-scope identities remain below; current request/spec identiti
 
 | File | Reviewed Git blob |
 | --- | --- |
-| ChatCompletionsClient.scala | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| ChatCompletionsClient.scala | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 
 | [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | [Current identity](#cache-usage-decoding) |
 
@@ -534,9 +534,9 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 
 | File | Reviewed Git blob |
 | --- | --- |
-| ReActAgent.scala | [Current identity](#optional-reasoning-effort) |
+| ReActAgent.scala | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | ChatCompletionsRequest.scala | [Current Video URL identity](#user-video-url-projection) |
-| ChatCompletionsTransport.scala | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| ChatCompletionsTransport.scala | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [LlmChunk.scala](LlmChunk.scala) | a35e034b66a8139d05ee1c6b1622ca19871538b1 |
 | [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 35b65c607b31f46da8213f4ffcfb12a6d7439128 |
 | [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
@@ -606,8 +606,8 @@ Migration: ChatCompletionsClient.make and ChatCompletionsTransport.make append a
 | File | Reviewed Git blob |
 | --- | --- |
 | [CompletionRetryPolicy.scala](CompletionRetryPolicy.scala) | 162be32d7454f3a7e2017a334dd07a715a11347b |
-| ChatCompletionsTransport.scala | [Current ordinary-JSON identity](#ordinary-json-completions) |
-| ChatCompletionsClient.scala | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| ChatCompletionsTransport.scala | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| ChatCompletionsClient.scala | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [CompletionRetryPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionRetryPolicySpec.scala) | 5df81123863d6f3faa10cfd1c70206f2604baf63 |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
@@ -653,7 +653,7 @@ Final formatted source identities against `06bd2e1`:
 
 | File | Git blob |
 | --- | --- |
-| LlmClient.scala | [Current identity](#optional-reasoning-effort) |
+| LlmClient.scala | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 | [StructuredOutputCapability.scala](StructuredOutputCapability.scala) | 5b68a9b3d6c89651b05b46d42b61382987eb90ee |
 | StructuredOutputCapabilityRoutingSpec.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
 | [StructuredOutputCapabilitySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StructuredOutputCapabilitySpec.scala) | bebc0adc73b60d08e784f4dcfbdcfa46bea91ddc |
@@ -661,6 +661,33 @@ Final formatted source identities against `06bd2e1`:
 - [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 420 core and 40 harness tests.
 
 - [x] `review_fp` and `review_harness` approved the final seven-file text-transformation increment against `02b4654` on 2026-09-29 after the fallback-provenance correction. No findings remain within this scope. Full formatting, fatal-warning compilation, and verification passed 434 core and 40 harness tests.
+
+## Interrupted transformed progress
+
+A reproduced runtime defect discarded already transformed/published text when a model request was interrupted before returning TurnOutput. transformed-partial-red.log runs the strengthened existing cancellation test against unchanged production at 23a3bec: eight tests pass and one fails because canonical partial history is empty instead of Chunk("transformed"). This is concrete history-loss evidence, not a claim that raw diagnostic frames should be rewritten.
+
+The correction introduces internal request-local progress, separate from public streamTurn and the existing five-argument attemptTurn. The new restricted attemptTurnWithProgress default delegates to the existing attempt method, retaining legacy overrides and failover capability. The live client supplies validated snapshots; custom clients and public wrappers do not acquire progress support implicitly. Public method signatures, defaults, enum cases and configuration arities remain unchanged; dependent binaries follow the development rebuild policy.
+
+Each actual HTTP attempt resets its progress. SSE snapshots are recorded only after complete raw-frame validation, every text transformation and successful transformed accumulation, before semantic/frame publication. A waiting transform, raw fragment or malformed frame cannot enter the snapshot. Ordinary JSON snapshots require complete body/full-message validation, all transforms and completed accumulation. A new target resets request-local state; successful live-client completion clears it after publisher finalization.
+
+The runtime consults progress only after owned request cleanup has joined and the cause is interruption-only. It validates the partial assistant and checked usage before persistence, then reconciles interrupted calls through ordinary recovery. External fiber cancellation remains interruption and cannot emit a successful Result. Typed failures, defects and combined failure/interruption causes do not authorize partial acceptance. A fully consumed owning stream exposes its complete failed outcome; an external consumer that terminates early joins cleanup but abandons subsequent terminal delivery. Incomplete indexed tool arguments use the existing toInterrupted sanitization to {}; recovery produces Error observations without dispatching those local tools. No normal model/text/tool completion is inferred from a snapshot.
+
+The expanded existing cancellation group targets cooperative/external interruption after accepted transformed text, interruption before accepted text, fully consumed cooperative cleanup failure and two interleaved incomplete calls. The final five-row cancellation table and existing first/later typed-failure table pass focused verification, with both source reviewers approving all five exact identities; no test group was added. Early external stream consumers intentionally discard later terminal delivery, so cleanup-defect assertions must consume the owning stream to its failed outcome. This bounded contract adapts the intent of pinned transformedTextIsUsedForPartialMessageWhenModelCallIsInterrupted (425), without generic middleware/event rewriting or provider interoperability claims.
+
+| Source/spec against 23a3bec | Git blob |
+| --- | --- |
+| [LlmClient.scala](LlmClient.scala) | `362d785aa60d69ba9ed1f4e5e83af6aaebea05dd` |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | `d085342c3052b74f4e28bcefe5f9ec4a289717f1` |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `da8542837d9df5e368e4c0bf2ba7f8b6b84fb267` |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | `9573d717bd37026537b8e27a3d0ccb62b93baa48` |
+| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | `05bb71ac7ec61ea96a7098c660c4190cb559ccd5` |
+
+- [x] Reproduce transformed partial-history loss against unchanged production at 23a3bec in transformed-partial-red.log; the original RED test identity is 0c68a07 (distinct from the final expanded fixture); baseline LlmClient/Client/Transport/runtime blobs are 9c4283edfc7e6b211155aec109ff6677f358ad20, 8c3448eec7da105ae2f7cb922fb38d6f6331f4e8, e88411433c5929bf43f5f5d1e39556261edb1669 and 5a342f24210d3885cf0778cfeb30f44ff274f6cb.
+- [x] review_fp and review_invariants approved the final five exact source/spec identities against 23a3bec, with no unresolved source findings.
+- [x] transformed-partial-green.log passes 14 tests with zero failures/ignored tests in 3.669 seconds. Two existing groups contain the five cancellation rows and first/later typed-failure table; failed transforms and cleanup defects do not authorize partial acceptance.
+- [x] transformed-partial-verify.log passes all 1,522 tests (676 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), with zero compiler warnings/failures/ignored tests and four RC1 packages.
+- [x] transformed-partial-preparation.log passes exact source/POM/license/archive checks and reversible rejection fixtures. transformed-partial-consumer.log passes standalone formatting, clean compilation and forked selected-public-API execution against four fresh module hashes; the unchanged consumer does not directly exercise private progress recovery.
+- [x] review_fp and review_invariants approved the final eighteen-file combined source/documentation scope against 23a3bec with all five source identities unchanged and no unresolved findings. English/migration/diff inspection and 78-document/2,958-local-reference checks pass with zero issues.
 
 ## Text transformation increment identities
 
@@ -670,7 +697,7 @@ Unchanged text-transformation contracts retain acceptance against `02b4654`; cur
 | --- | --- |
 | [ModelTextTransform.scala](ModelTextTransform.scala) | b07cec74ae6bd35945b8558c2f9bb067df7a2555 |
 | [ModelTextTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelTextTransformSpec.scala) | dcdd1fef54fb9dd166171ce5b21682a9019a4fe3 |
-| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
+| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | [Current transformed-progress identity](#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
 
 The ReActAgent capability identity is preserved in `02b4654`, and the AgentError text-transformation identity in `2a400e0`. Their subsequent post-reasoning changes have current identities in the [agent acceptance](../agent/README.md).
 

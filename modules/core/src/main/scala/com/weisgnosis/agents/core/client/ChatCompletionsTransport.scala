@@ -68,7 +68,8 @@ final class ChatCompletionsTransport private (
       config: LlmConfig
   )(
       onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
-      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String],
+      recordPartial: Option[TurnOutput.Interrupted] => UIO[Unit] = _ => ZIO.unit
   ): IO[AgentError | BeforeResponseRejection, TurnOutput] =
     ZIO.suspendSucceed:
       for
@@ -108,9 +109,16 @@ final class ChatCompletionsTransport private (
         request = Request.post(url, Body.fromString(JsonBoundary.render(body))).addHeaders(headers)
         output <- retryPolicy match
           case CompletionRetryPolicy.Disabled =>
-            exchange(request, 1, Duration.Zero, onFrame, transformText)
+            exchange(request, 1, Duration.Zero, onFrame, transformText, recordPartial)
           case policy: CompletionRetryPolicy.HttpStatusRetries =>
-            exchange(request, policy.maxAttempts, policy.delay, onFrame, transformText)
+            exchange(
+              request,
+              policy.maxAttempts,
+              policy.delay,
+              onFrame,
+              transformText,
+              recordPartial
+            )
       yield output
 
   private def exchange(
@@ -118,10 +126,11 @@ final class ChatCompletionsTransport private (
       remaining: Int,
       delay: Duration,
       onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
-      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String],
+      recordPartial: Option[TurnOutput.Interrupted] => UIO[Unit]
   ): IO[AgentError | BeforeResponseRejection, TurnOutput] =
     ZIO.uninterruptibleMask: restore =>
-      restore(attempt(request, onFrame, transformText)).exit.flatMap:
+      restore(attempt(request, onFrame, transformText, recordPartial)).exit.flatMap:
         case Exit.Success(output) => restore(ZIO.succeed(output))
         case Exit.Failure(cause) =>
           val failure = cause.map {
@@ -143,7 +152,8 @@ final class ChatCompletionsTransport private (
                         remaining - 1,
                         delay,
                         onFrame,
-                        transformText
+                        transformText,
+                        recordPartial
                       )
                     )
                   case Cause.Fail(HttpRejection(error), _)
@@ -154,10 +164,12 @@ final class ChatCompletionsTransport private (
   private def attempt(
       request: Request,
       onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
-      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String],
+      recordPartial: Option[TurnOutput.Interrupted] => UIO[Unit]
   ): IO[AttemptFailure, TurnOutput] =
     ZIO.scoped:
       for
+        _ <- recordPartial(None)
         response <- ZIO.uninterruptibleMask: restore =>
           restore(Client.streaming(request).provideSomeEnvironment[Scope](_.add(http)))
             .mapError(_ => AgentError.ModelError(0, "HTTP request failed"))
@@ -165,9 +177,9 @@ final class ChatCompletionsTransport private (
           if response.status.isSuccess then
             responseMode match
               case CompletionResponseMode.Streaming(profile) =>
-                consumeEventStream(response, onFrame, transformText, profile)
+                consumeEventStream(response, onFrame, transformText, profile, recordPartial)
               case CompletionResponseMode.NonStreaming =>
-                consumeJson(response, onFrame, transformText)
+                consumeJson(response, onFrame, transformText, recordPartial)
           else reject(response)
       yield output
 
@@ -194,7 +206,8 @@ final class ChatCompletionsTransport private (
       response: Response,
       onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
       transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String],
-      envelopeProfile: CompletionEnvelopeProfile
+      envelopeProfile: CompletionEnvelopeProfile,
+      recordPartial: Option[TurnOutput.Interrupted] => UIO[Unit]
   ): ZIO[Scope, AgentError, TurnOutput] =
     val status = response.status.code
     val eventStream = response.rawHeaders("Content-Type") match
@@ -233,6 +246,7 @@ final class ChatCompletionsTransport private (
                     transformText(fragment).map(text => fragment.copy(delta = text))
                   case other => ZIO.succeed(other)
                 next <- ZIO.fromEither(accumulate(accumulator, transformed))
+                _    <- recordPartial(Some(next.toInterrupted))
                 _    <- onFrame(frame.data, transformed)
               yield ChatCompletionsTransport.StreamState.Reading(next, nextDecoder)
           case (completed: ChatCompletionsTransport.StreamState.Completed, _) =>
@@ -246,7 +260,8 @@ final class ChatCompletionsTransport private (
   private def consumeJson(
       response: Response,
       onFrame: (String, Chunk[LlmChunk]) => UIO[Unit],
-      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String]
+      transformText: LlmChunk.TextDelta => ZIO[Scope, AgentError.TextTransformationError, String],
+      recordPartial: Option[TurnOutput.Interrupted] => UIO[Unit]
   ): ZIO[Scope, AgentError, TurnOutput] =
     val status = response.status.code
     val jsonBody = response.rawHeaders("Content-Type") match
@@ -273,6 +288,7 @@ final class ChatCompletionsTransport private (
         case other => ZIO.succeed(other)
       accumulated <- ZIO.fromEither(accumulate(StreamAccumulator.empty, transformed))
       output      <- ZIO.fromEither(accumulated.toTurnOutput)
+      _           <- recordPartial(Some(accumulated.toInterrupted))
       _           <- onFrame(raw, transformed)
     yield output
 

@@ -19,6 +19,7 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolDef
+import scala.annotation.unused
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -76,6 +77,17 @@ trait LlmClient:
       context: ModelStreamContext
   ): ZIO[Scope, AgentError | BeforeResponseRejection, TurnOutput] =
     streamTurn(history, tools, config, eventHub, context)
+
+  /** Attempt-local validated progress; legacy overrides retain their existing failover capability. */
+  private[core] def attemptTurnWithProgress(
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      config: LlmConfig,
+      eventHub: Hub[AgentEvent],
+      context: ModelStreamContext,
+      @unused recordPartial: Option[TurnOutput.Interrupted] => UIO[Unit]
+  ): ZIO[Scope, AgentError | BeforeResponseRejection, TurnOutput] =
+    attemptTurn(history, tools, config, eventHub, context)
 
 object LlmClient:
 

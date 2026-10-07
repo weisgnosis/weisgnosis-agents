@@ -1,5 +1,7 @@
 # weisgnosis-agents-core
 
+The [interrupted transformed-progress correction](src/main/scala/com/weisgnosis/agents/core/client/README.md#interrupted-transformed-progress) has final source approval and focused verification; full/artifact verification passes; final combined documentation acceptance passed after an unchanged-production regression reproduced canonical partial-history loss. Public client/configuration contracts are unchanged; request-local snapshots grant no completion or dispatch authority.
+
 The [model turn trust boundary](src/main/scala/com/weisgnosis/agents/core/agent/README.md#model-turn-trust-boundary) validates custom-client assistant roles and classification before runtime truth/persistence. Source/full/artifact verification passes; final combined documentation approval passed; public signatures/codecs are unchanged.
 
 Explicit [ordinary JSON completion](src/main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions) complements default SSE through additive client/transport factories and a pure request encoder. Full bounded EOF validation precedes transforms/events; existing request ownership, tool authority and cleanup contracts apply.

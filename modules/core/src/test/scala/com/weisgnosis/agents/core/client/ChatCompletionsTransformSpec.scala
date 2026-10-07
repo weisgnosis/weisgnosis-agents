@@ -15,10 +15,16 @@
  */
 package com.weisgnosis.agents.core.client
 
-import com.weisgnosis.agents.core.agent.{ReActAgent, StructuredMode, StructuredOutput}
+import com.weisgnosis.agents.core.agent.{
+  AgentResult,
+  AgentRunUpdate,
+  ReActAgent,
+  StructuredMode,
+  StructuredOutput
+}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
-import com.weisgnosis.agents.core.model.Msg
+import com.weisgnosis.agents.core.model.{Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import zio.*
 import zio.http.*
@@ -226,60 +232,185 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
       "transform failures preserve the typed error close resources and publish no false completion"
     ) {
       val error = AgentError.TextTransformationError("rejected transformed text")
-      for
-        closed   <- Ref.make(false)
-        observed <- Ref.make(Chunk.empty[AgentEvent])
-        transform = ModelTextTransform((_, _) =>
-          ZIO.addFinalizer(closed.set(true)) *> ZIO.fail(error)
-        )
-        client <- ChatCompletionsClient.make(
-          scripted(_ => ZIO.succeed(response(text("value") + stop + done))),
-          textTransform = transform
-        )
-        agent <- ReActAgent.make(client = client, llmConfig = config)
-        result <- agent
-          .streamEvents(Msg.user("q"))
-          .tap(event => observed.update(_ :+ event))
-          .runDrain
-          .either
-        events   <- observed.get
-        released <- closed.get
-      yield assertTrue(
-        result == Left(error),
-        released,
-        !events.exists(_.isInstanceOf[AgentEvent.ModelResponseChunkEvent]),
-        !events.exists(_.isInstanceOf[AgentEvent.ModelResponseEndEvent]),
-        !events.exists(_.isInstanceOf[AgentEvent.AgentResultEvent]),
-        events.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent])
-      )
+      ZIO
+        .foreach(Chunk("value", "later")): failingFragment =>
+          val expectedPublished =
+            if failingFragment == "value" then Chunk.empty else Chunk("transformed")
+          val expectedClosed = if failingFragment == "value" then 1 else 2
+          for
+            closed   <- Ref.make(0)
+            observed <- Ref.make(Chunk.empty[AgentEvent])
+            transform = ModelTextTransform((_, fragment) =>
+              ZIO.addFinalizer(closed.update(_ + 1)) *>
+                (if fragment.delta == failingFragment then ZIO.fail(error)
+                 else ZIO.succeed("transformed"))
+            )
+            client <- ChatCompletionsClient.make(
+              scripted(_ => ZIO.succeed(response(text("value") + text("later") + stop + done))),
+              textTransform = transform
+            )
+            agent <- ReActAgent.make(client = client, llmConfig = config)
+            result <- agent
+              .streamEvents(Msg.user("q"))
+              .tap(event => observed.update(_ :+ event))
+              .runDrain
+              .either
+            events   <- observed.get
+            released <- closed.get
+            history  <- agent.history
+          yield assertTrue(
+            result == Left(error),
+            released == expectedClosed,
+            history.map(message => (message.role, message.text)) == Chunk((Role.User, "q")),
+            events.collect { case event: AgentEvent.TextBlockDeltaEvent =>
+              event.delta
+            } == expectedPublished,
+            events.count(
+              _.isInstanceOf[AgentEvent.ModelResponseChunkEvent]
+            ) == expectedPublished.size,
+            !events.exists(_.isInstanceOf[AgentEvent.ModelResponseEndEvent]),
+            !events.exists(_.isInstanceOf[AgentEvent.AgentResultEvent]),
+            events.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent])
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     },
-    test(
-      "cooperative cancellation interrupts a waiting transform and closes its request resources"
-    ) {
-      for
-        entered <- Promise.make[Nothing, Unit]
-        closed  <- Ref.make(false)
-        transform = ModelTextTransform((_, _) =>
-          ZIO.addFinalizer(closed.set(true)) *> entered.succeed(()) *> ZIO.never
-        )
-        client <- ChatCompletionsClient.make(
-          scripted(_ => ZIO.succeed(response(text("value") + stop + done))),
-          textTransform = transform
-        )
-        agent    <- ReActAgent.make(client = client, llmConfig = config)
-        fiber    <- record(agent).forkScoped
-        _        <- entered.await
-        _        <- agent.interrupt
-        events   <- fiber.join
-        released <- closed.get
-      yield assertTrue(
-        released,
-        !events.exists(_.isInstanceOf[AgentEvent.TextBlockEndEvent]),
-        !events.exists(_.isInstanceOf[AgentEvent.ModelResponseEndEvent]),
-        events
-          .collect { case event: AgentEvent.AgentResultEvent => event.result }
-          .exists(_.generateReason.contains("interrupted"))
+    test("cancellation retains only validated transformed progress after joined cleanup") {
+      enum CancellationCase:
+        case CooperativeAfterText, FiberAfterText, CooperativeBeforeText, CooperativeCleanupDefect,
+          CooperativeIncompleteTools
+      val incompleteTools = frame(
+        """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"first","function":{"name":"one","arguments":"{\"city\":"}},{"index":1,"id":"second","function":{"name":"two","arguments":"{\"value\":"}}]}}]}"""
       )
+      ZIO
+        .foreach(
+          Chunk(
+            CancellationCase.CooperativeAfterText,
+            CancellationCase.FiberAfterText,
+            CancellationCase.CooperativeBeforeText,
+            CancellationCase.CooperativeCleanupDefect,
+            CancellationCase.CooperativeIncompleteTools
+          )
+        ): scenario =>
+          val defect     = new IllegalStateException("transform cleanup failed")
+          val beforeText = scenario == CancellationCase.CooperativeBeforeText
+          val withTools  = scenario == CancellationCase.CooperativeIncompleteTools
+          val external = scenario match
+            case CancellationCase.FiberAfterText => true
+            case _                               => false
+          val expectedText = if beforeText then Chunk.empty else Chunk("transformed")
+          val expectedPartial =
+            if beforeText || scenario == CancellationCase.CooperativeCleanupDefect then Chunk.empty
+            else Chunk("transformed")
+          val expectedClosed = if beforeText then 1 else 2
+          val body = (if beforeText then "" else text("raw")) +
+            (if withTools then incompleteTools else "") + text("uncompleted") + stop + done
+          for
+            entered          <- Promise.make[Nothing, Unit]
+            delivered        <- Promise.make[Nothing, Unit]
+            closed           <- Ref.make(0)
+            transformed      <- Ref.make(Chunk.empty[String])
+            releasedAtResult <- Ref.make(Chunk.empty[Int])
+            observed         <- Ref.make(Chunk.empty[AgentRunUpdate[AgentResult]])
+            executions       <- Ref.make(0)
+            transform = ModelTextTransform((_, fragment) =>
+              ZIO.addFinalizer(
+                closed.update(_ + 1) *>
+                  (if scenario == CancellationCase.CooperativeCleanupDefect && fragment.delta == "uncompleted"
+                   then ZIO.die(defect)
+                   else ZIO.unit)
+              ) *> transformed.update(_ :+ fragment.delta) *>
+                (if fragment.delta == "raw" then ZIO.succeed("transformed")
+                 else entered.succeed(()) *> ZIO.never)
+            )
+            client <- ChatCompletionsClient.make(
+              scripted(_ => ZIO.succeed(response(body))),
+              textTransform = transform
+            )
+            toolkit <- ZIO.fromEither(
+              Toolkit(
+                Tool.make(ToolDef("one", "Read", Json.Obj()))(_ =>
+                  executions.update(_ + 1).as("unexpected")
+                ),
+                Tool.make(ToolDef("two", "Read", Json.Obj()))(_ =>
+                  executions.update(_ + 1).as("unexpected")
+                )
+              )
+            )
+            agent <- ReActAgent.make(client = client, llmConfig = config, toolkit = toolkit)
+            fiber <- agent
+              .streamWithResult(Msg.user("question"))
+              .tap(update =>
+                observed.update(_ :+ update) *> (update match
+                  case AgentRunUpdate.Result(_) =>
+                    closed.get.flatMap(count => releasedAtResult.update(_ :+ count))
+                  case AgentRunUpdate.Event(_: AgentEvent.TextBlockDeltaEvent) =>
+                    delivered.succeed(()).unit
+                  case _ => ZIO.unit)
+              )
+              .runDrain
+              .forkScoped
+            _        <- entered.await
+            _        <- if beforeText then ZIO.unit else delivered.await
+            exit     <- if external then fiber.interrupt else agent.interrupt *> fiber.await
+            history  <- agent.history
+            updates  <- observed.get
+            released <- closed.get
+            seen     <- transformed.get
+            atResult <- releasedAtResult.get
+            ran      <- executions.get
+            events  = updates.collect { case AgentRunUpdate.Event(event) => event }
+            results = updates.collect { case AgentRunUpdate.Result(result) => result }
+            partial = history.filter(message =>
+              message.role == Role.Assistant && !message.generateReason.contains("interrupted")
+            )
+            recovery    = history.filter(_.generateReason.contains("interrupted"))
+            calls       = partial.flatMap(_.toolUses)
+            toolResults = history.flatMap(_.toolResults)
+          yield assertTrue(
+            released == expectedClosed,
+            seen == (if beforeText then Chunk("uncompleted") else Chunk("raw", "uncompleted")),
+            events.collect { case event: AgentEvent.TextBlockDeltaEvent =>
+              event.delta
+            } == expectedText,
+            partial.map(_.text) == expectedPartial,
+            history.forall(message =>
+              !message.text.contains("raw") && !message.text.contains("uncompleted")
+            ),
+            recovery.map(_.text) == Chunk(
+              "I noticed that you have interrupted me. What can I do for you?"
+            ),
+            ran == 0,
+            !events.exists(_.isInstanceOf[AgentEvent.TextBlockEndEvent]),
+            !events.exists(_.isInstanceOf[AgentEvent.ModelResponseEndEvent]),
+            !events.exists(_.isInstanceOf[AgentEvent.ToolCallEndEvent]),
+            if external || scenario == CancellationCase.CooperativeCleanupDefect then
+              exit.isInterrupted && results.isEmpty && atResult.isEmpty &&
+              !events.exists(_.isInstanceOf[AgentEvent.AgentResultEvent])
+            else
+              exit.isSuccess && results.size == 1 && atResult == Chunk(expectedClosed) &&
+              results.forall(result => result.isInterrupted && result.history == history) &&
+              events.collect { case event: AgentEvent.AgentResultEvent =>
+                event.result.generateReason
+              } ==
+                Chunk(Some("interrupted"))
+            ,
+            exit.causeOption
+              .map(cause => Chunk.fromIterable(cause.defects))
+              .getOrElse(Chunk.empty) ==
+              (if scenario == CancellationCase.CooperativeCleanupDefect then Chunk(defect)
+               else Chunk.empty),
+            exit.causeOption.forall(_.failures.isEmpty),
+            if withTools then
+              calls.map(call => (call.id, call.name, call.input)) ==
+                Chunk(("first", "one", Json.Obj()), ("second", "two", Json.Obj())) &&
+                toolResults.map(result => (result.id, result.name, result.state)) ==
+                Chunk(
+                  ("first", Some("one"), ToolResultState.Error),
+                  ("second", Some("two"), ToolResultState.Error)
+                )
+            else calls.isEmpty && toolResults.isEmpty
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     },
     test("transformed native JSON still requires strict structured validation") {
       for

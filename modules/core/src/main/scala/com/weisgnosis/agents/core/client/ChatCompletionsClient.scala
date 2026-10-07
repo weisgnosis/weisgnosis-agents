@@ -43,13 +43,25 @@ final class ChatCompletionsClient private (
       eventHub: Hub[AgentEvent],
       context: ModelStreamContext
   ): ZIO[Scope, AgentError | BeforeResponseRejection, TurnOutput] =
+    attemptTurnWithProgress(history, tools, config, eventHub, context, _ => ZIO.unit)
+
+  override private[core] def attemptTurnWithProgress(
+      history: Chunk[Msg],
+      tools: Chunk[ToolDef],
+      config: LlmConfig,
+      eventHub: Hub[AgentEvent],
+      context: ModelStreamContext,
+      recordPartial: Option[TurnOutput.Interrupted] => UIO[Unit]
+  ): ZIO[Scope, AgentError | BeforeResponseRejection, TurnOutput] =
     for
       publisher <- ModelStreamPublisher.make(eventHub, context)
       output <- transport.observeAttempt(history, tools, config)(
         publisher.frame,
-        fragment => textTransform.transform(context, fragment)
+        fragment => textTransform.transform(context, fragment),
+        recordPartial
       )
       _ <- publisher.finish(output)
+      _ <- recordPartial(None)
     yield output
 
 object ChatCompletionsClient:
