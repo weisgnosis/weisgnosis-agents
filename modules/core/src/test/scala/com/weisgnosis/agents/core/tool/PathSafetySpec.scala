@@ -36,6 +36,14 @@ object PathSafetySpec extends ZIOSpecDefault:
         "/project/.vscode/settings.json",
         "/project/.idea/workspace.xml",
         "/home/user/.bashrc",
+        "/home/user/.bash_login",
+        "/home/user/.zshenv",
+        "/home/user/.zlogin",
+        "/home/user/.zshenv.zwc",
+        "/home/user/.zprofile.zwc",
+        "/home/user/.zshrc.zwc",
+        "/home/user/.zlogin.zwc",
+        "/home/user/.ZSHENV.ZWC",
         "/home/user/.zshrc",
         "/home/user/.profile",
         "~/.bashrc",
@@ -44,15 +52,36 @@ object PathSafetySpec extends ZIOSpecDefault:
       for
         _       <- TestSystem.putProperty("user.home", "C:/home/test")
         results <- ZIO.foreach(paths)(PathSafety.isDangerousPath(_))
-      yield assertTrue(results.forall(identity))
+      yield
+        val permittedSensitivePaths = paths
+          .zip(results)
+          .collect:
+            case (path, false) => path
+        assertTrue(permittedSensitivePaths.isEmpty)
     },
     test("ordinary and blank paths are accepted") {
       val paths =
-        Chunk("src/main/scala/App.scala", "README.md", "target/classes/Main.class", "", "   ")
+        Chunk(
+          "src/main/scala/App.scala",
+          "README.md",
+          "target/classes/Main.class",
+          "docs/.bash_login.txt",
+          "docs/.zshenv.example",
+          "docs/.zlogin.notes",
+          "build/startup.zwc",
+          "build/.zshrc.zwc.backup",
+          "",
+          "   "
+        )
       for
         _       <- TestSystem.putProperty("user.home", "C:/home/test")
         results <- ZIO.foreach(paths)(PathSafety.isDangerousPath(_))
-      yield assertTrue(results.forall(!_))
+      yield
+        val rejectedOrdinaryPaths = paths
+          .zip(results)
+          .collect:
+            case (path, true) => path
+        assertTrue(rejectedOrdinaryPaths.isEmpty)
     },
     test("parent traversal is rejected before normalization can erase a symbolic-link boundary") {
       val paths = Chunk("link/../id_rsa", "ordinary/../../secret", ".ssh/../public")

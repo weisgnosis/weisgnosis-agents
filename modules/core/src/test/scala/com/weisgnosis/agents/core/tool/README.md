@@ -59,6 +59,12 @@ ToolExecutionSpec verifies legacy text construction, typed payload and derived-c
 
 - [x] Both independent reviewers approved the typed observation scope and full repository verification passed; the [source acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact identities and verification evidence.
 
+## Shell startup regressions
+
+The [startup-default contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#shell-startup-defaults) owns the current PathSafety/source-spec identities and review gates against de8b21f. Two existing tables now require rejection of the seven omitted Bash/Zsh startup filenames and uppercase compiled-Zsh spelling, paired with permitted filename near-misses. The expectations derive from shell startup contracts rather than the production filename set. No shell command is executed and no new group is added.
+
+path-startup-red.log records seven passing groups and one failed sensitive-path table against unchanged production, reporting the omitted names. review_fp and review_invariants approved the final source identities; corrected focused/full verification and fresh artifact/consumer checks pass. Both reviewers approved the final six-file combined scope with no findings; English/diff/local-link checks pass. Existing command-screening scope is retained separately; this is additional local INV-10 coverage rather than upstream test parity or an atomic sandbox claim.
+
 ## Command-screening regressions
 
 Four literal counterexamples cover recursive chmod/chown, harmless `echo address`, and the actual dd executable. Their expectations are independent of the classifier's lookup table. The pre-fix run reproduced three assertion failures; the dd control passed. Command strings remain data only. A compact companion table checks lexical boundaries, whitespace, path-qualified executables, suffix commands, quoted fragments, and device prefixes.

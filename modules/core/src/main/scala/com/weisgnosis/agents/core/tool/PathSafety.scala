@@ -23,7 +23,7 @@ import scala.util.matching.Regex
 
 /**
  * Path and command safety utilities enforcing invariant INV-10 (Sensitive Path Canonicalization)
- * and matching AgentScope Java ToolDangerousPathConstants.
+ * with defaults adapted from AgentScope Java ToolDangerousPathConstants.
  */
 object PathSafety:
 
@@ -32,8 +32,15 @@ object PathSafety:
     ".gitmodules",
     ".bashrc",
     ".bash_profile",
+    ".bash_login",
+    ".zshenv",
+    ".zshenv.zwc",
     ".zshrc",
+    ".zshrc.zwc",
     ".zprofile",
+    ".zprofile.zwc",
+    ".zlogin",
+    ".zlogin.zwc",
     ".profile",
     ".ssh/config",
     ".ssh/authorized_keys",

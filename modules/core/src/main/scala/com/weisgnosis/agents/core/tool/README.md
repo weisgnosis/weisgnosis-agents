@@ -204,13 +204,31 @@ ReAct creates `Active(context, call, callOrdinal, events)` only for approved loc
 
 See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md) for integration boundaries and invariant definitions.
 
+## Shell startup defaults
+
+PathSafety's default sensitive filenames include `.bash_login`, `.zshenv`, `.zlogin`, `.zshenv.zwc`, `.zprofile.zwc`, `.zshrc.zwc` and `.zlogin.zwc`, in addition to the existing defaults. Existing case-insensitive segment matching also screens uppercase spellings. These explicit names cover the reproduced omissions; they do not enumerate every shell, installation-specific global path or host-selected startup mechanism. Default policy becomes stricter for these names; public signatures and codecs are unchanged. Custom sensitive-name configuration retains its existing behavior.
+
+The [GNU Bash manual](https://www.gnu.org/s/bash/manual/bash.html) identifies `.bash_login` as a login initialization file. The [Zsh Files documentation](https://zsh.sourceforge.io/Doc/Release/Files.html) identifies `.zshenv`/`.zlogin` and explains compiled original-name-plus-`.zwc` replacements. This bounded fix adds explicit filenames rather than treating every `.zwc` or similarly prefixed file as sensitive. Ordinary near-misses `.bash_login.txt`, `.zshenv.example`, `.zlogin.notes`, `startup.zwc` and `.zshrc.zwc.backup` remain permitted by this filename screen. Traversal rejection, canonical ancestor checks and advisory command classification are unchanged; canonical screening remains non-atomic against hostile filesystem mutation.
+
+| Current source scope against de8b21f | Git blob |
+| --- | --- |
+| [PathSafety.scala](PathSafety.scala) | 17eaaa76590dfe11274828c74693b982a69b57ec |
+| [PathSafetySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/PathSafetySpec.scala) | 3e885dbef006686bb2a7715d69f2554bed8e30fd |
+
+- [x] path-startup-red.log reproduces the omitted startup names against unchanged source 3d7a102d03c47719271ad2e4ba791af81247170e: seven groups pass and the sensitive-path table fails in 176 ms, reporting the seven omitted names plus uppercase `.ZSHENV.ZWC`.
+- [x] Extend the two existing sensitive/permitted-path tables with the explicit startup names and ordinary near-misses; no new test groups.
+- [x] review_fp and review_invariants independently approved these final source/spec identities against de8b21f with no findings.
+- [x] path-startup-green.log passes all eight existing groups in 143 ms. path-startup-verify.log passes 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages.
+- [x] path-startup-preparation.log validates fresh source/POM/LICENSE artifacts and reversible selector/archive rejection checks; path-startup-consumer.log passes standalone formatting, clean compilation and forked execution against the four fresh RC1 hashes.
+- [x] review_fp and review_invariants approved the final six-file combined scope against de8b21f with no findings. Manual English review, changed-script/diff checks and 78-document/3,011-local-reference validation pass.
+
 ## Command screening
 
 `isDangerousCommand` is a conservative lexical warning helper, not shell parsing or execution authorization. It normalizes input and configured fragments with Locale.ROOT, allows whitespace between fragment words, and requires lexical boundaries around alphanumeric fragment ends. It detects recursive chmod/chown, path-qualified dd, mkfs suffix commands, and the `/dev/` redirection prefix without matching dd inside address. Quoted dangerous text can still match. A false result does not establish command safety; plan admission uses its separate typed inspection and permission policy.
 
 ## Current review acceptance
 
-- [x] Independent FP/ZIO and invariant reviewer `path_review` approved the advisory command-screening fix and regressions: source blob `3d7a102d03c47719271ad2e4ba791af81247170e`, test blob `981212ee32c51cf92d12d844f4fe5a7403f70b78`. All eight focused tests pass.
+- [x] Independent FP/ZIO and invariant reviewer `path_review` approved the advisory command-screening scope at source 3d7a102d03c47719271ad2e4ba791af81247170e/test 981212ee32c51cf92d12d844f4fe5a7403f70b78. Its behavior is unchanged; current PathSafety/source-spec identities and renewed acceptance belong to [shell startup defaults](#shell-startup-defaults).
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed execution payloads, state admission, runtime control protection and compound-cause preservation. Both approved this scope with no findings; unchanged component identities are below, and current Tool/Toolkit identities are in [incremental execution](#incremental-execution), and current ReActAgent identity is in [acting-stop decisions](../agent/README.md#acting-stop-decisions).
 - [x] Full formatting, fatal-warning compilation and verification passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
 - [x] Existing processor contracts below retain their scoped acceptance and unchanged implementations. Authorization acceptance is scoped by [fixed raw arguments](#fixed-raw-arguments) and [admitted tool access](#admitted-tool-access).

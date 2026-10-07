@@ -64,10 +64,14 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Independent MCP deadlines](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines) retain final scoped source/verification/artifact/documentation acceptance.
 
-Current delivery: [finite MCP builder applicability](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#builder-applicability-inventory) against be458fe; source/test/consumer remain unchanged.
+- [x] Accept the finite 120-method MCP builder applicability classification, retaining unsupported optional capability gates separately.
 
-- [x] Inspect all 120 declared methods and account for each exact name/line once, separating supported configuration from API/profile differences.
-- [x] review_fp and review_invariants approved the final four-document classification against be458fe; English/diff checks and 78-document/3,006-local-reference validation pass.
+Current accepted delivery: [shell startup-default defect](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#shell-startup-defaults) against de8b21f.
+
+- [x] Reproduce omitted sensitive filenames on unchanged PathSafety with permitted near-misses in existing tables.
+- [x] review_fp and review_invariants approve the final source/spec identities; focused eight-group and full 1,526-test verification pass without warnings/failures/ignored.
+- [x] Fresh artifact preparation and standalone consumer pass against the changed production source.
+- [x] review_fp and review_invariants approve the final six-file combined scope; English/diff checks and 78-document/3,011-local-reference validation pass.
 - [ ] Define optional elicitation, additional version negotiation and any justified dynamic request customization separately; classification does not implement these capabilities.
 - [ ] Diagnose the unexplained PostgreSQL acquisition failure in external-tools-final-verify.log; sanitized diagnostics and successful rechecks do not establish its cause.
 
@@ -120,7 +124,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-Continue diagnosing the retained unexplained PostgreSQL acquisition failure, then assess other applicable [method-level parity inventory](test-parity.md). The external-tool source increment and twelve-method classification have final bounded acceptance; authorization deferral remains a separate contract.
+The shell startup-default correction has final scoped acceptance. Continue diagnosing the retained unexplained PostgreSQL acquisition failure and assess other applicable [method-level parity inventory](test-parity.md). The external-tool source increment and twelve-method classification have final bounded acceptance; authorization deferral remains a separate contract.
 
 - [x] Complete independent acceptance of the finite pinned Plan propagation classification against current explicit child installation.
 - [x] Accept the bounded external-tool execution contract and finite twelve-method classification after source/spec verification and final independent review.

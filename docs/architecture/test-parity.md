@@ -30,6 +30,7 @@ The unchanged Toolkit blob `79be10c316f676da5d96977419e5be4caf02886f` lost a cle
 ## Progress checklist
 
 - [x] Close the reproduced PathSafety command-classification gaps with independently approved [advisory lexical screening regressions](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions). This is additional local contract coverage, not a new upstream mapping or shell-authorization guarantee.
+- [x] Accept the reproduced [shell startup-default omissions](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#shell-startup-defaults) with final independent source/documentation approval and passing focused/full/artifact verification. Existing filename tables pair explicit Bash/Zsh startup names with permitted near-misses; this is additional local INV-10 coverage, not an upstream method mapping.
 
 - [x] Implement selected local suites for messages/content, events, tools, stream parsing, ReAct, structured output, compaction, eviction, and permissions.
 - [x] Add deterministic ZIO regressions for cancellation, scope cleanup, storage publication, and repeated compaction.
