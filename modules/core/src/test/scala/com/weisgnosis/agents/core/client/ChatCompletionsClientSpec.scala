@@ -302,7 +302,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
                           response(
                             ZStream.succeed(
                               text + stop + frame(
-                                """{"choices":[],"usage":{"prompt_tokens":3,"completion_tokens":4}}"""
+                                """{"choices":[],"usage":{"prompt_tokens":3,"completion_tokens":4,"prompt_cache_hit_tokens":2,"prompt_tokens_details":{"cached_tokens":1,"cache_write_tokens":5}}}"""
                               ) + done
                             )
                           )
@@ -352,7 +352,8 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
                   (if accepted then Chunk("answer") else Chunk.empty),
                 if accepted then
                   exit.isSuccess && history.lastOption.exists(message =>
-                    message.text == "answer" && message.usage.contains(ChatUsage(3, 4))
+                    message.text == "answer" && message.usage
+                      .contains(ChatUsage(3, 4, cachedTokens = 2, cacheCreationTokens = 5))
                   )
                 else
                   exit.causeOption.exists(_.failureOption.exists {

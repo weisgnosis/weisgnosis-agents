@@ -32,10 +32,27 @@ ReActAgentEventSpec checks AgentStart first and the matching AgentEnd last for f
 | Reviewed spec | Git blob |
 | --- | --- |
 | [ReActAgentEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEventSpec.scala) | `e2991912ecc419178a41373ae9b56d7467314faf` |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current parallel-steering identity](#optional-parallel-tool-call-steering) |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no findings. Existing groups were strengthened; no production behavior or test-group count changed. Focused `event-order-focused.log` passed seventeen tests in 7.747 seconds.
 - [x] Formatting and full verification passed in `event-order-verify.log`, with zero compiler warnings or failures. Current totals and environment belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+
+## Cache usage decoding
+
+Compatible streamed usage preserves prompt_cache_hit_tokens and prompt_tokens_details.cache_write_tokens in the existing ChatUsage.cachedTokens and cacheCreationTokens fields. A supplied direct cache-hit count takes precedence over nested cached_tokens, including explicit zero. Missing or JSON-null direct counts fall back to the nested count, then zero. Missing/null cache-write counts become zero. All supplied recognized counts are validated as nonnegative JSON integers within Int bounds before precedence is applied; a malformed overridden fallback is still rejected.
+
+This is a private decoder correction without public source/JVM or configuration migration. It changes previously lost usage observations, not token billing, model generation, permissions or lifecycle ownership. The parser table and existing real HTTP retry scenario verify decoded counters and canonical history. Full non-streaming response parsing and other provider formats remain separate work.
+
+| Reviewed file | Git blob |
+| --- | --- |
+| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 3c41beccf18b36bb918ceda0c55eea4eabd5818c |
+| [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | 59fb419d7a2e2997e7a9a2df3870c19bb23edddf |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | 68a6fee09f9ac7777e9061ea4470e45b97683167 |
+
+- [x] review_fp and review_invariants independently approved these three identities with no findings.
+- [x] The regression ran against unchanged adapter blob 8873f07ca50be4f4881bd6cd3ff05e4b50741b0d: cache-usage-red.log records 16 passes/2 failures, including actual cached=20/creation=0 instead of expected 60/12 and acceptance of a malformed direct count.
+- [x] cache-usage-focused.log passes all 27 parser/client groups; existing tables were extended without adding groups.
+- [x] Formatting, verify and packageArtifacts pass in cache-usage-verify.log: 659 core / 724 harness / 85 MCP / 5 examples (1,473 total), zero compiler warnings or failed tests. Current documentation links and English prose are checked before commit.
 
 ## Optional parallel tool-call steering
 
@@ -51,7 +68,7 @@ Migration: LlmConfig now has thirteen positional/Product fields. Existing omitte
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `d365bd51151f71bc46b8b5cc6f0e7cd6ea4bebc1` |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `62199f66a9227b8c79d05c7640e0bd29711c9d62` |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | `bf364a5eefd834537cd20a8ffa23ab5c94dc5cb1` |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current ChatCompletionsClientSpec.scala identity](../tool/README.md#checked-registry-identity) |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for these five identities, with no findings.
 - [x] resume-focused.log passed 41 core tests in 8.172 seconds, including existing request/config/failover tables and the actual HTTP authorization cycle. Full formatting, verify and packageArtifacts passed in resume-verify.log; an isolated packaged consumer exercised typed configuration in resume-artifact-consumer.log. No new test groups or live-provider compliance claim are implied.
@@ -114,7 +131,7 @@ Migration: LlmConfig has a defaulted toolChoice; its current positional/Product 
 | --- | --- |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 | [LlmClient.scala](LlmClient.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current ordering identity](#runtime-event-ordering) |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current seed/rendering identity](#optional-seed-and-exact-request-rendering) |
 
@@ -167,7 +184,7 @@ ReasoningModelAdapter.parseChunk now returns Either[AgentError, Chunk[LlmChunk]]
 
 Normal frames require an explicit choices array. Exactly one choice with an explicit integer index of zero is supported; alternative choices are rejected instead of combined. Empty choices are permitted with usage. Role-only and empty terminal deltas are valid. Tool fragments require nonnegative integer stream indexes, unique within each frame; optional IDs/names support later fragments without inventing index zero. Duplicate JSON fields are rejected throughout the input tree, including ignored extension objects.
 
-Missing/JSON-null usage counts normalize to zero. Supplied counts and indexes must be nonnegative JSON integers within Int bounds; strings, fractions, overflow, and malformed nested objects fail. Non-null provider error envelopes become ModelError with status 200, representing an error carried inside an otherwise successful streaming response. Missing/empty provider messages receive a deterministic fallback. The transport preserves actual HTTP rejection status separately.
+Missing/JSON-null usage counts normalize to zero after the [cache-counter precedence rules](#cache-usage-decoding). Supplied counts and indexes must be nonnegative JSON integers within Int bounds; strings, fractions, overflow, and malformed nested objects fail. Non-null provider error envelopes become ModelError with status 200, representing an error carried inside an otherwise successful streaming response. Missing/empty provider messages receive a deterministic fallback. The transport preserves actual HTTP rejection status separately.
 
 Indexed function tools, text, and reasoning_content/thinking strings are supported. Non-assistant roles, nonempty refusal deltas, unsupported tool kinds, and non-null legacy function_call payloads fail explicitly. For the existing scalar profiles, reasoning_content takes precedence over thinking. Unknown extension fields remain ignored unless they contain duplicate keys; this does not establish support for response audio or other provider payloads. The explicit OpenRouterDetails profile below instead derives plaintext exclusively from its checked detail array; it preserves exact checked objects for replay.
 
@@ -234,7 +251,7 @@ Unchanged signature-scope identities remain below; current request/spec identiti
 | --- | --- |
 | ChatCompletionsClient.scala | Current identity: [retry acceptance](#bounded-http-status-retries). |
 
-| [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | af2751bfa6d0e9388411acc93928d6012ffed63d |
+| [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | [Current identity](#cache-usage-decoding) |
 
 The signature contract retains its independent path_review/current_docs approval and signature-mcp-verify.log evidence. Its real HTTP fixture verifies per-call preservation and signed rewrite denial, not live Google interoperability.
 
@@ -259,12 +276,12 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | ChatCompletionsTransport.scala | Current identity: [retry acceptance](#bounded-http-status-retries). |
 | [LlmChunk.scala](LlmChunk.scala) | a35e034b66a8139d05ee1c6b1622ca19871538b1 |
 | [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 35b65c607b31f46da8213f4ffcfb12a6d7439128 |
-| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 8873f07ca50be4f4881bd6cd3ff05e4b50741b0d |
+| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | [Current identity](#cache-usage-decoding) |
 | [StreamAccumulator.scala](StreamAccumulator.scala) | 1a01caa33dd0bfbefac53cf4697c6168d73c2a79 |
 | [Msg.scala](../model/Msg.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current ReActAgentReasoningHookSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current ReActAgentToolAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| ChatCompletionsClientSpec.scala | Current identity: [ordering acceptance](#runtime-event-ordering). |
+| ChatCompletionsClientSpec.scala | [Current identity](#cache-usage-decoding) |
 | [ReasoningAdapterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterSpec.scala) | 1f17e10621d99b2cd79f0382f7c4cc7255b68cf0 |
 | [StreamAccumulatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorSpec.scala) | e90bd63fa63fa74f395d557a5199093dc77f8954 |
 | [ConversationCompactor.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/ConversationCompactor.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
@@ -309,7 +326,7 @@ Migration: ChatCompletionsClient.make and ChatCompletionsTransport.make append a
 | ChatCompletionsClient.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
 | [CompletionRetryPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionRetryPolicySpec.scala) | 5df81123863d6f3faa10cfd1c70206f2604baf63 |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | cb042aee28d6e082c9688481f4b08c0e1540df1d |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current ordering identity](#runtime-event-ordering) |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the six identities above, with no open findings. Full scalafmtAll scalafmtSbt verify passed in http-retry-verify.log with zero compiler warnings or failed tests. The focused http-retry-green.log run passed 26 tests in 5.408 seconds, including policy validation, two attempt-lifecycle/status groups and the actual HTTP 429/400 client table. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 

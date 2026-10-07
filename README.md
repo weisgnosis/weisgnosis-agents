@@ -1,6 +1,6 @@
 # weisgnosis-agents
 
-Numeric-integrity and typed provider-steering changes have final independent approval and full verification; the [current delivery gates](docs/architecture/tracker.md#current-delivery-gates) record evidence and remaining work. Acceptance applies only to the recorded scope and reviewed revision.
+Compatible streamed cache counters now preserve direct cache-hit precedence and cache-write usage through the [reviewed decoder contract](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding). The [current delivery gates](docs/architecture/tracker.md#current-delivery-gates) distinguish accepted scope from unfinished work.
 
 Ordinary before-acting suspension, explicit resume and resumed event streams with checked supplied results and data-only checkpoint restoration are implemented and independently reviewed; see the [runtime contract](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). Complete/partial checkpoint confirmations and nonblocking policy admission are accepted; generic checkpoint event correlation is accepted. Host checkpoint authentication, storage and exclusive claims remain external.
 

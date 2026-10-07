@@ -52,6 +52,10 @@ The [bounded status-retry contract](../../../../../../../main/scala/com/weisgnos
 
 [ModelFailoverSpec](ModelFailoverSpec.scala) exercises the runtime-owned target boundary through the real completion adapter with controlled drivers. Both final reviews and full model-failover-verify.log verification are recorded in the [runtime contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#scoped-model-failover). Its scope distinguishes eligible rejection from arbitrary public errors or successful-response failures, preserves canonical history with fresh target projections/contexts, and checks structured-plan compatibility and complete fallback failure causes. Its selected-request extension checks per-target settings and serialized views, unchanged tool/schema authority and fixed-input execution through controlled drivers; current acceptance is in the [projection contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#current-model-input-identities). It does not establish live-provider routing, failover listeners or general network recovery.
 
+## Cache usage evidence
+
+Existing usage tables verify direct cache-hit precedence, explicit zero, absent/null fallback, cache-write preservation and strict malformed-count rejection, including overridden fallback counts. The existing real HTTP retry scenario checks these counters in canonical assistant history. No new test groups were added. Both independent reviewers approved the [exact source/spec identities](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding); that contract records RED/GREEN evidence and remaining verification gates.
+
 ## Current acceptance
 
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.
@@ -84,5 +88,5 @@ Real loopback client/server acquisition, use and release run with a live clock. 
 | Reviewed fixture suite | Git blob |
 | --- | --- |
 | ChatCompletionsTransportSpec | Current identity: [retry acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries). |
-| ChatCompletionsClientSpec | Current identity: [ordering acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#runtime-event-ordering). |
+| ChatCompletionsClientSpec | Current identity: [cache-usage acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding). |
 | [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | [Current ChatCompletionsTransformSpec.scala identity](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |

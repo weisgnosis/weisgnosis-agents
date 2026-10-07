@@ -73,7 +73,8 @@ object ReasoningModelAdapter:
   ) derives JsonDecoder
 
   final private case class PromptDetails(
-      @jsonField("cached_tokens") cachedTokens: Option[TokenCount] = None
+      @jsonField("cached_tokens") cachedTokens: Option[TokenCount] = None,
+      @jsonField("cache_write_tokens") cacheWriteTokens: Option[TokenCount] = None
   ) derives JsonDecoder
 
   final private case class CompletionDetails(
@@ -83,6 +84,7 @@ object ReasoningModelAdapter:
   final private case class Usage(
       @jsonField("prompt_tokens") promptTokens: Option[TokenCount] = None,
       @jsonField("completion_tokens") completionTokens: Option[TokenCount] = None,
+      @jsonField("prompt_cache_hit_tokens") promptCacheHitTokens: Option[TokenCount] = None,
       @jsonField("prompt_tokens_details") promptDetails: Option[PromptDetails] = None,
       @jsonField("completion_tokens_details") completionDetails: Option[CompletionDetails] = None
   ) derives JsonDecoder
@@ -262,7 +264,12 @@ object ReasoningModelAdapter:
       ChatUsage(
         inputTokens = value.promptTokens.map(_.value).getOrElse(0),
         outputTokens = value.completionTokens.map(_.value).getOrElse(0),
-        cachedTokens = value.promptDetails.flatMap(_.cachedTokens).map(_.value).getOrElse(0),
+        cachedTokens = value.promptCacheHitTokens
+          .orElse(value.promptDetails.flatMap(_.cachedTokens))
+          .map(_.value)
+          .getOrElse(0),
+        cacheCreationTokens =
+          value.promptDetails.flatMap(_.cacheWriteTokens).map(_.value).getOrElse(0),
         reasoningTokens =
           value.completionDetails.flatMap(_.reasoningTokens).map(_.value).getOrElse(0)
       )

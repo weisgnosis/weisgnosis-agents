@@ -252,25 +252,53 @@ object ReasoningAdapterValidationSpec extends ZIOSpecDefault:
       )
     },
     test("usage-only chunks preserve metrics and normalize absent or null counts") {
-      val usage =
-        """{"choices":[],"usage":{"prompt_tokens":null,"completion_tokens":7,"prompt_tokens_details":{"cached_tokens":null}}}"""
-      assertTrue(
-        ReasoningModelAdapter.parseChunk(usage) == Right(
-          Chunk(LlmChunk.UsageChunk(ChatUsage(outputTokens = 7)))
+      val cases = Chunk(
+        (
+          """{"prompt_tokens":null,"completion_tokens":7,"prompt_tokens_details":{"cached_tokens":null}}""",
+          ChatUsage(outputTokens = 7)
+        ),
+        (
+          """{"prompt_tokens":100,"completion_tokens":50,"prompt_cache_hit_tokens":60,"prompt_tokens_details":{"cached_tokens":20,"cache_write_tokens":12}}""",
+          ChatUsage(100, 50, cachedTokens = 60, cacheCreationTokens = 12)
+        ),
+        (
+          """{"prompt_cache_hit_tokens":0,"prompt_tokens_details":{"cached_tokens":20}}""",
+          ChatUsage()
+        ),
+        (
+          """{"prompt_cache_hit_tokens":null,"prompt_tokens_details":{"cached_tokens":20,"cache_write_tokens":null}}""",
+          ChatUsage(cachedTokens = 20)
+        ),
+        (
+          """{"prompt_tokens_details":{"cached_tokens":20,"cache_write_tokens":12}}""",
+          ChatUsage(cachedTokens = 20, cacheCreationTokens = 12)
         )
       )
+      checkAll(Gen.fromIterable(cases)) { case (usage, expected) =>
+        assertTrue(
+          ReasoningModelAdapter.parseChunk(s"""{"choices":[],"usage":$usage}""") == Right(
+            Chunk(LlmChunk.UsageChunk(expected))
+          )
+        )
+      }
     },
     test("malformed and negative usage fields fail rather than becoming zero") {
       val invalid = Chunk(
-        "{\"prompt_tokens\":\"10\"}",
-        "{\"completion_tokens\":-1}",
-        "{\"prompt_tokens_details\":[]}",
-        "{\"completion_tokens_details\":{\"reasoning_tokens\":true}}"
+        """{"prompt_tokens":"10"}""",
+        """{"completion_tokens":-1}""",
+        """{"prompt_tokens_details":[]}""",
+        """{"completion_tokens_details":{"reasoning_tokens":true}}"""
       )
-      assertTrue(
-        invalid.forall(usage =>
-          ReasoningModelAdapter.parseChunk(s"""{"choices":[],"usage":$usage}""").isLeft
+      val invalidCounts = Chunk("-1", "\"10\"", "0.5", "2147483648", "true", "[]", "{}")
+      val cacheFields = invalidCounts.flatMap(value =>
+        Chunk(
+          s"""{"prompt_cache_hit_tokens":$value,"prompt_tokens_details":{"cached_tokens":20}}""",
+          s"""{"prompt_cache_hit_tokens":60,"prompt_tokens_details":{"cache_write_tokens":$value}}""",
+          s"""{"prompt_cache_hit_tokens":60,"prompt_tokens_details":{"cached_tokens":$value}}"""
         )
+      )
+      checkAll(Gen.fromIterable(invalid ++ cacheFields))(usage =>
+        assertTrue(ReasoningModelAdapter.parseChunk(s"""{"choices":[],"usage":$usage}""").isLeft)
       )
     },
     test("provider errors are surfaced even when the choices field is absent") {

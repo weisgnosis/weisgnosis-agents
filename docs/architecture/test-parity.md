@@ -411,6 +411,9 @@ Inline event metadata intentionally preserves the complete result map; pinned up
 
 ## Completion parser hardening
 
+- [x] Bounded streamed-usage adaptation of pinned OpenAIResponseParserTest.testParseDeepSeekPromptCacheHitTokens (1134): 100 input / 50 output / 60 direct cached tokens. OpenAIResponseParser.getSafeCachedTokens (86–94) supplies direct-before-nested precedence, including zero; getSafeCacheCreationTokens (104–110) supplies nested cache_write_tokens. Existing Scala parser tables add null fallback and strict validation; the HTTP scenario checks canonical history. The [cache-usage contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding) records exact review and RED/GREEN evidence. This does not implement the Java full-message envelope or close full formatter parity.
+
+
 - [x] Preserve the three original reasoning/tool/usage parsing scenarios through a typed Either result.
 - [x] Add sixteen Scala protocol-boundary regressions in ReasoningAdapterValidationSpec, including required choices, strict integer/index handling, duplicate keys, provider errors, legacy function-call rejection, and mixed-choice rejection.
 - [ ] Complete the method-level inventory of provider extension parser suites and transport suites; these new hardening tests are not claimed as sixteen upstream methods.
