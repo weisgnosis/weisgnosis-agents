@@ -361,8 +361,11 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
       )
     ,
     test("requires DONE even after a valid finish marker"):
-      for result <- run(response(text + stop)).either
-      yield assertTrue(result.left.exists(_.message == "Event stream ended before [DONE]"))
+      ZIO
+        .foreach(Chunk("", "data: [DONE]", "data: [DONE]\n", "data: [DONE]\r\n")): tail =>
+          for result <- run(response(text + stop + tail)).either
+          yield assertTrue(result.left.exists(_.message == "Event stream ended before [DONE]"))
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
     test("requires valid completion and rejects malformed protocol frames"):
       for

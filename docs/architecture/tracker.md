@@ -4,15 +4,16 @@ Last synchronized: 2026-10-07. Implementation is active. This document records c
 
 ## Current delivery gates
 
-Current delivered scope includes exact numeric event metadata, typed provider parallel-call steering, checked Toolkit registry identity, compatible cache-usage preservation, typed stop sequences, optional reasoning effort and per-tool provider schema strictness. Linked package contracts own exact source/spec identities and bounded review evidence; previous verification history belongs to Git.
+Current delivered scope includes exact numeric event metadata, typed provider parallel-call steering, checked Toolkit registry identity, compatible cache-usage preservation, typed stop sequences, optional reasoning effort and per-tool provider schema strictness, plus blank-line-terminated SSE completion. Linked package contracts own exact source/spec identities and bounded review evidence; previous verification history belongs to Git.
 
 - [x] review_fp and review_invariants approved the [cache-usage decoder](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding), including reproduced loss/validation defects and final documentation.
 - [x] review_fp and review_invariants approved the [typed stop-sequence implementation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-stop-sequences), preserving selected-target projection and runtime completion/tool authority; exact identities are recorded there.
 - [x] review_fp and review_invariants approved the [optional reasoning-effort subset](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-reasoning-effort), with exact source identities and proportional request/projection/failover tables.
 - [x] review_fp and review_invariants approved [per-tool provider strictness](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness), including exact tool membership and preservation through fixed wrappers and MCP binding.
-- [x] Format and run verify packageArtifacts: tool-strictness-verify.log passes 660 core / 724 harness / 85 MCP / 5 examples (1,474 total), zero compiler warnings or failed tests.
-- [x] Inspect all six binary/source JARs and POM scopes in tool-strictness-artifact-preparation.log; tool-strictness-artifact-consumer.log clean-compiles and runs the neutral external consumer against fresh loaded artifact hashes, including typed stop construction/configuration, stop/reasoning-effort settings and exact per-tool strictness/schema projection.
-- [x] Synchronize affected current contracts, migration, bounded upstream mappings and checkbox progress; review English prose and local Markdown links before commit.
+- [x] review_fp and review_invariants approved the exact [SSE EOF correction](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion); RED 19/2 and focused GREEN 21/0 are recorded there.
+- [x] Format and run verify packageArtifacts: sse-framing-verify.log passes 661 core / 724 harness / 85 MCP / 5 examples (1,475 total), zero compiler warnings or failed tests.
+- [x] Validate all six binary/source JARs and POMs in sse-framing-artifact-preparation.log; sse-framing-artifact-consumer.log clean-compiles and runs the neutral external consumer against fresh loaded artifact hashes.
+- [x] Synchronize affected current contracts, migration, bounded upstream mappings and checkbox progress; both reviewers approved final documentation. English prose/comments and 75 Markdown documents / 2,516 local references pass review/checks; no temporary review report remains.
 
 ExactJson remains opt-in and requires faithful encoder AST conversion. External dependency .toJson and legacy direct tool encoders are not globally replaced. This acceptance does not close remote storage, durable host integration, remaining parity, platform/live-provider or release work below. No remote publication or push was performed.
 
@@ -36,7 +37,7 @@ ExactJson remains opt-in and requires faithful encoder AST conversion. External 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for initialized McpClient, checked request builders, typed remote errors and updated stdio integration, with no findings. The [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) owns exact identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed tool observations and compound cancellation-cause preservation, with no findings; the [tool acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance) owns exact scope and identities.
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the bounded scoped MCP manager, with no findings; the [client acceptance](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#verification-and-acceptance) records exact identities and the reproduced compound-cause correction.
-- [x] Full formatting and `verify packageArtifacts` passed: 659 core / 724 harness / 85 MCP / 5 examples tests (1,473 total), zero compiler warnings or failed tests. Evidence: `toolkit-identity-verify.log`, tracked archive/POM inspection in `toolkit-artifact-preparation.log` and the standalone `toolkit-artifact-consumer.log`. This run used process-local `JAVA_TOOL_OPTIONS=-Xms64m -Xmx1024m -Xss16m -XX:ActiveProcessorCount=2` and `sbt --mem 1024`.
+- [x] Full verification and fresh artifact consumption pass; current counts and evidence belong to the [delivery gates](#current-delivery-gates). Host JVM settings are recorded below.
 - [x] Pin upstream reference to `f98a685fdc4589f81e626e1686ac2c63d14a2304`; the [parity audit](test-parity.md) records bounded method mappings, reproduced defects and explicit exclusions.
 
 ## Available capabilities
@@ -178,7 +179,8 @@ The host installs these capabilities explicitly. It owns background supervisor s
 - [x] Reconcile the selected request-parameter methods in pinned OpenAIChatFormatterTest: current options/tool choice/seed/response format/stops are mapped with explicit exclusions for reflection, mutable default merging and arbitrary extra-body maps. Broader formatter/parser inventory remains open.
 - [x] Implement and independently review the optional Low/Medium/High reasoning-effort subset through target settings/projection and exact wire mapping; existing tables also check json_object format without adding groups.
 - [x] Implement optional per-tool provider strictness with preserved schemas, typed true/false/omission and exact admitted tool membership; fixed wrappers and MCP bindings retain host definitions.
-- [ ] Next: reconcile remaining provider-profile and parser methods against pinned upstream before selecting further wire extensions. Other provider/media, remote persistence, platform and release validation remain unfinished.
+- [x] Inspect selected indexed-delta parser and completed-DONE termination methods against pinned upstream; no additional applicable delta behavior was identified. Full-message/MiniMax summary-envelope methods remain explicitly open in the parity mapping.
+- [ ] Next: define and implement the next explicit provider envelope profile from the remaining formatter/parser mappings, including full-message summary replay boundaries before adding permissive decoding. Other provider/media, remote persistence, platform and release validation remain unfinished.
 
 Remote memory/checkpoint storage remains unfinished. Existing local ports do not establish remote ownership, conditional publication or recovery semantics; bounded local discovery does not close that gap.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.

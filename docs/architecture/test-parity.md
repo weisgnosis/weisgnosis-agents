@@ -46,6 +46,7 @@ The unchanged Toolkit blob `79be10c316f676da5d96977419e5be4caf02886f` lost a cle
 - [ ] Complete the tool matrix and platform-specific symlink integration coverage.
 - [x] Add one real loopback HTTP/chunked SSE test and thirteen deterministic transport boundary/lifecycle tests.
 - [x] Verify a real HTTP ReAct tool cycle and incremental correlated model events.
+- [x] Reproduce and correct incomplete core SSE frame dispatch at EOF, including truncated DONE accepted as completion. The [scoped contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion) records exact independent review identities and RED/GREEN evidence. This is a protocol regression derived from the EOF contract, not a new upstream whole-method mapping. OpenAIStreamTerminationTest.streamCompletesOnDoneSentinelWithoutWaitingForConnectionClose (line 91) maps to the existing transport open-tail/cleanup test; it does not test incomplete EOF framing.
 - [ ] Complete remaining provider scenarios and exhaustive upstream transport mapping.
 - [ ] Complete ReAct and interruption scenario mappings, including lifecycle hooks not yet implemented.
 - [ ] Complete the thinking-only empty-response scenario mapping.

@@ -20,7 +20,7 @@ import zio.stream.ZStream
 import zio.test.*
 
 /**
- * Selected upstream scenario suite for OpenAISseParserTest.java from AgentScope Java.
+ * SSE framing contracts for the selected LF/CRLF streaming profile.
  */
 object SseParserSpec extends ZIOSpecDefault:
 
@@ -68,6 +68,26 @@ object SseParserSpec extends ZIOSpecDefault:
         events.lift(0).exists(_.data == "[DONE]")
       )
     },
+    test("dispatches only blank-line-terminated frames across byte boundaries"):
+      val cases = Chunk(
+        ("data: [DONE]", Chunk.empty[SseEvent]),
+        ("data: [DONE]\n", Chunk.empty[SseEvent]),
+        ("data: [DONE]\r\n", Chunk.empty[SseEvent]),
+        ("data: [DONE]\n\n", Chunk(SseEvent("[DONE]"))),
+        ("data: [DONE]\r\n\r\n", Chunk(SseEvent("[DONE]"))),
+        ("data: retained\n\ndata: incomplete", Chunk(SseEvent("retained"))),
+        ("data: retained\n\ndata: incomplete\n", Chunk(SseEvent("retained")))
+      )
+      ZIO
+        .foreach(cases): (payload, expected) =>
+          for events <- ZStream
+              .fromChunk(Chunk.fromArray(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+              .rechunk(1)
+              .via(SseParser.parseBytes)
+              .runCollect
+          yield assertTrue(events == expected)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("Parses event name and id fields") {
       val rawLines = Chunk(
         "event: custom_event",

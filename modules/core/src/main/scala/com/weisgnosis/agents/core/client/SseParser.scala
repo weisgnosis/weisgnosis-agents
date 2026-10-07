@@ -33,7 +33,8 @@ final case class SseEvent(
  * Pure streaming SSE parser transforming raw lines or byte streams into structured SseEvent frames.
  *
  * Discards comment lines (`: keep-alive`), buffers multi-line `data:` payloads,
- * and detects `[DONE]` termination.
+ * and detects `[DONE]` termination only in blank-line-terminated frames.
+ * Pending data is discarded when the input ends before a blank line.
  */
 object SseParser:
 
@@ -81,10 +82,7 @@ object SseParser:
             else loop(finalState)
           },
           (err: Nothing) => ZChannel.fail(err),
-          (_: Any) =>
-            state.toEvent match
-              case Some(ev) => ZChannel.write(Chunk(ev)) *> ZChannel.unit
-              case None     => ZChannel.unit
+          (_: Any) => ZChannel.unit
         )
       loop(ParserState())
     }

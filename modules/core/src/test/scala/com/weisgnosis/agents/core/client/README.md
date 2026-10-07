@@ -1,5 +1,7 @@
 # Model client and stream verification
 
+The [SSE frame-completion contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion) records the reproduced EOF defect, exact three-file review identities and verification. One parser table adds fragmented LF/CRLF boundary coverage; the existing transport group requires the exact EOF failure for incomplete DONE. Complete frames remain accepted. These are local protocol regressions, not a nonexistent upstream SseParser suite or complete EventSource parity.
+
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
 Existing tool-choice tables verify omitted/default/null codecs, visible definitions and all encoded forms. The real HTTP tool-cycle table proves choice is not authorization: host-approved execution despite none, denied execution despite Specific, and zero HTTP for hidden Specific. Failover/structured rows inspect retained per-target choices. Exact identities and verification belong to the [tool-choice contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#host-selected-tool-choice).

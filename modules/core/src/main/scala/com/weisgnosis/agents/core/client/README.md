@@ -24,6 +24,24 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [StreamAccumulator](StreamAccumulator.scala)
 - [TurnOutput](TurnOutput.scala)
 
+## SSE frame completion
+
+The selected core SSE byte profile accepts LF and CRLF line separators, including separators fragmented across chunks. A data frame is dispatched only after an explicit blank line. EOF discards pending frame data and preserves already dispatched frames; an unterminated [DONE] cannot complete a model turn. The transport still requires a valid finish reason and complete indexed tool arguments before returning executable output. This follows the [event-stream EOF rule](https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation). Standalone CR separators and complete browser EventSource semantics are outside this profile; MCP uses its separately reviewed framing implementation.
+
+This corrects parser behavior without changing public signatures or configuration. Providers must terminate each data frame, including [DONE], with a blank line. No EOF-as-success fallback is added.
+
+| Reviewed source/spec | Git blob |
+| --- | --- |
+| [SseParser.scala](SseParser.scala) | `3366a9989e9abc1104cb343676c375e599e7578a` |
+| [SseParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/SseParserSpec.scala) | `b5db54ccfd26934b7b3eee22bd31f0c5db0df57a` |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | `9373c3be70436ada1143fc5e65a3d0896fea1a73` |
+
+- [x] review_fp approved FP/ZIO correctness and review_invariants approved completion authority for these exact identities, with no findings.
+- [x] sse-framing-red.log reproduces the defect against unchanged production: 19 passed / 2 failed. Incomplete parser frames were emitted, and all three unterminated DONE variants returned successful FinalText instead of the required EOF failure.
+- [x] sse-framing-focused.log passes 21 groups. One parser table group covers complete/incomplete byte-fragmented LF/CRLF frames and retained completed prefixes; the existing transport completion group checks missing and truncated DONE. No additional upstream whole-method parity is claimed.
+- [x] Formatting and verify packageArtifacts pass in sse-framing-verify.log: 661 core / 724 harness / 85 MCP / 5 examples (1,475 total), zero compiler warnings or failed tests. sse-framing-artifact-preparation.log validates archives/POMs; sse-framing-artifact-consumer.log clean-compiles and runs the neutral consumer against fresh loaded JAR hashes.
+- [x] Both reviewers approved final source/documentation closure. Changed prose/comments were reviewed in English; 75 Markdown documents / 2,516 local references pass with zero link issues. No temporary review report remains.
+
 ## Runtime event ordering
 
 The held stream and real HTTP tool cycle in ChatCompletionsClientSpec assert the complete lifecycle projection, excluding only raw ModelResponseChunkEvent frames. Incremental content/tool-call Start and Delta events precede ModelResponseEnd; block End events follow validated completion. Thinking and text are independently indexed streams: the tested thinking-then-text input begins thinking first, but text may start before ThinkingEnd. A completed local result lifecycle occurs between the tool-call model response and the next model request. AgentResult precedes the final AgentEnd. Hosts may explicitly apply the [final-answer presentation filter](../event/README.md#optional-final-answer-filter) to delay/suppress correlated intermediate text; raw diagnostics, final results and canonical history remain unchanged.

@@ -82,6 +82,8 @@ ChatCompletions/MCP, structured closing text and local transcript outputs use ex
 
 ## Current acceptance
 
+The [core SSE frame-completion contract](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion) records the independently reviewed correction that rejects truncated DONE and discards incomplete EOF frames; LF/CRLF framing is the selected profile.
+
 - [x] `path_review` and `current_docs` approved [run-owned model-facing group activation](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#run-owned-tool-group-activation), with fresh invocation state, snapshot-consistent descriptions/reset notes and shared structured fallback. Exact source/spec identities and full verification are recorded in the linked contract.
 
 - [x] Both independent reviewers approved the [preloaded skill catalogue](modules/core/src/main/scala/com/weisgnosis/agents/core/skill/README.md) and [runtime loader](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#preloaded-skills); scoped identities, limitations and verification are recorded there.
