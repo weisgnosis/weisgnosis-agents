@@ -76,6 +76,14 @@ The paired StopSequencesSpec checks nonempty construction, exact array round-tri
 
 Existing usage tables verify direct cache-hit precedence, explicit zero, absent/null fallback, cache-write preservation and strict malformed-count rejection, including overridden fallback counts. The existing real HTTP retry scenario checks these counters in canonical assistant history. No new test groups were added. Both independent reviewers approved the [exact source/spec identities](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding); that contract records RED/GREEN evidence and remaining verification gates.
 
+## Opaque signature profile evidence
+
+The [OpaqueSignatureDetails contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details) owns current ReasoningDetailSpec identity, completed source/focused/full/artifact evidence and remaining final documentation approval. The bounded extension targets strict signature-only decoding, unchanged existing profile admission, exact ordered arrays and explicit empty replay across historical assistant messages, Msg round-trip, separate scalar reasoning, pure full-completion decoding and a scripted ReAct cycle. It does not validate a live endpoint or change Google tool wire encoding.
+
+- [x] Both source reviewers approved the exact four-file scope; opaque-signature-focused.log passes all six tests with zero failures/ignored tests.
+- [x] Full verification passes all 1,522 tests with zero compiler warnings/failures/ignored tests; archive inspection and fresh standalone consumption pass under the canonical contract.
+- [x] review_fp and review_invariants approved the final eleven-file combined scope against 8d0aad6; no unresolved findings remain.
+
 ## Current acceptance
 
 - [x] Previously accepted request serialization, scoped transport, live client/events, and completed tool-result contracts are recorded at `38c48db`, `60b3799`, `84e4eb3`, and `9c165a7`. Unchanged contracts retain that acceptance; Git preserves earlier exact source identities.

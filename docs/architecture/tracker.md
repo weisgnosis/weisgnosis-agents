@@ -42,14 +42,14 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Thinking-only retry contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#thinking-only-retry-contract) has final test/documentation acceptance with independent retry/iteration bounds and no extra summarizing request.
 
-Current delivery scope against c507dad: active interactive batch preflight, with initial stable policy-denied/preparation-error observations drained before approval publication. The prior child-environment scope remains accepted under its package contract. The new contract does not cache approval, discover every future denial or supply authenticated/durable delivery.
+- [x] [Interactive batch preflight](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight) has final scoped acceptance for stable initial policy denials/preparation errors before Ask; normal authorization remains fresh and dynamic gates remain execution-time decisions.
 
-- [x] Implement occurrence-bound preparation and scoped denial-only preflight, preserving fresh normal authorization for Continue.
-- [x] Reproduce the previously unsupported Ask-first ordering on unchanged c507dad in interactive-batch-order-red.log; this is new-contract evidence, not a defect claim against an accepted profile.
-- [x] interactive-batch-plan-green.log passes 36 tests in 1.520 seconds including unchanged Plan scenarios; three independent contract groups extend existing suites. Final full verification passes 1,520 tests with zero compiler warnings/failures/ignored tests.
-- [x] review_fp and review_invariants approved the five final source/spec identities after the Plan regression correction; exact scope belongs to the permission contract.
-- [x] interactive-batch-final-verify.log passes all 1,520 tests and four RC1 packages; interactive-batch-preparation.log and interactive-batch-consumer.log pass archive admission/restoration and actual fresh four-hash external consumption.
-- [x] review_fp and review_invariants approved the final seventeen-file combined scope against c507dad. Current contracts/API/migration/parity, English/diff and 78-document/2,912-local-reference validation pass; this delivery commit records closure.
+Current delivery scope: explicit [opaque signature details](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details) against 8d0aad6, preserving every existing profile's admission boundary.
+
+- [x] review_fp and review_invariants approved the final four source/spec identities for signature-only decoding and all-historical replay.
+- [x] opaque-signature-focused.log verifies six tests, including round-trip/full-completion/scripted-cycle evidence, with zero failures/ignored tests in 674 ms.
+- [x] opaque-signature-verify.log passes all 1,522 tests with zero compiler warnings/failures/ignored tests and four RC1 packages; opaque-signature-preparation.log and opaque-signature-consumer.log pass exact archive admission and fresh four-hash standalone consumption.
+- [x] review_fp and review_invariants approved the final eleven-file combined scope against 8d0aad6; English/migration/diff and 78-document/2,928-local-reference checks pass.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -101,7 +101,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-The interactive batch-preflight scope has final independent acceptance above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+Complete the explicit opaque-signature profile and its independent verification gates above. Then select the next bounded increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
 
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.

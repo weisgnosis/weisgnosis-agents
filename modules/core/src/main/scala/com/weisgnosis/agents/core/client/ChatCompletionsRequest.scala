@@ -28,6 +28,9 @@ import zio.json.ast.Json
 enum ReasoningReplay derives JsonCodec:
   case Omit, LatestAssistant, OpenRouterEncryptedDetails, OpenRouterDetails
 
+  /** Raw legacy signature replay for a host-selected compatible endpoint; no plaintext inference. */
+  case OpaqueSignatureDetails
+
 /** Explicit wire format for opaque per-call signatures; unrelated metadata is never projected. */
 enum ToolSignatureFormat derives JsonCodec:
   case Unsupported, GoogleExtraContent
@@ -136,8 +139,9 @@ object ChatCompletionsRequest:
             ReasoningReplay.LatestAssistant
           case ReasoningReplay.OpenRouterEncryptedDetails =>
             ReasoningReplay.OpenRouterEncryptedDetails
-          case ReasoningReplay.OpenRouterDetails => ReasoningReplay.OpenRouterDetails
-          case _                                 => ReasoningReplay.Omit
+          case ReasoningReplay.OpenRouterDetails      => ReasoningReplay.OpenRouterDetails
+          case ReasoningReplay.OpaqueSignatureDetails => ReasoningReplay.OpaqueSignatureDetails
+          case _                                      => ReasoningReplay.Omit
         encodeMessage(msg, replay, toolSignatureFormat, toolResultFormat)
       body = Json.Obj(
         Chunk(
@@ -409,7 +413,8 @@ object ChatCompletionsRequest:
         .flatMap(_.metadata.get("reasoningDetails"))
       _ <- message(
         details.isEmpty || replay == ReasoningReplay.OpenRouterEncryptedDetails ||
-          replay == ReasoningReplay.OpenRouterDetails,
+          replay == ReasoningReplay.OpenRouterDetails ||
+          replay == ReasoningReplay.OpaqueSignatureDetails,
         "Reasoning details require an explicit replay profile"
       )
       reasoning <- replay match
@@ -425,7 +430,7 @@ object ChatCompletionsRequest:
             if msg.thinking.isEmpty then Chunk.empty
             else Chunk("reasoning_content" -> Json.Str(msg.thinking))
         case profile @ (ReasoningReplay.OpenRouterEncryptedDetails |
-            ReasoningReplay.OpenRouterDetails) =>
+            ReasoningReplay.OpenRouterDetails | ReasoningReplay.OpaqueSignatureDetails) =>
           for
             _ <- message(
               msg.content
@@ -437,6 +442,8 @@ object ChatCompletionsRequest:
               val checked = profile match
                 case ReasoningReplay.OpenRouterEncryptedDetails =>
                   EncryptedReasoningDetail.decodeArray(value).map(_.map(_.toDetail))
+                case ReasoningReplay.OpaqueSignatureDetails =>
+                  ReasoningDetail.decodeSignatureArray(value)
                 case _ => ReasoningDetail.decodeArray(value)
               checked.left.map(AgentError.InvalidMessage(_))
             )

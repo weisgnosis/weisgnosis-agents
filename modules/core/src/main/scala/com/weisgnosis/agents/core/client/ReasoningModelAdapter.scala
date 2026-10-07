@@ -199,6 +199,10 @@ object ReasoningModelAdapter:
               ReasoningDetail
                 .decodeArray(value)
                 .map(entries => Chunk(LlmChunk.ReasoningDetailsDelta(entries)))
+            case ReasoningReplay.OpaqueSignatureDetails =>
+              ReasoningDetail
+                .decodeSignatureArray(value)
+                .map(entries => Chunk(LlmChunk.ReasoningDetailsDelta(entries)))
             case _ => Left("Reasoning details require an explicit replay profile")
       // This selected profile uses detailed text exclusively, without cross-frame alias deduplication.
       _ <- Either.cond(

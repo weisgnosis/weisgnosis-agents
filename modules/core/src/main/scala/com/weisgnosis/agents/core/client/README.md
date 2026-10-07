@@ -40,7 +40,7 @@ Migration: the three new public helpers are additive; prior public factory/encod
 | Reviewed source/spec | Git blob |
 | --- | --- |
 | [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [CompletionEnvelopeDecoder.scala](CompletionEnvelopeDecoder.scala) | `464a7d3c69a2b7b7b847f38580d81b62a7db6534` |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
@@ -61,9 +61,9 @@ Migration: public signatures/configuration are unchanged. Input validation inten
 
 | Reviewed source/spec | Git blob |
 | --- | --- |
-| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | `8dd49ca8b602ae44bcdee42a51b558e884095cb9` |
+| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | `e5ce3b8fc49bbff67ad3a6d0d19c0e412d934729` |
-| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | [Current summary-alias identity](#summary-text-alias) |
+| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | `69bc307105d3a71fa5dbbbd9fd19da4c6c61781c` |
 
 - [x] review_fp and review_invariants approved these four exact identities with no findings.
@@ -137,7 +137,7 @@ This is a private decoder correction without public source/JVM or configuration 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | [Current identity](#scalar-reasoning-aliases) |
+| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | [Current identity](#scalar-reasoning-aliases) |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#completion-envelope-profiles) |
 
@@ -160,7 +160,7 @@ Migration: current LlmConfig has sixteen positional/Product fields and ModelRequ
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5bfb7b37d7be56f81db3d769d23e5577f436c2a3 |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current runtime identity](../agent/README.md); prior thinking-budget behavior retained, interactive-preflight final combined documentation approval passed. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | 9c4283edfc7e6b211155aec109ff6677f358ad20 |
 | [ThinkingBudget.scala](ThinkingBudget.scala) | 3b9b10520a24381327ad497f22917b92ccefbf56 |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
@@ -189,7 +189,7 @@ Migration: current arities are sixteen LlmConfig fields and nine ModelRequestSet
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 3a99d8850a8fa2905f1384bf04a818f386dd00da |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
@@ -212,7 +212,7 @@ Migration: current LlmConfig and ModelRequestSettings arities follow the [reason
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [StopSequences.scala](StopSequences.scala) | 07e81b7f93282be465a2db4d5eacb98bdac3dbca |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
@@ -236,7 +236,7 @@ Migration: current LlmConfig arity follows the [stop-sequence migration](#option
 | Reviewed file | Git blob |
 | --- | --- |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
@@ -256,7 +256,7 @@ The HTTP request body and historical tool-argument strings use the pure [exact J
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [JsonBoundary.scala](../json/JsonBoundary.scala) | `6cf481403cc762117989e31d5e1dd2c0c1ffd3be` |
@@ -280,7 +280,7 @@ Migration: Current LlmConfig and ModelRequestSettings arities are recorded in th
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current ReActAgentModelInputSpec.scala identity](../tool/README.md#checked-registry-identity) |
@@ -300,7 +300,7 @@ Migration: LlmConfig has a defaulted toolChoice; its current positional/Product 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
@@ -321,7 +321,7 @@ Migration: the appended defaulted fields preserve ordinary omitted-argument cons
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
@@ -393,7 +393,7 @@ review_fp and review_invariants approved the six final source/spec identities ag
 
 | Source/spec | Final Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | d5f046e6007582610aa3efa9f26f3b9ba2400a58 |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | 8c3448eec7da105ae2f7cb922fb38d6f6331f4e8 |
 | [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | e88411433c5929bf43f5f5d1e39556261edb1669 |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | 431f604355c87db35e4cad74e1765dd3947d599f |
@@ -428,7 +428,7 @@ Existing tables verify six inline MIME mappings, four image URL hints on a misle
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [MediaSource.scala](../model/MediaSource.scala) | a443433df837fc8d4eb4b714664b90b2a7bcef3c |
 | [MediaSourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/MediaSourceSpec.scala) | ac9619600ec48fe7f0c5713ae7f34c8f8c0f6ad6 |
@@ -447,7 +447,7 @@ The existing positive/negative request tables add the bounded pinned OpenAIVideo
 
 | Reviewed source/spec against 1227ce5 | Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 
 - [x] review_fp and review_invariants approved both final identities against 1227ce5, with no unresolved findings.
@@ -478,11 +478,34 @@ Unchanged signature-scope identities remain below; current request/spec identiti
 
 The signature contract retains its independent path_review/current_docs approval and signature-mcp-verify.log evidence. Its real HTTP fixture verifies per-call preservation and signed rewrite denial, not live Google interoperability.
 
+## Opaque signature details
+
+ReasoningReplay.OpaqueSignatureDetails explicitly selects raw legacy reasoning_details objects for a host-selected compatible endpoint. Each object must have type="signature" and nonblank string data. Optional id, format and index retain the existing checked common-field rules; duplicates, unknown fields, misplaced plaintext and malformed values reject the complete object. ReasoningDetail.make and its AST codec admit this checked variant and retain its original Json.Obj; plaintext is empty. Opaque data is neither decoded nor inferred as reasoning text.
+
+The new profile admits signature objects only. OpenRouterEncryptedDetails and OpenRouterDetails retain their original allowed types and reject signature objects; Omit and LatestAssistant remain unchanged. Scalar reasoning aliases remain independently supported under the existing opaque-profile rules, with conflicting aliases rejected. Unlike OpenRouterDetails, this profile does not make a details array authoritative over supplied scalar reasoning.
+
+Historical replay preserves exact object order and representation on every original assistant message, including an explicitly empty reasoning_details array. It emits no scalar reasoning_content and does not infer tool identity, provider compatibility or Google tool-signature extensions. Ordinary JSON and SSE use the same checked detail decoder. Hosts explicitly select a legacy-fixture-compatible endpoint; this is not a universal reasoning or provider standard.
+
+Migration: ReasoningReplay gains the additive OpaqueSignatureDetails case. Exhaustive matches must handle it and dependent binaries must be rebuilt; no LlmConfig or ModelRequestSettings arity changes. Existing defaults and selected-profile admission remain unchanged. This is an additive previously unsupported contract, not a defect claim against an accepted profile.
+
+| Reviewed source/spec | Git blob |
+| --- | --- |
+| [ReasoningDetail.scala](ReasoningDetail.scala) | `113b30fe358f830ea729ed438e661a92936c3f93` |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | `395fb47b3b9e727d984c2b1405ecd95653323eb1` |
+| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | `cfe20c66068957e22c271876d1ffc00e9a5597c7` |
+| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | `6350934a899d67c0ced0bab329f3e26d2ffeb29c` |
+
+- [x] review_fp and review_invariants approved the final four exact source/spec identities against 8d0aad6, with no unresolved source findings.
+- [x] opaque-signature-focused.log passes six tests with zero failures/ignored tests in 674 ms. The new two-group extension checks strict profile separation, exact ordered/empty historical replay, Msg round-trip, pure full-message decoding, separate scalar reasoning and a scripted LlmClient ReAct cycle. No HTTP transport or live endpoint interoperability is established by that cycle.
+- [x] opaque-signature-verify.log passes 1,522 tests (676 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), with zero compiler warnings/failures/ignored tests and four RC1 packages.
+- [x] opaque-signature-preparation.log passes exact source/POM/license checks and reversible rejection fixtures. opaque-signature-consumer.log passes standalone formatting, clean compilation and forked consumption of four fresh loaded artifact hashes; the unchanged selected consumer does not explicitly exercise the new profile.
+- [x] review_fp and review_invariants approved the final eleven-file combined scope against 8d0aad6. English and migration prose inspected; git diff --check and 78-document/2,928-local-reference checks pass. No unresolved findings remain in this scope.
+
 ## Encrypted reasoning
 
 ReasoningReplay.OpenRouterEncryptedDetails selects response decoding and all-historical-assistant replay for reasoning.encrypted only. OpenRouterDetails additionally selects reasoning.text and reasoning.summary from the [OpenRouter reasoning-details contract](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens#reasoning-details-api-shape). Both preserve each checked Json.Obj exactly, including absent fields and explicit nulls.
 
-ReasoningDetail accepts a strict local union: encrypted requires nonblank opaque data; text requires a text string and permits an absent, null or nonblank opaque signature; summary accepts a summary string or the legacy text string through the [checked alias contract](#summary-text-alias). Empty text and summary strings are valid. Each variant permits optional id (nonblank string or null), format (nonblank string) and index (nonnegative Int JSON integer). Duplicate, unknown, misplaced or malformed fields fail. EncryptedReasoningDetail retains its narrower validation and provides toDetail. Data and signatures are neither decoded nor concatenated; IDs/indexes never infer tool identity or merge objects.
+ReasoningDetail accepts a strict local union: the separately selected [legacy signature variant](#opaque-signature-details) requires nonblank opaque data and contributes no plaintext; encrypted requires nonblank opaque data; text requires a text string and permits an absent, null or nonblank opaque signature; summary accepts a summary string or the legacy text string through the [checked alias contract](#summary-text-alias). Empty text and summary strings are valid. Each variant permits optional id (nonblank string or null), format (nonblank string) and index (nonnegative Int JSON integer). Duplicate, unknown, misplaced or malformed fields fail. EncryptedReasoningDetail retains its narrower validation and provides toDetail. Data and signatures are neither decoded nor concatenated; IDs/indexes never infer tool identity or merge objects.
 
 ReasoningDetailsDelta retains objects in received order, including repeated IDs/indexes. Assembly stores one Thinking block at the first detail occurrence, with the exact reasoningDetails array and concatenated text/summary plaintext. Encrypted objects contribute no plaintext. Explicit [] is retained and replayed; absent/null wire fields remain absent. The general decoder treats any supplied array, including [], as authoritative over same-frame scalar reasoning_content/reasoning/thinking aliases. Without an array, nonempty scalar aliases fail under OpenRouterDetails; empty strings are allowed and whitespace is nonempty. This avoids cross-frame alias deduplication and deliberately limits provider compatibility. Other profiles retain their scalar behavior. Direct accumulator callers cannot mix scalar ThinkingDelta blocks and details with nonempty plaintext in either order; opaque-only details and [] remain compatible with scalar blocks.
 
@@ -499,7 +522,7 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | ChatCompletionsTransport.scala | [Current ordinary-JSON identity](#ordinary-json-completions) |
 | [LlmChunk.scala](LlmChunk.scala) | a35e034b66a8139d05ee1c6b1622ca19871538b1 |
 | [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 35b65c607b31f46da8213f4ffcfb12a6d7439128 |
-| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | [Current identity](#cache-usage-decoding) |
+| [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [StreamAccumulator.scala](StreamAccumulator.scala) | [Current identity](#completion-envelope-profiles) |
 | [Msg.scala](../model/Msg.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
@@ -511,8 +534,8 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | [ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [EncryptedReasoningDetail.scala](EncryptedReasoningDetail.scala) | 49a0287e2476b00943ff69f480f4ebca2ee46c37 |
 | [EncryptedReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/EncryptedReasoningDetailSpec.scala) | f6e5ec577c8f7da54c0e8f582321465cf693af16 |
-| [ReasoningDetail.scala](ReasoningDetail.scala) | [Current summary-alias identity](#summary-text-alias) |
-| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | [Current summary-alias identity](#summary-text-alias) |
+| [ReasoningDetail.scala](ReasoningDetail.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
+| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the nine-file general-details scope at the identities above, with no open findings. Full scalafmtAll scalafmtSbt verify passed in reasoning-details-verify.log with zero compiler warnings or failed tests. Focused reasoning-details-green.log passed 39 tests in 5.262 seconds. Unchanged encrypted-reasoning contracts retain their prior acceptance; current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 - [x] Two new pure groups and the existing HTTP table cover checked variants, literal null/empty values, scalar precedence, both mixed-chunk orders, exact historical replay and canonical/event agreement. The HTTP rows retain sibling-input protection for both selected profiles. This is loopback evidence, not live OpenRouter interoperability.
@@ -530,8 +553,8 @@ Existing ReasoningDetailSpec tables exercise current/legacy/equal-dual inputs, s
 
 | Reviewed source/spec against 3bc1c6a | Git blob |
 | --- | --- |
-| [ReasoningDetail.scala](ReasoningDetail.scala) | `284f526b96729e23aecffd58275534c2b0731509` |
-| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | `3a482a37e800eb9f8ef5cce10937ee71c732a7ed` |
+| [ReasoningDetail.scala](ReasoningDetail.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
+| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | [Current opaque-signature scope](#opaque-signature-details); final combined acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsNonStreamingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsNonStreamingSpec.scala) | `5af36022007afcf3b200302f99df1b949afa8735` |
 
 - [x] review_fp and review_invariants approved these three final identities against 3bc1c6a, with no unresolved findings.

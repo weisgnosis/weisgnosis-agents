@@ -48,6 +48,8 @@ The [incremental local execution contract](src/main/scala/com/weisgnosis/agents/
 
 An [explicit tool-image profile](src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-image-result-projection) has final scoped acceptance: TextOnly remains default, while compatible endpoints may receive successful ordered Text/Image tool observations. Both source reviews and full RC1/artifact/consumer verification pass; final combined documentation approval passed.
 
+The additive [opaque-signature reasoning profile](src/main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details) has final independent source approval and focused verification; full RC1/artifact/consumer verification passes; final combined documentation approval passed. Existing profile admission remains unchanged; hosts explicitly select compatible endpoints.
+
 ## Current review acceptance
 
 - [x] review_fp and review_invariants approved exact domain/tool/event metadata output and typed parallel-call steering, with no findings. The [JSON contract](src/main/scala/com/weisgnosis/agents/core/json/README.md#verification-and-acceptance) and [client contract](src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-parallel-tool-call-steering) record exact reviewed identities and full verification, including packaged-consumer execution.

@@ -49,7 +49,15 @@ object ReasoningDetail:
           .flatMap(_ => plain(value, "text", commonFields ++ Set("text", "signature")))
       case Some(Json.Str("reasoning.summary")) =>
         summary(value)
+      case Some(Json.Str("signature")) =>
+        opaqueSignature(value)
       case _ => Left(AgentError.InvalidMessage(invalid))
+
+  private def opaqueSignature(value: Json.Obj): Either[AgentError.InvalidMessage, ReasoningDetail] =
+    val valid = validCommon(value) &&
+      value.fields.forall((key, _) => (commonFields + "data").contains(key)) &&
+      value.get("data").flatMap(_.asString).exists(data => !data.isBlank)
+    Either.cond(valid, new ReasoningDetail(value, ""), AgentError.InvalidMessage(invalid))
 
   private def summary(value: Json.Obj): Either[AgentError.InvalidMessage, ReasoningDetail] =
     val aliases = Chunk("summary", "text").flatMap(value.get)
@@ -105,14 +113,27 @@ object ReasoningDetail:
     _.value
   )
 
-  private[client] def decodeArray(value: Json): Either[String, Chunk[ReasoningDetail]] = value match
+  /** Existing detailed replay admits only its original protocol types. */
+  private[client] def decodeArray(value: Json): Either[String, Chunk[ReasoningDetail]] =
+    decodeArray(value, Set("reasoning.encrypted", "reasoning.text", "reasoning.summary"))
+
+  /** Legacy opaque signature objects require their own explicitly selected endpoint profile. */
+  private[client] def decodeSignatureArray(value: Json): Either[String, Chunk[ReasoningDetail]] =
+    decodeArray(value, Set("signature"))
+
+  private def decodeArray(
+      value: Json,
+      allowedTypes: Set[String]
+  ): Either[String, Chunk[ReasoningDetail]] = value match
     case Json.Arr(values) =>
       values.foldLeft[Either[String, Chunk[ReasoningDetail]]](Right(Chunk.empty)):
         (previous, entry) =>
           for
             accumulated <- previous
             detail <- entry match
-              case obj: Json.Obj => make(obj).left.map(_.message)
-              case _             => Left(invalid)
+              case obj: Json.Obj
+                  if obj.get("type").flatMap(_.asString).exists(allowedTypes.contains) =>
+                make(obj).left.map(_.message)
+              case _ => Left(invalid)
           yield accumulated :+ detail
     case _ => Left("Reasoning details must be an array")

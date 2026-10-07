@@ -16,6 +16,8 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.agent.ReActAgent
+import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
 import zio.*
@@ -24,6 +26,11 @@ import zio.json.ast.Json
 import zio.test.*
 
 object ReasoningDetailSpec extends ZIOSpecDefault:
+  private val signature: Json.Obj = Json.Obj(
+    "id"   -> Json.Str("rs_1"),
+    "type" -> Json.Str("signature"),
+    "data" -> Json.Str(" opaque signature ")
+  )
   private val text: Json.Obj = Json.Obj(
     "type"      -> Json.Str("reasoning.text"),
     "text"      -> Json.Str("first "),
@@ -81,6 +88,198 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
       })
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ReasoningDetailSpec")(
+    test("opaque signatures are checked without widening existing replay profiles") {
+      val profile = ReasoningReplay.OpaqueSignatureDetails
+      val invalid = Chunk(
+        Json.Obj(signature.fields.filterNot(_._1 == "data")),
+        changed(signature, "data", Json.Null),
+        changed(signature, "data", Json.Num(1)),
+        changed(signature, "data", Json.Str(" ")),
+        changed(signature, "text", Json.Str("misplaced")),
+        changed(signature, "index", Json.Num(BigDecimal("0.5"))),
+        Json.Obj(signature.fields :+ ("data" -> Json.Str("duplicate")))
+      )
+      val rejects = invalid.map(value =>
+        assertTrue(
+          ReasoningDetail.make(value).isLeft,
+          parse(frame("reasoning_details" -> Json.Arr(signature, value)), profile).isLeft,
+          request(
+            Chunk(
+              Msg.assistant(
+                Chunk(ContentBlock.Thinking("", Map("reasoningDetails" -> Json.Arr(value))))
+              )
+            ),
+            profile
+          ).isLeft
+        )
+      ) ++ Chunk(
+        ReasoningReplay.Omit,
+        ReasoningReplay.LatestAssistant,
+        ReasoningReplay.OpenRouterEncryptedDetails,
+        ReasoningReplay.OpenRouterDetails
+      ).map(old =>
+        assertTrue(
+          parse(frame("reasoning_details" -> Json.Arr(signature)), old).isLeft,
+          request(
+            Chunk(
+              Msg.assistant(
+                Chunk(ContentBlock.Thinking("", Map("reasoningDetails" -> Json.Arr(signature))))
+              )
+            ),
+            old
+          ).isLeft
+        )
+      ) ++ Chunk(text, summary, encrypted).map(other =>
+        assertTrue(
+          parse(frame("reasoning_details" -> Json.Arr(other)), profile).isLeft,
+          request(
+            Chunk(
+              Msg.assistant(
+                Chunk(ContentBlock.Thinking("", Map("reasoningDetails" -> Json.Arr(other))))
+              )
+            ),
+            profile
+          ).isLeft
+        )
+      )
+      rejects.foldLeft(assertTrue(true))(_ && _) && assertTrue(
+        ReasoningDetail
+          .make(signature)
+          .exists(detail =>
+            detail.value == signature && detail.plaintext.isEmpty && detail.toJson
+              .fromJson[ReasoningDetail] == Right(detail)
+          ),
+        ReasoningReplay.OpaqueSignatureDetails.toJson.fromJson[ReasoningReplay] == Right(profile),
+        parse(frame("reasoning_details" -> Json.Arr()), profile) == Right(
+          Chunk(LlmChunk.ReasoningDetailsDelta(Chunk.empty))
+        ),
+        parse(frame("reasoning_details" -> Json.Null), profile) == Right(Chunk.empty)
+      )
+    },
+    test("explicit signature replay preserves original arrays through roundtrip and a tool cycle") {
+      val profile = ReasoningReplay.OpaqueSignatureDetails
+      val second  = changed(signature, "data", Json.Str(" second opaque signature "))
+      val all     = Json.Arr(signature, second, signature)
+      val input =
+        Json.Obj("nested" -> Json.Obj("exact" -> Json.Num(BigDecimal("9007199254740993"))))
+      val initial = Msg.assistant(Chunk(ContentBlock.Thinking("", Map("reasoningDetails" -> all))))
+      val empty =
+        Msg.assistant(Chunk(ContentBlock.Thinking("", Map("reasoningDetails" -> Json.Arr()))))
+      val full = Json
+        .Obj(
+          "object" -> Json.Str("chat.completion"),
+          "choices" -> Json.Arr(
+            Json.Obj(
+              "index"         -> Json.Num(0),
+              "finish_reason" -> Json.Str("stop"),
+              "message" -> Json.Obj(
+                "role"              -> Json.Str("assistant"),
+                "content"           -> Json.Str("answer"),
+                "reasoning_details" -> all
+              )
+            )
+          )
+        )
+        .toJson
+      for
+        restored <- ZIO.fromEither(
+          initial.toJson.fromJson[Msg].left.map(AgentError.DeserializationError(_))
+        )
+        ordinary <- ZIO.fromEither(
+          ChatCompletionsRequest.encodeNonStreaming(
+            Chunk(restored, Msg.user("next"), empty),
+            Chunk.empty,
+            LlmConfig("model"),
+            profile
+          )
+        )
+        streamed <- ZIO.fromEither(request(Chunk(restored, Msg.user("next"), empty), profile))
+        decoded <- ZIO.fromEither(
+          CompletionEnvelopeDecoder.fullMessage(full, ToolSignatureFormat.Unsupported, profile)
+        )
+        envelope <- ZIO.fromEither(
+          CompletionEnvelopeDecoder
+            .initial(
+              CompletionEnvelopeProfile.DeltasWithFullMessageSummary,
+              ToolSignatureFormat.Unsupported,
+              profile
+            )
+            .decode(full, None)
+        )
+        scalar <- ZIO.fromEither(
+          parse(
+            frame("reasoning_details" -> all, "reasoning_content" -> Json.Str("separate thought")),
+            profile
+          )
+        )
+        state <- ZIO.fromEither(
+          scalar.foldLeft[Either[AgentError, StreamAccumulator]](Right(StreamAccumulator.empty))(
+            (previous, chunk) => previous.flatMap(_.feed(chunk))
+          )
+        )
+        output <- ZIO.fromEither(state.feed(LlmChunk.FinishReason("stop")).flatMap(_.toTurnOutput))
+        calls  <- Ref.make(0)
+        executions <- Ref.make(0)
+        model = LlmClient.mockEffectful((history, _, _) =>
+          calls
+            .getAndUpdate(_ + 1)
+            .flatMap:
+              case 0 =>
+                ZIO.succeed(
+                  TurnOutput.ToolCalls(
+                    Msg.assistant(
+                      initial.content :+ ContentBlock.ToolUse("call", "read", input)
+                    )
+                  )
+                )
+              case _ =>
+                ZIO
+                  .fromEither(request(history, profile))
+                  .flatMap(body =>
+                    if replayed(body).exists(_.contains(all)) then
+                      ZIO.succeed(TurnOutput.FinalText(Msg.assistant("done")))
+                    else
+                      ZIO.fail(
+                        AgentError
+                          .InvalidConfiguration("Opaque signature was lost before the next request")
+                      )
+                  )
+        )
+        agent <- ReActAgent.make(
+          client = model,
+          toolkit = Toolkit.single(
+            Tool.make(ToolDef("read", "Read", Json.Obj()))(received =>
+              if received == input then executions.update(_ + 1).as("ok")
+              else ZIO.fail(AgentError.InvalidMessage("Tool arguments changed"))
+            )
+          )
+        )
+        result <- agent.run(Msg.user("q"))
+        count  <- calls.get
+        ran    <- executions.get
+      yield assertTrue(
+        restored == initial,
+        replayed(ordinary).contains(Chunk(all, Json.Null, Json.Arr())),
+        replayed(streamed) == replayed(ordinary),
+        decoded == envelope._2,
+        decoded.collect { case LlmChunk.ThinkingDelta(value, _, _) => value }.isEmpty,
+        decoded.collect { case LlmChunk.ReasoningDetailsDelta(values) =>
+          values.map(_.value)
+        } == Chunk(Chunk(signature, second, signature)),
+        output.message.content.collect { case ContentBlock.Thinking(value, _) => value } ==
+          Chunk("", "separate thought"),
+        output.message.content
+          .collect { case thought: ContentBlock.Thinking =>
+            thought.metadata.get("reasoningDetails")
+          }
+          .flatten
+          .contains(all),
+        count == 2,
+        ran == 1,
+        result.reply.text == "done",
+        result.history.flatMap(_.toolUses).map(_.input) == Chunk(input)
+      )
+    },
     test(
       "checked variants preserve literal fields and selected policies reject incompatible inputs"
     ) {
