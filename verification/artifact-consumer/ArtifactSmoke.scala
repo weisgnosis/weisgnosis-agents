@@ -15,7 +15,7 @@
  */
 package consumer
 
-import com.weisgnosis.agents.core.agent.ReActAgent
+import com.weisgnosis.agents.core.agent.{AgentRunState, ReActAgent, SuppliedToolResult}
 import com.weisgnosis.agents.core.client.{
   ChatCompletionsRequest,
   LlmClient,
@@ -34,6 +34,8 @@ import com.weisgnosis.agents.core.json.ExactJson
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, MediaSource, Msg}
 import com.weisgnosis.agents.core.tool.{
   Tool,
+  ToolBinding,
+  ToolExecutionResult,
   ToolAuthorization,
   ToolAuthorizer,
   ToolDef,
@@ -57,6 +59,47 @@ import zio.json.ast.Json
 /** The neutral package deliberately has no access to private[agents] implementation helpers. */
 object ArtifactSmoke extends ZIOAppDefault:
   final private case class Manifest(version: String, sha256: Map[String, String]) derives JsonCodec
+
+  final private case class ExternalInput(value: String) derives JsonCodec
+
+  private def verifyExternalBinding: ZIO[Scope, AgentError, Unit] =
+    val arguments = Json.Obj("value" -> Json.Str("checked"))
+    for
+      binding <- ZIO.fromEither(
+        ToolBinding.external[ExternalInput](
+          ToolDef("external", "Host-executed tool", Json.Obj())
+        )
+      )
+      registry = Toolkit.single(binding)
+      client <- LlmClient.mock(
+        Chunk(
+          TurnOutput.ToolCalls(
+            Msg.assistant(Chunk(ContentBlock.ToolUse("external-call", "external", arguments)))
+          ),
+          TurnOutput.FinalText(Msg.assistant("accepted"))
+        )
+      )
+      agent     <- ReActAgent.make(toolkit = registry, client = client)
+      suspended <- agent.run(Msg.user("Request host execution"))
+      pending <- suspended.state match
+        case AgentRunState.Suspended(value) => ZIO.succeed(value)
+        case _                              => ZIO.fail(failure("External binding did not suspend"))
+      _ <- ZIO
+        .fail(failure("External binding checkpoint differs from checked input"))
+        .unless(
+          pending.externalRequests.map(_.input) == Chunk(arguments) &&
+            pending.externalTools == Chunk("external") && suspended.history
+              .flatMap(_.toolResults)
+              .isEmpty
+        )
+      completed <- agent.resume(Chunk(SuppliedToolResult(0, ToolExecutionResult("host result"))))
+      _ <- ZIO
+        .fail(failure("External binding did not resume from supplied observation"))
+        .unless(
+          completed.state == AgentRunState.Completed && completed.reply.text == "accepted" &&
+            completed.history.flatMap(_.toolResults).map(_.id) == Chunk("external-call")
+        )
+    yield ()
 
   private def failure(message: String): AgentError = AgentError.InvalidConfiguration(message)
 
@@ -169,6 +212,7 @@ object ArtifactSmoke extends ZIOAppDefault:
       for
         manifest <- loadManifest
         _        <- verifyClasspath
+        _        <- verifyExternalBinding
         _        <- verifyJar("core", ReActAgent.getClass, manifest)
         _        <- verifyJar("harness", PermissionEngine.getClass, manifest)
         _        <- verifyJar("mcp", McpCallResult.getClass, manifest)

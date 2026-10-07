@@ -148,7 +148,7 @@ object ToolGroupsSpec extends ZIOSpecDefault:
         repeated <- ZIO.fromEither(member.groups.removeTool("second", "shared"))
       yield assertTrue(
         original.memberships("shared") == Set("first", "second"),
-        selected.resolve("shared").contains(wrapped),
+        selected.resolve("shared").contains(ToolBinding.Local(wrapped)),
         selected
           .resolve("shared")
           .exists(value =>
@@ -160,12 +160,12 @@ object ToolGroupsSpec extends ZIOSpecDefault:
         removed.newlyUngrouped == Set("one"),
         removed.groups.select(toolkit).isEmpty,
         last.newlyUngrouped == Set("shared", "two"),
-        last.groups.select(toolkit).resolve("shared").contains(wrapped),
+        last.groups.select(toolkit).resolve("shared").contains(ToolBinding.Local(wrapped)),
         last.groups.remove(Set("second")).newlyUngrouped.isEmpty,
         member.newlyUngrouped == Set("shared"),
-        member.groups.select(toolkit).resolve("shared").contains(wrapped),
+        member.groups.select(toolkit).resolve("shared").contains(ToolBinding.Local(wrapped)),
         repeated.newlyUngrouped.isEmpty,
-        original.select(toolkit).resolve("shared").contains(wrapped),
+        original.select(toolkit).resolve("shared").contains(ToolBinding.Local(wrapped)),
         Chunk(original, removed.groups, last.groups, member.groups).forall(groups =>
           toolkit.tools.keys.forall(name =>
             groups.isActiveTool(name) == groups.select(toolkit).contains(name)

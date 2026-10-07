@@ -125,9 +125,12 @@ object ToolkitSpec extends ZIOSpecDefault:
         merged.exists(_.contains("search")),
         (tk1 ++ tk1).isLeft,
         tk1.overlay(tk2).filterNames(_ == "search") == tk2,
-        tk1.updated(dummyTool2).resolve("calc").contains(dummyTool1),
-        tk1.updated(replacement).resolve("calc").contains(replacement),
-        tk1.overlay(Toolkit.single(replacement)).resolve("calc").contains(replacement),
+        tk1.updated(dummyTool2).resolve("calc").contains(ToolBinding.Local(dummyTool1)),
+        tk1.updated(replacement).resolve("calc").contains(ToolBinding.Local(replacement)),
+        tk1
+          .overlay(Toolkit.single(replacement))
+          .resolve("calc")
+          .contains(ToolBinding.Local(replacement)),
         (tk1 ++ Toolkit.single(replacement)).isLeft
       )
   )

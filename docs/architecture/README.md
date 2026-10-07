@@ -23,10 +23,11 @@ Update contracts and mappings when behavior changes. Record current reviewed sco
 
 ## Current documentation acceptance
 
-Current documentation scope against fbce6de reconciles the exactly two pinned PlanModeSubagentPropagationTest methods with existing [explicit child Plan installation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#child-plan-installation). Source/tests are unchanged. Explicit controls, configured request context, local review and mutation denial have bounded adaptations; automatic Java framework identity and unrestricted shell bypass are not required API clones.
+Current documentation scope against db39101 describes [checked external bindings and execution checkpoints](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#external-tool-bindings), their public migration and bounded twelve-method applicability inventory. The previously accepted [explicit child Plan installation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#child-plan-installation) classification retains its independent scope.
 
-- [x] Inspect the two declared/general-purpose methods, installation source and actual-child test assertions; repair contradictory unfinished-installation wording without expanding implementation acceptance.
-- [x] review_fp and review_invariants approved the final four-file documentation scope against fbce6de with no findings. English/diff and 78-document/2,960-local-reference checks pass; unchanged source retains current verification.
+- [x] review_fp and external_invariant_review approved all ten exact source/spec/consumer identities; focused verification and fresh artifact/consumer checks pass.
+- [x] external-tools-release-verify.log passes the final source/spec scope: 1,526 tests, zero compiler warnings/failures/ignored. Four RC1 packages came from external-tools-verify.log with unchanged production; preparation and fresh four-hash consumption validate them after the test-only oracle refinement. The canonical contract retains the intervening unexplained PostgreSQL acquisition failure and isolation/recheck evidence.
+- [x] review_fp and external_invariant_review approved the final combined 24-file scope against db39101, with no unresolved findings within that scope; English/diff and 78-document/2,985-local-reference checks pass.
 
 ## Versioned remote storage
 

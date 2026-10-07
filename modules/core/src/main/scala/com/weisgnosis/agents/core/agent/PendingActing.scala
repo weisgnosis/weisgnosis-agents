@@ -34,9 +34,17 @@ final case class PendingActingStop(callOrdinal: Int, reason: String) derives Jso
 final case class PendingPermissionRequest(callOrdinal: Int, requestId: String, input: Json)
     derives JsonCodec
 
+/** Checked execution input for an external occurrence, not an approval or execution claim. */
+final case class PendingExternalCall(callOrdinal: Int, input: Json) derives JsonCodec
+
 enum PendingActingStage derives JsonCodec:
   case BeforeActing
   case AwaitingApproval(
+      completed: Chunk[CompletedToolCall],
+      latestToolGroups: Option[Chunk[ToolGroup]],
+      stop: Option[PendingActingStop]
+  )
+  case AwaitingResults(
       completed: Chunk[CompletedToolCall],
       latestToolGroups: Option[Chunk[ToolGroup]],
       stop: Option[PendingActingStop]
@@ -52,7 +60,9 @@ final case class PendingActing(
     responseFormat: Option[Json],
     suppliedResults: Chunk[SuppliedToolResult] = Chunk.empty,
     stage: PendingActingStage = PendingActingStage.BeforeActing,
-    permissionRequests: Chunk[PendingPermissionRequest] = Chunk.empty
+    permissionRequests: Chunk[PendingPermissionRequest] = Chunk.empty,
+    externalRequests: Chunk[PendingExternalCall] = Chunk.empty,
+    externalTools: Chunk[String] = Chunk.empty
 ) derives JsonCodec
 
 object PendingActing:
@@ -96,6 +106,7 @@ object PendingActing:
     pending.stage match
       case PendingActingStage.BeforeActing                   => Chunk.empty
       case PendingActingStage.AwaitingApproval(values, _, _) => values
+      case PendingActingStage.AwaitingResults(values, _, _)  => values
 
   private def checked(
       result: AgentResult
@@ -118,49 +129,31 @@ object PendingActing:
               result.reply.role == Role.Assistant && result.reply.toolUses.nonEmpty &&
               ToolHistory.inspect(prefix).isComplete && analysis.unmatched.isEmpty &&
               analysis.pending.forall(_.position == pending.assistantPosition) &&
-              pending.admittedTools.map(_.name).distinct.size == pending.admittedTools.size,
+              pending.admittedTools.map(_.name).distinct.size == pending.admittedTools.size &&
+              pending.externalTools.distinct.size == pending.externalTools.size &&
+              pending.externalTools.forall(name =>
+                name.trim.nonEmpty &&
+                  pending.admittedTools.exists(_.name == name)
+              ),
             (),
             invalid
           )
           _ <- pending.stage match
             case PendingActingStage.BeforeActing =>
               Either.cond(
-                pending.assistantPosition == result.history.size - 1 && pending.permissionRequests.isEmpty,
+                pending.assistantPosition == result.history.size - 1 &&
+                  pending.permissionRequests.isEmpty && pending.externalRequests.isEmpty,
                 (),
                 invalid
               )
             case PendingActingStage.AwaitingApproval(_, _, stop) =>
-              val tailPositions   = (pending.assistantPosition + 1 until result.history.size).toSet
-              val completedInline = ToolHistory.completedInlineOrdinals(result.reply)
-              val validStop = stop.forall(value =>
-                done.contains(value.callOrdinal) || completedInline.contains(value.callOrdinal)
-              )
-              Either.cond(
-                ledger.map(_.callOrdinal).distinct.size == ledger.size &&
-                  ledger.map(_.historyPosition).distinct.size == ledger.size &&
-                  ledger.map(_.historyPosition).toSet == tailPositions &&
-                  done.subsetOf(localOrdinals) && (localOrdinals -- done).nonEmpty &&
-                  validStop && ledger.forall(value =>
-                    (
-                      result.reply.toolUses.lift(value.callOrdinal),
-                      result.history.lift(value.historyPosition)
-                    ) match
-                      case (Some(call), Some(message)) =>
-                        message.role == Role.Tool && message.name.contains(call.name) &&
-                        message.content.size == 1 && message.toolResults.headOption.exists(
-                          observation =>
-                            observation.id == call.id && observation.name.contains(call.name) &&
-                              Set(
-                                ToolResultState.Success,
-                                ToolResultState.Error,
-                                ToolResultState.Denied
-                              ).contains(observation.state)
-                        ) && message.toJsonAST.flatMap(JsonBoundary.validate).isRight
-                      case _ => false
-                  ),
-                (),
-                invalid
-              )
+              Either
+                .cond(pending.externalRequests.isEmpty, (), invalid)
+                .flatMap(_ => validateLedger(result, pending, ledger, localOrdinals, stop))
+            case PendingActingStage.AwaitingResults(_, _, stop) =>
+              Either
+                .cond(pending.externalRequests.nonEmpty, (), invalid)
+                .flatMap(_ => validateLedger(result, pending, ledger, localOrdinals, stop))
           _ <- pending.suppliedResults.foldLeft[Either[AgentError.InvalidConfiguration, Unit]](
             Right(())
           )((checked, supplied) => checked.flatMap(_ => SuppliedToolResult.validate(supplied)))
@@ -170,7 +163,8 @@ object PendingActing:
                 .map(_.callOrdinal)
                 .distinct
                 .size == pending.permissionRequests.size &&
-                pending.permissionRequests.map(_.callOrdinal).toSet == (localOrdinals -- done) &&
+                pending.permissionRequests.map(_.callOrdinal).toSet ==
+                ((localOrdinals -- done) -- pending.externalRequests.map(_.callOrdinal).toSet) &&
                 pending.permissionRequests
                   .map(_.requestId)
                   .distinct
@@ -181,6 +175,26 @@ object PendingActing:
             (),
             AgentError.InvalidConfiguration("Invalid deferred permission requests")
           )
+          _ <- pending.stage match
+            case PendingActingStage.AwaitingResults(_, _, _) =>
+              val externalOrdinals   = pending.externalRequests.map(_.callOrdinal)
+              val permissionOrdinals = pending.permissionRequests.map(_.callOrdinal).toSet
+              Either.cond(
+                externalOrdinals.distinct.size == externalOrdinals.size &&
+                  externalOrdinals.toSet.intersect(permissionOrdinals).isEmpty &&
+                  (externalOrdinals.toSet ++ permissionOrdinals) == (localOrdinals -- done) &&
+                  pending.externalRequests.forall(request =>
+                    JsonBoundary.validate(request.input).isRight &&
+                      result.reply.toolUses
+                        .lift(request.callOrdinal)
+                        .exists(call =>
+                          call.input == request.input && pending.externalTools.contains(call.name)
+                        )
+                  ),
+                (),
+                AgentError.InvalidConfiguration("Invalid external execution requests")
+              )
+            case _ => Right(())
           _ <- Either.cond(
             suppliedOrdinals.distinct.size == suppliedOrdinals.size &&
               suppliedOrdinals.toSet.subsetOf(localOrdinals -- done),
@@ -191,3 +205,43 @@ object PendingActing:
           )
         yield (pending, analysis.pending)
       case _ => Left(invalid)
+
+  private def validateLedger(
+      result: AgentResult,
+      pending: PendingActing,
+      ledger: Chunk[CompletedToolCall],
+      localOrdinals: Set[Int],
+      stop: Option[PendingActingStop]
+  ): Either[AgentError.InvalidConfiguration, Unit] =
+    val done            = ledger.map(_.callOrdinal).toSet
+    val invalid         = AgentError.InvalidConfiguration("Invalid acting checkpoint")
+    val tailPositions   = (pending.assistantPosition + 1 until result.history.size).toSet
+    val completedInline = ToolHistory.completedInlineOrdinals(result.reply)
+    val validStop = stop.forall(value =>
+      done.contains(value.callOrdinal) || completedInline.contains(value.callOrdinal)
+    )
+    Either.cond(
+      ledger.map(_.callOrdinal).distinct.size == ledger.size &&
+        ledger.map(_.historyPosition).distinct.size == ledger.size &&
+        ledger.map(_.historyPosition).toSet == tailPositions &&
+        done.subsetOf(localOrdinals) && (localOrdinals -- done).nonEmpty &&
+        validStop && ledger.forall(value =>
+          (
+            result.reply.toolUses.lift(value.callOrdinal),
+            result.history.lift(value.historyPosition)
+          ) match
+            case (Some(call), Some(message)) =>
+              message.role == Role.Tool && message.name.contains(call.name) &&
+              message.content.size == 1 && message.toolResults.headOption.exists(observation =>
+                observation.id == call.id && observation.name.contains(call.name) &&
+                  Set(
+                    ToolResultState.Success,
+                    ToolResultState.Error,
+                    ToolResultState.Denied
+                  ).contains(observation.state)
+              ) && message.toJsonAST.flatMap(JsonBoundary.validate).isRight
+            case _ => false
+        ),
+      (),
+      invalid
+    )

@@ -1,5 +1,7 @@
 # ReAct and structured-output verification
 
+The [external execution checkpoint scope](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#external-execution-checkpoints) is accepted within the named scope. [ReActAgentExternalToolSpec](ReActAgentExternalToolSpec.scala) supplies three proportional actual-runtime groups covering mixed execution, checked ordinal resume and lifecycle/authority boundaries; final documentation acceptance passed.
+
 ReActAgentSpec adds one grouped custom-client turn contract regression for malformed role/classification and permitted controls. Scoped client cleanup completes before rejection; invalid output must not change history, run post-reasoning hooks or succeed. Final source/full/artifact verification passes; final combined documentation approval passed under the [trust-boundary manifest](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#model-turn-trust-boundary).
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.

@@ -38,6 +38,15 @@ object PendingActingSpec extends ZIOSpecDefault:
         None
       )
       val result = AgentResult(reply, prefix :+ reply, 2, AgentRunState.Suspended(pending))
+      val legacy = pending.toJsonAST.flatMap:
+        case Json.Obj(fields) =>
+          Json
+            .Obj(
+              fields.filterNot(field => Set("externalRequests", "externalTools").contains(field._1))
+            )
+            .toJson
+            .fromJson[PendingActing]
+        case _ => Left("Expected checkpoint object")
       def changed(value: PendingActing): AgentResult =
         result.copy(state = AgentRunState.Suspended(value))
       val inline = Msg.assistant(
@@ -63,13 +72,18 @@ object PendingActingSpec extends ZIOSpecDefault:
           state = AgentRunState.Suspended(pending.copy(assistantPosition = 1))
         ),
         changed(pending.copy(reason = " ")),
+        changed(pending.copy(externalRequests = Chunk(PendingExternalCall(0, call.input)))),
         changed(pending.copy(context = pending.context.copy(requestId = ""))),
         changed(pending.copy(context = pending.context.copy(replyId = ""))),
         changed(pending.copy(assistantPosition = -1)),
-        changed(pending.copy(admittedTools = pending.admittedTools ++ pending.admittedTools))
+        changed(pending.copy(admittedTools = pending.admittedTools ++ pending.admittedTools)),
+        changed(pending.copy(externalTools = Chunk("read", "read"))),
+        changed(pending.copy(externalTools = Chunk(" "))),
+        changed(pending.copy(externalTools = Chunk("unknown")))
       )
       assertTrue(
         result.toJson.fromJson[AgentResult] == Right(result),
+        legacy == Right(pending),
         PendingActing.validate(result) == Right(pending),
         PendingActing.validate(completeInline) == Right(pending),
         PendingActing.validate(serverOnly) == Right(pending),
@@ -198,6 +212,83 @@ object PendingActingSpec extends ZIOSpecDefault:
       ) ++ Chunk(ToolResultState.Running, ToolResultState.Interrupted).map(state =>
         firstObservation(Msg.tool("same", "read", "nonterminal", state))
       )
+      val external = PendingExternalCall(0, call.input)
+      val externalPending = pending.copy(
+        stage = PendingActingStage.AwaitingResults(ledger, None, Some(PendingActingStop(2, ""))),
+        externalRequests = Chunk(external),
+        externalTools = Chunk("read")
+      )
+      val externalResult = result.copy(state = AgentRunState.Suspended(externalPending))
+      val mixedPending = pending.copy(
+        stage = PendingActingStage.AwaitingResults(
+          Chunk(CompletedToolCall(3, 2)),
+          None,
+          Some(PendingActingStop(3, "stopped"))
+        ),
+        permissionRequests = Chunk(permission.copy(callOrdinal = 2)),
+        externalRequests = Chunk(external),
+        externalTools = Chunk("read")
+      )
+      val mixed = result.copy(
+        history = Chunk(Msg.user("review"), reply, failed),
+        state = AgentRunState.Suspended(mixedPending)
+      )
+      def externalChanged(value: PendingActing): AgentResult =
+        mixed.copy(state = AgentRunState.Suspended(value))
+      val externalInvalid = Chunk(
+        externalChanged(mixedPending.copy(externalRequests = Chunk.empty)),
+        externalChanged(mixedPending.copy(externalTools = Chunk.empty)),
+        externalChanged(mixedPending.copy(permissionRequests = Chunk.empty)),
+        externalChanged(mixedPending.copy(externalRequests = Chunk(external, external))),
+        externalChanged(
+          mixedPending.copy(externalRequests = Chunk(external.copy(callOrdinal = 1)))
+        ),
+        externalChanged(
+          mixedPending.copy(externalRequests = Chunk(external.copy(callOrdinal = 2)))
+        ),
+        externalChanged(
+          mixedPending.copy(externalRequests = Chunk(external.copy(callOrdinal = 3)))
+        ),
+        externalChanged(
+          mixedPending.copy(externalRequests = Chunk(external.copy(callOrdinal = -1)))
+        ),
+        externalChanged(
+          mixedPending.copy(externalRequests = Chunk(external.copy(callOrdinal = 4)))
+        ),
+        externalChanged(
+          mixedPending.copy(externalRequests = Chunk(external.copy(input = duplicate)))
+        ),
+        externalChanged(
+          mixedPending.copy(externalRequests =
+            Chunk(external.copy(input = Json.Obj("changed" -> Json.Str("input"))))
+          )
+        ),
+        externalChanged(
+          mixedPending.copy(stage =
+            PendingActingStage.AwaitingResults(
+              Chunk(CompletedToolCall(3, 3)),
+              None,
+              None
+            )
+          )
+        ),
+        externalChanged(
+          mixedPending.copy(stage =
+            PendingActingStage.AwaitingResults(
+              Chunk(CompletedToolCall(3, 2)),
+              None,
+              Some(PendingActingStop(0, "pending"))
+            )
+          )
+        ),
+        result.copy(state =
+          AgentRunState.Suspended(pending.copy(externalRequests = Chunk(external)))
+        )
+      )
+      val suppliedExternal = PendingActing.withResults(
+        mixed,
+        Chunk(SuppliedToolResult(0, ToolExecutionResult("external completed")))
+      )
       val rejected = invalid.foldLeft(assertTrue(true))((checked, candidate) =>
         checked && assertTrue(PendingActing.pendingCalls(candidate).isLeft)
       )
@@ -219,5 +310,24 @@ object PendingActingSpec extends ZIOSpecDefault:
           )
           .isRight,
         PendingActing.pendingCalls(stopped(1)) == Right(Chunk(PendingToolCall(0, call)))
+      ) && assertTrue(
+        externalResult.toJson.fromJson[AgentResult] == Right(externalResult),
+        PendingActing.validate(externalResult) == Right(externalPending),
+        PendingActing.pendingCalls(externalResult) == Right(Chunk(PendingToolCall(0, call))),
+        mixed.toJson.fromJson[AgentResult] == Right(mixed),
+        PendingActing.validate(mixed) == Right(mixedPending),
+        PendingActing.pendingCalls(mixed) == Right(
+          Chunk(PendingToolCall(0, call), PendingToolCall(2, call))
+        ),
+        suppliedExternal.flatMap(PendingActing.pendingCalls) == Right(
+          Chunk(PendingToolCall(2, call))
+        ),
+        suppliedExternal
+          .flatMap(PendingActing.validate)
+          .exists(_.externalRequests == Chunk(external)),
+        PendingActing
+          .withResults(mixed, Chunk(SuppliedToolResult(3, ToolExecutionResult("duplicate"))))
+          .isLeft,
+        externalInvalid.forall(PendingActing.validate(_).isLeft)
       ) && rejected
   )

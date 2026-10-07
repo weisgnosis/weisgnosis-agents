@@ -52,10 +52,17 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Interrupted transformed-progress recovery](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#interrupted-transformed-progress) has final scoped acceptance after reproduced canonical-history loss; interrupted causes and failed cleanup retain their distinct boundaries.
 
-Current delivery scope against fbce6de: reconcile the exactly two pinned Plan propagation methods with the existing [explicit installation contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#child-plan-installation), without source/test changes.
+- [x] Reconcile the two pinned Plan propagation methods with the existing explicit child installation contract; final four-document approval remains scoped to unchanged source at fbce6de.
 
-- [x] Inspect both Java methods (53/82), SubagentConstruction installation and actual declared/general-purpose test assertions; replace stale contradictory installation status with bounded API differences.
-- [x] review_fp and review_invariants approved the four-file reconciliation against fbce6de with no findings; English/diff and 78-document/2,960-local-reference checks pass. Unchanged source retains current 1,522-test verification.
+Current delivery scope against db39101: checked external ToolBinding registration and occurrence-aware external execution checkpoints, without local external handlers or approval conflation.
+
+- [x] Inspect pinned ToolExecutor schema-only suspension, pre-suspension argument validation and inactive-group rejection; identify the explicit missing capability.
+- [x] review_fp and external_invariant_review approved all ten final source/spec/consumer identities against db39101; no unresolved source findings remain.
+- [x] external-tools-focused.log passes 25 tests, zero failed/ignored, in 845 ms; exact current source identities belong to the canonical tool binding contract.
+- [x] external-tools-release-verify.log passes all 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored. Four RC1 packages come from external-tools-verify.log with unchanged production, validated by archive preparation and fresh four-hash consumption after the test-only oracle refinement; the intervening acquisition failure remains recorded separately.
+- [x] external-tools-preparation.log and external-tools-consumer.log passed fresh RC1 archive/POM/source validation and standalone four-hash public suspension/resume consumption.
+- [ ] Diagnose the unexplained PostgreSQL connection acquisition failure in external-tools-final-verify.log; isolated recovery does not establish its cause.
+- [x] review_fp and external_invariant_review approved the final combined 24-file scope against db39101; English/diff and 78-document/2,985-local-reference checks pass.
 - [ ] Assess the next remaining applicable finite inventory and genuine provider/remote middleware/release gaps; full-plan completion remains unclaimed.
 
 ## Current acceptance
@@ -107,10 +114,10 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-Assess the finite pinned ToolExecutorTest inventory next, including schema-only external execution, validation before suspension and inactive-group admission. Existing authorization deferral is a separate contract. Continue the remaining applicable [method-level parity inventory](test-parity.md) without inferring broader host authority from Java API differences.
+Diagnose the retained unexplained PostgreSQL acquisition failure, then assess the two remaining nested-error/mixed-concurrency ToolExecutor fixtures and other applicable [method-level parity inventory](test-parity.md). The external-tool source increment and twelve-method classification have final bounded acceptance; authorization deferral remains a separate contract.
 
 - [x] Complete independent acceptance of the finite pinned Plan propagation classification against current explicit child installation.
-- [ ] Classify the twelve pinned ToolExecutorTest methods and define the bounded external-tool execution contract before implementation.
+- [x] Accept the bounded external-tool execution contract and finite twelve-method classification after source/spec verification and final independent review.
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.
 - [ ] Complete other reasoning-detail formats and live-provider interoperability; selected profiles do not establish full formatter parity.

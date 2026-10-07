@@ -17,7 +17,8 @@ These ZIO Test suites cover selected upstream scenarios and Scala regressions. T
 | [ToolGroupsSpec](ToolGroupsSpec.scala) | Sorted/empty active and Meta-only notes, atomic checked activation, Meta/External replacement, OR membership/orphaning, exact policy-preserving selection and actual ReAct dispatch |
 | [ToolFixedArgumentsSpec](ToolFixedArgumentsSpec.scala) | Checked full originals, stable order/idempotence, fixed consistency, empty scalar compatibility, typed wrapper forwarding and filtered/merged/custom Toolkit dispatch |
 | [ToolDefSpec](ToolDefSpec.scala) | Legacy absent/null optional schema decoding, None omission, object/boolean AST round-trips, absent returnMode default, both completion modes and optional schemaStrictness enum round-trips/null/invalid values |
-| [ToolkitSpec](ToolkitSpec.scala) | Immutable registration and dispatch |
+| [ToolkitSpec](ToolkitSpec.scala) | Immutable registration and binding-aware dispatch |
+| [ToolBindingSpec](ToolBindingSpec.scala) | Checked external decoder dispatch, explicit legacy rejection, binding-preserving registry operations and local execution |
 | [ToolResultProcessorSpec](ToolResultProcessorSpec.scala) | Payload codecs, protected control keys, suspended composition and host decision-chain stop/legacy behavior |
 | [ToolAuthorizerSpec](ToolAuthorizerSpec.scala) | Decision/request codecs including missing/default and supplied call ordinals, lazy legacy/lambda delegation with absent/read-only/mutating admitted access, and error-channel separation |
 
@@ -55,3 +56,5 @@ This is an advisory fragment detector. Quoted dangerous text can be flagged; a f
 Run `sbt "core / testOnly com.weisgnosis.agents.core.tool.PathSafetySpec"` for focused verification, or `sbt verify` for the repository. Current source contracts, reviewed file identities and scoped acceptance are in the [tool README](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md). Existing processor/authorization acceptance is unaffected.
 
 - [x] Both independent reviewers approved the [incremental contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution), and full tool-stream-verify.log verification passed. The unchanged external-cancellation regression reproduced the draft consumer defect and passes after the channel-pull correction.
+
+The [external-binding scope](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#external-tool-bindings) is accepted within the named scope; its exact final identities have both independent source approvals and full verification; final combined documentation acceptance passed. Argument codecs validate the selected type, not arbitrary JSON Schema.

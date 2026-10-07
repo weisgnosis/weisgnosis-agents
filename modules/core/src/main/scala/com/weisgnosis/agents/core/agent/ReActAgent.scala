@@ -616,6 +616,7 @@ final class ReActAgent private (
     val latest = pending.stage match
       case PendingActingStage.BeforeActing                   => pending.toolGroups
       case PendingActingStage.AwaitingApproval(_, groups, _) => groups
+      case PendingActingStage.AwaitingResults(_, groups, _)  => groups
     for
       admittedGroups <- ZIO.fromEither(restoreGroups(pending.toolGroups))
       latestGroups   <- ZIO.fromEither(restoreGroups(latest))
@@ -627,7 +628,11 @@ final class ReActAgent private (
             "Suspended tool definitions do not match the host bindings"
           )
         )
-        .unless(admitted.definitions == pending.admittedTools)
+        .unless(
+          admitted.definitions == pending.admittedTools &&
+            externalNames(admitted) == pending.externalTools.sorted
+        )
+
       // Frozen admitted controls and later snapshots share this one activation authority.
       _ <- (runTools.activation, latestGroups) match
         case (Some(current), Some(groups)) => current.set(groups)
@@ -869,7 +874,7 @@ final class ReActAgent private (
                 case RunEntry.Resume(_, pending, _) =>
                   pendingRef.set(None) *> stateRef.update(history =>
                     history.zipWithIndex.map { case (message, position) =>
-                      if position == pending.assistantPosition && (message.generationReason == GenerateReason.ReasoningStopRequested || message.generationReason == GenerateReason.PermissionAsking)
+                      if position == pending.assistantPosition && (message.generationReason == GenerateReason.ReasoningStopRequested || message.generationReason == GenerateReason.PermissionAsking || message.generationReason == GenerateReason.ToolSuspended)
                       then message.withGenerateReason(GenerateReason.ToolCalls)
                       else message
                     } ++ supplied.map(_.message)
@@ -1213,11 +1218,14 @@ final class ReActAgent private (
         )
         stage = continuation.fold[PendingActingStage](PendingActingStage.BeforeActing)(_.stage)
         inlineToProcess = stage match
-          case PendingActingStage.BeforeActing        => inline.completed
-          case _: PendingActingStage.AwaitingApproval => Chunk.empty
+          case PendingActingStage.BeforeActing => inline.completed
+          case _: PendingActingStage.AwaitingApproval | _: PendingActingStage.AwaitingResults =>
+            Chunk.empty
         savedStop = stage match
           case PendingActingStage.BeforeActing => None
           case PendingActingStage.AwaitingApproval(_, _, stop) =>
+            stop.map(value => ActingStop(value.callOrdinal, value.reason))
+          case PendingActingStage.AwaitingResults(_, _, stop) =>
             stop.map(value => ActingStop(value.callOrdinal, value.reason))
         pendingCalls = inline.pending.filterNot(call =>
           call.call.isServerTool || completed.contains(call.ordinal)
@@ -1252,9 +1260,24 @@ final class ReActAgent private (
             progressRef,
             savedRequest(prepared.indexed.ordinal)
           )
+        savedExternal = continuation.fold(Chunk.empty[PendingExternalCall])(_.externalRequests)
+        externalCalls = pendingCalls.filter(call =>
+          savedExternal.exists(_.callOrdinal == call.ordinal)
+        )
+        freshCalls = pendingCalls.filterNot(call =>
+          savedExternal.exists(_.callOrdinal == call.ordinal)
+        )
         localPhase =
           for
-            prepared <- ZIO.foreach(pendingCalls)(call =>
+            waiting <- ZIO.foreach(externalCalls)(call =>
+              validateExternal(call.call.name, call.call.input, activeToolkit).flatMap:
+                case Right(_) =>
+                  ZIO.succeed(
+                    ActingOutcome.External(PendingExternalCall(call.ordinal, call.call.input))
+                  )
+                case Left(error) => ZIO.fail(error)
+            )
+            prepared <- ZIO.foreach(freshCalls)(call =>
               prepareToolCall(
                 call,
                 activeToolkit,
@@ -1268,7 +1291,7 @@ final class ReActAgent private (
             continued <-
               if allSafe then ZIO.foreachPar(remaining)(execute)
               else ZIO.foreach(remaining)(execute)
-          yield initial ++ continued
+          yield waiting ++ initial ++ continued
         phase = ZIO
           .foreach(inlineToProcess) { case (call, indexed) =>
             processInlineResult(call, indexed, position, context, eventHub).map(
@@ -1305,24 +1328,32 @@ final class ReActAgent private (
             val deferredRequests = decisions
               .collect { case value: ActingOutcome.Deferred => value }
               .sortBy(_.request.callOrdinal)
-            deferredRequests.headOption match
-              case Some(_) if completionMode != CompletionMode.Ordinary =>
+            val externalRequests = decisions
+              .collect { case ActingOutcome.External(request) => request }
+              .sortBy(_.callOrdinal)
+            val awaiting = deferredRequests.nonEmpty || externalRequests.nonEmpty
+            awaiting match
+              case true if completionMode != CompletionMode.Ordinary =>
                 finalizeFailedToolPhase(progressRef) *>
                   ZIO.fail(
                     AgentError.InvalidConfiguration(
-                      "Structured runs cannot defer tool authorization"
+                      if externalRequests.nonEmpty then
+                        "Structured runs cannot await external execution"
+                      else "Structured runs cannot defer tool authorization"
                     )
                   )
-              case Some(deferred) =>
+              case true =>
                 restore(ZIO.unit) *> suspendAfterActing(
                   PendingActing(
-                    deferred.reason,
+                    deferredRequests.headOption.fold("Awaiting external tool results")(_.reason),
                     context,
                     position,
                     activeToolkit.definitions,
                     originalGroups,
                     requestConfig.responseFormat,
-                    permissionRequests = deferredRequests.map(_.request)
+                    permissionRequests = deferredRequests.map(_.request),
+                    externalRequests = externalRequests,
+                    externalTools = externalNames(activeToolkit)
                   ),
                   iteration,
                   runTools,
@@ -1331,7 +1362,7 @@ final class ReActAgent private (
                   usageRef,
                   stop
                 )
-              case None =>
+              case false =>
                 stop match
                   case Some(value) => stoppedToolTurn(position, iteration, value.reason, eventHub)
                   case None =>
@@ -1396,19 +1427,22 @@ final class ReActAgent private (
       assistant <- ZIO
         .fromOption(history.lift(pending.assistantPosition))
         .orElseFail(AgentError.InvalidConfiguration("The suspended assistant is missing"))
-      reply = assistant.withGenerateReason(GenerateReason.PermissionAsking)
+      reply = assistant.withGenerateReason(
+        if pending.permissionRequests.nonEmpty then GenerateReason.PermissionAsking
+        else GenerateReason.ToolSuspended
+      )
       updated = history.zipWithIndex.map { case (message, index) =>
         if index == pending.assistantPosition then reply else message
       }
-      checkpoint = pending.copy(stage =
-        PendingActingStage.AwaitingApproval(
-          Chunk.fromIterable(positions.toList.sortBy(_._1).map { case (ordinal, position) =>
-            CompletedToolCall(ordinal, position)
-          }),
-          groups,
-          stop.map(value => PendingActingStop(value.ordinal, value.reason))
-        )
-      )
+      completed = Chunk.fromIterable(positions.toList.sortBy(_._1).map { case (ordinal, position) =>
+        CompletedToolCall(ordinal, position)
+      })
+      savedStop = stop.map(value => PendingActingStop(value.ordinal, value.reason))
+      stage =
+        if pending.externalRequests.nonEmpty then
+          PendingActingStage.AwaitingResults(completed, groups, savedStop)
+        else PendingActingStage.AwaitingApproval(completed, groups, savedStop)
+      checkpoint = pending.copy(stage = stage)
       result = AgentResult(reply, updated, iteration, AgentRunState.Suspended(checkpoint), usage)
       _ <- ZIO.fromEither(validateCheckpoint(result))
       _ <- stateRef.set(updated) *> pendingRef.set(Some(result))
@@ -1697,7 +1731,8 @@ final class ReActAgent private (
         history.size,
         admitted.definitions,
         groups,
-        requestConfig.responseFormat
+        requestConfig.responseFormat,
+        externalTools = externalNames(admitted)
       )
       result = AgentResult(
         reply,
@@ -1755,6 +1790,7 @@ final class ReActAgent private (
   private enum ActingOutcome:
     case Observed(stop: Option[ActingStop])
     case Deferred(request: PendingPermissionRequest, reason: String)
+    case External(request: PendingExternalCall)
 
   private enum ToolPreparation:
     case Failed(error: AgentError.InvalidMessage)
@@ -1981,6 +2017,34 @@ final class ReActAgent private (
           )
         )
 
+  private def isExternal(registry: Toolkit, name: String): Boolean =
+    registry
+      .resolve(name)
+      .exists:
+        case _: ToolBinding.External => true
+        case _: ToolBinding.Local    => false
+
+  private def externalNames(registry: Toolkit): Chunk[String] =
+    Chunk
+      .fromIterable(registry.tools.toList.collect:
+        case (name, _: ToolBinding.External) => name)
+      .sorted
+
+  private def validateExternal(
+      name: String,
+      input: Json,
+      registry: Toolkit
+  ): UIO[Either[AgentError.InvalidMessage, Unit]] =
+    ZIO
+      .suspendSucceed(ZIO.succeed(registry.validateExternalInput(name, input)))
+      .catchAllCause(cause =>
+        if cause.isInterrupted then ZIO.refailCause(cause)
+        else
+          ZIO.succeed(
+            Left(AgentError.InvalidMessage(s"External tool argument validation failed: $name"))
+          )
+      )
+
   private def admittedAccess(
       call: ContentBlock.ToolUse,
       toolkit: Toolkit
@@ -1998,47 +2062,64 @@ final class ReActAgent private (
       argumentPolicy: ArgumentPolicy,
       savedRequest: Option[PendingPermissionRequest]
   ): UIO[PreparedToolCall] =
-    toolkit.prepareInput(indexed.call.name, indexed.call.input) match
+    val prepared =
+      if isExternal(this.toolkit, indexed.call.name) && !toolkit.contains(indexed.call.name) then
+        Left(AgentError.InvalidMessage(s"External tool '${indexed.call.name}' is not available"))
+      else toolkit.prepareInput(indexed.call.name, indexed.call.input)
+    prepared match
       case Left(error) => ZIO.succeed(PreparedToolCall(indexed, ToolPreparation.Failed(error)))
       case Right(input) =>
-        for
-          requestId <- savedRequest match
-            case Some(request) => ZIO.succeed(request.requestId)
-            case None          => Random.nextUUID.map(_.toString)
-          request = PendingPermissionRequest(indexed.ordinal, requestId, input)
-          screened <-
-            if changesReasoningInput(indexed.call, input, argumentPolicy) then
-              ZIO.succeed(
-                ToolPreflight.Denied("Cannot modify arguments carrying provider reasoning metadata")
+        validateExternal(indexed.call.name, input, toolkit).flatMap:
+          case Left(error) => ZIO.succeed(PreparedToolCall(indexed, ToolPreparation.Failed(error)))
+          case Right(_) =>
+            prepareValidatedToolCall(indexed, toolkit, context, argumentPolicy, savedRequest, input)
+
+  private def prepareValidatedToolCall(
+      indexed: IndexedToolCall,
+      toolkit: Toolkit,
+      context: ModelStreamContext,
+      argumentPolicy: ArgumentPolicy,
+      savedRequest: Option[PendingPermissionRequest],
+      input: Json
+  ): UIO[PreparedToolCall] =
+    for
+      requestId <- savedRequest match
+        case Some(request) => ZIO.succeed(request.requestId)
+        case None          => Random.nextUUID.map(_.toString)
+      request = PendingPermissionRequest(indexed.ordinal, requestId, input)
+      screened <-
+        if changesReasoningInput(indexed.call, input, argumentPolicy) then
+          ZIO.succeed(
+            ToolPreflight.Denied("Cannot modify arguments carrying provider reasoning metadata")
+          )
+        else
+          ZIO
+            .scoped(
+              ZIO.suspendSucceed(
+                toolAuthorizer.preflight(
+                  ToolAuthorizationRequest(
+                    requestId,
+                    context,
+                    withToolInput(indexed.call, input),
+                    Some(indexed.ordinal)
+                  ),
+                  admittedAccess(indexed.call, toolkit)
+                )
               )
-            else
-              ZIO
-                .scoped(
-                  ZIO.suspendSucceed(
-                    toolAuthorizer.preflight(
-                      ToolAuthorizationRequest(
-                        requestId,
-                        context,
-                        withToolInput(indexed.call, input),
-                        Some(indexed.ordinal)
-                      ),
-                      admittedAccess(indexed.call, toolkit)
+            )
+            .foldCauseZIO(
+              cause =>
+                if cause.isInterrupted then ZIO.refailCause(cause).orDie
+                else
+                  ZIO.succeed(
+                    ToolPreflight.Denied(
+                      cause.failureOption.map(_.reason).getOrElse("Tool authorization failed")
                     )
                   )
-                )
-                .foldCauseZIO(
-                  cause =>
-                    if cause.isInterrupted then ZIO.refailCause(cause).orDie
-                    else
-                      ZIO.succeed(
-                        ToolPreflight.Denied(
-                          cause.failureOption.map(_.reason).getOrElse("Tool authorization failed")
-                        )
-                      )
-                  ,
-                  ZIO.succeed(_)
-                )
-        yield PreparedToolCall(indexed, ToolPreparation.Ready(request, screened))
+              ,
+              ZIO.succeed(_)
+            )
+    yield PreparedToolCall(indexed, ToolPreparation.Ready(request, screened))
 
   private def authorizeTool(
       call: ContentBlock.ToolUse,
@@ -2080,6 +2161,7 @@ final class ReActAgent private (
                   case Right(_) =>
                     toolkit
                       .validateApprovedInput(call.name, input)
+                      .flatMap(_ => toolkit.validateExternalInput(call.name, input))
                       .fold(
                         error =>
                           ToolAuthorization.Denied(s"Invalid approved input: ${error.message}"),
@@ -2164,16 +2246,18 @@ final class ReActAgent private (
           )
         case Right((_, ToolAuthorization.Approved(input))) =>
           val approved = withToolInput(call, input)
-          start *> stateRef.update(_.zipWithIndex.map { case (message, position) =>
-            if position == assistantPosition then
-              message.mapToolUseAt(indexed.ordinal)(_ => approved)
-            else message
+          val external = isExternal(toolkit, call.name)
+          (if external then ZIO.unit else start) *> stateRef.update(_.zipWithIndex.map {
+            case (message, position) =>
+              if position == assistantPosition then
+                message.mapToolUseAt(indexed.ordinal)(_ => approved)
+              else message
           }) *> restore(
             ZIO.scoped(
               ToolEventPort
                 .open(eventHub)
                 .flatMap(events =>
-                  toolkit.executeObserved(
+                  toolkit.dispatchObserved(
                     call.name,
                     input,
                     ToolInvocation.Active(context, approved, indexed.ordinal, events)
@@ -2187,7 +2271,11 @@ final class ReActAgent private (
                   )
                 )
             )
-          ).map(Right(_))
+          ).flatMap:
+            case Toolkit.Dispatch.Completed(observed) =>
+              (if external then start else ZIO.unit).as(Right(observed))
+            case Toolkit.Dispatch.AwaitingExternal(input) =>
+              ZIO.left(ActingOutcome.External(PendingExternalCall(indexed.ordinal, input)))
       val preparedAuthorization: UIO[
         Either[AgentError.InvalidMessage, (PendingPermissionRequest, ToolAuthorization)]
       ] = prepared.preparation match
@@ -2373,7 +2461,11 @@ final class ReActAgent private (
                     ContentBlock.ToolResult.text(
                       call.id,
                       call.name,
-                      s"Tool execution was interrupted before it could run. Tool: ${call.name}",
+                      if isExternal(toolkit, call.name) then
+                        s"External result was not accepted because this agent run was interrupted; external execution status is unknown. Tool: ${call.name}"
+                      else
+                        s"Tool execution was interrupted before it could run. Tool: ${call.name}"
+                      ,
                       ToolResultState.Error
                     )
                   )

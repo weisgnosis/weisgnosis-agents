@@ -22,8 +22,12 @@ import zio.json.ast.Json
 import zio.stream.ZStream
 
 /** Immutable registration and existentially typed execution without runtime casts. */
-final class Toolkit private (val tools: Map[String, Tool[Any, ?, ?]]):
-  def register(tool: Tool[Any, ?, ?]): Either[AgentError, Toolkit] =
+final class Toolkit private (val tools: Map[String, ToolBinding]):
+  def register(tool: Tool[Any, ?, ?]): Either[AgentError, Toolkit] = register(
+    ToolBinding.Local(tool)
+  )
+
+  def register(tool: ToolBinding): Either[AgentError, Toolkit] =
     val name = tool.definition.name
     if tools.contains(name) then
       Left(AgentError.ToolExecutionError(name, s"Tool collision: '$name' is already registered"))
@@ -32,7 +36,9 @@ final class Toolkit private (val tools: Map[String, Tool[Any, ?, ?]]):
   def withTool(tool: Tool[Any, ?, ?]): Either[AgentError, Toolkit] = register(tool)
 
   /** Explicit host replacement by the tool's declared name; register rejects collisions instead. */
-  def updated(tool: Tool[Any, ?, ?]): Toolkit =
+  def updated(tool: Tool[Any, ?, ?]): Toolkit = updated(ToolBinding.Local(tool))
+
+  def updated(tool: ToolBinding): Toolkit =
     new Toolkit(tools.updated(tool.definition.name, tool))
 
   /** Explicit right-side precedence between two already valid registries. */
@@ -53,8 +59,8 @@ final class Toolkit private (val tools: Map[String, Tool[Any, ?, ?]]):
       result.flatMap(_.register(tool))
     }
 
-  def resolve(name: String): Option[Tool[Any, ?, ?]] = tools.get(name)
-  def contains(name: String): Boolean                = tools.contains(name)
+  def resolve(name: String): Option[ToolBinding] = tools.get(name)
+  def contains(name: String): Boolean            = tools.contains(name)
   def definitions: Chunk[ToolDef] =
     Chunk.fromIterable(tools.toList.sortBy(_._1).map(_._2.definition))
   def size: Int        = tools.size
@@ -84,21 +90,58 @@ final class Toolkit private (val tools: Map[String, Tool[Any, ?, ?]]):
   ): UIO[ToolExecutionResult] =
     executeObserved(name, rawArgs, invocation)(_ => ZIO.unit).map(_.result)
 
+  /** Only external bindings require validation before authorization or suspension. */
+  def validateExternalInput(name: String, input: Json): Either[AgentError.InvalidMessage, Unit] =
+    tools.get(name) match
+      case Some(external: ToolBinding.External) => external.validateInput(input)
+      case _                                    => Right(())
+
   private[core] def executeObserved(
       name: String,
       rawArgs: Json,
       invocation: ToolInvocation
   )(observe: ToolResultPayload => UIO[Unit]): UIO[Toolkit.ObservedResult] =
+    dispatchObserved(name, rawArgs, invocation)(observe).map:
+      case Toolkit.Dispatch.Completed(result) => result
+      case Toolkit.Dispatch.AwaitingExternal(_) =>
+        observation(s"Tool '$name' requires external execution; use the agent suspension protocol.")
+
+  private[core] def dispatchObserved(
+      name: String,
+      rawArgs: Json,
+      invocation: ToolInvocation
+  )(observe: ToolResultPayload => UIO[Unit]): UIO[Toolkit.Dispatch] =
     ZIO.suspendSucceed:
       tools.get(name) match
         case None =>
           ZIO.succeed(
-            Toolkit.ObservedResult(
-              ToolExecutionResult(s"Tool '$name' not found in toolkit.", ToolResultState.Error),
-              Toolkit.ProgressDisposition.NoProgress
-            )
+            Toolkit.Dispatch.Completed(observation(s"Tool '$name' not found in toolkit."))
           )
-        case Some(tool) => executeTyped(tool, rawArgs, invocation, observe)
+        case Some(ToolBinding.Local(tool)) =>
+          executeTyped(tool, rawArgs, invocation, observe).map(Toolkit.Dispatch.Completed(_))
+        case Some(external: ToolBinding.External) =>
+          ZIO.suspendSucceed:
+            ZIO
+              .fromEither(external.validateInput(rawArgs))
+              .as(Toolkit.Dispatch.AwaitingExternal(rawArgs))
+              .catchAllCause: cause =>
+                if cause.isInterrupted then ZIO.refailCause(cause).orDie
+                else
+                  ZIO.succeed(
+                    Toolkit.Dispatch.Completed(
+                      observation(
+                        cause.failureOption
+                          .map(_.message)
+                          .getOrElse("External tool argument validation failed")
+                      )
+                    )
+                  )
+
+  private def observation(message: String): Toolkit.ObservedResult =
+    Toolkit.ObservedResult(
+      ToolExecutionResult(message, ToolResultState.Error),
+      Toolkit.ProgressDisposition.NoProgress
+    )
 
   private def executeTyped[In, Out](
       tool: Tool[Any, In, Out],
@@ -199,6 +242,10 @@ final class Toolkit private (val tools: Map[String, Tool[Any, ?, ?]]):
       )
 
 object Toolkit:
+  private[core] enum Dispatch:
+    case Completed(result: ObservedResult)
+    case AwaitingExternal(input: Json)
+
   private[core] enum ProgressDisposition:
     case NoProgress, ProgressPublished
 
@@ -211,10 +258,15 @@ object Toolkit:
 
   def apply(): Toolkit = empty
 
-  def single(tool: Tool[Any, ?, ?]): Toolkit = new Toolkit(Map(tool.definition.name -> tool))
+  def single(tool: Tool[Any, ?, ?]): Toolkit = single(ToolBinding.Local(tool))
+
+  def single(tool: ToolBinding): Toolkit = new Toolkit(Map(tool.definition.name -> tool))
 
   /** Host-supplied keys must match declared names; aliases require an explicitly renamed tool. */
   def fromMap(tools: Map[String, Tool[Any, ?, ?]]): Either[AgentError, Toolkit] =
+    fromBindings(tools.view.mapValues(ToolBinding.Local(_)).toMap)
+
+  def fromBindings(tools: Map[String, ToolBinding]): Either[AgentError, Toolkit] =
     tools.toList.sortBy(_._1).find((name, tool) => name != tool.definition.name) match
       case Some((name, tool)) =>
         Left(

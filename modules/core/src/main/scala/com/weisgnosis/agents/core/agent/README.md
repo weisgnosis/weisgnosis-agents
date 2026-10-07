@@ -4,9 +4,19 @@ The additive [interactive batch preflight](../../../../../../../../../harness/sr
 
 Runtime usage telemetry also crosses a [checked arithmetic boundary](../model/README.md#checked-usage-arithmetic): first-turn invalid values and accumulated overflow fail before end events/hooks/persistence, retaining prior accepted usage. This scope has final source/full/artifact verification and final combined documentation approval; usage arithmetic retains its separately accepted behavior.
 
-Selected request settings also carry a checked optional [thinking budget](../client/README.md#optional-thinking-budget), with target initialization and explicit None clearing. The source/full/artifact scope is verified; final combined documentation approval passed; ModelInputTransform retains the thinking-budget identity, while the current runtime identity belongs to the transformed-progress contract below.
+Selected request settings also carry a checked optional [thinking budget](../client/README.md#optional-thinking-budget), with target initialization and explicit None clearing. The source/full/artifact scope is verified; final combined documentation approval passed; ModelInputTransform retains the thinking-budget identity, while the current runtime identity belongs to the accepted external-binding contract.
 
 The [interrupted transformed-progress correction](../client/README.md#interrupted-transformed-progress) has final source approval and focused verification; full/artifact verification passes; final combined documentation acceptance passed after reproduced history loss. Only validated request-local progress may be accepted after joined interruption-only cleanup; compound failures remain failures and external cancellation remains interrupted.
+
+## External execution checkpoints
+
+The accepted [external binding scope](../tool/README.md#external-tool-bindings) distinguishes external execution from permission waiting. AwaitingResults retains completed occurrence/history positions, current group state, saved Stop, exact externalRequests inputs and an externalTools binding-kind manifest. Mixed batches retain separate permissionRequests; only those publish Ask. The assistant call is persisted before acting, and approved argument edits are persisted before dispatch. External waiting contributes no placeholder Tool message or successful result event.
+
+Partial host results use SuppliedToolResult with checked original ordinals, preserving repeated IDs and completed local observations. Rewaiting without a supplied result preserves the already admitted external request without another authorization callback; it neither authorizes a new external handoff nor establishes ongoing permission. Restoration checks definitions and Local/External binding kinds. BeforeActing host-supplied observations retain their existing generic contract and bypass ordinary dispatch validation; they are not proof of validated execution.
+
+Hosts must dispatch from the returned or fully consumed validated Suspended result, authenticate supplied observations and own remote execution/claims/recovery. Interrupted runs reconcile unresolved calls with Error observations whose external wording reports an unaccepted result and unknown execution status. Joined local cleanup does not cancel remote work. Checkpoint storage supplies no lease, exclusive claim or exactly-once guarantee. Structured runs reject this waiting mode.
+
+Final documentation acceptance passed in the canonical [binding scope](../tool/README.md#external-tool-bindings). Existing local permission and checkpoint acceptance remains separately scoped.
 
 ## Model turn trust boundary
 
@@ -18,7 +28,7 @@ The grouped ReActAgentSpec regression derives expectations from untouched histor
 
 | Source/spec approved by review_fp and review_invariants against b70aa32 | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [ReActAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
 
 - [x] review_fp and review_invariants approved both final identities against b70aa32, with no unresolved findings.
@@ -78,7 +88,7 @@ Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a 
 
 | Reviewed group/skill baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
 The table records the group/skill baseline. The current runtime identity is in [scoped model failover](#scoped-model-failover), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
@@ -108,7 +118,7 @@ Migration: configured skill listings move from the loader description to transie
 
 | Reviewed request-projection baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2eb319710008d11433978458c47a01d1c9eac110` |
 
 The [catalogue contract](../skill/README.md#deferred-resource-capabilities) owns current catalogue/library identities and combined verification. Existing execution, forwarding, group and permission contracts retain their scoped evidence below. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals and next work.
@@ -123,7 +133,7 @@ The protected loader retains ordinary authorization and sequential dispatch. An 
 
 | Reviewed deferred-read baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
 
 Current ReActAgent identity and execution approval are in [scoped model failover](#scoped-model-failover); the groups spec above is unchanged.
@@ -157,7 +167,7 @@ Mixed Success/Error, inline/provider batches and incomplete deferred batches do 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current provider-ownership fixture](#provider-owned-pending-calls) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this pair, including unchanged Direct behavior through the shared completed-ledger helper. Two grouped cases cover fresh/restored batches, priority and exclusion tables, structured runs, held cleanup and cancellation. Focused checks passed 19 tests in 678 ms (`all-denied-final-focused.log`), including the three existing Direct groups; full `scalafmtAll scalafmtSbt verify` passed in `all-denied-verify.log` with zero compiler warnings or failures. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
@@ -173,7 +183,7 @@ BeforeActing checkpoints may preserve a provider-only pause, with no local pendi
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [PendingActing.scala](PendingActing.scala) | bdcdb1e276a1dcbb1a86dc321c4ecdf39bdbeb4c |
 | [ToolHistory.scala](../model/ToolHistory.scala) | ba82c0b9d409c0eb444b2212c603532efa83235f |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current ReActAgentToolAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
@@ -194,7 +204,7 @@ Migration: ToolDef appends the defaulted returnMode field. Old JSON without it d
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [ToolDef.scala](../tool/ToolDef.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 | [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | [Current ReActAgentReturnDirectSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
@@ -223,7 +233,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current ConfirmedBatchAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
@@ -244,7 +254,7 @@ The [ReActAgentForwardingSpec](../../../../../../../test/scala/com/weisgnosis/ag
 | Reviewed forwarding baseline | Git blob |
 | --- | --- |
 | [AgentEventForwarder.scala](AgentEventForwarder.scala) | `9198abc9f0b13f1cb1e347df0a73c57c50f6e2d1` |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [AgentEventForwarderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) | `2c0bbde7e0e5eb94f8c3f963ead3f1ed4eed37ab` |
 | [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | [Current ReActAgentForwardingSpec.scala identity](../tool/README.md#checked-registry-identity) |
 
@@ -310,7 +320,7 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [LlmClient.scala](../client/LlmClient.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | [Current identity](../client/README.md#completion-envelope-profiles) |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
@@ -397,7 +407,7 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
@@ -424,7 +434,7 @@ Migration: PendingActing appends default-empty suppliedResults, preserving old m
 | File | Reviewed Git blob |
 | --- | --- |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
 | [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
 | [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | [Current ReActAgentSuppliedResultSpec.scala identity](../tool/README.md#checked-registry-identity) |
@@ -565,7 +575,7 @@ Migration: the default projectRequest method preserves existing ModelInputTransf
 | File | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](ModelInputTransform.scala) | [Current thinking-budget identity](../client/README.md#optional-thinking-budget); prior behavioral scope retained. |
-| [ReActAgent.scala](ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior unrelated scope retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior unrelated scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](../client/README.md#optional-frequency-and-presence-penalties) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |

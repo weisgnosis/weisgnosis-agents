@@ -12,7 +12,7 @@ checked-usage-red.log reproduces cross-turn overflow acceptance and invalid-usag
 
 | Source/spec approved by review_fp and review_invariants against c198f98 | Git blob |
 | --- | --- |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current transformed-progress identity](../client/README.md#interrupted-transformed-progress); source/focused/full/artifact verification passed; final combined documentation acceptance passed; prior checked-usage scope retained. |
+| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current external-binding identity](../tool/README.md#external-tool-bindings); final documentation acceptance passed; prior behavioral scope retained. |
 | [ChatUsage.scala](ChatUsage.scala) | b18a1476dd7e2c6d4522cf89f6483f153d592caa |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | 5f52c4fe7acd454475928f20ab7634dcc28157e2 |
 | [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | 924725a21a867e314580535955a6af1bf591ec2b |
