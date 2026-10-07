@@ -23,11 +23,10 @@ Update contracts and mappings when behavior changes. Record current reviewed sco
 
 ## Current documentation acceptance
 
-Current documentation scope against db39101 describes [checked external bindings and execution checkpoints](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#external-tool-bindings), their public migration and bounded twelve-method applicability inventory. The previously accepted [explicit child Plan installation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#child-plan-installation) classification retains its independent scope.
+Current documentation scope against 75265e0 reconciles the finite [compaction/eviction applicability inventory](test-parity.md) with the existing [compactor acceptance](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#current-review-acceptance). All 24 methods have bounded decisions; documented backend limits remain distinct from unfinished platform/security/crash and broader middleware guarantees. Source and tests are unchanged, retaining their canonical scoped acceptance and verification.
 
-- [x] review_fp and external_invariant_review approved all ten exact source/spec/consumer identities; focused verification and fresh artifact/consumer checks pass.
-- [x] external-tools-release-verify.log passes the final source/spec scope: 1,526 tests, zero compiler warnings/failures/ignored. Four RC1 packages came from external-tools-verify.log with unchanged production; preparation and fresh four-hash consumption validate them after the test-only oracle refinement. The canonical contract retains the intervening unexplained PostgreSQL acquisition failure and isolation/recheck evidence.
-- [x] review_fp and external_invariant_review approved the final combined 24-file scope against db39101, with no unresolved findings within that scope; English/diff and 78-document/2,985-local-reference checks pass.
+- [x] review_fp and review_invariants approved this four-document reconciliation against 75265e0 with no unresolved findings; existing source acceptance is unchanged.
+- [x] Manual English inspection, changed-script/diff checks and 78-document/2,989-local-reference checks pass; source and tests are unchanged.
 
 ## Versioned remote storage
 

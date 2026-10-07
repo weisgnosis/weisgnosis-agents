@@ -43,6 +43,13 @@ ToolResultEvictor.preparer can precede ConversationCompactor.preparer via Histor
 - [x] All seven compactor and ten middleware methods have explicit [applicability decisions](../../../../../../../../../../docs/architecture/test-parity.md#compaction-method-applicability). Failure-policy divergences, summary identity, structured causes, session ownership, and the cyclic-Throwable exclusion are explicit; literal middleware equivalence is not claimed.
 - [x] Complete the bounded local consolidation acceptance recorded below.
 
+The documentation-only reconciliation against 75265e0 accounts for all 24 methods in three pinned suites at upstream f98a685: seven ConversationCompactorTest, ten CompactionMiddlewareTest and seven ToolResultEvictionMiddlewareTest. The compactor applicability decisions above and [seven eviction mappings](../../../../../../../../../../docs/architecture/test-parity.md#toolresultevictionmiddlewaretest-seven-methods) retain their existing source/spec acceptance. No code, tests or behavior changed, and this classification does not mean literal Java fallback, mutable middleware identity or session-API equivalence.
+
+Backend applicability is explicit: compaction uses injected scoped callbacks; eviction uses an injected store and an opt-in trusted local/absolute backend. Local canonicalization is not an atomic hostile-filesystem sandbox. Platform-specific symlink/junction checks, untrusted-workspace isolation, crash durability and broader middleware/memory-service inventories remain unfinished.
+
+- [x] review_fp and review_invariants approved the four-file reconciliation against 75265e0 with no unresolved findings; existing source acceptance is unchanged.
+- [x] Manual English inspection, changed-script/diff checks and 78-document/2,989-local-reference checks pass; existing source verification remains applicable without a new build.
+
 Previous implementation/hardening approvals remain in Git through `52da827`. Current reviewed test blobs (Git-normalized):
 
 | Source | Blob identity |

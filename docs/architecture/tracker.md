@@ -58,12 +58,13 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Sanitized PostgreSQL diagnostics](../../modules/storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) retain checked SQLSTATE/class data with final scoped acceptance.
 
-Current delivery scope against e9158e6: test-only nested-error and mixed-parallel failure fixtures, extending two existing groups without production/API changes.
+- [x] [Nested-error and mixed-parallel failure fixtures](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/README.md#failure-fixtures) have final scoped test/documentation acceptance without production changes.
 
-- [x] review_fp and review_invariants approved both exact final test identities against e9158e6 with no unresolved source findings.
-- [x] tool-executor-error-fixtures-focused.log passes 16 tests, zero failed/ignored, in 604 ms; formatting and fatal-warning compilation pass.
-- [x] tool-executor-error-fixtures-verify.log passes formatting, fatal-warning compilation and 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero failures or ignored tests. Production and packaged consumer sources are unchanged from e9158e6; this verify-only run does not regenerate packages.
-- [x] review_fp and review_invariants approved the final nine-file combined scope against e9158e6 with no unresolved findings; English/diff and 78-document/2,985-local-reference checks pass.
+Current delivery scope against 75265e0: documentation-only compaction/eviction umbrella reconciliation, with unchanged source/spec acceptance.
+
+- [x] Inspect all three pinned suites and confirm 24 concrete applicability decisions: seven compactor, ten compaction middleware and seven eviction methods.
+- [x] Split documented injected/trusted backend applicability from unfinished platform/security/crash and broader middleware guarantees.
+- [x] review_fp and review_invariants approved the four-document reconciliation against 75265e0 with no unresolved findings; English/diff and 78-document/2,989-local-reference checks pass.
 - [ ] Diagnose the unexplained PostgreSQL acquisition failure in external-tools-final-verify.log; sanitized diagnostics and successful rechecks do not establish its cause.
 
 ## Current acceptance

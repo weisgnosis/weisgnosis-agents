@@ -52,7 +52,11 @@ The unchanged Toolkit blob `79be10c316f676da5d96977419e5be4caf02886f` lost a cle
 - [x] Classify the five pinned thinking-only empty-response methods under the bounded test contract below; exact Java assertion equivalence and broader lifecycle parity are not implied.
 - [x] Cover empty-input structured runs, signed thinking preservation, full reply usage, and immediate repeated calls.
 - [x] Close all eighteen structured-output method mappings through verified contracts or explicit typed adaptations; broader middleware/hook behavior remains separate work.
-- [ ] Complete compaction/eviction mappings and document storage-backend applicability.
+- [x] Classify all 24 methods in the pinned compaction/eviction suites: seven ConversationCompactorTest, ten CompactionMiddlewareTest and seven ToolResultEvictionMiddlewareTest methods, through the bounded mappings and explicit differences below.
+- [x] Document injected-store and trusted local/absolute storage applicability in the [compactor](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#failure-policy-and-session-ownership) and [eviction contracts](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/eviction/README.md).
+- [ ] Validate platform-specific symlink/junction behavior, hostile-workspace isolation and crash durability separately; finite method classification does not establish these guarantees.
+- [ ] Complete remaining broader middleware/memory-service applicability; the three named suites do not exhaust those domains.
+- [x] review_fp and review_invariants approved this four-document umbrella reconciliation against 75265e0; no source/test acceptance is widened.
 - [ ] Complete permission mappings and durable host integration tests.
 - [ ] Close every applicable gap before declaring exhaustive 1:1 parity.
 
