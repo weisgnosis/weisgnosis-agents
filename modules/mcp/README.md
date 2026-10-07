@@ -1,5 +1,7 @@
 # weisgnosis-agents-mcp
 
+[McpMetadata.merge](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#ordered-metadata-merge) adds checked explicit host composition with later top-level precedence; final source/full/archive checks pass; fresh consumer verification passes; final documentation approval passed. It acquires no ambient context and preserves both existing omission gates and final runtime call-ID overlay.
+
 Tool binding preserves explicit host-selected [provider schema strictness](../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness). Remote hints grant no such preference or permission authority; the linked contract records current ToolDef migration and binding fixture evidence.
 
 Toolkit now has a private canonical-name representation; host map construction uses checked fromMap, with explicit replacement/selection operations. The [registry migration and review contract](../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) records source/JVM changes, the reproduced defect and current source/spec identities. Existing module lifecycle and permission contracts remain in force.

@@ -17,3 +17,7 @@ These scenarios adapt fixed invocation, content conversion, explicit metadata pr
 - [x] Both independent reviewers approved the final source/spec and full repository verification passed. Exact identities and evidence belong to the [source acceptance](../../../../../../../main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance).
 
 The host-definition fixture includes explicit provider schema strictness and asserts full definition equality after binding. Exact current fixture identity and cross-module verification belong to the [core strictness contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness).
+
+## Ordered metadata composition
+
+[McpMetadataSpec](McpMetadataSpec.scala) uses one grouped table for ordered shallow replacement, literal null, empty sources, exact AST values and recursive duplicate rejection even in overwritten input. Existing McpToolMetadataSpec integration explicitly composes host defaults/live metadata and retains final runtime call-ID overlay, both omission gates and joined resolver cleanup. The [three-file contract](../../../../../../../main/scala/com/weisgnosis/agents/mcp/tool/README.md#ordered-metadata-merge) owns final source/full/archive approval and completed final documentation approval; this does not install ambient context bags or a cache.

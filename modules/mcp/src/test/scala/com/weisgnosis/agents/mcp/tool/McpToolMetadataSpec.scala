@@ -124,7 +124,22 @@ object McpToolMetadataSpec extends ZIOSpecDefault:
                   host.copy(outputSchema = remote.outputSchema),
                   Json.Obj("value" -> Json.Str("preset"), "defaulted" -> Json.Str("injected")),
                   McpToolMetadata
-                    .Propagate(identity => identities.update(_ :+ identity) *> trace.get)
+                    .Propagate(identity =>
+                      identities.update(_ :+ identity) *> trace.get.flatMap(current =>
+                        ZIO.fromEither(
+                          McpMetadata.merge(
+                            Chunk(
+                              Json.Obj(
+                                "trace"  -> Json.Str("default"),
+                                "nested" -> Json.Obj("default" -> Json.Bool(true)),
+                                "io.agentscope/toolCallId" -> Json.Str("default")
+                              ),
+                              current
+                            )
+                          )
+                        )
+                      )
+                    )
                 )
                 .map(Some(_))
           )

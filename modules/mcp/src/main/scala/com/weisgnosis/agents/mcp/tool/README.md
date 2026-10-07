@@ -42,6 +42,26 @@ Resolver failure becomes the existing typed direct-execution failure or Toolkit 
 
 `McpToolBinding(definition, metadata = Omit, presets = empty, fixedArguments = empty)` pairs host authority, propagation policy and checked argument policies for [manager registerBindings](../client/README.md#scoped-manager-contract). Existing bind calls retain omission; no implicit opt-in or core invocation API migration is required.
 
+## Ordered metadata merge
+
+[McpMetadata.merge](McpMetadata.scala) is a pure checked helper taking Chunk[Json.Obj] and returning Either[AgentError.InvalidMessage, Json.Obj]. Sources are processed in supplied order; later top-level fields replace earlier whole values, including nested objects and literal JSON null. It is a shallow merge, not recursive patching. Empty sources produce an empty object. Every source undergoes recursive duplicate-field validation before it participates, including malformed values later overwritten by another source; invalid input fails the complete merge.
+
+The helper retains original JSON AST values, including exact decimals and signed Long endpoints, without text serialization, mutation or effectful context acquisition. A host may explicitly compose defaults and live metadata inside the existing resolver. Existing Omit gates still skip the resolver entirely; runtime active-call overlay of io.agentscope/toolCallId runs last and remains authoritative. Detached metadata supplies no fabricated call ID. Merging correlation data grants no authentication, permission or ambient-context authority.
+
+This is an additive public function; existing binding/resolver signatures and omission defaults are unchanged. The one new table-driven McpMetadataSpec covers ordered replacement, empty input, exact values and rejection of overwritten malformed sources; existing McpToolMetadataSpec integration composes defaults/live metadata without adding a group. The selected adaptation follows pinned McpMeta.merge (96); nullable Java inputs, mutable copying/accessors, ambient bags, caching and schema redesign are not adopted.
+
+| Reviewed source/spec against c4ec4c3 | Git blob |
+| --- | --- |
+| [McpMetadata.scala](McpMetadata.scala) | `3c8e13980b8f641479b457d31185f05db0192c1d` |
+| [McpMetadataSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpMetadataSpec.scala) | `819c7fd08cf4148428f60346da93ae9a92854c49` |
+| [McpToolMetadataSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) | `5f1e1dbc3985d463cfbecd87971fd4f164340948` |
+
+- [x] review_fp and review_invariants approved these three final identities against c4ec4c3, with no unresolved findings.
+- [x] The final full verification below passes all five metadata groups, including the strengthened position/uniqueness oracle and existing resolver omission/cleanup integration; no extra focused run is claimed for the final refinement.
+- [x] mcp-metadata-merge-verify.log passes formatting, fatal-warning compilation, four packages and 1,498 tests: 669 core / 726 harness / 86 MCP / 12 PostgreSQL / 5 examples, with zero compiler warnings or failed tests. Artifact preparation passes all four archive/POM checks.
+- [x] mcp-metadata-merge-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four actual module JAR hashes. Its existing selected API smoke does not call the new merge helper.
+- [x] review_fp and review_invariants approved final combined source/documentation closure against c4ec4c3 and these three unchanged identities. English inspection passed; all 2,734 local references in 78 Markdown documents passed with zero issues.
+
 ## Observation projection
 
 Text, image and audio become the corresponding core ContentBlock variants in original order. Image/audio data stays opaque base64-source data; URL-looking values are not interpreted as URLs. Resource links become `Custom("mcp/resource_link", payload)` with uri, name and optional title, description, mimeType and size. Embedded resources become `Custom("mcp/resource", payload)` with uri, body, optional mimeType/meta, and extensions. The body object contains text, blob or both. Nothing fetches a URI, decodes base64 or evaluates a schema. Decimal size and priority remain Json.Num without integer expansion.
@@ -80,7 +100,7 @@ The current manager test identity, including argument-policy rollback, is record
 | [McpToolPresetsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolPresetsSpec.scala) | cbb787de7a2ba56a81e8ab478c4b921fe44af481 |
 | [McpTool.scala](McpTool.scala) | 83f2dd83b1982bf67ce253015c0c9dd11fc43fd3 |
 | [McpToolMetadata.scala](McpToolMetadata.scala) | b67b218effea04ce18b2ba018bd37e121f03bcce |
-| [McpToolMetadataSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) | [Current McpToolMetadataSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+| [McpToolMetadataSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolMetadataSpec.scala) | [Current ordered-merge identity](#ordered-metadata-merge) |
 | [McpToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/tool/McpToolSpec.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness) |
 
 ## Upstream scope and remaining work
