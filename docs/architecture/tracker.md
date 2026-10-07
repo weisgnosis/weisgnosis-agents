@@ -60,11 +60,14 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Nested-error and mixed-parallel failure fixtures](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/README.md#failure-fixtures) have final scoped test/documentation acceptance without production changes.
 
-Current delivery scope against 75265e0: documentation-only compaction/eviction umbrella reconciliation, with unchanged source/spec acceptance.
+- [x] Accept the finite 24 compaction/eviction applicability decisions and documented backend limits; broader platform/security/crash guarantees remain separate.
 
-- [x] Inspect all three pinned suites and confirm 24 concrete applicability decisions: seven compactor, ten compaction middleware and seven eviction methods.
-- [x] Split documented injected/trusted backend applicability from unfinished platform/security/crash and broader middleware guarantees.
-- [x] review_fp and review_invariants approved the four-document reconciliation against 75265e0 with no unresolved findings; English/diff and 78-document/2,989-local-reference checks pass.
+Current delivery: [independent MCP initialization/request deadlines](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines) against a13b71e.
+
+- [x] Both reviewers approved the three final source identities; six focused groups and full 1,526-test RC1/package verification pass.
+- [x] Fresh archive/source/POM preparation passes.
+- [x] mcp-selected-deadlines-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh RC1 module hashes.
+- [x] review_fp and review_invariants approved the final eleven-file combined scope against a13b71e with no unresolved findings; English/diff and 78-document/3,001-local-reference checks pass.
 - [ ] Diagnose the unexplained PostgreSQL acquisition failure in external-tools-final-verify.log; sanitized diagnostics and successful rechecks do not establish its cause.
 
 ## Current acceptance

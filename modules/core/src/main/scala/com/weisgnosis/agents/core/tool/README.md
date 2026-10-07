@@ -27,7 +27,7 @@ review_fp and external_invariant_review approved the final ten-file source scope
 | [ToolBindingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolBindingSpec.scala) | `87b21c337ffbed8bf6c7d69fffe47364ceb6ba1c` |
 | [ToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolGroupsSpec.scala) | `d693808018737ea93abf2825b744e99c412cd2c1` |
 | [ToolkitSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolkitSpec.scala) | `cd735ace343c4d6091bf3dab7ac5cb2f2976fe35` |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | `25f5ad029f6558d50093337dda551bc44eb6e543` |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current consumer identity](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines); external-binding behavioral scope retained. |
 
 - [x] review_fp approved FP/ZIO correctness and external_invariant_review independently approved invariants for all ten exact identities above. The author of the integration regression did not provide its independent approval.
 - [x] external-tools-focused.log passes 25 tests, zero failed/ignored, in 845 ms. The actual-runtime tables cover approved-input rewriting, restored completion, mixed sequential/parallel execution and inactive-group rejection. An initial new-capability fixture exposed inactive calls reaching suspension; admission now rejects them before authorization, and the final table requires exact Error states. This was a draft capability gap, not a defect in an already accepted external-tool profile.

@@ -1,5 +1,7 @@
 # weisgnosis-agents-mcp
 
+The [independent deadline overload](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines) preserves the uniform Duration API while selecting checked handshake and request budgets separately. Source/full/package/preparation verification passes; fresh consumer verification passes; final combined documentation acceptance is approved.
+
 [McpMetadata.merge](src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#ordered-metadata-merge) adds checked explicit host composition with later top-level precedence; final source/full/archive checks pass; fresh consumer verification passes; final documentation approval passed. It acquires no ambient context and preserves both existing omission gates and final runtime call-ID overlay.
 
 Tool binding preserves explicit host-selected [provider schema strictness](../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness). Remote hints grant no such preference or permission authority; the linked contract records current ToolDef migration and binding fixture evidence.

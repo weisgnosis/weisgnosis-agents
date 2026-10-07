@@ -24,8 +24,9 @@ import zio.json.ast.Json
 
 /**
  * Initialized 2025-06-18 client over a borrowed transport. The host retains transport ownership.
- * One configured deadline cancels initialization and each list/call operation; returning waits for
- * owned cleanup and can exceed that deadline. Discovery is one page or an explicitly bounded
+ * Checked initialization and request deadlines cancel the handshake and each list/call operation;
+ * the Duration overload applies one uniform deadline. Returning waits for owned cleanup and can
+ * exceed the selected deadline. Discovery is one page or an explicitly bounded
  * sequential traversal. Interrupted issued requests may send best-effort cancellation without
  * waiting for delivery; pre-header HTTP cancellation is ineligible. No cache, reconnect, notification
  * invalidation, schema evaluation, or Toolkit authority is installed.
@@ -115,6 +116,26 @@ final class McpClient private (
       .unit
 
 object McpClient:
+  /** Positive finite operation limits; they do not bound joined resource cleanup. */
+  final class Deadlines private (
+      val initialization: Duration,
+      val request: Duration
+  )
+
+  object Deadlines:
+    def make(
+        initialization: Duration,
+        request: Duration
+    ): Either[AgentError.InvalidConfiguration, Deadlines] =
+      Either.cond(
+        initialization > Duration.Zero && initialization < Duration.Infinity &&
+          request > Duration.Zero && request < Duration.Infinity,
+        new Deadlines(initialization, request),
+        AgentError.InvalidConfiguration(
+          "MCP initialization and request deadlines must be positive and finite"
+        )
+      )
+
   private enum Observation[+A]:
     case Completed(exit: Exit[AgentError, A])
     case Elapsed
@@ -124,26 +145,39 @@ object McpClient:
       clientInfo: McpImplementation,
       deadline: Duration = 30.seconds
   ): ZIO[Scope, AgentError, McpClient] =
-    if deadline <= Duration.Zero || deadline >= Duration.Infinity then
-      ZIO.fail(AgentError.InvalidConfiguration("MCP client deadline must be positive and finite"))
-    else
-      ZIO.uninterruptibleMask: restore =>
-        for
-          connection <- McpConnection.make(transport)
-          initialized <- restore(
-            withDeadline(initialize(connection, clientInfo), deadline, "initialization")
-          ).exit
-          client <- initialized match
-            case Exit.Success(result) =>
-              Ref
-                .make(McpToolMetadataPropagation.Allow)
-                .map(mode => new McpClient(result, connection, deadline, mode))
-            case Exit.Failure(cause) =>
-              connection.close.exit.flatMap:
-                case Exit.Success(_) => ZIO.refailCause(cause)
-                case Exit.Failure(cleanup) =>
-                  ZIO.refailCause(if cause.contains(cleanup) then cause else cause ++ cleanup)
-        yield client
+    ZIO
+      .fromEither(Deadlines.make(deadline, deadline))
+      .mapError(_ =>
+        AgentError.InvalidConfiguration("MCP client deadline must be positive and finite")
+      )
+      .flatMap(deadlines => open(transport, clientInfo, deadlines))
+
+  def open(
+      transport: McpTransport,
+      clientInfo: McpImplementation,
+      deadlines: Deadlines
+  ): ZIO[Scope, AgentError, McpClient] =
+    ZIO.uninterruptibleMask: restore =>
+      for
+        connection <- McpConnection.make(transport)
+        initialized <- restore(
+          withDeadline(
+            initialize(connection, clientInfo),
+            deadlines.initialization,
+            "initialization"
+          )
+        ).exit
+        client <- initialized match
+          case Exit.Success(result) =>
+            Ref
+              .make(McpToolMetadataPropagation.Allow)
+              .map(mode => new McpClient(result, connection, deadlines.request, mode))
+          case Exit.Failure(cause) =>
+            connection.close.exit.flatMap:
+              case Exit.Success(_) => ZIO.refailCause(cause)
+              case Exit.Failure(cleanup) =>
+                ZIO.refailCause(if cause.contains(cleanup) then cause else cause ++ cleanup)
+      yield client
 
   private def initialize(
       connection: McpConnection,

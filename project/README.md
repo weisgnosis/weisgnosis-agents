@@ -30,6 +30,8 @@ Default coordinates are `com.weisgnosis:weisgnosis-agents-{core,harness,mcp,stor
 
 The additive [OpaqueSignatureDetails profile](../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details) has final source approval and focused verification; full RC1/artifact/consumer verification passes; final combined documentation approval passed. Downstream exhaustive ReasoningReplay matches must handle the new case and rebuild; configuration arities and prior profile admission remain unchanged. Current opaque-signature-verify/preparation/consumer logs verify the changed RC1 sources; selected consumer APIs do not explicitly exercise the new profile.
 
+The additive [McpClient.Deadlines API](../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines) supplies pure positive-finite validation and an explicit open overload. The original Duration overload and its JVM signature/default remain unchanged. Both source reviewers approved the three-file scope against a13b71e; fresh full RC1 packaging, archive inspection and changed-consumer execution pass. Final combined documentation acceptance is approved.
+
 ## Compatibility policy
 
 All four library distributions default to development SNAPSHOT coordinates; explicit checked RC selection prepares unsigned candidate artifacts without creating a release baseline. No previously published binary-compatibility baseline or blanket API freeze is established. Defaulted additions can preserve ordinary source construction while changing positional extractors, Product arity, constructor method values and JVM signatures; downstream code must follow package migration contracts and rebuild dependent binaries.

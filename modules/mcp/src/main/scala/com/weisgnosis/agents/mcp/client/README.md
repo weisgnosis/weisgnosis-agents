@@ -54,15 +54,36 @@ Custom managers inherit an ungrouped installation from their existing toolkit an
 
 - [ ] Complete ambient metadata, discovery caching and durable activation separately.
 
+## Independent deadlines
+
+`McpClient.Deadlines.make(initialization, request)` is a pure checked constructor: both durations must be positive and finite. The additive `open(transport, clientInfo, deadlines)` overload has no defaults. The existing Duration overload, its JVM signature, `30.seconds` default and uniform behavior remain unchanged; its invalid-configuration message is preserved. No configuration codec or case-class arity changes.
+
+The initialization budget includes the initialize exchange, validated result and `notifications/initialized` send. The request budget applies separately to each list/call operation and each discovery page, not to the whole traversal. A timeout triggers cancellation; returning still joins owned cleanup, which may exceed either budget. Caller interruption and independent cleanup causes remain preserved. Bound-tool metadata resolution precedes the client request and remains outside that request budget. The host still owns the borrowed transport and can supply either overload through the existing manager acquisition effect. No retry, cache, reconnect or transport ownership change is introduced.
+
+The existing six McpClientSpec groups now exercise independent initialization/request budgets, initialized-notification timing, later discovery pages and joined cleanup alongside the unchanged uniform overload. The standalone consumer constructs checked deadlines, rejects zero and calls the new overload through a controlled failing initialization; it does not contact an external MCP server. This is bounded adaptation of pinned McpClientBuilderTest.testTimeout (141) and testInitializationTimeout (149), whose Java assertions only check builder construction, not whole builder-suite parity.
+
+| Reviewed file against a13b71e | Git blob |
+| --- | --- |
+| [McpClient.scala](McpClient.scala) | 3bafd6e6b5a54b7886c981af33d77b8c5781d6ac |
+| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | 9834e0d99ea61264eb4e973c9865551611c81f79 |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | 79e5a37dbbf34538e41aaed92a87decd37763aa6 |
+
+- [x] review_fp and review_invariants independently approved the three final source identities against a13b71e with no unresolved findings.
+- [x] mcp-selected-deadlines-focused.log passes six existing groups, zero failed/ignored, in 1.197 seconds.
+- [x] mcp-selected-deadlines-verify.log passes 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages.
+- [x] mcp-selected-deadlines-preparation.log passes fresh exact source/POM/LICENSE inspection and reversible archive/selector rejection checks.
+- [x] mcp-selected-deadlines-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh RC1 module hashes, including the checked deadline API probe.
+- [x] review_fp and review_invariants approved the final eleven-file combined scope against a13b71e with no unresolved findings; manual English, changed-script/diff and 78-document/3,001-local-reference checks pass.
+
 ## Initialized client contract
 
 - `open(transport, clientInfo, deadline = 30.seconds)` creates an owned connection in the caller's scope. The host acquires the transport first. The deadline must be positive and finite; invalid values start no reader. Initialization advertises empty optional client capabilities, requires the exact selected revision, and publishes the client only after `notifications/initialized` finishes sending. Failed or interrupted initialization closes and joins the connection immediately.
 - `initialization` exposes checked server information and capabilities. `listToolsPage(cursor, meta)` returns one ordered page, including its next cursor. `callTool(name, arguments, meta)` preserves checked content and metadata. Both require the actual advertised tools capability; uninterpreted extensions confer no authority.
 - `setToolMetadataPropagation(Allow | Omit)` changes the live restriction for bound tools only; its initial value is Allow, while bindings default to Omit. Each invocation reads one snapshot before its effectful resolver. Changing mode cannot revoke a resolver already started, even before send. Explicit list/call metadata bypasses this restriction. Resolver lifetime/deadline belongs to the invocation host, not the subsequent client request deadline.
-- Each initialization/list/call uses the configured deadline. Expiration triggers cancellation and returns `TimeoutError` after owned cleanup finishes; cleanup can exceed the deadline. Caller interruption also joins cleanup and retains independent failures and defects. Eligible interrupted requests may enqueue the best-effort outbound notification described below; no delivery acknowledgement or retry is implied.
+- Initialization uses its selected budget; each list/call uses the selected request budget. Expiration triggers cancellation and returns `TimeoutError` after owned cleanup finishes; cleanup can exceed the deadline. Caller interruption also joins cleanup and retains independent failures and defects. Eligible interrupted requests may enqueue the best-effort outbound notification described below; no delivery acknowledgement or retry is implied.
 - Remote JSON-RPC failures become `McpRemoteError(code, message, data)`. `McpErrorData.Absent` and `Present(Json.Null)` remain distinct through the domain codec. A tool's `isError` result is valid `McpCallResult` data, not a protocol failure. `close` joins the connection while the transport remains host-owned.
 
-`discoverTools(maxPages, maxTools, meta)` performs an explicitly bounded sequential traversal from the first page. Both limits must be positive before any discovery request. It preserves ordered duplicate definitions and counts every definition against the tool limit; an exact tool limit can still be followed by empty pages. The [selected pagination contract](https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/pagination) treats cursors as opaque. Cursors, including empty strings, are forwarded unchanged. Repeated cursors, excess tools, or a continuation on the final permitted page fail before another request. Only terminal success publishes the complete catalogue; later errors and cancellation yield no partial value. Each page uses the configured joined deadline. Limits count pages and definitions, not bytes, and cleanup can exceed the deadlines.
+`discoverTools(maxPages, maxTools, meta)` performs an explicitly bounded sequential traversal from the first page. Both limits must be positive before any discovery request. It preserves ordered duplicate definitions and counts every definition against the tool limit; an exact tool limit can still be followed by empty pages. The [selected pagination contract](https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/pagination) treats cursors as opaque. Cursors, including empty strings, are forwarded unchanged. Repeated cursors, excess tools, or a continuation on the final permitted page fail before another request. Only terminal success publishes the complete catalogue; later errors and cancellation yield no partial value. Each page uses the selected request deadline with joined cleanup. Limits count pages and definitions, not bytes, and cleanup can exceed the deadlines.
 
 The flattened catalogue omits page envelope metadata; use `listToolsPage` when that metadata is needed. Discovery is not an atomic server snapshot. There is no discovery cache, notification invalidation, schema evaluation, reconnect or Toolkit installation. The client does not implement the different 2026-07-28 lifecycle.
 
@@ -134,8 +155,8 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 | [McpConnection.scala](McpConnection.scala) | `1d056049de8b406d8338b911eb3385338d6c46bc` |
 | [McpTransport.scala](../transport/McpTransport.scala) | `477e8e6e7f2c2e4caded85f6a447230731729184` |
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `7130bc705b77f68c51ae7745fc5c5560626aed35` |
-| [McpClient.scala](McpClient.scala) | `d1f9ca0a9d3a18f9cf0ab25b80ab5afa3dfea3ce` |
-| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `24acfbfe2a8b16b2b66fb9ed40d11be286e24ef9` |
+| [McpClient.scala](McpClient.scala) | [Current independent-deadline identity](#independent-deadlines); prior initialized-client scope retained. |
+| [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | [Current independent-deadline identity](#independent-deadlines); prior initialized-client scope retained. |
 
 ## Remaining work
 

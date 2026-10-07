@@ -1,5 +1,7 @@
 # com.weisgnosis.agents.mcp.client: tests
 
+The [independent deadline contract](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines) owns the current McpClientSpec identity and three-file scope. Six existing groups exercise separate handshake/request budgets, initialized-notification timing, per-page discovery and joined cleanup. Final source/focused/full/package/preparation checks pass; fresh consumer verification passes; final combined documentation acceptance is approved.
+
 [McpRequestsSpec](McpRequestsSpec.scala), [McpConnectionSpec](McpConnectionSpec.scala), [McpClientSpec](McpClientSpec.scala) and [McpClientManagerSpec](McpClientManagerSpec.scala) verify the [client contract](../../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md) using scopes, STM, queues and explicit coordination promises. No test starts a network server or process.
 
 | Suite / groups | Independent contracts |

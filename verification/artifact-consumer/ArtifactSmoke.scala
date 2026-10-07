@@ -44,8 +44,15 @@ import com.weisgnosis.agents.core.tool.{
 }
 import com.weisgnosis.agents.harness.storage.{StorageAddress, StorageRevision}
 import com.weisgnosis.agents.harness.permission.{PermissionBehavior, PermissionEngine}
-import com.weisgnosis.agents.mcp.protocol.{McpCallOutcome, McpCallResult, McpContentBlock}
-import com.weisgnosis.agents.mcp.transport.McpStdioTransport
+import com.weisgnosis.agents.mcp.client.McpClient
+import com.weisgnosis.agents.mcp.protocol.{
+  McpCallOutcome,
+  McpCallResult,
+  McpContentBlock,
+  McpImplementation,
+  McpMessage
+}
+import com.weisgnosis.agents.mcp.transport.{McpStdioTransport, McpTransport}
 import com.weisgnosis.agents.storage.postgresql.PostgresVersionedJsonStore
 import java.io.File
 import java.util.regex.Pattern
@@ -55,12 +62,30 @@ import java.security.MessageDigest
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
+import zio.stream.ZStream
 
 /** The neutral package deliberately has no access to private[agents] implementation helpers. */
 object ArtifactSmoke extends ZIOAppDefault:
   final private case class Manifest(version: String, sha256: Map[String, String]) derives JsonCodec
 
   final private case class ExternalInput(value: String) derives JsonCodec
+
+  private def verifyMcpDeadlines: ZIO[Scope, AgentError, Unit] =
+    val failure = AgentError.McpError("packaged initialization probe")
+    val transport = new McpTransport:
+      def send(message: McpMessage): ZIO[Scope, AgentError, Unit] = ZIO.fail(failure)
+      def incoming: ZStream[Any, AgentError, McpMessage]          = ZStream.never
+    for
+      deadlines <- ZIO.fromEither(McpClient.Deadlines.make(2.seconds, 1.second))
+      rejected  <- McpClient.open(transport, McpImplementation("consumer", "1"), deadlines).exit
+      _ <- ZIO
+        .fail(AgentError.InvalidMessage("Packaged MCP deadline contract failed"))
+        .unless(
+          deadlines.initialization == 2.seconds && deadlines.request == 1.second &&
+            McpClient.Deadlines.make(Duration.Zero, 1.second).isLeft &&
+            rejected.causeOption.exists(_.failures.contains(failure))
+        )
+    yield ()
 
   private def verifyExternalBinding: ZIO[Scope, AgentError, Unit] =
     val arguments = Json.Obj("value" -> Json.Str("checked"))
@@ -213,6 +238,7 @@ object ArtifactSmoke extends ZIOAppDefault:
         manifest <- loadManifest
         _        <- verifyClasspath
         _        <- verifyExternalBinding
+        _        <- verifyMcpDeadlines
         _        <- verifyJar("core", ReActAgent.getClass, manifest)
         _        <- verifyJar("harness", PermissionEngine.getClass, manifest)
         _        <- verifyJar("mcp", McpCallResult.getClass, manifest)

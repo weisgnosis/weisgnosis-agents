@@ -69,6 +69,51 @@ object McpClientSpec extends ZIOSpecDefault:
     case InitializeTimeout, InitializeCancelled, CallTimeout, CallCancelled,
       DiscoveryTimeout, DiscoveryCancelled
 
+  private enum DeadlinePhase:
+    case Initialization, Request
+
+  private enum DeadlineOutcome:
+    case Completed, TimedOut
+
+  private def selectedDeadlineCase(
+      phase: DeadlinePhase,
+      initializationDeadline: Duration,
+      requestDeadline: Duration,
+      expected: DeadlineOutcome
+  ): ZIO[Scope & TestEnvironment, AgentError, TestResult] =
+    for
+      peer      <- wire
+      entered   <- Promise.make[Nothing, Unit]
+      deadlines <- ZIO.fromEither(McpClient.Deadlines.make(initializationDeadline, requestDeadline))
+      delay = entered.succeed(()) *> ZIO.sleep(2.seconds)
+      transport = peer.transport:
+        case request @ McpMessage.Request(_, "initialize", _) =>
+          (phase match
+            case DeadlinePhase.Initialization => delay
+            case DeadlinePhase.Request        => ZIO.unit
+          ) *> peer.reply(request, initialization())
+        case request @ McpMessage.Request(_, "tools/call", _) =>
+          delay *> peer.reply(request, Json.Obj("content" -> Json.Arr()))
+        case _ => ZIO.unit
+      operation <- McpClient
+        .open(transport, identity, deadlines)
+        .flatMap: client =>
+          phase match
+            case DeadlinePhase.Initialization => ZIO.unit
+            case DeadlinePhase.Request        => client.callTool("delayed").unit
+        .forkScoped
+      _        <- entered.await
+      _        <- TestClock.adjust(2.seconds)
+      observed <- operation.poll
+      _        <- operation.interrupt
+      result = expected match
+        case DeadlineOutcome.Completed => observed.contains(Exit.unit)
+        case DeadlineOutcome.TimedOut =>
+          observed.exists(_.causeOption.exists(_.failures.exists:
+            case _: AgentError.TimeoutError => true
+            case _                          => false))
+    yield assertTrue(result)
+
   private def page(names: Chunk[String], next: Option[String] = None): Json.Obj =
     Json.Obj(
       Chunk(
@@ -238,6 +283,18 @@ object McpClientSpec extends ZIOSpecDefault:
           invalid <- ZIO.foreach(Chunk(Duration.Zero, Duration.Infinity))(duration =>
             McpClient.open(untouched, identity, duration).exit
           )
+          selectedInvalid <- ZIO.foreach(
+            Chunk(
+              (Duration.Zero, 1.second),
+              (Duration.Infinity, 1.second),
+              (1.second, Duration.Zero),
+              (1.second, Duration.Infinity)
+            )
+          ): (initializationDeadline, requestDeadline) =>
+            ZIO
+              .fromEither(McpClient.Deadlines.make(initializationDeadline, requestDeadline))
+              .flatMap(deadlines => McpClient.open(untouched, identity, deadlines))
+              .exit
           started <- peer.started.isDone
           failures <- ZIO.foreach(Chunk("version", "remote", "notification")): scenario =>
             for
@@ -269,7 +326,9 @@ object McpClientSpec extends ZIOSpecDefault:
                 .exit
               closed <- endpoint.closed.isDone
             yield assertTrue(failed.isFailure, closed)
-        yield failures.foldLeft(assertTrue(invalid.forall(_.isFailure), !started))(_ && _)
+        yield failures.foldLeft(
+          assertTrue(invalid.forall(_.isFailure), selectedInvalid.forall(_.isFailure), !started)
+        )(_ && _)
     },
     test(
       "missing tools capability rejects locally without granting authority from other capability fields"
@@ -370,8 +429,19 @@ object McpClientSpec extends ZIOSpecDefault:
     test(
       "initialization, call and later discovery deadlines or cancellation join cleanup and retain its defect"
     ) {
-      ZIO
-        .scoped(ZIO.foreach(Chunk.fromArray(DeadlineCase.values))(deadlineCase))
-        .map(_.foldLeft(assertTrue(true))(_ && _))
+      ZIO.scoped:
+        for
+          uniform <- ZIO.foreach(Chunk.fromArray(DeadlineCase.values))(deadlineCase)
+          selected <- ZIO.foreach(
+            Chunk(
+              (DeadlinePhase.Initialization, 3.seconds, 1.second, DeadlineOutcome.Completed),
+              (DeadlinePhase.Initialization, 1.second, 3.seconds, DeadlineOutcome.TimedOut),
+              (DeadlinePhase.Request, 3.seconds, 1.second, DeadlineOutcome.TimedOut),
+              (DeadlinePhase.Request, 1.second, 3.seconds, DeadlineOutcome.Completed)
+            )
+          )((phase, initializationDeadline, requestDeadline, expected) =>
+            selectedDeadlineCase(phase, initializationDeadline, requestDeadline, expected)
+          )
+        yield (uniform ++ selected).foldLeft(assertTrue(true))(_ && _)
     }
   ) @@ TestAspect.timeout(15.seconds)
