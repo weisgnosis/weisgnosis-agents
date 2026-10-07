@@ -4,6 +4,28 @@ Toolkit construction and selection follow the [checked registry identity and mig
 
 [TaskSupervisor](TaskSupervisor.scala), [SupervisedTask](SupervisedTask.scala) and [SubagentSpawner](SubagentSpawner.scala) provide host-owned execution and runtime lineage. [SubagentFactory](SubagentFactory.scala) assembles fresh configured ReAct children with a final [static tool boundary](SubagentToolBoundary.scala) and optional live parent-denial inheritance. [SubagentTaskRegistry](SubagentTaskRegistry.scala) adds bounded task admission and inspection; [SubagentSessionDirectory](SubagentSessionDirectory.scala) supplies bounded host membership for acquired sessions. These APIs are accepted within the exact reviewed scope below.
 
+## Model-facing task enumeration
+
+[SubagentTaskListTool](SubagentTaskListTool.scala) supplies an opt-in read-only task_list tool for exactly one host-selected SubagentTaskRegistry. Install it with Toolkit.single and combine that toolkit with the chosen host tools. Existing spawn/send/task/cancel presets do not silently acquire this additional capability. A registry reference is the authority boundary: model input cannot select another registry, directory or session.
+
+Each invocation reads the registry snapshot without waiting, submitting, cancelling, acknowledging or forgetting work. Output contains task IDs and truthful running/completed/failed/cancelled/suspended/stopped statuses only; child prompts, results and failure messages are omitted. Pure interruption maps to cancelled; a mixed failure/defect cause maps to failed. A successful Interrupted AgentResult also maps to cancelled, never completed.
+
+TaskListLimits.make checks a host-selected page size from 1 through 256, with a default of 64. Optional status_filter accepts the documented lowercase statuses or all; unknown filters and unknown fields fail rather than broadening visibility. The nonnegative offset and nextOffset support bounded pages in registry submission order. Concurrent completion or membership changes can shift filtered pages. This observation is neither an exclusive claim nor a durable task database. The host owns registry lifetime, isolation and any persistent workspace restoration.
+
+The paired [task-list specification](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskListToolSpec.scala) covers bounded terminal-state projection, strict inputs and actual ReAct discovery of a retained task from a new parent history. This adapts the pinned Java TaskTool.taskList model-facing enumeration contract; Java workspace persistence, timestamps, agent labels, case-folded/blank filters and permissive unknown-filter fallback are not supplied by this adapter. Remaining original host integration stays open in the tracker.
+
+Current review base: ce55421. review_fp and review_invariants independently approved the following exact source/spec identities, with no unresolved findings in this task-list scope. Final combined documentation approval passed against ce55421.
+
+| Candidate file | Git blob identity |
+| --- | --- |
+| [SubagentTaskListTool.scala](SubagentTaskListTool.scala) | `1fe217da35802d059c58ff4ec20bad672b1944a2` |
+| [SubagentTaskListToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskListToolSpec.scala) | `ca38ec5baab4095ee81f9bd27c244dab21dc4988` |
+
+- [x] Implement the bounded selected-registry adapter and paired contract tests.
+- [x] task-list-focused.log passes three grouped contracts in 699 ms, with zero compiler warnings or failed/ignored tests.
+- [x] legacy-tasklist-full-verify.log passes formatting, fatal-warning compilation, 1,552 tests (including 22 actual fresh PostgreSQL contracts) and four RC1 packages; archive admission and fresh standalone four-module consumption also pass in legacy-tasklist-preparation.log and legacy-tasklist-consumer.log.
+- [x] review_fp and review_invariants approved these exact two source/spec identities against ce55421.
+- [x] review_fp and review_invariants approved the final combined 35-file scope against ce55421; the two task-list identities remain unchanged.
 ## Ownership, cancellation and promotion
 
 `TaskSupervisor.open[A]` creates an execution owner in the host Scope. `attach` accepts a suspended scoped task and a separate parent cancellation lease. Admission is serialized against host closure; closed admission evaluates no task callback. Launch registration is masked, but task execution remains interruptible. Task effects and completion waits never hold the admission permit.

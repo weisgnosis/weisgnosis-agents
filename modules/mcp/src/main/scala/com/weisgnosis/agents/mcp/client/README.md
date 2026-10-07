@@ -2,7 +2,9 @@
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
-[McpClient](McpClient.scala) provides initialized 2025-06-18 tool discovery/invocation and resource access over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. HTTP POST and explicit GET connectivity has a separate [transport contract](../transport/README.md#http-contract).
+[McpClient](McpClient.scala) provides initialized tool discovery/invocation (2025-06-18 by default) and resource access over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. HTTP POST and explicit GET connectivity has a separate [transport contract](../transport/README.md#http-contract).
+
+The active [legacy/revision increment](../transport/README.md#legacy-http-sse-and-explicit-revision-selection) changes initialization selection and has final independent source approval plus successful full verification. Fresh consumer verification passed; combined documentation approval passed against ce55421. Earlier resource approvals below apply to their recorded blobs and do not accept this new diff.
 
 ## Resource client contract
 
@@ -22,8 +24,8 @@ The resource integration exposed a previously present terminal-cause race in the
 
 - [x] `schema-mcp-focused-green.log` passes 29 focused MCP groups, including resource protocol/client behavior, exact terminal-cause/provenance regression and real Java SDK loopback resource routes/list changes, with zero failures or compiler warnings.
 - [x] `schema-mcp-review-green.log` passes all 29 focused MCP groups after the explicit client/observer-scope closure correction, including real SDK resource routes/list changes, with zero failures or compiler warnings.
-- [x] `review_invariants` approved the exact eleven source/test blobs below with no unresolved invariant findings in this resource/connection scope.
-- [x] `review_fp` approved these same eleven final source/test blobs for FP/ZIO correctness with no unresolved findings.
+- [x] `review_invariants` approved the resource/connection behavior at the accepted baseline. Changed client, initialization and SDK fixture source has renewed final approval in the legacy/revision manifest.
+- [x] `review_fp` approved the resource/connection behavior at the accepted baseline. The legacy/revision manifest records renewed final approval of changed source.
 - [x] `review_fp` and `review_invariants` explicitly approved the corrected manager assertion at `dac7464726f3c8c17c338ab413bd239201682ae0` after formatting and successful verification.
 - [x] review_fp and review_invariants approved the final combined current contracts, identities and verification evidence against 1441a97.
 - [x] `schema-resources-final-verify.log` records full formatting and fatal-warning verification: 1,540 passing tests, no failures or ignored tests, including fresh PostgreSQL integration, and four RC1 packages. No compiler warnings occurred.
@@ -36,16 +38,16 @@ Current reviewed scope is resource capabilities and checked projections, resourc
 
 | Current reviewed file | Git blob |
 | --- | --- |
-| [McpClient.scala](McpClient.scala) | `85285c450e974ecd2e5fcd048b1bae660645a68b` |
+| [McpClient.scala](McpClient.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
 | [McpConnection.scala](McpConnection.scala) | `9cb7efab061d56b3ca9f8e610dd29e7874faea36` |
 | [McpResources.scala](../protocol/McpResources.scala) | `527aee48e9ca9dd562b5069ddc60321f2a6d1fae` |
-| [McpInitialization.scala](../protocol/McpInitialization.scala) | `98994f67ee94005007a94a07e437be32eb8770e7` |
+| [McpInitialization.scala](../protocol/McpInitialization.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
 | [McpCallResult.scala](../protocol/McpCallResult.scala) | `8bf6f992bd3a9a5398efe67e9ba803a076b700f4` |
 | [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `713d1a460f16d8915c0a12393e59c96fe18f4685` |
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `caa269749f4e8a8847e64517fb1dbfb1ef6821a7` |
 | [McpResourcesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpResourcesSpec.scala) | `0a3e73d48a05f94eda0c6b49844c4d68dc432fc9` |
 | [McpInitializationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) | `ea5b58c6368b41be895bc0085e164f5777e3444e` |
-| [McpJavaSdkInteropSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) | `76091ec1c3c8dd6be88b4279accb9011e8be50c3` |
+| [McpJavaSdkInteropSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
 | [McpClientManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `dac7464726f3c8c17c338ab413bd239201682ae0` |
 
 ## Scoped manager contract
@@ -196,7 +198,7 @@ Accepted scope covers the request registry, borrowed-port connection, checked bu
 | [AgentError.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) | [Current error acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) |
 | [AgentErrorSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | [Current error acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/error/README.md#current-review-acceptance) |
 | [McpConnection.scala](McpConnection.scala) | [Current resource/connection manifest](#resource-client-contract) |
-| [McpTransport.scala](../transport/McpTransport.scala) | `477e8e6e7f2c2e4caded85f6a447230731729184` |
+| [McpTransport.scala](../transport/McpTransport.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
 | [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | [Current resource/connection manifest](#resource-client-contract) |
 | [McpClient.scala](McpClient.scala) | [Current resource/connection manifest](#resource-client-contract); prior tool/deadline contracts retained. |
 | [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | [Current resource/connection manifest](#resource-client-contract); prior tool/deadline contracts retained. |

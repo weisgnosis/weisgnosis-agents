@@ -1,5 +1,7 @@
 # weisgnosis-agents-mcp
 
+The [legacy HTTP SSE and explicit revision increment](src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#legacy-http-sse-and-explicit-revision-selection) has final independent FP/ZIO and invariant source approval and successful full verification; fresh consumer verification passed; combined documentation approval passed against ce55421. Previously accepted scopes below do not approve the changed revision/framing/transport behavior.
+
 [Resource access](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) adds resource/template discovery, reads, capability-gated subscriptions and scoped typed change observation. The current eleven-file scope has independent FP/ZIO and invariant approval and 29 focused passing MCP groups; the corrected manager assertion also has both independent approvals. Full verification, package preparation and the fresh artifact consumer passed; combined documentation approval passed against 1441a97. It does not close the separate original legacy SSE/revision-support obligations.
 
 The [independent deadline overload](src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines) preserves the uniform Duration API while selecting checked handshake and request budgets separately. Source/full/package/preparation verification passes; fresh consumer verification passes; final combined documentation acceptance is approved.

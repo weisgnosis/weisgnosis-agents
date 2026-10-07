@@ -21,7 +21,8 @@ import com.weisgnosis.agents.mcp.protocol.{
   McpCallOutcome,
   McpContentBlock,
   McpImplementation,
-  McpMessage
+  McpMessage,
+  McpProtocolVersion
 }
 import java.nio.file.Paths
 import scala.jdk.OptionConverters.*
@@ -76,18 +77,21 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
 
   private def peer(
       mode: String,
-      environment: Map[String, String] = Map.empty
+      environment: Map[String, String] = Map.empty,
+      version: McpProtocolVersion = McpProtocolVersion.V20250618
   ): ZIO[Scope, AgentError, Peer] =
     for
       arguments <- command(mode)
       underlying <- McpStdioTransport.open(
-        arguments,
+        arguments :+ version.wire,
         maxFrameBytes = 16 * 1024 * 1024,
-        environment = environment
+        environment = environment,
+        version = version
       )
       ready        <- Promise.make[AgentError, Long]
       writeStarted <- Promise.make[Nothing, Unit]
       observed = new McpTransport:
+        override val protocolVersion: McpProtocolVersion            = underlying.protocolVersion
         def send(message: McpMessage): ZIO[Scope, AgentError, Unit] = underlying.send(message)
         def incoming: ZStream[Any, AgentError, McpMessage] =
           underlying.incoming
@@ -179,23 +183,34 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
             )
           )
         remains <- alive(outcome._1)
-        initialized <- ZIO.scoped:
-          for
-            server <- peer("client")
-            client <- McpClient.open(server.transport, McpImplementation("stdio-test", "1"))
-            pid    <- server.ready.await
-            page   <- client.listToolsPage()
-            result <- client.callTool("echo")
-          yield (
-            pid,
-            assertTrue(
-              page.tools.map(_.name) == Chunk("echo"),
-              result.outcome == McpCallOutcome.Success,
-              result.content.map(_.block) == Chunk(McpContentBlock.Text("ok"))
-            )
+        initialized <- ZIO.foreach(
+          Chunk(
+            McpProtocolVersion.V20241105,
+            McpProtocolVersion.V20250326,
+            McpProtocolVersion.V20250618
           )
-        clientRemains <- alive(initialized._1)
-      yield outcome._2 && initialized._2 && assertTrue(!remains, !clientRemains)
+        ): version =>
+          for
+            observation <- ZIO.scoped:
+              for
+                server <- peer("client", version = version)
+                client <- McpClient.open(server.transport, McpImplementation("stdio-test", "1"))
+                pid    <- server.ready.await
+                page   <- client.listToolsPage()
+                result <- client.callTool("echo")
+              yield (
+                pid,
+                assertTrue(
+                  client.initialization.protocolVersion == version,
+                  page.tools.map(_.name) == Chunk("echo"),
+                  result.outcome == McpCallOutcome.Success,
+                  result.content.map(_.block) == Chunk(McpContentBlock.Text("ok"))
+                )
+              )
+            running <- alive(observation._1)
+          yield observation._2 && assertTrue(!running)
+      yield outcome._2 && initialized.foldLeft(assertTrue(!remains))(_ && _)
+
     },
     test(
       "invalid configuration, malformed stdout and process EOF cannot become successful replies"

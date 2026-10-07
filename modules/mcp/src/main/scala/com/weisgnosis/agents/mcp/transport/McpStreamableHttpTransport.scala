@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.{McpInitialization, McpMessage, McpRequestId}
+import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpProtocolVersion, McpRequestId}
 import java.io.IOException
 import java.net.URI
 import java.nio.charset.StandardCharsets
@@ -159,10 +159,14 @@ object McpStreamableHttpTransport:
       endpoint: String,
       headers: Headers = Headers.empty,
       limits: McpHttpLimits = McpHttpLimits(),
-      continuation: McpHttpContinuation = McpHttpContinuation.Disabled
+      continuation: McpHttpContinuation = McpHttpContinuation.Disabled,
+      version: McpProtocolVersion = McpProtocolVersion.V20250618
   ): ZIO[Scope, AgentError, McpStreamableHttpTransport] =
     for
       _ <- ZIO.fromEither(validate(headers, limits))
+      _ <- ZIO
+        .fail(AgentError.InvalidConfiguration("Streamable HTTP requires MCP 2025-03-26 or later"))
+        .when(version == McpProtocolVersion.V20241105)
       _ <- ZIO
         .fail(AgentError.InvalidConfiguration("MCP HTTP continuation attempts must be positive"))
         .when(continuation match
@@ -188,6 +192,7 @@ object McpStreamableHttpTransport:
             headers,
             limits,
             continuation,
+            version,
             gate,
             requests,
             controls,
@@ -204,7 +209,10 @@ object McpStreamableHttpTransport:
         yield transport
     yield live
 
-  private def validate(headers: Headers, limits: McpHttpLimits): Either[AgentError, Unit] =
+  private[transport] def validate(
+      headers: Headers,
+      limits: McpHttpLimits
+  ): Either[AgentError, Unit] =
     val controlled = Set(
       "accept",
       "content-type",
@@ -237,7 +245,7 @@ object McpStreamableHttpTransport:
       )
     yield ()
 
-  private def address(value: String): IO[AgentError, URL] =
+  private[transport] def address(value: String): IO[AgentError, URL] =
     val invalid = AgentError.InvalidConfiguration(
       "MCP endpoint must be an absolute HTTP(S) URL without user information or a fragment"
     )
@@ -303,6 +311,7 @@ object McpStreamableHttpTransport:
       headers: Headers,
       limits: McpHttpLimits,
       continuation: McpHttpContinuation,
+      override val protocolVersion: McpProtocolVersion,
       gate: Semaphore,
       requests: Semaphore,
       controls: Semaphore,
@@ -348,7 +357,7 @@ object McpStreamableHttpTransport:
               response <- ZIO.uninterruptibleMask: restore =>
                 val requestHeaders = headers ++ Headers(
                   "Mcp-Session-Id"       -> id,
-                  "MCP-Protocol-Version" -> McpInitialization.protocolVersion
+                  "MCP-Protocol-Version" -> protocolVersion.wire
                 )
                 restore(
                   Client
@@ -468,7 +477,7 @@ object McpStreamableHttpTransport:
             else cursorHeader(cursor).map(Headers("Last-Event-ID", _))
           requestHeaders = headers ++ Headers(
             "Accept"               -> "text/event-stream",
-            "MCP-Protocol-Version" -> McpInitialization.protocolVersion
+            "MCP-Protocol-Version" -> protocolVersion.wire
           ) ++ session.fold(Headers.empty)(id => Headers("Mcp-Session-Id", id)) ++ resumeHeaders
           response <- ZIO.uninterruptibleMask: restore =>
             restore(
@@ -623,7 +632,7 @@ object McpStreamableHttpTransport:
         val requestHeaders = headers ++ Headers(
           "Content-Type"         -> "application/json",
           "Accept"               -> "application/json, text/event-stream",
-          "MCP-Protocol-Version" -> McpInitialization.protocolVersion
+          "MCP-Protocol-Version" -> protocolVersion.wire
         ) ++ session.fold(Headers.empty)(id => Headers("Mcp-Session-Id", id))
         val request = Request.post(url, Body.fromChunk(bytes)).addHeaders(requestHeaders)
         for
@@ -737,7 +746,7 @@ object McpStreamableHttpTransport:
         response <- ZIO.uninterruptibleMask: restore =>
           val requestHeaders = headers ++ Headers(
             "Accept"               -> "text/event-stream",
-            "MCP-Protocol-Version" -> McpInitialization.protocolVersion,
+            "MCP-Protocol-Version" -> protocolVersion.wire,
             "Last-Event-ID"        -> encoded
           ) ++ session.fold(Headers.empty)(id => Headers("Mcp-Session-Id", id))
           restore(

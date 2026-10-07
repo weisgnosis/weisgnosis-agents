@@ -56,29 +56,29 @@ object McpStdioPeer extends ZIOAppDefault:
   private enum ClientPhase:
     case Initialize, Initialized, Ready
 
-  private def client(phase: ClientPhase): IO[AgentError, Nothing] =
+  private def client(phase: ClientPhase, version: String): IO[AgentError, Nothing] =
     readMessage.flatMap: message =>
       (phase, message) match
         case (ClientPhase.Initialize, McpMessage.Request(id, "initialize", Some(params)))
             if params
               .get("protocolVersion")
-              .contains(Json.Str(McpInitialization.protocolVersion)) =>
+              .contains(Json.Str(version)) =>
           emit(
             McpMessage.Success(
               id,
               Json.Obj(
-                "protocolVersion" -> Json.Str(McpInitialization.protocolVersion),
+                "protocolVersion" -> Json.Str(version),
                 "serverInfo" -> Json
                   .Obj("name" -> Json.Str("test-peer"), "version" -> Json.Str("1")),
                 "capabilities" -> Json.Obj("tools" -> Json.Obj())
               )
             )
-          ) *> client(ClientPhase.Initialized)
+          ) *> client(ClientPhase.Initialized, version)
         case (
               ClientPhase.Initialized,
               McpMessage.Notification("notifications/initialized", None)
             ) =>
-          client(ClientPhase.Ready)
+          client(ClientPhase.Ready, version)
         case (ClientPhase.Ready, McpMessage.Request(id, "tools/list", _)) =>
           emit(
             McpMessage.Success(
@@ -92,7 +92,7 @@ object McpStdioPeer extends ZIOAppDefault:
                 )
               )
             )
-          ) *> client(ClientPhase.Ready)
+          ) *> client(ClientPhase.Ready, version)
         case (ClientPhase.Ready, McpMessage.Request(id, "tools/call", Some(params)))
             if params.get("name").contains(Json.Str("echo")) =>
           emit(
@@ -107,7 +107,7 @@ object McpStdioPeer extends ZIOAppDefault:
                 )
               )
             )
-          ) *> client(ClientPhase.Ready)
+          ) *> client(ClientPhase.Ready, version)
         case _ => ZIO.fail(AgentError.McpError("Unexpected message in test client lifecycle"))
 
   def run: ZIO[ZIOAppArgs, AgentError, Unit] =
@@ -118,8 +118,12 @@ object McpStdioPeer extends ZIOAppDefault:
         McpMessage.Notification("test/ready", Some(Json.Obj("pid" -> Json.Str(pid.toString))))
       )
       _ <- arguments.headOption match
-        case Some("echo")      => echo
-        case Some("client")    => client(ClientPhase.Initialize)
+        case Some("echo") => echo
+        case Some("client") =>
+          client(
+            ClientPhase.Initialize,
+            arguments.drop(1).headOption.getOrElse(McpInitialization.protocolVersion)
+          )
         case Some("malformed") => Console.printLine("not JSON").mapError(failure) *> ZIO.never
         case Some("eof")       => ZIO.unit
         case Some("blocked-write") =>

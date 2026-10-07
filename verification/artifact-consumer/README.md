@@ -20,11 +20,11 @@ The consumer exercises public external-tool suspension/resume, schema rejection/
 
 review_fp and review_invariants independently approved the current consumer at `212988aed44a63d0f4f21afb077c141eb450c336`. The [schema admission manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns this identity, its current source scope and the expanded build dependency.
 
-- [x] schema-resources-final-verify.log passes 1,540 tests, zero compiler warnings/failures/ignored and four RC1 packages, including fresh PostgreSQL verification.
-- [x] schema-resources-preparation.log passes fresh RC1 source/POM/LICENSE staging and reversible invalid-selector/extra/duplicate source-archive checks.
+- [x] legacy-tasklist-full-verify.log passes 1,552 tests, zero compiler warnings/failures/ignored and four RC1 packages, including fresh PostgreSQL verification.
+- [x] legacy-tasklist-preparation.log passes fresh RC1 source/POM/LICENSE staging and reversible invalid-selector/extra/duplicate source-archive checks.
 - [x] schema-resources-consumer.log records the obsolete blanket Jackson classpath rejection before correction. Jackson is required by the newly declared production evaluator; fixture/SDK/Tomcat/JDBC exclusions remain.
-- [x] schema-resources-consumer-green.log passes standalone formatting, clean fatal-warning compilation and forked execution against four fresh hashes, including the valid/invalid schema probe. JVM/SLF4J diagnostic notices are not compiler warnings.
-- [x] review_fp and review_invariants approved the final combined current scope against 1441a97 with unchanged source identities.
+- [x] legacy-tasklist-consumer.log passes standalone formatting, clean fatal-warning compilation and forked execution against four fresh hashes, including the valid/invalid schema probe. JVM/SLF4J diagnostic notices are not compiler warnings.
+- [x] review_fp and review_invariants approved the final combined 35-file scope against ce55421. The consumer source remains at its independently approved identity above; the latest run uses freshly repackaged modules.
 
 The manual [candidate workflow](../../.github/workflows/candidate.yml) validates its version, provisions PostgreSQL 16, verifies/packages four modules, runs archive admission and the standalone consumer, and uploads unsigned artifacts/source metadata only after preceding steps succeed. The [workflow contract](../../.github/workflows/README.md) owns its separately reviewed identities and operational boundaries.
 

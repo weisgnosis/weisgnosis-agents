@@ -43,12 +43,13 @@ final case class McpInitializationResult(
     serverInfo: McpImplementation,
     capabilities: McpServerCapabilities,
     instructions: Option[String],
-    meta: Option[Json.Obj]
+    meta: Option[Json.Obj],
+    protocolVersion: McpProtocolVersion = McpProtocolVersion.V20250618
 )
 
 /**
- * Pure helpers for the explicitly selected 2025-06-18 lifecycle. They implement no connection state
- * or version negotiation, and do not apply to the 2026-07-28 lifecycle. Result parsing is a checked
+ * Pure helpers for an explicitly selected initialized lifecycle. They implement no connection state
+ * or automatic version downgrade, and do not apply to the 2026-07-28 lifecycle. Result parsing is a checked
  * projection: unknown outer/serverInfo fields are ignored, while capability extensions are retained.
  */
 object McpInitialization:
@@ -57,7 +58,8 @@ object McpInitialization:
   /** Advertise no optional client capabilities and validate the caller-supplied correlation ID. */
   def request(
       id: McpRequestId,
-      clientInfo: McpImplementation
+      clientInfo: McpImplementation,
+      version: McpProtocolVersion = McpProtocolVersion.V20250618
   ): Either[AgentError.InvalidMessage, McpMessage.Request] =
     val identity = Json.Obj(
       Chunk("name" -> Json.Str(clientInfo.name), "version" -> Json.Str(clientInfo.version)) ++
@@ -68,7 +70,7 @@ object McpInitialization:
       "initialize",
       Some(
         Json.Obj(
-          "protocolVersion" -> Json.Str(protocolVersion),
+          "protocolVersion" -> Json.Str(version.wire),
           "capabilities"    -> Json.Obj(),
           "clientInfo"      -> identity
         )
@@ -80,21 +82,22 @@ object McpInitialization:
 
   /** Known optional fields reject JSON null; duplicates are rejected throughout the input AST. */
   def readResult(
-      value: Json.Obj
+      value: Json.Obj,
+      selected: McpProtocolVersion = McpProtocolVersion.V20250618
   ): Either[AgentError.DeserializationError, McpInitializationResult] =
     (for
       _       <- JsonBoundary.validate(value)
       version <- required(value, "protocolVersion").flatMap(string(_, "protocolVersion"))
       _ <- Either.cond(
-        version == protocolVersion,
+        version == selected.wire,
         (),
-        s"Expected MCP protocol version $protocolVersion"
+        s"Expected MCP protocol version ${selected.wire}"
       )
       server       <- required(value, "serverInfo").flatMap(implementation)
       capabilities <- required(value, "capabilities").flatMap(serverCapabilities)
       instructions <- optional(value, "instructions", string(_, "instructions"))
       meta         <- optional(value, "_meta", objectValue(_, "_meta"))
-    yield McpInitializationResult(server, capabilities, instructions, meta)).left
+    yield McpInitializationResult(server, capabilities, instructions, meta, selected)).left
       .map(AgentError.DeserializationError(_))
 
   private def implementation(value: Json): Either[String, McpImplementation] =

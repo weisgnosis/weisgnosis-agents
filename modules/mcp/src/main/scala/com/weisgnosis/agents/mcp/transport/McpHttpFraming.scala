@@ -33,6 +33,9 @@ object McpHttpFraming:
   /** A completed SSE block; its cursor is inherited only within this response. */
   final case class McpSseEvent(message: Option[McpMessage], lastEventId: String)
 
+  /** Event names and data remain separate until the selected MCP transport interprets them. */
+  final case class McpSseFrame(eventType: String, data: Option[String], lastEventId: String)
+
   private type Decoder[A] =
     ZChannel[Any, Nothing, Chunk[Byte], Any, AgentError, Chunk[A], Any]
 
@@ -52,6 +55,7 @@ object McpHttpFraming:
   final private case class SseState(
       line: Buffer = Buffer(Nil, 0),
       data: List[String] = Nil,
+      eventType: String = "",
       lastEventId: String = "",
       bodyBytes: Long = 0L,
       eventBytes: Int = 0,
@@ -124,8 +128,18 @@ object McpHttpFraming:
       maxBodyBytes: Long = 8L * 1024 * 1024,
       maxEventBytes: Int = 1048576
   ): ZPipeline[Any, AgentError, Byte, McpSseEvent] =
+    sseFrames(maxBodyBytes, maxEventBytes).mapZIO: frame =>
+      ZIO
+        .foreach(frame.data)(value => ZIO.fromEither(McpMessage.decode(value)))
+        .map(message => McpSseEvent(message, frame.lastEventId))
+
+  /** Bounded UTF-8 SSE framing, preserving endpoint/message event names for legacy HTTP. */
+  def sseFrames(
+      maxBodyBytes: Long = 8L * 1024 * 1024,
+      maxEventBytes: Int = 1048576
+  ): ZPipeline[Any, AgentError, Byte, McpSseFrame] =
     ZPipeline.fromChannel:
-      def read(state: SseState): Decoder[McpSseEvent] =
+      def read(state: SseState): Decoder[McpSseFrame] =
         ZChannel.readWithCause(
           input => consume(input, state),
           cause => ZChannel.refailCause(cause),
@@ -134,7 +148,7 @@ object McpHttpFraming:
             else ZChannel.fromZIO(text(state.line.bytes)).unit
         )
 
-      def finishLine(rest: Chunk[Byte], state: SseState): Decoder[McpSseEvent] =
+      def finishLine(rest: Chunk[Byte], state: SseState): Decoder[McpSseFrame] =
         ZChannel
           .fromZIO(text(state.line.bytes))
           .flatMap: decoded =>
@@ -143,21 +157,18 @@ object McpHttpFraming:
               case Position.Started   => decoded
             val next = state.copy(line = Buffer(Nil, 0), position = Position.Started)
             if line.isEmpty then
-              val reset = next.copy(data = Nil, eventBytes = 0)
-              state.data match
-                case Nil =>
-                  ZChannel
-                    .write(Chunk(McpSseEvent(None, state.lastEventId))) *> consume(rest, reset)
-                case data =>
-                  ZChannel
-                    .fromZIO(ZIO.fromEither(McpMessage.decode(data.reverse.mkString("\n"))))
-                    .flatMap(message =>
-                      ZChannel.write(Chunk(McpSseEvent(Some(message), state.lastEventId))) *>
-                        consume(rest, reset)
-                    )
+              val reset = next.copy(data = Nil, eventType = "", eventBytes = 0)
+              val data = state.data match
+                case Nil   => None
+                case lines => Some(lines.reverse.mkString("\n"))
+              ZChannel.write(Chunk(McpSseFrame(state.eventType, data, state.lastEventId))) *>
+                consume(rest, reset)
             else if line == "data" then consume(rest, next.copy(data = "" :: state.data))
             else if line.startsWith("data:") then
               consume(rest, next.copy(data = line.drop(5).stripPrefix(" ") :: state.data))
+            else if line == "event" then consume(rest, next.copy(eventType = ""))
+            else if line.startsWith("event:") then
+              consume(rest, next.copy(eventType = line.drop(6).stripPrefix(" ")))
             else if line == "id" then consume(rest, next.copy(lastEventId = ""))
             else if line.startsWith("id:") then
               val value = line.drop(3).stripPrefix(" ")
@@ -167,7 +178,7 @@ object McpHttpFraming:
               )
             else consume(rest, next)
 
-      def consume(input: Chunk[Byte], state: SseState): Decoder[McpSseEvent] =
+      def consume(input: Chunk[Byte], state: SseState): Decoder[McpSseFrame] =
         ZChannel.suspend:
           if input.isEmpty then read(state)
           else if state.newline == Newline.AfterCr then

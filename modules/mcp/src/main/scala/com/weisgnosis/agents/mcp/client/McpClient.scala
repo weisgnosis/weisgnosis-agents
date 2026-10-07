@@ -24,7 +24,7 @@ import zio.json.ast.Json
 import zio.stream.ZStream
 
 /**
- * Initialized 2025-06-18 client over a borrowed transport. The host retains transport ownership.
+ * Initialized client using the borrowed transport's explicit lifecycle profile. The host retains transport ownership.
  * Checked initialization and request deadlines cancel the handshake and each list/call operation;
  * the Duration overload applies one uniform deadline. Returning waits for owned cleanup and can
  * exceed the selected deadline. Discovery is one page or an explicitly bounded
@@ -309,7 +309,7 @@ object McpClient:
         )
         initialized <- restore(
           withDeadline(
-            initialize(connection, clientInfo, resources),
+            initialize(connection, clientInfo, resources, transport.protocolVersion),
             deadlines.initialization,
             "initialization"
           )
@@ -331,12 +331,13 @@ object McpClient:
   private def initialize(
       connection: McpConnection,
       clientInfo: McpImplementation,
-      resources: Ref[Option[McpResourceCapabilities]]
+      resources: Ref[Option[McpResourceCapabilities]],
+      version: McpProtocolVersion
   ): IO[AgentError, McpInitializationResult] =
     for
-      reply  <- connection.request(id => McpInitialization.request(id, clientInfo))
+      reply  <- connection.request(id => McpInitialization.request(id, clientInfo, version))
       value  <- payload(reply)
-      result <- ZIO.fromEither(McpInitialization.readResult(value))
+      result <- ZIO.fromEither(McpInitialization.readResult(value, version))
       _      <- resources.set(result.capabilities.resources)
       _      <- connection.notify(McpInitialization.initialized)
     yield result

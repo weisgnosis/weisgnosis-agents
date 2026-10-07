@@ -23,8 +23,15 @@ import com.weisgnosis.agents.mcp.protocol.*
 import com.weisgnosis.agents.mcp.tool.McpTool
 import io.modelcontextprotocol.json.McpJsonMapper
 import io.modelcontextprotocol.server.{McpAsyncServer, McpServer, McpServerFeatures}
-import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider
-import io.modelcontextprotocol.spec.McpSchema
+import io.modelcontextprotocol.server.transport.{
+  HttpServletStreamableServerTransportProvider,
+  HttpServletSseServerTransportProvider
+}
+import io.modelcontextprotocol.spec.{
+  McpSchema,
+  McpServerTransportProvider,
+  McpStreamableServerTransportProvider
+}
 import java.nio.file.{Files, Path}
 import org.apache.catalina.LifecycleState
 import org.apache.catalina.startup.Tomcat
@@ -39,6 +46,15 @@ import zio.stream.ZStream
 object McpJavaSdkInteropSpec extends ZIOSpecDefault:
   private enum ProviderOwner:
     case Startup, Servlet
+  private enum WireTransport:
+    case Streamable, LegacySse
+
+  final private case class Provider(
+      port: McpServerTransportProvider | McpStreamableServerTransportProvider,
+      servlet: jakarta.servlet.http.HttpServlet,
+      close: Task[Unit]
+  )
+
   final private case class Server(
       tomcat: Tomcat,
       directory: Path,
@@ -131,23 +147,42 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
           .provideSomeEnvironment[Scope](_.add(http))
       yield response.status
 
-  private def server(keepAlive: Option[java.time.Duration]): ZIO[Scope, Throwable, Server] =
+  private def server(
+      keepAlive: Option[java.time.Duration],
+      transport: WireTransport = WireTransport.Streamable
+  ): ZIO[Scope, Throwable, Server] =
     for
       directory <- temporaryDirectory
       owner     <- Ref.make(ProviderOwner.Startup)
       mapper    <- ZIO.attemptBlocking(McpJsonMapper.createDefault())
       provider <- ZIO.acquireRelease(ZIO.attemptBlocking:
-        val builder = HttpServletStreamableServerTransportProvider
-          .builder()
-          .jsonMapper(mapper)
-          .mcpEndpoint("/mcp")
-        keepAlive.fold(builder)(builder.keepAliveInterval).build())(provider =>
+        transport match
+          case WireTransport.Streamable =>
+            val builder = HttpServletStreamableServerTransportProvider
+              .builder()
+              .jsonMapper(mapper)
+              .mcpEndpoint("/mcp")
+            val provider = keepAlive.fold(builder)(builder.keepAliveInterval).build()
+            Provider(
+              provider,
+              provider,
+              ZIO.attemptBlocking(provider.closeGracefully().block()).unit
+            )
+          case WireTransport.LegacySse =>
+            val builder = HttpServletSseServerTransportProvider
+              .builder()
+              .jsonMapper(mapper)
+              .sseEndpoint("/sse")
+              .messageEndpoint("/messages")
+            val provider = keepAlive.fold(builder)(builder.keepAliveInterval).build()
+            Provider(
+              provider,
+              provider,
+              ZIO.attemptBlocking(provider.closeGracefully().block()).unit
+            ))(provider =>
         owner.get.flatMap:
           case ProviderOwner.Servlet => ZIO.unit
-          case ProviderOwner.Startup =>
-            // Keepalive starts during construction. Failed startup has no exposed sessions;
-            // repeated shutdown after a failed servlet initialization safely disposes it again.
-            ZIO.attemptBlocking(provider.closeGracefully().block()).unit.orDie
+          case ProviderOwner.Startup => provider.close.orDie
       )
       tomcat <- ZIO.acquireRelease(ZIO.attemptBlocking(new Tomcat()))(tomcat =>
         ZIO
@@ -201,8 +236,10 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
               )
             )
           )
-          val sdk = McpServer
-            .async(provider)
+          val specification: McpServer.AsyncSpecification[?] = provider.port match
+            case port: McpServerTransportProvider           => McpServer.async(port)
+            case port: McpStreamableServerTransportProvider => McpServer.async(port)
+          val sdk = specification
             .jsonMapper(mapper)
             .serverInfo("java-sdk-peer", "0.17.2")
             .capabilities(
@@ -219,17 +256,50 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
           val connector = tomcat.getConnector()
           val _         = connector.setProperty("address", "127.0.0.1")
           val context   = tomcat.addContext("", directory.toString)
-          val servlet   = Tomcat.addServlet(context, "mcp", provider)
+          val servlet   = Tomcat.addServlet(context, "mcp", provider.servlet)
           servlet.setAsyncSupported(true)
           servlet.setLoadOnStartup(1)
-          context.addServletMappingDecoded("/mcp", "mcp")
+          transport match
+            case WireTransport.Streamable => context.addServletMappingDecoded("/mcp", "mcp")
+            case WireTransport.LegacySse =>
+              context.addServletMappingDecoded("/sse", "mcp")
+              context.addServletMappingDecoded("/messages", "mcp")
           tomcat.start()
-          Server(tomcat, directory, s"http://127.0.0.1:${connector.getLocalPort()}/mcp", sdk)
+          val route = transport match
+            case WireTransport.Streamable => "/mcp"
+            case WireTransport.LegacySse  => "/sse"
+          Server(tomcat, directory, s"http://127.0.0.1:${connector.getLocalPort()}$route", sdk)
         .tap(_ => owner.set(ProviderOwner.Servlet))
         .uninterruptible
     yield hosted
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpJavaSdkInteropSpec")(
+    test("unchanged Java SDK legacy SSE initializes and invokes through its advertised endpoint"):
+      for
+        observed <- ZIO.scoped:
+          for
+            peer      <- server(None, WireTransport.LegacySse)
+            http      <- ZIO.service[Client]
+            exchanges <- Ref.make(Chunk.empty[Exchange])
+            transport <- McpLegacySseTransport.open(recording(http, exchanges), peer.endpoint)
+            client    <- McpClient.open(transport, McpImplementation("scala-legacy", "1"))
+            tools     <- client.discoverTools(1, 2)
+            result    <- client.callTool("greet", Some(Json.Obj()))
+            calls     <- exchanges.get
+          yield (peer, tools, result, calls, client.initialization.protocolVersion)
+        (peer, tools, result, calls, version) = observed
+        destroyed <- ZIO.attemptBlocking(peer.tomcat.getServer().getState())
+        removed   <- ZIO.attemptBlocking(Files.notExists(peer.directory))
+      yield assertTrue(
+        version == McpProtocolVersion.V20241105,
+        tools.map(_.name).toSet == Set("greet", "reject"),
+        result.content.map(_.block) == Chunk(McpContentBlock.Text("Hello from Java SDK")),
+        calls.count(value => value.method == Method.GET && value.status.contains(Status.Ok)) == 1,
+        calls.filter(_.method == Method.POST).forall(_.status.forall(_.isSuccess)),
+        destroyed == LifecycleState.DESTROYED,
+        removed
+      )
+    ,
     test(
       "unchanged Java SDK executes, distinguishes errors, and permits explicit expired-session replacement"
     ):

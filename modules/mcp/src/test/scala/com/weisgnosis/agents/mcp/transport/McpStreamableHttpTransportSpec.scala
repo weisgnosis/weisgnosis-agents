@@ -131,6 +131,63 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpStreamableHttpTransportSpec")(
     test(
+      "explicit March revision keeps initialization, POST, GET and DELETE version headers coherent"
+    ):
+      ZIO.scoped:
+        for
+          seen <- Ref.make(Chunk.empty[(Method, Headers)])
+          http = scripted: request =>
+            seen.update(_ :+ (request.method -> request.headers)) *>
+              (request.method match
+                case Method.GET    => ZIO.succeed(stream(ZStream.empty))
+                case Method.DELETE => ZIO.succeed(Response.status(Status.Ok))
+                case _ =>
+                  decode(request).flatMap:
+                    case McpMessage.Request(id, "initialize", params) =>
+                      ZIO
+                        .fail(AgentError.InvalidMessage("March initialization payload mismatch"))
+                        .unless(
+                          params
+                            .exists(_.fields.contains("protocolVersion" -> Json.Str("2025-03-26")))
+                        ) *>
+                        json(
+                          McpMessage.Success(
+                            id,
+                            Json.Obj(initialization.fields.map:
+                              case ("protocolVersion", _) =>
+                                "protocolVersion" -> Json.Str("2025-03-26")
+                              case field => field)
+                          )
+                        ).map(_.addHeader("Mcp-Session-Id", "march"))
+                    case McpMessage.Request(id, "tools/list", _) =>
+                      json(McpMessage.Success(id, emptyTools))
+                    case _ => ZIO.succeed(Response.status(Status.Accepted)))
+          transport <- McpStreamableHttpTransport.open(
+            http,
+            endpoint,
+            version = McpProtocolVersion.V20250326
+          )
+          client     <- McpClient.open(transport, McpImplementation("march", "1"))
+          _          <- client.listToolsPage()
+          listened   <- transport.listen
+          terminated <- transport.terminateSession
+          calls      <- seen.get
+          unsupported <- McpStreamableHttpTransport
+            .open(http, endpoint, version = McpProtocolVersion.V20241105)
+            .exit
+          after <- seen.get
+        yield assertTrue(
+          client.initialization.protocolVersion == McpProtocolVersion.V20250326,
+          listened == McpHttpListenResult.Ended,
+          terminated == McpHttpTermination.Deleted,
+          calls
+            .map(_._1) == Chunk(Method.POST, Method.POST, Method.POST, Method.GET, Method.DELETE),
+          calls.forall(_._2.get("MCP-Protocol-Version").contains("2025-03-26")),
+          unsupported.isFailure,
+          after == calls
+        )
+    ,
+    test(
       "listener resumption keeps its stream identity and finite cursor budget without granting reply routing"
     ) {
       for

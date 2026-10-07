@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.McpMessage
+import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpProtocolVersion}
 import zio.*
 import zio.stream.ZStream
 
@@ -26,6 +26,9 @@ import zio.stream.ZStream
  * and make send/stream cancellation join owned cleanup. A send receives its own bounded Scope.
  */
 trait McpTransport:
+  /** The handshake and any transport version headers must agree on this explicit selection. */
+  def protocolVersion: McpProtocolVersion = McpProtocolVersion.V20250618
+
   def send(message: McpMessage): ZIO[Scope, AgentError, Unit]
 
   /**

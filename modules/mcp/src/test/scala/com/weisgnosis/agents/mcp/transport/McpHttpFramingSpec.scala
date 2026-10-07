@@ -17,7 +17,7 @@ package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.mcp.protocol.*
-import com.weisgnosis.agents.mcp.transport.McpHttpFraming.McpSseEvent
+import com.weisgnosis.agents.mcp.transport.McpHttpFraming.{McpSseEvent, McpSseFrame}
 import java.nio.charset.StandardCharsets
 import zio.*
 import zio.json.ast.Json
@@ -34,6 +34,21 @@ object McpHttpFramingSpec extends ZIOSpecDefault:
     ZIO.succeed(Chunk.fromArray(value.getBytes(StandardCharsets.UTF_8)))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpHttpFramingSpec")(
+    test("raw SSE retains event names, multiline data and IDs without interpreting endpoint data"):
+      for
+        input <- bytes(
+          "event: discarded\nevent: endpoint\nid: cursor\ndata: /messages\ndata: ?session=one\n\n" +
+            "data: {}\n\n" + "event: custom\n\n" + "event: message\ndata: unfinished"
+        )
+        frames <- ZStream.fromChunk(input).rechunk(1).via(McpHttpFraming.sseFrames()).runCollect
+      yield assertTrue(
+        frames == Chunk(
+          McpSseFrame("endpoint", Some("/messages\n?session=one"), "cursor"),
+          McpSseFrame("", Some("{}"), "cursor"),
+          McpSseFrame("custom", None, "cursor")
+        )
+      )
+    ,
     test("SSE snapshots commit literal, inherited IDs only at completed block boundaries") {
       for
         encoded <- ZIO.fromEither(McpMessage.encode(message))

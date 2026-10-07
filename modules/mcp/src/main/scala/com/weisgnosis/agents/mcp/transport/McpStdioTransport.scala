@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.McpMessage
+import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpProtocolVersion}
 import scala.jdk.CollectionConverters.*
 import zio.*
 import zio.stream.{ZChannel, ZStream}
@@ -36,7 +36,8 @@ object McpStdioTransport:
       command: Chunk[String],
       maxFrameBytes: Int = 1048576,
       stderr: StderrPolicy = StderrPolicy.Discard,
-      environment: Map[String, String] = Map.empty
+      environment: Map[String, String] = Map.empty,
+      version: McpProtocolVersion = McpProtocolVersion.V20250618
   ): ZIO[Scope, AgentError, McpTransport] =
     if command.headOption.forall(_.trim.isEmpty) || maxFrameBytes <= 0 then
       ZIO.fail(
@@ -90,7 +91,7 @@ object McpStdioTransport:
                 ZIO.attemptBlocking(builder.start()).mapError(ioError("start", _))
             )
             .map(process =>
-              new Live(process, maxFrameBytes, writes, reader, terminal, closing, closed)
+              new Live(process, maxFrameBytes, version, writes, reader, terminal, closing, closed)
             )
         )(_.close)
       yield transport
@@ -103,6 +104,7 @@ object McpStdioTransport:
   final private class Live(
       process: Process,
       maxFrameBytes: Int,
+      override val protocolVersion: McpProtocolVersion,
       writes: Semaphore,
       reader: Ref[Reader],
       terminal: Promise[Nothing, Cause[AgentError]],
