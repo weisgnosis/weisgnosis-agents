@@ -1,5 +1,7 @@
 # Model client and stream verification
 
+The [explicit envelope-profile contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles) owns current decoder/client/transport/accumulator identities and migration. Three pure table groups and one integration group cover full-only responses, validated summary suppression, terminal/usage preservation and exact single-copy output/events/transforms. Existing incomplete-call and missing-DONE groups also exercise the selected profile. This is bounded SSE behavior, not whole-provider or non-streaming HTTP acceptance.
+
 The [SSE frame-completion contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion) records the reproduced EOF defect, exact three-file review identities and verification. One parser table adds fragmented LF/CRLF boundary coverage; the existing transport group requires the exact EOF failure for incomplete DONE. Complete frames remain accepted. These are local protocol regressions, not a nonexistent upstream SseParser suite or complete EventSource parity.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.

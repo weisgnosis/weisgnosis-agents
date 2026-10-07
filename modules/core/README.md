@@ -8,6 +8,8 @@ The [typed stop-sequence contract](src/main/scala/com/weisgnosis/agents/core/cli
 
 Optional [per-tool provider schema strictness](src/main/scala/com/weisgnosis/agents/core/tool/README.md#provider-tool-schema-strictness) preserves declared schemas and records the current eight-field ToolDef migration; it adds no local validation or authorization authority.
 
+An explicit [completion-envelope profile](src/main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles) supports full-message-only SSE and suppresses final summary replay after deltas. The default remains indexed deltas; the contract records public factory migration, exact review scope and verification.
+
 The [SSE frame-completion contract](src/main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion) requires a blank-line terminator before dispatch, including [DONE]; EOF discards unfinished LF/CRLF frames. It records the parser correction, regression evidence and independent scoped review.
 
 Local artifact: `com.weisgnosis:weisgnosis-agents-core_3:0.1.0-SNAPSHOT`. Binary/source JAR and POM generation, dependency boundaries and isolated-consumer evidence are defined in the [build contract](../../project/README.md#local-artifact-packaging); no external publication is claimed.

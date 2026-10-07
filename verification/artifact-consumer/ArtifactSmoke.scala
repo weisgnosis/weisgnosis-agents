@@ -20,6 +20,7 @@ import com.weisgnosis.agents.core.client.{
   ChatCompletionsRequest,
   LlmClient,
   LlmConfig,
+  CompletionEnvelopeProfile,
   ReasoningEffort,
   StopSequences,
   ToolCallParallelism,
@@ -241,6 +242,10 @@ object ArtifactSmoke extends ZIOAppDefault:
           .unless(
             encoded == "-9223372036854775808" && decoded == event &&
               configured.toJson.fromJson[LlmConfig] == Right(configured) &&
+              CompletionEnvelopeProfile.DeltasWithFullMessageSummary.toJson
+                .fromJson[CompletionEnvelopeProfile] == Right(
+                CompletionEnvelopeProfile.DeltasWithFullMessageSummary
+              ) &&
               configured.stopSequences.exists(_.values == Chunk("END", "STOP")) &&
               request.get("stop").contains(Json.Arr(Json.Str("END"), Json.Str("STOP"))) &&
               request.get("reasoning_effort").contains(Json.Str("high")) &&

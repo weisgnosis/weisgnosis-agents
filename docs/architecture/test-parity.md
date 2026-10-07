@@ -521,7 +521,16 @@ The following method mappings use the pinned Java revision above. Formatter sour
 - [ ] OpenAIResponseParserTest.testParseReasoningTextType (391), testParseReasoningSummaryType (421), and testCombineMultipleReasoningTypes (451): plaintext/ordered combination has a streaming adaptation, but these Java methods parse non-streaming choice.message. Their summary fixture uses text; the selected profile follows the official summary field. Whole-method parity remains open.
 - [ ] Other signature representations and live-provider interoperability remain unfinished. The mixed type=signature methods above stay open; strict malformed-detail failure intentionally differs from testUnconvertibleThinkingDetailsSkipped.
 
-The parser methods are in the pinned `agentscope-extensions/agentscope-extensions-model/agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/formatter/OpenAIResponseParserTest.java`. MinimaxDoubledSummaryReplayTest.summaryEventMessageClearedByTransportLayer (91), reasoningAndToolArgsNotDoubled (106), and chatCompletionOnlyStreamPreservesMessage (136) concern non-chunk summary-envelope suppression or full-message streams. Details-authoritative delta handling does not establish those contracts. No detail ID/index or encrypted data is inferred into a tool-call signature.
+The parser methods are in the pinned `agentscope-extensions/agentscope-extensions-model/agentscope-extensions-model-openai/src/test/java/io/agentscope/extensions/model/openai/formatter/OpenAIResponseParserTest.java`. Ordinary non-streaming parsing and legacy summary aliases remain separate. No detail ID/index or encrypted data is inferred into a tool-call signature.
+
+The pinned `MinimaxDoubledSummaryReplayTest.java` is in the parent openai test package. These are bounded adaptations through an explicitly selected SSE envelope profile, not wholesale provider compatibility or Java DTO mutation parity:
+
+- [x] summaryEventMessageClearedByTransportLayer (91): full-summary semantic output is suppressed after a delta, while validated usage and a compatible finish are preserved. The immutable decoder emits selected chunks rather than clearing a mutable message.
+- [x] reasoningAndToolArgsNotDoubled (106): pure selected-detail rows and client integration assert one copy of reasoning, text and complete arguments; summary values do not reach semantic events or text transformations.
+- [x] chatCompletionOnlyStreamPreservesMessage (136): full-only SSE text and complete function messages are materialized before any delta. A preceding usage-only frame does not erase the full message; a role-only delta deliberately establishes stream authority.
+- [ ] Validate live provider interoperability and remaining non-streaming/message-format methods independently; strict default behavior and unsupported reasoning aliases remain unchanged.
+
+The [envelope contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles) records exact identities, stricter validation, terminal/DONE requirements, factory migration and independent acceptance.
 
 ## Scoped model-failover applicability
 

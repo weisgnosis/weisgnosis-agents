@@ -37,7 +37,8 @@ final class ChatCompletionsTransport private (
     limits: CompletionTransportLimits,
     reasoningReplay: ReasoningReplay,
     toolSignatureFormat: ToolSignatureFormat,
-    retryPolicy: CompletionRetryPolicy
+    retryPolicy: CompletionRetryPolicy,
+    envelopeProfile: CompletionEnvelopeProfile
 ):
   import ChatCompletionsTransport.*
 
@@ -191,18 +192,20 @@ final class ChatCompletionsTransport private (
         }
         .takeUntil(_.isDone)
         .runFoldZIO[Scope, AgentError, ChatCompletionsTransport.StreamState](
-          ChatCompletionsTransport.StreamState.Reading(StreamAccumulator.empty)
+          ChatCompletionsTransport.StreamState.Reading(
+            StreamAccumulator.empty,
+            CompletionEnvelopeDecoder.initial(envelopeProfile, toolSignatureFormat, reasoningReplay)
+          )
         ):
-          case (ChatCompletionsTransport.StreamState.Reading(accumulator), frame) =>
+          case (ChatCompletionsTransport.StreamState.Reading(accumulator, decoder), frame) =>
             if frame.isDone then
               ZIO
                 .fromEither(accumulator.toTurnOutput)
                 .map(ChatCompletionsTransport.StreamState.Completed(_))
             else
               for
-                deltas <- ZIO.fromEither(
-                  ReasoningModelAdapter.parseChunk(frame.data, toolSignatureFormat, reasoningReplay)
-                )
+                decoded <- ZIO.fromEither(decoder.decode(frame.data, accumulator.completionReason))
+                (nextDecoder, deltas) = decoded
                 _ <- ZIO.fromEither(accumulate(accumulator, deltas))
                 transformed <- ZIO.foreach(deltas):
                   case fragment: LlmChunk.TextDelta =>
@@ -210,12 +213,12 @@ final class ChatCompletionsTransport private (
                   case other => ZIO.succeed(other)
                 next <- ZIO.fromEither(accumulate(accumulator, transformed))
                 _    <- onFrame(frame.data, transformed)
-              yield ChatCompletionsTransport.StreamState.Reading(next)
+              yield ChatCompletionsTransport.StreamState.Reading(next, nextDecoder)
           case (completed: ChatCompletionsTransport.StreamState.Completed, _) =>
             ZIO.succeed(completed)
       output <- state match
         case ChatCompletionsTransport.StreamState.Completed(value) => ZIO.succeed(value)
-        case ChatCompletionsTransport.StreamState.Reading(_) =>
+        case ChatCompletionsTransport.StreamState.Reading(_, _) =>
           ZIO.fail(AgentError.ModelError(status, "Event stream ended before [DONE]"))
     yield output
 
@@ -262,7 +265,7 @@ object ChatCompletionsTransport:
   private val retryableStatuses = Set(429, 500, 502, 503, 504)
 
   private enum StreamState:
-    case Reading(accumulator: StreamAccumulator)
+    case Reading(accumulator: StreamAccumulator, decoder: CompletionEnvelopeDecoder)
     case Completed(output: TurnOutput)
 
   def make(
@@ -270,7 +273,8 @@ object ChatCompletionsTransport:
       limits: CompletionTransportLimits = CompletionTransportLimits(),
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
-      retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled
+      retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled,
+      envelopeProfile: CompletionEnvelopeProfile = CompletionEnvelopeProfile.IndexedDeltas
   ): IO[AgentError, ChatCompletionsTransport] =
     ZIO.fromEither:
       Either.cond(
@@ -280,7 +284,8 @@ object ChatCompletionsTransport:
           limits,
           reasoningReplay,
           toolSignatureFormat,
-          retryPolicy
+          retryPolicy,
+          envelopeProfile
         ),
         AgentError.InvalidConfiguration("Transport byte limits must be positive")
       )

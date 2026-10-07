@@ -266,7 +266,7 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 | --- | --- |
 | [ReActAgent.scala](ReActAgent.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [LlmClient.scala](../client/LlmClient.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
-| [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | 41fe7ee22d997bb6e190d89df49d72747fce9f20 |
+| [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | [Current identity](../client/README.md#completion-envelope-profiles) |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
 | [BeforeResponseRejection.scala](../client/BeforeResponseRejection.scala) | 96121e91541c7858bd5f6f6764546cb6aa2d4bf2 |
 | [ModelTarget.scala](../client/ModelTarget.scala) | 5820bc6829e9ae0eaa81ca1bcad1d5024bba3bec |

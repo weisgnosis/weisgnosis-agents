@@ -24,6 +24,32 @@ LlmClient.streamTurn requires Scope and an explicit ModelStreamContext, and retu
 - [StreamAccumulator](StreamAccumulator.scala)
 - [TurnOutput](TurnOutput.scala)
 
+## Completion envelope profiles
+
+CompletionEnvelopeProfile.IndexedDeltas remains the default. Hosts may explicitly choose DeltasWithFullMessageSummary on ChatCompletionsClient.make or ChatCompletionsTransport.make for SSE streams containing a final object=chat.completion envelope. Selection is independent of model names and does not change request JSON or LlmConfig. Ordinary non-streaming HTTP responses remain unsupported.
+
+A full envelope requires exactly choice zero, an assistant message, an explicit compatible finish reason and no simultaneous delta field. String/null content and existing selected reasoning profiles are supported. Complete function calls require nonblank IDs/names, explicit string JSON-object arguments and type=function. Array order supplies stream indices; supplied indices must match. All known fields, usage and complete tool arguments are validated before either materialization or suppression.
+
+Before any delta, one full message supplies semantic output. After any accepted delta, including a role-only delta, full-summary text, reasoning and tool arguments are suppressed; only validated usage and a compatible finish are retained. Usage-only frames do not establish a delta phase. An existing identical finish is not repeated; a conflicting finish fails. After a full summary, usage-only frames remain valid and subsequent choices fail. Suppressed summary values never reach text transforms or semantic delta events, never replace canonical output and cannot repair incomplete streamed calls. The actual accumulator and a blank-line-terminated [DONE] still authorize completion. Raw diagnostic frames retain the original data.
+
+Migration: the appended defaulted envelopeProfile parameter changes ChatCompletionsTransport.make from five to six parameters and ChatCompletionsClient.make from six to seven. Ordinary omitted-argument source calls retain their behavior; explicit method values may require adaptation and dependent binaries must be rebuilt. The enum has a derived domain JSON codec; its names are host configuration values, not provider wire fields. The request-local decoder remains package-private and does not expose a host extension contract.
+
+| Reviewed source/spec | Git blob |
+| --- | --- |
+| [CompletionEnvelopeDecoder.scala](CompletionEnvelopeDecoder.scala) | `4aa142160ec6847454a2523b35eb2585c39367dd` |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | `c49b554adfc9fabda6335ef2f23ea9b00532b6bf` |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `803a5b67393715be2bf060d3f01f582e96a46934` |
+| [StreamAccumulator.scala](StreamAccumulator.scala) | `3e7187b943491785d96ccb686343d8d48ff5de25` |
+| [CompletionEnvelopeDecoderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionEnvelopeDecoderSpec.scala) | `0d56b2ba1839634687b79c10a918e2048145c283` |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | `26db0c1e2b9ee4ae268477e011e29b77dfcb828e` |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | `7c3dc32221063194dc09ecd0f9a9afa8466de2cf` |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | `e17863b7a35d8044b4e6a1831bca9b04f0c45b2b` |
+
+- [x] review_fp approved FP/ZIO correctness and review_invariants approved protocol/runtime invariants for these exact identities, with no findings.
+- [x] envelope-focused.log passes 29 groups. Three pure table groups and one client integration group cover full-only output, selected reasoning details, multiple indexed calls, strict failures, terminal reconciliation and single-copy semantic events/transforms. Existing missing-DONE and incomplete-tool tables verify cleanup and zero dispatch; no mechanically duplicated suite was added.
+- [x] Formatting and verify packageArtifacts pass in envelope-verify.log: 665 core / 724 harness / 85 MCP / 5 examples (1,479 total), zero compiler warnings or failed tests. envelope-artifact-preparation.log validates current archives/POMs; envelope-artifact-consumer.log clean-compiles and runs the neutral consumer against fresh loaded JAR hashes, including the public profile enum codec.
+- [x] Both reviewers approved final source/documentation closure. Changed prose/comments were reviewed in English; 75 Markdown documents / 2,538 local references pass with zero link issues. No temporary review report remains.
+
 ## SSE frame completion
 
 The selected core SSE byte profile accepts LF and CRLF line separators, including separators fragmented across chunks. A data frame is dispatched only after an explicit blank line. EOF discards pending frame data and preserves already dispatched frames; an unterminated [DONE] cannot complete a model turn. The transport still requires a valid finish reason and complete indexed tool arguments before returning executable output. This follows the [event-stream EOF rule](https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation). Standalone CR separators and complete browser EventSource semantics are outside this profile; MCP uses its separately reviewed framing implementation.
@@ -34,7 +60,7 @@ This corrects parser behavior without changing public signatures or configuratio
 | --- | --- |
 | [SseParser.scala](SseParser.scala) | `3366a9989e9abc1104cb343676c375e599e7578a` |
 | [SseParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/SseParserSpec.scala) | `b5db54ccfd26934b7b3eee22bd31f0c5db0df57a` |
-| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | `9373c3be70436ada1143fc5e65a3d0896fea1a73` |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | [Current identity](#completion-envelope-profiles) |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved completion authority for these exact identities, with no findings.
 - [x] sse-framing-red.log reproduces the defect against unchanged production: 19 passed / 2 failed. Incomplete parser frames were emitted, and all three unterminated DONE variants returned successful FinalText instead of the required EOF failure.
@@ -66,7 +92,7 @@ This is a private decoder correction without public source/JVM or configuration 
 | --- | --- |
 | [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | 3c41beccf18b36bb918ceda0c55eea4eabd5818c |
 | [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | 59fb419d7a2e2997e7a9a2df3870c19bb23edddf |
-| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | 68a6fee09f9ac7777e9061ea4470e45b97683167 |
+| [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#completion-envelope-profiles) |
 
 - [x] review_fp and review_invariants independently approved these three identities with no findings.
 - [x] The regression ran against unchanged adapter blob 8873f07ca50be4f4881bd6cd3ff05e4b50741b0d: cache-usage-red.log records 16 passes/2 failures, including actual cached=20/creation=0 instead of expected 60/12 and acceptance of a malformed direct count.
@@ -155,7 +181,7 @@ The HTTP request body and historical tool-argument strings use the pure [exact J
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](#optional-reasoning-effort) |
 | [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `1a3164bbca698268544f783f8f72ea8d2861ced8` |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current identity](#completion-envelope-profiles) |
 | [LlmClient.scala](LlmClient.scala) | [Current identity](#optional-reasoning-effort) |
 | [JsonBoundary.scala](../json/JsonBoundary.scala) | `6cf481403cc762117989e31d5e1dd2c0c1ffd3be` |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
@@ -318,7 +344,7 @@ Unchanged signature-scope identities remain below; current request/spec identiti
 
 | File | Reviewed Git blob |
 | --- | --- |
-| ChatCompletionsClient.scala | Current identity: [retry acceptance](#bounded-http-status-retries). |
+| ChatCompletionsClient.scala | Current identity: [envelope acceptance](#completion-envelope-profiles). |
 
 | [ReasoningAdapterValidationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningAdapterValidationSpec.scala) | [Current identity](#cache-usage-decoding) |
 
@@ -342,11 +368,11 @@ Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. Rea
 | --- | --- |
 | ReActAgent.scala | [Current identity](#optional-reasoning-effort) |
 | ChatCompletionsRequest.scala | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
-| ChatCompletionsTransport.scala | Current identity: [retry acceptance](#bounded-http-status-retries). |
+| ChatCompletionsTransport.scala | Current identity: [envelope acceptance](#completion-envelope-profiles). |
 | [LlmChunk.scala](LlmChunk.scala) | a35e034b66a8139d05ee1c6b1622ca19871538b1 |
 | [ModelStreamPublisher.scala](ModelStreamPublisher.scala) | 35b65c607b31f46da8213f4ffcfb12a6d7439128 |
 | [ReasoningModelAdapter.scala](ReasoningModelAdapter.scala) | [Current identity](#cache-usage-decoding) |
-| [StreamAccumulator.scala](StreamAccumulator.scala) | 1a01caa33dd0bfbefac53cf4697c6168d73c2a79 |
+| [StreamAccumulator.scala](StreamAccumulator.scala) | [Current identity](#completion-envelope-profiles) |
 | [Msg.scala](../model/Msg.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
 | [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current ReActAgentReasoningHookSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current ReActAgentToolAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
@@ -391,8 +417,8 @@ Migration: ChatCompletionsClient.make and ChatCompletionsTransport.make append a
 | File | Reviewed Git blob |
 | --- | --- |
 | [CompletionRetryPolicy.scala](CompletionRetryPolicy.scala) | 162be32d7454f3a7e2017a334dd07a715a11347b |
-| ChatCompletionsTransport.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
-| ChatCompletionsClient.scala | Current identity: [model failover](../agent/README.md#scoped-model-failover). |
+| ChatCompletionsTransport.scala | Current identity: [envelope acceptance](#completion-envelope-profiles). |
+| ChatCompletionsClient.scala | Current identity: [envelope acceptance](#completion-envelope-profiles). |
 | [CompletionRetryPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionRetryPolicySpec.scala) | 5df81123863d6f3faa10cfd1c70206f2604baf63 |
 | [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | cb042aee28d6e082c9688481f4b08c0e1540df1d |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |

@@ -19,7 +19,7 @@ Migration: ToolDef has eight positional/Product fields. Existing construction/na
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | db7cb8b8cfd4188a7e977bf9040ccc08975f8781 |
 | [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | 6d805de6cc291b8afc29c1e6696a3d2f81b17ca0 |
 | [McpToolSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/tool/McpToolSpec.scala) | f1a5fbc69c84c7e6bb7e9997854f303f1ea1cca3 |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | 44a39fa143d0f250d121fae4e93c840f4846aef0 |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current identity](../client/README.md#completion-envelope-profiles) |
 
 - [x] review_fp and review_invariants approved the seven library/spec identities after checking exact tool membership/counts and full definitions. Final formatted consumer review is part of combined closure.
 - [x] tool-strictness-focused.log passes 26 core / 3 MCP groups; tool-strictness-review-focused.log passes all three corrected failover groups. Existing groups were extended without increasing the total.

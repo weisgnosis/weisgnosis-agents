@@ -25,6 +25,8 @@ import zio.json.ast.Json
 final class StreamAccumulator private (state: StreamAccumulator.State):
   import StreamAccumulator.*
 
+  private[client] def completionReason: Option[String] = state.finishReason
+
   /** Accepts protocol deltas without exposing an invalid intermediate accumulator. */
   def feed(chunk: LlmChunk): Either[AgentError, StreamAccumulator] =
     val next = chunk match

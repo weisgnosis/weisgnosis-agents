@@ -82,6 +82,8 @@ ChatCompletions/MCP, structured closing text and local transcript outputs use ex
 
 ## Current acceptance
 
+The [host-selected envelope profile](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#completion-envelope-profiles) adds bounded full-message SSE handling and summary deduplication with explicit migration/review; ordinary non-streaming HTTP remains separate.
+
 The [core SSE frame-completion contract](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#sse-frame-completion) records the independently reviewed correction that rejects truncated DONE and discards incomplete EOF frames; LF/CRLF framing is the selected profile.
 
 - [x] `path_review` and `current_docs` approved [run-owned model-facing group activation](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#run-owned-tool-group-activation), with fresh invocation state, snapshot-consistent descriptions/reset notes and shared structured fallback. Exact source/spec identities and full verification are recorded in the linked contract.

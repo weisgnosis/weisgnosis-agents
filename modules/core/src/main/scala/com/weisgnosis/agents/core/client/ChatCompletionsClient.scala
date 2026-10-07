@@ -59,8 +59,9 @@ object ChatCompletionsClient:
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
       textTransform: ModelTextTransform = ModelTextTransform.identity,
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
-      retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled
+      retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled,
+      envelopeProfile: CompletionEnvelopeProfile = CompletionEnvelopeProfile.IndexedDeltas
   ): IO[AgentError, ChatCompletionsClient] =
     ChatCompletionsTransport
-      .make(http, limits, reasoningReplay, toolSignatureFormat, retryPolicy)
+      .make(http, limits, reasoningReplay, toolSignatureFormat, retryPolicy, envelopeProfile)
       .map(new ChatCompletionsClient(_, textTransform))

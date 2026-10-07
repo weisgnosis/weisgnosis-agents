@@ -655,6 +655,71 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
         )
         .map(_.foldLeft(assertTrue(true))(_ && _))
     ) @@ TestAspect.withLiveClock,
+    test("explicit full-message envelopes preserve single-copy output, events and request cleanup"):
+      val message =
+        """{"role":"assistant","reasoning_content":"reason","content":"answer","tool_calls":[{"id":"call-1","type":"function","function":{"name":"lookup","arguments":"{}"}}]}"""
+      val summary = frame(
+        s"""{"object":"chat.completion","choices":[{"index":0,"message":$message,"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":2,"completion_tokens":3}}"""
+      )
+      ZIO
+        .foreach(Chunk("", thinking + text + tool)): prefix =>
+          ZIO
+            .scoped:
+              for
+                closed      <- Ref.make(false)
+                transformed <- Ref.make(Chunk.empty[String])
+                hub         <- Hub.unbounded[AgentEvent]
+                queue       <- hub.subscribe
+                client <- ChatCompletionsClient.make(
+                  scripted(_ =>
+                    ZIO
+                      .addFinalizer(closed.set(true))
+                      .as(response(ZStream.succeed(prefix + summary + done)))
+                  ),
+                  textTransform = ModelTextTransform((_, fragment) =>
+                    transformed
+                      .update(_ :+ fragment.delta)
+                      .as(fragment.delta.toUpperCase(java.util.Locale.ROOT))
+                  ),
+                  envelopeProfile = CompletionEnvelopeProfile.DeltasWithFullMessageSummary
+                )
+                output <- client.streamTurn(
+                  Chunk(Msg.user("q")),
+                  Chunk.empty,
+                  config,
+                  hub,
+                  ModelStreamContext("reply", "request")
+                )
+                events   <- queue.takeAll
+                inputs   <- transformed.get
+                released <- closed.get
+              yield assertTrue(
+                output.message.text == "ANSWER",
+                output.message.thinking == "reason",
+                output.message.toolUses.map(call => (call.id, call.name, call.input)) == Chunk(
+                  ("call-1", "lookup", Json.Obj())
+                ),
+                output.message.usage
+                  .exists(usage => usage.inputTokens == 2 && usage.outputTokens == 3),
+                inputs == Chunk("answer"),
+                events.collect { case event: AgentEvent.TextBlockDeltaEvent =>
+                  event.delta
+                } == Chunk("ANSWER"),
+                events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
+                  event.delta
+                } == Chunk("reason"),
+                events.collect { case event: AgentEvent.ToolCallDeltaEvent =>
+                  event.delta
+                } == Chunk("{}"),
+                events.collect { case event: AgentEvent.ToolCallEndEvent => event.callId } == Chunk(
+                  "call-1"
+                ),
+                events.count(_.isInstanceOf[AgentEvent.TextBlockEndEvent]) == 1,
+                events.count(_.isInstanceOf[AgentEvent.ThinkingBlockEndEvent]) == 1,
+                released
+              )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("buffers argument fragments until call identity exists"):
       val pending = frame(
         """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":2,"function":{"arguments":"{"}}]}}]}"""
@@ -693,36 +758,51 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
         )
     ,
     test("incomplete tool streams cannot close calls or dispatch tools"):
-      for
-        called   <- Ref.make(false)
-        observed <- Ref.make(Chunk.empty[AgentEvent])
-        lookup = Tool.make(ToolDef("lookup", "lookup", Json.Obj()))(_ =>
-          called.set(true).as("unexpected")
-        )
-        client <- ChatCompletionsClient.make(
-          scripted(_ => ZIO.succeed(response(ZStream.succeed(tool))))
-        )
-        agent <- ReActAgent.make(
-          client = client,
-          toolkit = Toolkit.single(lookup),
-          llmConfig = config
-        )
-        result <- agent
-          .streamEvents(Msg.user("q"))
-          .tap(event => observed.update(_ :+ event))
-          .runDrain
-          .either
-        events   <- observed.get
-        executed <- called.get
-      yield assertTrue(
-        result.isLeft,
-        !executed,
-        events.exists(_.isInstanceOf[AgentEvent.ToolCallStartEvent]),
-        !events.exists(_.isInstanceOf[AgentEvent.ToolCallEndEvent]),
-        !events.exists(_.isInstanceOf[AgentEvent.ModelResponseEndEvent]),
-        !events.exists(_.isInstanceOf[AgentEvent.AgentResultEvent]),
-        events.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent])
+      val partial = frame(
+        """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","function":{"name":"lookup","arguments":"{"}}]}}]}"""
       )
+      val summary = frame(
+        """{"object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":"call-1","type":"function","function":{"name":"lookup","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}"""
+      )
+      ZIO
+        .foreach(
+          Chunk(
+            (CompletionEnvelopeProfile.IndexedDeltas, tool),
+            (CompletionEnvelopeProfile.DeltasWithFullMessageSummary, partial + summary + done)
+          )
+        ): (profile, payload) =>
+          for
+            called   <- Ref.make(false)
+            observed <- Ref.make(Chunk.empty[AgentEvent])
+            lookup = Tool.make(ToolDef("lookup", "lookup", Json.Obj()))(_ =>
+              called.set(true).as("unexpected")
+            )
+            client <- ChatCompletionsClient.make(
+              scripted(_ => ZIO.succeed(response(ZStream.succeed(payload)))),
+              envelopeProfile = profile
+            )
+            agent <- ReActAgent.make(
+              client = client,
+              toolkit = Toolkit.single(lookup),
+              llmConfig = config
+            )
+            result <- agent
+              .streamEvents(Msg.user("q"))
+              .tap(event => observed.update(_ :+ event))
+              .runDrain
+              .either
+            events   <- observed.get
+            executed <- called.get
+          yield assertTrue(
+            result.isLeft,
+            !executed,
+            events.exists(_.isInstanceOf[AgentEvent.ToolCallStartEvent]),
+            !events.exists(_.isInstanceOf[AgentEvent.ToolCallEndEvent]),
+            !events.exists(_.isInstanceOf[AgentEvent.ModelResponseEndEvent]),
+            !events.exists(_.isInstanceOf[AgentEvent.AgentResultEvent]),
+            events.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent])
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
     test("rejects a malformed frame before publishing its apparently valid text"):
       val malformed = frame(

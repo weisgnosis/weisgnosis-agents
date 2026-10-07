@@ -361,10 +361,30 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
       )
     ,
     test("requires DONE even after a valid finish marker"):
+      val full = frame(
+        """{"object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}"""
+      )
+      val cases = Chunk(
+        (CompletionEnvelopeProfile.IndexedDeltas, text + stop),
+        (CompletionEnvelopeProfile.DeltasWithFullMessageSummary, full)
+      )
       ZIO
-        .foreach(Chunk("", "data: [DONE]", "data: [DONE]\n", "data: [DONE]\r\n")): tail =>
-          for result <- run(response(text + stop + tail)).either
-          yield assertTrue(result.left.exists(_.message == "Event stream ended before [DONE]"))
+        .foreach(cases): (profile, prefix) =>
+          ZIO
+            .foreach(Chunk("", "data: [DONE]", "data: [DONE]\n", "data: [DONE]\r\n")): tail =>
+              for
+                closed <- Ref.make(false)
+                transport <- ChatCompletionsTransport.make(
+                  scripted(_ => ZIO.addFinalizer(closed.set(true)).as(response(prefix + tail))),
+                  envelopeProfile = profile
+                )
+                result   <- transport.complete(Chunk(Msg.user("q")), Chunk.empty, config).either
+                released <- closed.get
+              yield assertTrue(
+                result.left.exists(_.message == "Event stream ended before [DONE]"),
+                released
+              )
+            .map(_.foldLeft(assertTrue(true))(_ && _))
         .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
     test("requires valid completion and rejects malformed protocol frames"):
