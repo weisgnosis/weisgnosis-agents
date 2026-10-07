@@ -80,6 +80,99 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
     case _ => Chunk(msg)
 
   def spec: Spec[TestEnvironment, Any] = suite("ChatCompletionsRequestSpec")(
+    test(
+      "explicit image-part tool profile preserves ordered observations and rejects unsupported output"
+    ):
+      val image   = ContentBlock.Image(MediaSource.Base64("image/png", "aGVsbG8="))
+      val output  = Chunk(ContentBlock.Text("before"), image, ContentBlock.Text("after"))
+      val result  = ContentBlock.ToolResult("call_123", Some("search"), output)
+      val history = pairedHistory(Msg.tool(Chunk(result)))
+      val expected = Json.Obj(
+        "role"         -> Json.Str("tool"),
+        "tool_call_id" -> Json.Str("call_123"),
+        "content" -> Json.Arr(
+          Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str("before")),
+          Json.Obj(
+            "type"      -> Json.Str("image_url"),
+            "image_url" -> Json.Obj("url" -> Json.Str("data:image/png;base64,aGVsbG8="))
+          ),
+          Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str("after"))
+        )
+      )
+      val encoders: Chunk[(Chunk[Msg], ToolResultFormat) => Either[AgentError, Json.Obj]] = Chunk(
+        (input, format) =>
+          ChatCompletionsRequest.encode(input, Chunk.empty, config, toolResultFormat = format),
+        (input, format) =>
+          ChatCompletionsRequest.encodeNonStreaming(
+            input,
+            Chunk.empty,
+            config,
+            toolResultFormat = format
+          )
+      )
+      val unsupported = Chunk(
+        result.copy(state = ToolResultState.Error),
+        result.copy(state = ToolResultState.Running),
+        result.copy(metadata = Map("agentscope_server_tool" -> Json.Bool(true))),
+        result.copy(metadata = Map("agentscope_suspended" -> Json.Bool(true))),
+        result.copy(output =
+          Chunk(ContentBlock.Audio(MediaSource.Base64("audio/wav", "aGVsbG8=")))
+        ),
+        result.copy(output =
+          Chunk(ContentBlock.Video(MediaSource.Url("https://example.com/video.mp4")))
+        ),
+        result.copy(output = Chunk(ContentBlock.Data(MediaSource.Base64("image/png", "aGVsbG8=")))),
+        result.copy(output =
+          Chunk(ContentBlock.Image(MediaSource.Base64("image/png", "!invalid!")))
+        ),
+        result.copy(output =
+          Chunk(ContentBlock.Image(MediaSource.Url("file:///private/image.png")))
+        ),
+        result.copy(output = Chunk(ContentBlock.ToolUse("nested", "search", Json.Obj())))
+      )
+      assertTrue(
+        encoders.forall(encode =>
+          messages(encode(history, ToolResultFormat.ImageParts)).contains(
+            Chunk(
+              Json.Obj(
+                "role"    -> Json.Str("assistant"),
+                "content" -> Json.Str(""),
+                "name"    -> Json.Str("assistant"),
+                "tool_calls" -> Json.Arr(
+                  Json.Obj(
+                    "id"   -> Json.Str("call_123"),
+                    "type" -> Json.Str("function"),
+                    "function" -> Json
+                      .Obj("name" -> Json.Str("search"), "arguments" -> Json.Str("{}"))
+                  )
+                )
+              ),
+              expected
+            )
+          ) &&
+            encode(history, ToolResultFormat.TextOnly).isLeft &&
+            unsupported.forall(value =>
+              encode(pairedHistory(Msg.tool(Chunk(value))), ToolResultFormat.ImageParts).isLeft
+            ) &&
+            encode(Chunk(Msg.tool(Chunk(result))), ToolResultFormat.ImageParts).isLeft &&
+            encode(
+              pairedHistory(
+                Msg.tool(Chunk(result.copy(output = Chunk(ContentBlock.Text("plain")))))
+              ),
+              ToolResultFormat.ImageParts
+            ) ==
+            encode(
+              pairedHistory(
+                Msg.tool(Chunk(result.copy(output = Chunk(ContentBlock.Text("plain")))))
+              ),
+              ToolResultFormat.TextOnly
+            )
+        ),
+        Chunk(ToolResultFormat.TextOnly, ToolResultFormat.ImageParts).forall(value =>
+          value.toJson.fromJson[ToolResultFormat] == Right(value)
+        )
+      )
+    ,
     test("serializes system user and assistant text in their original order") {
       val result = ChatCompletionsRequest.encode(
         Chunk(Msg.system("rules"), Msg.user("question"), Msg.assistant("answer")),

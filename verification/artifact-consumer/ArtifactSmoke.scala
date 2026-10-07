@@ -25,12 +25,13 @@ import com.weisgnosis.agents.core.client.{
   StopSequences,
   ToolCallParallelism,
   ThinkingBudget,
+  ToolResultFormat,
   TurnOutput
 }
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, FinalAnswerFilter, ModelStreamContext}
 import com.weisgnosis.agents.core.json.ExactJson
-import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg}
+import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, MediaSource, Msg}
 import com.weisgnosis.agents.core.tool.{
   Tool,
   ToolAuthorization,
@@ -203,6 +204,25 @@ object ArtifactSmoke extends ZIOAppDefault:
           Json.Obj("type" -> Json.Str("object")),
           schemaStrictness = Some(ToolSchemaStrictness.Strict)
         )
+        imageRequest <- ZIO.fromEither(
+          ChatCompletionsRequest.encode(
+            Chunk(
+              Msg.assistant(Chunk(ContentBlock.ToolUse("image", "sum", Json.Obj()))),
+              Msg.tool(
+                Chunk(
+                  ContentBlock.ToolResult(
+                    "image",
+                    Some("sum"),
+                    Chunk(ContentBlock.Image(MediaSource.Base64("image/png", "aGVsbG8=")))
+                  )
+                )
+              )
+            ),
+            Chunk.empty,
+            configured,
+            toolResultFormat = ToolResultFormat.ImageParts
+          )
+        )
         request <- ZIO.fromEither(
           ChatCompletionsRequest.encode(Chunk(Msg.user("question")), Chunk(definition), configured)
         )
@@ -289,6 +309,22 @@ object ArtifactSmoke extends ZIOAppDefault:
               request.get("stop").contains(Json.Arr(Json.Str("END"), Json.Str("STOP"))) &&
               request.get("reasoning_effort").contains(Json.Str("high")) &&
               request.get("thinking_budget").contains(Json.Num(4096)) &&
+              imageRequest
+                .get("messages")
+                .flatMap(_.asArray)
+                .flatMap(_.lastOption)
+                .contains(
+                  Json.Obj(
+                    "role"         -> Json.Str("tool"),
+                    "tool_call_id" -> Json.Str("image"),
+                    "content" -> Json.Arr(
+                      Json.Obj(
+                        "type"      -> Json.Str("image_url"),
+                        "image_url" -> Json.Obj("url" -> Json.Str("data:image/png;base64,aGVsbG8="))
+                      )
+                    )
+                  )
+                ) &&
               request
                 .get("tools")
                 .flatMap(_.asArray)

@@ -16,7 +16,10 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.model.Msg
+import com.weisgnosis.agents.core.model.{ContentBlock, MediaSource, Msg}
+import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import zio.json.*
+import zio.json.ast.Json
 import java.nio.charset.StandardCharsets
 import zio.*
 import zio.http.*
@@ -38,6 +41,98 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
   private val success = text + stop + done
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ChatCompletionsTransport")(
+    test("both explicit client response modes forward the selected image-part tool profile"):
+      val factories: Chunk[(Client => IO[AgentError, ChatCompletionsClient], String, String)] =
+        Chunk(
+          (
+            (http: Client) =>
+              ChatCompletionsClient.make(http, toolResultFormat = ToolResultFormat.ImageParts),
+            "text/event-stream",
+            success
+          ),
+          (
+            (http: Client) =>
+              ChatCompletionsClient
+                .makeNonStreaming(http, toolResultFormat = ToolResultFormat.ImageParts),
+            "application/json",
+            """{"object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}"""
+          )
+        )
+      ZIO
+        .foreach(factories): (make, mediaType, response) =>
+          ZIO.scoped:
+            for
+              sent <- Ref.make(Option.empty[String])
+              client <- make(
+                scripted(request =>
+                  request.body.asString
+                    .flatMap(body => sent.set(Some(body)))
+                    .as(
+                      Response(
+                        headers = Headers(Header.ContentType.parse(mediaType).toOption.toList),
+                        body = Body.fromString(response)
+                      )
+                    )
+                )
+              )
+              hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+              history = Chunk(
+                Msg.assistant(Chunk(ContentBlock.ToolUse("image-call", "search", Json.Obj()))),
+                Msg.tool(
+                  Chunk(
+                    ContentBlock.ToolResult(
+                      "image-call",
+                      Some("search"),
+                      Chunk(ContentBlock.Image(MediaSource.Base64("image/png", "aGVsbG8=")))
+                    )
+                  )
+                )
+              )
+              output <- client.streamTurn(
+                history,
+                Chunk.empty,
+                config,
+                hub,
+                ModelStreamContext("reply", "request")
+              )
+              body <- sent.get
+            yield assertTrue(
+              output.message.text == "hello",
+              body
+                .flatMap(_.fromJson[Json.Obj].toOption)
+                .flatMap(_.get("messages"))
+                .flatMap(_.asArray)
+                .contains(
+                  Chunk(
+                    Json.Obj(
+                      "role"    -> Json.Str("assistant"),
+                      "content" -> Json.Str(""),
+                      "name"    -> Json.Str("assistant"),
+                      "tool_calls" -> Json.Arr(
+                        Json.Obj(
+                          "id"   -> Json.Str("image-call"),
+                          "type" -> Json.Str("function"),
+                          "function" -> Json
+                            .Obj("name" -> Json.Str("search"), "arguments" -> Json.Str("{}"))
+                        )
+                      )
+                    ),
+                    Json.Obj(
+                      "role"         -> Json.Str("tool"),
+                      "tool_call_id" -> Json.Str("image-call"),
+                      "content" -> Json.Arr(
+                        Json.Obj(
+                          "type" -> Json.Str("image_url"),
+                          "image_url" -> Json
+                            .Obj("url" -> Json.Str("data:image/png;base64,aGVsbG8="))
+                        )
+                      )
+                    )
+                  )
+                )
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test(
       "retries only selected HTTP rejection statuses with bounded attempts and original failures"
     ):

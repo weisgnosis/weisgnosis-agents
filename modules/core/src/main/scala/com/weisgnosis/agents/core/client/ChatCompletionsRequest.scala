@@ -32,6 +32,10 @@ enum ReasoningReplay derives JsonCodec:
 enum ToolSignatureFormat derives JsonCodec:
   case Unsupported, GoogleExtraContent
 
+/** Explicit compatible-endpoint extension; image parts are not standard tool-message content. */
+enum ToolResultFormat derives JsonCodec:
+  case TextOnly, ImageParts
+
 /** Internal response selection prevents independent streaming and envelope flags. */
 private[client] enum CompletionResponseMode:
   case Streaming(profile: CompletionEnvelopeProfile)
@@ -49,7 +53,8 @@ object ChatCompletionsRequest:
       tools: Chunk[ToolDef],
       config: LlmConfig,
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
-      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported
+      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
+      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly
   ): Either[AgentError, Json.Obj] =
     encodeWithMode(
       history,
@@ -57,6 +62,7 @@ object ChatCompletionsRequest:
       config,
       reasoningReplay,
       toolSignatureFormat,
+      toolResultFormat,
       CompletionResponseMode.Streaming(CompletionEnvelopeProfile.IndexedDeltas)
     )
 
@@ -66,7 +72,8 @@ object ChatCompletionsRequest:
       tools: Chunk[ToolDef],
       config: LlmConfig,
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
-      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported
+      toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
+      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly
   ): Either[AgentError, Json.Obj] =
     encodeWithMode(
       history,
@@ -74,6 +81,7 @@ object ChatCompletionsRequest:
       config,
       reasoningReplay,
       toolSignatureFormat,
+      toolResultFormat,
       CompletionResponseMode.NonStreaming
     )
 
@@ -83,6 +91,7 @@ object ChatCompletionsRequest:
       config: LlmConfig,
       reasoningReplay: ReasoningReplay,
       toolSignatureFormat: ToolSignatureFormat,
+      toolResultFormat: ToolResultFormat,
       mode: CompletionResponseMode
   ): Either[AgentError, Json.Obj] =
     val responseFields = mode match
@@ -129,7 +138,7 @@ object ChatCompletionsRequest:
             ReasoningReplay.OpenRouterEncryptedDetails
           case ReasoningReplay.OpenRouterDetails => ReasoningReplay.OpenRouterDetails
           case _                                 => ReasoningReplay.Omit
-        encodeMessage(msg, replay, toolSignatureFormat)
+        encodeMessage(msg, replay, toolSignatureFormat, toolResultFormat)
       body = Json.Obj(
         Chunk(
           "model"    -> Json.Str(config.model),
@@ -237,7 +246,8 @@ object ChatCompletionsRequest:
   private def encodeMessage(
       msg: Msg,
       replay: ReasoningReplay,
-      toolSignatureFormat: ToolSignatureFormat
+      toolSignatureFormat: ToolSignatureFormat,
+      toolResultFormat: ToolResultFormat
   ): Either[AgentError, Chunk[Json]] =
     msg.role match
       case Role.Tool =>
@@ -246,7 +256,7 @@ object ChatCompletionsRequest:
             msg.content.nonEmpty && msg.content.forall(_.isInstanceOf[ContentBlock.ToolResult]),
             "Tool messages require explicit tool-result blocks"
           )
-          results <- traverse(msg.toolResults)(encodeResult)
+          results <- traverse(msg.toolResults)(encodeResult(_, toolResultFormat))
         yield results
       case Role.Assistant => encodeAssistant(msg, replay, toolSignatureFormat).map(Chunk(_))
       case Role.System | Role.User =>
@@ -485,18 +495,29 @@ object ChatCompletionsRequest:
       ) ++ signature
     )
 
-  private def encodeResult(result: ContentBlock.ToolResult): Either[AgentError, Json] =
+  private def encodeResult(
+      result: ContentBlock.ToolResult,
+      format: ToolResultFormat
+  ): Either[AgentError, Json] =
     for
       _ <- message(result.id.trim.nonEmpty, "Tool results require a call ID")
       _ <- message(
         !result.isServerTool && !result.isSuspended,
         "Server or suspended tool results require a different protocol"
       )
-      _ <- message(
-        result.output.forall(_.isInstanceOf[ContentBlock.Text]),
-        "This request codec only supports text tool output"
-      )
-      output <- result.state match
+      output <- encodeResultContent(result, format)
+    yield Json.Obj(
+      "role"         -> Json.Str("tool"),
+      "tool_call_id" -> Json.Str(result.id),
+      "content"      -> output
+    )
+
+  private def encodeResultContent(
+      result: ContentBlock.ToolResult,
+      format: ToolResultFormat
+  ): Either[AgentError, Json] =
+    if result.output.forall(_.isInstanceOf[ContentBlock.Text]) then
+      (result.state match
         case ToolResultState.Success => Right(result.outputText)
         case ToolResultState.Error   => Right(classifiedOutput("ERROR", result.outputText))
         case ToolResultState.Interrupted =>
@@ -506,11 +527,19 @@ object ChatCompletionsRequest:
           Left(
             AgentError.InvalidMessage("In-flight tool results cannot be serialized as observations")
           )
-    yield Json.Obj(
-      "role"         -> Json.Str("tool"),
-      "tool_call_id" -> Json.Str(result.id),
-      "content"      -> Json.Str(output)
-    )
+      ).map(Json.Str(_))
+    else if format == ToolResultFormat.ImageParts && result.state == ToolResultState.Success then
+      traverse(result.output):
+        case ContentBlock.Text(text) =>
+          Right(Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str(text)))
+        case ContentBlock.Image(source, _, _) => inputImage(source)
+        case _ =>
+          Left(AgentError.InvalidMessage("Image-part tool results support only text and images"))
+      .map(parts => Json.Arr(parts))
+    else
+      Left(
+        AgentError.InvalidMessage("Non-text tool output requires a successful image-part profile")
+      )
 
   private def classifiedOutput(label: String, text: String): String =
     val prefix = s"[$label] "

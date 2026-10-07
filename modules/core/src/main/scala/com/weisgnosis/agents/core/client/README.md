@@ -39,13 +39,13 @@ Migration: the three new public helpers are additive; prior public factory/encod
 
 | Reviewed source/spec | Git blob |
 | --- | --- |
-| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | `cdce8807a5f7f3eace9558139d6fe2578c77078d` |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | `2e96e2e0ca08e25cf620d496b68f1c626fdbb75f` |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [CompletionEnvelopeDecoder.scala](CompletionEnvelopeDecoder.scala) | `464a7d3c69a2b7b7b847f38580d81b62a7db6534` |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsNonStreamingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsNonStreamingSpec.scala) | [Current summary-alias identity](#summary-text-alias) |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved the seven exact identities with no findings.
 - [x] Focused verification passes 50 tests. Two new integration groups cover ordinary text/tool/reasoning turns and eligible HTTP-status retry, rejection before transforms/events, bounded EOF and joined failure/cancellation cleanup; existing request tables cover stream=false and absent stream_options.
@@ -84,13 +84,13 @@ Migration: the appended defaulted envelopeProfile parameter changes ChatCompleti
 | Reviewed source/spec | Git blob |
 | --- | --- |
 | [CompletionEnvelopeDecoder.scala](CompletionEnvelopeDecoder.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
-| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [StreamAccumulator.scala](StreamAccumulator.scala) | `3e7187b943491785d96ccb686343d8d48ff5de25` |
 | [CompletionEnvelopeDecoderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionEnvelopeDecoderSpec.scala) | `0d56b2ba1839634687b79c10a918e2048145c283` |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#scalar-reasoning-aliases) |
-| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved protocol/runtime invariants for these exact identities, with no findings.
 - [x] envelope-focused.log passes 29 groups. Three pure table groups and one client integration group cover full-only output, selected reasoning details, multiple indexed calls, strict failures, terminal reconciliation and single-copy semantic events/transforms. Existing missing-DONE and incomplete-tool tables verify cleanup and zero dispatch; no mechanically duplicated suite was added.
@@ -107,7 +107,7 @@ This corrects parser behavior without changing public signatures or configuratio
 | --- | --- |
 | [SseParser.scala](SseParser.scala) | `3366a9989e9abc1104cb343676c375e599e7578a` |
 | [SseParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/SseParserSpec.scala) | `b5db54ccfd26934b7b3eee22bd31f0c5db0df57a` |
-| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 
 - [x] review_fp approved FP/ZIO correctness and review_invariants approved completion authority for these exact identities, with no findings.
 - [x] sse-framing-red.log reproduces the defect against unchanged production: 19 passed / 2 failed. Incomplete parser frames were emitted, and all three unterminated DONE variants returned successful FinalText instead of the required EOF failure.
@@ -160,13 +160,13 @@ Migration: current LlmConfig has sixteen positional/Product fields and ModelRequ
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | 5bfb7b37d7be56f81db3d769d23e5577f436c2a3 |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | 4a8654e156707431d927184ad40517da5b9a28ad |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | 5e7d35df047cf143f94f8dd7487212293543dfeb |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | 9c4283edfc7e6b211155aec109ff6677f358ad20 |
 | [ThinkingBudget.scala](ThinkingBudget.scala) | 3b9b10520a24381327ad497f22917b92ccefbf56 |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | ffac20c233d2cde63cac565efcf406944be89fb5 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | 3fbe7668f40375aaf86cab7f344cd0358af1ad2b |
 | [ThinkingBudgetSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ThinkingBudgetSpec.scala) | 510d451a6e06932f2d05de341b9a8c312eafa05a |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | 833ae02623eb2d7e55d1b8329cae707e4de0efc4 |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 
 Sorted nine-file source manifest SHA-256: d7377bceae26bcf3d0803628ec530c1c21d30249da4144f1f9a7e7e2692eb169. Architecture-only HEAD 8f7e4b2 does not grant source acceptance.
 
@@ -189,12 +189,12 @@ Migration: current arities are sixteen LlmConfig fields and nine ModelRequestSet
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | 3a99d8850a8fa2905f1384bf04a818f386dd00da |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 
 - [x] review_fp and review_invariants approved these eight source/spec identities, including the final formatted external consumer, with no findings.
 - [x] reasoning-effort-focused.log passes 27 existing request/projection/failover groups; no new groups or reproduced-defect claim were added.
@@ -212,14 +212,14 @@ Migration: current LlmConfig and ModelRequestSettings arities follow the [reason
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [StopSequences.scala](StopSequences.scala) | 07e81b7f93282be465a2db4d5eacb98bdac3dbca |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [StopSequencesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/StopSequencesSpec.scala) | a55a615fc899a28cc14d610af8005aaa7f72d448 |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 
 - [x] review_fp and review_invariants approved the nine library/spec identities with no findings. The external consumer extension uses its final standalone formatting identity in the table.
 - [x] stop-sequences-focused.log passes 28 groups. One new paired table group covers the checked type; existing request/projection/failover tables were extended. This additive feature has no pre-fix defect claim.
@@ -236,8 +236,8 @@ Migration: current LlmConfig arity follows the [stop-sequence migration](#option
 | Reviewed file | Git blob |
 | --- | --- |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 
@@ -256,12 +256,12 @@ The HTTP request body and historical tool-argument strings use the pure [exact J
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current ordinary-JSON identity](#ordinary-json-completions) |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [JsonBoundary.scala](../json/JsonBoundary.scala) | `6cf481403cc762117989e31d5e1dd2c0c1ffd3be` |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [JsonBoundarySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/json/JsonBoundarySpec.scala) | `aca1f4ce72d66ff5f6f28ec0d13dc767a14a3800` |
 
@@ -280,11 +280,11 @@ Migration: Current LlmConfig and ModelRequestSettings arities are recorded in th
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current ReActAgentModelInputSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these eight identities, with no findings. Existing tables cover omission, zero, endpoints, nonfinite/out-of-range values, codec defaults, projection override/clearing and validation before custom dispatch, per-target selection, retry reuse and structured requests. No new test groups were added. Focused `penalties-numeric-focused.log` passed 37 tests in 1.186 seconds.
@@ -300,10 +300,10 @@ Migration: LlmConfig has a defaulted toolChoice; its current positional/Product 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Existing tables cover all choices, empty definitions, exact visibility rejection and codec defaults. The extended real HTTP cycle verifies that a returned call despite none still passes through host authorization, Specific cannot bypass host denial, and hidden Specific performs no HTTP/authorization. Controlled failover/structured requests retain each target's own choice. Focused tool-choice-focused.log passed 31 tests in 7.402 seconds; no new groups were added.
@@ -321,11 +321,11 @@ Migration: the appended defaulted fields preserve ordinary omitted-argument cons
 | --- | --- |
 | [ModelInputTransform.scala](../agent/ModelInputTransform.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ReActAgent.scala](../agent/ReActAgent.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [LlmClient.scala](LlmClient.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](#optional-frequency-and-presence-penalties) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
 | [SubagentDeclaration.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclaration.scala) | bf55c6a99b8c35bfaa28bd15eb8fba2617ad9faa |
 | [SubagentDeclarationParser.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParser.scala) | 2033e68dc48552d838cf7f96b7a53d9e1a2df45c |
@@ -377,9 +377,40 @@ ChatCompletionsRequest.encode returns Either[AgentError, Json.Obj] without effec
 
 History must contain complete local call/result pairs. Orphan, duplicate, unknown, and unresolved results fail before serialization; another conversation message cannot split pending calls from their observations. Grouped or separately delivered parallel results may arrive in any order, and completed later turns may reuse an ID. A grouped Tool message becomes individual protocol messages. Error, Interrupted, and Denied outputs carry explicit labels; Running and suspended observations fail.
 
-ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. OpenRouterEncryptedDetails validates and replays encrypted detail arrays from every historical assistant message. OpenRouterDetails additionally supports checked text and summary objects; other detailed/signed thinking formats remain unsupported. Unsupported media, provider-hosted server calls/results, calls signed with an unsupported format, and non-text tool output fail explicitly. User-media projection is defined below; broader provider formatting remains separate.
+ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. OpenRouterEncryptedDetails validates and replays encrypted detail arrays from every historical assistant message. OpenRouterDetails additionally supports checked text and summary objects; other detailed/signed thinking formats remain unsupported. Unsupported media, provider-hosted server calls/results, calls signed with an unsupported format, and non-text tool output under the default TextOnly profile fail explicitly. User-media projection is defined below; broader provider formatting remains separate.
 
 Validation covers nonblank models, finite temperature in [0, 2], positive optional token limits, protocol names, unique definitions/call IDs, object schemas/arguments/response formats, and duplicate JSON fields. ToolUse.input is authoritative; stale raw content is not sent. Forwarding a schema object does not validate arbitrary JSON Schema semantics. Endpoint, authentication headers, HTTP status handling, and request resource lifetime belong to ChatCompletionsTransport.
+
+## Tool-image result projection
+
+ToolResultFormat.TextOnly remains the default. Explicit ImageParts projects successful mixed Text/Image results into ordered content parts on the original tool role and tool_call_id; it does not inject a user message or synthesize an ID. Images reuse the existing checked URL/base64 image serializer. Unsupported output rejects the complete request: non-success non-text results, audio, video, Data, nested tool blocks, provider-hosted or suspended results are not projected. Existing text-only result state labels and Running rejection remain unchanged in both profiles.
+
+This is an extension for an explicitly compatible host-selected endpoint; the standard tool-message schema does not guarantee image-part support. Serialization fetches no media, infers no MIME type and grants no broader provider compatibility. User/assistant media rules retain their separate contracts.
+
+Migration: pure encode/encodeNonStreaming and both ChatCompletionsClient/ChatCompletionsTransport construction modes append defaulted toolResultFormat. Omitted-argument source calls retain TextOnly, but JVM method signatures and method values require assessment and dependent binaries must be rebuilt. LlmConfig and ModelRequestSettings retain sixteen/nine fields; the selector is not a generation setting.
+
+review_fp and review_invariants approved the six final source/spec identities against 6997fc6, with no unresolved findings. Full RC1 verification, archive preparation and fresh standalone consumption pass; final combined documentation approval passed:
+
+| Source/spec | Final Git blob |
+| --- | --- |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | d5f046e6007582610aa3efa9f26f3b9ba2400a58 |
+| [ChatCompletionsClient.scala](ChatCompletionsClient.scala) | 8c3448eec7da105ae2f7cb922fb38d6f6331f4e8 |
+| [ChatCompletionsTransport.scala](ChatCompletionsTransport.scala) | e88411433c5929bf43f5f5d1e39556261edb1669 |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | 431f604355c87db35e4cad74e1765dd3947d599f |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | 0a44028ab15b2225cfb9205506409d7cfb7dca06 |
+| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | 480972345a43d46ed6f4d172623723e7a9b9c421 |
+
+Two new grouped regressions cover pure request projection/rejection and both scripted HTTP client response modes, including the complete assistant-call/tool-result message array. Pinned OpenAIMessageConverterTest.testToolMessageWithMultimodalResult (887) supplies bounded projection intent; testToolMessageWithoutResultBlock (916) fallback/invented-ID behavior remains excluded.
+
+Sorted six-file source manifest SHA-256: 67fa6c52a67649ebc64f6c070e1059c4ff50508fd062359f5db35affe569e8a1. This additive previously unsupported profile has no reproduced-defect RED claim.
+
+- [x] review_fp and review_invariants approved the exact six source/spec identities against 6997fc6.
+- [x] tool-image-closed-focused.log passed 37 tests in 3.715 seconds; standalone consumer formatting passed.
+- [x] tool-image-verify.log exited zero for 0.1.0-RC1: 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures and four packages.
+- [x] tool-image-preparation.log passed exact archive admission and restored/revalidated source/POM/LICENSE staging.
+- [x] tool-image-consumer.log passed standalone formatting, clean compilation and forked execution against four fresh actual RC1 module hashes, including selected ImageParts encoding and existing checked usage/budget APIs.
+- [x] review_fp and review_invariants approved the final combined 14-file diff against 6997fc6, with six source identities unchanged (manifest 67fa6c52a67649ebc64f6c070e1059c4ff50508fd062359f5db35affe569e8a1). Manual English inspection, diff checks and 78-document/2,874-local-reference validation pass with zero issues.
+
 
 ## User-image projection
 
@@ -389,7 +420,7 @@ Inline audio accepts only MediaSource.Base64 with exact audio/wav or audio/mpeg 
 
 User ContentBlock.Data accepts inline Base64 with those same four image MIME types or audio/wav and audio/mpeg. Data URLs require an explicit MediaSource.Url.mimeType of image/png, image/jpeg, image/webp or image/gif and pass the existing HTTP(S) validator. The original URL is retained, including a misleading extension; no MIME type is inferred. The hint, ID and name are omitted from provider JSON. An explicit Image block keeps its existing URL behavior regardless of the descriptive hint. Missing/unsupported Data hints, audio/video Data URLs and malformed URLs reject the whole request. Inline Data continues to use the same image_url/input_audio validators and original block order.
 
-This is pure serialization: it does not fetch URLs, read files, decode media bytes, inspect audio headers/duration, detect animation or validate provider size limits. In particular, accepting image/gif does not establish that the image is non-animated. Image/audio/video/Data content in system, assistant and tool messages remains unsupported; inline video and video Data inference are also rejected. Standard tool content stays text-only. The [official user schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_user_message_param.py), [image-part schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_content_part_image_param.py), [tool-message schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_tool_message_param.py) and [image guide](https://developers.openai.com/api/docs/guides/images-vision) define the selected image/audio provider surface. Video URL projection below requires an explicitly compatible endpoint. This does not imply compatibility with every endpoint accepting Chat Completions requests.
+This is pure serialization: it does not fetch URLs, read files, decode media bytes, inspect audio headers/duration, detect animation or validate provider size limits. In particular, accepting image/gif does not establish that the image is non-animated. Image/audio/video/Data content in system and assistant messages remains unsupported; tool images require the explicit [tool-image profile](#tool-image-result-projection) and other non-text tool content remains unsupported; inline video and video Data inference are also rejected. Default tool content stays text-only; the explicit [tool-image extension](#tool-image-result-projection) is separately selected by the host. The [official user schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_user_message_param.py), [image-part schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_content_part_image_param.py), [tool-message schema](https://raw.githubusercontent.com/openai/openai-python/main/src/openai/types/chat/chat_completion_tool_message_param.py) and [image guide](https://developers.openai.com/api/docs/guides/images-vision) define the selected image/audio provider surface. Video URL projection below requires an explicitly compatible endpoint. This does not imply compatibility with every endpoint accepting Chat Completions requests.
 
 Migration: MediaSource.Url appends mimeType: Option[String] = None with canonical mime_type JSON. Missing/null becomes None and None is omitted; invalid or duplicate canonical fields fail. Two-field Url patterns/Product and downstream binaries require updating. Defaulted construction calls remain valid; MediaSource.url now has two parameters, so method-value users must adapt rather than assuming the old function arity. Previously rejected supported user media now serialize; text-only requests and unsupported-role rejection retain their existing behavior. Full provider media validation remains the caller/provider responsibility.
 
@@ -397,8 +428,8 @@ Existing tables verify six inline MIME mappings, four image URL hints on a misle
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [MediaSource.scala](../model/MediaSource.scala) | a443433df837fc8d4eb4b714664b90b2a7bcef3c |
 | [MediaSourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/MediaSourceSpec.scala) | ac9619600ec48fe7f0c5713ae7f34c8f8c0f6ad6 |
 
@@ -416,8 +447,8 @@ The existing positive/negative request tables add the bounded pinned OpenAIVideo
 
 | Reviewed source/spec against 1227ce5 | Git blob |
 | --- | --- |
-| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current thinking-budget identity](#optional-thinking-budget); prior behavioral scope retained. |
+| [ChatCompletionsRequest.scala](ChatCompletionsRequest.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
+| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 
 - [x] review_fp and review_invariants approved both final identities against 1227ce5, with no unresolved findings.
 - [x] video-url-final-green.log passes all 19 existing request groups in 402 ms; no test group was added.
@@ -538,7 +569,7 @@ Migration: ChatCompletionsClient.make and ChatCompletionsTransport.make append a
 | ChatCompletionsTransport.scala | [Current ordinary-JSON identity](#ordinary-json-completions) |
 | ChatCompletionsClient.scala | [Current ordinary-JSON identity](#ordinary-json-completions) |
 | [CompletionRetryPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/CompletionRetryPolicySpec.scala) | 5df81123863d6f3faa10cfd1c70206f2604baf63 |
-| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
+| [ChatCompletionsTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) | [Current tool-image identity](#tool-image-result-projection), final combined documentation acceptance passed; prior behavioral scope retained. |
 | [ChatCompletionsClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala) | [Current identity](#cache-usage-decoding) |
 
 - [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the six identities above, with no open findings. Full scalafmtAll scalafmtSbt verify passed in http-retry-verify.log with zero compiler warnings or failed tests. The focused http-retry-green.log run passed 26 tests in 5.408 seconds, including policy validation, two attempt-lifecycle/status groups and the actual HTTP 429/400 client table. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).

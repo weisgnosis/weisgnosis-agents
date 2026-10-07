@@ -60,10 +60,19 @@ object ChatCompletionsClient:
       textTransform: ModelTextTransform = ModelTextTransform.identity,
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
       retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled,
-      envelopeProfile: CompletionEnvelopeProfile = CompletionEnvelopeProfile.IndexedDeltas
+      envelopeProfile: CompletionEnvelopeProfile = CompletionEnvelopeProfile.IndexedDeltas,
+      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly
   ): IO[AgentError, ChatCompletionsClient] =
     ChatCompletionsTransport
-      .make(http, limits, reasoningReplay, toolSignatureFormat, retryPolicy, envelopeProfile)
+      .make(
+        http,
+        limits,
+        reasoningReplay,
+        toolSignatureFormat,
+        retryPolicy,
+        envelopeProfile,
+        toolResultFormat
+      )
       .map(new ChatCompletionsClient(_, textTransform))
 
   /** Explicit ordinary JSON completion with the existing correlated semantic-event contract. */
@@ -73,8 +82,16 @@ object ChatCompletionsClient:
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
       textTransform: ModelTextTransform = ModelTextTransform.identity,
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
-      retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled
+      retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled,
+      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly
   ): IO[AgentError, ChatCompletionsClient] =
     ChatCompletionsTransport
-      .makeNonStreaming(http, limits, reasoningReplay, toolSignatureFormat, retryPolicy)
+      .makeNonStreaming(
+        http,
+        limits,
+        reasoningReplay,
+        toolSignatureFormat,
+        retryPolicy,
+        toolResultFormat
+      )
       .map(new ChatCompletionsClient(_, textTransform))

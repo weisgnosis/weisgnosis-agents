@@ -38,12 +38,14 @@ Acceptance is scoped to the identities, contracts and evidence in linked package
 
 - [x] [Checked thinking-budget endpoint preference](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-thinking-budget) has final scoped acceptance; compatible endpoints remain host-selected and no local token limit is supplied.
 
-Current delivery scope: unsigned 0.1.0-RC1 validation from clean source revision 609e75c. This validates current sources and selected public consumption without freezing an ABI, completing upstream parity or publishing a release.
+Current delivery scope: [explicit tool-image result projection](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#tool-image-result-projection) against 6997fc6. TextOnly remains default; compatible-endpoint ImageParts is a bounded extension, not universal provider support.
 
-- [x] current-rc-verify.log passed 1,515 tests (672 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures and four packages.
-- [x] current-rc-preparation.log passed rejected-selector/extra-source/duplicate-source regressions and restored archive/POM staging.
-- [x] current-rc-consumer.log passed standalone formatting, clean compilation and forked execution against four fresh actual RC1 module hashes.
-- [x] review_fp and review_invariants approved current-source RC validation documentation against 609e75c; manual English inspection, diff checks and 78-document/2,852-local-reference validation pass with zero issues.
+- [x] review_fp and review_invariants approved six final source/spec identities against 6997fc6.
+- [x] tool-image-closed-focused.log passed 37 tests in 3.715 seconds; standalone consumer formatting passed.
+- [x] tool-image-verify.log passed RC1 verification: 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures and four packages.
+- [x] tool-image-preparation.log passed exact archive admission and restored source/POM/LICENSE staging.
+- [x] tool-image-consumer.log passed standalone formatting, clean compilation and forked selected-API execution against four fresh actual RC1 module hashes, including ImageParts and checked usage/budget.
+- [x] review_fp and review_invariants approved the final combined 14-file diff against 6997fc6, with six source identities unchanged (manifest 67fa6c52a67649ebc64f6c070e1059c4ff50508fd062359f5db35affe569e8a1). Manual English inspection, diff checks and 78-document/2,874-local-reference validation pass with zero issues.
 - [ ] Assess remaining provider/remote middleware/release gaps separately; full-plan completion is not claimed.
 
 ## Current acceptance
@@ -95,7 +97,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-Current-source RC validation has passed its local build/artifact/consumer gates; final combined documentation approval passed above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
+The bounded explicit tool-image profile has final independent acceptance and RC1 verification above. Select the next source increment from the applicable [method-level parity gaps](test-parity.md); do not expand accepted profiles or host authority implicitly.
 
 - [ ] Freeze the release compatibility baseline only against exact release sources/coordinates; the API candidate and selected consumer coverage do not establish backward binary compatibility.
 - [ ] Define broader/global discovery, pruning and ownership/recovery contracts separately. Ambient-context/cache/schema redesign and other provider/parity, platform and release validation remain open.
