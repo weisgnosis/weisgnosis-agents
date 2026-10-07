@@ -799,7 +799,7 @@ Pinned SessionTranscriptWriterTest has four methods; MemoryFlushManagerOffloadTe
 - [x] Implement observation-level behavior from `offloadMessages_nullAndBlankIds_stillAppendButDoNotBreakStableIds`: Option/blank adaptation, six exact payloads, stable-key deduplication, and valid parent chain; no Java-null API.
 - [x] Implement observation-level behavior from `offloadMessages_persistsCompactionSummariesAndDedupesStableIds`: exact summary/user keys and texts are retained once.
 - [x] Complete four local append/offload adaptations with real line counts, overlap/reopen, anonymous replay, retained content, and parent continuity. LocalTranscriptStoreSpec and named SessionTranscriptWriterSpec fixtures jointly supply evidence. The host selects one existing directory containing transcript.jsonl; Java concatenated IDs, agents/session paths, SessionEntry wire format, dual-file/index behavior, and remote mirroring are deliberately excluded.
-- [ ] `appendMessages_withTranscriptStore_writesImmutableSegments`: immutable storage segments remain unimplemented; no mirror, timing, or delivery claim is inferred.
+- [x] `appendMessages_withTranscriptStore_writesImmutableSegments` (152): bounded immutable publication/reconstruction intent is adapted by the new real-PostgreSQL segment suite; final source/full/artifact verification and combined documentation approval passed. Java writer mirror/async timing/tenant-session layout are not replicated, so whole-method equivalence is not claimed.
 
 Additional Scala tests cover duplicates within a batch, repeated tool-call IDs, delimiter-safe structural keys, first-observation retention, isolated stores, recording-time laziness, complete collision rollback, concurrent overlapping batches, exact preview boundaries, non-text results, and observable storage failure/cancellation. The upstream writer assigns parents before filtering and synthesizes colliding same-ID tool keys; the store-owned transition avoids those defects. Upstream file/mirror/index failures can be swallowed; the Scala boundary preserves typed failure. Compactor offload is installed explicitly and does not imply complete turn-boundary recording.
 
@@ -813,7 +813,7 @@ The pinned upstream has no TranscriptMiddlewareTest counterpart. TranscriptMiddl
 - [x] Obtain independent FP/invariant approval against `0349b1a`; full verification passed 552 core / 264 harness tests.
 - [x] Map and implement local memory flush/consolidation triggers, isolation, throttling and asynchronous lifecycle adaptations below.
 - [ ] Complete remote trigger/isolation combinations and retention lifecycle behavior.
-- [ ] Implement remote immutable transcript segments and session indexes.
+- [ ] Complete bounded segment adapter acceptance; remote session indexes/discovery remain unfinished.
 
 Exact reviewed identities are in the [core agent contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
 
@@ -1274,7 +1274,7 @@ The pinned BaseStore contract is in agentscope-harness/agent/filesystem/remote/s
 - [x] Verify bounded PostgresBaseStoreTest.getReturnsItem (178) and getReturnsNullWhenNotFound (193) adaptations through Option reads and exact numeric/namespace round-trips across independent real connections. Java uses mocked JDBC; Scala's PostgreSQL 16 fixture is separate integration evidence, not reproduction of those mocks.
 - [x] Verify bounded PostgresBaseStoreTest.putIfVersionInsertDuplicateReturnsFalse (261), putIfVersionUpdateSucceeds (298) and putIfVersionUpdateMismatchReturnsFalse (306) behavior through real create/update races and exact-revision reads. ConditionalWrite.Conflict replaces Boolean false; SQL exception-mocking branches are not claimed reproduced.
 - [x] Record final independent source/build/consumer-identity approval and full real-fixture verification in the [backend contract](../../modules/storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance).
-- [ ] Complete remaining remote transcript segmentation/discovery/pruning/layout migration and checkpoint runtime/host installation, segmented memory layouts/migration and their recovery/ownership mappings separately; the selected versioned memory adaptation is recorded below. BaseStore unconditional put, delete, search, configurable SQL/schema/table behavior and whole-suite parity are not implemented by this prerequisite.
+- [ ] Complete remaining transcript discovery/pruning/layout migration and checkpoint runtime/host installation, segmented memory layouts/migration and their recovery/ownership mappings separately; the selected versioned memory adaptation is recorded below. BaseStore unconditional put, delete, search, configurable SQL/schema/table behavior and whole-suite parity are not implemented by this prerequisite.
 
 ## Versioned remote memory adaptation
 
@@ -1284,7 +1284,7 @@ The private version-1 memory aggregate is a stronger atomic domain adaptation ov
 - [x] Obtain final FP/ZIO/invariant source approval and full-build/package verification for this selected remote-memory scope. No additional whole upstream method is closed merely by these integration groups.
 - [x] Fresh versioned-memory-artifact-consumer.log passes standalone formatting, clean compilation and execution against four actual packaged module hashes; existing selected APIs are exercised without constructing the new repository.
 - [x] review_fp and review_invariants approved final documentation for this selected remote-memory adaptation before bbadf13.
-- [ ] Complete remote transcript segmentation/discovery/pruning/layout migration, checkpoint adapters, remote filesystem applicability and legacy watermark method classification separately; authenticated/exactly-once host claims remain external.
+- [ ] Complete remaining transcript discovery/pruning/layout migration, checkpoint adapters, remote filesystem applicability and legacy watermark method classification separately; authenticated/exactly-once host claims remain external.
 
 ## Versioned remote transcript adaptation
 
@@ -1294,7 +1294,8 @@ The new TranscriptStore composition reuses the existing observation/key/chain ru
 - [x] Verify definite-conflict retries with fixed candidate IDs/time and rebased parents, bounded exhaustion, strict aggregate rejection and uncertain-acknowledgement propagation.
 - [x] Both reviewers approved the three final source identities; full 1,492-test verification, four-artifact inspection and fresh standalone consumption pass through the [canonical transcript manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#versioned-remote-transcript).
 - [x] review_fp and review_invariants approved final transcript documentation/English/link closure before b7488cc.
-- [ ] Implement remote immutable segments, indexes/discovery and pruning under separately defined ownership/recovery contracts.
+- [x] Complete bounded segmented adapter acceptance below.
+- [ ] Define separate indexes/discovery, compaction/pruning and reclamation ownership/recovery contracts.
 
 ## Conditional acting-checkpoint persistence
 
@@ -1304,4 +1305,13 @@ The selected storage adaptation persists one strictly validated suspended AgentR
 - [x] Verify strict persisted-state rejection, conditional conflicts and uncertain acknowledgements without automatic retry.
 - [x] Both reviewers approved the seven final source/spec identities; full verification, archive inspection and fresh artifact consumption pass through the [checkpoint manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-acting-checkpoints).
 - [x] review_fp and review_invariants approved final checkpoint documentation/English/link closure against b7488cc and the seven unchanged identities.
-- [ ] Define remaining authenticated delivery/exclusive execution at the host boundary and remote transcript segmentation/discovery/pruning separately.
+- [ ] Define remaining authenticated delivery/exclusive execution at the host boundary and remaining remote transcript discovery/pruning separately; segmented adapter documentation acceptance is tracked below.
+
+## Immutable transcript segment adaptation
+
+Pinned agentscope-harness/agent/transcript/ObjectStoreTranscriptStore.appendSegment (82) and listSegments (91) provide immutable publication/reconstruction intent. The Scala adapter publishes checked JSON segments under a CAS manifest and reconstructs only that manifest's bounded complete chain. It supplies no Java sequence filenames, tenant/session path derivation, asynchronous mirror or glob/list API. VersionedTranscriptStore remains the separate whole-aggregate adapter.
+
+- [x] Verify actual PostgreSQL immutable new-only publication, complete chain reopening and stable-key deduplication, with final independent source/full/artifact acceptance in the [two-file contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments).
+- [x] Verify definite manifest conflict/reparenting, invisible orphan preparation, malformed/cyclic/missing chain rejection, prospective capacity and ambiguous acknowledgement limits.
+- [x] review_fp and review_invariants approved final combined documentation/English/link closure for this bounded adaptation.
+- [ ] Define session indexes/discovery, orphan reclamation, compaction/pruning/deletion and layout migration separately; no whole upstream transcript-store suite parity is claimed.

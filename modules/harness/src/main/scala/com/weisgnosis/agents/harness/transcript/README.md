@@ -42,7 +42,8 @@ Public transcript store APIs, file format, trust checks, lease ownership and ato
 - [x] `review_fp` and `review_harness` approved the final six-file transcript increment against `73458da` on 2026-09-29. No findings remain within pure observation projection, atomic in-memory batch deduplication/linkage, first-observation retention, collision rollback, and compactor callback integration. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 231 harness tests, including 22 new cases, with zero compiler warnings. Filesystem/remote persistence, automatic turn-boundary recording, strict persisted-input validation, and Java wire compatibility remain outside this scope.
 - [x] `review_docs` approved the corrected documentation against `73458da`, including all six identities, 22 tests, wire/timestamp limits, and explicit pending persistence mappings. All 61 Markdown files passed link/script checks; git diff --check passed.
 - [x] Implement scoped local transcript persistence and four explicit local method adaptations, with storage-layout/wire differences documented below.
-- [ ] Implement immutable segment storage and session indexes.
+- [x] Complete bounded immutable segment adapter acceptance below.
+- [ ] Complete separate session discovery/index APIs.
 
 [Tests](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/README.md) and [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md#transcript-observation-applicability) distinguish behavioral coverage from pending filesystem assertions. [Tracker](../../../../../../../../../../docs/architecture/tracker.md).
 
@@ -63,7 +64,7 @@ Each nonempty append samples Clock.instant and candidate UUIDs once before condi
 
 The private version-1 aggregate requires schemaVersion and entries. Before restoring the complete chain, decoding rejects duplicate JSON fields, malformed Unicode strings/object keys, unsupported versions and noncanonical DTO representations, including ignored fields and decoder coercions. Optional fields use the writer's omitted-field representation. The restricted JsonBoundary.sameRepresentation helper is shared with checkpoint persistence; local JSONL behavior is unchanged. TranscriptState.restore rejects duplicate IDs/stable keys, broken parents, invalid stable-key/payload pairings and invalid preview claims. Encoding applies the same validation before publication. Exact decimal rendering preserves complete numeric input values; object order and equivalent numeric spelling do not determine validity.
 
-Only explicit conflicts authorize retry. Backend failures, cancellation and lost acknowledgements propagate without replay; publication may already have committed. Hosts coordinate recovery by reading persistent state. This adapter supplies no authenticated checkpoint claim, execution deduplication or exactly-once delivery. All entries live in one aggregate; every read validates the complete chain and every update replaces the complete value. Hosts must bound transcript growth and backend payload size. TranscriptStore has no deletion/retention API: immutable segments, listing/indexes, remote discovery/pruning, compaction and layout migration remain unfinished.
+Only explicit conflicts authorize retry. Backend failures, cancellation and lost acknowledgements propagate without replay; publication may already have committed. Hosts coordinate recovery by reading persistent state. This adapter supplies no authenticated checkpoint claim, execution deduplication or exactly-once delivery. All entries live in one aggregate; every read validates the complete chain and every update replaces the complete value. Hosts must bound transcript growth and backend payload size. TranscriptStore has no deletion/retention API. The separate segmented adapter below is accepted within its bounded scope; listing/session indexes, remote discovery/pruning, compaction and layout migration remain unfinished.
 
 Migration: this factory is additive. Existing TranscriptStore/in-memory/local APIs and local version-1 JSONL rows retain their contracts. The remote envelope is separate and does not automatically import local logs or reproduce upstream session-file/segment formats. Backend address/revision and uncertain-publication semantics belong to the [versioned publication contract](../storage/README.md#versioned-json-publication).
 
@@ -79,6 +80,32 @@ Migration: this factory is additive. Existing TranscriptStore/in-memory/local AP
 - [x] versioned-transcript-artifact-consumer.log passes standalone formatting, clean compilation and forked execution with four loaded module hashes. Its existing selected API smoke does not construct this adapter.
 - [x] review_fp and review_invariants approved the final combined three-file/documentation scope against bbadf13 with no unresolved findings; English inspection and all 2,684 local references in 78 Markdown documents passed.
 
+## Immutable transcript segments
+
+[SegmentedTranscriptStore.make](SegmentedTranscriptStore.scala) is a pure checked TranscriptStore factory over one VersionedJsonStore and host-selected manifest address. It validates the reserved namespace manifest.namespace ++ [manifest.key, "segments"] against StorageAddress bounds, with UUID segment keys. Hosts exclusively own both manifest and reserved subtree; no other writer may mutate, delete, recreate or repurpose visible segments. The existing whole-aggregate VersionedTranscriptStore is unchanged.
+
+TranscriptSegmentLimits.make requires positive maxSegments/maxEntries/maxAttempts. Defaults are 1,024 segments, 100,000 visible entries and eight publication attempts. Count limits apply to the complete visible chain; backend payload-byte limits and aggregate lifetime remain host responsibilities. Reads capture one manifest snapshot and follow its complete predecessor chain, restoring all entries through shared TranscriptState validation. Missing, cyclic, oversized or corrupt chains fail rather than return truncated history. Every read/deduplication still traverses all visible segments; this is bounded history, not paginated or unbounded storage.
+
+The private version-1 manifest contains schemaVersion/head. A nonempty segment contains schemaVersion/id/previous/entries, with previous explicitly JSON null at the root. Segment identity must equal its UUID key and backend revision must remain one. Recursive duplicate rejection, valid Unicode, exact numeric handling and canonical DTO representation checks precede complete ID/key/parent-chain restoration. Each publication attempt prepares one fresh segment containing only newly accepted entries, then conditionally publishes its head through the manifest. Existing segments are never rewritten by this adapter.
+
+Append samples recording time and entry UUID candidates once. Only definite manifest CAS Conflict permits bounded reread/reparenting with those same candidates; each attempt allocates a fresh segment UUID. A preparation collision fails rather than retrying or overwriting the address. Prospective visible count limits are checked before preparation. Empty/all-stable-key-duplicate batches produce no write, including at capacity. Stable keys retain first observations; anonymous invocation replay is not idempotent.
+
+Preparation and manifest publication are separate backend operations. Failure, cancellation or ambiguous acknowledgement stops without blind retry. Prepared but unpublished segments are invisible; a publication may have committed before acknowledgement fails. Definite conflicts can leave invisible orphan segments even after a later successful retry. Hosts own backend lifecycle and any safe reclamation; the adapter provides no orphan enumeration, automatic garbage collection or deletion. A manifest read grants no execution/approval authority, and this protocol is not a cross-address transaction or exactly-once delivery service.
+
+Migration is additive: existing transcript capabilities/local rows/aggregate format remain unchanged. Immutable segment publication does not reproduce Java tenant/session paths, sequence filenames, mirrors, asynchronous delivery or filesystem glob listing. No automatic aggregate import, session discovery/index, compaction, remote retention/pruning or layout migration is supplied. Selected upstream publication/reconstruction intent is mapped separately from whole-method/API parity.
+
+| Source/spec approved by review_fp and review_invariants against 9a4650d | Git blob |
+| --- | --- |
+| [SegmentedTranscriptStore.scala](SegmentedTranscriptStore.scala) | 82eee5957f6b18cb753e08c92099f77600e53375 |
+| [SegmentedTranscriptStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/SegmentedTranscriptStoreSpec.scala) | b8c1b35a31b14f04900e8d52be5d3145afcbdb4a |
+
+- [x] review_fp and review_invariants approved these final two identities against 9a4650d, with no unresolved findings.
+- [x] Final focused segment verification passed three real PostgreSQL groups in 3.540 seconds.
+- [x] segmented-transcript-final-verify.log exited zero: 1,504 tests (669 core / 726 harness / 86 MCP / 18 PostgreSQL / 5 examples), zero compiler warnings/failures and four packages.
+- [x] Four-artifact archive/POM preparation passed.
+- [x] Fresh standalone formatting, clean compilation and forked selected-API consumption passed with four current JARs; this smoke does not construct the segmented adapter.
+- [x] review_fp and review_invariants approved final combined documentation against 9a4650d and the two unchanged identities; English inspection and 78-document/2,783-local-reference checks pass with zero issues.
+
 ## Scoped local transcript store
 
 [LocalTranscriptStore.open](LocalTranscriptStore.scala) binds one existing directory to one transcript. WorkspaceTrust.HostControlled is required before filesystem access; the host protects the directory and every ancestor. Traversal, sensitive locations, filesystem roots, non-directory storage, and nonregular/symlink payloads are rejected. The runtime derives a fixed transcript.jsonl destination and .transcript-writer.lease ownership file. There is no tenant/session path interpolation or fallback storage choice; the host binds separate directories to separate transcript identities.
@@ -91,7 +118,7 @@ Every read and append validates the canonical directory, reads all current rows 
 
 Atomic replacement protects cooperative readers from partial file contents and preserves hard-linked source files by replacing the directory entry. It does not provide fsync/power-loss durability, exactly-once anonymous replay, hostile mutation protection, or an identity guarantee against uncoordinated directory replacement. Cancellation may be delivered after publication. Failed temporary cleanup is logged; abandoned temporary files can remain after process termination. Cross-process contention and dynamic symlink/junction behavior need platform-specific validation.
 
-Migration: shared lease extraction preserves memory/.daily-writer.lease and existing DailyMemoryLease entry points. The local transcript backend deliberately uses one host-selected directory and one versioned transcript.jsonl; it does not reproduce Java `agents/<agent>/sessions/<session>.jsonl/.log.jsonl` layout, mirror dual files, or wire IDs. The four local method mappings are behavioral/reopen adaptations with those differences; opt-in background memory flush is implemented in the memory package; owned consolidation scheduling is also available; explicit local transcript pruning is implemented below; immutable remote segments, indexes and automatic transcript retention remain pending. Previous changed transcript, lease, and test-helper identities are preserved in e4dfc67.
+Migration: shared lease extraction preserves memory/.daily-writer.lease and existing DailyMemoryLease entry points. The local transcript backend deliberately uses one host-selected directory and one versioned transcript.jsonl; it does not reproduce Java `agents/<agent>/sessions/<session>.jsonl/.log.jsonl` layout, mirror dual files, or wire IDs. The four local method mappings are behavioral/reopen adaptations with those differences; opt-in background memory flush is implemented in the memory package; owned consolidation scheduling is also available; explicit local transcript pruning is implemented below; the segmented remote adapter is accepted within its bounded scope above; indexes and automatic transcript retention remain pending. Previous changed transcript, lease, and test-helper identities are preserved in e4dfc67.
 
 - [x] `review_fp` and `review_harness` approved the final 14-file local transcript increment against `e4dfc67` on 2026-09-29. Twenty-seven new tests reproduced and fixed Unicode surrogate splitting; full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 258 harness tests with zero compiler warnings. No findings remain within shared cooperative ownership, strict complete-log validation, atomic batch replacement, reopen/deduplication, and Unicode-safe previews. Remote segments, Java layout/wire equivalence, hostile mutation, fsync/power-loss durability, and automatic turn scheduling remain excluded.
 - [x] `review_docs` approved the corrected local-transcript documentation against `e4dfc67`, including 14 identities, 27 new tests, strict storage/Unicode contracts, four local adaptations, and explicit remaining work. All 63 Markdown files passed link/script checks; git diff --check passed.
@@ -100,7 +127,8 @@ Migration: shared lease extraction preserves memory/.daily-writer.lease and exis
 - [x] Add explicit transcript-retention policy below.
 - [x] Integrate explicit owned batch pruning below.
 - [x] Implement bounded host-controlled local enumeration for maintenance; see [discovery](#bounded-local-transcript-discovery).
-- [ ] Implement remote immutable segments/indexes and platform-specific ownership validation.
+- [x] Complete bounded segmented adapter acceptance above.
+- [ ] Complete separate session indexes/discovery and platform-specific ownership validation.
 
 Unchanged Git-normalized local persistence identities; the changed TranscriptFiles identity is preserved in 9ddee3a and indexed in the pruning table below:
 
@@ -131,7 +159,8 @@ Required observation completes before successful result publication and before c
 - [x] Add explicit transcript-retention policy below.
 - [x] Integrate explicit owned batch pruning below.
 - [x] Implement bounded host-controlled local enumeration for maintenance; see [discovery](#bounded-local-transcript-discovery).
-- [ ] Implement remote immutable segments and session indexes.
+- [x] Complete bounded segmented remote adapter acceptance above.
+- [ ] Implement separate session indexes.
 
 The previous SessionTranscriptWriter.scala identity is preserved in `0349b1a`; its current identity and acceptance are in the completion-observer table in the [core agent contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
 

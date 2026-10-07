@@ -28,3 +28,7 @@ CI provisions PostgreSQL 16 and enables the suite without any LLM/provider reque
 ## Persistent memory admission
 
 [VersionedMemoryTriggerGateSpec](VersionedMemoryTriggerGateSpec.scala) uses actual PostgreSQL and the shared fixture to verify persistent admission and bounded conditional publication. Clock effects are explicitly injected; these controlled tests do not establish synchronized production clocks, exclusive execution, completion or exactly-once delivery. The [four-file gate manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-memory-trigger-gate) owns final source/full/artifact evidence and the completed final combined documentation approval.
+
+## Immutable transcript publication
+
+[SegmentedTranscriptStoreSpec](SegmentedTranscriptStoreSpec.scala) exercises real PostgreSQL through the shared fixture and independent bindings. It verifies visible-chain restoration, unchanged prior segment bytes/revision, new-only returned observations, bounded conflicts/orphan invisibility and strict corruption/capacity/uncertain-publication behavior. The [two-file manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments) owns completed final source/full/artifact evidence and final combined documentation approval. Backend subtree protection, orphan reclamation and live host lifecycle remain explicit assumptions.
