@@ -125,7 +125,7 @@ The host installs these capabilities explicitly. It owns background supervisor s
 
 ## Immediate next work
 
-The shell startup-default correction has final scoped acceptance. Continue diagnosing the retained unexplained PostgreSQL acquisition failure and assess other applicable [method-level parity inventory](test-parity.md). The external-tool source increment and twelve-method classification have final bounded acceptance; authorization deferral remains a separate contract.
+The shell startup-default correction and empty-text stream evidence have final scoped acceptance. Remaining selected RC work is the live/remote/release checklist below. The retained PostgreSQL acquisition failure remains unexplained after fixture/source/server-log inspection; on recurrence, correlate sanitized SQLSTATE and operation stage with server/session evidence. Assess other applicable [method-level parity inventory](test-parity.md). The external-tool source increment and twelve-method classification have final bounded acceptance; authorization deferral remains a separate contract.
 
 - [x] Complete independent acceptance of the finite pinned Plan propagation classification against current explicit child installation.
 - [x] Accept the bounded external-tool execution contract and finite twelve-method classification after source/spec verification and final independent review.
@@ -162,7 +162,11 @@ These readiness checks supplement the remaining implementation/parity plan; they
 - [x] Define the [development compatibility policy](../../project/README.md#compatibility-policy), retain package migration notes and verify selected public contracts from an independently built external artifact consumer with final review.
 - [x] Record the current [public API candidate inventory](../../project/README.md#first-rc-api-candidate), restricted implementation boundaries and extension obligations after the signature assessment and Toolkit correction.
 - [ ] Freeze the actual RC release baseline; current source consumption is not a published binary compatibility baseline.
-- [ ] Validate remote CI and the release/publication pipeline, versioning, licensing and host/migration documentation before tagging or publishing an RC.
+- [x] Verify local RC coordinates, four-module binary/source/POM packaging, licensing and selected host/migration contracts through fresh archive admission and the independent consumer; the [startup-default scope](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#shell-startup-defaults) owns current production/artifact evidence.
+- [x] Implement checked manual unsigned candidate preparation/upload; this supplies no tag, signing or publication destination.
+- [ ] Execute and validate the actual remote CI and manual candidate workflows against an explicitly configured repository.
+- [ ] Define the release distribution destination, credentials and signing/publication contract, then implement and validate that pipeline before tagging or publishing.
+- [x] review_fp and review_invariants approved this three-document RC-readiness clarification against 2a92a0b with no findings; English/diff and 78-document/3,020-local-reference checks pass. Production, tests, build and workflows are unchanged.
 
 No Git remote is configured, and WEISGNOSIS_LIVE_SMOKE, WEISGNOSIS_LIVE_ENDPOINT, WEISGNOSIS_LIVE_MODEL and WEISGNOSIS_LIVE_API_KEY are unset; no remote workflow or public-provider validation was performed. Local RC validation does not close the unchecked release gates.
 

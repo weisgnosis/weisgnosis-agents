@@ -28,7 +28,7 @@ HostAssembly.Dependencies.transcript now accepts TranscriptSource.Provided(exist
 
 Lookup failure or cancellation joins its owned cleanup before returning and acquires no MCP client. The supplied backend/catalog retain their host-defined lifetimes. Registration, history preflight, authorization, leases, automatic selection and global discovery are not installed. A descriptor may point to corrupt history that fails completion observation after model/tool work; no rollback or safe automatic replay is promised.
 
-The paired actual-ReAct table checks both layouts through shared Ref-backed conditional publication, including exact selected history/returned records. Missing/duplicate matching IDs fail assembly. The existing failure/cancellation table covers catalog and MCP acquisition stages without adding another group. This is offline composition evidence, not PostgreSQL/provider integration or upstream method parity. Provider signature shapes are unchanged; unsupported upstream type=signature DTOs remain an explicit selected-profile difference.
+The paired actual-ReAct table checks both layouts through shared Ref-backed conditional publication, including exact selected history/returned records. Missing/duplicate matching IDs fail assembly. The existing failure/cancellation table covers catalog and MCP acquisition stages without adding another group. This is offline composition evidence, not PostgreSQL/provider integration or upstream method parity. This composition selects no new provider profile. Legacy type=signature reasoning-details objects require the explicitly selected [opaque signature details profile](../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details); other provider and per-tool signature wire contracts remain separate.
 
 | Source/spec under review against 1f4581b | Git blob |
 | --- | --- |
@@ -42,6 +42,8 @@ The paired actual-ReAct table checks both layouts through shared Ref-backed cond
 - [x] registered-transcript-preparation.log passed source/archive admission regressions and restored archive/POM staging.
 - [x] registered-transcript-consumer.log passed fresh standalone formatting, clean compilation and forked selected-API consumption; the smoke does not select Registered.
 - [x] review_fp and review_invariants approved final combined documentation against 1f4581b and the two unchanged identities; manual English inspection, changed-script/diff checks and 78-document/2,827-local-reference checks pass with zero issues.
+
+- [x] review_fp and review_invariants approved the three-document RC-readiness clarification against 2a92a0b with no findings; English/diff and 78-document/3,020-local-reference checks pass. Source/test identities and existing verification are unchanged.
 
 ## Audited public model call
 
