@@ -10,7 +10,7 @@ Each callback owns a scope that closes before execution proceeds. andThen closes
 
 A typed observer failure uses CompletionObservationError and cannot trigger model failover or structured Auto fallback. Ordinary failure or defects reconcile unfinished local call occurrences as Error observations before preserving the original cause; completed and inline provider observations remain intact. Genuine interruption preserves interruption and cleanup defects and invokes ordinary interruption reconciliation. Failed observation does not install a suspended checkpoint. This interruptible per-response boundary is distinct from the mandatory terminal TurnCompletionObserver, which observes one invocation outcome under its existing cancellation mask.
 
-Migration: the optional make argument and builder setting are additive at source level; Builder product/extractor and JVM signatures change, requiring recompilation. AcceptedModelResponse is runtime data, not a serialized checkpoint or provider request envelope. No dependency or build-setting change is required. The next harness increment must verify that its exact reminder survived request projection before acknowledging consumption.
+Migration: the optional make argument and builder setting are additive at source level; Builder product/extractor and JVM signatures change, requiring recompilation. AcceptedModelResponse is runtime data, not a serialized checkpoint or provider request envelope. No dependency or build-setting change is required. The explicitly installed [harness reminder adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#automatic-reasoning-reminders) verifies that its exact reminder survived request projection before acknowledging consumption.
 
 | Reviewed source against 44c2ded | Git blob |
 | --- | --- |
@@ -24,7 +24,7 @@ Migration: the optional make argument and builder setting are additive at source
 - [x] target/accepted-response-final-preparation.log passes archive admission and three reversible negative checks with restored artifacts.
 - [x] target/accepted-response-final-consumer.log passes fresh standalone compilation/execution and four artifact hash checks; its unchanged public API probe does not independently exercise the new observer.
 - [x] Record the exact source identities, current API contract and migration limits.
-- [x] review_fp and review_invariants approve the final combined scope against 44c2ded: three unchanged Scala identities and ten Markdown files, no unresolved findings. English prose and 79-document/3,362-local-reference checks pass. Automatic harness reminder delivery remains open.
+- [x] review_fp and review_invariants approve the final combined scope against 44c2ded: three unchanged Scala identities and ten Markdown files, no unresolved findings. English prose and 79-document/3,362-local-reference checks pass. The core seam does not install the separately configured harness reminder adapter.
 
 ## Invocation identity and prepared execution
 

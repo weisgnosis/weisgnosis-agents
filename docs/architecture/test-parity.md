@@ -1757,5 +1757,46 @@ TaskRecord's broader identity, session, time, transport, confirmation and remote
 The [accepted-response observer](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#accepted-model-response-observation) supplies the missing per-model-response lifecycle seam for original reasoning reminder delivery. Its paired three-group suite checks actual selected/projected input, accepted canonical history, discard/replace/thinking behavior, suspension/resume, no-fallback ordinary failure and joined cancellation with exact cleanup defects. Both independent source reviews, 57 focused core contracts, full verification, four RC1 packages, archive preparation and fresh external consumption pass; review_fp and review_invariants approve the final combined scope against 44c2ded: three unchanged Scala files and ten Markdown files.
 
 - [x] Implement and independently review the runtime seam with persisted assistant state before observation and local execution afterwards.
-- [ ] Install harness reminder rendering/capture and acknowledge only the selected exact IDs present in the actual winning input after an accepted response.
-- [ ] Map the nine actual SubagentDeliveryTest methods to the completed integration; a runtime seam alone does not implement those methods.
+- [x] Implement harness reminder rendering/capture and acknowledge only selected exact IDs present in the winning request and accepted canonical history; see the [current reminder contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#automatic-reasoning-reminders).
+- [x] Classify all nine actual SubagentDeliveryTest methods below, with eight bounded behavioral adaptations and the remaining worker-metadata assertion explicitly open.
+
+## Async result wait method inventory
+
+review_fp independently classified all 18 executable methods in pinned WaitAsyncResultsToolTest against current Scala sources. None is implemented by a model-facing wait tool. Synchronous spawn waits cancel/join children on timeout; the original wait tool times out without cancelling background work. Single-task inspection, durable terminal storage and explicit host delivery are prerequisites, not executed wait-barrier evidence.
+
+- [ ] timeoutClampedToMax (58): cap a requested 600-second wait at the declared 120-second maximum.
+- [ ] nullTimeoutUsesDefault (74): this method actually supplies 1, not null, and asserts a bounded timeout within five seconds; it does not test null/default behavior. The source-declared 60-second default is a separate contract.
+- [ ] consecutiveEmptyWaitsRejected (88): after two empty timeouts, refuse further blocking and name nonblocking alternatives.
+- [ ] budgetExhaustedButResultsArrivedRecovers (114): inbox arrival overrides exhausted budget and resets the counter.
+- [ ] counterResetsOnSuccess (142): arrival resets the next empty timeout to 1/2.
+- [ ] noSessionReturnsError (166): adapt missing nullable context through explicit checked registry/session binding.
+- [ ] timeoutMessageDoesNotEncourageRetry (174): suggest listing/output rather than repeated blocking waits.
+- [ ] allTasksTerminalReturnsImmediately (185): completed and failed tasks with an empty inbox return immediately.
+- [ ] nonTerminalTasksProcedsToWait (208): running work enters bounded waiting.
+- [ ] taskIdsWaitUntilAllListedTasksTerminal (221): wait for every selected ID and embed their terminal results.
+- [ ] taskIdsTimeoutWhenAnyListedTaskStillRunning (255): report an incomplete selected barrier without cancelling its tasks.
+- [ ] taskIdsRejectsUnknownTaskIds (275): reject unknown selected IDs promptly through typed tool observations.
+- [ ] waitAllWaitsForCurrentNonTerminalSnapshot (300): capture the initial running set and exclude later admissions from both waiting and output.
+- [ ] waitAllEmptySnapshotReturnsImmediately (331): an empty initial running set returns immediately.
+- [ ] barrierEmbedsResultsAndMarksDelivered (345): embed terminal payloads and acknowledge exactly the consumed results at the defined consumption boundary.
+- [ ] barrierModeRequiresTaskRepository (360): require an explicit repository dependency for barrier mode rather than nullable construction.
+- [ ] nullTaskRepositoryFallsThrough (370): explicit legacy inbox-only mode works without task-repository authority.
+- [ ] emptyRepositoryDoesNotClaimWorkIsRunningOrCompleted (510): report no_tasks without inventing running or completed work.
+
+TaskTool.taskOutput (129-139) acknowledges before formatting/return and suppresses acknowledgement exceptions. Current agent_task only observes/projects a terminal result, so consumption integration remains missing. The Scala adaptation must define consumption against runtime-persisted observations, retain typed uncertain failures and preserve cancellation. Local selected/all barriers can use real owned registry handles; reopened running barriers require durable admitted/running identity first. Legacy inbox-any requires an explicit arrival/inbox dependency and cannot silently substitute terminal pending records for arbitrary messages.
+
+## Reasoning reminder method inventory
+
+Pinned SubagentDeliveryTest has nine executable methods. The [middleware contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#automatic-reasoning-reminders) and its three grouped contracts provide current evidence. Exact output is retained in the host store; reminders escape untrusted content and expose bounded previews. The generic cap/overflow test uses twelve records and a remainder of two rather than Java's fifteen/five fixture. These adaptations do not claim identical Java API strings or a whole middleware-class port.
+
+- [ ] reminder_singleCompleted_rendersTaskResultBlock (135): completed framing/count/task_result/output behavior is verified, but the agent="worker" attribute remains missing because current records have no truthful worker identity. UUID task IDs replace arbitrary strings.
+- [x] reminder_failedRendersTaskErrorBlock (149): error state/task_error retains the failure message.
+- [x] reminder_cancelledRendersCancelledLine (160): pure cancellation renders cancelled without claiming a successful result.
+- [x] reminder_capsAndSummarisesOverflow (170): one reminder contains at most ten task blocks and the exact snapshot remainder.
+- [x] reminder_hasSyntheticMetadata (184): User/system carries synthetic=true and reminder_kind=task_delivery.
+- [x] onReasoning_writesDeliveryToAgentStateAndMarksAfterCompletion (198): canonical and actual request contain the same exact runtime reminder; acknowledgement follows an accepted response. Real reopened PostgreSQL bindings additionally verify pending data before acceptance and the retained first stamp.
+- [x] onReasoning_doesNotReDeliver (238): unchanged canonical history retains one reminder and completed acknowledgement prevents a fresh capture on the next invocation.
+- [x] onReasoning_multiDeliveryAggregatedToSingleMessage (273): one reminder aggregates the selected completed/failed/cancelled records; only selected IDs are acknowledged.
+- [x] deliveryCapDoesNotAcknowledgeUnseenResultsAndWorksWithoutDeclaredSubagents (303): twelve pending records consume ten then two without a required subagent declaration catalogue.
+
+The middleware additionally verifies exact-content tampering with retained metadata, projected-away reminders, discard/model/prior-observer failure, accepted thinking-only, partial uncertain acknowledgement, suspension/resume, cancellation and closure joining all three prior callback cleanups. These safety regressions are not additional upstream methods. Both independent source reviews, focused/full verification and artifact/consumer checks pass; review_fp and review_invariants approve the final combined scope against a33488e: four unchanged Scala identities and fourteen Markdown files, no unresolved findings.

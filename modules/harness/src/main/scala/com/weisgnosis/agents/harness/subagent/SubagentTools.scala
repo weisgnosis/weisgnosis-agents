@@ -556,7 +556,7 @@ object SubagentTools:
         SubagentToolState.Failed(preview(message + suffix))
     task(id, state)
 
-  private def preview(text: String): SubagentToolText =
+  private[subagent] def preview(text: String): SubagentToolText =
     if text.length <= MaximumTextCharacters then SubagentToolText(text, 0)
     else
       val marker     = "\n...\n"

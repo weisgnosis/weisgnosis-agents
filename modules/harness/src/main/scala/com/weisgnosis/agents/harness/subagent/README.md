@@ -1,5 +1,36 @@
 # Scoped child execution and sessions
 
+## Automatic reasoning reminders
+
+[SubagentDeliveryMiddleware](SubagentDeliveryMiddleware.scala) is an explicitly installed scoped adapter for one parent ReActAgent and its durable registry. make allocates one bounded capture and no background worker. configure replaces the builder's history preparer, accepted-response observer and completion observer using the explicitly supplied prior hooks; existing builder settings are not inspected or implicitly preserved. Supply every prior hook that must remain installed. Preparation runs after prior scoped cleanup, acknowledgement after prior accepted-observer cleanup, and matching ownership release follows prior terminal-observer cleanup even when it fails.
+
+Before reasoning, the adapter selects at most ten pending immutable terminal records and persists one identified synthetic User message named system, with agentscope_synthetic=true and agentscope_reminder_kind=task_delivery. The message contains system-reminder/task blocks and the original snapshot's overflow count. Untrusted output is escaped after the existing surrogate-safe 4,000-character preview policy; truncation is explicit. Exact records remain available through the host store. Model task tools also return previews. Completed/error/pure-cancellation states preserve their meaning; suspended/stopped and mixed interrupted failures remain explicit. No worker-name or completion-time metadata is fabricated from terminal records that do not contain it.
+
+The accepted-response hook acknowledges only the fixed captured IDs, only for the matching invocation and only when the exact captured Msg occurs in both the actual winning request and accepted canonical history. Metadata, IDs or a matching text substring alone are insufficient. An input transformation that removes or edits the reminder leaves it pending. Discarded, failed and interrupted responses do not acknowledge; accepted thinking-only, final and before-acting suspended responses do. Resuming a saved assistant does not consume it again, while a later new reasoning response can consume a fresh batch. Later invocation failure or structured decoding failure does not undo consumption by an already accepted response.
+
+One capture survives failed invocations and partial/uncertain acknowledgements. An unchanged exact message is reused without appending another copy. External history rewriting can require safe redelivery; universal deduplication is not promised. A later accepted response can receive AlreadyAcknowledged for an earlier committed stamp. Missing records fail with CompletionObservationError; no automatic retry, rollback or exactly-once guarantee is introduced. Successful consumption clears only the same capture, allowing subsequent reasoning to select new records.
+
+Each configured hook holds one admission permit through prior scoped callback cleanup and its own state operation. Closing waits for admitted hooks before marking the adapter Closed; escaped hooks fail rather than reopen it. The permit is not nested. Host callbacks must not reenter this adapter or await the same agent's run lock. Keep the adapter scope alive through all configured invocations: closure does not own an entire invocation between hooks or cancel the parent agent. Backend/callback bounds and host lifetime ordering remain explicit responsibilities.
+
+The close defect was reproduced before fixing the new draft in target/subagent-reminder-close-assertion-red.log: two groups passed and one failed. History and Acceptance both observed earlyClose=Some(Success(())) while cleanup was held, where None was required; subsequent execution failed closed. Defective middleware blob: b1a398109ac75c5e5af41a75cbd04969deed8ca9; regression blob: 4405140ec437a83bf1b0aa6937de5bd6e22f19c7. Final coverage preserves those assertions and adds Completion cleanup. The earlier compiler-only fixture failure was not a behavioral RED. Unrelated PostgreSQL Unicode edits were restored before acceptance.
+
+| Reviewed source against a33488e | Git blob |
+| --- | --- |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | `aae57a3553d87cef99dd61b24dc6aaf1222494e1` |
+| [SubagentTools.scala](SubagentTools.scala) | `6f330af139c1cd6c5bcc4d68f0e0f61a25e8ca76` |
+| [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | `acf59d90cea0b0441766d1a2a5a2763ceb3bb96b` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `58b22fd992c9ac94604190106bb519832f99a9af` |
+
+- [x] Implement bounded captured reminders, exact winning-input consumption and scoped three-hook ownership.
+- [x] Reproduce and correct the configured-hook close race without weakening its regression assertions.
+- [x] review_fp and review_invariants approve all four formatted source identities against a33488e, path-first manifest SHA-256 4f79a409e018b3527b316cfa8d131743d161c02e117b51a1b102a4829813677f, no unresolved source findings.
+- [x] target/subagent-reminder-focused-green.log passes 17 harness groups and two actual PostgreSQL groups; target/subagent-reminder-pg-unicode-green.log reruns the final Unicode-correct PostgreSQL spec, two passed/zero failed/ignored.
+- [x] target/subagent-reminder-final-verify.log passes formatting, fatal-warning compilation and all 1,603 tests (692 core / 749 harness / 130 MCP / 24 actual PostgreSQL / eight examples), zero failed/ignored/compiler warnings, and builds four RC1 packages with a fresh PostgreSQL fixture.
+- [x] target/subagent-reminder-final-preparation.log passes archive admission and three restored negative checks; target/subagent-reminder-final-consumer.log passes fresh standalone compilation/execution and four artifact hashes. The unchanged consumer does not independently exercise the middleware.
+- [x] review_fp and review_invariants approve final combined documentation against a33488e for four unchanged Scala identities and fourteen Markdown files, no unresolved findings. English prose and 79-document/3,377-local-reference checks pass. Worker metadata and all eighteen wait methods remain open.
+- [ ] Persist truthful worker metadata before closing the remaining attribute assertion in the nine-method upstream reminder inventory.
+- [ ] Complete task-tool consumption, selected/all/inbox waits, cancellation intent, wakeup ownership and executable session restoration separately.
+
 ## Explicit terminal batch delivery
 
 `SubagentTerminalDelivery.deliverPending(registry)(deliver)` is an explicitly invoked host effect, not a scheduler or automatic push hook. It reads one durable pending snapshot, selects at most ten records in its existing order and rejects duplicate IDs in that selected batch before invoking the callback. Empty batches skip both callback and acknowledgement. The callback receives exact immutable terminal observations; no live Exit, model execution or authority is reconstructed.
@@ -16,7 +47,7 @@ Final formatted source scope against `bad689e`, manifest SHA-256 `048f7c44889cfd
 | --- | --- |
 | [SubagentTerminalDelivery.scala](SubagentTerminalDelivery.scala) | `76b3d126cb78ebeb1aebe9267c6850e14a6db628` |
 | [SubagentTerminalDeliverySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalDeliverySpec.scala) | `52b0f0e1f93dc3539b335baaccbb31cbbe869322` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `f253e374f1993ed5ae1f2d3eba6343b5497b4545` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current reminder integration identity](#automatic-reasoning-reminders); explicit delivery behavior retained. |
 
 - [x] Implement explicit bounded success-only delivery and paired contracts for selected IDs, duplicate rejection, missing/uncertain receipts and callback cleanup.
 - [x] Correct draft fixture cancellation gaps by masking fork/unblock registration together; these were test lifecycle findings, not accepted baseline production defects.
@@ -25,7 +56,8 @@ Final formatted source scope against `bad689e`, manifest SHA-256 `048f7c44889cfd
 - [x] target/durable-delivery-final-preparation.log passes archive admission and reversible negative checks.
 - [x] target/durable-delivery-final-consumer.log passes fresh standalone formatting, clean compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise explicit delivery.
 - [x] review_fp and review_invariants approve final combined documentation against `bad689e` for fourteen files (three unchanged Scala identities and eleven Markdown files), with no unresolved findings.
-- [ ] Integrate original success-only reasoning reminders, automatic task-tool consumption acknowledgement and completion/wakeup notification separately.
+- [x] Implement the separately configured [reasoning reminder adapter](#automatic-reasoning-reminders); it preserves the helper's explicit host contract.
+- [ ] Integrate automatic task-tool consumption acknowledgement and completion/wakeup notification separately.
 
 ## Durable terminal acknowledgement
 
@@ -37,7 +69,7 @@ Schema-version-1 data is checked in its original canonical representation and re
 
 Opt-in durable registries expose `durablePendingDeliveries`, `terminalAcknowledgement(id)` and `acknowledgeTerminal(id)`. These methods use the owner-selected store and propagate typed failures. Local completed publication receipts are barriers before exposing or acknowledging stored data, including completion that occurs during a held backend read. Still-running local work does not block authoritative stored terminal data. Cancelling an observer does not cancel an owned publisher. Existing live pendingDeliveries/acknowledge APIs remain separate and still reject durable registries; restored observations never become fabricated live Exit values. These new APIs remain usable after registry closure while the host retains backend access.
 
-Pending order is aggregate publication order, not restored completion/submission-time order. Observation reads are not exclusive claims: concurrent consumers can see duplicates and an acknowledgement can race a pending snapshot. The host owns delivery, authentication, deduplication and the decision to acknowledge. The [explicit success-only delivery seam](#explicit-terminal-batch-delivery) is available. Middleware push injection, automatic task-tool acknowledgement, durable cancellation intent and executable session restoration remain separate original obligations.
+Pending order is aggregate publication order, not restored completion/submission-time order. Observation reads are not exclusive claims: concurrent consumers can see duplicates and an acknowledgement can race a pending snapshot. The host owns delivery, authentication, deduplication and the decision to acknowledge. The [explicit success-only delivery seam](#explicit-terminal-batch-delivery) is available. The opt-in [reasoning reminder adapter](#automatic-reasoning-reminders) supplies captured push injection. Automatic task-tool acknowledgement, durable cancellation intent and executable session restoration remain separate original obligations.
 
 The new draft per-ID barrier defect was reproduced in target/durable-ack-running-read-draft-red.log before correction: three groups passed and one failed because a held read exposed a stamp and admitted a second write while a now-completed task's publication receipt was still pending. Defective Registry blob: `86bf25f4b898f070228c0835507cf785e1eb0449`; regression specification: `fcbc6e6b0bfbee25eb6e7d7435cb13f7f6e6a11a`. This is a defect in the new draft, not the accepted 1925481 baseline.
 
@@ -83,7 +115,7 @@ Final formatted source scope against `5f75a0a`, manifest SHA-256 `7a8aa0d20accc4
 | --- | --- |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
 | [SubagentTaskObservation.scala](SubagentTaskObservation.scala) | `c36108dfc8016dc18fc8ee619028a841b260f012` |
-| [SubagentTools.scala](SubagentTools.scala) | `e544fd8e99bbc9913afd33273a97715fbe621516` |
+| [SubagentTools.scala](SubagentTools.scala) | [Current reminder preview visibility identity](#automatic-reasoning-reminders); previous behavior retained. |
 | [SubagentTaskListTool.scala](SubagentTaskListTool.scala) | `48f77b8784e0bcf9e5c81dd36f9abf06554c8776` |
 | [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |

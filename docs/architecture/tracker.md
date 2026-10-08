@@ -17,25 +17,21 @@ The repository does not currently support a defensible whole-plan completion per
 
 ## Immediate next work
 
-Execute the following sequence without changing the original scope. Component contracts retain exact source identities, reproduced defect evidence and scoped reviewer decisions; this checklist describes current work rather than a delivery journal.
+Execute the original scope without replacing it with a narrower release checklist. The linked component contracts own exact source identities and scoped reviewer evidence; this list describes current work.
 
-- [x] Accept scoped invocation identity and lazy prepared execution in `c99596b`; the [agent contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) owns identity, confirmation binding and migration evidence.
-- [x] Accept bounded durable terminal publication and reopened model-facing output/list/filter in `1925481`; the [registry contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#registry-terminal-publication) owns joined cleanup, receipt barriers, preview/ordering limits and corrected draft defects.
-- [x] Accept strict schema migration, immutable first acknowledgement and observation-based inbox APIs in `bad689e`; the [acknowledgement contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-terminal-acknowledgement) owns the corrected per-ID race and finite eight-method mapping.
-- [x] Implement explicit ten-record host delivery and obtain final independent FP/ZIO and invariant source approvals for three Scala files against `bad689e`; focused verification passes eleven harness and two actual PostgreSQL groups. Callback cleanup precedes acknowledgement; final test-fixture cancellation ownership is corrected.
-- [x] Pass full verification, four RC1 packages, archive preparation and fresh external consumption for the explicit delivery scope.
-- [x] Update current contracts and obtain both final combined documentation approvals for the exact delivery scope: three Scala and eleven Markdown files against `bad689e`.
-- [x] Implement the exact accepted-model-response observation boundary after persistence and before acting; both independent source reviews and 57 focused contracts pass.
-- [x] Pass full verification, four RC1 packages, archive preparation and fresh external consumption for the response-observation boundary.
-- [x] Obtain both final combined documentation approvals for the response-observation boundary: three unchanged Scala files and ten Markdown files against 44c2ded.
-- [ ] Current task: implement automatic per-reasoning reminder delivery through the reviewed boundary, then independently review, verify and update current contracts.
-- [ ] Integrate automatic consumed-result acknowledgement from task inspection/wait tools. The explicit host seam does not supply this original integration.
-- [ ] Implement durable admitted/running task identity and current-owner cancellation intent before claiming cross-process cancellation; preserve truthful terminal publication after joined cleanup.
-- [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit host ownership/fencing.
-- [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps; classify retained obligations before claiming total completion.
-- [ ] Execute original WeisGnosis OS cutover and Temporal Activity end-to-end verification under Phase 6.
+- [x] Invocation/prepared execution, durable terminal publication/acknowledgement and accepted-model-response observation have independently accepted prerequisite contracts.
+- [x] Implement automatic per-reasoning reminder capture and exact winning-input consumption; both source reviews and focused/full verification pass.
+- [x] Pass four RC1 packages, archive preparation and fresh external consumption for the reminder adapter.
+- [x] Obtain both final combined documentation approvals for the exact four-Scala/fourteen-Markdown reminder scope against a33488e.
+- [ ] Persist truthful worker identity metadata and close the remaining reminder attribute assertion.
+- [ ] Current task: implement automatic consumed-result acknowledgement at the runtime-persisted observation boundary for task inspection/wait tools.
+- [ ] Implement model-facing selected-task/current-set barriers, legacy inbox-any and bounded empty-wait policy. Synchronous spawn waiting is a different contract; all [18 classified methods](test-parity.md#async-result-wait-method-inventory) remain open.
+- [ ] Implement durable admitted/running identity and current-owner cancellation intent, retaining truthful terminal publication after joined cleanup.
+- [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
+- [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
+- [ ] Execute the original WeisGnosis OS cutover and Temporal Activity end-to-end verification under Phase 6.
 
-The response-observation boundary is accepted within its exact three-Scala/ten-Markdown scope against 44c2ded: both final combined reviews, full verification and artifact checks pass. No whole-plan completion or publication is claimed.
+The reminder scope has source/full/artifact verification and both final combined approvals against a33488e for four Scala and fourteen Markdown files. No whole-plan completion or publication is claimed.
 
 ## Remaining effort
 
@@ -43,11 +39,9 @@ These are provisional engineering effort ranges, including implementation, propo
 
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
-| Supported MCP server-selected alternative revisions | Implementation, source/documentation reviews and verification complete | Both final combined reviews complete; no ordered preference, probing or replay claim. |
-| Per-chunk accumulated thinking observations | Implementation/source/full checks complete; all delivery reviews/checks complete | Event-stream adaptation preserves incremental data; cumulative payload growth and migration are explicit. |
-| Invocation identity and prepared-run exposure | Scoped delivery complete and committed as `c99596b` | Stable Auto identity, fresh resume identity, lazy single use and owned cancellation have finite evidence. Broader AgentRun lifecycle remains a separate finite classification. |
-| Bounded durable registry publication and model-facing terminal read/list/filter | Implementation, both final combined reviews and full/artifact verification complete | Exact whole workspace-method metadata, running/session restoration, cancellation intent and automatic success-only consumption/push remain separate original obligations; the acknowledgement ledger is implemented below. |
-| Durable acknowledgement ledger | Implementation, both final combined reviews and full/artifact verification complete | Automatic success-only consumption, completion ordering and notification integration remain separate. No distributed exactly-once promise. |
+| Local selected-ID/current-set wait barriers | 8-14 engineering hours | Real local handles suffice; bounded waiting must not cancel background tasks. Reopened running support is separate. |
+| Runtime-persisted task-result consumption | 4-8 engineering hours | Define the acknowledgement boundary after truthful observation persistence; preserve partial uncertainty and cancellation. |
+| Legacy inbox-any and bounded empty-wait policy | 6-10 engineering hours | Requires an explicit inbox/arrival dependency; pending terminal records are not arbitrary messages. |
 | Durable cancellation intent with current-owner handling | 12-24 hours after terminal storage | Persist intent, join owned cancellation and preserve terminal truth before notification. Cross-process takeover/fencing remains separate. |
 | Remaining method applicability and resulting behavior | Not yet estimated | The finite inventories do not classify all 2,473 pinned core declarations. An evaluator dependency or passing suites cannot close unknown obligations. |
 
@@ -70,17 +64,17 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [accepted-response manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#accepted-model-response-observation) owns three exact Scala identities against 44c2ded. The earlier [explicit terminal delivery contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#explicit-terminal-batch-delivery) retains its accepted scope.
+The [reasoning reminder manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#automatic-reasoning-reminders) owns four exact Scala identities against a33488e. The existing core observer and explicit delivery helper retain their separately accepted contracts.
 
-- [x] Implement actual winning-input and persisted accepted-history observation before acting, with ordinary failure reconciliation and joined cancellation.
-- [x] review_fp and review_invariants independently approve path-first source manifest `b25430db66a42b35d6e85c247f2ee39223b3e8c47fe2fa0bda196be0875becb9`, with no unresolved source findings. The invalid draft projection fixture was corrected without changing production system-message validation.
-- [x] target/accepted-response-focused-green.log passes 57 core contracts, zero failed/ignored.
-- [x] target/accepted-response-final-verify.log passes formatting, fatal-warning compilation and all 1,600 tests (692 core, 746 harness, 130 MCP, 24 actual PostgreSQL, eight examples), zero failed/ignored/compiler warnings; four RC1 packages are built using a fresh PostgreSQL fixture.
-- [x] target/accepted-response-final-preparation.log passes source-archive admission and three restored negative checks.
-- [x] target/accepted-response-final-consumer.log passes fresh standalone compilation/execution and four artifact hash checks; the unchanged consumer probe does not independently exercise the new observer API.
-- [x] review_fp and review_invariants approve final combined documentation against 44c2ded for three unchanged Scala identities and ten Markdown files, including the finite 25-method task-repository inventory, no unresolved findings. English prose and 79-document/3,362-local-reference checks pass.
+- [x] Implement one bounded captured reminder, exact request/canonical-history consumption and joined configured-hook cleanup.
+- [x] Reproduce the new draft close race before its fix: target/subagent-reminder-close-assertion-red.log records two passed/one failed, with early close while prior cleanup remained held. Exact defective/regression blobs are in the component contract.
+- [x] review_fp and review_invariants approve path-first manifest 4f79a409e018b3527b316cfa8d131743d161c02e117b51a1b102a4829813677f, no unresolved source findings. Original PostgreSQL Unicode fixtures are restored.
+- [x] target/subagent-reminder-focused-green.log passes 17 harness and two actual PostgreSQL groups; target/subagent-reminder-pg-unicode-green.log reruns the final PostgreSQL identity, two passed/zero failed/ignored.
+- [x] target/subagent-reminder-final-verify.log passes formatting, fatal-warning compilation and all 1,603 tests (692 core, 749 harness, 130 MCP, 24 actual PostgreSQL, eight examples), zero failed/ignored/compiler warnings, and builds four RC1 packages using a fresh PostgreSQL fixture.
+- [x] target/subagent-reminder-final-preparation.log passes archive admission and three restored negative checks; target/subagent-reminder-final-consumer.log passes fresh standalone compilation/execution and artifact hashes. The unchanged consumer probe does not independently exercise the middleware.
+- [x] review_fp and review_invariants approve final combined documentation against a33488e for four unchanged Scala identities and fourteen Markdown files, including the bounded nine-method reminder and eighteen-method wait inventories, no unresolved findings. English prose and 79-document/3,377-local-reference checks pass.
 
-Automatic per-reasoning reminders, tool consumption, completion ordering, cancellation intent, running metadata and session restoration remain unfinished. No whole-plan completion or publication is claimed.
+Worker metadata, task-tool consumption, wait barriers, completion ordering, cancellation intent, running metadata and session restoration remain unfinished. No whole-plan completion or publication is claimed.
 
 The immutable process launcher remains in force and its current modified source identities redirect to the negotiation manifest. Its production dependency eviction diagnostics remain visible: no suppression or universal binary compatibility claim. SLF4J/dependency/runtime notices are distinct from compiler warnings.
 

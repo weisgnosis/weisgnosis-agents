@@ -318,6 +318,33 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             unacknowledgedDuring <- pendingDuringDelivery.get
             pendingAfterDelivery <- terminal.pending
             storedAfterDelivery  <- terminal.list
+            reminderId           <- Random.nextUUID.map(SubagentTaskId(_))
+            reminderRecord = SubagentTerminalRecord(
+              reminderId,
+              SubagentTerminalOutcome.Completed("Reopened reminder result")
+            )
+            _                <- terminal.publish(reminderRecord)
+            requestHistories <- Ref.make(Chunk.empty[Chunk[Msg]])
+            pendingAtRequest <- Ref.make(Chunk.empty[Chunk[SubagentTerminalRecord]])
+            reminderClient = LlmClient.mockEffectful((history, _, _) =>
+              terminal.pending
+                .flatMap(pending =>
+                  requestHistories.update(_ :+ history) *> pendingAtRequest.update(_ :+ pending)
+                )
+                .as(TurnOutput.FinalText(Msg.assistant("Reminder accepted")))
+            )
+            middleware    <- SubagentDeliveryMiddleware.make(fresh)
+            reminderAgent <- middleware.configure(ReActAgent.builder().client(reminderClient)).build
+            firstReminder <- reminderAgent.run(Msg.user("Consume pending task output"))
+            firstStamp    <- terminal.acknowledgement(reminderId)
+            secondReminder       <- reminderAgent.run(Msg.user("Continue without redelivery"))
+            secondStamp          <- terminal.acknowledgement(reminderId)
+            reminderInputs       <- requestHistories.get
+            pendingInputs        <- pendingAtRequest.get
+            pendingAfterReminder <- terminal.pending
+            exactAfterReminder   <- terminal.read(reminderId)
+            firstMessages  = firstReminder.history.filter(_.reminderKind.contains("task_delivery"))
+            secondMessages = secondReminder.history.filter(_.reminderKind.contains("task_delivery"))
           yield assertTrue(
             receipts.map(_.id).toSet == Set(success, failed),
             exact.contains(
@@ -343,6 +370,21 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               case _                                                 => false),
             pendingAfterDelivery.isEmpty,
             storedAfterDelivery == deliveredRecords,
+            firstMessages.size == 1,
+            firstMessages == secondMessages,
+            reminderInputs.size == 2,
+            reminderInputs.forall(history =>
+              history.filter(_.reminderKind.contains("task_delivery")) == firstMessages
+            ),
+            firstMessages.forall(_.text.contains(reminderRecord.id.value.toString)),
+            pendingInputs == Chunk(Chunk(reminderRecord), Chunk.empty),
+            firstStamp.exists:
+              case SubagentTerminalAcknowledgement.Acknowledged(_) => true
+              case _                                               => false
+            ,
+            firstStamp == secondStamp,
+            pendingAfterReminder.isEmpty,
+            exactAfterReminder.contains(reminderRecord),
             observations.size == 4,
             observations.forall(_.state == ToolResultState.Success),
             taskResults.toMap

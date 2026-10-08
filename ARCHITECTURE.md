@@ -4,6 +4,8 @@
 
 The optional [accepted-response observer](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#accepted-model-response-observation) sees actual winning request input and persisted accepted history before acting. It is interruptible and scoped; ordinary failure reconciles unstarted local calls and preserves the cause. The terminal completion observer retains its distinct once-per-invocation contract. This seam does not install automatic task delivery.
 
+The explicitly configured [harness reminder adapter](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#automatic-reasoning-reminders) owns one bounded capture and three scoped hooks. It persists the reminder before reasoning and acknowledges only captured IDs whose exact message appears in the winning request and accepted canonical history. It creates no daemon and grants no task execution authority.
+
 The runtime owns state, cancellation, permission decisions, and completion. Model output is input to a deterministic state machine, never authority to bypass invariants. Pure transformations use immutable domain values. Randomness, clocks, filesystem access, network operations, and resource lifetimes belong inside ZIO effects.
 
 ReActAgent retains in-memory history through private Ref values and serializes runs per instance. Data-only before-acting suspension, checked supplied results and explicit resume/restoration are implemented and independently reviewed. Partial-confirmation checkpoints are independently reviewed. Durable workflow replay, database transactions, authentication, and execution idempotency belong to the host.
