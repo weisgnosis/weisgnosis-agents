@@ -58,7 +58,8 @@ object SubagentCatalog:
                 entry.factory,
                 binding.store,
                 maxTrackedPerAgent,
-                binding.workerId
+                binding.workerId,
+                binding.completionNotification
               )
           acquired.map(entry.name -> _)
         )

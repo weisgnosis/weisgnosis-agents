@@ -109,6 +109,10 @@ object SubagentTerminalBindingSpec extends ZIOSpecDefault:
                 )
                 leftWorker  <- ZIO.fromEither(SubagentWorkerId.from("host-left"))
                 rightWorker <- ZIO.fromEither(SubagentWorkerId.from("host-right"))
+                notified    <- Ref.make(Chunk.empty[SubagentTaskId])
+                notifier = SubagentCompletionNotifier((record, _) =>
+                  notified.update(_ :+ record.id)
+                )
                 leftStore  = SubagentTerminalStore.make(backend.store, leftAddress)
                 rightStore = SubagentTerminalStore.make(backend.store, rightAddress)
                 left <- owner.extend(
@@ -116,7 +120,13 @@ object SubagentTerminalBindingSpec extends ZIOSpecDefault:
                     acquisition,
                     parent,
                     factory,
-                    Some(SubagentTerminalBinding(leftStore, Some(leftWorker)))
+                    Some(
+                      SubagentTerminalBinding(
+                        leftStore,
+                        Some(leftWorker),
+                        SubagentCompletionNotification.Notify(notifier)
+                      )
+                    )
                   )
                 )
                 right <- owner.extend(
@@ -127,18 +137,21 @@ object SubagentTerminalBindingSpec extends ZIOSpecDefault:
                     Some(SubagentTerminalBinding(rightStore, Some(rightWorker)))
                   )
                 )
-                volatile        <- owner.extend(registry(acquisition, parent, factory, None))
-                leftId          <- owner.extend(submit(left))
-                rightId         <- owner.extend(submit(right))
-                volatileId      <- owner.extend(submit(volatile))
-                _               <- left.publication(leftId)
-                _               <- right.publication(rightId)
-                volatileReceipt <- volatile.publication(volatileId).either
-                _               <- owner.close(Exit.unit)
-                leftRecords     <- SubagentTerminalStore.make(backend.store, leftAddress).list
-                rightRecords    <- SubagentTerminalStore.make(backend.store, rightAddress).list
-                leftMetadata    <- leftStore.taskRecord(leftId)
-                rightMetadata   <- rightStore.taskRecord(rightId)
+                volatile          <- owner.extend(registry(acquisition, parent, factory, None))
+                leftId            <- owner.extend(submit(left))
+                rightId           <- owner.extend(submit(right))
+                volatileId        <- owner.extend(submit(volatile))
+                _                 <- left.publication(leftId)
+                _                 <- right.publication(rightId)
+                leftNotification  <- left.completionNotification(leftId)
+                rightNotification <- right.completionNotification(rightId)
+                notifiedIds       <- notified.get
+                volatileReceipt   <- volatile.publication(volatileId).either
+                _                 <- owner.close(Exit.unit)
+                leftRecords       <- SubagentTerminalStore.make(backend.store, leftAddress).list
+                rightRecords      <- SubagentTerminalStore.make(backend.store, rightAddress).list
+                leftMetadata      <- leftStore.taskRecord(leftId)
+                rightMetadata     <- rightStore.taskRecord(rightId)
                 extra = SubagentTerminalRecord(
                   SubagentTaskId(new UUID(0L, 777L)),
                   SubagentTerminalOutcome.Completed("host still owns backend")
@@ -169,6 +182,9 @@ object SubagentTerminalBindingSpec extends ZIOSpecDefault:
                     .exists(_.workerId.contains(rightWorker))
                 ),
                 volatileReceipt.isLeft,
+                leftNotification.contains(SubagentCompletionReceipt.Observed),
+                rightNotification.contains(SubagentCompletionReceipt.Suppressed),
+                notifiedIds == Chunk(leftId),
                 pending == rightRecords,
                 !leftRecords.exists(_.id == volatileId),
                 !rightRecords.exists(_.id == volatileId)

@@ -135,7 +135,8 @@ object SubagentSession:
             launch,
             maxTracked,
             Some(binding.store),
-            binding.workerId
+            binding.workerId,
+            binding.completionNotification
           )
     yield new SubagentSession(
       executions,

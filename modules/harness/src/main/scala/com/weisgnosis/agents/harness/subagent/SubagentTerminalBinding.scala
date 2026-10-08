@@ -22,5 +22,6 @@ package com.weisgnosis.agents.harness.subagent
  */
 final case class SubagentTerminalBinding(
     store: SubagentTerminalStore,
-    workerId: Option[SubagentWorkerId] = None
+    workerId: Option[SubagentWorkerId] = None,
+    completionNotification: SubagentCompletionNotification = SubagentCompletionNotification.Suppress
 )

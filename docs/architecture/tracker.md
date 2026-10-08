@@ -36,11 +36,16 @@ Execute the original scope without substituting a narrower release checklist. Pa
 - [x] Reproduce both draft review findings before correction: twenty passed groups and two failed groups in target/durable-cancel-intent-review-red.log; malformed receipt authority and custom publication-barrier compatibility.
 - [x] Correct both reproduced cancellation findings and obtain renewed approval of the final source scope.
 - [x] Obtain final combined cancellation documentation acceptance and commit the verified scope.
-- [ ] Current task: implement explicit owner completion notification and suppression after confirmed terminal publication (methods882/923).
+- [x] Implement current-owner completion notification after confirmed terminal publication, with immutable host-only per-submission suppression in the same registry (methods882/923).
+- [x] Preserve pending durable output without acknowledgement; separate notification/publication receipts and join callback cleanup.
+- [x] Retain pending/failed notifications within capacity, reject receipt self-waits and document borrowed-owner callback lifetime restrictions.
+- [x] Obtain independent FP/ZIO and invariant approval of all eight Scala identities; pass focused/full/artifact/archive/consumer verification.
+- [x] Obtain final combined notification documentation approval and verify English/local links for the accepted scope.
+- [ ] Current task: implement host-driven running-record refresh with exact captured current-owner authority (WorkspaceTaskRepositoryTest 478/534).
 - [x] Verify strict legacy/current storage, failed or uncertain request receipts, pre-start refusal, retained local identity, joined cleanup/publication and stored-only request behavior.
 - [x] Obtain final independent FP/ZIO and invariant source approval; pass full/artifact/archive/consumer gates for the ten-Scala scope.
 - [x] Implement and independently source-review current-owner durable cancellation intent, retaining truthful terminal publication after joined cleanup; final combined documentation acceptance is approved under the current ten-Scala/fourteen-Markdown scope.
-- [ ] Implement explicit owner completion notification after confirmed terminal publication, including suppression that preserves durable pending output (WorkspaceTaskRepositoryTest 882/923).
+- [x] Implement/source-review explicit current-owner completion notification and suppression preserving pending durable output (WorkspaceTaskRepositoryTest 882/923); final combined acceptance is approved above.
 - [ ] Implement host-driven running-record refresh with explicit owner authority and immutable terminal observations (478/534); do not introduce an internal daemon.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
@@ -52,7 +57,7 @@ These are provisional engineering effort ranges, including implementation, propo
 
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
-| Terminal notification and suppression | 8-16 engineering hours, provisional | Callback failure/cancellation receipt policy must be defined; no distributed exactly-once or automatic replay is implied. |
+| Terminal notification and suppression | Final combined review/documentation closure only | Code and full verification pass; no distributed exactly-once or automatic replay is implied. |
 | Explicit running-record refresh | 6-12 engineering hours after owner authority is defined, provisional | Preserve terminal truth, acknowledgement and cancellation intent; host scheduling remains explicit. |
 | Remaining method applicability and resulting behavior | Not yet estimated | The finite inventories do not classify all 2,473 pinned core declarations. An evaluator dependency or passing suites cannot close unknown obligations. |
 
@@ -75,17 +80,16 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [current-owner cancellation contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-cancellation-intent) owns the ten-Scala increment against e7978ab, manifest 9e0b20a79373734c72b0b6839ac2e828211487bf4816e509afffd37bc716f19c. Confirmed intent precedes a signal to the exact captured owner task; only joined execution/cleanup and confirmed publication establish the terminal observation. Strict schema-6 writes preserve schemas 1-5 through original canonical validation without inventing dates or mutating reads. The [typed failure contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#typed-task-failure-details) retains its separately accepted message/direct-cause behavior.
+The [completion notification contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#completion-notifications) owns the eight-Scala increment against ff4566e, manifest 662ab3a12f8d2884b8df70e411f5a8735112d4cd798ecb9c6c5527b49b384f76. A captured host policy observes the exact joined terminal only after confirmed publication. Per-submission suppression preserves pending durable output without acknowledgement. Callback failures remain separate runtime receipts; reopening never replays callbacks.
 
-- [x] Reproduce the original intent-before-signal gap and both draft review findings before correction; keep fixture compilation failures separate from behavioral RED evidence.
-- [x] review_fp and review_invariants approve ten exact Scala identities, with no unresolved findings. Focused verification passes 45 harness and two actual PostgreSQL groups.
-- [x] Verify confirmed-intent caller interruption with held cleanup, the exact injected interruptor and one retained cleanup defect, without adding another test group.
-- [x] target/durable-cancel-intent-final-verify.log passes formatting/fatal-warning compilation, 1,638 tests (695 core / 781 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
-- [x] target/durable-cancel-intent-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
-- [x] target/durable-cancel-intent-final-consumer.log passes fresh standalone formatting, compilation, execution and four artifact-hash checks. Its unchanged probe does not directly exercise cancellation; public harness and actual PostgreSQL specifications provide that evidence.
-- [x] review_fp and review_invariants approve the final combined scope against e7978ab: ten unchanged Scala identities and fourteen Markdown files, with no unresolved findings. English prose and local Markdown links pass; commit this accepted scope.
+- [x] review_fp and review_invariants approve all eight exact Scala identities, with no unresolved findings.
+- [x] target/completion-notification-focused-green.log passes 42 harness and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
+- [x] target/completion-notification-final-verify.log passes formatting/fatal-warning compilation, 1,640 tests (695 core / 783 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/completion-notification-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
+- [x] target/completion-notification-final-consumer.log passes fresh standalone formatting, compilation, execution and four artifact-hash checks. Its unchanged probe does not directly exercise callbacks; public harness and actual PostgreSQL specifications provide that evidence.
+- [x] review_fp and review_invariants approve the final combined scope against ff4566e: eight unchanged Scala identities and fourteen Markdown files, with no unresolved findings. English prose and local Markdown links pass; commit the accepted scope.
 
-This finite current-owner cancellation scope does not close whole TaskTool parity, the physical workspace-file assertion, completion notification, remote-owner cancellation/recovery authority, executable session restoration, remaining original-plan applicability or the actual product cutover. No whole-plan completion or publication is claimed.
+This finite current-owner notification scope does not close whole TaskTool parity, physical workspace-file assertions, durable wakeup replay, remote-owner cancellation/recovery authority, executable session restoration, remaining original-plan applicability or the actual product cutover. The separately accepted [cancellation contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-cancellation-intent) retains strict schema-6 intent-before-signal and joined terminal truth. No whole-plan completion or publication is claimed.
 
 ## Available capabilities
 
@@ -102,10 +106,10 @@ Pair-safe compaction/pruning, offload, bounded memory/transcript publication, kn
 - [x] Implement and independently source-review bounded connection-local discovered-tool catalogue acquisition/lookup/close semantics; full and artifact verification pass, with final combined documentation approval passed against 63776a7. Pinned sync/async wrapper initialization and cached-lookup tests require original remote definitions; immutable registered Toolkit snapshots already cover the separate discovery bridge.
 - [x] Implement a server-selected alternative from explicitly configured supported MCP revisions, with both independent source approvals and full verification. Final combined delivery gates remain visible above; remaining builder methods are not automatically accepted.
 - [x] Persist bounded terminal observations with automatic registry-owned publication and reopened model-facing output/list/filter, including failed results and owner isolation; source and full/artifact checks pass.
-- [x] Classify all 25 pinned WorkspaceTaskRepositoryTest methods: nine source-approved bounded observable adaptations, one partial and fifteen open; the [method inventory](test-parity.md#workspace-task-repository-method-inventory) owns exact assertions and differences.
-- [ ] Complete the sixteen partial/open task-repository methods and separately classified TaskRecord metadata. Method444 now has verified durable Running/result/mixed-count semantics; its physical workspace JSON assertion469 remains open. It does not assert metadata fields or timestamps.
+- [x] Classify all 25 pinned WorkspaceTaskRepositoryTest methods: eleven source-approved bounded observable adaptations, one partial and thirteen open; the [method inventory](test-parity.md#workspace-task-repository-method-inventory) owns exact assertions and differences.
+- [ ] Complete the fourteen partial/open task-repository methods and separately classified TaskRecord metadata. Method444 now has verified durable Running/result/mixed-count semantics; its physical workspace JSON assertion469 remains open. It does not assert metadata fields or timestamps.
 - [x] Implement/source-review the bounded [current-owner cancellation adaptation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-cancellation-intent) of method263; its final combined approval is recorded above.
-- [ ] Complete publication-before-notification and wakeup suppression for WorkspaceTaskRepositoryTest methods882/923. Bound local/routed inspection and wait consumption do not install completion notifications.
+- [x] Implement/source-review publication-before-notification and per-submission suppression for WorkspaceTaskRepositoryTest methods882/923; final combined documentation approval is recorded above. Remote durable wakeup replay remains separate.
 - [ ] Decompose and implement durable reusable-session restoration and cross-process owner recovery with explicit host ownership/fencing. A stable-name/hash helper or persisted result does not restore execution authority.
 
 - [ ] Complete the applicable upstream method mappings for clients/providers, ReAct lifecycle/hooks/events, permission delivery and richer subagent behavior; retain every original semantic obligation until implemented and independently accepted.

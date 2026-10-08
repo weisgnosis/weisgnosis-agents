@@ -66,10 +66,13 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
 
   private def submitted(
       registry: SubagentTaskRegistry,
-      prompt: String
+      prompt: String,
+      notification: Option[SubagentCompletionNotification] = None
   ): ZIO[Scope, AgentError, SubagentTaskId] =
-    registry
-      .submit(Msg.user(prompt))
+    notification
+      .fold(registry.submit(Msg.user(prompt)))(policy =>
+        registry.submitWithCompletionNotification(Msg.user(prompt), policy)
+      )
       .flatMap:
         case SubagentTaskSubmission.Accepted(id) => ZIO.succeed(id)
         case other =>
@@ -347,6 +350,25 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 ToolAuthorizer.allow
               )
             )
+            secondSource <- dataSource(name + "-fresh-registry")
+            second       <- store(secondSource)
+            reopened = SubagentTerminalStore.make(second, target)
+            notificationSnapshots <- Ref.make(
+              Chunk.empty[
+                (
+                    SubagentTerminalRecord,
+                    Option[SubagentTerminalRecord],
+                    Chunk[SubagentTerminalRecord]
+                )
+              ]
+            )
+            notifier = SubagentCompletionNotifier((record, _) =>
+              (for
+                persisted <- reopened.read(record.id)
+                pending   <- reopened.pending
+                _         <- notificationSnapshots.update(_ :+ (record, persisted, pending))
+              yield ()).mapError(error => AgentError.CompletionObservationError(error.message))
+            )
             ids <- ZIO.scoped:
               for
                 supervisor <- TaskSupervisor.open[AgentResult]
@@ -355,16 +377,21 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                   parent,
                   factory,
                   terminal,
-                  workerId = Some(workerId)
+                  workerId = Some(workerId),
+                  completionNotification = SubagentCompletionNotification.Notify(notifier)
                 )
-                success  <- submitted(original, "succeed")
-                failed   <- submitted(original, "fail")
-                receipts <- original.flushPublications
-              yield (success, failed, receipts)
-            (success, failed, receipts) = ids
-            secondSource <- dataSource(name + "-fresh-registry")
-            second       <- store(secondSource)
-            reopened = SubagentTerminalStore.make(second, target)
+                success <- submitted(
+                  original,
+                  "succeed",
+                  Some(SubagentCompletionNotification.Suppress)
+                )
+                failed               <- submitted(original, "fail")
+                receipts             <- original.flushPublications
+                notificationReceipts <- original.flushCompletionNotifications
+              yield (success, failed, receipts, notificationReceipts)
+            (success, failed, receipts, notificationReceipts) = ids
+            notified         <- notificationSnapshots.get
+            initialPending   <- reopened.pending
             exact            <- reopened.read(success)
             failedRecord     <- reopened.read(failed)
             failedTaskRecord <- reopened.taskRecord(failed)
@@ -796,8 +823,19 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                   )
                 )
               )
+            notifiedAfterReopen <- notificationSnapshots.get
           yield assertTrue(
             receipts.map(_.id).toSet == Set(success, failed),
+            notificationReceipts.toSet == Set(
+              SubagentTaskCompletionReceipt(success, SubagentCompletionReceipt.Suppressed),
+              SubagentTaskCompletionReceipt(failed, SubagentCompletionReceipt.Observed)
+            ),
+            notified.size == 1,
+            notified.forall(value =>
+              value._1.id == failed && value._2.contains(value._1) && value._3.contains(value._1)
+            ),
+            notifiedAfterReopen == notified,
+            initialPending.map(_.id).toSet == Set(success, failed),
             exact.contains(
               SubagentTerminalRecord(
                 success,

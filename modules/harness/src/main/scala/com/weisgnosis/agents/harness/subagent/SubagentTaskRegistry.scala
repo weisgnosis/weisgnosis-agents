@@ -53,7 +53,7 @@ enum SubagentTaskCancellation:
   case Joined(exit: Exit[AgentError, AgentResult])
 
 enum SubagentTaskRemoval:
-  case Removed, Missing, Running, Unpublished
+  case Removed, Missing, Running, Unpublished, Unnotified
 
 /**
  * Host-owned task lookup for one parent and configured factory. Every retained result counts toward
@@ -69,6 +69,29 @@ trait SubagentTaskRegistry:
       @unused events: Option[ToolEventPort]
   ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
     submit(input)
+
+  /** Host-only per-submission policy; custom registries must explicitly support this capability. */
+  def submitWithCompletionNotification(
+      @unused input: Msg,
+      @unused policy: SubagentCompletionNotification,
+      @unused events: Option[ToolEventPort] = None
+  ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration("This registry does not support completion notifications")
+    )
+
+  def completionNotification(
+      @unused id: SubagentTaskId
+  ): IO[AgentError, Option[SubagentCompletionReceipt]] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration("This registry does not support completion notifications")
+    )
+
+  def flushCompletionNotifications: IO[AgentError, Chunk[SubagentTaskCompletionReceipt]] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration("This registry does not support completion notifications")
+    )
+
   def inspect(id: SubagentTaskId): UIO[Option[SubagentTaskSnapshot]]
   def list: UIO[Chunk[SubagentTaskSnapshot]]
   def await(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]]
@@ -180,6 +203,9 @@ object SubagentTaskRegistry:
   private enum LaunchProtocol:
     case TerminalOnly, Prepared
 
+  private enum CallbackContext:
+    case Outside, Notifying
+
   private enum DeliveryState:
     case Pending, Acknowledged
 
@@ -189,7 +215,10 @@ object SubagentTaskRegistry:
       metadata: Option[Ref[SubagentTaskMetadata]],
       delivery: DeliveryState = DeliveryState.Pending,
       publisher: Option[Fiber.Runtime[AgentError, SubagentTerminalPublication]] = None,
-      admissionIdentity: Option[SubagentTaskAdmissionIdentity] = None
+      admissionIdentity: Option[SubagentTaskAdmissionIdentity] = None,
+      notification: Option[
+        Fiber.Runtime[AgentError.CompletionObservationError, SubagentCompletionReceipt]
+      ] = None
   )
 
   final private case class Persistence(store: SubagentTerminalStore, owner: Scope.Closeable)
@@ -232,14 +261,17 @@ object SubagentTaskRegistry:
       factory: SubagentFactory,
       terminalStore: SubagentTerminalStore,
       maxTracked: Int = 256,
-      workerId: Option[SubagentWorkerId] = None
+      workerId: Option[SubagentWorkerId] = None,
+      completionNotification: SubagentCompletionNotification =
+        SubagentCompletionNotification.Suppress
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
     openPreparedInput[Msg](
       identity,
       (input, id, events, beforeStart) => factory.spawn(parent, input, id, events, beforeStart),
       maxTracked,
       Some(terminalStore),
-      workerId
+      workerId,
+      completionNotification
     )
 
   private[subagent] def openWith(
@@ -271,7 +303,8 @@ object SubagentTaskRegistry:
       maxTracked,
       terminalStore,
       workerId,
-      LaunchProtocol.TerminalOnly
+      LaunchProtocol.TerminalOnly,
+      SubagentCompletionNotification.Suppress
     )
 
   private[subagent] def openPreparedInput[Input](
@@ -283,7 +316,9 @@ object SubagentTaskRegistry:
       ],
       maxTracked: Int,
       terminalStore: Option[SubagentTerminalStore] = None,
-      workerId: Option[SubagentWorkerId] = None
+      workerId: Option[SubagentWorkerId] = None,
+      completionNotification: SubagentCompletionNotification =
+        SubagentCompletionNotification.Suppress
   ): ZIO[Scope, AgentError, Live[Input]] =
     initialize(
       fromMessage,
@@ -291,7 +326,8 @@ object SubagentTaskRegistry:
       maxTracked,
       terminalStore,
       workerId,
-      LaunchProtocol.Prepared
+      LaunchProtocol.Prepared,
+      completionNotification
     )
 
   private def initialize[Input](
@@ -304,15 +340,17 @@ object SubagentTaskRegistry:
       maxTracked: Int,
       terminalStore: Option[SubagentTerminalStore],
       workerId: Option[SubagentWorkerId],
-      protocol: LaunchProtocol
+      protocol: LaunchProtocol,
+      defaultNotification: SubagentCompletionNotification
   ): ZIO[Scope, AgentError, Live[Input]] =
     ZIO.uninterruptible:
       for
         _ <- ZIO
           .fail(AgentError.InvalidConfiguration("Subagent task capacity must be positive"))
           .when(maxTracked <= 0)
-        gate        <- Semaphore.make(1)
-        state       <- Ref.make[State](State.Open(Chunk.empty))
+        gate            <- Semaphore.make(1)
+        state           <- Ref.make[State](State.Open(Chunk.empty))
+        callbackContext <- FiberRef.make(CallbackContext.Outside)
         persistence <- ZIO.foreach(terminalStore)(store => Scope.make.map(Persistence(store, _)))
         registry = new Live(
           fromMessage,
@@ -322,7 +360,9 @@ object SubagentTaskRegistry:
           state,
           persistence,
           workerId,
-          protocol
+          protocol,
+          defaultNotification,
+          callbackContext
         )
         _ <- ZIO.addFinalizer(registry.close)
       yield registry
@@ -339,7 +379,9 @@ object SubagentTaskRegistry:
       state: Ref[State],
       persistence: Option[Persistence],
       workerId: Option[SubagentWorkerId],
-      protocol: LaunchProtocol
+      protocol: LaunchProtocol,
+      defaultNotification: SubagentCompletionNotification,
+      callbackContext: FiberRef[CallbackContext]
   ) extends SubagentTaskRegistry:
     def submit(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       submit(input, None)
@@ -354,10 +396,25 @@ object SubagentTaskRegistry:
         input: Input,
         events: Option[ToolEventPort]
     ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
+      submitNotified(input, events, defaultNotification)
+
+    override def submitWithCompletionNotification(
+        input: Msg,
+        policy: SubagentCompletionNotification,
+        events: Option[ToolEventPort]
+    ): ZIO[Scope, AgentError, SubagentTaskSubmission] = persistence match
+      case None    => super.submitWithCompletionNotification(input, policy, events)
+      case Some(_) => submitNotified(fromMessage(input), events, policy)
+
+    private def submitNotified(
+        input: Input,
+        events: Option[ToolEventPort],
+        policy: SubagentCompletionNotification
+    ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       ZIO.uninterruptibleMask: restore =>
         Scope.make.flatMap: lease =>
           // Register the caller lease outside admission: a closed caller may synchronously join cleanup.
-          restore(gate.withPermit(lease.extend(launch(input, events))))
+          restore(gate.withPermit(lease.extend(launch(input, events, policy))))
             .onExit:
               case Exit.Success(SubagentTaskSubmission.Accepted(_)) =>
                 ZIO.addFinalizer(lease.close(Exit.unit))
@@ -366,7 +423,8 @@ object SubagentTaskRegistry:
 
     private def launch(
         input: Input,
-        events: Option[ToolEventPort]
+        events: Option[ToolEventPort],
+        policy: SubagentCompletionNotification
     ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       ZIO.uninterruptibleMask: restore =>
         state.get.flatMap:
@@ -429,6 +487,10 @@ object SubagentTaskRegistry:
                                     .interruptible
                                     .forkIn(binding.owner)
                                 )
+                                notification <- ZIO.foreach(persistence.zip(publisher)):
+                                  (binding, published) =>
+                                    notifyCompletion(id, task, published, policy).interruptible
+                                      .forkIn(binding.owner)
                                 _ <- state.set(
                                   State.Open(
                                     entries :+ Entry(
@@ -436,7 +498,8 @@ object SubagentTaskRegistry:
                                       task,
                                       metadata,
                                       publisher = publisher,
-                                      admissionIdentity = identity
+                                      admissionIdentity = identity,
+                                      notification = notification
                                     )
                                   )
                                 )
@@ -445,6 +508,37 @@ object SubagentTaskRegistry:
                         yield accepted
                   yield result
             yield admission
+
+    private def notifyCompletion(
+        id: SubagentTaskId,
+        task: SupervisedTask[AgentResult],
+        publisher: Fiber.Runtime[AgentError, SubagentTerminalPublication],
+        policy: SubagentCompletionNotification
+    ): IO[AgentError.CompletionObservationError, SubagentCompletionReceipt] =
+      task.await.flatMap: joined =>
+        publisher.await.flatMap:
+          case Exit.Failure(cause) => ZIO.succeed(SubagentCompletionReceipt.NotPublished(cause))
+          case Exit.Success(publication) =>
+            policy match
+              case SubagentCompletionNotification.Suppress =>
+                ZIO.succeed(SubagentCompletionReceipt.Suppressed)
+              case SubagentCompletionNotification.Notify(callback) =>
+                callbackContext
+                  .locally(CallbackContext.Notifying)(
+                    ZIO.scoped(
+                      ZIO.suspendSucceed(
+                        callback.observe(
+                          SubagentTerminalRecord(
+                            id,
+                            SubagentTerminalOutcome.fromExit(joined),
+                            workerId
+                          ),
+                          publication
+                        )
+                      )
+                    )
+                  )
+                  .as(SubagentCompletionReceipt.Observed)
 
     /**
      * Rejection owns cancellation of the paused losing task tree, whose interruption leaves are
@@ -874,6 +968,48 @@ object SubagentTaskRegistry:
             receipts <- combined
           yield receipts
 
+    private def notificationObservationAllowed: IO[AgentError, Unit] =
+      callbackContext.get.flatMap:
+        case CallbackContext.Outside => ZIO.unit
+        case CallbackContext.Notifying =>
+          ZIO.fail(
+            AgentError.InvalidConfiguration(
+              "Completion callbacks cannot await this registry's notification receipts"
+            )
+          )
+
+    override def completionNotification(
+        id: SubagentTaskId
+    ): IO[AgentError, Option[SubagentCompletionReceipt]] =
+      notificationObservationAllowed *> (persistence match
+        case None => super.completionNotification(id)
+        case Some(_) =>
+          lookup(id).flatMap(entry =>
+            ZIO.foreach(entry.flatMap(_.notification))(_.await.flatMap(exit => exit))
+          ))
+
+    override def flushCompletionNotifications
+        : IO[AgentError, Chunk[SubagentTaskCompletionReceipt]] =
+      notificationObservationAllowed *> (persistence match
+        case None => super.flushCompletionNotifications
+        case Some(_) =>
+          for
+            entries <- state.get.map(_.entries)
+            outcomes <- ZIO.foreachPar(
+              entries.flatMap(entry => entry.notification.map(entry.id -> _))
+            ): (id, notification) =>
+              notification.await.map(id -> _)
+            combined = outcomes.foldLeft[Exit[AgentError, Chunk[SubagentTaskCompletionReceipt]]](
+              Exit.succeed(Chunk.empty)
+            ):
+              case (accumulated, (id, outcome)) =>
+                accumulated.zipWith(outcome)(
+                  (receipts, value) => receipts :+ SubagentTaskCompletionReceipt(id, value),
+                  _ ++ _
+                )
+            receipts <- combined
+          yield receipts)
+
     private def fromStored(record: SubagentTerminalRecord): SubagentTaskObservation =
       SubagentTaskObservation(record.id, SubagentTaskObservationState.Terminal(record.outcome))
 
@@ -1014,7 +1150,13 @@ object SubagentTaskRegistry:
                   .flatMap:
                     case Some(None) | Some(Some(Exit.Failure(_))) =>
                       ZIO.succeed(SubagentTaskRemoval.Unpublished)
-                    case _ => state.update(_.remove(id)).as(SubagentTaskRemoval.Removed)
+                    case _ =>
+                      ZIO
+                        .foreach(entry.notification)(_.poll)
+                        .flatMap:
+                          case Some(None) | Some(Some(Exit.Failure(_))) =>
+                            ZIO.succeed(SubagentTaskRemoval.Unnotified)
+                          case _ => state.update(_.remove(id)).as(SubagentTaskRemoval.Removed)
 
     private def lookup(id: SubagentTaskId): UIO[Option[Entry]] =
       state.get.map(_.entries.find(_.id == id))
@@ -1034,6 +1176,7 @@ object SubagentTaskRegistry:
           )
           workers <- ZIO.foreachParDiscard(entries)(_.task.cancel).exit
           _       <- ZIO.foreachParDiscard(entries.flatMap(_.publisher))(_.await)
+          _       <- ZIO.foreachParDiscard(entries.flatMap(_.notification))(_.await)
           owner   <- ZIO.foreachDiscard(persistence)(_.owner.close(Exit.unit)).exit
           _ <- workers.zipWith(owner)(
             (_, _) => (),
