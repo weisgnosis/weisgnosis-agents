@@ -52,11 +52,18 @@ enum SubagentTaskBarrierResult:
   case TimedOut(initialIds: Chunk[SubagentTaskId], remainingIds: Chunk[SubagentTaskId])
   case Empty, AdmissionTimedOut
 
+private[subagent] enum SubagentCapturedReadiness:
+  case Running, PublicationPending
+  case Ready(record: SubagentTerminalRecord)
+
 /** Stable captured references, not a reconstructible handle or a cancellation capability. */
 private[subagent] trait SubagentCapturedWait:
   def id: SubagentTaskId
   def await: IO[AgentError, SubagentTerminalRecord]
-  def poll: IO[AgentError, Option[SubagentTerminalRecord]]
+  def readiness: IO[AgentError, SubagentCapturedReadiness]
+  final def poll: IO[AgentError, Option[SubagentTerminalRecord]] = readiness.map:
+    case SubagentCapturedReadiness.Ready(record) => Some(record)
+    case _                                       => None
 
 object SubagentTaskBarrier:
   /** Timeout and caller interruption cancel only these waiters, never their captured tasks. */

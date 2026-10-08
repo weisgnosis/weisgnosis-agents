@@ -383,8 +383,8 @@ object SubagentTaskRegistry:
                           new SubagentCapturedWait:
                             val id: SubagentTaskId                            = record.id
                             def await: IO[AgentError, SubagentTerminalRecord] = ZIO.succeed(record)
-                            def poll: IO[AgentError, Option[SubagentTerminalRecord]] =
-                              ZIO.some(record)
+                            def readiness: IO[AgentError, SubagentCapturedReadiness] =
+                              ZIO.succeed(SubagentCapturedReadiness.Ready(record))
       yield captured
 
     private def capturedEntry(entry: Entry): SubagentCapturedWait = new SubagentCapturedWait:
@@ -417,40 +417,42 @@ object SubagentTaskRegistry:
           case Some(observation) => ZIO.succeed(observation)
           case None              => entry.task.await.flatMap(completed)
 
-      private def pollCompleted(
+      private def completedReadiness(
           exit: Exit[AgentError, AgentResult]
-      ): IO[AgentError, Option[SubagentTerminalRecord]] =
+      ): IO[AgentError, SubagentCapturedReadiness] =
         persistence match
-          case None => completed(exit).map(Some(_))
+          case None => completed(exit).map(SubagentCapturedReadiness.Ready(_))
           case Some(_) =>
             ZIO
               .fromOption(entry.publisher)
-              .orElseFail(
-                AgentError.InvalidConfiguration("Durable task has no publication owner")
-              )
+              .orElseFail(AgentError.InvalidConfiguration("Durable task has no publication owner"))
               .flatMap(_.poll)
               .flatMap:
-                case Some(Exit.Success(_))     => completed(exit).map(Some(_))
+                case Some(Exit.Success(_)) =>
+                  completed(exit).map(SubagentCapturedReadiness.Ready(_))
                 case Some(Exit.Failure(cause)) => ZIO.refailCause(cause)
-                case None                      => ZIO.none
+                case None => ZIO.succeed(SubagentCapturedReadiness.PublicationPending)
 
-      def poll: IO[AgentError, Option[SubagentTerminalRecord]] =
+      def readiness: IO[AgentError, SubagentCapturedReadiness] =
         entry.task.poll.flatMap:
-          case Some(exit) => pollCompleted(exit)
+          case Some(exit) => completedReadiness(exit)
           case None =>
             persistence match
-              case None => ZIO.none
+              case None => ZIO.succeed(SubagentCapturedReadiness.Running)
               case Some(binding) =>
                 ZIO.foreachDiscard(entry.publisher)(_.poll.flatMap:
                   case Some(Exit.Failure(cause)) => ZIO.refailCause(cause)
                   case _                         => ZIO.unit) *> binding.store
                   .read(id)
-                  .flatMap:
-                    case None => ZIO.none
-                    case Some(record) =>
-                      entry.task.poll.flatMap:
-                        case None       => ZIO.some(record)
-                        case Some(exit) => pollCompleted(exit)
+                  .flatMap: stored =>
+                    entry.task.poll.flatMap:
+                      case Some(exit) => completedReadiness(exit)
+                      case None =>
+                        ZIO.succeed(
+                          stored.fold[SubagentCapturedReadiness](SubagentCapturedReadiness.Running)(
+                            SubagentCapturedReadiness.Ready(_)
+                          )
+                        )
 
     override def observe(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskObservation]] =
       persistence match

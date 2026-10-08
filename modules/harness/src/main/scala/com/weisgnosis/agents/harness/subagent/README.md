@@ -1,5 +1,32 @@
 # Scoped child execution and sessions
 
+## Full task output retrieval
+
+The additive SubagentTaskOutputTool.make(registry) exposes task_output for one host-selected registry. It observes full SubagentTerminalOutcome text and optional recorded worker identity without acknowledging consumption. Existing agent_task remains a bounded nonblocking inspection; wait_async_results retains its separate multi-task timeout contract. Both independent final source and combined reviews approve the bounded observational scope below; required verification gates pass.
+
+Wire block defaults to true. Internally Poll and Wait are mutually exclusive modes. WaitTimeout.fromMilliseconds defaults to 30,000 milliseconds and clamps supplied Long values to 0-600,000. A zero timeout and block=false sample readiness without awaiting execution or its publisher. Stable membership capture and initial backend readiness occur before the wait budget, matching the pinned lookup-before-future-wait boundary; hosts must separately bound backend calls. The tool does not promise a deadline for the entire lookup/read operation.
+
+Readiness distinguishes Running, PublicationPending and Terminal. A locally joined execution cannot become a terminal observation before its retained publisher receipt succeeds; an outstanding receipt is PublicationPending. Known publication failures remain typed failures. Stored-only terminal observations require no executable handle. Captured references survive forgetting and cannot be redirected by later lookup.
+
+The wait races only the captured observation. Timeout and caller interruption join owned wait cleanup without cancelling the child or its registry-owned publisher. Successful retrieval of a Failed, Interrupted or Stopped terminal outcome is a Success tool observation containing typed child status, consistent with ordinary inspection; lookup or publication failure is an Error observation, and caller interruption remains interruption. An installed runtime processor may offload full output under its separate contract.
+
+Migration: install the new tool explicitly; no existing factory installs it automatically. No current receipt budget or wire envelope changes. Durable creation/check metadata, full-output persisted-consumption integration, remote running authority and executable restoration remain unfinished original obligations.
+
+The current task-output scope against b70336f comprises four Scala identities, path-first manifest SHA-256 def84f78fee21bbc20cae9f48ef82d49ff8ea37ef6e52ce504fdf4e9528e7ec9. review_fp and review_invariants explicitly approve these exact identities with no unresolved findings.
+
+| Reviewed source | Git blob |
+| --- | --- |
+| [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | `524ac43400ca082571480b195e274e37d6f56763` |
+| [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | `0b057bf780202d3528691ec708e18ed5fb995886` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `49e6fe0171922cda07a6a3c1df2339bc78c7c1af` |
+| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | `e6132ffec3b41be7a86948425bfaeeb9fb2a8644` |
+
+- [x] review_fp and review_invariants approve the four exact source/specification identities against b70336f, with no unresolved findings.
+- [x] target/task-output-focused.log passes 28 harness groups in 2.271 seconds and two actual PostgreSQL groups in 2.597 seconds, zero failed/ignored/compiler warnings. Three new groups cover exact full Unicode/outcome/worker data through actual parent processing without ACK; default/clamped/zero/negative/poll timing and waiter-only cancellation; held publication readiness/failure and captured result survival after forgetting. Existing barrier/session/routing suites retain their behavior.
+- [x] target/task-output-final-verify.log passes formatting/fatal-warning compilation, 1,623 tests (695 core / 766 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission passes in target/task-output-final-preparation.log.
+- [x] target/task-output-final-consumer.log passes fresh standalone formatting/compilation/execution with four artifact hash checks. The unchanged consumer does not independently exercise task_output; its direct public runtime coverage belongs to the harness suite.
+- [x] review_fp and review_invariants approve the final combined scope against b70336f: four unchanged Scala identities and twelve Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,513-local-reference validation pass.
+
 ## Routed task result consumption
 
 SubagentDeliveryMiddleware.toolsForSession/toolsForCatalog/toolsForSessionCatalog/toolsForDirectory explicitly install trusted result consumption for already-host-selected capabilities. Ordinary SubagentTools factories remain observational. Configure the same middleware on the intended parent builder; these factories neither discover hooks nor transfer execution ownership. Existing control policy, spawn/send/cancel and route validation retain their contracts.
@@ -73,7 +100,7 @@ The worker-identity scope against 7bff28a comprises the ten Scala identities bel
 | Reviewed source | Git blob |
 | --- | --- |
 | [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [routed consumption](#routed-task-result-consumption) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `49406d3a2e0360b56f159c4c9fda6cb6568b3cd5` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [full task output](#full-task-output-retrieval) |
 | [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | `d968f629b07dedb821441875f592f3df860eda34` |
 | [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `d404631894e316c97766f88eaedd4741cc043ac4` |
 | [SubagentWorkerId.scala](SubagentWorkerId.scala) | `995f78340c7d78df098c8f791d6aca67cf9621ff` |
@@ -130,7 +157,7 @@ The scoped wait behavior retains its independently accepted review against d38b3
 | --- | --- |
 | [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentInbox.scala](SubagentInbox.scala) | `3afbe9df8cde5905c33412ff99efc736a87633e6` |
-| [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | `9ded022f052fc70c67ad3d6fa38de86a7048f642` |
+| [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | Current identity: [full task output](#full-task-output-retrieval) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentTools.scala](SubagentTools.scala) | Current identity: [routed consumption](#routed-task-result-consumption) |
 | [SubagentWaitSession.scala](SubagentWaitSession.scala) | `631f1ba893fd18d310feb93dffff73d0b41a89eb` |

@@ -126,3 +126,7 @@ The [terminal store binding](../modules/harness/src/main/scala/com/weisgnosis/ag
 ## Routed task consumption compatibility
 
 The [routed consumption factories](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#routed-task-result-consumption) are additive middleware APIs for explicit fixed-session/catalog/session-catalog/directory installation. Existing ordinary tool factories remain observational, wire envelopes are unchanged and no core signature or dependency changes. Receipts borrow the resolved registry without owning its lifetime; persisted matching never re-resolves authority from model route strings. Both independent source reviews and full/artifact/external-consumer verification pass. review_fp and review_invariants approve final combined documentation against b98fc2f for four unchanged Scala identities and fourteen Markdown files.
+
+## Full task output compatibility
+
+SubagentTaskOutputTool is an additive explicit host installation. The independently source-reviewed adapter introduces no dependency, default tool registration or receipt-budget change. Its public result contains typed terminal observation data and optional worker identity, never execution capabilities. Source acceptance, timeout/readiness boundaries and remaining metadata/consumption obligations belong to the [current contract](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#full-task-output-retrieval).
