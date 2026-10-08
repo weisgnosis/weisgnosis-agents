@@ -98,7 +98,7 @@ final class SubagentDeliveryMiddleware private (
   /**
    * Bound task inspection and waits participate in this adapter's lifecycle and consume unchanged
    * persisted terminal observations. Spawn/cancel retain registry ownership and are not serialized by this adapter.
-   * Ordinary, routed and session tool factories do not acquire this consumption capability.
+   * Ordinary SubagentTools factories do not acquire this consumption capability.
    */
   def tools(
       policy: SubagentExecutionPolicy = SubagentExecutionPolicy.PromoteAfter30Seconds
@@ -106,49 +106,82 @@ final class SubagentDeliveryMiddleware private (
     SubagentTools.consuming(
       registry,
       policy,
-      new SubagentTaskConsumptionCapture:
-        def inspect(id: SubagentTaskId, invocation: ToolInvocation)(
-            read: => IO[AgentError, SubagentToolResult]
-        ): IO[AgentError, SubagentToolResult] =
-          operations.withPermit:
-            ensureOpen *> (invocation match
-              case ToolInvocation.Detached => ZIO.suspendSucceed(read)
-              case ToolInvocation.Active(context, approved, ordinal, _) =>
-                val key = ConsumptionKey(context, approved, ordinal)
-                for
-                  identityBytes <- prepareConsumption(key, Chunk(id))
-                  result        <- ZIO.suspendSucceed(read)
-                  _ <-
-                    if isTerminal(result) then
-                      captureConsumption(key, Chunk(id), result.toJson, identityBytes)
-                    else ZIO.unit
-                yield result)
-
-        def waitFor(invocation: ToolInvocation)(
-            read: => IO[AgentError, SubagentWaitOutcome]
-        ): IO[AgentError, SubagentWaitOutcome] =
-          operations.withPermit:
-            ensureOpen *> (invocation match
-              case ToolInvocation.Detached => ZIO.suspendSucceed(read)
-              case ToolInvocation.Active(context, approved, ordinal, _) =>
-                val key = ConsumptionKey(context, approved, ordinal)
-                for
-                  identityBytes <- prepareConsumption(key, Chunk.empty)
-                  result        <- ZIO.suspendSucceed(read)
-                  _ <- result match
-                    case SubagentWaitOutcome.Barrier(SubagentTaskBarrierResult.Completed(tasks)) =>
-                      val ids = tasks.map(_.id)
-                      captureConsumption(
-                        key,
-                        ids,
-                        SubagentTools.projectWait(result).toJson,
-                        identityBytes
-                      )
-                    case _ => ZIO.unit
-                yield result)
-      ,
+      consumptionCapture,
       waitSession
     )
+
+  def toolsForSession(
+      session: SubagentSession,
+      policy: SubagentExecutionPolicy = SubagentExecutionPolicy.PromoteAfter30Seconds
+  ): Toolkit =
+    SubagentTools.consumingSession(session, policy, consumptionCapture)
+
+  def toolsForCatalog(
+      catalog: SubagentCatalog,
+      policy: SubagentExecutionPolicy = SubagentExecutionPolicy.PromoteAfter30Seconds
+  ): Toolkit =
+    SubagentTools.consumingCatalog(catalog, policy, consumptionCapture)
+
+  def toolsForSessionCatalog(
+      catalog: SubagentSessionCatalog,
+      policy: SubagentExecutionPolicy = SubagentExecutionPolicy.PromoteAfter30Seconds
+  ): Toolkit =
+    SubagentTools.consumingSessionCatalog(catalog, policy, consumptionCapture)
+
+  def toolsForDirectory(
+      directory: SubagentSessionDirectory,
+      policy: SubagentExecutionPolicy = SubagentExecutionPolicy.PromoteAfter30Seconds
+  ): Toolkit =
+    SubagentTools.consumingDirectory(directory, policy, consumptionCapture)
+
+  private def consumptionCapture: SubagentTaskConsumptionCapture =
+    new SubagentTaskConsumptionCapture:
+      def inspect[Out: JsonEncoder](
+          id: SubagentTaskId,
+          invocation: ToolInvocation
+      )(resolve: => IO[AgentError, SubagentTaskRegistry])(
+          read: SubagentTaskRegistry => IO[AgentError, (SubagentToolResult, Out)]
+      ): IO[AgentError, Out] =
+        operations.withPermit:
+          ensureOpen *> (invocation match
+            case ToolInvocation.Detached =>
+              ZIO.suspendSucceed(resolve).flatMap(target => read(target).map(_._2))
+            case ToolInvocation.Active(context, approved, ordinal, _) =>
+              val key = ConsumptionKey(context, approved, ordinal)
+              for
+                identityBytes <- prepareConsumption(key, Chunk(id))
+                target        <- ZIO.suspendSucceed(resolve)
+                paired        <- read(target)
+                (result, output) = paired
+                _ <-
+                  if isTerminal(result) then
+                    captureConsumption(target, key, Chunk(id), output.toJson, identityBytes)
+                  else ZIO.unit
+              yield output)
+
+      def waitFor(target: SubagentTaskRegistry, invocation: ToolInvocation)(
+          read: => IO[AgentError, SubagentWaitOutcome]
+      ): IO[AgentError, SubagentWaitOutcome] =
+        operations.withPermit:
+          ensureOpen *> (invocation match
+            case ToolInvocation.Detached => ZIO.suspendSucceed(read)
+            case ToolInvocation.Active(context, approved, ordinal, _) =>
+              val key = ConsumptionKey(context, approved, ordinal)
+              for
+                identityBytes <- prepareConsumption(key, Chunk.empty)
+                result        <- ZIO.suspendSucceed(read)
+                _ <- result match
+                  case SubagentWaitOutcome.Barrier(SubagentTaskBarrierResult.Completed(tasks)) =>
+                    val ids = tasks.map(_.id)
+                    captureConsumption(
+                      target,
+                      key,
+                      ids,
+                      SubagentTools.projectWait(result).toJson,
+                      identityBytes
+                    )
+                  case _ => ZIO.unit
+              yield result)
 
   private def prepareConsumption(
       key: ConsumptionKey,
@@ -198,6 +231,7 @@ final class SubagentDeliveryMiddleware private (
           .flatMap(ZIO.fromEither(_))
 
   private def captureConsumption(
+      target: SubagentTaskRegistry,
       key: ConsumptionKey,
       ids: Chunk[SubagentTaskId],
       encodedResult: String,
@@ -236,7 +270,7 @@ final class SubagentDeliveryMiddleware private (
               State.Available(
                 capture,
                 owner,
-                receipts.updated(key, ConsumptionReceipt(ids, expected, bytes)),
+                receipts.updated(key, ConsumptionReceipt(target, ids, expected, bytes)),
                 used + bytes
               )
             )
@@ -266,7 +300,7 @@ final class SubagentDeliveryMiddleware private (
               observation.persisted.output == observation.original.output =>
           ZIO
             .foreachDiscard(receipt.ids)(id =>
-              registry
+              receipt.target
                 .acknowledgeTerminal(id)
                 .flatMap:
                   case SubagentTerminalAcknowledgeResult.Missing =>
@@ -375,7 +409,8 @@ object SubagentDeliveryMiddleware:
   private val closed: AgentError.InvalidConfiguration =
     AgentError.InvalidConfiguration("Task delivery adapter is closed")
 
-  // Encoded retained key/task/result data is bounded independently of JVM object overhead.
+  // Encoded key/task/result data is bounded independently of JVM object overhead. Each receipt
+  // also borrows one target registry capability; this reference is count-bounded, not serialized.
   private val maximumConsumptions: Int      = 128
   private val maximumConsumptionBytes: Long = 1024L * 1024L
   final private case class ConsumptionKey(
@@ -384,6 +419,7 @@ object SubagentDeliveryMiddleware:
       ordinal: Int
   ) derives JsonCodec
   final private case class ConsumptionReceipt(
+      target: SubagentTaskRegistry,
       ids: Chunk[SubagentTaskId],
       expected: ContentBlock.ToolResult,
       bytes: Long

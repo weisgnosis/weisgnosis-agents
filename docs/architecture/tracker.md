@@ -40,8 +40,10 @@ Execute the original scope without substituting a narrower release checklist. Li
 - [x] Implement and independently source-review explicit borrowed terminal-store bindings through catalogs and ordinary/restored/retained sessions; 20 focused harness groups pass.
 - [x] Pass full/artifact/archive/external-consumer verification for the six-source terminal-binding increment.
 - [x] review_fp and review_invariants approve the final combined scope against ed6d6b4: six unchanged Scala identities and thirteen Markdown files, no unresolved findings.
-- [ ] Current task: integrate other required routed result consumption without granting authority from route strings; retain the selected registry through exact final-persistence acknowledgement.
-- [ ] Verify other required routed result consumption; erased/replaced final output must remain pending.
+- [x] Implement and independently source-review explicit routed result consumption without granting authority from route strings; retain the selected registry through exact final-persistence acknowledgement.
+- [x] Verify routed result consumption and erased/replaced output exclusion. The held-directory regression first reproduced premature closure before lookup/cleanup; correction passes 27 harness and two actual PostgreSQL groups, with both independent final source approvals.
+- [x] review_fp and review_invariants approve the final combined routed-consumption scope against b98fc2f: four unchanged Scala identities and fourteen Markdown files, no unresolved findings.
+- [ ] Current task: implement the original single-task output contract: default blocking retrieval with a 30-second budget, checked 0-600,000 millisecond timeout, zero-time immediate observation, full terminal output and explicit task-detail metadata. Existing nonblocking agent_task and multi-task waits do not close this obligation.
 - [ ] Implement durable admitted/running identity and current-owner cancellation intent, retaining truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
@@ -53,7 +55,8 @@ These are provisional engineering effort ranges, including implementation, propo
 
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
-| Other required routed persisted-result consumption | 4-8 engineering hours, provisional | Local inspection/wait consumption is source-reviewed; named/directory routing still needs an explicit trusted authority boundary. |
+| Routed persisted-result consumption | Implementation, independent source/combined reviews and full/artifact verification complete | The reproduced lookup/closure defect is corrected. No remaining source finding exists in the named scope. |
+| Single-task output retrieval and detail projection | Not yet estimated | Pinned TaskTool.taskOutput requires default blocking retrieval, a different timeout range and full output. Preserve current observational APIs through an explicit typed adapter; decompose metadata and failure projection before estimating. |
 | Durable cancellation intent with current-owner handling | 12-24 hours after terminal storage | Persist intent, join owned cancellation and preserve terminal truth before notification. Cross-process takeover/fencing remains separate. |
 | Remaining method applicability and resulting behavior | Not yet estimated | The finite inventories do not classify all 2,473 pinned core declarations. An evaluator dependency or passing suites cannot close unknown obligations. |
 
@@ -76,15 +79,15 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [terminal binding contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#terminal-store-bindings) owns the current six-Scala increment against ed6d6b4, manifest cf6b3b801af882923acdfc92e3a5233e68b338c30c8659672d9d8da2b52fc041. Worker identity, scoped waits and registry publication retain their prerequisite contracts. Borrowed persistence installs neither routed acknowledgement nor executable session restoration.
+The [routed consumption contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#routed-task-result-consumption) owns the current four-Scala increment against b98fc2f, manifest 38f32768ab810dda6c5d6b7b0d9d67c432a6fea90d674202c974fd26d7612f4c. Terminal bindings, worker identity, scoped waits and registry publication retain their prerequisite contracts. Both independent source and combined approvals and the required verification gates pass below.
 
-- [x] Implement exact borrowed stores/worker identity through catalogs and ordinary/restored/retained sessions, retaining volatile defaults and host backend ownership.
-- [x] review_fp and review_invariants approve all six source identities with no unresolved findings.
-- [x] target/terminal-binding-focused.log passes 20 harness groups in 1.956 seconds, zero failed/ignored/compiler warnings.
-- [x] target/terminal-binding-final-verify.log passes formatting/fatal-warning compilation, 1,618 tests (695 core / 761 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission and fresh standalone formatting/compilation/execution with four artifact hash checks pass; the unchanged consumer does not independently exercise binding APIs.
-- [x] review_fp and review_invariants approve the final combined scope against ed6d6b4: six unchanged Scala identities and thirteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,475-local-reference validation pass.
+- [x] Implement explicit bound session/catalog/session-catalog/directory consumption and selected fixed-session waits, retaining the original borrowed target through unchanged final persistence.
+- [x] Reproduce premature close during lookup and cleanup against the unchanged draft; correct it and obtain explicit review_fp and review_invariants approval of all four exact Scala identities with no unresolved source findings.
+- [x] target/routed-consumption-focused-final.log passes 27 harness groups in 4.673 seconds and two actual PostgreSQL groups in 2.258 seconds, zero failed/ignored/compiler warnings.
+- [x] target/routed-consumption-final-verify.log passes formatting/fatal-warning compilation, 1,620 tests (695 core / 763 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission and fresh standalone formatting/compilation/execution with four artifact hash checks pass. The unchanged consumer does not independently exercise routed APIs.
+- [x] review_fp and review_invariants approve the final combined scope against b98fc2f: four unchanged Scala identities and fourteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,496-local-reference validation pass.
 
-All eighteen classified wait methods and nine reminder methods have bounded mappings. Other routed consumption, completion ordering, durable cancellation/running authority, session restoration, remaining original-plan applicability and the actual product cutover remain unfinished. No whole-plan completion or publication is claimed.
+All eighteen classified wait methods and nine reminder methods have bounded mappings. Single-task blocking/full-output retrieval, completion ordering, durable cancellation/running authority, executable session restoration, remaining original-plan applicability and the actual product cutover remain unfinished. No whole-plan completion or publication is claimed.
 
 The immutable process launcher remains in force and its current modified source identities redirect to the negotiation manifest. Its production dependency eviction diagnostics remain visible: no suppression or universal binary compatibility claim. SLF4J/dependency/runtime notices are distinct from compiler warnings.
 

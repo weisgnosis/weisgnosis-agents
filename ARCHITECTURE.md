@@ -1,5 +1,6 @@
 # Architecture: weisgnosis-agents
 
+Explicit [routed result consumption](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#routed-task-result-consumption) retains the selected borrowed registry and exact typed wrapper through final persistence. Route strings cannot retarget acknowledgement. Lookup, read and receipt capture must share the adapter-owned operation; both independent source reviews approve the corrected lookup lifecycle; full delivery gates belong to the linked contract. Ordinary factories remain observational, and routing does not restore durable running ownership.
 ## Runtime authority
 
 [Terminal bindings](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#terminal-store-bindings) are explicit borrowed host capabilities. Catalog/session registries own execution and publication; they never infer partitions from names or acquire/close the supplied backend. This prerequisite restores observations, not executable session ownership, and does not install routed acknowledgement.

@@ -37,7 +37,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
   import PostgresFixture.*
 
   private enum ConsumptionTool:
-    case Inspection, Wait
+    case Inspection, Wait, Catalog
 
   private val firstId: SubagentTaskId  = SubagentTaskId(new UUID(0L, 1L))
   private val secondId: SubagentTaskId = SubagentTaskId(new UUID(0L, 2L))
@@ -374,9 +374,30 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             firstMessages  = firstReminder.history.filter(_.reminderKind.contains("task_delivery"))
             secondMessages = secondReminder.history.filter(_.reminderKind.contains("task_delivery"))
             consumptionChecks <- ZIO.foreach(
-              Chunk(ConsumptionTool.Inspection, ConsumptionTool.Wait)
+              Chunk(ConsumptionTool.Inspection, ConsumptionTool.Wait, ConsumptionTool.Catalog)
             ): mode =>
               for
+                consumptionTarget <- mode match
+                  case ConsumptionTool.Catalog => address(name, "routed-consumption")
+                  case _                       => ZIO.succeed(target)
+                consumptionStore    = SubagentTerminalStore.make(backend, consumptionTarget)
+                consumptionReopened = SubagentTerminalStore.make(second, consumptionTarget)
+                routedCatalog <- mode match
+                  case ConsumptionTool.Catalog =>
+                    SubagentCatalog
+                      .open(
+                        parent,
+                        Chunk(
+                          SubagentEntry(
+                            "selected",
+                            "Explicit routed task partition",
+                            factory,
+                            Some(SubagentTerminalBinding(consumptionStore, Some(workerId)))
+                          )
+                        )
+                      )
+                      .map(Some(_))
+                  case _ => ZIO.none
                 consumptionId <- Random.nextUUID.map(SubagentTaskId(_))
                 failureId     <- Random.nextUUID.map(SubagentTaskId(_))
                 consumptionRecord = SubagentTerminalRecord(
@@ -391,16 +412,22 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                   )
                 )
                 selectedRecords = mode match
-                  case ConsumptionTool.Inspection => Chunk(consumptionRecord)
-                  case ConsumptionTool.Wait       => Chunk(failedConsumption, consumptionRecord)
+                  case ConsumptionTool.Inspection | ConsumptionTool.Catalog =>
+                    Chunk(consumptionRecord)
+                  case ConsumptionTool.Wait => Chunk(failedConsumption, consumptionRecord)
                 consumptionCall = ContentBlock.ToolUse(
                   "consumed-consumption",
                   mode match
-                    case ConsumptionTool.Inspection => "agent_task"
-                    case ConsumptionTool.Wait       => "wait_async_results",
+                    case ConsumptionTool.Inspection | ConsumptionTool.Catalog => "agent_task"
+                    case ConsumptionTool.Wait => "wait_async_results",
                   mode match
                     case ConsumptionTool.Inspection =>
                       Json.Obj("task_id" -> Json.Str(consumptionId.value.toString))
+                    case ConsumptionTool.Catalog =>
+                      Json.Obj(
+                        "agent_id" -> Json.Str("selected"),
+                        "task_id"  -> Json.Str(consumptionId.value.toString)
+                      )
                     case ConsumptionTool.Wait =>
                       Json.Obj(
                         "task_ids" -> Json.Str(
@@ -414,6 +441,10 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 )
                 expectedJson = mode match
                   case ConsumptionTool.Inspection => consumptionExpected.toJson
+                  case ConsumptionTool.Catalog =>
+                    val wrapped: SubagentCatalogToolResult =
+                      SubagentCatalogToolResult.Agent("selected", consumptionExpected)
+                    wrapped.toJson
                   case ConsumptionTool.Wait =>
                     val result: SubagentWaitToolResult = SubagentWaitToolResult.Completed(
                       Chunk(
@@ -437,7 +468,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                     .flatMap:
                       case 0 =>
                         ZIO
-                          .foreachDiscard(selectedRecords)(terminal.publish(_))
+                          .foreachDiscard(selectedRecords)(consumptionStore.publish(_))
                           .as(
                             TurnOutput.ToolCalls(Msg.assistant(Chunk(consumptionCall)))
                           )
@@ -446,7 +477,8 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 )
                 consumptionInbox <- SubagentInboxSignal.open
                 consumptionMiddleware <- mode match
-                  case ConsumptionTool.Inspection => SubagentDeliveryMiddleware.make(fresh)
+                  case ConsumptionTool.Inspection | ConsumptionTool.Catalog =>
+                    SubagentDeliveryMiddleware.make(fresh)
                   case ConsumptionTool.Wait =>
                     SubagentDeliveryMiddleware.open(fresh, consumptionInbox)
                 consumptionAgent <- consumptionMiddleware
@@ -454,10 +486,16 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                     ReActAgent
                       .builder()
                       .client(consumptionClient)
-                      .toolkit(consumptionMiddleware.tools()),
+                      .toolkit(
+                        routedCatalog.fold(consumptionMiddleware.tools())(
+                          consumptionMiddleware.toolsForCatalog(_)
+                        )
+                      ),
                     priorLocalToolResultObserver = LocalToolResultObserver(observation =>
                       ZIO
-                        .foreach(selectedRecords)(record => reopened.acknowledgement(record.id))
+                        .foreach(selectedRecords)(record =>
+                          consumptionReopened.acknowledgement(record.id)
+                        )
                         .flatMap(stamp =>
                           consumptionBeforeStamp.set(stamp) *> consumptionSnapshots
                             .update(_ :+ observation)
@@ -468,20 +506,25 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                   .build
                 inspected <- consumptionAgent.run(Msg.user("Consume the selected task output"))
                 consumptionStamp <- ZIO.foreach(selectedRecords)(record =>
-                  reopened.acknowledgement(record.id)
+                  consumptionReopened.acknowledgement(record.id)
                 )
                 consumptionContinued <- consumptionAgent.run(Msg.user("Continue after consumption"))
                 consumptionStampAgain <- ZIO.foreach(selectedRecords)(record =>
-                  terminal.acknowledgement(record.id)
+                  consumptionStore.acknowledgement(record.id)
                 )
-                consumptionPending <- terminal.pending
+                consumptionPending <- consumptionStore.pending
                 consumptionExact <- ZIO.foreach(selectedRecords)(record =>
-                  SubagentTerminalStore.make(second, target).read(record.id)
+                  SubagentTerminalStore.make(second, consumptionTarget).read(record.id)
                 )
+                unrelatedStamps <- mode match
+                  case ConsumptionTool.Catalog =>
+                    ZIO.foreach(selectedRecords)(record => terminal.acknowledgement(record.id))
+                  case _ => ZIO.succeed(Chunk.empty)
                 consumptionModels   <- consumptionInputs.get
                 consumptionObserved <- consumptionSnapshots.get
                 beforeInspectionAck <- consumptionBeforeStamp.get
               yield assertTrue(
+                unrelatedStamps.forall(_.isEmpty),
                 beforeInspectionAck == selectedRecords.map(_ =>
                   Some(SubagentTerminalAcknowledgement.Pending)
                 ),

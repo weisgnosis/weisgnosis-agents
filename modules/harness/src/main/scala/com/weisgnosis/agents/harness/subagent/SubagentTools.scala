@@ -24,14 +24,19 @@ import zio.*
 import zio.json.*
 import zio.json.ast.Json
 
-/** Private trusted task-result boundary; execution capabilities are never retained by the sink. */
+/**
+ * Private trusted task-result boundary. The sink borrows resolved registry capabilities only for
+ * acknowledgement; it neither owns their lifetime nor retains invocation event ports.
+ */
 private[subagent] trait SubagentTaskConsumptionCapture:
-  def inspect(
+  def inspect[Out: JsonEncoder](
       id: SubagentTaskId,
       invocation: ToolInvocation
-  )(read: => IO[AgentError, SubagentToolResult]): IO[AgentError, SubagentToolResult]
+  )(resolve: => IO[AgentError, SubagentTaskRegistry])(
+      read: SubagentTaskRegistry => IO[AgentError, (SubagentToolResult, Out)]
+  ): IO[AgentError, Out]
 
-  def waitFor(invocation: ToolInvocation)(
+  def waitFor(registry: SubagentTaskRegistry, invocation: ToolInvocation)(
       read: => IO[AgentError, SubagentWaitOutcome]
   ): IO[AgentError, SubagentWaitOutcome]
 
@@ -119,6 +124,42 @@ object SubagentTools:
       waitSession: Option[SubagentWaitSession]
   ): Toolkit = controls(registry, Invocation.Spawn, policy, Some(capture), waitSession)
 
+  private[subagent] def consumingSession(
+      session: SubagentSession,
+      policy: SubagentExecutionPolicy,
+      capture: SubagentTaskConsumptionCapture
+  ): Toolkit = controls(session.executions, Invocation.Send, policy, Some(capture))
+
+  private[subagent] def consumingCatalog(
+      catalog: SubagentCatalog,
+      policy: SubagentExecutionPolicy,
+      capture: SubagentTaskConsumptionCapture
+  ): Toolkit = namedControls(
+    catalog.entries,
+    name => ZIO.succeed(catalog.lookup(name)),
+    Invocation.Spawn,
+    policy,
+    Some(capture)
+  )
+
+  private[subagent] def consumingSessionCatalog(
+      catalog: SubagentSessionCatalog,
+      policy: SubagentExecutionPolicy,
+      capture: SubagentTaskConsumptionCapture
+  ): Toolkit = namedControls(
+    catalog.entries,
+    name => catalog.lookup(name).map(_.map(_._2.executions)),
+    Invocation.Send,
+    policy,
+    Some(capture)
+  )
+
+  private[subagent] def consumingDirectory(
+      directory: SubagentSessionDirectory,
+      policy: SubagentExecutionPolicy,
+      capture: SubagentTaskConsumptionCapture
+  ): Toolkit = directoryControls(directory, policy, Some(capture))
+
   /** Reuse one host-selected session; task inspection and cancellation share its execution registry. */
   def forSession(session: SubagentSession): Toolkit =
     forSession(session, SubagentExecutionPolicy.PromoteAfter30Seconds)
@@ -154,7 +195,8 @@ object SubagentTools:
       entries: Chunk[SubagentEntry],
       lookup: String => UIO[Option[SubagentTaskRegistry]],
       invocation: Invocation,
-      policy: SubagentExecutionPolicy
+      policy: SubagentExecutionPolicy,
+      capture: Option[SubagentTaskConsumptionCapture] = None
   ): Toolkit =
     val description = invocation match
       case Invocation.Spawn =>
@@ -177,7 +219,8 @@ object SubagentTools:
       "Inspect a retained task of the selected child without making a model request.",
       "task_id",
       Access.Observation,
-      value => uuid("task_id", value).map(SubagentTaskId(_))
+      value => uuid("task_id", value).map(SubagentTaskId(_)),
+      capture.map(sink => InspectionCapture[SubagentTaskId](sink, identity))
     )((registry, id, _) => inspectTask(registry, id))
     val cancel = catalogTool[SubagentTaskId](
       entries,
@@ -195,6 +238,13 @@ object SubagentTools:
     forDirectory(directory, SubagentExecutionPolicy.PromoteAfter30Seconds)
 
   def forDirectory(directory: SubagentSessionDirectory, policy: SubagentExecutionPolicy): Toolkit =
+    directoryControls(directory, policy, None)
+
+  private def directoryControls(
+      directory: SubagentSessionDirectory,
+      policy: SubagentExecutionPolicy,
+      capture: Option[SubagentTaskConsumptionCapture]
+  ): Toolkit =
     val send = routedTool[String](
       directory,
       "agent_send",
@@ -209,7 +259,8 @@ object SubagentTools:
       "Inspect a retained task in the selected session without making a model request.",
       "task_id",
       Access.Observation,
-      value => uuid("task_id", value).map(SubagentTaskId(_))
+      value => uuid("task_id", value).map(SubagentTaskId(_)),
+      capture.map(sink => InspectionCapture[SubagentTaskId](sink, identity))
     )((registry, id, _) => inspectTask(registry, id))
     val cancel = routedTool[SubagentTaskId](
       directory,
@@ -228,6 +279,11 @@ object SubagentTools:
     def map[B](f: A => B): Observation[B] = this match
       case Success(value) => Success(f(value))
       case Error(value)   => Error(f(value))
+
+  final private case class InspectionCapture[A](
+      sink: SubagentTaskConsumptionCapture,
+      taskId: A => SubagentTaskId
+  )
 
   final private case class RoutedInput[A](sessionId: SubagentSessionId, value: A)
   final private case class CatalogInput[A](agentId: String, value: A)
@@ -267,8 +323,11 @@ object SubagentTools:
     )((id, invocation) =>
       val read = inspectTask(registry, id).flatMap(respond("agent_task", _))
       capture match
-        case Some(sink) => sink.inspect(id, invocation)(read)
-        case None       => read
+        case Some(sink) =>
+          sink.inspect(id, invocation)(ZIO.succeed(registry))(_ =>
+            read.map(result => (result, result))
+          )
+        case None => read
     )
     val cancel = tool[SubagentTaskId, SubagentToolResult](
       definition(
@@ -434,13 +493,14 @@ object SubagentTools:
       description: String,
       field: String,
       access: Access,
-      decodeValue: String => Either[String, In]
+      decodeValue: String => Either[String, In],
+      capture: Option[InspectionCapture[In]] = None
   )(
       run: (SubagentTaskRegistry, In, Option[ToolEventPort]) => IO[AgentError, Observation[
         SubagentToolResult
       ]]
   ): Tool[Any, RoutedInput[In], SubagentSessionToolResult] =
-    tool[RoutedInput[In], SubagentSessionToolResult](
+    invocationTool[RoutedInput[In], SubagentSessionToolResult](
       definition(name, description, Chunk("session_id", field), access),
       raw =>
         pairedStrings("session_id", field)(raw).flatMap: (session, value) =>
@@ -448,24 +508,26 @@ object SubagentTools:
             id    <- uuid("session_id", session).map(SubagentSessionId(_))
             input <- decodeValue(value)
           yield RoutedInput(id, input)
-    )((input, events) =>
-      directory
+    )((input, invocation) =>
+      val missing: SubagentSessionToolResult =
+        SubagentSessionToolResult.Missing(input.sessionId.value.toString)
+      val resolve = directory
         .lookup(input.sessionId)
-        .flatMap:
-          case None =>
-            respond[SubagentSessionToolResult](
-              name,
-              Observation.Error(SubagentSessionToolResult.Missing(input.sessionId.value.toString))
-            )
-          case Some(session) =>
-            run(session.executions, input.value, events).flatMap(observation =>
-              respond[SubagentSessionToolResult](
-                name,
-                observation.map(result =>
-                  SubagentSessionToolResult.Session(input.sessionId.value.toString, result)
-                )
-              )
-            )
+        .someOrFail(AgentError.ToolExecutionError(name, missing.toJson))
+        .map(_.executions)
+      def read(
+          target: SubagentTaskRegistry
+      ): IO[AgentError, (SubagentToolResult, SubagentSessionToolResult)] =
+        run(target, input.value, eventPort(invocation)).flatMap(observation =>
+          observedOutput[SubagentSessionToolResult](
+            name,
+            observation,
+            result => SubagentSessionToolResult.Session(input.sessionId.value.toString, result)
+          )
+        )
+      capture match
+        case Some(bound) => bound.sink.inspect(bound.taskId(input.value), invocation)(resolve)(read)
+        case None        => resolve.flatMap(target => read(target).map(_._2))
     )
 
   private def catalogTool[In](
@@ -475,7 +537,8 @@ object SubagentTools:
       description: String,
       field: String,
       access: Access,
-      decodeValue: String => Either[String, In]
+      decodeValue: String => Either[String, In],
+      capture: Option[InspectionCapture[In]] = None
   )(
       run: (SubagentTaskRegistry, In, Option[ToolEventPort]) => IO[AgentError, Observation[
         SubagentToolResult
@@ -483,7 +546,7 @@ object SubagentTools:
   ): Tool[Any, CatalogInput[In], SubagentCatalogToolResult] =
     val available =
       entries.map(entry => s"${entry.name}: ${entry.description}").mkString("\n")
-    tool[CatalogInput[In], SubagentCatalogToolResult](
+    invocationTool[CatalogInput[In], SubagentCatalogToolResult](
       definition(
         name,
         description + "\nAvailable agents:\n" + available,
@@ -493,28 +556,28 @@ object SubagentTools:
       raw =>
         pairedStrings("agent_id", field)(raw).flatMap: (agentId, value) =>
           decodeValue(value).map(CatalogInput(agentId, _))
-    )((input, events) =>
-      lookup(input.agentId).flatMap:
-        case None =>
-          respond[SubagentCatalogToolResult](
-            name,
-            Observation.Error(SubagentCatalogToolResult.Missing(input.agentId))
-          )
-        case Some(registry) =>
-          run(registry, input.value, events)
-            .mapError: error =>
-              val failure: SubagentCatalogToolResult =
-                SubagentCatalogToolResult.Failed(input.agentId, preview(error.message))
-              AgentError.ToolExecutionError(
-                name,
-                failure.toJson
-              )
-            .flatMap(observation =>
-              respond[SubagentCatalogToolResult](
-                name,
-                observation.map(result => SubagentCatalogToolResult.Agent(input.agentId, result))
-              )
+    )((input, invocation) =>
+      val missing: SubagentCatalogToolResult = SubagentCatalogToolResult.Missing(input.agentId)
+      val resolve =
+        lookup(input.agentId).someOrFail(AgentError.ToolExecutionError(name, missing.toJson))
+      def read(
+          target: SubagentTaskRegistry
+      ): IO[AgentError, (SubagentToolResult, SubagentCatalogToolResult)] =
+        run(target, input.value, eventPort(invocation))
+          .mapError: error =>
+            val failure: SubagentCatalogToolResult =
+              SubagentCatalogToolResult.Failed(input.agentId, preview(error.message))
+            AgentError.ToolExecutionError(name, failure.toJson)
+          .flatMap(observation =>
+            observedOutput[SubagentCatalogToolResult](
+              name,
+              observation,
+              result => SubagentCatalogToolResult.Agent(input.agentId, result)
             )
+          )
+      capture match
+        case Some(bound) => bound.sink.inspect(bound.taskId(input.value), invocation)(resolve)(read)
+        case None        => resolve.flatMap(target => read(target).map(_._2))
     )
 
   final private case class WaitInput(
@@ -565,9 +628,11 @@ object SubagentTools:
                   "Inbox-any waiting requires an explicit scoped wait session"
                 )
               )
-      (capture match
-        case Some(sink) => sink.waitFor(invocation)(waiting)
-        case None       => waiting
+      ((capture, registry) match
+        case (Some(sink), Some(target)) => sink.waitFor(target, invocation)(waiting)
+        case (Some(_), None) =>
+          ZIO.fail(AgentError.InvalidConfiguration("Task consumption requires a registry"))
+        case (None, _) => waiting
       ).map(projectWait)
     )
 
@@ -696,6 +761,19 @@ object SubagentTools:
       ZIO.suspendSucceed(run(input, invocation))
     def decodeInput(raw: Json): Either[String, In] = decode(raw)
     def encodeOutput(output: Out): String          = output.toJson
+
+  private def eventPort(invocation: ToolInvocation): Option[ToolEventPort] = invocation match
+    case ToolInvocation.Detached              => None
+    case ToolInvocation.Active(_, _, _, port) => Some(port)
+
+  private def observedOutput[Out: JsonEncoder](
+      name: String,
+      observation: Observation[SubagentToolResult],
+      wrap: SubagentToolResult => Out
+  ): IO[AgentError, (SubagentToolResult, Out)] = observation match
+    case Observation.Success(result) => ZIO.succeed((result, wrap(result)))
+    case Observation.Error(result) =>
+      respond(name, Observation.Error(wrap(result))).map(output => (result, output))
 
   private def respond[A: JsonEncoder](
       name: String,
