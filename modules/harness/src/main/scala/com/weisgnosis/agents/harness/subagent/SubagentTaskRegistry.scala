@@ -175,21 +175,28 @@ object SubagentTaskRegistry:
   def open(
       parent: SubagentSpawner[AgentResult],
       factory: SubagentFactory,
-      maxTracked: Int = 256
+      maxTracked: Int = 256,
+      workerId: Option[SubagentWorkerId] = None
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
-    openWith((input, id, events) => factory.spawn(parent, input, id, events), maxTracked)
+    openWith(
+      (input, id, events) => factory.spawn(parent, input, id, events),
+      maxTracked,
+      workerId = workerId
+    )
 
   /** Opt-in automatic terminal publication and restored read-only observations. */
   def openDurable(
       parent: SubagentSpawner[AgentResult],
       factory: SubagentFactory,
       terminalStore: SubagentTerminalStore,
-      maxTracked: Int = 256
+      maxTracked: Int = 256,
+      workerId: Option[SubagentWorkerId] = None
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
     openWith(
       (input, id, events) => factory.spawn(parent, input, id, events),
       maxTracked,
-      Some(terminalStore)
+      Some(terminalStore),
+      workerId
     )
 
   private[subagent] def openWith(
@@ -199,9 +206,10 @@ object SubagentTaskRegistry:
         TaskAdmission[AgentResult]
       ],
       maxTracked: Int,
-      terminalStore: Option[SubagentTerminalStore] = None
+      terminalStore: Option[SubagentTerminalStore] = None,
+      workerId: Option[SubagentWorkerId] = None
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
-    openInput[Msg](identity, launchTask, maxTracked, terminalStore)
+    openInput[Msg](identity, launchTask, maxTracked, terminalStore, workerId)
 
   private[subagent] def openInput[Input](
       fromMessage: Msg => Input,
@@ -211,7 +219,8 @@ object SubagentTaskRegistry:
         TaskAdmission[AgentResult]
       ],
       maxTracked: Int,
-      terminalStore: Option[SubagentTerminalStore] = None
+      terminalStore: Option[SubagentTerminalStore] = None,
+      workerId: Option[SubagentWorkerId] = None
   ): ZIO[Scope, AgentError, Live[Input]] =
     ZIO.uninterruptible:
       for
@@ -221,7 +230,7 @@ object SubagentTaskRegistry:
         gate        <- Semaphore.make(1)
         state       <- Ref.make[State](State.Open(Chunk.empty))
         persistence <- ZIO.foreach(terminalStore)(store => Scope.make.map(Persistence(store, _)))
-        registry = new Live(fromMessage, launchTask, maxTracked, gate, state, persistence)
+        registry = new Live(fromMessage, launchTask, maxTracked, gate, state, persistence, workerId)
         _ <- ZIO.addFinalizer(registry.close)
       yield registry
 
@@ -235,7 +244,8 @@ object SubagentTaskRegistry:
       maxTracked: Int,
       gate: Semaphore,
       state: Ref[State],
-      persistence: Option[Persistence]
+      persistence: Option[Persistence],
+      workerId: Option[SubagentWorkerId]
   ) extends SubagentTaskRegistry:
     def submit(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       submit(input, None)
@@ -286,7 +296,7 @@ object SubagentTaskRegistry:
                         for
                           publisher <- ZIO.foreach(persistence)(binding =>
                             binding.store
-                              .publishJoined(id, task)
+                              .publishJoined(id, task, workerId)
                               .interruptible
                               .forkIn(binding.owner)
                           )
@@ -385,7 +395,9 @@ object SubagentTaskRegistry:
       ): IO[AgentError, SubagentTerminalRecord] =
         persistence match
           case None =>
-            ZIO.succeed(SubagentTerminalRecord(id, SubagentTerminalOutcome.fromExit(exit)))
+            ZIO.succeed(
+              SubagentTerminalRecord(id, SubagentTerminalOutcome.fromExit(exit), workerId)
+            )
           case Some(binding) =>
             ZIO
               .fromOption(entry.publisher)

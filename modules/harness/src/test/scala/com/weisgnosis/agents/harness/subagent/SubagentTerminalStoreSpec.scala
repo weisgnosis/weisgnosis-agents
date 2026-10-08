@@ -93,6 +93,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
           target  <- address("owner-a")
           other   <- address("owner-b")
           store = SubagentTerminalStore.make(backend.store, target)
+          worker     <- ZIO.fromEither(SubagentWorkerId.from("joined worker λ"))
           supervisor <- TaskSupervisor.open[AgentResult]
           cleanup    <- Promise.make[Nothing, Unit]
           release    <- Promise.make[Nothing, Unit]
@@ -105,7 +106,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
           _    <- ZIO.addFinalizer(release.succeed(()).unit)
           publishing <- ZIO.uninterruptible:
             for
-              fiber <- store.publishJoined(firstId, task).interruptible.forkScoped
+              fiber <- store.publishJoined(firstId, task, Some(worker)).interruptible.forkScoped
               _     <- ZIO.addFinalizer(release.succeed(()).unit)
             yield fiber
           _             <- cleanup.await
@@ -139,7 +140,11 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
             case SubagentTerminalPublication.AlreadyStored(_) => false
           ,
           reopened.contains(
-            SubagentTerminalRecord(firstId, SubagentTerminalOutcome.Completed(reply.text))
+            SubagentTerminalRecord(
+              firstId,
+              SubagentTerminalOutcome.Completed(reply.text),
+              Some(worker)
+            )
           ),
           isolated.isEmpty,
           records.map(_.id) == Chunk(firstId, secondId),
@@ -241,7 +246,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
                       Json.Obj(fields :+ ("unknown" -> Json.Bool(true))),
                       Json.Obj(
                         fields.map((key, value) =>
-                          key -> (if key == "schemaVersion" then Json.Num(3) else value)
+                          key -> (if key == "schemaVersion" then Json.Num(4) else value)
                         )
                       ),
                       Json.Obj(
@@ -250,7 +255,15 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
                         )
                       ),
                       Json.Obj("schemaVersion" -> Json.Num(1), "records" -> Json.Str("invalid"))
-                    ) ++ malformedStamps
+                    ) ++ malformedStamps ++ Chunk("", " " * 2, "w" * 1025).map(identity =>
+                      Json.Obj(
+                        "schemaVersion" -> Json.Num(3),
+                        "records" -> Json.Arr(entries.map:
+                          case Json.Obj(values) =>
+                            Json.Obj(values :+ ("workerId" -> Json.Str(identity)))
+                          case other => other)
+                      )
+                    )
                   )
                 case _ => ZIO.fail(AgentError.StorageError("Missing fixture records"))
             case _ => ZIO.fail(AgentError.StorageError("Missing fixture object"))
@@ -327,9 +340,11 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
         target   <- address("legacy-ack")
         revision <- ZIO.fromEither(StorageRevision.fromLong(1L))
         first = SubagentTerminalRecord(firstId, SubagentTerminalOutcome.Completed("exact λ"))
+        worker <- ZIO.fromEither(SubagentWorkerId.from("metadata λ"))
         second = SubagentTerminalRecord(
           secondId,
-          SubagentTerminalOutcome.Failed(Chunk("failed"), SubagentTaskDefects.Absent)
+          SubagentTerminalOutcome.Failed(Chunk("failed"), SubagentTaskDefects.Absent),
+          Some(worker)
         )
         outcome <- ZIO.fromEither(first.outcome.toJsonAST.left.map(AgentError.StorageError(_)))
         legacy = Json.Obj(
@@ -344,8 +359,22 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
         unstamped     <- store.acknowledgement(firstId)
         missing       <- store.acknowledge(secondId)
         unchanged     <- backend.store.read(target)
-        boundedTarget <- address("ack-byte-limit")
-        _             <- SubagentTerminalStore.make(backend.store, boundedTarget).publish(first)
+        noBackfill    <- store.publish(first.copy(workerId = Some(worker))).either
+        schema2Target <- address("schema2-worker")
+        schema2 = Json.Obj(
+          "schemaVersion" -> Json.Num(2),
+          "records" -> Json.Arr(
+            Json.Obj("id" -> Json.Str(firstId.value.toString), "outcome" -> outcome)
+          )
+        )
+        _ <- backend.values.update(_.updated(schema2Target, VersionedJson(schema2, revision)))
+        schema2Store = SubagentTerminalStore.make(backend.store, schema2Target)
+        schema2Read      <- schema2Store.list
+        schema2Unchanged <- backend.store.read(schema2Target)
+        schema2Ack       <- schema2Store.acknowledge(firstId)
+        schema2Reopened  <- schema2Store.list
+        boundedTarget    <- address("ack-byte-limit")
+        _                <- SubagentTerminalStore.make(backend.store, boundedTarget).publish(first)
         boundedBefore <- backend.store
           .read(boundedTarget)
           .someOrFail(AgentError.StorageError("Missing bounded fixture aggregate"))
@@ -357,16 +386,39 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
           )
         )
         bounded = SubagentTerminalStore.make(backend.store, boundedTarget, limits)
-        boundedPending <- bounded.pending
-        oversizedAck   <- bounded.acknowledge(firstId).either
-        boundedAfter   <- backend.store.read(boundedTarget)
-        boundedStamp   <- bounded.acknowledgement(firstId)
-        at             <- Clock.instant
-        acknowledged   <- store.acknowledge(firstId)
-        _              <- TestClock.adjust(1.hour)
-        repeated       <- store.acknowledge(firstId)
-        idempotent     <- store.publish(first)
-        _              <- store.publish(second)
+        boundedPending      <- bounded.pending
+        oversizedAck        <- bounded.acknowledge(firstId).either
+        longWorker          <- ZIO.fromEither(SubagentWorkerId.from("w" * 1024))
+        workerTarget        <- address("worker-byte-limit")
+        workerControlTarget <- address("worker-byte-control")
+        _ <- backend.values.update(values =>
+          values.updated(workerTarget, boundedBefore).updated(workerControlTarget, boundedBefore)
+        )
+        workerLimits <- ZIO.fromEither(
+          SubagentTerminalStore.Limits.make(
+            256,
+            boundedBefore.value.toJson.getBytes(StandardCharsets.UTF_8).length + 512,
+            8
+          )
+        )
+        workerBounded = SubagentTerminalStore.make(backend.store, workerTarget, workerLimits)
+        workerBaseline <- workerBounded.list
+        workerControl <- SubagentTerminalStore
+          .make(backend.store, workerControlTarget, workerLimits)
+          .publish(second.copy(workerId = None))
+        oversizedWorker <- workerBounded.publish(second.copy(workerId = Some(longWorker))).either
+        workerAfter     <- backend.store.read(workerTarget)
+        boundedAfter    <- backend.store.read(boundedTarget)
+        boundedStamp    <- bounded.acknowledgement(firstId)
+        at              <- Clock.instant
+        acknowledged    <- store.acknowledge(firstId)
+        _               <- TestClock.adjust(1.hour)
+        repeated        <- store.acknowledge(firstId)
+        idempotent      <- store.publish(first)
+        _               <- store.publish(second)
+        secondStamp     <- store.acknowledge(secondId)
+        differentWorker <- store.publish(second.copy(workerId = None)).either
+        sameWorker      <- store.publish(second)
         reopened = SubagentTerminalStore.make(backend.store, target)
         records <- reopened.list
         pending <- reopened.pending
@@ -375,11 +427,35 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
         current <- backend.store.read(target)
       yield assertTrue(
         before == Chunk(first),
+        noBackfill.isLeft,
+        schema2Read == Chunk(first),
+        schema2Unchanged.contains(VersionedJson(schema2, revision)),
+        schema2Reopened == Chunk(first),
+        schema2Ack match
+          case SubagentTerminalAcknowledgeResult.Acknowledged(_) => true
+          case _                                                 => false
+        ,
+        secondStamp match
+          case SubagentTerminalAcknowledgeResult.Acknowledged(_) => true
+          case _                                                 => false
+        ,
+        differentWorker.isLeft,
+        sameWorker match
+          case SubagentTerminalPublication.AlreadyStored(_) => true
+          case _                                            => false
+        ,
         unstamped.contains(SubagentTerminalAcknowledgement.Pending),
         missing == SubagentTerminalAcknowledgeResult.Missing,
         unchanged.contains(VersionedJson(legacy, revision)),
         boundedPending == Chunk(first),
         oversizedAck.isLeft,
+        workerBaseline == Chunk(first),
+        workerControl match
+          case SubagentTerminalPublication.Stored(_) => true
+          case _                                     => false
+        ,
+        oversizedWorker.isLeft,
+        workerAfter.contains(boundedBefore),
         boundedAfter.contains(boundedBefore),
         boundedStamp.contains(SubagentTerminalAcknowledgement.Pending),
         acknowledged == SubagentTerminalAcknowledgeResult.Acknowledged(at),
@@ -389,11 +465,11 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
           case _                                            => false
         ,
         records == Chunk(first, second),
-        pending == Chunk(second),
+        pending.isEmpty,
         stamp.contains(SubagentTerminalAcknowledgement.Acknowledged(at)),
         absent.isEmpty,
         current.exists(_.value match
-          case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(2))
+          case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(3))
           case _                => false)
       )
     ,

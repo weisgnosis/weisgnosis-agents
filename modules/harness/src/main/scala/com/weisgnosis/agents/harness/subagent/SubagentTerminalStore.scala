@@ -67,10 +67,11 @@ trait SubagentTerminalStore:
   /** The caller owns this effect; awaiting publication does not transfer or cancel task ownership. */
   final def publishJoined(
       id: SubagentTaskId,
-      task: SupervisedTask[AgentResult]
+      task: SupervisedTask[AgentResult],
+      workerId: Option[SubagentWorkerId] = None
   ): IO[AgentError, SubagentTerminalPublication] =
     task.await.flatMap(exit =>
-      publish(SubagentTerminalRecord(id, SubagentTerminalOutcome.fromExit(exit)))
+      publish(SubagentTerminalRecord(id, SubagentTerminalOutcome.fromExit(exit), workerId))
     )
 
 object SubagentTerminalStore:
@@ -105,12 +106,21 @@ object SubagentTerminalStore:
   final private case class LegacyEntry(id: UUID, outcome: SubagentTerminalOutcome) derives JsonCodec
   final private case class LegacyPayload(schemaVersion: Int, records: Chunk[LegacyEntry])
       derives JsonCodec
-  final private case class Entry(
+  final private case class Schema2Entry(
       id: UUID,
       outcome: SubagentTerminalOutcome,
       acknowledgedAt: Option[Instant] = None
+  ) derives JsonCodec
+  final private case class Schema2Payload(schemaVersion: Int, records: Chunk[Schema2Entry])
+      derives JsonCodec
+  final private case class Entry(
+      id: UUID,
+      outcome: SubagentTerminalOutcome,
+      acknowledgedAt: Option[Instant] = None,
+      workerId: Option[SubagentWorkerId] = None
   ) derives JsonCodec:
-    def record: SubagentTerminalRecord = SubagentTerminalRecord(SubagentTaskId(id), outcome)
+    def record: SubagentTerminalRecord =
+      SubagentTerminalRecord(SubagentTaskId(id), outcome, workerId)
     def acknowledgement: SubagentTerminalAcknowledgement = acknowledgedAt match
       case None     => SubagentTerminalAcknowledgement.Pending
       case Some(at) => SubagentTerminalAcknowledgement.Acknowledged(at)
@@ -188,7 +198,11 @@ object SubagentTerminalStore:
               )
             case (_, None) =>
               for
-                value  <- ZIO.fromEither(encode(records :+ Entry(record.id.value, record.outcome)))
+                value <- ZIO.fromEither(
+                  encode(
+                    records :+ Entry(record.id.value, record.outcome, workerId = record.workerId)
+                  )
+                )
                 result <- store.compareAndSet(address, expectedRevision(revision), value)
                 publication <- result match
                   case ConditionalWrite.Applied(updated) =>
@@ -217,7 +231,7 @@ object SubagentTerminalStore:
     private def encode(records: Chunk[Entry]): Either[AgentError, Json] =
       for
         value <- Payload(
-          2,
+          3,
           records
         ).toJsonAST.left.map(AgentError.StorageError.apply)
         _ <- decode(value)
@@ -245,6 +259,14 @@ object SubagentTerminalStore:
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
             yield (payload.records.map(entry => Entry(entry.id, entry.outcome)), canonical)
           case 2 =>
+            for
+              payload   <- rendered.fromJson[Schema2Payload].left.map(AgentError.StorageError.apply)
+              canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
+            yield (
+              payload.records.map(entry => Entry(entry.id, entry.outcome, entry.acknowledgedAt)),
+              canonical
+            )
+          case 3 =>
             for
               payload   <- rendered.fromJson[Payload].left.map(AgentError.StorageError.apply)
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)

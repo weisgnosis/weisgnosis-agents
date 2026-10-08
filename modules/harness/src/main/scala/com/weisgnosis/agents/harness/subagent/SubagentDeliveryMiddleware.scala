@@ -459,7 +459,8 @@ object SubagentDeliveryMiddleware:
           "\n[Output truncated; the exact record remains available to the host.]"
         else ""
       val preview = escape(bounded.text + omission)
-      s"<task id=\"${record.id.value}\" state=\"$status\">\n<$tag>\n$preview\n</$tag>\n</task>"
+      val worker  = record.workerId.fold("")(identity => s" agent=\"${escape(identity.value)}\"")
+      s"<task id=\"${record.id.value}\" state=\"$status\"$worker>\n<$tag>\n$preview\n</$tag>\n</task>"
     val overflow =
       if total > records.size then
         s"\n... and ${total - records.size} more — call task_list() to inspect additional task previews.\n"

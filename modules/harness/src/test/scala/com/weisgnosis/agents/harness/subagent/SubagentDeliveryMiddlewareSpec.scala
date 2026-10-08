@@ -78,7 +78,8 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
         case 4 => SubagentTerminalOutcome.Interrupted(Chunk("failure"), SubagentTaskDefects.Present)
         case 5 => SubagentTerminalOutcome.Completed("😀" * 3000)
         case _ => SubagentTerminalOutcome.Completed(s"result $index")
-      SubagentTerminalRecord(SubagentTaskId(new UUID(0L, index.toLong)), outcome)
+      val worker = if index == 1 then SubagentWorkerId.from("worker <&\"'λ").toOption else None
+      SubagentTerminalRecord(SubagentTaskId(new UUID(0L, index.toLong)), outcome, worker)
 
   private def store(owner: String): IO[AgentError, SubagentTerminalStore] =
     for
@@ -153,6 +154,10 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
                 else "12 background subagent tasks have completed"
               ),
               text.contains("<task_result>"),
+              text.contains("state=\"completed\" agent=\"worker &lt;&amp;&quot;&apos;λ\""),
+              size == 1 || text.contains(
+                "<task id=\"00000000-0000-0000-0000-000000000002\" state=\"error\">"
+              ),
               text.contains("the-result &lt;task&gt; &amp; &quot;quoted&quot;"),
               !text.contains("the-result <task>"),
               text.split("<task ", -1).length - 1 == size.min(10),

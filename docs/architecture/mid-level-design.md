@@ -116,6 +116,8 @@ The [bound task-result consumption](../../modules/harness/src/main/scala/com/wei
 
 ## 9. Subagent execution and remaining integration
 
+[Worker identity](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#worker-identity) is optional checked host input captured once by a registry. Stored identity remains authoritative on reopen; no current registry name backfills it. Schema-3 mutation preserves original output and acknowledgement, and reminders escape the supplied attribute. Running ownership, durable cancellation and session restoration remain separate work.
+
 SubagentSessionDirectory adds bounded host registration and lookup of acquired sessions. Removal and shutdown join cleanup without extending the original caller/supervisor lifetime. Directory IDs are membership data, separate from execution IDs and authorization.
 
 TaskSupervisor owns local executions and parent cancellation leases. Each awaitOrPromote invocation starts a fresh 30-second wait; after the timer wins, masked promotion relinquishes the parent lease without moving/restarting execution. Tool adapters can instead select a checked synchronous host budget through ten minutes, returning a timeout Error without a task ID only after cancellation joins cleanup. Explicit cancellation and owner closure join cleanup and full Exit remains observable. The owner Scope outlives promoted work only when the host retains it. Shared resource owners join initialization and nested workers before releasing retained resources; competing library close paths share the cleanup outcome.

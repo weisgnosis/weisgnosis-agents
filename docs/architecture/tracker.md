@@ -33,9 +33,13 @@ Execute the original scope without substituting a narrower release checklist. Li
 - [x] Verify shared timeout admission, budget recovery, truthful no-work outcomes and cancellation/close ownership: target/inbox-wait-focused-final.log passes 25 harness and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
 - [x] Obtain final independent FP/ZIO and invariant source approval and pass full/artifact/external-consumer verification for the scoped inbox increment.
 - [x] review_fp and review_invariants approve the final combined ten-Scala/sixteen-Markdown scope against d38b376, with no unresolved findings.
-- [ ] Current task: persist truthful worker identity metadata and close the remaining reminder attribute assertion, then independently review and verify that increment.
-- [ ] Persist truthful worker identity metadata and close the remaining reminder attribute assertion.
-- [ ] Integrate other required routed result consumption; erased/replaced final output must remain pending.
+- [x] Implement explicit checked optional worker identity, schema-3 migration, retained acknowledgement and escaped reminder attributes. Both independent source reviews approve the ten exact identities.
+- [x] Verify 22 focused harness and two actual PostgreSQL groups, including the corrected isolated metadata-byte-growth oracle.
+- [x] Pass worker-identity full/artifact/external-consumer verification with zero failures or compiler warnings.
+- [x] review_fp and review_invariants approve the final combined scope against 7bff28a: ten unchanged Scala identities and fourteen Markdown files, no unresolved findings.
+- [ ] Current task: add explicit borrowed terminal-store bindings to catalogs and reusable sessions as the prerequisite for other routed consumption.
+- [ ] Integrate other required routed result consumption without granting authority from route strings.
+- [ ] Verify other required routed result consumption; erased/replaced final output must remain pending.
 - [ ] Implement durable admitted/running identity and current-owner cancellation intent, retaining truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
@@ -70,17 +74,15 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [scoped inbox and task wait contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#current-acceptance) owns the current ten-Scala increment against d38b376, manifest e395bee3430a652124dd13082e4e4b570c6f9ad9f53d93f5a4640783e1f28322. The unchanged core observer and prior reminder/inspection contracts remain prerequisites, not whole-plan acceptance.
+The [worker identity contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#worker-identity) owns the current ten-Scala increment against 7bff28a, manifest 5d2ba2b44dc128e19a4a72a21984d5b3aea4c346336b14bdeaec3c6ae99459d1. Existing scoped wait and persistence authority remain prerequisites; descriptive identity grants no execution authority.
 
-- [x] Implement explicit latched inbox arrival, shared scoped two-empty-timeout budget, truthful readiness and same-registry persisted complete-result consumption.
-- [x] Reproduce readiness, arrival, lifecycle and parallel publication defects through public assertion failures before correcting them; the canonical contract records exact RED identities and cause policies.
-- [x] review_fp and review_invariants explicitly approve all ten formatted source identities, with no unresolved source findings.
-- [x] target/inbox-wait-focused-final.log passes 25 harness and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
-- [x] target/inbox-wait-final-verify.log passes all 1,616 tests (695 core / 759 harness / 130 MCP / 24 actual PostgreSQL / eight examples), formatting/fatal-warning compilation and four RC1 packages, zero failed/ignored/compiler warnings.
-- [x] Archive admission and fresh standalone formatting/compilation/execution with four artifact hash checks pass. The unchanged consumer does not independently exercise new inbox/session APIs.
-- [x] review_fp and review_invariants approve the final combined scope against d38b376: ten unchanged Scala identities and sixteen Markdown files, no unresolved findings. Manual English inspection, changed UTF-8/script/diff checks and 79-document/3,423-local-reference validation pass.
+- [x] Implement explicit checked host identity, strict schema-3 writes with schema-1/2 reads, immutable identity equality and escaped optional reminder attributes.
+- [x] review_fp and review_invariants approve all ten source identities with no unresolved findings.
+- [x] target/worker-identity-focused-final.log passes 22 harness and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
+- [x] target/worker-identity-final-verify.log passes formatting/fatal-warning compilation, 1,617 tests (695 core / 760 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission and fresh standalone formatting/compilation/execution with four artifact hash checks pass; the unchanged consumer does not independently exercise identity.
+- [x] review_fp and review_invariants approve the final combined scope against 7bff28a: ten unchanged Scala identities and fourteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,460-local-reference validation pass.
 
-All eighteen classified wait methods now have bounded mappings. Worker metadata, other routed consumption, completion ordering, durable cancellation/running authority, session restoration, remaining original-plan applicability and the actual product cutover remain unfinished. No whole-plan completion or publication is claimed.
+All eighteen classified wait methods and nine reminder methods have bounded mappings. Other routed consumption, completion ordering, durable cancellation/running authority, session restoration, remaining original-plan applicability and the actual product cutover remain unfinished. No whole-plan completion or publication is claimed.
 
 The immutable process launcher remains in force and its current modified source identities redirect to the negotiation manifest. Its production dependency eviction diagnostics remain visible: no suppression or universal binary compatibility claim. SLF4J/dependency/runtime notices are distinct from compiler warnings.
 

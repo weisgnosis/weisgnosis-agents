@@ -1,5 +1,37 @@
 # Scoped child execution and sessions
 
+## Worker identity
+
+SubagentWorkerId.from checks an explicitly host-declared identifier: nonblank valid Unicode, at most 1,024 UTF-8 bytes, preserving the exact supplied value. It grants no execution, session or authorization capability. Neither a task UUID nor AgentConfig.name supplies a worker identity implicitly.
+
+SubagentTerminalRecord adds workerId: Option[SubagentWorkerId], defaulting to None. SubagentTaskRegistry.open/openDurable capture the supplied optional identity once for new local terminal observations; publishJoined accepts the same explicit argument. Reopened stored records preserve their original identity, including None. The current registry never backfills old records with its own identity. Complete record equality includes the identity: republishing an occupied task with a different identity, or None versus Some, conflicts.
+
+New terminal aggregate writes use schema 3. Strict schema-1/schema-2 readers normalize absent identity to None without rewriting; schema-2 acknowledgement timestamps survive migration. Schema-3 writes preserve identity through acknowledgement and concurrent publication. Aggregate byte limits include the encoded identity. Older schema-1/2-only adapters reject schema 3; hosts must coordinate reader/writer versions and backups. This is not a cross-process ownership or fencing protocol.
+
+Reminder rendering includes an escaped agent attribute only for Some identity. Legacy None records omit it; output preview and acknowledgement authority remain unchanged. The attribute identifies the host-declared worker and does not prove execution ownership or completed delivery.
+
+Migration: defaulted Scala construction remains available, but SubagentTerminalRecord product/extractor arity and registry/publishJoined JVM signatures change. Recompile dependent binaries and update positional extractors. No new dependency or core runtime signature is introduced. The opt-in identity is a local library policy, not a universal provider identifier format.
+
+The worker-identity scope against 7bff28a comprises the ten Scala identities below, path-first manifest SHA-256 5d2ba2b44dc128e19a4a72a21984d5b3aea4c346336b14bdeaec3c6ae99459d1. review_fp and review_invariants explicitly approve all ten source identities with no unresolved source findings. Full verification, artifact consumption and archive admission pass; review_fp and review_invariants approve the final combined scope against 7bff28a: ten unchanged Scala identities and fourteen Markdown files, no unresolved findings.
+
+| Reviewed source | Git blob |
+| --- | --- |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | `a8984aad90892f675b312ac58d594299bbd16f74` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `49406d3a2e0360b56f159c4c9fda6cb6568b3cd5` |
+| [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | `d968f629b07dedb821441875f592f3df860eda34` |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `d404631894e316c97766f88eaedd4741cc043ac4` |
+| [SubagentWorkerId.scala](SubagentWorkerId.scala) | `995f78340c7d78df098c8f791d6aca67cf9621ff` |
+| [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | `9657165b46f5a4fb3d877e72b46b28ecee0c3b82` |
+| [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | `7459140ee5060636b764c838ae659a2fde0effee` |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | `bb4f1404001f39d70555aa5505fe68eb6269a00e` |
+| [SubagentWorkerIdSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWorkerIdSpec.scala) | `d9e414b8a57d167d597bcfeea53c39aec9730c16` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `2f26ae439d884b105ae225184cc0fb6f26149ff1` |
+
+- [x] review_fp and review_invariants approve the ten exact worker-identity source/specification identities against 7bff28a, with no unresolved source findings.
+- [x] target/worker-identity-focused-final.log passes 22 harness groups in 4.044 seconds and two actual PostgreSQL groups in 2.230 seconds, zero failed/ignored/compiler warnings. One new identity/codec group and existing store/registry/reminder/PostgreSQL fixtures cover validation, strict migration, identity conflicts, joined publication and escaped actual request text. The corrected byte-growth oracle proves a fitting baseline, successful no-identity control, oversized-identity rejection and exact unchanged stored bytes/revision.
+- [x] target/worker-identity-final-verify.log passes formatting/fatal-warning compilation, all 1,617 tests (695 core / 760 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. target/worker-identity-final-preparation.log passes archive admission; target/worker-identity-final-consumer.log passes fresh external formatting/compilation/execution and four artifact hash checks. The unchanged consumer does not independently exercise worker identity.
+- [x] review_fp and review_invariants approve the final combined scope against 7bff28a: ten unchanged Scala identities and fourteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,460-local-reference validation pass.
+
 ## Local task wait barriers
 
 [SubagentTaskBarrier](SubagentTaskBarrier.scala).await observes one checked selection without taking cancellation ownership. SubagentTaskSelection.selected requires 1-128 distinct IDs and preserves their order. CurrentRunning captures the registry's current entries once and samples each local task's joined completion state before backend I/O. This is a fixed local membership snapshot, not an atomic distributed snapshot: initially completed local entries and stored-only records are excluded; later admissions never join the set. A captured running entry remains selected if it finishes during storage access.
@@ -32,24 +64,24 @@ The receipt is removed before one interruptible sequential acknowledgement pass 
 
 Attached inspection/wait, all four hooks and close share one permit through prior scoped cleanup and acknowledgement. The barrier budget starts after this permit is acquired, not while queued behind another adapter operation. For the scoped open factory, close first signals and joins its owned wait session, then joins adapter operations. The barrier-only make factory retains its existing close behavior. Neither closes the borrowed inbox; spawn/cancel remain registry-owned and outside the permit. Callbacks must not reenter the adapter or await its parent run lock. Keep the adapter scope alive through configured invocations.
 
-Migration: ordinary registry/session toolkits now include wait_async_results; update exact tool allowlists and resolve explicit toolkit name collisions. No new dependency or core runtime signature is introduced by this increment. Routed consumption, truthful worker metadata, durable running/cancellation ownership and session restoration remain open. The current acceptance checklist governs scoped inbox/session changes.
+Migration: ordinary registry/session toolkits now include wait_async_results; update exact tool allowlists and resolve explicit toolkit name collisions. No new dependency or core runtime signature is introduced by this increment. Routed consumption, durable running/cancellation ownership and session restoration remain open. The separate worker-identity scope records its final acceptance. The current acceptance checklist governs scoped inbox/session changes.
 
 ### Current acceptance
 
-The source-reviewed scope against d38b376 comprises the ten Scala identities below, path-first manifest SHA-256 e395bee3430a652124dd13082e4e4b570c6f9ad9f53d93f5a4640783e1f28322. review_fp and review_invariants explicitly approve these exact identities with no unresolved source findings. Full verification, four packages, archive admission and fresh external consumption pass; review_fp and review_invariants also approve the final combined scope against d38b376: ten unchanged Scala identities and sixteen Markdown files, with no unresolved findings. The prior core observation contracts remain prerequisites; this increment does not reconstruct execution from stored JSON.
+The scoped wait behavior retains its independently accepted review against d38b376. The table below records its unchanged source identities and redirects changed shared files to the current worker-identity scope. Prior core observation contracts remain prerequisites; stored JSON never reconstructs execution.
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | `61d45a106aa4ddb21b49f597f12c00b0c612abce` |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentInbox.scala](SubagentInbox.scala) | `3afbe9df8cde5905c33412ff99efc736a87633e6` |
 | [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | `9ded022f052fc70c67ad3d6fa38de86a7048f642` |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `46cee685ecbe48e67ad3819ca044f1376c649385` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentTools.scala](SubagentTools.scala) | `e710b41c1a251b16aa56c7ea68251c083c31ffc2` |
 | [SubagentWaitSession.scala](SubagentWaitSession.scala) | `631f1ba893fd18d310feb93dffff73d0b41a89eb` |
 | [SubagentInboxSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentInboxSpec.scala) | `4ef2922bc7b6417e4d2e158fe1e607b95762c33c` |
 | [SubagentTaskBarrierSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskBarrierSpec.scala) | `79a458f9ef60ace24bc8019b004f837697f89183` |
 | [SubagentWaitSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWaitSessionSpec.scala) | `157278f247fc5e2c252464d6befdbf93dd9b2a2e` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `d9a8a0d663744986229325652f96b8e2c4d76cf8` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
 
 Confirmed draft defects were reproduced before correction. target/inbox-wait-draft-red.log records two passing groups and one failing group: selected readiness returned AdmissionTimedOut instead of BudgetExhausted, legacy terminal readiness returned AdmissionTimedOut instead of AllTerminal, and held-probe arrival returned NoTasks/AllTerminal instead of InboxArrived. The defective session blob is 32ca0bdb0dea2a4e2df1abeb4aa62c289277407c, registry 3d65a525f19288db1689eafef45ccf5be3478dca and regression 7479287d6a7e607958f51954339402bf81d9885a.
 
@@ -68,7 +100,7 @@ SubagentInboxSpec contributes one grouped arrival/drain/rearm/close contract; Su
 
 [SubagentDeliveryMiddleware](SubagentDeliveryMiddleware.scala) is an explicitly installed scoped adapter for one parent ReActAgent and its durable registry. make allocates one bounded reminder capture plus the bounded task-result receipts described above, with no background worker. configure replaces the builder's history preparer, accepted-response observer, local-result observer and completion observer using the explicitly supplied prior hooks; existing builder settings are not inspected or implicitly preserved. Supply every prior hook that must remain installed. Preparation runs after prior scoped cleanup, acknowledgement after prior accepted-observer cleanup, and matching ownership release follows prior terminal-observer cleanup even when it fails.
 
-Before reasoning, the adapter selects at most ten pending immutable terminal records and persists one identified synthetic User message named system, with agentscope_synthetic=true and agentscope_reminder_kind=task_delivery. The message contains system-reminder/task blocks and the original snapshot's overflow count. Untrusted output is escaped after the existing surrogate-safe 4,000-character preview policy; truncation is explicit. Exact records remain available through the host store. Model task tools also return previews. Completed/error/pure-cancellation states preserve their meaning; suspended/stopped and mixed interrupted failures remain explicit. No worker-name or completion-time metadata is fabricated from terminal records that do not contain it.
+Before reasoning, the adapter selects at most ten pending immutable terminal records and persists one identified synthetic User message named system, with agentscope_synthetic=true and agentscope_reminder_kind=task_delivery. The message contains system-reminder/task blocks and the original snapshot's overflow count. Untrusted output is escaped after the existing surrogate-safe 4,000-character preview policy; truncation is explicit. Exact records remain available through the host store. Model task tools also return previews. Completed/error/pure-cancellation states preserve their meaning; suspended/stopped and mixed interrupted failures remain explicit. Worker identity is rendered only when explicitly present under the [worker identity contract](#worker-identity); missing identity and completion-time metadata are never fabricated.
 
 The accepted-response hook acknowledges only the fixed captured IDs, only for the matching invocation and only when the exact captured Msg occurs in both the actual winning request and accepted canonical history. Metadata, IDs or a matching text substring alone are insufficient. An input transformation that removes or edits the reminder leaves it pending. Discarded, failed and interrupted responses do not acknowledge; accepted thinking-only, final and before-acting suspended responses do. Resuming a saved assistant does not consume it again, while a later new reasoning response can consume a fresh batch. Later invocation failure or structured decoding failure does not undo consumption by an already accepted response.
 
@@ -80,10 +112,10 @@ The close defect was reproduced before fixing the new draft in target/subagent-r
 
 | Reviewed source against a33488e | Git blob |
 | --- | --- |
-| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | [Current bound-inspection identity](#bound-task-inspection-consumption); reminder behavior retained. |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentTools.scala](SubagentTools.scala) | [Current bound-inspection identity](#bound-task-inspection-consumption); reminder behavior retained. |
-| [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | `bcd37b6ec0b563e28bcc93be0a91b5282d508992`; unchanged reminder/inspection specification, outside the seven-file increment. |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current bound-inspection identity](#bound-task-inspection-consumption); reminder behavior retained. |
+| [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | [Current worker-identity scope](#worker-identity) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
 
 - [x] Implement bounded captured reminders, exact winning-input consumption and scoped configured-hook ownership; current four-hook integration belongs to the bound inspection scope above.
 - [x] Reproduce and correct the configured-hook close race without weakening its regression assertions.
@@ -91,8 +123,8 @@ The close defect was reproduced before fixing the new draft in target/subagent-r
 - [x] target/subagent-reminder-focused-green.log passes 17 harness groups and two actual PostgreSQL groups; target/subagent-reminder-pg-unicode-green.log reruns the final Unicode-correct PostgreSQL spec, two passed/zero failed/ignored.
 - [x] target/subagent-reminder-final-verify.log passes formatting, fatal-warning compilation and all 1,603 tests (692 core / 749 harness / 130 MCP / 24 actual PostgreSQL / eight examples), zero failed/ignored/compiler warnings, and builds four RC1 packages with a fresh PostgreSQL fixture.
 - [x] target/subagent-reminder-final-preparation.log passes archive admission and three restored negative checks; target/subagent-reminder-final-consumer.log passes fresh standalone compilation/execution and four artifact hashes. The unchanged consumer does not independently exercise the middleware.
-- [x] review_fp and review_invariants approve final combined documentation against a33488e for four unchanged Scala identities and fourteen Markdown files, no unresolved findings. English prose and 79-document/3,377-local-reference checks pass. Worker metadata remains open. The [current barriers and scoped inbox/session](#current-acceptance) own eighteen bounded wait mappings; other routing, durable cancellation/running authority and session restoration remain open.
-- [ ] Persist truthful worker metadata before closing the remaining attribute assertion in the nine-method upstream reminder inventory.
+- [x] review_fp and review_invariants approve final combined documentation against a33488e for four unchanged Scala identities and fourteen Markdown files, no unresolved findings. English prose and 79-document/3,377-local-reference checks pass. The separate [worker identity scope](#worker-identity) has final source, combined documentation and verification approval. The [current barriers and scoped inbox/session](#current-acceptance) own eighteen bounded wait mappings; other routing, durable cancellation/running authority and session restoration remain open.
+- [x] Implement and independently source-review explicit worker metadata for the remaining reminder attribute mapping; full/artifact and final combined gates belong to the [worker identity scope](#worker-identity).
 - [x] Implement explicitly bound task inspection consumption under its separate source-reviewed scope above.
 - [ ] Complete other routed result consumption, cancellation intent, wakeup ownership and executable session restoration separately.
 
@@ -112,7 +144,7 @@ Final formatted source scope against `bad689e`, manifest SHA-256 `048f7c44889cfd
 | --- | --- |
 | [SubagentTerminalDelivery.scala](SubagentTerminalDelivery.scala) | `76b3d126cb78ebeb1aebe9267c6850e14a6db628` |
 | [SubagentTerminalDeliverySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalDeliverySpec.scala) | `52b0f0e1f93dc3539b335baaccbb31cbbe869322` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current bound-inspection integration identity](#bound-task-inspection-consumption); explicit delivery behavior retained. |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
 
 - [x] Implement explicit bounded success-only delivery and paired contracts for selected IDs, duplicate rejection, missing/uncertain receipts and callback cleanup.
 - [x] Correct draft fixture cancellation gaps by masking fork/unblock registration together; these were test lifecycle findings, not accepted baseline production defects.
@@ -130,11 +162,11 @@ The store's additive `pending`, `acknowledgement(id)` and `acknowledge(id)` APIs
 
 Acknowledgement updates the same bounded aggregate as terminal publication. The first timestamp wins; repeated acknowledgement and idempotent republication retain it. A concurrent publication copies every existing entry including its stamp, and acknowledgement retains every immutable outcome. No orphan acknowledgement can be inserted. Clock.instant runs only after a pending persisted record is found; one candidate is retained across bounded retries of confirmed CAS conflicts. Backend failure, uncertain acknowledgement and cancellation are not retried. A later explicit read or acknowledgement may reveal that an uncertain write committed. The timestamp records the host acknowledgement operation; it proves neither completion time, authenticated receipt nor exactly-once delivery.
 
-Schema-version-1 data is checked in its original canonical representation and read as Pending without migration or a clock read. New successful writes use strict schema version 2 with optional acknowledgedAt fields. Reading preserves exact output and aggregate order. Invalid timestamps, explicit null stamps, unsupported versions, unknown/duplicate fields, duplicate task IDs and malformed Unicode fail validation. Byte/count limits include timestamp growth; a stamp that exceeds capacity fails without dropping records or altering stored state. Older readers that accept schema 1 only reject schema 2. Hosts must coordinate reader/writer versions and retain their own backups before forward migration; this API supplies no downgrade converter or storage backup.
+Schema-version-1 data is checked in its original canonical representation and read as Pending without migration or a clock read. Schema 2 retains optional acknowledgedAt fields. New successful writes use strict schema 3 under the [worker identity migration](#worker-identity), preserving existing stamps, exact output and aggregate order. Invalid timestamps, explicit null stamps, unsupported versions, unknown/duplicate fields, duplicate task IDs and malformed Unicode fail validation. Byte/count limits include timestamp growth; a stamp that exceeds capacity fails without dropping records or altering stored state. Older schema-1/2-only readers reject schema 3. Hosts must coordinate reader/writer versions and retain their own backups before forward migration; this API supplies no downgrade converter or storage backup.
 
 Opt-in durable registries expose `durablePendingDeliveries`, `terminalAcknowledgement(id)` and `acknowledgeTerminal(id)`. These methods use the owner-selected store and propagate typed failures. Local completed publication receipts are barriers before exposing or acknowledging stored data, including completion that occurs during a held backend read. Still-running local work does not block authoritative stored terminal data. Cancelling an observer does not cancel an owned publisher. Existing live pendingDeliveries/acknowledge APIs remain separate and still reject durable registries; restored observations never become fabricated live Exit values. These new APIs remain usable after registry closure while the host retains backend access.
 
-Pending order is aggregate publication order, not restored completion/submission-time order. Observation reads are not exclusive claims: concurrent consumers can see duplicates and an acknowledgement can race a pending snapshot. The host owns delivery, authentication, deduplication and the decision to acknowledge. The [explicit success-only delivery seam](#explicit-terminal-batch-delivery) is available. The opt-in [reasoning reminder adapter](#automatic-reasoning-reminders) supplies captured push injection. Automatic task-tool acknowledgement, durable cancellation intent and executable session restoration remain separate original obligations.
+Pending order is aggregate publication order, not restored completion/submission-time order. Observation reads are not exclusive claims: concurrent consumers can see duplicates and an acknowledgement can race a pending snapshot. The host owns delivery, authentication, deduplication and the decision to acknowledge. The [explicit success-only delivery seam](#explicit-terminal-batch-delivery) is available. The opt-in [reasoning reminder adapter](#automatic-reasoning-reminders) supplies captured push injection. Other routed task-tool acknowledgement, durable cancellation intent and executable session restoration remain separate original obligations.
 
 The new draft per-ID barrier defect was reproduced in target/durable-ack-running-read-draft-red.log before correction: three groups passed and one failed because a held read exposed a stamp and admitted a second write while a now-completed task's publication receipt was still pending. Defective Registry blob: `86bf25f4b898f070228c0835507cf785e1eb0449`; regression specification: `fcbc6e6b0bfbee25eb6e7d7435cb13f7f6e6a11a`. This is a defect in the new draft, not the accepted 1925481 baseline.
 
@@ -142,11 +174,11 @@ Final formatted source scope against `1925481`, manifest SHA-256 `63a32103584533
 
 | File | Git blob |
 | --- | --- |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current captured-wait identity](#current-acceptance); terminal acknowledgement behavior retained. |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `3b6eeeefbf36f892be41176769ea58cc042efb72` |
-| [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | `fcbc6e6b0bfbee25eb6e7d7435cb13f7f6e6a11a` |
-| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | `6b66ac1bf046c809109c478a577a8bd418a1883a` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current explicit delivery identity](#explicit-terminal-batch-delivery) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current worker-identity scope](#worker-identity) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | [Current worker-identity scope](#worker-identity) |
+| [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | [Current worker-identity scope](#worker-identity) |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
 
 - [x] Implement bounded schema migration, first-stamp acknowledgement and observation-based registry APIs with paired contracts.
 - [x] Reproduce the stale-running per-ID barrier assertion failure before correction.
@@ -178,13 +210,13 @@ Final formatted source scope against `5f75a0a`, manifest SHA-256 `7a8aa0d20accc4
 
 | File | Git blob |
 | --- | --- |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentTaskObservation.scala](SubagentTaskObservation.scala) | `c36108dfc8016dc18fc8ee619028a841b260f012` |
 | [SubagentTools.scala](SubagentTools.scala) | [Current reminder preview visibility identity](#automatic-reasoning-reminders); previous behavior retained. |
 | [SubagentTaskListTool.scala](SubagentTaskListTool.scala) | `48f77b8784e0bcf9e5c81dd36f9abf06554c8776` |
-| [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
-| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current explicit delivery identity](#explicit-terminal-batch-delivery) |
+| [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | [Current worker-identity scope](#worker-identity) |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
 
 - [x] Implement the bounded opt-in publication owner and model-facing terminal views.
 - [x] Reproduce the held-ack assertion failure before applying its correction.
@@ -195,13 +227,13 @@ Final formatted source scope against `5f75a0a`, manifest SHA-256 `7a8aa0d20accc4
 - [x] target/durable-registry-final-preparation.log passes archive admission and reversible negative checks.
 - [x] target/durable-registry-final-consumer.log passes fresh standalone formatting, clean compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise the new registry APIs.
 - [x] review_fp and review_invariants approve final combined documentation against `5f75a0a` for eighteen files (seven unchanged Scala identities and eleven Markdown files), with no unresolved findings.
-- [ ] Implement original running-record metadata, durable cancellation intent, remaining wait/routing/notification integration and executable session restoration separately. The [durable acknowledgement ledger](#durable-terminal-acknowledgement) is implemented.
+- [ ] Implement original running-record metadata, durable cancellation intent, durable running-barrier restoration, other routed consumption and notification integration and executable session restoration separately. The [durable acknowledgement ledger](#durable-terminal-acknowledgement) is implemented.
 
 ## Durable terminal observations
 
 [SubagentTerminalStore](SubagentTerminalStore.scala) provides an explicitly host-addressed owner partition over VersionedJsonStore. `publish(record)` conditionally appends an immutable caller-supplied observation; the supplied data does not prove that execution or cleanup occurred. Only publishJoined waits for the actual task handle. `read(id)` and `list` return checked stored data, including through a newly constructed adapter. The host supplies the exact StorageAddress and backend and owns authentication, namespace isolation, provisioning and retention. The store itself installs no global scan or autonomous scheduler; the opt-in [registry publication owner](#registry-terminal-publication) supplies its separate integration.
 
-[SubagentTerminalOutcome](SubagentTerminalOutcome.scala) preserves exact successful reply text as Completed or Suspended, a stopped reason, or typed failure messages plus explicit defect presence. Interruption remains distinguishable even alongside failures/defects. These values are observations, not executable Exit values or serialized Throwable trees. Suspended text does not retain a resumable acting checkpoint. Images, audio, custom content, usage, task timestamps, running records and agent/session labels are outside this text-only terminal format.
+[SubagentTerminalOutcome](SubagentTerminalOutcome.scala) preserves exact successful reply text as Completed or Suspended, a stopped reason, or typed failure messages plus explicit defect presence. Interruption remains distinguishable even alongside failures/defects. These values are observations, not executable Exit values or serialized Throwable trees. Suspended text does not retain a resumable acting checkpoint. The record may additionally retain an explicit checked worker identity. Images, audio, custom content, usage, task timestamps, running records and session labels remain outside this text-only terminal format.
 
 `publishJoined(id, task)` is an explicit caller-owned effect that awaits the actual SupervisedTask Exit after all task-owned cleanup before publication. Cancelling the publisher while it awaits the task does not cancel the supervisor-owned task or publish a terminal record; cancellation during an admitted backend write retains that backend's uncertainty semantics. The host must separately own and join execution, and explicitly call this effect when publication is required. Ordinary registry/supervisor construction does not install publication; openDurable explicitly does.
 
@@ -213,11 +245,11 @@ This implements only a terminal persistence subset of pinned WorkspaceTaskReposi
 
 | Current scope against c99596b | Git blob |
 | --- | --- |
-| [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | `426d3747e0a18f9be3deb5591f04c9616fc7563a` |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
+| [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | [Current worker-identity scope](#worker-identity) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentTerminalOutcomeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalOutcomeSpec.scala) | `30297045385ba75fa792c5818fe4037bb561a86c` |
-| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current explicit delivery identity](#explicit-terminal-batch-delivery) |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
 
 - [x] Implement bounded caller-owned terminal storage, paired contracts and real PostgreSQL integration.
 - [x] target/durable-terminal-focused.log passes four harness groups in 278 ms and one actually executed PostgreSQL group in 648 ms, zero failed/ignored, with fatal-warning compilation.
@@ -227,7 +259,7 @@ This implements only a terminal persistence subset of pinned WorkspaceTaskReposi
 - [x] target/durable-terminal-consumer.log passes fresh standalone compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise this new terminal API.
 - [x] review_fp and review_invariants accepted the terminal-store contract against `c99596b`; current changed files require the registry increment gates above.
 - [x] Implement and independently source-review the [registry publication integration](#registry-terminal-publication), with full verification and fresh artifact checks.
-- [ ] Complete original running-state metadata, durable cancellation intent and remaining wait/routing/notification ownership. Explicit [durable terminal acknowledgement](#durable-terminal-acknowledgement) is available.
+- [ ] Complete original running-state metadata, durable cancellation intent and durable running-barrier restoration, other routed consumption and notification ownership. Explicit [durable terminal acknowledgement](#durable-terminal-acknowledgement) is available.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
@@ -439,7 +471,7 @@ Migration: `resume` is additive; existing send, registry and model-facing tool s
 | [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current numeric-integrity identity](../transcript/README.md#exact-owned-numeric-output) |
 | [SubagentFactory.scala](SubagentFactory.scala) | `013920f0ad1ab6c082e3362bb40f83064d11af51` |
 | [SubagentSession.scala](SubagentSession.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no open findings. Two new grouped session tests cover actual partial confirmations and supplied completion, repeated IDs, invalid/no-pending/closed outcomes, queued cancellation, held cleanup defects, original-context terminal forwarding and fresh-send reuse. Focused `child-resume-final-focused.log` passed nine core tests in 633 ms and fifteen harness tests in 603 ms.
@@ -626,7 +658,7 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | [Current SubagentForwardingSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | `2438b3c3f99daeb7fa6687ec691056f34dc7bdb4` |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current worker-identity scope](#worker-identity) |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
 | [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | [Current SubagentTaskRegistrySpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentConstruction.scala](SubagentConstruction.scala) | `381703a6f1f92239110db9ce5bbec5d208047c52` |

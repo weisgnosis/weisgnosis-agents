@@ -48,4 +48,8 @@ object SubagentTerminalOutcome:
       if cause.isInterrupted then SubagentTerminalOutcome.Interrupted(failures, defects)
       else SubagentTerminalOutcome.Failed(failures, defects)
 
-final case class SubagentTerminalRecord(id: SubagentTaskId, outcome: SubagentTerminalOutcome)
+final case class SubagentTerminalRecord(
+    id: SubagentTaskId,
+    outcome: SubagentTerminalOutcome,
+    workerId: Option[SubagentWorkerId] = None
+)

@@ -86,6 +86,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
       fixture: (_, backend, name) =>
         ZIO.scoped:
           for
+            workerId     <- ZIO.fromEither(SubagentWorkerId.from("worker-λ"))
             secondSource <- dataSource(name + "-reopened")
             second       <- store(secondSource)
             target       <- address(name, "owner-a")
@@ -103,8 +104,11 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             task <- accepted(admission)
             publishing <- ZIO.uninterruptible:
               for
-                fiber <- terminal.publishJoined(firstId, task).interruptible.forkScoped
-                _     <- ZIO.addFinalizer(release.succeed(()).unit)
+                fiber <- terminal
+                  .publishJoined(firstId, task, Some(workerId))
+                  .interruptible
+                  .forkScoped
+                _ <- ZIO.addFinalizer(release.succeed(()).unit)
               yield fiber
             _       <- cleanup.await
             before  <- reopened.read(firstId)
@@ -144,10 +148,18 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               case SubagentTerminalPublication.AlreadyStored(_) => false
             ,
             exact.contains(
-              SubagentTerminalRecord(firstId, SubagentTerminalOutcome.Completed(reply.text))
+              SubagentTerminalRecord(
+                firstId,
+                SubagentTerminalOutcome.Completed(reply.text),
+                Some(workerId)
+              )
             ),
             recovered == Chunk(
-              SubagentTerminalRecord(firstId, SubagentTerminalOutcome.Completed(reply.text)),
+              SubagentTerminalRecord(
+                firstId,
+                SubagentTerminalOutcome.Completed(reply.text),
+                Some(workerId)
+              ),
               SubagentTerminalRecord(
                 secondId,
                 SubagentTerminalOutcome.Failed(
@@ -197,8 +209,9 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
       fixture: (_, backend, name) =>
         ZIO.scoped:
           for
-            target <- address(name, "registry-owner")
-            other  <- address(name, "different-owner")
+            workerId <- ZIO.fromEither(SubagentWorkerId.from("worker<&\"' λ"))
+            target   <- address(name, "registry-owner")
+            other    <- address(name, "different-owner")
             terminal = SubagentTerminalStore.make(backend, target)
             childCalls <- Ref.make(0)
             text    = " exact persisted output \n" + "λé" * 3000
@@ -225,10 +238,15 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               for
                 supervisor <- TaskSupervisor.open[AgentResult]
                 parent     <- SubagentSpawner.root(supervisor)
-                original   <- SubagentTaskRegistry.openDurable(parent, factory, terminal)
-                success    <- submitted(original, "succeed")
-                failed     <- submitted(original, "fail")
-                receipts   <- original.flushPublications
+                original <- SubagentTaskRegistry.openDurable(
+                  parent,
+                  factory,
+                  terminal,
+                  workerId = Some(workerId)
+                )
+                success  <- submitted(original, "succeed")
+                failed   <- submitted(original, "fail")
+                receipts <- original.flushPublications
               yield (success, failed, receipts)
             (success, failed, receipts) = ids
             secondSource <- dataSource(name + "-fresh-registry")
@@ -330,7 +348,8 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             reminderId           <- Random.nextUUID.map(SubagentTaskId(_))
             reminderRecord = SubagentTerminalRecord(
               reminderId,
-              SubagentTerminalOutcome.Completed("Reopened reminder result")
+              SubagentTerminalOutcome.Completed("Reopened reminder result"),
+              Some(workerId)
             )
             _                <- terminal.publish(reminderRecord)
             requestHistories <- Ref.make(Chunk.empty[Chunk[Msg]])
@@ -495,7 +514,11 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
           yield assertTrue(
             receipts.map(_.id).toSet == Set(success, failed),
             exact.contains(
-              SubagentTerminalRecord(success, SubagentTerminalOutcome.Completed(text))
+              SubagentTerminalRecord(
+                success,
+                SubagentTerminalOutcome.Completed(text),
+                Some(workerId)
+              )
             ),
             failedRecord.contains(
               SubagentTerminalRecord(
@@ -503,7 +526,8 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 SubagentTerminalOutcome.Failed(
                   Chunk(failure.message),
                   SubagentTaskDefects.Absent
-                )
+                ),
+                Some(workerId)
               )
             ),
             liveBefore.isEmpty,
@@ -524,6 +548,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               history.filter(_.reminderKind.contains("task_delivery")) == firstMessages
             ),
             firstMessages.forall(_.text.contains(reminderRecord.id.value.toString)),
+            firstMessages.forall(_.text.contains("agent=\"worker&lt;&amp;&quot;&apos; λ\"")),
             pendingInputs == Chunk(Chunk(reminderRecord), Chunk.empty),
             firstStamp.exists:
               case SubagentTerminalAcknowledgement.Acknowledged(_) => true

@@ -65,12 +65,14 @@ object SubagentTaskObservationSpec extends ZIOSpecDefault:
             ): IO[AgentError, ConditionalWrite] =
               writing.succeed(()).unit *> release.await *> backend.store
                 .compareAndSet(address, expected, value)
+          worker <- ZIO.fromEither(SubagentWorkerId.from("registry worker λ"))
           terminal = SubagentTerminalStore.make(held, target)
           registry <- scope.extend(
             SubagentTaskRegistry.openWith(
               (_, _, _) => supervisor.attach(ZIO.succeed(result)),
               1,
-              Some(terminal)
+              Some(terminal),
+              Some(worker)
             )
           )
           id                <- accepted(registry)
@@ -96,15 +98,19 @@ object SubagentTaskObservationSpec extends ZIOSpecDefault:
           inboxAfter        <- registry.durablePendingDeliveries
           legacy <- SubagentTaskRegistry.openWith(
             (_, _, _) => supervisor.attach(ZIO.succeed(result)),
-            1
+            1,
+            workerId = Some(worker)
           )
-          legacyId      <- accepted(legacy)
-          _             <- legacy.await(legacyId)
-          legacyView    <- legacy.observe(legacyId)
-          legacyReceipt <- legacy.publication(legacyId).either
-          legacyInbox   <- legacy.durablePendingDeliveries.either
-          legacyAck     <- legacy.acknowledgeTerminal(legacyId).either
-          finish        <- Promise.make[Nothing, Unit]
+          legacyId       <- accepted(legacy)
+          _              <- legacy.await(legacyId)
+          legacyView     <- legacy.observe(legacyId)
+          legacyWait     <- SubagentTaskBarrier.await(legacy, SubagentTaskSelection.CurrentRunning)
+          selected       <- ZIO.fromEither(SubagentTaskSelection.selected(Chunk(legacyId)))
+          legacySelected <- SubagentTaskBarrier.await(legacy, selected)
+          legacyReceipt  <- legacy.publication(legacyId).either
+          legacyInbox    <- legacy.durablePendingDeliveries.either
+          legacyAck      <- legacy.acknowledgeTerminal(legacyId).either
+          finish         <- Promise.make[Nothing, Unit]
           running <- SubagentTaskRegistry.openWith(
             (_, _, _) => supervisor.attach(finish.await.as(result)),
             1,
@@ -145,7 +151,13 @@ object SubagentTaskObservationSpec extends ZIOSpecDefault:
           restored == observed,
           deliveries.isLeft,
           acknowledgement.isLeft,
-          inboxBefore.map(_.id) == Chunk(id),
+          inboxBefore == Chunk(
+            SubagentTerminalRecord(
+              id,
+              SubagentTerminalOutcome.Completed("exact terminal"),
+              Some(worker)
+            )
+          ),
           acknowledged == SubagentTerminalAcknowledgeResult.Acknowledged(ackTime),
           acknowledgedAgain == SubagentTerminalAcknowledgeResult.AlreadyAcknowledged(ackTime),
           persistedStamp.contains(SubagentTerminalAcknowledgement.Acknowledged(ackTime)),
@@ -166,6 +178,16 @@ object SubagentTaskObservationSpec extends ZIOSpecDefault:
             )
           ),
           legacyReceipt.isLeft,
+          legacyWait == SubagentTaskBarrierResult.Empty,
+          legacySelected == SubagentTaskBarrierResult.Completed(
+            Chunk(
+              SubagentTerminalRecord(
+                legacyId,
+                SubagentTerminalOutcome.Completed("exact terminal"),
+                Some(worker)
+              )
+            )
+          ),
           active.contains(SubagentTaskObservation(runningId, SubagentTaskObservationState.Running)),
           preferred.contains(
             SubagentTaskObservation(
