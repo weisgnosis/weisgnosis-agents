@@ -21,10 +21,47 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
 import zio.*
 import zio.json.*
+import zio.json.ast.Json
 import zio.test.*
 
 object SubagentTerminalOutcomeSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment, Any] = suite("SubagentTerminalOutcomeSpec")(
+    test(
+      "typed task failure observations retain exact message and optional direct cause through mixed interruption"
+    ):
+      val withCause = AgentError.ToolExecutionError(
+        "read_result",
+        "exact failure λ",
+        Some("underlying failure 😀")
+      )
+      val withoutCause = AgentError.ToolExecutionError("read_result", "second exact failure")
+      val defect       = new IllegalStateException("cleanup marker only")
+      val failed       = Cause.fail(withCause) ++ Cause.fail(withoutCause) ++ Cause.die(defect)
+      val expectedFailures = Json.Arr(
+        Json.Obj(
+          "message" -> Json.Str("exact failure λ"),
+          "cause"   -> Json.Str("underlying failure 😀")
+        ),
+        Json.Obj("message" -> Json.Str("second exact failure"))
+      )
+      // Reuse only the unchanged defect-marker codec; failure records are an independent wire oracle.
+      val defectMarker = SubagentTaskDefects.Present.toJson.fromJson[Json]
+      val checks = Chunk(
+        "Failed"      -> failed,
+        "Interrupted" -> (failed ++ Cause.interrupt(FiberId.None))
+      ).map: (kind, cause) =>
+        val actual = SubagentTerminalOutcome.fromExit(Exit.failCause(cause)).toJson.fromJson[Json]
+        val expected = defectMarker.map(marker =>
+          Json.Obj(
+            kind -> Json.Obj(
+              "failures" -> expectedFailures,
+              "defects"  -> marker
+            )
+          )
+        )
+        assertTrue(actual == expected)
+      checks.foldLeft(assertTrue(true))(_ && _)
+    ,
     test(
       "terminal data preserves exact text and cancellation alongside typed failures and defects"
     ):
@@ -48,9 +85,9 @@ object SubagentTerminalOutcomeSpec extends ZIOSpecDefault:
           Exit.succeed(result.copy(state = AgentRunState.Interrupted)) -> SubagentTerminalOutcome
             .Interrupted(Chunk.empty, SubagentTaskDefects.Absent),
           Exit.failCause(failed) -> SubagentTerminalOutcome
-            .Failed(Chunk(failure.message), SubagentTaskDefects.Present),
+            .Failed(Chunk(SubagentTaskFailure(failure.message)), SubagentTaskDefects.Present),
           Exit.failCause(cancelled) -> SubagentTerminalOutcome.Interrupted(
-            Chunk(failure.message),
+            Chunk(SubagentTaskFailure(failure.message)),
             SubagentTaskDefects.Present
           )
         )

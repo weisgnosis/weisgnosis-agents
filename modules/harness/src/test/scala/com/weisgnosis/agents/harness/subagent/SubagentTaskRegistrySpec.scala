@@ -202,7 +202,10 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
                         ) && terminal.exists(
                           _.terminal.exists(
                             _.outcome == SubagentTerminalOutcome
-                              .Failed(Chunk(startFailure.message), SubagentTaskDefects.Absent)
+                              .Failed(
+                                Chunk(SubagentTaskFailure(startFailure.message)),
+                                SubagentTaskDefects.Absent
+                              )
                           )
                         )
                       case _ => false

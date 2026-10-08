@@ -137,23 +137,61 @@ object SubagentTerminalStore:
       limits: Limits = Limits.default
   ): SubagentTerminalStore = new Backend(store, address, limits)
 
-  final private case class LegacyEntry(id: UUID, outcome: SubagentTerminalOutcome) derives JsonCodec
+  /** Original codecs are retained so canonical validation precedes typed normalization. */
+  private enum LegacyOutcome derives JsonCodec:
+    case Completed(output: String)
+    case Suspended(output: String)
+    case Stopped(reason: String)
+    case Interrupted(failures: Chunk[String], defects: SubagentTaskDefects)
+    case Failed(failures: Chunk[String], defects: SubagentTaskDefects)
+
+    def current: SubagentTerminalOutcome = this match
+      case Completed(output) => SubagentTerminalOutcome.Completed(output)
+      case Suspended(output) => SubagentTerminalOutcome.Suspended(output)
+      case Stopped(reason)   => SubagentTerminalOutcome.Stopped(reason)
+      case Interrupted(failures, defects) =>
+        SubagentTerminalOutcome.Interrupted(failures.map(SubagentTaskFailure(_)), defects)
+      case Failed(failures, defects) =>
+        SubagentTerminalOutcome.Failed(failures.map(SubagentTaskFailure(_)), defects)
+
+  private enum LegacyState derives JsonCodec:
+    case Pending, Running
+    case Terminal(outcome: LegacyOutcome, acknowledgement: SubagentTerminalAcknowledgement)
+
+    def current: SubagentTaskRecordState = this match
+      case Pending => SubagentTaskRecordState.Pending
+      case Running => SubagentTaskRecordState.Running
+      case Terminal(outcome, acknowledgement) =>
+        SubagentTaskRecordState.Terminal(outcome.current, acknowledgement)
+
+  final private case class LegacyEntry(id: UUID, outcome: LegacyOutcome) derives JsonCodec
   final private case class LegacyPayload(schemaVersion: Int, records: Chunk[LegacyEntry])
       derives JsonCodec
   final private case class Schema2Entry(
       id: UUID,
-      outcome: SubagentTerminalOutcome,
+      outcome: LegacyOutcome,
       acknowledgedAt: Option[Instant] = None
   ) derives JsonCodec
   final private case class Schema2Payload(schemaVersion: Int, records: Chunk[Schema2Entry])
       derives JsonCodec
   final private case class Schema3Entry(
       id: UUID,
-      outcome: SubagentTerminalOutcome,
+      outcome: LegacyOutcome,
       acknowledgedAt: Option[Instant] = None,
       workerId: Option[SubagentWorkerId] = None
   ) derives JsonCodec
   final private case class Schema3Payload(schemaVersion: Int, records: Chunk[Schema3Entry])
+      derives JsonCodec
+
+  final private case class Schema4Entry(
+      id: UUID,
+      workerId: Option[SubagentWorkerId],
+      state: LegacyState,
+      metadata: Option[SubagentTaskMetadata]
+  ) derives JsonCodec:
+    def current: Entry = Entry(id, workerId, state.current, metadata)
+
+  final private case class Schema4Payload(schemaVersion: Int, records: Chunk[Schema4Entry])
       derives JsonCodec
 
   final private case class Entry(
@@ -436,7 +474,7 @@ object SubagentTerminalStore:
 
     private def encode(records: Chunk[Entry]): Either[AgentError, Json] =
       for
-        value <- Payload(4, records).toJsonAST.left.map(AgentError.StorageError.apply)
+        value <- Payload(5, records).toJsonAST.left.map(AgentError.StorageError.apply)
         _     <- decode(value)
       yield value
 
@@ -477,7 +515,7 @@ object SubagentTerminalStore:
               payload   <- rendered.fromJson[LegacyPayload].left.map(AgentError.StorageError.apply)
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
             yield (
-              payload.records.map(entry => legacy(entry.id, entry.outcome, None, None)),
+              payload.records.map(entry => legacy(entry.id, entry.outcome.current, None, None)),
               canonical
             )
           case 2 =>
@@ -486,7 +524,7 @@ object SubagentTerminalStore:
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
             yield (
               payload.records.map(entry =>
-                legacy(entry.id, entry.outcome, entry.acknowledgedAt, None)
+                legacy(entry.id, entry.outcome.current, entry.acknowledgedAt, None)
               ),
               canonical
             )
@@ -496,11 +534,16 @@ object SubagentTerminalStore:
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
             yield (
               payload.records.map(entry =>
-                legacy(entry.id, entry.outcome, entry.acknowledgedAt, entry.workerId)
+                legacy(entry.id, entry.outcome.current, entry.acknowledgedAt, entry.workerId)
               ),
               canonical
             )
           case 4 =>
+            for
+              payload   <- rendered.fromJson[Schema4Payload].left.map(AgentError.StorageError.apply)
+              canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
+            yield (payload.records.map(_.current), canonical)
+          case 5 =>
             for
               payload   <- rendered.fromJson[Payload].left.map(AgentError.StorageError.apply)
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)

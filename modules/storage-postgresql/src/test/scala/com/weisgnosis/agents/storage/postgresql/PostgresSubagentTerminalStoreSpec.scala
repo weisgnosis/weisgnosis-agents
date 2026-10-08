@@ -205,7 +205,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               SubagentTerminalRecord(
                 secondId,
                 SubagentTerminalOutcome.Failed(
-                  Chunk("Execution failed exactly"),
+                  Chunk(SubagentTaskFailure("Execution failed exactly")),
                   SubagentTaskDefects.Present
                 )
               )
@@ -298,8 +298,12 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             other    <- address(name, "different-owner")
             terminal = SubagentTerminalStore.make(backend, target)
             childCalls <- Ref.make(0)
-            text    = " exact persisted output \n" + "λé" * 3000
-            failure = AgentError.ModelError(503, "Exact child model failure")
+            text = " exact persisted output \n" + "λé" * 3000
+            failure = AgentError.ToolExecutionError(
+              "child_boundary",
+              "Exact child task failure",
+              Some("Direct typed cause λ😀")
+            )
             childClient = LlmClient.mockEffectful((history, _, _) =>
               childCalls.update(_ + 1) *> (
                 if history.lastOption.exists(_.text == "fail") then ZIO.fail(failure)
@@ -336,11 +340,21 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             secondSource <- dataSource(name + "-fresh-registry")
             second       <- store(secondSource)
             reopened = SubagentTerminalStore.make(second, target)
-            exact        <- reopened.read(success)
-            failedRecord <- reopened.read(failed)
-            supervisor   <- TaskSupervisor.open[AgentResult]
-            parent       <- SubagentSpawner.root(supervisor)
-            fresh        <- SubagentTaskRegistry.openDurable(parent, factory, reopened)
+            exact            <- reopened.read(success)
+            failedRecord     <- reopened.read(failed)
+            failedTaskRecord <- reopened.taskRecord(failed)
+            expectedFailureOutput: SubagentTaskOutputResult = SubagentTaskOutputResult.Terminal(
+              failed.value.toString,
+              Some(workerId),
+              SubagentTerminalOutcome.Failed(
+                Chunk(SubagentTaskFailure(failure.message, failure.cause)),
+                SubagentTaskDefects.Absent
+              ),
+              failedTaskRecord.flatMap(_.metadata).map(_.createdAt)
+            )
+            supervisor <- TaskSupervisor.open[AgentResult]
+            parent     <- SubagentSpawner.root(supervisor)
+            fresh      <- SubagentTaskRegistry.openDurable(parent, factory, reopened)
             unrelated <- SubagentTaskRegistry.openDurable(
               parent,
               factory,
@@ -358,6 +372,11 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 ContentBlock.ToolUse(
                   "failure",
                   "agent_task",
+                  Json.Obj("task_id" -> Json.Str(failed.value.toString))
+                ),
+                ContentBlock.ToolUse(
+                  "failure-output",
+                  "task_output",
                   Json.Obj("task_id" -> Json.Str(failed.value.toString))
                 ),
                 ContentBlock.ToolUse(
@@ -580,7 +599,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 failedConsumption = SubagentTerminalRecord(
                   failureId,
                   SubagentTerminalOutcome.Failed(
-                    Chunk("Selected failed output"),
+                    Chunk(SubagentTaskFailure("Selected failed output")),
                     SubagentTaskDefects.Absent
                   )
                 )
@@ -765,7 +784,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               SubagentTerminalRecord(
                 failed,
                 SubagentTerminalOutcome.Failed(
-                  Chunk(failure.message),
+                  Chunk(SubagentTaskFailure(failure.message, failure.cause)),
                   SubagentTaskDefects.Absent
                 ),
                 Some(workerId)
@@ -835,7 +854,10 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             firstStamp == secondStamp,
             pendingAfterReminder.isEmpty,
             exactAfterReminder.contains(reminderRecord),
-            observations.size == 4,
+            observations.size == 5,
+            observations
+              .find(_.id == "failure-output")
+              .exists(_.outputText == expectedFailureOutput.toJson),
             observations.forall(_.state == ToolResultState.Success),
             taskResults.toMap
               .get("success")
@@ -851,7 +873,9 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               .contains(
                 SubagentToolResult.Task(
                   failed.value.toString,
-                  SubagentToolState.Failed(SubagentToolText(failure.message, 0))
+                  SubagentToolState.Failed(
+                    SubagentToolText("Exact child task failure\nCause: Direct typed cause λ😀", 0)
+                  )
                 )
               ),
             pages.toMap

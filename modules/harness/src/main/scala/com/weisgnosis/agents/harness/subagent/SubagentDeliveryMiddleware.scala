@@ -551,8 +551,11 @@ object SubagentDeliveryMiddleware:
         )
       )
 
-  private def failureText(failures: Chunk[String], defects: SubagentTaskDefects): String =
-    val explanation = failures.mkString("; ")
+  private def failureText(
+      failures: Chunk[SubagentTaskFailure],
+      defects: SubagentTaskDefects
+  ): String =
+    val explanation = failures.map(_.displayText).mkString("; ")
     defects match
       case SubagentTaskDefects.Present if explanation.nonEmpty =>
         explanation + "; task also reported an internal defect"

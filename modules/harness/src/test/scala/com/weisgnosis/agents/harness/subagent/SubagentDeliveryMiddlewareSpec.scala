@@ -73,9 +73,17 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
     .map: index =>
       val outcome = index match
         case 1 => SubagentTerminalOutcome.Completed("the-result <task> & \"quoted\"")
-        case 2 => SubagentTerminalOutcome.Failed(Chunk("boom"), SubagentTaskDefects.Absent)
+        case 2 =>
+          SubagentTerminalOutcome.Failed(
+            Chunk(SubagentTaskFailure("boom", Some("direct <cause> & λ"))),
+            SubagentTaskDefects.Absent
+          )
         case 3 => SubagentTerminalOutcome.Interrupted(Chunk.empty, SubagentTaskDefects.Absent)
-        case 4 => SubagentTerminalOutcome.Interrupted(Chunk("failure"), SubagentTaskDefects.Present)
+        case 4 =>
+          SubagentTerminalOutcome.Interrupted(
+            Chunk(SubagentTaskFailure("failure")),
+            SubagentTaskDefects.Present
+          )
         case 5 => SubagentTerminalOutcome.Completed("😀" * 3000)
         case _ => SubagentTerminalOutcome.Completed(s"result $index")
       val worker = if index == 1 then SubagentWorkerId.from("worker <&\"'λ").toOption else None
@@ -161,7 +169,8 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
               text.contains("the-result &lt;task&gt; &amp; &quot;quoted&quot;"),
               !text.contains("the-result <task>"),
               text.split("<task ", -1).length - 1 == size.min(10),
-              size == 1 || (text.contains("<task_error>") && text.contains("boom") && text.contains(
+              size == 1 || (text.contains("<task_error>") && text
+                .contains("boom\nCause: direct &lt;cause&gt; &amp; λ") && text.contains(
                 "state=\"cancelled\""
               ) && text.contains("cancelled before producing a result") && text
                 .contains("... and 2 more") && text

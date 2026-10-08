@@ -505,7 +505,8 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
               records = Chunk(
                 SubagentTerminalRecord(
                   SubagentTaskId(new UUID(4L, 1L)),
-                  SubagentTerminalOutcome.Failed(Chunk("failed child"), SubagentTaskDefects.Absent)
+                  SubagentTerminalOutcome
+                    .Failed(Chunk(SubagentTaskFailure("failed child")), SubagentTaskDefects.Absent)
                 ),
                 SubagentTerminalRecord(
                   SubagentTaskId(new UUID(4L, 2L)),

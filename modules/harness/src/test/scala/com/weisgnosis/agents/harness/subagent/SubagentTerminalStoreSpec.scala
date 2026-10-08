@@ -150,7 +150,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
           records.map(_.id) == Chunk(firstId, secondId),
           records.lastOption.exists(
             _.outcome == SubagentTerminalOutcome.Failed(
-              Chunk("execution failure"),
+              Chunk(SubagentTaskFailure("execution failure")),
               SubagentTaskDefects.Absent
             )
           )
@@ -248,7 +248,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
                       Json.Obj(fields :+ ("unknown" -> Json.Bool(true))),
                       Json.Obj(
                         fields.map((key, value) =>
-                          key -> (if key == "schemaVersion" then Json.Num(5) else value)
+                          key -> (if key == "schemaVersion" then Json.Num(6) else value)
                         )
                       ),
                       Json.Obj(
@@ -344,7 +344,8 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
         worker <- ZIO.fromEither(SubagentWorkerId.from("metadata λ"))
         second = SubagentTerminalRecord(
           secondId,
-          SubagentTerminalOutcome.Failed(Chunk("failed"), SubagentTaskDefects.Absent),
+          SubagentTerminalOutcome
+            .Failed(Chunk(SubagentTaskFailure("failed")), SubagentTaskDefects.Absent),
           Some(worker)
         )
         outcome <- ZIO.fromEither(first.outcome.toJsonAST.left.map(AgentError.StorageError(_)))
@@ -470,8 +471,173 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
         stamp.contains(SubagentTerminalAcknowledgement.Acknowledged(at)),
         absent.isEmpty,
         current.exists(_.value match
-          case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(4))
+          case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(5))
           case _                => false)
+      )
+    ,
+    test(
+      "legacy failure arrays migrate read-only while typed causes remain strict, exact and byte bounded"
+    ):
+      for
+        backend  <- fixture
+        target   <- address("failure-migration")
+        revision <- ZIO.fromEither(StorageRevision.fromLong(1L))
+        checks <- ZIO.foreach(Chunk(1, 2, 3, 4)): version =>
+          ZIO.foreach(Chunk("Failed", "Interrupted")): kind =>
+            val messages = Chunk("exact λ", "duplicate", "duplicate")
+            val legacyOutcome = Json.Obj(
+              kind -> Json.Obj(
+                "failures" -> Json.Arr(messages.map(Json.Str(_))),
+                "defects"  -> Json.Str("Absent")
+              )
+            )
+            val expectedFailures = messages.map(SubagentTaskFailure(_))
+            val expectedOutcome =
+              if kind == "Failed" then
+                SubagentTerminalOutcome.Failed(expectedFailures, SubagentTaskDefects.Absent)
+              else SubagentTerminalOutcome.Interrupted(expectedFailures, SubagentTaskDefects.Absent)
+            def aggregate(outcome: Json): Json =
+              val fields =
+                if version == 4 then
+                  Chunk(
+                    "id" -> Json.Str(firstId.value.toString),
+                    "state" -> Json.Obj(
+                      "Terminal" -> Json.Obj(
+                        "outcome"         -> outcome,
+                        "acknowledgement" -> Json.Obj("Pending" -> Json.Obj())
+                      )
+                    )
+                  )
+                else Chunk("id" -> Json.Str(firstId.value.toString), "outcome" -> outcome)
+              Json.Obj(
+                "schemaVersion" -> Json.Num(version),
+                "records"       -> Json.Arr(Json.Obj(fields))
+              )
+            val original = VersionedJson(aggregate(legacyOutcome), revision)
+            val store    = SubagentTerminalStore.make(backend.store, target)
+            for
+              _            <- backend.values.set(Map(target -> original))
+              beforeWrites <- backend.writes.get
+              records      <- store.list
+              metadata     <- store.markChecked(firstId)
+              unchanged    <- backend.store.read(target)
+              afterWrites  <- backend.writes.get
+              typed <- ZIO.fromEither(
+                expectedOutcome.toJsonAST.left.map(AgentError.StorageError(_))
+              )
+              _ <- backend.values.set(Map(target -> original.copy(value = aggregate(typed))))
+              crossVersion <- store.list.either
+              _            <- backend.values.set(Map(target -> original))
+              _            <- store.acknowledge(firstId)
+              migrated     <- store.list
+              stamp        <- store.acknowledgement(firstId)
+              upgraded     <- backend.store.read(target)
+            yield records == Chunk(SubagentTerminalRecord(firstId, expectedOutcome)) &&
+              metadata.isEmpty && unchanged.contains(original) && afterWrites == beforeWrites &&
+              crossVersion.isLeft && migrated == records &&
+              stamp.exists(_ != SubagentTerminalAcknowledgement.Pending) &&
+              upgraded.exists(_.value match
+                case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(5))
+                case _                => false)
+        causeTarget <- address("exact-cause")
+        failure = SubagentTaskFailure("same message", Some("exact direct cause <&😀"))
+        record = SubagentTerminalRecord(
+          firstId,
+          SubagentTerminalOutcome.Failed(Chunk(failure), SubagentTaskDefects.Absent)
+        )
+        store = SubagentTerminalStore.make(backend.store, causeTarget)
+        _          <- store.publish(record)
+        firstStamp <- store.acknowledge(firstId)
+        repeated   <- store.publish(record)
+        differing <- ZIO.foreach(Chunk(None, Some("different"), Some(""))): cause =>
+          store
+            .publish(
+              record.copy(outcome =
+                SubagentTerminalOutcome
+                  .Failed(Chunk(failure.copy(cause = cause)), SubagentTaskDefects.Absent)
+              )
+            )
+            .either
+        unchangedStamp <- store.acknowledgement(firstId)
+        typedStored <- backend.store
+          .read(causeTarget)
+          .someOrFail(AgentError.StorageError("Missing cause fixture"))
+        legacySpoof = Json.Obj(
+          "schemaVersion" -> Json.Num(5),
+          "records" -> Json.Arr(
+            Json.Obj(
+              "id" -> Json.Str(firstId.value.toString),
+              "state" -> Json.Obj(
+                "Terminal" -> Json.Obj(
+                  "outcome" -> Json.Obj(
+                    "Failed" -> Json.Obj(
+                      "failures" -> Json.Arr(Json.Str("legacy")),
+                      "defects"  -> Json.Str("Absent")
+                    )
+                  ),
+                  "acknowledgement" -> Json.Obj("Pending" -> Json.Obj())
+                )
+              )
+            )
+          )
+        )
+        _ <- backend.values.update(_.updated(causeTarget, typedStored.copy(value = legacySpoof)))
+        rejectedLegacy <- store.list.either
+        _              <- backend.values.update(_.updated(causeTarget, typedStored))
+        byteTarget     <- address("cause-byte-limit")
+        baseline = record.copy(outcome =
+          SubagentTerminalOutcome.Failed(
+            Chunk(SubagentTaskFailure("same message")),
+            SubagentTaskDefects.Absent
+          )
+        )
+        _ <- SubagentTerminalStore.make(backend.store, byteTarget).publish(baseline)
+        baselineBytes <- backend.store
+          .read(byteTarget)
+          .someOrFail(AgentError.StorageError("Missing bounded cause fixture"))
+        limits <- ZIO.fromEither(
+          SubagentTerminalStore.Limits
+            .make(256, baselineBytes.value.toJson.getBytes(StandardCharsets.UTF_8).length + 512, 8)
+        )
+        controlTarget <- address("cause-byte-control")
+        _             <- backend.values.update(_.updated(controlTarget, baselineBytes))
+        bounded = SubagentTerminalStore.make(backend.store, byteTarget, limits)
+        readable <- bounded.list
+        control <- SubagentTerminalStore
+          .make(backend.store, controlTarget, limits)
+          .publish(baseline.copy(id = secondId))
+        overflow <- bounded
+          .publish(
+            record.copy(
+              id = secondId,
+              outcome = SubagentTerminalOutcome
+                .Failed(Chunk(failure.copy(cause = Some("c" * 1024))), SubagentTaskDefects.Absent)
+            )
+          )
+          .either
+        afterOverflow <- backend.store.read(byteTarget)
+        finalRecord   <- store.read(firstId)
+      yield assertTrue(
+        checks.flatten.forall(identity),
+        differing.forall(_.isLeft),
+        repeated match
+          case SubagentTerminalPublication.AlreadyStored(_) => true
+          case _                                            => false
+        ,
+        firstStamp match
+          case SubagentTerminalAcknowledgeResult.Acknowledged(at) =>
+            unchangedStamp.contains(SubagentTerminalAcknowledgement.Acknowledged(at))
+          case _ => false
+        ,
+        rejectedLegacy.isLeft,
+        readable == Chunk(baseline),
+        control match
+          case SubagentTerminalPublication.Stored(_) => true
+          case _                                     => false
+        ,
+        overflow.isLeft,
+        afterOverflow.contains(baselineBytes),
+        finalRecord.contains(record)
       )
     ,
     test(

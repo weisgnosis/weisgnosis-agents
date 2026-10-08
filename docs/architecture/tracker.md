@@ -27,7 +27,12 @@ Execute the original scope without substituting a narrower release checklist. Pa
 - [x] Implement/source-review truthful stored-only Pending/Running model views and unresolved-work status without constructing executable handles; preserve local publication barriers and custom-store read failures.
 - [x] Obtain final independent FP/ZIO and invariant source approval and pass focused/full/artifact/archive/consumer verification for stored views.
 - [x] Obtain final combined source/documentation acceptance and commit the defined stored-view scope.
-- [ ] Current task: preserve typed task failure messages and direct causes through strict legacy/current storage and public output; neither metadata nor bounded consumption establishes whole TaskTool parity.
+- [x] Reproduce loss of explicit typed direct causes for both Failed and Interrupted against unchanged bfe12fb (target/typed-task-failure-red.log: one passed, one failed, zero ignored).
+- [x] Implement/source-review typed task failure messages and direct causes through strict legacy/current storage and public output; focused/full/artifact/archive/consumer checks pass.
+- [x] Obtain final independent FP/ZIO and invariant source approval and pass focused/full/artifact/archive verification for typed failure details.
+- [x] Obtain final combined documentation acceptance for typed failure details.
+- [x] Commit the accepted typed failure scope with its final review and verification evidence.
+- [ ] Current task: implement current-owner durable cancellation intent.
 - [ ] Implement current-owner durable cancellation intent and recovery authority, retaining truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
@@ -39,7 +44,6 @@ These are provisional engineering effort ranges, including implementation, propo
 
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
-| Remaining task-detail failure/cause applicability | Not yet estimated | Classify the pinned formatter contract separately from full terminal outcome availability. |
 | Durable cancellation intent with current-owner handling | 12-24 hours after terminal storage | Persist intent, join owned cancellation and preserve terminal truth before notification. Cross-process takeover/fencing remains separate. |
 | Remaining method applicability and resulting behavior | Not yet estimated | The finite inventories do not classify all 2,473 pinned core declarations. An evaluator dependency or passing suites cannot close unknown obligations. |
 
@@ -62,16 +66,16 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [stored-task view contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#stored-task-views) owns the twelve-Scala increment against 0bbae03, manifest 1ac1a1aaeb623167b2eed4d47950db289044245bd5451f1fa97e93d78735bf73. Persisted nonterminals are data-only observations; querying never constructs a local executor or infers remote liveness. Legacy custom per-ID read failures and local publication barriers retain their authority.
+The [typed task failure contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#typed-task-failure-details) owns the thirteen-Scala increment against bfe12fb, manifest c5fb58869133de2da4d5d73928513a75ce995201ff2fa86dbc9f9e5598f60dcc. Exact domain messages and explicitly supplied direct causes remain separate typed fields through joined publication and fresh full-output reads. Legacy schemas 1-4 normalize without invented causes or read mutation; new writes use schema 5.
 
-- [x] Implement mixed stored Pending/Running/Terminal listing/inspection, immediate NotLocallyWaitable output and truthful unresolved inbox status.
-- [x] review_fp and review_invariants approve all twelve exact Scala identities, with no unresolved findings. target/stored-task-views-focused-green.log passes 25 harness and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
-- [x] target/stored-task-views-final-verify.log passes formatting/fatal-warning compilation, 1,631 tests (695 core / 774 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
-- [x] target/stored-task-views-final-preparation.log passes negative archive admission/restoration and revalidation.
-- [x] target/stored-task-views-final-consumer.log passes fresh standalone formatting, compilation, execution and four artifact-hash checks. The unchanged consumer probe does not directly exercise stored nonterminals; harness and actual PostgreSQL specifications provide that evidence.
-- [x] review_fp and review_invariants approve the final combined scope against 0bbae03: twelve unchanged Scala identities and fourteen Markdown files, with no unresolved findings. English/UTF-8/diff checks and local Markdown links pass.
+- [x] Reproduce typed direct-cause loss for Failed and Interrupted before production changes, preserving exact public wire assertions.
+- [x] review_fp and review_invariants approve the thirteen exact Scala identities, with no unresolved findings. target/typed-task-failure-focused-green.log passes 33 harness and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
+- [x] target/typed-task-failure-final-verify.log passes formatting/fatal-warning compilation, 1,634 tests (695 core / 777 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/typed-task-failure-final-preparation.log passes negative source-archive admission/restoration and revalidation.
+- [x] target/typed-task-failure-final-consumer.log passes fresh standalone formatting, compilation, execution and four artifact-hash checks. Its unchanged probe does not directly exercise typed task failures; public harness and actual PostgreSQL specifications provide that evidence.
+- [x] review_fp and review_invariants approve the final combined scope against bfe12fb: thirteen unchanged Scala identities and fourteen Markdown files, with no unresolved findings. English prose and local Markdown links are checked.
 
-Stored querying does not close the physical workspace-file assertion, remaining failure/cause projection, completion ordering, durable cancellation authority, executable session restoration, remaining original-plan applicability or the actual product cutover. No whole-plan completion or publication is claimed.
+This finite typed-cause scope does not close whole TaskTool parity, arbitrary Throwable introspection, the physical workspace-file assertion, completion ordering, durable cancellation authority, executable session restoration, remaining original-plan applicability or the actual product cutover. No whole-plan completion or publication is claimed.
 
 ## Available capabilities
 

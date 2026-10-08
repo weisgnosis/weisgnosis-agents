@@ -829,7 +829,8 @@ object SubagentTools:
       case SubagentTerminalOutcome.Stopped(reason)   => SubagentToolState.Stopped(preview(reason))
       case SubagentTerminalOutcome.Interrupted(_, _) => SubagentToolState.Interrupted
       case SubagentTerminalOutcome.Failed(failures, defects) =>
-        val message = failures.headOption.getOrElse("Task failed with an internal defect")
+        val message =
+          failures.headOption.map(_.displayText).getOrElse("Task failed with an internal defect")
         val suffix =
           if failures.nonEmpty && defects == SubagentTaskDefects.Present then
             "; task also reported an internal defect"

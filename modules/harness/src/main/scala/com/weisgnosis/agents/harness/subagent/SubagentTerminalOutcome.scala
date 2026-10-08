@@ -28,11 +28,14 @@ enum SubagentTerminalOutcome derives JsonCodec:
   case Completed(output: String)
   case Suspended(output: String)
   case Stopped(reason: String)
-  case Interrupted(failures: Chunk[String], defects: SubagentTaskDefects)
-  case Failed(failures: Chunk[String], defects: SubagentTaskDefects)
+  case Interrupted(failures: Chunk[SubagentTaskFailure], defects: SubagentTaskDefects)
+  case Failed(failures: Chunk[SubagentTaskFailure], defects: SubagentTaskDefects)
 
 object SubagentTerminalOutcome:
-  /** Preserve exact successful text and typed failure messages without serializing runtime causes. */
+  /**
+   * Preserve exact successful text, typed messages and supplied direct cause strings; runtime Cause
+   * and Throwable structures are not serialized.
+   */
   def fromExit(exit: Exit[AgentError, AgentResult]): SubagentTerminalOutcome = exit match
     case Exit.Success(result) =>
       result.state match
@@ -42,7 +45,7 @@ object SubagentTerminalOutcome:
         case AgentRunState.Interrupted =>
           SubagentTerminalOutcome.Interrupted(Chunk.empty, SubagentTaskDefects.Absent)
     case Exit.Failure(cause) =>
-      val failures = Chunk.fromIterable(cause.failures.map(_.message))
+      val failures = Chunk.fromIterable(cause.failures.map(SubagentTaskFailure.fromError))
       val defects =
         if cause.defects.isEmpty then SubagentTaskDefects.Absent else SubagentTaskDefects.Present
       if cause.isInterrupted then SubagentTerminalOutcome.Interrupted(failures, defects)

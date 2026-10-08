@@ -702,8 +702,12 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
             SubagentTerminalOutcome.Suspended(fullText),
             SubagentTerminalOutcome.Stopped("host stopped"),
             SubagentTerminalOutcome
-              .Interrupted(Chunk("interrupted child"), SubagentTaskDefects.Present),
-            SubagentTerminalOutcome.Failed(Chunk("exact failure λ"), SubagentTaskDefects.Absent)
+              .Interrupted(
+                Chunk(SubagentTaskFailure("interrupted child")),
+                SubagentTaskDefects.Present
+              ),
+            SubagentTerminalOutcome
+              .Failed(Chunk(SubagentTaskFailure("exact failure λ")), SubagentTaskDefects.Absent)
           )
         ): outcome =>
           ZIO.scoped:

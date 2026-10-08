@@ -1,5 +1,44 @@
 # Scoped child execution and sessions
 
+## Typed task failure details
+
+SubagentTaskFailure keeps an exact message and optional explicitly supplied direct cause as separate typed fields. None means absent; Some("") preserves a supplied empty cause. fromError captures ToolExecutionError.cause and preserves other domain messages without inspecting Throwable internals, stack traces or inferred causal chains. Ordered duplicate failures, interruption classification and the defect-presence marker remain separate facts.
+
+Failed and Interrupted outcomes carry Chunk[SubagentTaskFailure]. Full task_output exposes those exact records. displayText is derived presentation only; agent_task and reasoning reminders apply their existing bounded previews, and reminder escaping follows truncation. A cause cannot add a second failure, bypass an output budget or grant execution/acknowledgement authority.
+
+The built-in terminal store writes schema 5. Private schema-specific legacy codecs validate each original schema-1-4 representation before exposing typed records with cause=None. Reads do not rewrite storage, acquire a new timestamp or infer missing causes. Schema 5 rejects legacy failure strings; older version numbers reject typed failure objects. New writes and exact publication identity include message/cause independently, retaining existing metadata, worker, ACK, aggregate-order and capacity contracts.
+
+This changes public Failed/Interrupted element types and task_output outcome JSON. Downstream constructors, exhaustive patterns and dependent binaries must migrate and rebuild. Backward storage reads do not imply that old standalone outcome JSON decodes through the new public codec. Persisted legacy strings remain exact messages with absent cause.
+
+- [x] Reproduce actual typed-cause loss for Failed and Interrupted against unchanged bfe12fb in target/typed-task-failure-red.log: one passed, one failed, zero ignored, 276 milliseconds.
+- [x] Compile the five production changes with zero compiler warnings in target/typed-task-failure-draft-compile.log. Compilation is not acceptance.
+- [x] review_fp and review_invariants approve all thirteen exact Scala identities against bfe12fb, with no unresolved findings.
+- [x] target/typed-task-failure-focused-green.log passes 33 harness groups in 4.108 seconds and two actual PostgreSQL groups in 3.100 seconds, zero failed/ignored/compiler warnings.
+- [x] target/typed-task-failure-final-verify.log passes formatting/fatal-warning compilation, 1,634 tests (695 core / 777 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/typed-task-failure-final-preparation.log passes negative source-archive admission, original-byte restoration and revalidation.
+- [x] target/typed-task-failure-final-consumer.log passes fresh standalone formatting, compilation, execution and four artifact-hash checks. Its unchanged probe does not directly exercise typed task failures; public harness and actual PostgreSQL specifications provide that evidence.
+- [x] review_fp and review_invariants approve the final combined scope against bfe12fb: thirteen unchanged Scala identities and fourteen Markdown files, with no unresolved findings. English prose and local Markdown links are checked.
+
+Current source-approved scope against bfe12fb comprises thirteen Scala identities, path-first manifest SHA-256 c5fb58869133de2da4d5d73928513a75ce995201ff2fa86dbc9f9e5598f60dcc.
+
+| Reviewed source | Git blob |
+| --- | --- |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | `4faa806a2019677d83139e1b016c81490eee0887` |
+| [SubagentTaskFailure.scala](SubagentTaskFailure.scala) | `a1eefd7b9c90ad7dc7bb2e241095e48e45638292` |
+| [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | `b382e3b76b4455697472a23038bf3fee7eca84c9` |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `3b5bcb9827371811bfdf9c000eefa3a34c6b8093` |
+| [SubagentTools.scala](SubagentTools.scala) | `3c6e0e1f0a7a97d0c5a12d22091d29e1d621ebc9` |
+| [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | `4c216131c2505f47fdf9b5d4ca4190106fb89a13` |
+| [SubagentTaskBarrierSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskBarrierSpec.scala) | `a5325e39443feda9f72cef7d81d3358661c7b17f` |
+| [SubagentTaskFailureSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskFailureSpec.scala) | `63a74d891e0505af4e8ad3edbbb4c9fecc2e7bca` |
+| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | `9a46f20acc91b68756fc70a0e5ed72d3bf242fa7` |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `30ad5206e615ec84ad8ccad5c44629485c106e68` |
+| [SubagentTerminalOutcomeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalOutcomeSpec.scala) | `3c0bb045e628abe4b0d7442feb1285fa43c03cad` |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | `8e0e5ea1abc2f1f5562fb3f9a72f0978defb288c` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `c01789d9a275cf70f993b8000ffc90939f6b40d9` |
+
+Source approval does not close whole TaskTool parity, arbitrary Throwable reconstruction, physical workspace storage, cancellation, notification or executable restoration. Full delivery passes; review_fp and review_invariants approve the final combined scope against bfe12fb: thirteen unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
+
 ## Stored task views
 
 Persisted Pending and Running are explicit SubagentStoredTaskState observations, distinct from a live local handle. task_list includes both states and accepts the pending filter; agent_task returns Stored(state). Exact-ID merging avoids duplicates and preserves persisted terminal precedence, completed-local publication barriers and known publisher failures. Local/backend snapshots are not atomic and never prove that a remote owner remains alive.
@@ -23,18 +62,18 @@ Current source-approved scope against 0bbae03 comprises twelve Scala identities,
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | `9326927cce0a47bed83ffc931fcd1523ec1ee72d` |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTaskListTool.scala](SubagentTaskListTool.scala) | `b7dd22731ad5f2fd0534a0058d4fef1f204edbf8` |
 | [SubagentTaskObservation.scala](SubagentTaskObservation.scala) | `5e5beea26a4e981ade5479aad622ba5e4166bd19` |
 | [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | `c9bcd9ff24bf1119bc1c5f3aaa38a7f93255e89e` |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `249ee39315d7c4868425e78762287c62d7c97604` |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `a5b389f7dae9c70671c334771c9895d6d206c013` |
-| [SubagentTools.scala](SubagentTools.scala) | `f7018cb13b7e5b2a0324747742b9f3e49a831525` |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [SubagentTools.scala](SubagentTools.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentWaitSession.scala](SubagentWaitSession.scala) | `7005e016fc33c9033c1828f399e557507717da04` |
 | [SubagentTaskListToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskListToolSpec.scala) | `ce240bafc28bf46a285981f4889a0f406ce9b934` |
-| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | `12f5482f6cafe04ffd92afe312e494244ff72f02` |
+| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentWaitSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWaitSessionSpec.scala) | `b29d5d4309e68886db743e9f5459f17acb019021` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `0216e6f62b31e0cc7fcda3f0e25d515c967ecf7c` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 Full delivery passes; review_fp and review_invariants approve the final combined scope against 0bbae03: twelve unchanged Scala identities and fourteen Markdown files, with no unresolved findings. Stored views do not close physical workspace-file layout, executable restoration, owner recovery/fencing, cancellation intent, heartbeat/sweep/discovery or whole TaskTool parity.
 
@@ -59,18 +98,18 @@ The current metadata/output scope against 38916ce comprises eight Scala identiti
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | `c81bf3c6e0ff3e711597b5bce00180da1ed92ccf` |
 | [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | Current identity: [stored-view manifest](#stored-task-views) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | `ab9f6b4967decada46fca77eb0e3c3bdb47dc652` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 ## Durable task admission
 
-Both independent source reviews approve the exact scope below; full/artifact/archive/external-consumer checks pass; review_fp and review_invariants approve the final combined scope against f87ed98: ten unchanged Scala identities and fourteen Markdown files, with no unresolved findings. The built-in versioned SubagentTerminalStore adds explicit admitted Pending and Running observations, separate from terminal-only read/list/pending views. Actual admission owns creation/check/update timestamps; legacy schema 1-3 data remains terminal with absent metadata. New writes use schema 4 within the existing aggregate limits. Observed wall-clock timestamps do not establish a monotonic clock or execution ownership.
+Both independent source reviews approve the exact scope below; full/artifact/archive/external-consumer checks pass; review_fp and review_invariants approve the final combined scope against f87ed98: ten unchanged Scala identities and fourteen Markdown files, with no unresolved findings. The built-in versioned SubagentTerminalStore adds explicit admitted Pending and Running observations, separate from terminal-only read/list/pending views. Actual admission owns creation/check/update timestamps; legacy schema 1-3 data remains terminal with absent metadata. The [current schema policy](#typed-task-failure-details) defines new writes and strict backward reads within the existing aggregate limits. Observed wall-clock timestamps do not establish a monotonic clock or execution ownership.
 
 A durable prepared launch acquires a paused child under its caller lease, persists admission, installs registry and terminal-publisher ownership, then releases the child. The first released effect confirms Running before child execution. Existing IDs and uncertain admission receipts never authorize execution. A possibly committed Pending record remains unresolved for explicit host reconciliation. Rejected launches join owned cleanup and must preserve its failures and defects alongside the original admission cause.
 
@@ -95,12 +134,12 @@ The current admission scope against f87ed98 comprises ten Scala identities, path
 | [SubagentSession.scala](SubagentSession.scala) | `7335a9f0847f24c75a01abd50d886cd485c5a0d6` |
 | [SubagentTaskRecord.scala](SubagentTaskRecord.scala) | `76d8b04e991b63b5e40ef879391b37a6056510b8` |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | Current identity: [metadata/output manifest](#task-output-creation-and-check-metadata) |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `775b10b201c91348080c47e7b15ca938a26180a7` |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTerminalBindingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalBindingSpec.scala) | `de95b80a5b745134785df7fe7bd959e152a25907` |
-| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | `a371e1f903675fa262bc48aa4aa0edb472869f9f` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 ## Bound full task output consumption
 
@@ -120,11 +159,11 @@ The current bound full-output scope against 584ecf1 comprises five Scala identit
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTools.scala](SubagentTools.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTools.scala](SubagentTools.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 - [x] review_fp and review_invariants approve the five exact source/specification identities against 584ecf1, with no unresolved findings.
 - [x] target/task-output-consumption-focused-final-green.log passes 22 harness groups in 5.168 seconds and two actual PostgreSQL groups in 2.676 seconds, zero failed/ignored/compiler warnings. The added fourth TaskOutput group has eight table modes: exact, diagnostic metadata, redaction, real offload, prior callback failure, uncertain committed ACK and measured below/above-capacity controls. Existing PostgreSQL groups additionally verify full Unicode output and post-persistence ACK.
@@ -152,7 +191,7 @@ The current task-output scope against b70336f comprises four Scala identities, p
 | [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | Current identity: [metadata/output manifest](#task-output-creation-and-check-metadata) |
 | [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | Current identity: [stored-view manifest](#stored-task-views) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 - [x] review_fp and review_invariants approve the four exact source/specification identities against b70336f, with no unresolved findings.
 - [x] target/task-output-focused.log passes 28 harness groups in 2.271 seconds and two actual PostgreSQL groups in 2.597 seconds, zero failed/ignored/compiler warnings. Three new groups cover exact full Unicode/outcome/worker data through actual parent processing without ACK; default/clamped/zero/negative/poll timing and waiter-only cancellation; held publication readiness/failure and captured result survival after forgetting. Existing barrier/session/routing suites retain their behavior.
@@ -176,10 +215,10 @@ The current routed scope against b98fc2f comprises four Scala identities, path-f
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTools.scala](SubagentTools.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [SubagentTools.scala](SubagentTools.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentRoutedConsumptionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentRoutedConsumptionSpec.scala) | `adc8f31b71d42b0e35f24d75f87de8bce8adcd32` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 The unchanged defective draft first produced one passing and one failing group in target/routed-consumption-red.log: both held-lookup and held-cleanup probes observed premature close, and parent completion failed with a closed adapter. The same assertions pass after ownership correction. These are reproduced local lifecycle defects, not additional upstream method mappings.
 
@@ -222,7 +261,7 @@ SubagentWorkerId.from checks an explicitly host-declared identifier: nonblank va
 
 SubagentTerminalRecord adds workerId: Option[SubagentWorkerId], defaulting to None. SubagentTaskRegistry.open/openDurable capture the supplied optional identity once for new local terminal observations; publishJoined accepts the same explicit argument. Reopened stored records preserve their original identity, including None. The current registry never backfills old records with its own identity. Complete record equality includes the identity: republishing an occupied task with a different identity, or None versus Some, conflicts.
 
-Current writes use schema 4 under the [durable admission contract](#durable-task-admission). Strict schema-1/schema-2 reads normalize absent identity to None without rewriting; schema-2 acknowledgement timestamps and schema-3 worker identities survive migration. Aggregate byte limits include encoded identity and admission metadata. Schema-1/2/3-only adapters reject schema 4; hosts must coordinate reader/writer versions and backups. This is not a cross-process ownership or fencing protocol.
+Current writes use schema 5 under the [typed failure migration](#typed-task-failure-details). Strict schema-1/schema-2 reads normalize absent identity to None without rewriting; schema-2 acknowledgement timestamps and schema-3 worker identities survive migration. Aggregate byte limits include encoded identity and admission metadata. Schema-1/2/3/4-only adapters reject schema 5; hosts must coordinate reader/writer versions and backups. This is not a cross-process ownership or fencing protocol.
 
 Reminder rendering includes an escaped agent attribute only for Some identity. Legacy None records omit it; output preview and acknowledgement authority remain unchanged. The attribute identifies the host-declared worker and does not prove execution ownership or completed delivery.
 
@@ -232,16 +271,16 @@ The worker-identity scope against 7bff28a comprises the ten Scala identities bel
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | `d968f629b07dedb821441875f592f3df860eda34` |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentWorkerId.scala](SubagentWorkerId.scala) | `995f78340c7d78df098c8f791d6aca67cf9621ff` |
-| [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | `9657165b46f5a4fb3d877e72b46b28ecee0c3b82` |
+| [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | `7459140ee5060636b764c838ae659a2fde0effee` |
-| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [durable admission manifest](#durable-task-admission) |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentWorkerIdSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWorkerIdSpec.scala) | `d9e414b8a57d167d597bcfeea53c39aec9730c16` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 - [x] review_fp and review_invariants approve the ten exact worker-identity source/specification identities against 7bff28a, with no unresolved source findings.
 - [x] target/worker-identity-focused-final.log passes 22 harness groups in 4.044 seconds and two actual PostgreSQL groups in 2.230 seconds, zero failed/ignored/compiler warnings. One new identity/codec group and existing store/registry/reminder/PostgreSQL fixtures cover validation, strict migration, identity conflicts, joined publication and escaped actual request text. The corrected byte-growth oracle proves a fitting baseline, successful no-identity control, oversized-identity rejection and exact unchanged stored bytes/revision.
@@ -288,16 +327,16 @@ The scoped wait behavior retains its independently accepted review against d38b3
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentInbox.scala](SubagentInbox.scala) | `3afbe9df8cde5905c33412ff99efc736a87633e6` |
 | [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | Current identity: [metadata/output manifest](#task-output-creation-and-check-metadata) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTools.scala](SubagentTools.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTools.scala](SubagentTools.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentWaitSession.scala](SubagentWaitSession.scala) | Current identity: [stored-view manifest](#stored-task-views) |
 | [SubagentInboxSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentInboxSpec.scala) | `4ef2922bc7b6417e4d2e158fe1e607b95762c33c` |
-| [SubagentTaskBarrierSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskBarrierSpec.scala) | `79a458f9ef60ace24bc8019b004f837697f89183` |
+| [SubagentTaskBarrierSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskBarrierSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentWaitSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWaitSessionSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 Confirmed draft defects were reproduced before correction. target/inbox-wait-draft-red.log records two passing groups and one failing group: selected readiness returned AdmissionTimedOut instead of BudgetExhausted, legacy terminal readiness returned AdmissionTimedOut instead of AllTerminal, and held-probe arrival returned NoTasks/AllTerminal instead of InboxArrived. The defective session blob is 32ca0bdb0dea2a4e2df1abeb4aa62c289277407c, registry 3d65a525f19288db1689eafef45ccf5be3478dca and regression 7479287d6a7e607958f51954339402bf81d9885a.
 
@@ -328,10 +367,10 @@ The close defect was reproduced before fixing the new draft in target/subagent-r
 
 | Reviewed source against a33488e | Git blob |
 | --- | --- |
-| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTools.scala](SubagentTools.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | [Current worker-identity scope](#worker-identity) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [SubagentTools.scala](SubagentTools.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 - [x] Implement bounded captured reminders, exact winning-input consumption and scoped configured-hook ownership; current four-hook integration belongs to the bound inspection scope above.
 - [x] Reproduce and correct the configured-hook close race without weakening its regression assertions.
@@ -360,7 +399,7 @@ Final formatted source scope against `bad689e`, manifest SHA-256 `048f7c44889cfd
 | --- | --- |
 | [SubagentTerminalDelivery.scala](SubagentTerminalDelivery.scala) | `76b3d126cb78ebeb1aebe9267c6850e14a6db628` |
 | [SubagentTerminalDeliverySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalDeliverySpec.scala) | `52b0f0e1f93dc3539b335baaccbb31cbbe869322` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 - [x] Implement explicit bounded success-only delivery and paired contracts for selected IDs, duplicate rejection, missing/uncertain receipts and callback cleanup.
 - [x] Correct draft fixture cancellation gaps by masking fork/unblock registration together; these were test lifecycle findings, not accepted baseline production defects.
@@ -378,7 +417,7 @@ The store's additive `pending`, `acknowledgement(id)` and `acknowledge(id)` APIs
 
 Acknowledgement updates the same bounded aggregate as terminal publication. The first timestamp wins; repeated acknowledgement and idempotent republication retain it. A concurrent publication copies every existing entry including its stamp, and acknowledgement retains every immutable outcome. No orphan acknowledgement can be inserted. Clock.instant runs only after a pending persisted record is found; one candidate is retained across bounded retries of confirmed CAS conflicts. Backend failure, uncertain acknowledgement and cancellation are not retried. A later explicit read or acknowledgement may reveal that an uncertain write committed. The timestamp records the host acknowledgement operation; it proves neither completion time, authenticated receipt nor exactly-once delivery.
 
-Schema-version-1 data is checked in its original canonical representation and read as terminal observations with Pending acknowledgement and absent admission metadata, without migration or a clock read. Schema 2 retains optional acknowledgedAt fields. New successful writes use strict schema 4 under the [durable admission migration](#durable-task-admission), preserving existing stamps and exact output. First terminal transitions preserve terminal publication order; other writes retain order. Invalid timestamps, explicit null stamps, unsupported versions, unknown/duplicate fields, duplicate task IDs and malformed Unicode fail validation. Byte/count limits include timestamp growth; a stamp that exceeds capacity fails without dropping records or altering stored state. Older schema-1/2/3-only readers reject schema 4. Hosts must coordinate reader/writer versions and retain their own backups before forward migration; this API supplies no downgrade converter or storage backup.
+Schema-version-1 data is checked in its original canonical representation and read as terminal observations with Pending acknowledgement and absent admission metadata, without migration or a clock read. Schema 2 retains optional acknowledgedAt fields. New successful writes use strict schema 5 under the [typed failure migration](#typed-task-failure-details), preserving existing stamps and exact output. First terminal transitions preserve terminal publication order; other writes retain order. Invalid timestamps, explicit null stamps, unsupported versions, unknown/duplicate fields, duplicate task IDs and malformed Unicode fail validation. Byte/count limits include timestamp growth; a stamp that exceeds capacity fails without dropping records or altering stored state. Older schema-1/2/3/4-only readers reject schema 5. Hosts must coordinate reader/writer versions and retain their own backups before forward migration; this API supplies no downgrade converter or storage backup.
 
 Opt-in durable registries expose `durablePendingDeliveries`, `terminalAcknowledgement(id)` and `acknowledgeTerminal(id)`. These methods use the owner-selected store and propagate typed failures. Local completed publication receipts are barriers before exposing or acknowledging stored data, including completion that occurs during a held backend read. Still-running local work does not block authoritative stored terminal data. Cancelling an observer does not cancel an owned publisher. Existing live pendingDeliveries/acknowledge APIs remain separate and still reject durable registries; restored observations never become fabricated live Exit values. These new APIs remain usable after registry closure while the host retains backend access.
 
@@ -391,10 +430,10 @@ Final formatted source scope against `1925481`, manifest SHA-256 `63a32103584533
 | File | Git blob |
 | --- | --- |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | [Current worker-identity scope](#worker-identity) |
-| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 - [x] Implement bounded schema migration, first-stamp acknowledgement and observation-based registry APIs with paired contracts.
 - [x] Reproduce the stale-running per-ID barrier assertion failure before correction.
@@ -428,11 +467,11 @@ Final formatted source scope against `5f75a0a`, manifest SHA-256 `7a8aa0d20accc4
 | --- | --- |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [stored-view manifest](#stored-task-views) |
 | [SubagentTaskObservation.scala](SubagentTaskObservation.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTools.scala](SubagentTools.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTools.scala](SubagentTools.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTaskListTool.scala](SubagentTaskListTool.scala) | Current identity: [stored-view manifest](#stored-task-views) |
 | [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | [Current worker-identity scope](#worker-identity) |
-| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 - [x] Implement the bounded opt-in publication owner and model-facing terminal views.
 - [x] Reproduce the held-ack assertion failure before applying its correction.
@@ -461,11 +500,11 @@ This implements only a terminal persistence subset of pinned WorkspaceTaskReposi
 
 | Current scope against c99596b | Git blob |
 | --- | --- |
-| [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | [Current worker-identity scope](#worker-identity) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTerminalOutcomeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalOutcomeSpec.scala) | `30297045385ba75fa792c5818fe4037bb561a86c` |
-| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current worker-identity scope](#worker-identity) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [SubagentTerminalOutcomeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalOutcomeSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 - [x] Implement bounded caller-owned terminal storage, paired contracts and real PostgreSQL integration.
 - [x] target/durable-terminal-focused.log passes four harness groups in 278 ms and one actually executed PostgreSQL group in 648 ms, zero failed/ignored, with fatal-warning compilation.
@@ -870,13 +909,13 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `b8c862182e0a625e7d6f83c0ac72c120f700e80b` |
 | [SubagentExecutionPolicy.scala](SubagentExecutionPolicy.scala) | `df95802fbd98e3db0d5e64fe958f812b6f470003` |
 | [SubagentExecutionPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentExecutionPolicySpec.scala) | `ccab2966d1d868250b00eed9150138e3a5df69f1` |
-| [SubagentTools.scala](SubagentTools.scala) | Current identity: [stored-view manifest](#stored-task-views) |
+| [SubagentTools.scala](SubagentTools.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | [Current SubagentForwardingSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | `2438b3c3f99daeb7fa6687ec691056f34dc7bdb4` |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [stored-view manifest](#stored-task-views) |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | [Current SubagentTaskRegistrySpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentConstruction.scala](SubagentConstruction.scala) | `381703a6f1f92239110db9ce5bbec5d208047c52` |
 | [SubagentConstructionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) | [Current SubagentConstructionSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentFactory.scala](SubagentFactory.scala) | [Current host-resume identity](#host-only-session-resume) |
