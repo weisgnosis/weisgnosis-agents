@@ -170,6 +170,10 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             terminalBeforeStart <- observing.read(firstId)
             _                   <- admitting.markRunning(identity)
             runningRecord       <- observing.taskRecord(firstId)
+            heartbeatAt = identity.createdAt.plusSeconds(5L)
+            heartbeatClock    <- observedClock(heartbeatAt)
+            heartbeat         <- admitting.refreshHeartbeat(identity).withClock(heartbeatClock)
+            heartbeatedRecord <- observing.taskRecord(firstId)
             checkedAt = identity.createdAt.plusSeconds(10L)
             checkClock      <- observedClock(checkedAt)
             checkedMetadata <- observing.markChecked(firstId).withClock(checkClock)
@@ -179,7 +183,10 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             cancellation <- admitting
               .requestCancellation(firstId, Some(identity))
               .withClock(requestClock)
-            reopenedIntent <- observing.taskRecord(firstId)
+            reopenedIntent  <- observing.taskRecord(firstId)
+            intentSnapshot  <- backend.read(admissionAddress)
+            intentHeartbeat <- observing.refreshHeartbeat(identity).withClock(heartbeatClock)
+            unchangedIntentSnapshot <- second.read(admissionAddress)
             _ <- admitting.publish(
               SubagentTerminalRecord(
                 firstId,
@@ -187,9 +194,12 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 Some(workerId)
               )
             )
-            terminalRecord            <- observing.taskRecord(firstId)
-            _                         <- admitting.acknowledge(firstId)
-            acknowledgedRecord        <- observing.taskRecord(firstId)
+            terminalRecord     <- observing.taskRecord(firstId)
+            _                  <- admitting.acknowledge(firstId)
+            acknowledgedRecord <- observing.taskRecord(firstId)
+            terminalSnapshot   <- backend.read(admissionAddress)
+            terminalHeartbeat  <- observing.refreshHeartbeat(identity).withClock(heartbeatClock)
+            unchangedTerminalSnapshot <- second.read(admissionAddress)
             duplicateAdmission        <- observing.admit(firstId, Some(workerId))
             repeatedCancellation      <- observing.requestCancellation(firstId, Some(identity))
             afterRepeatedCancellation <- admitting.taskRecord(firstId)
@@ -265,6 +275,24 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               record.state == SubagentTaskRecordState.Running &&
                 record.metadata.exists(_.createdAt == identity.createdAt)
             ),
+            heartbeat match
+              case SubagentTaskHeartbeatResult.Refreshed(record) =>
+                heartbeatedRecord.contains(record) && runningRecord.exists(previous =>
+                  record == previous.copy(metadata =
+                    previous.metadata.map(_.copy(lastUpdatedAt = heartbeatAt))
+                  )
+                )
+              case _ => false,
+            intentHeartbeat match
+              case SubagentTaskHeartbeatResult.CancellationRequested(record) =>
+                reopenedIntent.contains(record)
+              case _ => false,
+            intentSnapshot == unchangedIntentSnapshot,
+            terminalHeartbeat match
+              case SubagentTaskHeartbeatResult.AlreadyTerminal(record) =>
+                acknowledgedRecord.contains(record)
+              case _ => false,
+            terminalSnapshot == unchangedTerminalSnapshot,
             cancellation match
               case SubagentCancellationRequestResult.Requested(record) =>
                 reopenedIntent.contains(record)
@@ -284,7 +312,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             ),
             checkedMetadata == reopenedCheck.flatMap(_.metadata),
             reopenedCheck.exists(record =>
-              runningRecord.exists(previous =>
+              heartbeatedRecord.exists(previous =>
                 record == previous.copy(metadata =
                   previous.metadata.map(_.copy(lastCheckedAt = checkedAt))
                 )

@@ -1,5 +1,35 @@
 # Scoped child execution and sessions
 
+## Explicit owner heartbeat
+
+refreshCurrentOwner is an explicit host operation over one captured Open registry membership. It polls actual retained tasks and refreshes only unfinished local handles with confirmed admission identities. Completed handles are skipped without backend work; an empty durable registry performs no storage or clock work. Closed durable registries reject the operation before backend access. Volatile/custom registries and custom stores default to typed unsupported failures; there is no implicit maintenance fiber.
+
+SubagentTerminalStore.refreshHeartbeat validates the exact task ID, worker and original creation time on every aggregate read. Only Running with NotRequested intent updates lastUpdatedAt. Pending, Terminal and requested-cancellation records return NotRunning, AlreadyTerminal or CancellationRequested unchanged, with no clock sample or write; terminal disposition takes precedence. Refreshed returns the exact confirmed record. Missing or mismatched admission fails closed. The store preserves creation/check times, outcome, acknowledgement, cancellation intent and aggregate order; strict schema 6 is unchanged.
+
+One eligible logical refresh samples a clock candidate, reused only after confirmed CAS conflicts. Every retry rechecks identity/state/intent; a terminal or cancellation winner prevents another write. Uncertain writes are not retried. Wall-clock values may move backward and are recorded as observed. These timestamps do not constitute an execution lease, fencing or proof of owner liveness.
+
+Registry attempts run sequentially in captured order. Ordinary typed errors are retained while later independent entries are attempted, then combined as exact Causes. Defects or interruption stop the traversal immediately with earlier failures and the actual stopping/cleanup cause preserved. Cancellation joins the current refresh operation without signalling task workers or publishers; prior committed refreshes are not rolled back. A task may complete after its eligibility poll, and closure may begin after membership capture. Store CAS guards persisted state; hosts serialize refresh with owner shutdown when they need a quiescent boundary. No stored-only record creates a handle or becomes refresh authority.
+
+Pinned WorkspaceTaskRepositoryTest methods478/534 are adapted through actual public durable-registry running refresh and completed-task skip, plus exact independent PostgreSQL reads. Java periodic scheduling and swallowed per-task exceptions are replaced by explicit host scheduling and observable failures. This additive capability has no fabricated baseline RED; the first focused run's unused fixture binding failed compilation under -Werror and was corrected separately from behavioral assertions.
+
+- [x] review_fp and review_invariants approve all six exact Scala identities against 3b31430, with no unresolved findings.
+- [x] target/heartbeat-focused-green.log passes 47 harness groups in 4.087 seconds and two actual PostgreSQL groups in 4.622 seconds, zero failed/ignored/compiler warnings.
+- [x] target/heartbeat-final-verify.log passes formatting/fatal-warning compilation, 1,642 tests (695 core / 785 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/heartbeat-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
+- [x] target/heartbeat-final-consumer.log passes fresh standalone formatting/compilation/execution and four artifact-hash checks. Its unchanged probe does not directly exercise heartbeat; public harness and actual PostgreSQL specifications provide that evidence.
+- [x] review_fp and review_invariants approve the final combined scope against 3b31430: six unchanged Scala identities and fourteen Markdown files, with no unresolved findings. English prose and local Markdown links pass; commit this accepted scope.
+
+Current source-approved scope against 3b31430: six Scala identities, path-first manifest SHA-256 3e25c96dbca242bcec1e1c8b930ac05e1f9d24381e379fd94f7f6c5902d43163.
+
+| Reviewed source | Git blob |
+| --- | --- |
+| [SubagentTaskRecord.scala](SubagentTaskRecord.scala) | `100462f268591c76c45ba5883ea18a05c3deaf5d` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `0d965b2a340ec1f38a820307c9f8ec494e08c2c7` |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `2339eaabeb9372346cc5f66014c7de5613868d82` |
+| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | `15e50cdd4dd60089bfca6110de2ed25d142e356a` |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `6feb2761921952ad1b20d8af69626c622842a7de` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `e7e091b881bd4d0ff64973f5c819c5cf891834d1` |
+
 ## Completion notifications
 
 SubagentCompletionNotification is an explicit host policy: Suppress or Notify(SubagentCompletionNotifier). openDurable captures the configured default; submitWithCompletionNotification supplies a host-only per-submission override. Model metadata cannot choose suppression. Borrowed SubagentTerminalBinding passes the same policy through public catalog/session factories without transferring backend ownership. Ordinary volatile registries retain their existing behavior and reject the new capability with a typed unsupported error.
@@ -27,11 +57,11 @@ This is additive capability work; no absent baseline callback port was misrepres
 | [SubagentCatalog.scala](SubagentCatalog.scala) | `70822dfda6b462f21aaf2a8bff009887ffe0e135` |
 | [SubagentCompletionNotification.scala](SubagentCompletionNotification.scala) | `529cd96530c2f080ddaec3fd2c61ca3966eee842` |
 | [SubagentSession.scala](SubagentSession.scala) | `4f24605ac6256ecd1502030a0c39c4abf66c2e14` |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `87cf07825c576cc4f48e0bdd82e90912c697db35` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTerminalBinding.scala](SubagentTerminalBinding.scala) | `7c57e3a26a190d631a50adf1a07b47426351c151` |
 | [SubagentCompletionNotificationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentCompletionNotificationSpec.scala) | `c93a8a8f938cf7d000e341a11b196306f2b4e704` |
 | [SubagentTerminalBindingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalBindingSpec.scala) | `1211a8080917fd0bedb1839eb84745c077affb1e` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `41d3ffb9725f1b944324fc130679d932574479b5` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 ## Durable cancellation intent
 
@@ -63,15 +93,15 @@ Current formatted source scope against e7978ab: ten Scala identities, path-first
 | Reviewed source | Git blob |
 | --- | --- |
 | [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | `4d14ecc86872079441cd01c91b4390524dc06dd9` |
-| [SubagentTaskRecord.scala](SubagentTaskRecord.scala) | `ec51b5e5c90091d44c8a212e5e9929f920e6b87a` |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `5fc7a14fa6d98db3474a5c0ea8641be584fcbb47` |
+| [SubagentTaskRecord.scala](SubagentTaskRecord.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTools.scala](SubagentTools.scala) | `808f0d4ffa3f7ec5625671bd38ca03b75995ba93` |
-| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | `d99b8e020eb373cd96d2ff6fb20ee1d1613c9e2d` |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `a3d80ea7866304f0a47d7dce0368da537421cf52` |
+| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | `42fdbcb221e6e240f81a63841f2b7fb2e6f8e2f5` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | `94de20a59f2f2a315ccdc676110e668c8d208f22` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 ## Typed task failure details
 
@@ -99,16 +129,16 @@ Current source-approved scope against bfe12fb comprises thirteen Scala identitie
 | [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentTaskFailure.scala](SubagentTaskFailure.scala) | `a1eefd7b9c90ad7dc7bb2e241095e48e45638292` |
 | [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | `b382e3b76b4455697472a23038bf3fee7eca84c9` |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTools.scala](SubagentTools.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | `4c216131c2505f47fdf9b5d4ca4190106fb89a13` |
 | [SubagentTaskBarrierSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskBarrierSpec.scala) | `a5325e39443feda9f72cef7d81d3358661c7b17f` |
 | [SubagentTaskFailureSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskFailureSpec.scala) | `63a74d891e0505af4e8ad3edbbb4c9fecc2e7bca` |
 | [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | `9a46f20acc91b68756fc70a0e5ed72d3bf242fa7` |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTerminalOutcomeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalOutcomeSpec.scala) | `3c0bb045e628abe4b0d7442feb1285fa43c03cad` |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 Source approval does not close whole TaskTool parity, arbitrary Throwable reconstruction, physical workspace storage, remote-owner cancellation/wakeup recovery or executable restoration. Current-owner cancellation and notifications have their linked contracts above. Full delivery passes; review_fp and review_invariants approve the final combined scope against bfe12fb: thirteen unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
 
@@ -139,16 +169,16 @@ Current source-approved scope against 0bbae03 comprises twelve Scala identities,
 | [SubagentTaskListTool.scala](SubagentTaskListTool.scala) | `b7dd22731ad5f2fd0534a0058d4fef1f204edbf8` |
 | [SubagentTaskObservation.scala](SubagentTaskObservation.scala) | `5e5beea26a4e981ade5479aad622ba5e4166bd19` |
 | [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | `c9bcd9ff24bf1119bc1c5f3aaa38a7f93255e89e` |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTools.scala](SubagentTools.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentWaitSession.scala](SubagentWaitSession.scala) | `7005e016fc33c9033c1828f399e557507717da04` |
 | [SubagentTaskListToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskListToolSpec.scala) | `ce240bafc28bf46a285981f4889a0f406ce9b934` |
 | [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentWaitSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWaitSessionSpec.scala) | `b29d5d4309e68886db743e9f5459f17acb019021` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
-Full delivery passes; review_fp and review_invariants approve the final combined scope against 0bbae03: twelve unchanged Scala identities and fourteen Markdown files, with no unresolved findings. Stored views do not close physical workspace-file layout, executable restoration, owner recovery/fencing, remote-owner cancellation, heartbeat/sweep/discovery or whole TaskTool parity.
+Full delivery passes; review_fp and review_invariants approve the final combined scope against 0bbae03: twelve unchanged Scala identities and fourteen Markdown files, with no unresolved findings. Stored views do not close physical workspace-file layout, executable restoration, owner recovery/fencing, remote-owner cancellation, stale-owner sweep/discovery or whole TaskTool parity. Explicit current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat).
 
 ## Task output creation and check metadata
 
@@ -174,11 +204,11 @@ The current metadata/output scope against 38916ce comprises eight Scala identiti
 | [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | `c81bf3c6e0ff3e711597b5bce00180da1ed92ccf` |
 | [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
-| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 ## Durable task admission
 
@@ -205,14 +235,14 @@ The current admission scope against f87ed98 comprises ten Scala identities, path
 | --- | --- |
 | [SubagentFactory.scala](SubagentFactory.scala) | `3708a4c49a13993cfb487a9a8d9d21ee9b254149` |
 | [SubagentSession.scala](SubagentSession.scala) | Current identity: [notification manifest](#completion-notifications) |
-| [SubagentTaskRecord.scala](SubagentTaskRecord.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
+| [SubagentTaskRecord.scala](SubagentTaskRecord.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTerminalBindingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalBindingSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 ## Bound full task output consumption
 
@@ -236,7 +266,7 @@ The current bound full-output scope against 584ecf1 comprises five Scala identit
 | [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | Current identity: [stored-view manifest](#stored-task-views) |
 | [SubagentTools.scala](SubagentTools.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 - [x] review_fp and review_invariants approve the five exact source/specification identities against 584ecf1, with no unresolved findings.
 - [x] target/task-output-consumption-focused-final-green.log passes 22 harness groups in 5.168 seconds and two actual PostgreSQL groups in 2.676 seconds, zero failed/ignored/compiler warnings. The added fourth TaskOutput group has eight table modes: exact, diagnostic metadata, redaction, real offload, prior callback failure, uncertain committed ACK and measured below/above-capacity controls. Existing PostgreSQL groups additionally verify full Unicode output and post-persistence ACK.
@@ -263,7 +293,7 @@ The current task-output scope against b70336f comprises four Scala identities, p
 | --- | --- |
 | [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | Current identity: [metadata/output manifest](#task-output-creation-and-check-metadata) |
 | [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 
 - [x] review_fp and review_invariants approve the four exact source/specification identities against b70336f, with no unresolved findings.
@@ -291,7 +321,7 @@ The current routed scope against b98fc2f comprises four Scala identities, path-f
 | [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentTools.scala](SubagentTools.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentRoutedConsumptionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentRoutedConsumptionSpec.scala) | `adc8f31b71d42b0e35f24d75f87de8bce8adcd32` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 The unchanged defective draft first produced one passing and one failing group in target/routed-consumption-red.log: both held-lookup and held-cleanup probes observed premature close, and parent completion failed with a closed adapter. The same assertions pass after ownership correction. These are reproduced local lifecycle defects, not additional upstream method mappings.
 
@@ -345,15 +375,15 @@ The worker-identity scope against 7bff28a comprises the ten Scala identities bel
 | Reviewed source | Git blob |
 | --- | --- |
 | [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentWorkerId.scala](SubagentWorkerId.scala) | `995f78340c7d78df098c8f791d6aca67cf9621ff` |
 | [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | `7459140ee5060636b764c838ae659a2fde0effee` |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentWorkerIdSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWorkerIdSpec.scala) | `d9e414b8a57d167d597bcfeea53c39aec9730c16` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 - [x] review_fp and review_invariants approve the ten exact worker-identity source/specification identities against 7bff28a, with no unresolved source findings.
 - [x] target/worker-identity-focused-final.log passes 22 harness groups in 4.044 seconds and two actual PostgreSQL groups in 2.230 seconds, zero failed/ignored/compiler warnings. One new identity/codec group and existing store/registry/reminder/PostgreSQL fixtures cover validation, strict migration, identity conflicts, joined publication and escaped actual request text. The corrected byte-growth oracle proves a fitting baseline, successful no-identity control, oversized-identity rejection and exact unchanged stored bytes/revision.
@@ -403,13 +433,13 @@ The scoped wait behavior retains its independently accepted review against d38b3
 | [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentInbox.scala](SubagentInbox.scala) | `3afbe9df8cde5905c33412ff99efc736a87633e6` |
 | [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | Current identity: [metadata/output manifest](#task-output-creation-and-check-metadata) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTools.scala](SubagentTools.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentWaitSession.scala](SubagentWaitSession.scala) | Current identity: [stored-view manifest](#stored-task-views) |
 | [SubagentInboxSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentInboxSpec.scala) | `4ef2922bc7b6417e4d2e158fe1e607b95762c33c` |
 | [SubagentTaskBarrierSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskBarrierSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentWaitSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWaitSessionSpec.scala) | Current identity: [stored-view manifest](#stored-task-views) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 Confirmed draft defects were reproduced before correction. target/inbox-wait-draft-red.log records two passing groups and one failing group: selected readiness returned AdmissionTimedOut instead of BudgetExhausted, legacy terminal readiness returned AdmissionTimedOut instead of AllTerminal, and held-probe arrival returned NoTasks/AllTerminal instead of InboxArrived. The defective session blob is 32ca0bdb0dea2a4e2df1abeb4aa62c289277407c, registry 3d65a525f19288db1689eafef45ccf5be3478dca and regression 7479287d6a7e607958f51954339402bf81d9885a.
 
@@ -443,7 +473,7 @@ The close defect was reproduced before fixing the new draft in target/subagent-r
 | [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentTools.scala](SubagentTools.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 - [x] Implement bounded captured reminders, exact winning-input consumption and scoped configured-hook ownership; current four-hook integration belongs to the bound inspection scope above.
 - [x] Reproduce and correct the configured-hook close race without weakening its regression assertions.
@@ -472,7 +502,7 @@ Final formatted source scope against `bad689e`, manifest SHA-256 `048f7c44889cfd
 | --- | --- |
 | [SubagentTerminalDelivery.scala](SubagentTerminalDelivery.scala) | `76b3d126cb78ebeb1aebe9267c6850e14a6db628` |
 | [SubagentTerminalDeliverySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalDeliverySpec.scala) | `52b0f0e1f93dc3539b335baaccbb31cbbe869322` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 - [x] Implement explicit bounded success-only delivery and paired contracts for selected IDs, duplicate rejection, missing/uncertain receipts and callback cleanup.
 - [x] Correct draft fixture cancellation gaps by masking fork/unblock registration together; these were test lifecycle findings, not accepted baseline production defects.
@@ -502,11 +532,11 @@ Final formatted source scope against `1925481`, manifest SHA-256 `63a32103584533
 
 | File | Git blob |
 | --- | --- |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 - [x] Implement bounded schema migration, first-stamp acknowledgement and observation-based registry APIs with paired contracts.
 - [x] Reproduce the stale-running per-ID barrier assertion failure before correction.
@@ -538,13 +568,13 @@ Final formatted source scope against `5f75a0a`, manifest SHA-256 `7a8aa0d20accc4
 
 | File | Git blob |
 | --- | --- |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTaskObservation.scala](SubagentTaskObservation.scala) | Current identity: [stored-view manifest](#stored-task-views) |
 | [SubagentTools.scala](SubagentTools.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [SubagentTaskListTool.scala](SubagentTaskListTool.scala) | Current identity: [stored-view manifest](#stored-task-views) |
 | [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 - [x] Implement the bounded opt-in publication owner and model-facing terminal views.
 - [x] Reproduce the held-ack assertion failure before applying its correction.
@@ -555,7 +585,7 @@ Final formatted source scope against `5f75a0a`, manifest SHA-256 `7a8aa0d20accc4
 - [x] target/durable-registry-final-preparation.log passes archive admission and reversible negative checks.
 - [x] target/durable-registry-final-consumer.log passes fresh standalone formatting, clean compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise the new registry APIs.
 - [x] review_fp and review_invariants approve final combined documentation against `5f75a0a` for eighteen files (seven unchanged Scala identities and eleven Markdown files), with no unresolved findings.
-- [ ] Implement remaining heartbeat/sweep/discovery applicability, remote-owner cancellation/recovery and durable running-barrier restoration, the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and remote wakeup integration and executable session restoration separately. Current-owner callbacks are supplied by the [completion notification contract](#completion-notifications). The [durable acknowledgement ledger](#durable-terminal-acknowledgement) is implemented.
+- [ ] Implement remaining stale-owner sweep/discovery applicability, remote-owner cancellation/recovery and durable running-barrier restoration, the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and remote wakeup integration and executable session restoration separately. Current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat). Current-owner callbacks are supplied by the [completion notification contract](#completion-notifications). The [durable acknowledgement ledger](#durable-terminal-acknowledgement) is implemented.
 
 ## Durable terminal observations
 
@@ -574,10 +604,10 @@ This implements only a terminal persistence subset of pinned WorkspaceTaskReposi
 | Current scope against c99596b | Git blob |
 | --- | --- |
 | [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentTerminalOutcomeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalOutcomeSpec.scala) | Current identity: [typed-failure manifest](#typed-task-failure-details) |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
 - [x] Implement bounded caller-owned terminal storage, paired contracts and real PostgreSQL integration.
 - [x] target/durable-terminal-focused.log passes four harness groups in 278 ms and one actually executed PostgreSQL group in 648 ms, zero failed/ignored, with fatal-warning compilation.
@@ -587,7 +617,7 @@ This implements only a terminal persistence subset of pinned WorkspaceTaskReposi
 - [x] target/durable-terminal-consumer.log passes fresh standalone compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise this new terminal API.
 - [x] review_fp and review_invariants accepted the terminal-store contract against `c99596b`; current changed files require the registry increment gates above.
 - [x] Implement and independently source-review the [registry publication integration](#registry-terminal-publication), with full verification and fresh artifact checks.
-- [ ] Complete remaining heartbeat/sweep/discovery applicability, remote-owner cancellation/recovery and durable running-barrier restoration, the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and remote wakeup ownership. Current-owner notification ownership is defined by the [completion notification contract](#completion-notifications). Explicit [durable terminal acknowledgement](#durable-terminal-acknowledgement) is available.
+- [ ] Complete remaining stale-owner sweep/discovery applicability, remote-owner cancellation/recovery and durable running-barrier restoration, the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and remote wakeup ownership. Current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat). Current-owner notification ownership is defined by the [completion notification contract](#completion-notifications). Explicit [durable terminal acknowledgement](#durable-terminal-acknowledgement) is available.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
@@ -799,7 +829,7 @@ Migration: `resume` is additive; existing send, registry and model-facing tool s
 | [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current numeric-integrity identity](../transcript/README.md#exact-owned-numeric-output) |
 | [SubagentFactory.scala](SubagentFactory.scala) | Current identity: [durable admission manifest](#durable-task-admission) |
 | [SubagentSession.scala](SubagentSession.scala) | Current identity: [notification manifest](#completion-notifications) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current terminal-binding scope](#terminal-store-bindings) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no open findings. Two new grouped session tests cover actual partial confirmations and supplied completion, repeated IDs, invalid/no-pending/closed outcomes, queued cancellation, held cleanup defects, original-context terminal forwarding and fresh-send reuse. Focused `child-resume-final-focused.log` passed nine core tests in 633 ms and fifteen harness tests in 603 ms.
@@ -986,9 +1016,9 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 | [SubagentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentForwardingSpec.scala) | [Current SubagentForwardingSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentDirectoryToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDirectoryToolsSpec.scala) | `c661d08dd03006ef39f2c710f725432f34190018` |
 | [SubagentToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [notification manifest](#completion-notifications) |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SupervisedTask.scala](SupervisedTask.scala) | `f3ddf1c653699ecd98cb021d4065608d561d591f` |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 | [SubagentConstruction.scala](SubagentConstruction.scala) | `381703a6f1f92239110db9ce5bbec5d208047c52` |
 | [SubagentConstructionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) | [Current SubagentConstructionSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentFactory.scala](SubagentFactory.scala) | [Current host-resume identity](#host-only-session-resume) |

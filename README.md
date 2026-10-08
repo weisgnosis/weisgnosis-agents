@@ -1,5 +1,7 @@
 # weisgnosis-agents
 
+The [explicit owner heartbeat contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#explicit-owner-heartbeat) refreshes only captured unfinished local admissions and preserves terminal/cancellation truth through identity-checked CAS. Sequential attempts retain ordinary failures and stop on interruption with exact cleanup causes; no scheduler, recovery or fencing is introduced. Both independent reviewers approve six Scala identities against 3b31430; 47 harness and two actual PostgreSQL focused groups pass. Full verification passes 1,642 tests and four RC1 packages; negative archive admission passes. Fresh standalone consumption passes; review_fp and review_invariants approve the final combined scope against 3b31430: six unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
+
 A Scala 3 and ZIO 2 library for agent execution with explicit resource ownership and deterministic runtime authority. It adapts agent mechanics from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java), licensed under Apache-2.0.
 
 **Development status:** locally verified candidate artifacts are available from this source tree; no public distribution, frozen binary compatibility baseline or complete upstream transfer is claimed. Read the [getting-started guide](docs/getting-started.md), [current tracker](docs/architecture/tracker.md) and [method-level parity audit](docs/architecture/test-parity.md) before integration.

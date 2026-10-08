@@ -89,6 +89,14 @@ trait SubagentTerminalStore:
       )
     )
 
+  /** Refresh only the exact admitted Running identity; this does not establish execution ownership. */
+  def refreshHeartbeat(
+      identity: SubagentTaskAdmissionIdentity
+  ): IO[AgentError, SubagentTaskHeartbeatResult] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration(s"Durable heartbeat is unsupported for ${identity.id.value}")
+    )
+
   /** None means admission metadata is unavailable; custom stores override to persist check time. */
   def markChecked(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskMetadata]] =
     read(id).as(None)
@@ -421,6 +429,52 @@ object SubagentTerminalStore:
           )
         )
       else attempt(limits.maxConflicts, None)
+
+    override def refreshHeartbeat(
+        identity: SubagentTaskAdmissionIdentity
+    ): IO[AgentError, SubagentTaskHeartbeatResult] =
+      def attempt(
+          remaining: Int,
+          candidate: Option[Instant]
+      ): IO[AgentError, SubagentTaskHeartbeatResult] =
+        snapshot.flatMap: (revision, records) =>
+          records.find(_.id == identity.id.value) match
+            case Some(existing) if existing.matches(identity) =>
+              existing.state match
+                case SubagentTaskRecordState.Terminal(_, _) =>
+                  ZIO.succeed(SubagentTaskHeartbeatResult.AlreadyTerminal(existing.record))
+                case SubagentTaskRecordState.Pending =>
+                  ZIO.succeed(SubagentTaskHeartbeatResult.NotRunning(existing.record))
+                case SubagentTaskRecordState.Running =>
+                  existing.cancellationIntent match
+                    case SubagentCancellationIntent.Requested(_) =>
+                      ZIO.succeed(
+                        SubagentTaskHeartbeatResult.CancellationRequested(existing.record)
+                      )
+                    case SubagentCancellationIntent.NotRequested =>
+                      for
+                        at <- candidate.fold[UIO[Instant]](Clock.instant)(ZIO.succeed(_))
+                        updated = existing.copy(metadata =
+                          existing.metadata.map(_.copy(lastUpdatedAt = at))
+                        )
+                        result <- write(
+                          revision,
+                          records.map(entry => if entry.id == existing.id then updated else entry)
+                        )
+                        receipt <- result match
+                          case ConditionalWrite.Applied(_) =>
+                            ZIO.succeed(SubagentTaskHeartbeatResult.Refreshed(updated.record))
+                          case ConditionalWrite.Conflict if remaining > 0 =>
+                            attempt(remaining - 1, Some(at))
+                          case ConditionalWrite.Conflict => exhausted("Task heartbeat")
+                      yield receipt
+            case _ =>
+              ZIO.fail(
+                AgentError.StorageError(
+                  "Task heartbeat does not match a confirmed durable admission"
+                )
+              )
+      attempt(limits.maxConflicts, None)
 
     override def markChecked(
         id: SubagentTaskId

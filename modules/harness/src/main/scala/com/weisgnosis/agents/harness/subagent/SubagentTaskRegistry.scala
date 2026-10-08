@@ -126,6 +126,10 @@ trait SubagentTaskRegistry:
   private[subagent] def waitWorkState: IO[AgentError, SubagentWaitWorkState] =
     ZIO.fail(AgentError.InvalidConfiguration("This registry does not support async wait readiness"))
 
+  /** Host-driven refresh of captured local admissions; no maintenance worker is installed. */
+  def refreshCurrentOwner: IO[AgentError, Chunk[SubagentTaskHeartbeatResult]] =
+    ZIO.fail(AgentError.InvalidConfiguration("This registry does not support durable heartbeat"))
+
   /** Custom registries retain their existing captured-wait capability unless explicitly overridden. */
   private[subagent] def captureOutput(
       id: SubagentTaskId
@@ -895,6 +899,52 @@ object SubagentTaskRegistry:
                             SubagentCapturedReadiness.Ready(_)
                           )
                         )
+
+    override def refreshCurrentOwner: IO[AgentError, Chunk[SubagentTaskHeartbeatResult]] =
+      persistence match
+        case None => super.refreshCurrentOwner
+        case Some(binding) =>
+          def attempt(entry: Entry): IO[AgentError, Option[SubagentTaskHeartbeatResult]] =
+            entry.task.poll.flatMap:
+              case Some(_) => ZIO.none
+              case None =>
+                entry.admissionIdentity match
+                  case Some(identity) => binding.store.refreshHeartbeat(identity).map(Some(_))
+                  case None =>
+                    ZIO.fail(
+                      AgentError.InvalidConfiguration(
+                        "The retained task has no confirmed durable admission for heartbeat"
+                      )
+                    )
+
+          state.get.flatMap:
+            case State.Closed(_) =>
+              ZIO.fail(
+                AgentError.InvalidConfiguration(
+                  "A closed registry cannot refresh its current owner"
+                )
+              )
+            case State.Open(entries) =>
+              ZIO.uninterruptibleMask: restore =>
+                // Only the transition between attempts is masked. Cancellation/defects stop the
+                // traversal and retain earlier failures; no task or publisher is cancelled.
+                def refresh(
+                    remaining: List[Entry],
+                    receipts: Chunk[SubagentTaskHeartbeatResult],
+                    failures: Cause[AgentError]
+                ): IO[AgentError, Chunk[SubagentTaskHeartbeatResult]] =
+                  remaining match
+                    case Nil =>
+                      if failures.isEmpty then ZIO.succeed(receipts) else ZIO.refailCause(failures)
+                    case entry :: tail =>
+                      restore(attempt(entry)).exit.flatMap:
+                        case Exit.Success(receipt) =>
+                          refresh(tail, receipts ++ Chunk.fromIterable(receipt), failures)
+                        case Exit.Failure(cause) if !cause.isInterrupted && cause.defects.isEmpty =>
+                          refresh(tail, receipts, failures && cause)
+                        case Exit.Failure(cause) =>
+                          ZIO.refailCause(if failures.isEmpty then cause else failures ++ cause)
+                refresh(entries.toList, Chunk.empty, Cause.empty)
 
     override def observe(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskObservation]] =
       persistence match

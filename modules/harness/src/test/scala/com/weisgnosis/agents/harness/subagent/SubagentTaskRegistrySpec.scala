@@ -28,6 +28,9 @@ import zio.test.*
 object SubagentTaskRegistrySpec extends ZIOSpecDefault:
   private val input: Msg = Msg.user("work")
 
+  private enum HeartbeatMode:
+    case Normal, FirstFails, Defect, Interrupted, Cancel
+
   private enum DurableAdmission:
     case Ready, LostReceipt, CallerCancelled, StartFailed, Closed, HostClosed
 
@@ -533,7 +536,164 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
             )
       )
 
+  private def heartbeatOwner: ZIO[TestEnvironment & Scope, AgentError, TestResult] =
+    ZIO.scoped:
+      for
+        backend <- SubagentTerminalStoreSpec.fixture
+        address <- ZIO.fromEither(StorageAddress.from(Chunk("owner-heartbeat"), "records"))
+        base = SubagentTerminalStore.make(backend.store, address)
+        mode            <- Ref.make(HeartbeatMode.Normal)
+        firstId         <- Ref.make(Option.empty[SubagentTaskId])
+        reads           <- Ref.make(0)
+        refreshes       <- Ref.make(Chunk.empty[SubagentTaskId])
+        entered         <- Queue.unbounded[Unit]
+        releaseChildren <- Promise.make[Nothing, Unit]
+        attemptEntered  <- Promise.make[Nothing, Unit]
+        cleanupEntered  <- Promise.make[Nothing, Unit]
+        releaseCleanup  <- Promise.make[Nothing, Unit]
+        failure = AgentError.StorageError("First heartbeat failed exactly")
+        defect  = new IllegalStateException("Heartbeat observation cleanup exactly")
+        store = new SubagentTerminalStore:
+          def read(id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalRecord]] =
+            reads.update(_ + 1) *> base.read(id)
+          def list: IO[AgentError, Chunk[SubagentTerminalRecord]] = reads.update(_ + 1) *> base.list
+          def publish(record: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication] =
+            base.publish(record)
+          override def admit(
+              id: SubagentTaskId,
+              workerId: Option[SubagentWorkerId]
+          ): IO[AgentError, SubagentTaskAdmissionResult] = base.admit(id, workerId)
+          override def confirmStart(
+              identity: SubagentTaskAdmissionIdentity
+          ): IO[AgentError, SubagentTaskStartResult] = base.confirmStart(identity)
+          override def refreshHeartbeat(
+              identity: SubagentTaskAdmissionIdentity
+          ): IO[AgentError, SubagentTaskHeartbeatResult] =
+            refreshes.update(_ :+ identity.id) *> mode.get
+              .zip(firstId.get)
+              .flatMap:
+                case (HeartbeatMode.Normal, _) => base.refreshHeartbeat(identity)
+                case (HeartbeatMode.Defect, first) if first.contains(identity.id) => ZIO.die(defect)
+                case (HeartbeatMode.Interrupted, first) if first.contains(identity.id) =>
+                  ZIO.interrupt
+                case (_, first) if first.contains(identity.id) => ZIO.fail(failure)
+                case (
+                      HeartbeatMode.FirstFails | HeartbeatMode.Defect | HeartbeatMode.Interrupted,
+                      _
+                    ) =>
+                  base.refreshHeartbeat(identity)
+                case (HeartbeatMode.Cancel, _) =>
+                  attemptEntered.succeed(()) *> ZIO.never.ensuring(
+                    cleanupEntered.succeed(()) *> releaseCleanup.await *> ZIO.die(defect)
+                  )
+        configured <- factory(_ => entered.offer(()) *> releaseChildren.await.as(Toolkit.empty))
+        supervisor <- TaskSupervisor.open[AgentResult]
+        parent     <- SubagentSpawner.root(supervisor)
+        lifetime   <- owner
+        registry   <- lifetime.extend(SubagentTaskRegistry.openDurable(parent, configured, store))
+        empty      <- registry.refreshCurrentOwner
+        emptyReads <- reads.get
+        emptyRefreshes <- refreshes.get
+        _      <- ZIO.addFinalizer(releaseChildren.succeed(()) *> releaseCleanup.succeed(()).unit)
+        first  <- lifetime.extend(accepted(registry.submit(input)))
+        second <- lifetime.extend(accepted(registry.submit(input)))
+        _      <- firstId.set(Some(first))
+        _      <- entered.takeN(2)
+        before <- base.taskRecords
+        at     <- Clock.instant
+        _      <- TestClock.adjust(5.seconds)
+        normal <- registry.refreshCurrentOwner
+        refreshed    <- base.taskRecords
+        _            <- mode.set(HeartbeatMode.FirstFails)
+        _            <- TestClock.adjust(5.seconds)
+        partial      <- registry.refreshCurrentOwner.exit
+        afterPartial <- base.taskRecords
+        exceptional <- ZIO.foreach(Chunk(HeartbeatMode.Defect, HeartbeatMode.Interrupted)):
+          exceptionalMode =>
+            for
+              _         <- mode.set(exceptionalMode)
+              _         <- refreshes.set(Chunk.empty)
+              result    <- registry.refreshCurrentOwner.exit
+              attempted <- refreshes.get
+            yield assertTrue(
+              attempted == Chunk(first),
+              result.causeOption.exists(cause =>
+                cause.failures.isEmpty && (exceptionalMode match
+                  case HeartbeatMode.Defect => cause.defects == List(defect) && !cause.isInterrupted
+                  case _                    => cause.defects.isEmpty && cause.isInterrupted)
+              )
+            )
+        _ <- mode.set(HeartbeatMode.Cancel)
+        _ <- refreshes.set(Chunk.empty)
+        worker <- ZIO.uninterruptibleMask: restore =>
+          for
+            fiber <- restore(registry.refreshCurrentOwner).forkScoped
+            _     <- ZIO.addFinalizer(releaseCleanup.succeed(()).unit)
+          yield fiber
+        // Await explicit second-attempt admission, not a timer or a worker status guess.
+        _                 <- attemptEntered.await
+        admitted          <- refreshes.get
+        controller        <- ZIO.fiberId
+        _                 <- worker.interruptAsFork(controller)
+        _                 <- cleanupEntered.await
+        early             <- worker.poll
+        _                 <- releaseCleanup.succeed(())
+        cancelled         <- worker.await
+        alive             <- registry.list
+        _                 <- releaseChildren.succeed(())
+        _                 <- registry.await(first)
+        _                 <- registry.await(second)
+        _                 <- registry.flushPublications
+        beforeCompleted   <- backend.store.read(address)
+        completed         <- registry.refreshCurrentOwner
+        afterCompleted    <- backend.store.read(address)
+        _                 <- lifetime.close(Exit.unit)
+        beforeClosedReads <- reads.get
+        closed            <- registry.refreshCurrentOwner.either
+        afterClosedReads  <- reads.get
+        volatile          <- SubagentTaskRegistry.open(parent, configured)
+        unsupported       <- volatile.refreshCurrentOwner.either
+      yield assertTrue(
+        empty.isEmpty,
+        emptyReads == 0,
+        emptyRefreshes.isEmpty,
+        normal == refreshed.map(SubagentTaskHeartbeatResult.Refreshed(_)),
+        refreshed == before.map(record =>
+          record.copy(metadata = record.metadata.map(_.copy(lastUpdatedAt = at.plusSeconds(5L))))
+        ),
+        partial.causeOption.exists(cause =>
+          cause.failures == List(failure) && cause.defects.isEmpty && !cause.isInterrupted
+        ),
+        afterPartial == refreshed.map(record =>
+          if record.id == second then
+            record.copy(metadata = record.metadata.map(_.copy(lastUpdatedAt = at.plusSeconds(10L))))
+          else record
+        ),
+        admitted == Chunk(first, second),
+        early.isEmpty,
+        cancelled.causeOption.exists(cause =>
+          cause.failures == List(failure) && cause.defects == List(defect) && cause.interruptors
+            .contains(controller)
+        ),
+        alive.map(_.id) == Chunk(first, second),
+        alive.forall(_.state == SubagentTaskState.Running),
+        completed.isEmpty,
+        beforeCompleted == afterCompleted,
+        closed == Left(
+          AgentError.InvalidConfiguration("A closed registry cannot refresh its current owner")
+        ),
+        beforeClosedReads == afterClosedReads,
+        unsupported == Left(
+          AgentError.InvalidConfiguration("This registry does not support durable heartbeat")
+        )
+      ) && exceptional.foldLeft(assertTrue(true))(_ && _)
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentTaskRegistrySpec")(
+    test(
+      "host heartbeat captures admitted local handles, continues typed failures and joins cancelled observation cleanup without cancelling tasks"
+    ):
+      heartbeatOwner
+    ,
     test(
       "durable cancellation failures never signal children; pre-start, stored-only and already-terminal requests retain truthful authority"
     ):

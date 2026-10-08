@@ -25,6 +25,21 @@ import zio.json.ast.Json
 import zio.test.*
 
 object SubagentTaskRecordSpec extends ZIOSpecDefault:
+  private enum HeartbeatRace:
+    case Terminal, Cancellation
+
+  private def countedClock(underlying: Clock, calls: Ref[Int]): Clock = new Clock:
+    export underlying.{
+      currentTime,
+      currentDateTime,
+      javaClock,
+      localDateTime,
+      nanoTime,
+      scheduler,
+      sleep
+    }
+    def instant(using Trace): UIO[Instant] = calls.update(_ + 1) *> underlying.instant
+
   def spec: Spec[TestEnvironment, Any] = suite("SubagentTaskRecordSpec")(
     test(
       "confirmed admissions retain exact identity and observed timestamps through start, terminal publication and acknowledgement; legacy data gains no invented times"
@@ -359,4 +374,185 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
           )
         )
       )
+    ,
+    test(
+      "heartbeat refreshes only the exact running admission, preserves concurrent fields and never retries uncertain writes"
+    ):
+      for
+        backend    <- SubagentTerminalStoreSpec.fixture
+        target     <- ZIO.fromEither(StorageAddress.from(Chunk("heartbeat"), "records"))
+        clock      <- ZIO.clock
+        clockCalls <- Ref.make(0)
+        observed = countedClock(clock, clockCalls)
+        base     = SubagentTerminalStore.make(backend.store, target)
+        id       = SubagentTaskId(new UUID(0L, 71L))
+        created  = Instant.parse("2026-10-08T01:00:00Z")
+        identity = SubagentTaskAdmissionIdentity(id, None, created)
+        _                 <- TestClock.setTime(created)
+        _                 <- base.admit(id)
+        pendingBefore     <- backend.store.read(target)
+        pendingRecord     <- base.taskRecord(id)
+        pending           <- base.refreshHeartbeat(identity).withClock(observed)
+        pendingAfter      <- backend.store.read(target)
+        pendingClockCalls <- clockCalls.get
+        _                 <- base.markRunning(identity)
+        _                 <- base.markChecked(id)
+        running           <- base.taskRecord(id)
+        _                 <- TestClock.adjust(5.seconds)
+        refreshed         <- base.refreshHeartbeat(identity).withClock(observed)
+        forward           <- base.taskRecord(id)
+        _                 <- TestClock.setTime(created.minusSeconds(1L))
+        _                 <- base.refreshHeartbeat(identity).withClock(observed)
+        backward          <- base.taskRecord(id)
+        invalid <- base
+          .refreshHeartbeat(identity.copy(createdAt = created.plusSeconds(1L)))
+          .withClock(observed)
+          .either
+        wrongWorker <- ZIO.fromEither(SubagentWorkerId.from("wrong-worker"))
+        invalidWorker <- base
+          .refreshHeartbeat(identity.copy(workerId = Some(wrongWorker)))
+          .withClock(observed)
+          .either
+        missing <- base
+          .refreshHeartbeat(identity.copy(id = SubagentTaskId(new UUID(0L, 999L))))
+          .withClock(observed)
+          .either
+        _        <- TestClock.setTime(created.plusSeconds(10L))
+        attempts <- Ref.make(0)
+        conflict = new VersionedJsonStore:
+          def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+            backend.store.read(address)
+          def compareAndSet(
+              address: StorageAddress,
+              expected: ExpectedRevision,
+              value: Json
+          ): IO[AgentError, ConditionalWrite] =
+            attempts
+              .updateAndGet(_ + 1)
+              .flatMap:
+                case 1 =>
+                  TestClock.adjust(2.seconds) *> base.markChecked(id).withClock(clock) *> TestClock
+                    .adjust(8.seconds)
+                    .as(ConditionalWrite.Conflict)
+                case _ => backend.store.compareAndSet(address, expected, value)
+        _ <- SubagentTerminalStore
+          .make(conflict, target)
+          .refreshHeartbeat(identity)
+          .withClock(observed)
+        afterConflict     <- base.taskRecord(id)
+        count             <- attempts.get
+        uncertainAttempts <- Ref.make(0)
+        lost = AgentError.StorageError("Heartbeat receipt lost")
+        uncertain = new VersionedJsonStore:
+          def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+            backend.store.read(address)
+          def compareAndSet(
+              address: StorageAddress,
+              expected: ExpectedRevision,
+              value: Json
+          ): IO[AgentError, ConditionalWrite] =
+            uncertainAttempts.update(_ + 1) *> backend.store
+              .compareAndSet(address, expected, value) *> ZIO.fail(lost)
+        uncertainResult <- SubagentTerminalStore
+          .make(uncertain, target)
+          .refreshHeartbeat(identity)
+          .withClock(observed)
+          .either
+        uncertainCount <- uncertainAttempts.get
+        persisted      <- base.taskRecord(id)
+        raceChecks <- ZIO.foreach(Chunk(HeartbeatRace.Terminal, HeartbeatRace.Cancellation)):
+          mode =>
+            for
+              raceAttempts <- Ref.make(0)
+              raceId = SubagentTaskId(
+                new UUID(0L, if mode == HeartbeatRace.Cancellation then 73L else 72L)
+              )
+              raceCreated <- Clock.instant
+              raceIdentity = SubagentTaskAdmissionIdentity(raceId, None, raceCreated)
+              _ <- base.admit(raceId)
+              _ <- base.markRunning(raceIdentity)
+              race = new VersionedJsonStore:
+                def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+                  backend.store.read(address)
+                def compareAndSet(
+                    address: StorageAddress,
+                    expected: ExpectedRevision,
+                    value: Json
+                ): IO[AgentError, ConditionalWrite] =
+                  raceAttempts.update(
+                    _ + 1
+                  ) *> (if mode == HeartbeatRace.Cancellation then
+                          base.requestCancellation(raceId).withClock(clock).unit
+                        else
+                          base
+                            .publish(
+                              SubagentTerminalRecord(
+                                raceId,
+                                SubagentTerminalOutcome.Completed("exact")
+                              )
+                            )
+                            .withClock(clock) *> base.acknowledge(raceId).withClock(clock).unit
+                  ).as(ConditionalWrite.Conflict)
+              result <- SubagentTerminalStore
+                .make(race, target)
+                .refreshHeartbeat(raceIdentity)
+                .withClock(observed)
+              beforeNoop <- backend.store.read(target)
+              repeated   <- base.refreshHeartbeat(raceIdentity).withClock(observed)
+              afterNoop  <- backend.store.read(target)
+              stored     <- base.taskRecord(raceId)
+              raceCount  <- raceAttempts.get
+            yield assertTrue(
+              stored.exists(record =>
+                result == (mode match
+                  case HeartbeatRace.Cancellation =>
+                    SubagentTaskHeartbeatResult.CancellationRequested(record)
+                  case HeartbeatRace.Terminal =>
+                    SubagentTaskHeartbeatResult.AlreadyTerminal(record))
+              ),
+              repeated == result,
+              beforeNoop == afterNoop,
+              raceCount == 1
+            )
+        totalClockCalls <- clockCalls.get
+      yield assertTrue(
+        pendingClockCalls == 0,
+        totalClockCalls == 6,
+        invalidWorker == invalid,
+        pendingRecord.exists(record => pending == SubagentTaskHeartbeatResult.NotRunning(record)),
+        pendingBefore == pendingAfter,
+        forward.exists(record => refreshed == SubagentTaskHeartbeatResult.Refreshed(record)),
+        forward == running.map(record =>
+          record.copy(metadata =
+            record.metadata.map(_.copy(lastUpdatedAt = created.plusSeconds(5L)))
+          )
+        ),
+        backward == running.map(record =>
+          record.copy(metadata =
+            record.metadata.map(_.copy(lastUpdatedAt = created.minusSeconds(1L)))
+          )
+        ),
+        invalid == Left(
+          AgentError.StorageError("Task heartbeat does not match a confirmed durable admission")
+        ),
+        missing == invalid,
+        count == 2,
+        afterConflict == running.map(record =>
+          record.copy(metadata =
+            record.metadata.map(
+              _.copy(
+                lastCheckedAt = created.plusSeconds(12L),
+                lastUpdatedAt = created.plusSeconds(10L)
+              )
+            )
+          )
+        ),
+        uncertainResult == Left(lost),
+        uncertainCount == 1,
+        persisted == afterConflict.map(record =>
+          record.copy(metadata =
+            record.metadata.map(_.copy(lastUpdatedAt = created.plusSeconds(20L)))
+          )
+        )
+      ) && raceChecks.foldLeft(assertTrue(true))(_ && _)
   )

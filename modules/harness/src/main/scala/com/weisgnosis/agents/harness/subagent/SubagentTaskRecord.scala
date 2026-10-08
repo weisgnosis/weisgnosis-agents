@@ -66,3 +66,10 @@ final case class SubagentTaskRecord(
 enum SubagentTaskAdmissionResult:
   case Created(identity: SubagentTaskAdmissionIdentity)
   case Existing(record: SubagentTaskRecord)
+
+/** Explicit owner refresh disposition, never an execution lease or takeover authority. */
+enum SubagentTaskHeartbeatResult:
+  case Refreshed(record: SubagentTaskRecord)
+  case NotRunning(record: SubagentTaskRecord)
+  case AlreadyTerminal(record: SubagentTaskRecord)
+  case CancellationRequested(record: SubagentTaskRecord)
