@@ -1734,7 +1734,7 @@ The six additional commits since fbbc2b63 require the following bounded disposit
 
 - [x] Refresh remote main/tags and record the exact six additional commits without changing the pinned working tree.
 - [ ] Classify the additional core/harness changes and applicable changed tests, including server-tool terminal handling, tool-visible correlation and session/request projection. Preserve original promised behavior; record any Java/host-specific adaptation explicitly.
-- [ ] Compare the separate v2.0.4 release tip before claiming alignment with that release. New release/main commit counts do not prove transferred behavior.
+- [x] Compare v2.0.4 separately: its merge base with the pin is `3c1c29c01798e09f7bf839ef7b9216762c63aa3f`. Its two exclusive commits (`7148c925`, `0b6743b2`) change only release POM versions, release notes and CopilotKit project metadata; there is no release-only core/harness source or test change from that common base. The pin has six exclusive commits, including invocation identity, server tools and JDBC fixes, so diffing pin directly against the tag also shows those newer features absent from the release branch. This classifies the release-tip delta without repinning or claiming complete release compatibility. The 33-commit main delta remains separate.
 
 The finite BOM method mapping is against change 2c503d88, not a repin of the existing method inventory:
 

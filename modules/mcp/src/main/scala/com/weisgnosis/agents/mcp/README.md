@@ -1,8 +1,6 @@
 # mcp: source package index
 
-The current [supported server revision agreement](transport/README.md#supported-server-revision-agreement) adds opt-in checked revision membership, one scoped negotiation owner, atomic correlated initialization and immediate framing/header transitions. Exact-version defaults remain; legacy POST additionally carries the revision header. The linked manifest owns migration, exact source identities, verification and final combined approval by review_fp and review_invariants against 1e18d44 for eighteen unchanged Scala files and fifteen Markdown files. This does not establish complete original-plan parity.
-
-[Resource access and observation](client/README.md#resource-client-contract) add the originally planned resource-server APIs and focused protocol/client/live-loopback coverage. The linked eleven-file manifest has current FP/ZIO and invariant approval and 29 focused passing groups. Full verification, package preparation and the fresh artifact consumer pass. Current source identities and final combined review status belong to the [legacy/revision manifest](transport/README.md#legacy-http-sse-and-explicit-revision-selection); earlier tool-only acceptance does not cover this expanded scope.
+[Supported server revision agreement](transport/README.md#supported-server-revision-agreement) provides opt-in checked revision membership with one scoped negotiation owner and correlated initialization. Exact-version defaults remain; legacy POST carries the selected revision header. [Resource access](client/README.md#resource-client-contract) includes capability-checked requests, bounded discovery and explicit subscriptions. These are selected contracts, not complete conformance to every MCP revision.
 
 - [protocol](protocol/README.md): checked envelopes and explicit selected-lifecycle initialization; accepted tool request/list/call-result projections.
 - [transport](transport/README.md): borrowed duplex port, bounded stdio and HTTP JSON/SSE framing with response-local event-ID snapshots, scoped direct-process stdio and legacy endpoint-event HTTP/SSE; reviewed within those contracts. The scoped HTTP POST and explicit GET adapter adds JSON/SSE responses, session headers, opt-in bounded same-send continuation, bounded listener resumption and explicit session termination; host replacement after typed expiry is explicit; broader interoperability and durable integration remain separate.
@@ -10,4 +8,4 @@ The current [supported server revision agreement](transport/README.md#supported-
 
 - [tool](tool/README.md): borrowed-client binding, host authority, checked shallow defaults/root input-schema exclusion, opt-in metadata projection and typed observations; scoped acceptance is recorded in the package contract.
 
-Package READMEs record contracts and acceptance. Accepted selected-version behavior does not imply complete MCP support or support for newer protocol revisions.
+Package READMEs describe APIs, ownership and migration. Accepted selected-version behavior does not imply complete MCP support or support for newer protocol revisions.
