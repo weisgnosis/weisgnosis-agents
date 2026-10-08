@@ -58,11 +58,12 @@ object SubagentSession:
   def open(
       parent: SubagentSpawner[AgentResult],
       factory: SubagentFactory,
-      maxTracked: Int = 256
+      maxTracked: Int = 256,
+      terminalBinding: Option[SubagentTerminalBinding] = None
   ): ZIO[Scope, AgentError, TaskResourceAdmission[SubagentSession]] =
     validateCapacity(maxTracked) *>
       parent.ownChild((child, supervisor) =>
-        initialize(child, supervisor, factory, maxTracked, None)
+        initialize(child, supervisor, factory, maxTracked, None, terminalBinding)
       )
 
   /**
@@ -75,21 +76,23 @@ object SubagentSession:
       parent: SubagentSpawner[AgentResult],
       factory: SubagentFactory,
       checkpoint: AgentResult,
-      maxTracked: Int = 256
+      maxTracked: Int = 256,
+      terminalBinding: Option[SubagentTerminalBinding] = None
   ): ZIO[Scope, AgentError, TaskResourceAdmission[SubagentSession]] =
     validateCapacity(maxTracked) *>
       parent.ownChild((child, supervisor) =>
-        initialize(child, supervisor, factory, maxTracked, Some(checkpoint))
+        initialize(child, supervisor, factory, maxTracked, Some(checkpoint), terminalBinding)
       )
 
   private[subagent] def openRetained(
       parent: SubagentSpawner[AgentResult],
       factory: SubagentFactory,
-      maxTracked: Int
+      maxTracked: Int,
+      terminalBinding: Option[SubagentTerminalBinding] = None
   ): IO[AgentError, TaskResourceAdmission[SubagentSession]] =
     validateCapacity(maxTracked) *>
       parent.ownChildRetained((child, supervisor) =>
-        initialize(child, supervisor, factory, maxTracked, None)
+        initialize(child, supervisor, factory, maxTracked, None, terminalBinding)
       )
 
   private def validateCapacity(maxTracked: Int): IO[AgentError, Unit] =
@@ -103,7 +106,8 @@ object SubagentSession:
       supervisor: TaskSupervisor[AgentResult],
       factory: SubagentFactory,
       maxTracked: Int,
-      checkpoint: Option[AgentResult]
+      checkpoint: Option[AgentResult],
+      terminalBinding: Option[SubagentTerminalBinding]
   ): ZIO[Scope, AgentError, SubagentSession] =
     for
       runtime <- factory.build(child)
@@ -115,7 +119,9 @@ object SubagentSession:
           supervisor.attach(turn.withPermit(command match
             case Command.Send(input)     => SubagentFactory.run(runtime, input, id, events)
             case Command.Resume(results) => SubagentFactory.resume(runtime, results, id, events))),
-        maxTracked
+        maxTracked,
+        terminalBinding.map(_.store),
+        terminalBinding.flatMap(_.workerId)
       )
     yield new SubagentSession(
       executions,

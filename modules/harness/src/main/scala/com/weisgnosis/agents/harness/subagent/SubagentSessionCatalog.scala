@@ -57,7 +57,7 @@ object SubagentSessionCatalog:
           directory <- SubagentSessionDirectory.index(maxSessions)
           identities <- ZIO.foreach(entries)(entry =>
             SubagentSession
-              .openRetained(context, entry.factory, maxTrackedPerSession)
+              .openRetained(context, entry.factory, maxTrackedPerSession, entry.terminalBinding)
               .flatMap:
                 case TaskResourceAdmission.Closed =>
                   ZIO.fail(

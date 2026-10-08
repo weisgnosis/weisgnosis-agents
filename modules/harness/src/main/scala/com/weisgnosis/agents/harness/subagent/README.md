@@ -1,5 +1,33 @@
 # Scoped child execution and sessions
 
+## Terminal store bindings
+
+SubagentTerminalBinding is immutable host-supplied capability data: one borrowed SubagentTerminalStore and an optional checked worker ID. Constructing a binding performs no acquisition, I/O or publication and transfers no backend ownership. Only the admitted registry owns its publication fibers.
+
+SubagentEntry optionally accepts a terminalBinding. SubagentCatalog.open uses each explicit binding to construct the corresponding durable registry; an unbound entry retains ordinary volatile behavior. Display names select already-installed capabilities and never derive a storage address, partition or worker ID. Hosts own partition isolation and may intentionally share a store; the library cannot detect aliases behind opaque adapters.
+
+SubagentSession.open/openRestored and retained session-catalog installation forward the exact optional binding to the execution registry. SessionCatalog uses each entry's binding unchanged. Closing the existing session/catalog owner still joins owned executions and publishers, without closing the borrowed store. Existing capacity validation, partial-acquisition rollback and parallel owner finalization remain in force. Publication failures remain observable through registry publication/flush operations; close does not convert them into successful persistence receipts.
+
+Durable terminal observations can reopen without live handles. A binding does not restore a reusable runtime, claim a checkpoint, fence another process or install routed acknowledgement. openRestored still requires an explicit checked checkpoint and current factory/parent execution authority. Other routed persisted-result consumption remains the next separate obligation.
+
+Migration: the trailing optional binding defaults to None. Recompile downstream binaries and update positional SubagentEntry extractors for the additional product field; session factory JVM signatures also change. The binding has no wire codec, new dependency or implicit resource lifecycle.
+
+The binding scope against ed6d6b4 comprises six Scala identities, path-first manifest SHA-256 cf6b3b801af882923acdfc92e3a5233e68b338c30c8659672d9d8da2b52fc041. review_fp and review_invariants explicitly approve the exact source scope with no unresolved findings. Full/artifact/archive/consumer checks pass; review_fp and review_invariants approve the final combined scope against ed6d6b4: six unchanged Scala identities and thirteen Markdown files, no unresolved findings.
+
+| Reviewed source | Git blob |
+| --- | --- |
+| [SubagentCatalog.scala](SubagentCatalog.scala) | `1a46e671800743758788c2df1ade291734fac72c` |
+| [SubagentSession.scala](SubagentSession.scala) | `1977643f2a56f65e2883ad90aff44a06e8bc8baa` |
+| [SubagentSessionCatalog.scala](SubagentSessionCatalog.scala) | `e96de7dae9861fdab8f9775efa4b1ae2286283d6` |
+| [SubagentTerminalBinding.scala](SubagentTerminalBinding.scala) | `b294731e0a9802701640b3163e1ae1dc8c2e1273` |
+| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | `2c448b80d507d8a9d51720eb3c9b35ba13ded340` |
+| [SubagentTerminalBindingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalBindingSpec.scala) | `7427dd174ec10abb9da3d9780f37565d2ff3b33c` |
+
+- [x] review_fp and review_invariants approve all six exact binding source/specification identities against ed6d6b4, with no unresolved findings.
+- [x] target/terminal-binding-focused.log passes 20 harness groups in 1.956 seconds, zero failed/ignored/compiler warnings. One new grouped public-factory table covers catalog/session/session-catalog publication, host-selected partition isolation, exact worker identity, unbound behavior and backend use after owner closure. The existing restored-session fixture additionally verifies persisted resumed completion. Existing cancellation/partial-installation suites pass unchanged.
+- [x] target/terminal-binding-final-verify.log passes formatting/fatal-warning compilation, all 1,618 tests (695 core / 761 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission and fresh external formatting/compilation/execution with four artifact hash checks pass in target/terminal-binding-final-preparation.log and target/terminal-binding-final-consumer.log. The unchanged external consumer does not independently exercise new binding APIs.
+- [x] review_fp and review_invariants approve the final combined scope against ed6d6b4: six unchanged Scala identities and thirteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,475-local-reference validation pass. Binding acceptance does not close routed acknowledgement or durable session restoration.
+
 ## Worker identity
 
 SubagentWorkerId.from checks an explicitly host-declared identifier: nonblank valid Unicode, at most 1,024 UTF-8 bytes, preserving the exact supplied value. It grants no execution, session or authorization capability. Neither a task UUID nor AgentConfig.name supplies a worker identity implicitly.
@@ -470,9 +498,9 @@ Migration: `resume` is additive; existing send, registry and model-facing tool s
 | --- | --- |
 | [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current numeric-integrity identity](../transcript/README.md#exact-owned-numeric-output) |
 | [SubagentFactory.scala](SubagentFactory.scala) | `013920f0ad1ab6c082e3362bb40f83064d11af51` |
-| [SubagentSession.scala](SubagentSession.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
+| [SubagentSession.scala](SubagentSession.scala) | [Current terminal-binding scope](#terminal-store-bindings) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current worker-identity scope](#worker-identity) |
-| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
+| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current terminal-binding scope](#terminal-store-bindings) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no open findings. Two new grouped session tests cover actual partial confirmations and supplied completion, repeated IDs, invalid/no-pending/closed outcomes, queued cancellation, held cleanup defects, original-context terminal forwarding and fresh-send reuse. Focused `child-resume-final-focused.log` passed nine core tests in 633 ms and fifteen harness tests in 603 ms.
 - [x] Full `scalafmtAll scalafmtSbt verify` passed in `child-resume-verify.log`, with zero compiler warnings or failures. Current totals and environment are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -488,8 +516,8 @@ Migration: `openRestored` is additive; `open`, retained catalog construction and
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [SubagentSession.scala](SubagentSession.scala) | `3f3ef7a63508f40dd896376fc04dcf13b10d12f2` |
-| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current SubagentSessionSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+| [SubagentSession.scala](SubagentSession.scala) | [Current terminal-binding scope](#terminal-store-bindings) |
+| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current terminal-binding scope](#terminal-store-bindings) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no open findings. Two new grouped tests cover JSON-restored partial/supplied observations with current parent denial, fresh lineage, empty records and no execution before resume; invalid state/changed bindings, held cleanup, initialization cause and exact caller-close defect replay. Focused `child-restore-final-focused.log` passed fifteen tests in 885 ms.
 - [x] Full `scalafmtAll scalafmtSbt verify` passed in `child-restore-verify.log`, with zero compiler warnings or failures. Current totals and environment belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
@@ -610,7 +638,7 @@ Close the returned resource to close the aggregate, or end its acquiring caller/
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [SubagentSessionCatalog.scala](SubagentSessionCatalog.scala) | `0e2668dcf149eab0adfec29a43481b5b5430a82c` |
+| [SubagentSessionCatalog.scala](SubagentSessionCatalog.scala) | [Current terminal-binding scope](#terminal-store-bindings) |
 | [SubagentSessionCatalogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionCatalogSpec.scala) | `8b795d88b930efd93fc293913a42bb59725bb1fb` |
 
 ## Named session tools
@@ -641,14 +669,14 @@ The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/s
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [SubagentCatalog.scala](SubagentCatalog.scala) | `fd4bb5846275c82ded15994123b299408f537e94` |
+| [SubagentCatalog.scala](SubagentCatalog.scala) | [Current terminal-binding scope](#terminal-store-bindings) |
 | [SubagentCatalogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentCatalogSpec.scala) | [Current SubagentCatalogSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
 | [SubagentDeclaration.scala](SubagentDeclaration.scala) | [Current topP scope identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-nucleus-sampling) |
 | [SubagentDeclarationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | [Current topP scope identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-nucleus-sampling) |
 | [SubagentSessionDirectory.scala](SubagentSessionDirectory.scala) | `5f924361cc657e128abe057354aa260848d67035` |
 | [SubagentSessionDirectorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionDirectorySpec.scala) | `3210d1e7f1e86fd65cd54727ebe287431cac0b94` |
-| [SubagentSession.scala](SubagentSession.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
-| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current checkpoint-import identity](#host-checkpoint-import) |
+| [SubagentSession.scala](SubagentSession.scala) | [Current terminal-binding scope](#terminal-store-bindings) |
+| [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current terminal-binding scope](#terminal-store-bindings) |
 | [TaskSupervisor.scala](TaskSupervisor.scala) | `3ae295da2603a952bc23b7b05d2546ed274cb600` |
 | [TaskResource.scala](TaskResource.scala) | `ff8c69ba4d8c1623388325e4b2e33bd26df45314` |
 | [TaskResourceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/TaskResourceSpec.scala) | `b8c862182e0a625e7d6f83c0ac72c120f700e80b` |

@@ -116,6 +116,8 @@ The [bound task-result consumption](../../modules/harness/src/main/scala/com/wei
 
 ## 9. Subagent execution and remaining integration
 
+[Terminal bindings](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#terminal-store-bindings) pass exact borrowed stores and optional worker identity through catalog and ordinary/restored/retained session construction. Existing resource owners still join publication; backend lifecycle and partition trust remain host-owned. Routed acknowledgement requires a separate trusted final-persistence integration.
+
 [Worker identity](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#worker-identity) is optional checked host input captured once by a registry. Stored identity remains authoritative on reopen; no current registry name backfills it. Schema-3 mutation preserves original output and acknowledgement, and reminders escape the supplied attribute. Running ownership, durable cancellation and session restoration remain separate work.
 
 SubagentSessionDirectory adds bounded host registration and lookup of acquired sessions. Removal and shutdown join cleanup without extending the original caller/supervisor lifetime. Directory IDs are membership data, separate from execution IDs and authorization.

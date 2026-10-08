@@ -37,8 +37,10 @@ Execute the original scope without substituting a narrower release checklist. Li
 - [x] Verify 22 focused harness and two actual PostgreSQL groups, including the corrected isolated metadata-byte-growth oracle.
 - [x] Pass worker-identity full/artifact/external-consumer verification with zero failures or compiler warnings.
 - [x] review_fp and review_invariants approve the final combined scope against 7bff28a: ten unchanged Scala identities and fourteen Markdown files, no unresolved findings.
-- [ ] Current task: add explicit borrowed terminal-store bindings to catalogs and reusable sessions as the prerequisite for other routed consumption.
-- [ ] Integrate other required routed result consumption without granting authority from route strings.
+- [x] Implement and independently source-review explicit borrowed terminal-store bindings through catalogs and ordinary/restored/retained sessions; 20 focused harness groups pass.
+- [x] Pass full/artifact/archive/external-consumer verification for the six-source terminal-binding increment.
+- [x] review_fp and review_invariants approve the final combined scope against ed6d6b4: six unchanged Scala identities and thirteen Markdown files, no unresolved findings.
+- [ ] Current task: integrate other required routed result consumption without granting authority from route strings; retain the selected registry through exact final-persistence acknowledgement.
 - [ ] Verify other required routed result consumption; erased/replaced final output must remain pending.
 - [ ] Implement durable admitted/running identity and current-owner cancellation intent, retaining truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
@@ -74,13 +76,13 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [worker identity contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#worker-identity) owns the current ten-Scala increment against 7bff28a, manifest 5d2ba2b44dc128e19a4a72a21984d5b3aea4c346336b14bdeaec3c6ae99459d1. Existing scoped wait and persistence authority remain prerequisites; descriptive identity grants no execution authority.
+The [terminal binding contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#terminal-store-bindings) owns the current six-Scala increment against ed6d6b4, manifest cf6b3b801af882923acdfc92e3a5233e68b338c30c8659672d9d8da2b52fc041. Worker identity, scoped waits and registry publication retain their prerequisite contracts. Borrowed persistence installs neither routed acknowledgement nor executable session restoration.
 
-- [x] Implement explicit checked host identity, strict schema-3 writes with schema-1/2 reads, immutable identity equality and escaped optional reminder attributes.
-- [x] review_fp and review_invariants approve all ten source identities with no unresolved findings.
-- [x] target/worker-identity-focused-final.log passes 22 harness and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
-- [x] target/worker-identity-final-verify.log passes formatting/fatal-warning compilation, 1,617 tests (695 core / 760 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission and fresh standalone formatting/compilation/execution with four artifact hash checks pass; the unchanged consumer does not independently exercise identity.
-- [x] review_fp and review_invariants approve the final combined scope against 7bff28a: ten unchanged Scala identities and fourteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,460-local-reference validation pass.
+- [x] Implement exact borrowed stores/worker identity through catalogs and ordinary/restored/retained sessions, retaining volatile defaults and host backend ownership.
+- [x] review_fp and review_invariants approve all six source identities with no unresolved findings.
+- [x] target/terminal-binding-focused.log passes 20 harness groups in 1.956 seconds, zero failed/ignored/compiler warnings.
+- [x] target/terminal-binding-final-verify.log passes formatting/fatal-warning compilation, 1,618 tests (695 core / 761 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission and fresh standalone formatting/compilation/execution with four artifact hash checks pass; the unchanged consumer does not independently exercise binding APIs.
+- [x] review_fp and review_invariants approve the final combined scope against ed6d6b4: six unchanged Scala identities and thirteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,475-local-reference validation pass.
 
 All eighteen classified wait methods and nine reminder methods have bounded mappings. Other routed consumption, completion ordering, durable cancellation/running authority, session restoration, remaining original-plan applicability and the actual product cutover remain unfinished. No whole-plan completion or publication is claimed.
 

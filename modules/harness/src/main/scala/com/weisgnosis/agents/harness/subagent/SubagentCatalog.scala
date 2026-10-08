@@ -20,7 +20,12 @@ import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 
 /** Host-selected display identity and fresh-child factory; never decoded from model arguments. */
-final case class SubagentEntry(name: String, description: String, factory: SubagentFactory)
+final case class SubagentEntry(
+    name: String,
+    description: String,
+    factory: SubagentFactory,
+    terminalBinding: Option[SubagentTerminalBinding] = None
+)
 
 /**
  * Immutable, finite host catalog. Every entry owns an existing scoped registry under one fixed
@@ -45,7 +50,17 @@ object SubagentCatalog:
       _ <- ZIO.fromEither(validate(entries, maxTrackedPerAgent))
       registries <- ZIO
         .foreach(entries)(entry =>
-          SubagentTaskRegistry.open(parent, entry.factory, maxTrackedPerAgent).map(entry.name -> _)
+          val acquired = entry.terminalBinding match
+            case None => SubagentTaskRegistry.open(parent, entry.factory, maxTrackedPerAgent)
+            case Some(binding) =>
+              SubagentTaskRegistry.openDurable(
+                parent,
+                entry.factory,
+                binding.store,
+                maxTrackedPerAgent,
+                binding.workerId
+              )
+          acquired.map(entry.name -> _)
         )
         .parallelFinalizers
     yield new SubagentCatalog(entries, registries.toMap)

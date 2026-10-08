@@ -374,6 +374,10 @@ The public fresh-child registry API is unchanged. Execution IDs identify turns, 
 
 The [bound task-result contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-task-inspection-consumption) adds SubagentDeliveryMiddleware.tools(policy) and a trailing priorLocalToolResultObserver to configure. Its required post-persistence callback validates trusted inspection/complete-wait occurrence receipts; ordinary factories observe without acknowledgement. Source/API acceptance belongs to the linked gates.
 
+## Terminal store binding
+
+SubagentTerminalBinding carries a borrowed SubagentTerminalStore and optional checked worker identity without acquisition or a codec. SubagentEntry.terminalBinding defaults to None; bound catalogs construct durable registries, and session factories forward the same optional value through ordinary, restored and retained initialization. Closing owned registries joins their publishers without closing the store. The [binding contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#terminal-store-bindings) owns source identities, migration and final gates. This introduces no running-record restoration or routed acknowledgement.
+
 ## Terminal worker identity
 
 SubagentWorkerId.from preserves nonblank valid Unicode within 1,024 UTF-8 bytes. SubagentTerminalRecord.workerId and trailing optional registry/publishJoined arguments default to None; no implicit identity is inferred. Strict schema-1/2 reads preserve None and existing stamps without writing. New schema-3 writes include checked identity, and exact repeated-publication equality includes None versus Some. Reminder agent attributes are escaped only when present. The [current identity contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#worker-identity) owns exact identities, migration and acceptance gates.

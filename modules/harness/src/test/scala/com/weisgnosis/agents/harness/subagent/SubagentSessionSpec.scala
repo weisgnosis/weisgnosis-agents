@@ -180,6 +180,13 @@ object SubagentSessionSpec extends ZIOSpecDefault:
                 )
               )
         )
+        terminalBackend <- SubagentTerminalStoreSpec.fixture
+        terminalAddress <- ZIO.fromEither(
+          com.weisgnosis.agents.harness.storage.StorageAddress
+            .from(Chunk("restored-binding"), "terminal")
+        )
+        terminalStore = SubagentTerminalStore.make(terminalBackend.store, terminalAddress)
+        worker <- ZIO.fromEither(SubagentWorkerId.from("restored-host-worker"))
         restored <- accepted(
           SubagentSession.openRestored(
             receivingRoot,
@@ -188,7 +195,8 @@ object SubagentSessionSpec extends ZIOSpecDefault:
                 PermissionEngine(Chunk(PermissionRule("lookup", PermissionBehavior.Deny)))
               )
             ),
-            decoded
+            decoded,
+            terminalBinding = Some(SubagentTerminalBinding(terminalStore, Some(worker)))
           )
         )
         recordsBefore <- restored.value.executions.list
@@ -204,7 +212,13 @@ object SubagentSessionSpec extends ZIOSpecDefault:
         lineages      <- sources.get
         _             <- restored.close
         closed        <- released.get
+        restoredRecord <- SubagentTerminalStore
+          .make(terminalBackend.store, terminalAddress)
+          .read(id)
       yield assertTrue(
+        restoredRecord.contains(
+          SubagentTerminalRecord(id, SubagentTerminalOutcome.Completed("restored"), Some(worker))
+        ),
         pending.isSuspended,
         PendingActing.pendingCalls(decoded).map(_.map(_.callOrdinal)) == Right(Chunk(2)),
         recordsBefore.isEmpty,
