@@ -425,7 +425,11 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                       case _ =>
                         ZIO.succeed(TurnOutput.FinalText(Msg.assistant("Task output accepted")))
                 )
-                consumptionMiddleware <- SubagentDeliveryMiddleware.make(fresh)
+                consumptionInbox <- SubagentInboxSignal.open
+                consumptionMiddleware <- mode match
+                  case ConsumptionTool.Inspection => SubagentDeliveryMiddleware.make(fresh)
+                  case ConsumptionTool.Wait =>
+                    SubagentDeliveryMiddleware.open(fresh, consumptionInbox)
                 consumptionAgent <- consumptionMiddleware
                   .configure(
                     ReActAgent

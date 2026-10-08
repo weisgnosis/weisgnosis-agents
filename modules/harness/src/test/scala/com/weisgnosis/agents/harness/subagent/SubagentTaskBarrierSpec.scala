@@ -106,8 +106,11 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
       case Some(ToolBinding.Local(tool)) => ZIO.succeed(toolkit.updated(direct(tool)))
       case _ => ZIO.fail(AgentError.InvalidConfiguration("Missing wait tool"))
 
+  private enum PublicationFailure:
+    case Typed, Self, Foreign
+
   private enum Consumption:
-    case Unchanged, Redacted, PriorFailure, PartialUncertain
+    case Unchanged, Redacted, PriorFailure, PartialUncertain, Arrival
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentTaskBarrierSpec")(
     test(
@@ -290,8 +293,9 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
           _                 <- attachedRead.await
           adapterClosing    <- adapter.close.timeout(1.second).forkScoped
           _                 <- TestClock.adjust(1.second)
-          earlyClose        <- adapterClosing.join
+          earlyClose        <- adapterClosing.poll
           parentCancelled   <- parentRun.interrupt
+          _                 <- adapterClosing.join
           afterParentCancel <- tasks.inspect(two)
           _                 <- adapter.close
           _                 <- ZIO.foreachDiscard(signals.get("two"))(_.succeed(()))
@@ -369,7 +373,89 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
           _               <- failedTasks.publication(failedId).exit
           failedSelection <- selected(failedId)
           failedWait      <- SubagentTaskBarrier.await(failedTasks, failedSelection).exit
+          parallelChecks <- ZIO.foreach(Chunk.fromIterable(PublicationFailure.values)): mode =>
+            ZIO.scoped:
+              for
+                parallelPublicationEntered <- Promise.make[Nothing, Unit]
+                releaseParallelFailure     <- Promise.make[Nothing, Unit]
+                parallelWaitEntered        <- Promise.make[Nothing, Unit]
+                parallelReadArmed          <- Ref.make(false)
+                foreignId                  <- ZIO.fiberId
+                publishFailure = mode match
+                  case PublicationFailure.Typed   => ZIO.fail(failure)
+                  case PublicationFailure.Self    => ZIO.interrupt
+                  case PublicationFailure.Foreign => ZIO.interruptAs(foreignId)
+                parallelStore = hooks(
+                  terminal,
+                  beforePublish = parallelPublicationEntered.succeed(
+                    ()
+                  ) *> releaseParallelFailure.await *> publishFailure,
+                  beforeRead = parallelReadArmed.get.flatMap(armed =>
+                    if armed then parallelWaitEntered.succeed(()).unit else ZIO.unit
+                  )
+                )
+                parallelTasks <- registry(
+                  input => if input.text == "failed" then ZIO.interrupt else ZIO.never,
+                  Some(parallelStore)
+                )
+                failedParallelId  <- submit(parallelTasks, "failed")
+                runningParallelId <- submit(parallelTasks, "running")
+                _                 <- parallelPublicationEntered.await
+                _                 <- ZIO.addFinalizer(releaseParallelFailure.succeed(()).unit)
+                _                 <- parallelReadArmed.set(true)
+                parallelTool <- SubagentTools
+                  .make(parallelTasks)
+                  .executeSafe(
+                    "wait_async_results",
+                    Json.Obj(
+                      "task_ids" -> Json.Str(
+                        s"${failedParallelId.value},${runningParallelId.value}"
+                      )
+                    )
+                  )
+                  .exit
+                  .forkScoped
+                _                    <- parallelWaitEntered.await
+                _                    <- releaseParallelFailure.succeed(())
+                parallelToolExit     <- parallelTool.join
+                parallelStillRunning <- parallelTasks.inspect(runningParallelId)
+              yield assertTrue(
+                parallelToolExit match
+                  case Exit.Success(value) =>
+                    mode == PublicationFailure.Typed && value.state == ToolResultState.Error && value.output == s"Execution failed for 'wait_async_results': ${failure.message}"
+                  case Exit.Failure(cause) =>
+                    mode != PublicationFailure.Typed && cause.isInterrupted && cause.failures.isEmpty && cause.defects.isEmpty && (mode != PublicationFailure.Foreign || cause.interruptors
+                      .contains(foreignId)),
+                parallelStillRunning.exists(_.state == SubagentTaskState.Running)
+              )
+          admissionCleanupEntered <- Promise.make[Nothing, Unit]
+          admissionCleanupDefect = new IllegalStateException(
+            "Named barrier admission cleanup defect"
+          )
+          admissionCleanupStore = hooks(
+            terminal,
+            beforeList = (admissionCleanupEntered.succeed(()) *> ZIO.never)
+              .ensuring(ZIO.die(admissionCleanupDefect))
+          )
+          admissionCleanupTasks <- registry(_ => ZIO.never, Some(admissionCleanupStore))
+          admissionCleanup <- SubagentTaskBarrier
+            .await(
+              admissionCleanupTasks,
+              unknownSelection,
+              SubagentTaskWaitTimeout.fromSeconds(Some(1))
+            )
+            .exit
+            .forkScoped
+          _                    <- admissionCleanupEntered.await
+          _                    <- TestClock.adjust(1.second)
+          admissionCleanupExit <- admissionCleanup.join
         yield assertTrue(
+          admissionCleanupExit match
+            case Exit.Failure(cause) =>
+              cause.defects == List(
+                admissionCleanupDefect
+              ) && cause.failures.isEmpty && !cause.isInterrupted
+            case _ => false,
           timed == SubagentTaskBarrierResult.TimedOut(Chunk(one, two), Chunk(two)),
           afterTimeout.exists(_.state == SubagentTaskState.Running),
           toolTimed.state == ToolResultState.Success,
@@ -380,7 +466,7 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
           cancelled.isInterrupted,
           afterCancel.exists(_.state == SubagentTaskState.Running),
           cleanup == Set("one"),
-          earlyClose.isEmpty,
+          earlyClose.contains(Exit.succeed(None)),
           parentCancelled.isInterrupted,
           afterParentCancel.exists(_.state == SubagentTaskState.Running),
           joined == SubagentTaskBarrierResult.Completed(
@@ -405,7 +491,7 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
             case Exit.Failure(cause) =>
               cause.failures == List(failure) && cause.defects.isEmpty && !cause.isInterrupted
             case _ => false
-        )
+        ) && parallelChecks.foldLeft(assertTrue(true))(_ && _)
     ,
     test(
       "only exact persisted complete wait results acknowledge selected tasks; failed or uncertain receipts are not retried"
@@ -436,7 +522,8 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
                      else ZIO.unit)
               )
               tasks    <- registry(_ => ZIO.never, Some(tracked))
-              adapter  <- SubagentDeliveryMiddleware.make(tasks)
+              inbox    <- SubagentInboxSignal.open
+              adapter  <- SubagentDeliveryMiddleware.open(tasks, inbox)
               requests <- Ref.make(0)
               client = LlmClient.mockEffectful((_, _, _) =>
                 requests
@@ -445,6 +532,11 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
                     if count == 1 then
                       ZIO
                         .foreachDiscard(records)(terminal.publish)
+                        .zipRight(
+                          if mode == Consumption.Arrival then
+                            inbox.setPresence(SubagentInboxPresence.Pending)
+                          else ZIO.unit
+                        )
                         .as(
                           TurnOutput.ToolCalls(
                             Msg.assistant(
@@ -452,10 +544,12 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
                                 ContentBlock.ToolUse(
                                   "wait",
                                   "wait_async_results",
-                                  Json.Obj(
-                                    "task_ids" -> Json
-                                      .Str(records.map(_.id.value.toString).mkString(","))
-                                  )
+                                  if mode == Consumption.Arrival then Json.Obj()
+                                  else
+                                    Json.Obj(
+                                      "task_ids" -> Json
+                                        .Str(records.map(_.id.value.toString).mkString(","))
+                                    )
                                 )
                               )
                             )
@@ -520,7 +614,12 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
                 case SubagentTerminalAcknowledgement.Pending         => ackAttempts.isEmpty),
               history.flatMap(_.toolResults).size == 1,
               history.flatMap(_.toolResults).forall(_.state == ToolResultState.Success),
-              callbacks == 1
+              callbacks == 1,
+              mode != Consumption.Arrival || history
+                .flatMap(_.toolResults)
+                .exists(
+                  _.outputText == (SubagentWaitToolResult.InboxArrived: SubagentWaitToolResult).toJson
+                )
             )
         .map(_.foldLeft(assertTrue(true))(_ && _))
   ) @@ TestAspect.timeout(30.seconds)

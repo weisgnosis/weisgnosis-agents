@@ -35,7 +35,8 @@ import zio.json.ast.Json
 final class SubagentDeliveryMiddleware private (
     registry: SubagentTaskRegistry,
     state: Ref[SubagentDeliveryMiddleware.State],
-    operations: Semaphore
+    operations: Semaphore,
+    waitSession: Option[SubagentWaitSession]
 ):
   import SubagentDeliveryMiddleware.*
 
@@ -124,8 +125,8 @@ final class SubagentDeliveryMiddleware private (
                 yield result)
 
         def waitFor(invocation: ToolInvocation)(
-            read: => IO[AgentError, SubagentTaskBarrierResult]
-        ): IO[AgentError, SubagentTaskBarrierResult] =
+            read: => IO[AgentError, SubagentWaitOutcome]
+        ): IO[AgentError, SubagentWaitOutcome] =
           operations.withPermit:
             ensureOpen *> (invocation match
               case ToolInvocation.Detached => ZIO.suspendSucceed(read)
@@ -135,16 +136,18 @@ final class SubagentDeliveryMiddleware private (
                   identityBytes <- prepareConsumption(key, Chunk.empty)
                   result        <- ZIO.suspendSucceed(read)
                   _ <- result match
-                    case SubagentTaskBarrierResult.Completed(tasks) =>
+                    case SubagentWaitOutcome.Barrier(SubagentTaskBarrierResult.Completed(tasks)) =>
                       val ids = tasks.map(_.id)
                       captureConsumption(
                         key,
                         ids,
-                        SubagentTools.projectBarrier(result).toJson,
+                        SubagentTools.projectWait(result).toJson,
                         identityBytes
                       )
                     case _ => ZIO.unit
                 yield result)
+      ,
+      waitSession
     )
 
   private def prepareConsumption(
@@ -364,7 +367,8 @@ final class SubagentDeliveryMiddleware private (
         )
       case State.Closed => State.Closed
 
-  private[subagent] def close: UIO[Unit] = operations.withPermit(state.set(State.Closed))
+  private[subagent] def close: UIO[Unit] =
+    ZIO.foreachDiscard(waitSession)(_.close) *> operations.withPermit(state.set(State.Closed))
 
 object SubagentDeliveryMiddleware:
   private val maximumRecords: Int = 10
@@ -404,13 +408,28 @@ object SubagentDeliveryMiddleware:
     case Closed
 
   def make(registry: SubagentTaskRegistry): ZIO[Scope, Nothing, SubagentDeliveryMiddleware] =
+    ZIO.acquireRelease(allocate(registry, None))(_.close)
+
+  /** Own the same-registry wait service; shutdown wakes its waits before joining hook admission. */
+  def open(
+      registry: SubagentTaskRegistry,
+      inbox: SubagentInbox,
+      externalWork: SubagentExternalWorkProbe = SubagentExternalWorkProbe.idle
+  ): ZIO[Scope, Nothing, SubagentDeliveryMiddleware] =
+    ZIO.acquireRelease(
+      SubagentWaitSession
+        .allocate(inbox, Some(registry), externalWork)
+        .flatMap(session => allocate(registry, Some(session)))
+    )(_.close)
+
+  private def allocate(
+      registry: SubagentTaskRegistry,
+      waitSession: Option[SubagentWaitSession]
+  ): UIO[SubagentDeliveryMiddleware] =
     for
       state      <- Ref.make[State](State.Available(None, None, Map.empty, 0L))
       operations <- Semaphore.make(1)
-      middleware <- ZIO.acquireRelease(
-        ZIO.succeed(new SubagentDeliveryMiddleware(registry, state, operations))
-      )(_.close)
-    yield middleware
+    yield new SubagentDeliveryMiddleware(registry, state, operations, waitSession)
 
   private def escape(text: String): String =
     text
