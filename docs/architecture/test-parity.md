@@ -1631,7 +1631,7 @@ The [tracker effort table](tracker.md#remaining-effort) separates these identifi
 - [x] Implement and source-review connection-local original-definition catalogue acquisition/cache/lookup/close; full/artifact verification passes.
 - [x] review_fp and review_invariants approved final combined documentation for the sixteen-file scope against 63776a7; broader original obligations remain open. McpAsyncClientWrapperTest.testInitialize_Success (58), testInitialize_AlreadyInitialized (105), testGetCachedTool (180) and corresponding sync methods (59/106/246) require more than handshake/publication. Generic wrapper methods (57-118) and testClose (136) add empty/present/multiple lookup and close-time clearing. Pinned async wrapper initialization publishes cachedTools at lines80-88; fresh listTools (105-111) does not update that snapshot. Existing immutable Toolkit registration already implements the distinct discovery-to-execution bridge. No automatic invalidation/refresh scheduler is inferred.
 - [x] Implement explicitly configured MCP revision alternatives selected by the server. Pinned builder documentation (361-377) and tests (1471-1615) retain multiple supported revisions. McpSupportedVersionsSpec, McpVersionSessionSpec and the existing three transport suites verify checked membership, correlated lifecycle selection, immediate framing and selected headers. Both source reviewers approve the [eighteen-file scope](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#supported-server-revision-agreement); final combined documentation acceptance passed against 1e18d44 for eighteen unchanged Scala files and fifteen Markdown files, approved by review_fp and review_invariants. Preference ordering and reconnect are not inferred from these builder assertions.
-- [x] Implement the bounded terminal-only persistence subset of WorkspaceTaskRepositoryTest methods putTask_writesRecordToWorkspace (103), putTask_writesFailedOnException (136), getTask_fallsBackToWorkspaceAfterLocalTasksCleared (178), listTasks_readsFromWorkspaceAfterCompaction (317), listTasks_terminalStatusNotOverridden (360), listTasks_withFilter_crossNode (388) and workspaceManager_taskRecordRoundTrip (444). SubagentTerminalStore supplies explicit caller-owned joined publication, exact terminal read/list and first-observation immutability through fresh bindings; its real PostgreSQL group checks independent adapter reopen, owner isolation and concurrent idempotence. This is not completion of any whole method requiring task-tool restoration, running records, cross-node filtering or workspace record metadata.
+- [x] Classify all 25 pinned WorkspaceTaskRepositoryTest methods under the [finite task-repository inventory](#workspace-task-repository-method-inventory): eight bounded observable adaptations, one partial method and sixteen open methods. Explicit immutable observations, owner-selected partitions and independent adapter reopen replace mutable handles, session-string routing and synthetic completed futures; actual process restart and whole-class parity are not claimed.
 - [x] review_fp and review_invariants approve the exact five-file terminal source scope against c99596b.
 - [x] Full verification and archive admission pass for the [five-file terminal storage scope](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-terminal-observations), including all 23 actual PostgreSQL groups.
 - [x] Fresh standalone artifact consumption passes under the linked manifest; the unchanged probe does not independently exercise the terminal API.
@@ -1719,3 +1719,43 @@ The [three-file explicit delivery seam](../../modules/harness/src/main/scala/com
 - [x] review_fp and review_invariants approve final combined documentation against `bad689e` for fourteen files (three unchanged Scala identities and eleven Markdown files), with no unresolved findings.
 - [ ] Integrate actual reasoning reminder persistence and success-only completion acknowledgement from SubagentsMiddleware/SubagentDeliveryTest.
 - [ ] Integrate automatic consumed-result acknowledgement from TaskTool and WaitAsyncResultsTool and completion/wakeup suppression semantics. The explicit effect does not autonomously notify or consume results.
+
+## Workspace task repository method inventory
+
+Pinned `WorkspaceTaskRepositoryTest` contains 25 executable test methods. review_fp independently checked their actual assertions against the accepted [registry publication](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#registry-terminal-publication), [acknowledgement](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-terminal-acknowledgement), SubagentTaskObservationSpec and actual PostgreSQL/ReAct evidence. Eight bounded adaptations preserve the listed observable behavior through immutable terminal observations and explicit owner partitions. Option/Missing replaces null, and fresh adapters/registries demonstrate reopen rather than a separate restarted JVM. This is not acceptance of Java API shapes or the whole repository class.
+
+- [x] putTask_writesRecordToWorkspace (103): execute the configured child and persist COMPLETED with exact text.
+- [x] putTask_writesFailedOnException (136): persist FAILED with the execution failure message.
+- [x] getTask_fallsBackToWorkspaceAfterLocalTasksCleared (178): a fresh registry reads persisted completion and result without replay.
+- [x] getTask_returnsNullWhenNothingFound (210): an absent observation returns Option/Missing.
+- [x] listTasks_sessionIsolation (220): host-selected partitions isolate exact task IDs.
+- [x] listTasks_readsFromWorkspaceAfterCompaction (317): persisted task IDs remain discoverable through a fresh binding.
+- [x] listTasks_terminalStatusNotOverridden (360): persisted terminal truth wins a live Running snapshot.
+- [x] listTasks_withFilter_crossNode (388): fresh model-facing listing filters exact completed and failed IDs.
+- [ ] workspaceManager_taskRecordRoundTrip (444): exact terminal reopen exists; durable RUNNING and mixed running/terminal count are missing. The fixed JSON filesystem layout is a backend adaptation. This method does not assert agent/session metadata fields or timestamps.
+- [ ] cancelTask_writesCancelRequestedToWorkspace (263): persist cancellation intent before current-owner cancellation; terminal-only data cannot represent a running admission.
+- [ ] heartbeat_refreshesLastUpdatedAt (478): expose explicit host-driven running-record refresh without an internal daemon.
+- [ ] heartbeat_skipsCompletedTasks (534): preserve terminal truth during refresh.
+- [ ] sweepOrphanedTasks_marksStaleRunningAsFailed (578): explicit owner-aware stale-running reconciliation.
+- [ ] sweepOrphanedTasks_skipsLiveTasks (614): retain live ownership.
+- [ ] sweepOrphanedTasks_skipsTerminalTasks (665): retain terminal observations.
+- [ ] sweepOrphanedTasks_skipsRemoteTasks (687): retain remote execution ownership and protocol semantics.
+- [ ] sweepGate_claimsBeforeSweep (716): acquire the appropriate reconciliation claim before work.
+- [ ] sweepGate_deniedClaimSkipsSweep (734): denied admission performs no reconciliation.
+- [ ] sweepGate_localGateThrottlesSecondSweep (761): explicit host-driven throttling preserves ownership.
+- [ ] listAllTaskRecords_returnsAcrossAllSessions (789): owned cross-session discovery.
+- [ ] listAllTaskRecords_emptyForUnknownAgent (812): absent catalogue returns empty without fabricating ownership.
+- [ ] listAllTaskRecords_skipsOldFiles (821): classify and implement the discovery-window contract for the selected backend.
+- [ ] remoteFilesystemSpec_includesTasksRoute (857): composite remote task-route behavior is absent; PostgreSQL storage is not this filesystem route.
+- [ ] cancellationListenersObservePersistedTerminalState (882): completion notification must observe the durable truthful terminal after owned cancellation cleanup.
+- [ ] executionOwnerCanSuppressWakeupWithoutLosingDurableDelivery (923): notification suppression retains persisted pending output; the unsuppressed owner notifies once. Explicit batch delivery does not install this notifier.
+
+TaskRecord's broader identity, session, time, transport, confirmation and remote-event metadata remain separate applicability obligations. They must not be retroactively attributed to assertions absent from a listed test. No automatic heartbeat or sweeper is introduced by this inventory; host-driven operations must retain the required behavior and scope ownership.
+
+## Accepted-response boundary for subagent delivery
+
+The [accepted-response observer](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#accepted-model-response-observation) supplies the missing per-model-response lifecycle seam for original reasoning reminder delivery. Its paired three-group suite checks actual selected/projected input, accepted canonical history, discard/replace/thinking behavior, suspension/resume, no-fallback ordinary failure and joined cancellation with exact cleanup defects. Both independent source reviews, 57 focused core contracts, full verification, four RC1 packages, archive preparation and fresh external consumption pass; review_fp and review_invariants approve the final combined scope against 44c2ded: three unchanged Scala files and ten Markdown files.
+
+- [x] Implement and independently review the runtime seam with persisted assistant state before observation and local execution afterwards.
+- [ ] Install harness reminder rendering/capture and acknowledge only the selected exact IDs present in the actual winning input after an accepted response.
+- [ ] Map the nine actual SubagentDeliveryTest methods to the completed integration; a runtime seam alone does not implement those methods.
