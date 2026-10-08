@@ -64,6 +64,27 @@ trait SubagentTerminalStore:
       AgentError.InvalidConfiguration(s"Terminal acknowledgement is unsupported for ${id.value}")
     )
 
+  /** Complete durable observations, including unresolved admissions; no execution handles are restored. */
+  def taskRecords: IO[AgentError, Chunk[SubagentTaskRecord]] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration("This terminal store does not support durable admission")
+    )
+  def taskRecord(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskRecord]] =
+    taskRecords.map(_.find(_.id == id))
+  def admit(
+      id: SubagentTaskId,
+      workerId: Option[SubagentWorkerId] = None
+  ): IO[AgentError, SubagentTaskAdmissionResult] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration(
+        s"Durable admission is unsupported for ${id.value} and worker $workerId"
+      )
+    )
+  def markRunning(identity: SubagentTaskAdmissionIdentity): IO[AgentError, Unit] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration(s"Durable start is unsupported for ${identity.id.value}")
+    )
+
   /** The caller owns this effect; awaiting publication does not transfer or cancel task ownership. */
   final def publishJoined(
       id: SubagentTaskId,
@@ -113,36 +134,135 @@ object SubagentTerminalStore:
   ) derives JsonCodec
   final private case class Schema2Payload(schemaVersion: Int, records: Chunk[Schema2Entry])
       derives JsonCodec
-  final private case class Entry(
+  final private case class Schema3Entry(
       id: UUID,
       outcome: SubagentTerminalOutcome,
       acknowledgedAt: Option[Instant] = None,
       workerId: Option[SubagentWorkerId] = None
+  ) derives JsonCodec
+  final private case class Schema3Payload(schemaVersion: Int, records: Chunk[Schema3Entry])
+      derives JsonCodec
+
+  final private case class Entry(
+      id: UUID,
+      workerId: Option[SubagentWorkerId],
+      state: SubagentTaskRecordState,
+      metadata: Option[SubagentTaskMetadata]
   ) derives JsonCodec:
-    def record: SubagentTerminalRecord =
-      SubagentTerminalRecord(SubagentTaskId(id), outcome, workerId)
-    def acknowledgement: SubagentTerminalAcknowledgement = acknowledgedAt match
-      case None     => SubagentTerminalAcknowledgement.Pending
-      case Some(at) => SubagentTerminalAcknowledgement.Acknowledged(at)
+    def record: SubagentTaskRecord =
+      SubagentTaskRecord(SubagentTaskId(id), workerId, state, metadata)
+    def terminal: Option[SubagentTerminalRecord] = record.terminal
+    def matches(identity: SubagentTaskAdmissionIdentity): Boolean =
+      id == identity.id.value && workerId == identity.workerId && metadata.exists(
+        _.createdAt == identity.createdAt
+      )
 
   final private case class Payload(schemaVersion: Int, records: Chunk[Entry]) derives JsonCodec
   final private case class Version(schemaVersion: Int) derives JsonCodec
 
   final private class Backend(store: VersionedJsonStore, address: StorageAddress, limits: Limits)
       extends SubagentTerminalStore:
-    def list: IO[AgentError, Chunk[SubagentTerminalRecord]] =
+    override def taskRecords: IO[AgentError, Chunk[SubagentTaskRecord]] =
       snapshot.map(_._2.map(_.record))
+    override def taskRecord(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskRecord]] =
+      taskRecords.map(_.find(_.id == id))
 
+    def list: IO[AgentError, Chunk[SubagentTerminalRecord]] = snapshot.map(_._2.flatMap(_.terminal))
     def read(id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalRecord]] =
       list.map(_.find(_.id == id))
 
-    override def pending: IO[AgentError, Chunk[SubagentTerminalRecord]] =
-      snapshot.map(_._2.filter(_.acknowledgedAt.isEmpty).map(_.record))
+    override def pending: IO[AgentError, Chunk[SubagentTerminalRecord]] = snapshot.map(
+      _._2.flatMap(entry =>
+        entry.state match
+          case SubagentTaskRecordState.Terminal(_, SubagentTerminalAcknowledgement.Pending) =>
+            entry.terminal
+          case _ => None
+      )
+    )
 
     override def acknowledgement(
         id: SubagentTaskId
     ): IO[AgentError, Option[SubagentTerminalAcknowledgement]] =
-      snapshot.map(_._2.find(_.id == id.value).map(_.acknowledgement))
+      snapshot.map(
+        _._2
+          .find(_.id == id.value)
+          .flatMap(entry =>
+            entry.state match
+              case SubagentTaskRecordState.Terminal(_, acknowledgement) => Some(acknowledgement)
+              case _                                                    => None
+          )
+      )
+
+    override def admit(
+        id: SubagentTaskId,
+        workerId: Option[SubagentWorkerId]
+    ): IO[AgentError, SubagentTaskAdmissionResult] =
+      def attempt(
+          remaining: Int,
+          candidate: Option[Instant]
+      ): IO[AgentError, SubagentTaskAdmissionResult] =
+        snapshot.flatMap: (revision, records) =>
+          records.find(_.id == id.value) match
+            case Some(existing) =>
+              ZIO.succeed(SubagentTaskAdmissionResult.Existing(existing.record))
+            case None =>
+              for
+                at <- candidate.fold[UIO[Instant]](Clock.instant)(ZIO.succeed(_))
+                entry = Entry(
+                  id.value,
+                  workerId,
+                  SubagentTaskRecordState.Pending,
+                  Some(SubagentTaskMetadata(at, at, at))
+                )
+                result <- write(revision, records :+ entry)
+                admitted <- result match
+                  case ConditionalWrite.Applied(_) =>
+                    ZIO.succeed(
+                      SubagentTaskAdmissionResult.Created(
+                        SubagentTaskAdmissionIdentity(id, workerId, at)
+                      )
+                    )
+                  case ConditionalWrite.Conflict if remaining > 0 =>
+                    attempt(remaining - 1, Some(at))
+                  case ConditionalWrite.Conflict => exhausted("Task admission")
+              yield admitted
+      attempt(limits.maxConflicts, None)
+
+    override def markRunning(identity: SubagentTaskAdmissionIdentity): IO[AgentError, Unit] =
+      def attempt(remaining: Int, candidate: Option[Instant]): IO[AgentError, Unit] =
+        snapshot.flatMap: (revision, records) =>
+          records.find(_.id == identity.id.value) match
+            case Some(existing) if existing.matches(identity) =>
+              existing.state match
+                case SubagentTaskRecordState.Running => ZIO.unit
+                case SubagentTaskRecordState.Pending =>
+                  for
+                    at <- candidate.fold[UIO[Instant]](Clock.instant)(ZIO.succeed(_))
+                    updated = existing.copy(
+                      state = SubagentTaskRecordState.Running,
+                      metadata = existing.metadata.map(_.copy(lastUpdatedAt = at))
+                    )
+                    result <- write(
+                      revision,
+                      records.map(entry => if entry.id == existing.id then updated else entry)
+                    )
+                    _ <- result match
+                      case ConditionalWrite.Applied(_) => ZIO.unit
+                      case ConditionalWrite.Conflict if remaining > 0 =>
+                        attempt(remaining - 1, Some(at))
+                      case ConditionalWrite.Conflict => exhausted("Task start")
+                  yield ()
+                case SubagentTaskRecordState.Terminal(_, _) =>
+                  ZIO.fail(
+                    AgentError.StorageError(
+                      "The admitted task is already terminal; execution cannot start"
+                    )
+                  )
+            case _ =>
+              ZIO.fail(
+                AgentError.StorageError("Task start does not match a confirmed durable admission")
+              )
+      attempt(limits.maxConflicts, None)
 
     override def acknowledge(
         id: SubagentTaskId
@@ -153,93 +273,146 @@ object SubagentTerminalStore:
       ): IO[AgentError, SubagentTerminalAcknowledgeResult] =
         snapshot.flatMap: (revision, records) =>
           records.find(_.id == id.value) match
-            case None => ZIO.succeed(SubagentTerminalAcknowledgeResult.Missing)
             case Some(existing) =>
-              existing.acknowledgedAt match
-                case Some(at) =>
+              existing.state match
+                case SubagentTaskRecordState.Terminal(
+                      _,
+                      SubagentTerminalAcknowledgement.Acknowledged(at)
+                    ) =>
                   ZIO.succeed(SubagentTerminalAcknowledgeResult.AlreadyAcknowledged(at))
-                case None =>
+                case SubagentTaskRecordState.Terminal(
+                      outcome,
+                      SubagentTerminalAcknowledgement.Pending
+                    ) =>
                   for
                     at <- candidate.fold[UIO[Instant]](Clock.instant)(ZIO.succeed(_))
-                    value <- ZIO.fromEither(
-                      encode(
-                        records.map(entry =>
-                          if entry.id == id.value then entry.copy(acknowledgedAt = Some(at))
-                          else entry
-                        )
+                    updated = existing.copy(state =
+                      SubagentTaskRecordState.Terminal(
+                        outcome,
+                        SubagentTerminalAcknowledgement.Acknowledged(at)
                       )
                     )
-                    result <- store.compareAndSet(address, expectedRevision(revision), value)
+                    result <- write(
+                      revision,
+                      records.map(entry => if entry.id == existing.id then updated else entry)
+                    )
                     receipt <- result match
                       case ConditionalWrite.Applied(_) =>
                         ZIO.succeed(SubagentTerminalAcknowledgeResult.Acknowledged(at))
                       case ConditionalWrite.Conflict if remaining > 0 =>
                         attempt(remaining - 1, Some(at))
-                      case ConditionalWrite.Conflict =>
-                        ZIO.fail(
-                          AgentError.StorageError(
-                            "Terminal acknowledgement exhausted its bounded conflict retries"
-                          )
-                        )
+                      case ConditionalWrite.Conflict => exhausted("Terminal acknowledgement")
                   yield receipt
+                case _ => ZIO.succeed(SubagentTerminalAcknowledgeResult.Missing)
+            case None => ZIO.succeed(SubagentTerminalAcknowledgeResult.Missing)
       attempt(limits.maxConflicts, None)
 
     def publish(record: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication] =
-      def attempt(remaining: Int): IO[AgentError, SubagentTerminalPublication] =
+      def attempt(
+          remaining: Int,
+          candidate: Option[Instant]
+      ): IO[AgentError, SubagentTerminalPublication] =
         snapshot.flatMap: (revision, records) =>
-          (revision, records.find(_.id == record.id.value)) match
-            case (Some(current), Some(existing)) if existing.record == record =>
-              ZIO.succeed(SubagentTerminalPublication.AlreadyStored(current))
-            case (_, Some(_)) =>
+          records.find(_.id == record.id.value) match
+            case Some(existing) if existing.terminal.nonEmpty =>
+              revision match
+                case Some(current) if existing.terminal.contains(record) =>
+                  ZIO.succeed(SubagentTerminalPublication.AlreadyStored(current))
+                case _ =>
+                  ZIO.fail(
+                    AgentError.StorageError(
+                      "A different terminal observation already occupies this task ID"
+                    )
+                  )
+            case Some(existing) if existing.workerId != record.workerId =>
               ZIO.fail(
                 AgentError.StorageError(
-                  "A different terminal observation already occupies this task ID"
+                  "Terminal observation does not match the admitted worker identity"
                 )
               )
-            case (_, None) =>
+            case existing =>
               for
-                value <- ZIO.fromEither(
-                  encode(
-                    records :+ Entry(record.id.value, record.outcome, workerId = record.workerId)
+                at <- existing.fold[UIO[Option[Instant]]](ZIO.none)(_ =>
+                  candidate.fold[UIO[Instant]](Clock.instant)(ZIO.succeed(_)).map(Some(_))
+                )
+                entry = existing.fold(
+                  Entry(
+                    record.id.value,
+                    record.workerId,
+                    SubagentTaskRecordState
+                      .Terminal(record.outcome, SubagentTerminalAcknowledgement.Pending),
+                    None
+                  )
+                )(entry =>
+                  entry.copy(
+                    state = SubagentTaskRecordState
+                      .Terminal(record.outcome, SubagentTerminalAcknowledgement.Pending),
+                    metadata = entry.metadata.map(metadata =>
+                      at.fold(metadata)(time => metadata.copy(lastUpdatedAt = time))
+                    )
                   )
                 )
-                result <- store.compareAndSet(address, expectedRevision(revision), value)
-                publication <- result match
-                  case ConditionalWrite.Applied(updated) =>
-                    ZIO.succeed(SubagentTerminalPublication.Stored(updated))
-                  case ConditionalWrite.Conflict if remaining > 0 => attempt(remaining - 1)
-                  case ConditionalWrite.Conflict =>
-                    ZIO.fail(
-                      AgentError.StorageError(
-                        "Terminal publication exhausted its bounded conflict retries"
-                      )
-                    )
-              yield publication
-      attempt(limits.maxConflicts)
+                updated = records.filterNot(_.id == entry.id) :+ entry
+                result <- write(revision, updated)
+                receipt <- result match
+                  case ConditionalWrite.Applied(revision) =>
+                    ZIO.succeed(SubagentTerminalPublication.Stored(revision))
+                  case ConditionalWrite.Conflict if remaining > 0 =>
+                    attempt(remaining - 1, at.orElse(candidate))
+                  case ConditionalWrite.Conflict => exhausted("Terminal publication")
+              yield receipt
+      attempt(limits.maxConflicts, None)
 
-    private def expectedRevision(revision: Option[StorageRevision]): ExpectedRevision =
-      revision.fold[ExpectedRevision](ExpectedRevision.Absent)(ExpectedRevision.AtRevision(_))
+    private def exhausted[A](operation: String): IO[AgentError, A] =
+      ZIO.fail(AgentError.StorageError(s"$operation exhausted its bounded conflict retries"))
 
-    private def snapshot: IO[AgentError, (Option[StorageRevision], Chunk[Entry])] =
-      store
-        .read(address)
-        .flatMap:
-          case None => ZIO.succeed((None, Chunk.empty))
-          case Some(record) =>
-            ZIO.fromEither(decode(record.value)).map(records => (Some(record.revision), records))
+    private def write(
+        revision: Option[StorageRevision],
+        records: Chunk[Entry]
+    ): IO[AgentError, ConditionalWrite] =
+      ZIO
+        .fromEither(encode(records))
+        .flatMap(value =>
+          store.compareAndSet(
+            address,
+            revision
+              .fold[ExpectedRevision](ExpectedRevision.Absent)(ExpectedRevision.AtRevision(_)),
+            value
+          )
+        )
+
+    private def snapshot: IO[AgentError, (Option[StorageRevision], Chunk[Entry])] = store
+      .read(address)
+      .flatMap:
+        case None => ZIO.succeed((None, Chunk.empty))
+        case Some(record) =>
+          ZIO.fromEither(decode(record.value)).map(records => (Some(record.revision), records))
 
     private def encode(records: Chunk[Entry]): Either[AgentError, Json] =
       for
-        value <- Payload(
-          3,
-          records
-        ).toJsonAST.left.map(AgentError.StorageError.apply)
-        _ <- decode(value)
+        value <- Payload(4, records).toJsonAST.left.map(AgentError.StorageError.apply)
+        _     <- decode(value)
       yield value
 
-    private def decode(
-        value: Json
-    ): Either[AgentError.StorageError, Chunk[Entry]] =
+    private def legacy(
+        id: UUID,
+        outcome: SubagentTerminalOutcome,
+        acknowledgedAt: Option[Instant],
+        worker: Option[SubagentWorkerId]
+    ): Entry =
+      Entry(
+        id,
+        worker,
+        SubagentTaskRecordState.Terminal(
+          outcome,
+          acknowledgedAt.fold[SubagentTerminalAcknowledgement](
+            SubagentTerminalAcknowledgement.Pending
+          )(SubagentTerminalAcknowledgement.Acknowledged(_))
+        ),
+        None
+      )
+
+    private def decode(value: Json): Either[AgentError.StorageError, Chunk[Entry]] =
       for
         validated <- JsonBoundary.validate(value).left.map(AgentError.StorageError.apply)
         rendered = JsonBoundary.render(validated)
@@ -257,16 +430,31 @@ object SubagentTerminalStore:
             for
               payload   <- rendered.fromJson[LegacyPayload].left.map(AgentError.StorageError.apply)
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
-            yield (payload.records.map(entry => Entry(entry.id, entry.outcome)), canonical)
+            yield (
+              payload.records.map(entry => legacy(entry.id, entry.outcome, None, None)),
+              canonical
+            )
           case 2 =>
             for
               payload   <- rendered.fromJson[Schema2Payload].left.map(AgentError.StorageError.apply)
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
             yield (
-              payload.records.map(entry => Entry(entry.id, entry.outcome, entry.acknowledgedAt)),
+              payload.records.map(entry =>
+                legacy(entry.id, entry.outcome, entry.acknowledgedAt, None)
+              ),
               canonical
             )
           case 3 =>
+            for
+              payload   <- rendered.fromJson[Schema3Payload].left.map(AgentError.StorageError.apply)
+              canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
+            yield (
+              payload.records.map(entry =>
+                legacy(entry.id, entry.outcome, entry.acknowledgedAt, entry.workerId)
+              ),
+              canonical
+            )
+          case 4 =>
             for
               payload   <- rendered.fromJson[Payload].left.map(AgentError.StorageError.apply)
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
@@ -274,12 +462,14 @@ object SubagentTerminalStore:
           case _ => Left(AgentError.StorageError("Unsupported terminal aggregate schema version"))
         (records, canonical) = decoded
         _ <- Either.cond(
-          records.size <= limits.maxRecords &&
-            records.map(_.id).toSet.size == records.size &&
-            JsonBoundary.sameRepresentation(validated, canonical),
+          records.size <= limits.maxRecords && records
+            .map(_.id)
+            .toSet
+            .size == records.size && JsonBoundary.sameRepresentation(
+            validated,
+            canonical
+          ) && records.forall(entry => entry.terminal.nonEmpty || entry.metadata.nonEmpty),
           (),
-          AgentError.StorageError(
-            "Duplicate, oversized or noncanonical terminal aggregate"
-          )
+          AgentError.StorageError("Duplicate, oversized or noncanonical terminal aggregate")
         )
       yield records

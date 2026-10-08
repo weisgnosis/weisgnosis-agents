@@ -48,9 +48,14 @@ Execute the original scope without substituting a narrower release checklist. Li
 - [x] review_fp and review_invariants approve the final combined observational task_output scope against b70336f: four unchanged Scala identities and twelve Markdown files, no unresolved findings.
 - [x] Implement and independently source-review bounded full-output persisted-result acknowledgement with unchanged final content and trusted captured execution authority; focused checks pass.
 - [x] review_fp and review_invariants approve the final combined scope against 584ecf1: five unchanged Scala identities and fourteen Markdown files, no unresolved findings.
-- [ ] Current task: implement durable admitted/running identity and creation/check metadata under reviewed lifecycle design.
+- [ ] Current task: integrate original creation and pre-wait check metadata into task_output, preserving stable captured task authority and explicit local/stored observation boundaries.
+- [x] Reproduce draft cleanup-cause loss, volatile launch acquisition regression and terminal publication-order regression before correcting production code.
+- [x] Obtain final independent source approval from review_fp and review_invariants for the ten-file pre-start durable admission scope against f87ed98; 27 focused harness and two actual PostgreSQL groups pass.
+- [x] Pass full/artifact/archive/external-consumer checks for pre-start durable admission.
+- [x] review_fp and review_invariants approve the final combined scope against f87ed98: ten unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
 - [ ] Complete task-output creation/check metadata; the separately reviewed bounded exact-result consumption does not close whole TaskTool parity or restore durable execution.
-- [ ] Implement durable admitted/running identity and current-owner cancellation intent, retaining truthful terminal publication after joined cleanup.
+- [x] Implement and independently source-review durable admitted/running identity; required full/artifact checks pass under the linked admission contract.
+- [ ] Implement current-owner durable cancellation intent and recovery authority, retaining truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
 - [ ] Execute the original WeisGnosis OS cutover and Temporal Activity end-to-end verification under Phase 6.
@@ -84,14 +89,15 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [bound full-output consumption contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-full-task-output-consumption) owns the current five-Scala increment against 584ecf1, manifest 3c98da081cc26d03b46c51ebb234f9ac2a7e556d558f631a643fa2603794712c. Observational retrieval, routed consumption, terminal bindings and scoped waits retain their prerequisite contracts. Capacity-denied or changed output grants no tool-result acknowledgement.
+The [durable admission contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-task-admission) owns the current ten-Scala increment against f87ed98, manifest 9e6ea9f85f7daa0a9033aab7ff7fd5224bc2a6fd7e493f9b7ac358be87f7a43d. Confirmed admission precedes child execution; a Running transition precedes per-task effects. Terminal/output consumption prerequisites retain their separate accepted scopes.
 
-- [x] Implement explicit taskOutputTool composition, trusted operation admission, stable selected-target capture and exact post-persistence acknowledgement within unchanged receipt limits.
-- [x] Reproduce the draft task_output preflight omission through actual assertion failures before correction; review_fp and review_invariants approve all five corrected exact Scala identities with no unresolved source findings.
-- [x] target/task-output-consumption-focused-final-green.log passes 22 harness groups in 5.168 seconds and two actual PostgreSQL groups in 2.676 seconds, zero failed/ignored/compiler warnings. The fourth TaskOutput group includes measured below/above-capacity controls; the previous undersized denial oracle was corrected without production policy changes.
-- [x] target/task-output-consumption-final-verify.log passes formatting/fatal-warning compilation, 1,624 tests (695 core / 767 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission passes in target/task-output-consumption-final-preparation.log.
-- [x] Pass fresh standalone artifact consumption in target/task-output-consumption-final-consumer.log; the unchanged probe does not directly exercise the new tool factory.
-- [x] review_fp and review_invariants approve the final combined scope against 584ecf1: five unchanged Scala identities and fourteen Markdown files, no unresolved findings.
+- [x] Implement schema-4 Pending/Running observations, original admission timestamps and confirmed-start ownership without inventing legacy metadata or execution authority.
+- [x] Reproduce cleanup-cause loss, changed volatile acquisition and terminal publication-order regressions before correction, then fix the production defects.
+- [x] review_fp and review_invariants approve the ten exact Scala identities with no unresolved source findings; 27 focused harness groups and two actual PostgreSQL groups pass.
+- [x] target/task-admission-final-verify.log passes formatting/fatal-warning compilation, 1,628 tests (695 core / 771 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/task-admission-final-preparation.log passes negative archive admission checks, restores original bytes and revalidates the source archives.
+- [x] target/task-admission-final-consumer.log passes fresh standalone formatting, compilation, execution and four artifact-hash checks. Its unchanged probe does not directly exercise durable admission; public harness and actual PostgreSQL specifications provide that evidence.
+- [x] review_fp and review_invariants approve the final combined scope against f87ed98: ten unchanged Scala identities and fourteen Markdown files, with no unresolved findings. English/UTF-8/diff checks and local links pass.
 
 All eighteen classified wait methods and nine reminder methods have bounded mappings. Creation/check metadata, completion ordering, durable cancellation/running authority, executable session restoration, remaining original-plan applicability and the actual product cutover remain unfinished. No whole-plan completion or publication is claimed.
 

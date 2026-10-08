@@ -113,16 +113,30 @@ object SubagentSession:
       runtime <- factory.build(child)
       _       <- ZIO.foreachDiscard(checkpoint)(runtime.restore)
       turn    <- Semaphore.make(1)
-      executions <- SubagentTaskRegistry.openInput[Command](
-        Command.Send(_),
-        (command, id, events) =>
-          supervisor.attach(turn.withPermit(command match
-            case Command.Send(input)     => SubagentFactory.run(runtime, input, id, events)
-            case Command.Resume(results) => SubagentFactory.resume(runtime, results, id, events))),
-        maxTracked,
-        terminalBinding.map(_.store),
-        terminalBinding.flatMap(_.workerId)
-      )
+      launch = (
+          command: Command,
+          id: SubagentTaskId,
+          events: Option[ToolEventPort],
+          beforeStart: IO[AgentError, Unit]
+      ) =>
+        supervisor.attach(beforeStart *> turn.withPermit(command match
+          case Command.Send(input)     => SubagentFactory.run(runtime, input, id, events)
+          case Command.Resume(results) => SubagentFactory.resume(runtime, results, id, events)))
+      executions <- terminalBinding match
+        case None =>
+          SubagentTaskRegistry.openInput[Command](
+            Command.Send(_),
+            (command, id, events) => launch(command, id, events, ZIO.unit),
+            maxTracked
+          )
+        case Some(binding) =>
+          SubagentTaskRegistry.openPreparedInput[Command](
+            Command.Send(_),
+            launch,
+            maxTracked,
+            Some(binding.store),
+            binding.workerId
+          )
     yield new SubagentSession(
       executions,
       (results, events) => executions.submitInput(Command.Resume(results), events)

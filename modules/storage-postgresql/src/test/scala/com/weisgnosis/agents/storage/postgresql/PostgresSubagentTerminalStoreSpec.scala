@@ -136,10 +136,33 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               .foreachPar(Chunk(terminal, reopened))(_.acknowledge(firstId))
               .zipPar(terminal.publish(third))
               .map(_._1)
-            stamp         <- reopened.acknowledgement(firstId)
-            undelivered   <- reopened.pending
-            exactAfterAck <- reopened.read(firstId)
-            isolatedStamp <- SubagentTerminalStore.make(second, other).acknowledgement(firstId)
+            stamp            <- reopened.acknowledgement(firstId)
+            undelivered      <- reopened.pending
+            exactAfterAck    <- reopened.read(firstId)
+            isolatedStamp    <- SubagentTerminalStore.make(second, other).acknowledgement(firstId)
+            admissionAddress <- address(name, "admission-owner")
+            admitting = SubagentTerminalStore.make(backend, admissionAddress)
+            observing = SubagentTerminalStore.make(second, admissionAddress)
+            admitted <- admitting.admit(firstId, Some(workerId))
+            identity <- admitted match
+              case SubagentTaskAdmissionResult.Created(value) => ZIO.succeed(value)
+              case SubagentTaskAdmissionResult.Existing(_) =>
+                ZIO.fail(AgentError.StorageError("Fresh fixture admission already exists"))
+            admittedRecord      <- observing.taskRecord(firstId)
+            terminalBeforeStart <- observing.read(firstId)
+            _                   <- admitting.markRunning(identity)
+            runningRecord       <- observing.taskRecord(firstId)
+            _ <- admitting.publish(
+              SubagentTerminalRecord(
+                firstId,
+                SubagentTerminalOutcome.Completed("admitted output"),
+                Some(workerId)
+              )
+            )
+            terminalRecord     <- observing.taskRecord(firstId)
+            _                  <- admitting.acknowledge(firstId)
+            acknowledgedRecord <- observing.taskRecord(firstId)
+            duplicateAdmission <- observing.admit(firstId, Some(workerId))
           yield assertTrue(
             before.isEmpty,
             pending.isEmpty,
@@ -200,7 +223,38 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             ),
             undelivered.map(_.id).toSet == Set(secondId, third.id),
             exactAfterAck == exact,
-            isolatedStamp.isEmpty
+            isolatedStamp.isEmpty,
+            terminalBeforeStart.isEmpty,
+            admittedRecord.exists(record =>
+              record.state == SubagentTaskRecordState.Pending &&
+                record.workerId.contains(workerId) && record.metadata.exists(
+                  _.createdAt == identity.createdAt
+                )
+            ),
+            runningRecord.exists(record =>
+              record.state == SubagentTaskRecordState.Running &&
+                record.metadata.exists(_.createdAt == identity.createdAt)
+            ),
+            terminalRecord.exists(record =>
+              record.terminal.contains(
+                SubagentTerminalRecord(
+                  firstId,
+                  SubagentTerminalOutcome.Completed("admitted output"),
+                  Some(workerId)
+                )
+              ) &&
+                record.metadata.exists(_.createdAt == identity.createdAt)
+            ),
+            acknowledgedRecord.flatMap(_.metadata) == terminalRecord.flatMap(_.metadata),
+            acknowledgedRecord.exists(_.state match
+              case SubagentTaskRecordState
+                    .Terminal(_, SubagentTerminalAcknowledgement.Acknowledged(_)) =>
+                true
+              case _ => false),
+            duplicateAdmission match
+              case SubagentTaskAdmissionResult.Existing(record) =>
+                acknowledgedRecord.contains(record)
+              case SubagentTaskAdmissionResult.Created(_) => false
           )
     ,
     test(

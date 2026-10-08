@@ -20,12 +20,19 @@ import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorizer, ToolDef, Toolkit}
+import com.weisgnosis.agents.harness.storage.*
 import zio.*
 import zio.json.ast.Json
 import zio.test.*
 
 object SubagentTaskRegistrySpec extends ZIOSpecDefault:
   private val input: Msg = Msg.user("work")
+
+  private enum DurableAdmission:
+    case Ready, LostReceipt, CallerCancelled, StartFailed, Closed, HostClosed
+
+  private enum RejectedAdmission:
+    case Uncertain, Collision, CallerCancelled
 
   private enum WaitMode:
     case Attached, Promoted
@@ -65,7 +72,318 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
       case SubagentTaskSnapshot(_, SubagentTaskState.Completed(exit)) => Some(exit)
       case SubagentTaskSnapshot(_, SubagentTaskState.Running)         => None
 
+  private def durableAdmission(
+      mode: DurableAdmission
+  ): ZIO[TestEnvironment & Scope, AgentError, TestResult] =
+    ZIO.scoped:
+      for
+        backend        <- SubagentTerminalStoreSpec.fixture
+        address        <- ZIO.fromEither(StorageAddress.from(Chunk("admission", "public"), "tasks"))
+        admitting      <- Promise.make[Nothing, Unit]
+        allowAdmission <- Promise.make[Nothing, Unit]
+        starting       <- Promise.make[Nothing, Unit]
+        allowStart     <- Promise.make[Nothing, Unit]
+        preparing      <- Promise.make[Nothing, Unit]
+        allowWork      <- Promise.make[Nothing, Unit]
+        builds         <- Ref.make(0)
+        writes         <- Ref.make(0)
+        failure      = AgentError.StorageError("Admission receipt lost")
+        startFailure = AgentError.StorageError("Running transition failed")
+        controlled = new VersionedJsonStore:
+          def read(target: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+            backend.store.read(target)
+          def compareAndSet(
+              target: StorageAddress,
+              expected: ExpectedRevision,
+              value: Json
+          ): IO[AgentError, ConditionalWrite] =
+            writes
+              .updateAndGet(_ + 1)
+              .flatMap:
+                case 1 =>
+                  backend.store
+                    .compareAndSet(target, expected, value)
+                    .flatMap(receipt =>
+                      admitting.succeed(()) *> allowAdmission.await *>
+                        (if mode == DurableAdmission.LostReceipt then ZIO.fail(failure)
+                         else ZIO.succeed(receipt))
+                    )
+                case 2 =>
+                  if mode == DurableAdmission.HostClosed then
+                    backend.store.compareAndSet(target, expected, value)
+                  else
+                    starting.succeed(()) *> allowStart.await *>
+                      (if mode == DurableAdmission.StartFailed then ZIO.fail(startFailure)
+                       else backend.store.compareAndSet(target, expected, value))
+                case _ => backend.store.compareAndSet(target, expected, value)
+        store  = SubagentTerminalStore.make(controlled, address)
+        reader = SubagentTerminalStore.make(backend.store, address)
+        host       <- owner
+        supervisor <- host.extend(TaskSupervisor.open[AgentResult])
+        parent     <- SubagentSpawner.root(supervisor)
+        configured <- factory(_ =>
+          builds.update(_ + 1) *> preparing.succeed(()) *> allowWork.await.as(Toolkit.empty)
+        )
+        registry <- SubagentTaskRegistry.openDurable(parent, configured, store, 4)
+        _ <- ZIO.addFinalizer(
+          allowAdmission.succeed(()) *> allowStart.succeed(()) *> allowWork.succeed(()).unit
+        )
+        _ <- if mode == DurableAdmission.Closed then host.close(Exit.unit) else ZIO.unit
+        outcome <-
+          if mode == DurableAdmission.Closed then
+            registry.submit(input).exit.map(result => (result, assertTrue(true)))
+          else
+            for
+              submitting <- ZIO.uninterruptibleMask: restore =>
+                for
+                  fiber <- restore(registry.submit(input)).forkScoped
+                  _ <- ZIO.addFinalizer(
+                    allowAdmission.succeed(()) *> allowStart
+                      .succeed(()) *> allowWork.succeed(()).unit
+                  )
+                yield fiber
+              _       <- admitting.await
+              pending <- reader.taskRecords
+              before  <- builds.get
+              _ <- if mode == DurableAdmission.HostClosed then host.close(Exit.unit) else ZIO.unit
+              result <-
+                if mode == DurableAdmission.CallerCancelled then submitting.interrupt
+                else allowAdmission.succeed(()) *> submitting.await
+              startCheck <- result match
+                case Exit.Success(SubagentTaskSubmission.Accepted(id))
+                    if mode == DurableAdmission.HostClosed =>
+                  for
+                    joined   <- registry.await(id)
+                    _        <- registry.publication(id)
+                    terminal <- reader.taskRecord(id)
+                  yield assertTrue(
+                    joined.exists(_.isInterrupted),
+                    terminal.exists(
+                      _.terminal.exists(
+                        _.outcome == SubagentTerminalOutcome
+                          .Interrupted(Chunk.empty, SubagentTaskDefects.Absent)
+                      )
+                    )
+                  )
+                case Exit.Success(SubagentTaskSubmission.Accepted(id)) =>
+                  for
+                    _           <- starting.await
+                    held        <- reader.taskRecord(id)
+                    stillBefore <- builds.get
+                    _           <- allowStart.succeed(())
+                    active <-
+                      if mode == DurableAdmission.Ready then
+                        preparing.await *> reader.taskRecord(id)
+                      else ZIO.none
+                    _        <- allowWork.succeed(())
+                    joined   <- registry.await(id)
+                    _        <- registry.publication(id)
+                    terminal <- reader.taskRecord(id)
+                  yield assertTrue(
+                    held.exists(_.state == SubagentTaskRecordState.Pending),
+                    stillBefore == 0,
+                    terminal.exists(record =>
+                      record.terminal.nonEmpty && record.metadata.exists(metadata =>
+                        pending.headOption
+                          .flatMap(_.metadata)
+                          .exists(initial =>
+                            metadata.createdAt == initial.createdAt && metadata.lastCheckedAt == initial.lastCheckedAt
+                          )
+                      )
+                    ),
+                    mode match
+                      case DurableAdmission.Ready =>
+                        active.exists(_.state == SubagentTaskRecordState.Running) && joined.exists(
+                          _.isSuccess
+                        )
+                      case DurableAdmission.StartFailed =>
+                        joined.exists(
+                          _.causeOption.exists(_.failures == List(startFailure))
+                        ) && terminal.exists(
+                          _.terminal.exists(
+                            _.outcome == SubagentTerminalOutcome
+                              .Failed(Chunk(startFailure.message), SubagentTaskDefects.Absent)
+                          )
+                        )
+                      case _ => false
+                  )
+                case _ => ZIO.succeed(assertTrue(true))
+            yield (
+              result,
+              assertTrue(
+                before == 0,
+                pending.size == 1,
+                pending.forall(record =>
+                  record.state == SubagentTaskRecordState.Pending && record.metadata.nonEmpty
+                )
+              ) && startCheck
+            )
+        (result, phases) = outcome
+        records     <- reader.taskRecords
+        count       <- builds.get
+        totalWrites <- writes.get
+        resultMatches = mode match
+          case DurableAdmission.Ready | DurableAdmission.StartFailed |
+              DurableAdmission.HostClosed =>
+            result match
+              case Exit.Success(SubagentTaskSubmission.Accepted(_)) => true
+              case _                                                => false
+          case DurableAdmission.LostReceipt =>
+            result.causeOption.exists(cause =>
+              cause.failures == List(failure) && cause.defects.isEmpty && !cause.isInterrupted
+            )
+          case DurableAdmission.CallerCancelled => result.isInterrupted
+          case DurableAdmission.Closed => result == Exit.succeed(SubagentTaskSubmission.Closed)
+      yield assertTrue(
+        resultMatches,
+        count == (if mode == DurableAdmission.Ready then 1 else 0),
+        mode match
+          case DurableAdmission.LostReceipt | DurableAdmission.CallerCancelled =>
+            records.size == 1 && records.forall(
+              _.state == SubagentTaskRecordState.Pending
+            ) && totalWrites == 1
+          case DurableAdmission.Closed     => records.isEmpty && totalWrites == 0
+          case DurableAdmission.HostClosed => records.size == 1 && totalWrites == 2
+          case _                           => records.size == 1 && totalWrites == 3
+      ) && phases
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentTaskRegistrySpec")(
+    test(
+      "public durable admission persists before child effects, releases only confirmed creation and retains truthful uncertainty or pre-start failure"
+    ):
+      ZIO
+        .foreach(
+          Chunk(
+            DurableAdmission.Ready,
+            DurableAdmission.LostReceipt,
+            DurableAdmission.CallerCancelled,
+            DurableAdmission.StartFailed,
+            DurableAdmission.Closed,
+            DurableAdmission.HostClosed
+          )
+        )(durableAdmission)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test("ordinary volatile launch preserves preparation before coordinated acquisition returns"):
+      ZIO.scoped:
+        for
+          supervisor      <- TaskSupervisor.open[AgentResult]
+          attached        <- Promise.make[Nothing, Unit]
+          allowAcceptance <- Promise.make[Nothing, Unit]
+          prepared        <- Ref.make(false)
+          coordinated = new TaskSupervisor[AgentResult]:
+            def own[B](
+                initialize: TaskSupervisor[AgentResult] => ZIO[Scope, AgentError, B]
+            ): ZIO[Scope, AgentError, TaskResourceAdmission[B]] = supervisor.own(initialize)
+            def ownRetained[B](
+                initialize: TaskSupervisor[AgentResult] => ZIO[Scope, AgentError, B]
+            ): IO[AgentError, TaskResourceAdmission[B]] = supervisor.ownRetained(initialize)
+            def attach(
+                task: => ZIO[Scope, AgentError, AgentResult]
+            ): ZIO[Scope, Nothing, TaskAdmission[AgentResult]] =
+              supervisor
+                .attach(task)
+                .flatMap(admission => attached.succeed(()) *> allowAcceptance.await.as(admission))
+          root       <- SubagentSpawner.root(coordinated)
+          configured <- factory(_ => prepared.set(true).as(Toolkit.empty))
+          registry   <- SubagentTaskRegistry.open(root, configured, 4)
+          submitting <- ZIO.uninterruptibleMask: restore =>
+            for
+              fiber <- restore(registry.submit(input)).forkScoped
+              _     <- ZIO.addFinalizer(allowAcceptance.succeed(()).unit)
+            yield fiber
+          _                <- attached.await
+          _                <- TestClock.adjust(0.seconds)
+          beforeAcceptance <- prepared.get
+          _                <- allowAcceptance.succeed(())
+          result           <- submitting.join
+        yield assertTrue(
+          beforeAcceptance,
+          result match
+            case SubagentTaskSubmission.Accepted(_) => true
+            case _                                  => false
+        )
+    ,
+    test(
+      "rejected durable admission joins paused cleanup and preserves original failures and cleanup defects without starting work"
+    ):
+      val cases = Chunk(
+        RejectedAdmission.Uncertain,
+        RejectedAdmission.Collision,
+        RejectedAdmission.CallerCancelled
+      )
+      ZIO
+        .foreach(cases): mode =>
+          ZIO.scoped:
+            for
+              backend <- SubagentTerminalStoreSpec.fixture
+              target <- ZIO.fromEither(StorageAddress.from(Chunk("admission", "rejected"), "tasks"))
+              failure = AgentError.StorageError("Admission receipt lost")
+              defect  = new IllegalStateException("paused cleanup failed")
+              admissionEntered <- Promise.make[Nothing, Unit]
+              uncertain = new VersionedJsonStore:
+                def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+                  backend.store.read(address)
+                def compareAndSet(address: StorageAddress, expected: ExpectedRevision, value: Json)
+                    : IO[AgentError, ConditionalWrite] =
+                  backend.store
+                    .compareAndSet(address, expected, value)
+                    .flatMap: receipt =>
+                      mode match
+                        case RejectedAdmission.Uncertain => ZIO.fail(failure)
+                        case RejectedAdmission.Collision => ZIO.succeed(receipt)
+                        case RejectedAdmission.CallerCancelled =>
+                          admissionEntered.succeed(()) *> ZIO.never
+              store = SubagentTerminalStore.make(uncertain, target)
+              _  <- TestRandom.feedLongs(11L, 22L)
+              id <- Random.nextUUID.map(SubagentTaskId(_))
+              _  <- if mode == RejectedAdmission.Collision then store.admit(id).unit else ZIO.unit
+              supervisor <- TaskSupervisor.open[AgentResult]
+              entered    <- Promise.make[Nothing, Unit]
+              effects    <- Ref.make(0)
+              registry <- SubagentTaskRegistry.openPreparedInput[Msg](
+                identity,
+                (_, _, _, beforeStart) =>
+                  supervisor
+                    .attach(
+                      (entered.succeed(()) *> beforeStart *> effects
+                        .update(_ + 1)
+                        .as(AgentResult(Msg.assistant("never"), Chunk.empty, 1)))
+                        .ensuring(ZIO.die(defect))
+                    )
+                    .tap(_ => entered.await),
+                4,
+                Some(store)
+              )
+              _ <- TestRandom.feedLongs(11L, 22L)
+              result <-
+                if mode == RejectedAdmission.CallerCancelled then
+                  for
+                    submitting <- registry.submit(input).forkScoped
+                    _          <- admissionEntered.await
+                    exit       <- submitting.interrupt
+                  yield exit
+                else registry.submit(input).exit
+              records    <- SubagentTerminalStore.make(backend.store, target).taskRecords
+              executions <- effects.get
+              tracked    <- registry.list
+              writes     <- backend.writes.get
+              cause = result.causeOption.getOrElse(Cause.empty)
+            yield assertTrue(
+              cause.failures == (if mode == RejectedAdmission.Uncertain then List(failure)
+                                 else Nil),
+              cause.defects == List(defect),
+              cause.isInterrupted == (mode == RejectedAdmission.CallerCancelled),
+              executions == 0,
+              tracked.isEmpty,
+              writes == 1,
+              records.size == 1,
+              records.forall(record =>
+                record.state == SubagentTaskRecordState.Pending && record.metadata.nonEmpty
+              )
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test(
       "delivery snapshots preserve submission order and acknowledgement retains polling and capacity"
     ):

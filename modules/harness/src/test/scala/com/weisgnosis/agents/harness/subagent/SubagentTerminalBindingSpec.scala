@@ -137,6 +137,8 @@ object SubagentTerminalBindingSpec extends ZIOSpecDefault:
                 _               <- owner.close(Exit.unit)
                 leftRecords     <- SubagentTerminalStore.make(backend.store, leftAddress).list
                 rightRecords    <- SubagentTerminalStore.make(backend.store, rightAddress).list
+                leftMetadata    <- leftStore.taskRecord(leftId)
+                rightMetadata   <- rightStore.taskRecord(rightId)
                 extra = SubagentTerminalRecord(
                   SubagentTaskId(new UUID(0L, 777L)),
                   SubagentTerminalOutcome.Completed("host still owns backend")
@@ -157,6 +159,14 @@ object SubagentTerminalBindingSpec extends ZIOSpecDefault:
                     SubagentTerminalOutcome.Completed("exact λ"),
                     Some(rightWorker)
                   )
+                ),
+                leftMetadata.exists(record =>
+                  record.metadata.nonEmpty && record.terminal
+                    .exists(_.workerId.contains(leftWorker))
+                ),
+                rightMetadata.exists(record =>
+                  record.metadata.nonEmpty && record.terminal
+                    .exists(_.workerId.contains(rightWorker))
                 ),
                 volatileReceipt.isLeft,
                 pending == rightRecords,

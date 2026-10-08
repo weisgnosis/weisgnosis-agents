@@ -1,5 +1,39 @@
 # Scoped child execution and sessions
 
+## Durable task admission
+
+Both independent source reviews approve the exact scope below; full/artifact/archive/external-consumer checks pass; review_fp and review_invariants approve the final combined scope against f87ed98: ten unchanged Scala identities and fourteen Markdown files, with no unresolved findings. The built-in versioned SubagentTerminalStore adds explicit admitted Pending and Running observations, separate from terminal-only read/list/pending views. Actual admission owns creation/check/update timestamps; legacy schema 1-3 data remains terminal with absent metadata. New writes use schema 4 within the existing aggregate limits. Observed wall-clock timestamps do not establish a monotonic clock or execution ownership.
+
+A durable prepared launch acquires a paused child under its caller lease, persists admission, installs registry and terminal-publisher ownership, then releases the child. The first released effect confirms Running before child execution. Existing IDs and uncertain admission receipts never authorize execution. A possibly committed Pending record remains unresolved for explicit host reconciliation. Rejected launches join owned cleanup and must preserve its failures and defects alongside the original admission cause.
+
+Ordinary volatile launches retain their existing acquisition behavior. Existing custom terminal stores must implement admission/start ports before use with public durable launch; default unsupported ports fail closed. Reusable session initialization remains separately owned; admission gates each turn, not already acquired session resources. No executable handle, takeover, fencing or recovery permission is reconstructed from stored task data.
+
+Terminal observations remain immutable. First terminal publication preserves terminal publication order; acknowledgement and identical publication do not reorder data. The complete taskRecords view shares aggregate order and does not promise original submission order. Creation/check projection into task_output, check-time updates, durable cancellation, notifications and owner-aware restoration remain separate unfinished obligations.
+
+- [x] Compile the initial five production files with zero compiler warnings in target/task-admission-draft-compile.log. Compilation is not acceptance.
+- [x] Reproduce lost paused-cleanup defects and changed volatile acquisition behavior before correction in target/task-admission-lifecycle-red.log: one passed, two failed, zero ignored.
+- [x] Reproduce admission-order replacing terminal publication order before correction in target/task-admission-publication-order-red.log: zero passed, one failed, zero ignored.
+- [x] Correct all three reproduced findings and obtain explicit final source approval from review_fp and review_invariants for the ten identities below, with no unresolved findings.
+- [x] target/task-admission-focused-green.log passes 27 harness groups in 1.191 seconds and two actual PostgreSQL groups in 2.856 seconds, zero failed/ignored/compiler warnings. The public durable table includes held admission, held Running transition, uncertain receipt, caller cancellation, pre-start failure and owner closure; existing session/catalog cases retain real admission metadata after reopen.
+- [x] target/task-admission-final-verify.log passes formatting/fatal-warning compilation, 1,628 tests (695 core / 771 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Source-archive negative admission/restoration checks pass in target/task-admission-final-preparation.log.
+- [x] target/task-admission-final-consumer.log passes fresh standalone formatting, compilation, execution and all four artifact-hash checks. Its unchanged probe does not directly exercise admission; public harness and actual PostgreSQL specifications supply that evidence.
+- [x] review_fp and review_invariants approve the final combined scope against f87ed98: ten unchanged Scala identities and fourteen Markdown files, with no unresolved findings. English/UTF-8/diff checks and 79-document/3,544-local-reference validation pass.
+
+The current admission scope against f87ed98 comprises ten Scala identities, path-first manifest SHA-256 9e6ea9f85f7daa0a9033aab7ff7fd5224bc2a6fd7e493f9b7ac358be87f7a43d. Approval applies only to this scope and revision.
+
+| Reviewed source | Git blob |
+| --- | --- |
+| [SubagentFactory.scala](SubagentFactory.scala) | `3708a4c49a13993cfb487a9a8d9d21ee9b254149` |
+| [SubagentSession.scala](SubagentSession.scala) | `7335a9f0847f24c75a01abd50d886cd485c5a0d6` |
+| [SubagentTaskRecord.scala](SubagentTaskRecord.scala) | `76d8b04e991b63b5e40ef879391b37a6056510b8` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `53fcb8186e3961b07419d37cb98e753f89d0b9a3` |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `6252281508833c93bdd88e169817e82e03b7bd61` |
+| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | `b08c2aaa93210f84581dcd2ccff47c67cef5f94b` |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `775b10b201c91348080c47e7b15ca938a26180a7` |
+| [SubagentTerminalBindingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalBindingSpec.scala) | `de95b80a5b745134785df7fe7bd959e152a25907` |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | `a371e1f903675fa262bc48aa4aa0edb472869f9f` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `b3c28353fa2b79cd233faccc9de244aa6b88c4d9` |
+
 ## Bound full task output consumption
 
 SubagentDeliveryMiddleware.taskOutputTool explicitly binds task_output to the middleware's selected registry and required persisted-local-result observer. Compose it intentionally with middleware.tools().updated(middleware.taskOutputTool) and configure the same middleware on the parent builder. SubagentTaskOutputTool.make remains observational; no existing toolkit gains a default registration.
@@ -22,7 +56,7 @@ The current bound full-output scope against 584ecf1 comprises five Scala identit
 | [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | `c8c72a83119e196738ab6011c3860f397b91a987` |
 | [SubagentTools.scala](SubagentTools.scala) | `0a902d4121d6549220ac26df6655ea59937296b2` |
 | [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | `9b0983cb0a1b3c1c353ab70fdb02c6c25c2f8fba` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `24f278a79cbbd194f6aeb0fac3bd10c70ab128af` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [durable admission manifest](#durable-task-admission) |
 
 - [x] review_fp and review_invariants approve the five exact source/specification identities against 584ecf1, with no unresolved findings.
 - [x] target/task-output-consumption-focused-final-green.log passes 22 harness groups in 5.168 seconds and two actual PostgreSQL groups in 2.676 seconds, zero failed/ignored/compiler warnings. The added fourth TaskOutput group has eight table modes: exact, diagnostic metadata, redaction, real offload, prior callback failure, uncertain committed ACK and measured below/above-capacity controls. Existing PostgreSQL groups additionally verify full Unicode output and post-persistence ACK.
@@ -49,7 +83,7 @@ The current task-output scope against b70336f comprises four Scala identities, p
 | --- | --- |
 | [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | `524ac43400ca082571480b195e274e37d6f56763` |
 | [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | Current identity: [bound full output](#bound-full-task-output-consumption) |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `49e6fe0171922cda07a6a3c1df2339bc78c7c1af` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [durable admission manifest](#durable-task-admission) |
 | [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [bound full output](#bound-full-task-output-consumption) |
 
 - [x] review_fp and review_invariants approve the four exact source/specification identities against b70336f, with no unresolved findings.
@@ -103,11 +137,11 @@ The binding scope against ed6d6b4 comprises six Scala identities, path-first man
 | Reviewed source | Git blob |
 | --- | --- |
 | [SubagentCatalog.scala](SubagentCatalog.scala) | `1a46e671800743758788c2df1ade291734fac72c` |
-| [SubagentSession.scala](SubagentSession.scala) | `1977643f2a56f65e2883ad90aff44a06e8bc8baa` |
+| [SubagentSession.scala](SubagentSession.scala) | Current identity: [durable admission manifest](#durable-task-admission) |
 | [SubagentSessionCatalog.scala](SubagentSessionCatalog.scala) | `e96de7dae9861fdab8f9775efa4b1ae2286283d6` |
 | [SubagentTerminalBinding.scala](SubagentTerminalBinding.scala) | `b294731e0a9802701640b3163e1ae1dc8c2e1273` |
 | [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | `2c448b80d507d8a9d51720eb3c9b35ba13ded340` |
-| [SubagentTerminalBindingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalBindingSpec.scala) | `7427dd174ec10abb9da3d9780f37565d2ff3b33c` |
+| [SubagentTerminalBindingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalBindingSpec.scala) | Current identity: [durable admission manifest](#durable-task-admission) |
 
 - [x] review_fp and review_invariants approve all six exact binding source/specification identities against ed6d6b4, with no unresolved findings.
 - [x] target/terminal-binding-focused.log passes 20 harness groups in 1.956 seconds, zero failed/ignored/compiler warnings. One new grouped public-factory table covers catalog/session/session-catalog publication, host-selected partition isolation, exact worker identity, unbound behavior and backend use after owner closure. The existing restored-session fixture additionally verifies persisted resumed completion. Existing cancellation/partial-installation suites pass unchanged.
@@ -120,7 +154,7 @@ SubagentWorkerId.from checks an explicitly host-declared identifier: nonblank va
 
 SubagentTerminalRecord adds workerId: Option[SubagentWorkerId], defaulting to None. SubagentTaskRegistry.open/openDurable capture the supplied optional identity once for new local terminal observations; publishJoined accepts the same explicit argument. Reopened stored records preserve their original identity, including None. The current registry never backfills old records with its own identity. Complete record equality includes the identity: republishing an occupied task with a different identity, or None versus Some, conflicts.
 
-New terminal aggregate writes use schema 3. Strict schema-1/schema-2 readers normalize absent identity to None without rewriting; schema-2 acknowledgement timestamps survive migration. Schema-3 writes preserve identity through acknowledgement and concurrent publication. Aggregate byte limits include the encoded identity. Older schema-1/2-only adapters reject schema 3; hosts must coordinate reader/writer versions and backups. This is not a cross-process ownership or fencing protocol.
+Current writes use schema 4 under the [durable admission contract](#durable-task-admission). Strict schema-1/schema-2 reads normalize absent identity to None without rewriting; schema-2 acknowledgement timestamps and schema-3 worker identities survive migration. Aggregate byte limits include encoded identity and admission metadata. Schema-1/2/3-only adapters reject schema 4; hosts must coordinate reader/writer versions and backups. This is not a cross-process ownership or fencing protocol.
 
 Reminder rendering includes an escaped agent attribute only for Some identity. Legacy None records omit it; output preview and acknowledgement authority remain unchanged. The attribute identifies the host-declared worker and does not prove execution ownership or completed delivery.
 
@@ -133,11 +167,11 @@ The worker-identity scope against 7bff28a comprises the ten Scala identities bel
 | [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [routed consumption](#routed-task-result-consumption) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [full task output](#full-task-output-retrieval) |
 | [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | `d968f629b07dedb821441875f592f3df860eda34` |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `d404631894e316c97766f88eaedd4741cc043ac4` |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [durable admission manifest](#durable-task-admission) |
 | [SubagentWorkerId.scala](SubagentWorkerId.scala) | `995f78340c7d78df098c8f791d6aca67cf9621ff` |
 | [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala) | `9657165b46f5a4fb3d877e72b46b28ecee0c3b82` |
 | [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | `7459140ee5060636b764c838ae659a2fde0effee` |
-| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | `bb4f1404001f39d70555aa5505fe68eb6269a00e` |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [durable admission manifest](#durable-task-admission) |
 | [SubagentWorkerIdSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWorkerIdSpec.scala) | `d9e414b8a57d167d597bcfeea53c39aec9730c16` |
 | [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [routed consumption](#routed-task-result-consumption) |
 
@@ -276,7 +310,7 @@ The store's additive `pending`, `acknowledgement(id)` and `acknowledge(id)` APIs
 
 Acknowledgement updates the same bounded aggregate as terminal publication. The first timestamp wins; repeated acknowledgement and idempotent republication retain it. A concurrent publication copies every existing entry including its stamp, and acknowledgement retains every immutable outcome. No orphan acknowledgement can be inserted. Clock.instant runs only after a pending persisted record is found; one candidate is retained across bounded retries of confirmed CAS conflicts. Backend failure, uncertain acknowledgement and cancellation are not retried. A later explicit read or acknowledgement may reveal that an uncertain write committed. The timestamp records the host acknowledgement operation; it proves neither completion time, authenticated receipt nor exactly-once delivery.
 
-Schema-version-1 data is checked in its original canonical representation and read as Pending without migration or a clock read. Schema 2 retains optional acknowledgedAt fields. New successful writes use strict schema 3 under the [worker identity migration](#worker-identity), preserving existing stamps, exact output and aggregate order. Invalid timestamps, explicit null stamps, unsupported versions, unknown/duplicate fields, duplicate task IDs and malformed Unicode fail validation. Byte/count limits include timestamp growth; a stamp that exceeds capacity fails without dropping records or altering stored state. Older schema-1/2-only readers reject schema 3. Hosts must coordinate reader/writer versions and retain their own backups before forward migration; this API supplies no downgrade converter or storage backup.
+Schema-version-1 data is checked in its original canonical representation and read as terminal observations with Pending acknowledgement and absent admission metadata, without migration or a clock read. Schema 2 retains optional acknowledgedAt fields. New successful writes use strict schema 4 under the [durable admission migration](#durable-task-admission), preserving existing stamps and exact output. First terminal transitions preserve terminal publication order; other writes retain order. Invalid timestamps, explicit null stamps, unsupported versions, unknown/duplicate fields, duplicate task IDs and malformed Unicode fail validation. Byte/count limits include timestamp growth; a stamp that exceeds capacity fails without dropping records or altering stored state. Older schema-1/2/3-only readers reject schema 4. Hosts must coordinate reader/writer versions and retain their own backups before forward migration; this API supplies no downgrade converter or storage backup.
 
 Opt-in durable registries expose `durablePendingDeliveries`, `terminalAcknowledgement(id)` and `acknowledgeTerminal(id)`. These methods use the owner-selected store and propagate typed failures. Local completed publication receipts are barriers before exposing or acknowledging stored data, including completion that occurs during a held backend read. Still-running local work does not block authoritative stored terminal data. Cancelling an observer does not cancel an owned publisher. Existing live pendingDeliveries/acknowledge APIs remain separate and still reject durable registries; restored observations never become fabricated live Exit values. These new APIs remain usable after registry closure while the host retains backend access.
 
@@ -583,7 +617,7 @@ Migration: `resume` is additive; existing send, registry and model-facing tool s
 | Reviewed source | Git blob |
 | --- | --- |
 | [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current numeric-integrity identity](../transcript/README.md#exact-owned-numeric-output) |
-| [SubagentFactory.scala](SubagentFactory.scala) | `013920f0ad1ab6c082e3362bb40f83064d11af51` |
+| [SubagentFactory.scala](SubagentFactory.scala) | Current identity: [durable admission manifest](#durable-task-admission) |
 | [SubagentSession.scala](SubagentSession.scala) | [Current terminal-binding scope](#terminal-store-bindings) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | [Current worker-identity scope](#worker-identity) |
 | [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala) | [Current terminal-binding scope](#terminal-store-bindings) |

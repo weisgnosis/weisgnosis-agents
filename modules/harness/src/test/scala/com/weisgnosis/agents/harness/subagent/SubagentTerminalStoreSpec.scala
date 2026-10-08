@@ -223,6 +223,13 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
           stored <- backend.store
             .read(target)
             .someOrFail(AgentError.StorageError("Missing fixture aggregate"))
+          legacyOutcome <- ZIO.fromEither(
+            record.outcome.toJsonAST.left.map(AgentError.StorageError.apply)
+          )
+          legacyFields: Chunk[(String, Json)] = Chunk(
+            "id"      -> Json.Str(firstId.value.toString),
+            "outcome" -> legacyOutcome
+          )
           corruptions <- stored.value match
             case Json.Obj(fields) =>
               fields.find(_._1 == "records").map(_._2) match
@@ -232,12 +239,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
                       Json.Obj(
                         "schemaVersion" -> Json.Num(2),
                         "records" -> Json.Arr(
-                          entries.map(entry =>
-                            entry match
-                              case Json.Obj(values) =>
-                                Json.Obj(values :+ ("acknowledgedAt" -> stamp))
-                              case other => other
-                          )
+                          Chunk(Json.Obj(legacyFields :+ ("acknowledgedAt" -> stamp)))
                         )
                       )
                     )
@@ -246,7 +248,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
                       Json.Obj(fields :+ ("unknown" -> Json.Bool(true))),
                       Json.Obj(
                         fields.map((key, value) =>
-                          key -> (if key == "schemaVersion" then Json.Num(4) else value)
+                          key -> (if key == "schemaVersion" then Json.Num(5) else value)
                         )
                       ),
                       Json.Obj(
@@ -258,10 +260,9 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
                     ) ++ malformedStamps ++ Chunk("", " " * 2, "w" * 1025).map(identity =>
                       Json.Obj(
                         "schemaVersion" -> Json.Num(3),
-                        "records" -> Json.Arr(entries.map:
-                          case Json.Obj(values) =>
-                            Json.Obj(values :+ ("workerId" -> Json.Str(identity)))
-                          case other => other)
+                        "records" -> Json.Arr(
+                          Json.Obj(legacyFields :+ ("workerId" -> Json.Str(identity)))
+                        )
                       )
                     )
                   )
@@ -469,7 +470,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
         stamp.contains(SubagentTerminalAcknowledgement.Acknowledged(at)),
         absent.isEmpty,
         current.exists(_.value match
-          case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(3))
+          case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(4))
           case _                => false)
       )
     ,

@@ -123,10 +123,13 @@ final class SubagentFactory private (
       parent: SubagentSpawner[AgentResult],
       input: Msg,
       id: SubagentTaskId,
-      events: Option[ToolEventPort]
+      events: Option[ToolEventPort],
+      beforeStart: IO[AgentError, Unit] = ZIO.unit
   ): ZIO[Scope, AgentError, TaskAdmission[AgentResult]] =
     parent.spawn(child =>
-      build(child).flatMap(runtime => SubagentFactory.run(runtime, input, id, events))
+      beforeStart *> build(child).flatMap(runtime =>
+        SubagentFactory.run(runtime, input, id, events)
+      )
     )
 
 object SubagentFactory:
