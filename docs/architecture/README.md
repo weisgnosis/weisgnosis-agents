@@ -7,7 +7,6 @@ The runtime owns conversation history, completion and cancellation. Models propo
 - [High-level design](high-level-design.md): module boundaries and host responsibilities.
 - [Mid-level design](mid-level-design.md): component composition and planned integrations.
 - [Low-level design](low-level-design.md): source-linked API contracts and migration notes.
-- [Context and harness contracts](phase-4-implementation.md): persistence, compaction, permissions, planning and supervision.
 - [Completion checklist](tracker.md): current capabilities and remaining library outcomes.
 - [Upstream parity reference](test-parity.md): behavior mappings, adaptations and open evidence.
 
@@ -17,6 +16,11 @@ The runtime owns conversation history, completion and cancellation. Models propo
 - [Model transport](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md): completion profiles, reasoning/media representations and stream boundaries.
 - [Tools](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md): typed execution, schema admission and external observations.
 - [Subagents](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md): scoped children, retained supervision and recovery limits.
+- [Context and memory](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md): paired compaction, provenance, daily extraction and curated consolidation.
+- [Tool output](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/eviction/README.md): bounded previews, checked persistence and raw-observation preservation.
+- [Permissions](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md): independent gates, interactive confirmation and unavailable-channel denial.
+- [Planning](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md): restricted execution, checked drafts and host review.
+- [Transcripts](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md): writer composition, conditional storage, catalogs and immutable segments.
 - [Storage](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md): conditional publication, cancellation and ownership.
 - [MCP](../../modules/mcp/README.md): tools/resources, negotiated revisions, transport lifetimes and session replacement.
 - [PostgreSQL](../../modules/storage-postgresql/README.md): host-owned connections/schema and bounded conditional publication.
