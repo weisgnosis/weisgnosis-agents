@@ -17,7 +17,7 @@ Completion is assessed against concrete promised library behaviors and their acc
 
 ## Immediate next work
 
-Next source task: reproduce and correct MCP embedded-resource projection at the actual next-model-request boundary.
+Next source task: implement retained workspace task-file routing857 over a checked borrowed byte-store capability. Persistent named-session implementation is being prepared in an isolated worktree; it is not yet accepted.
 
 Execute the original scope without substituting a narrower release checklist. Package contracts own exact source identities, independent acceptance and verification evidence; Git retains previous delivery sequences.
 
@@ -46,7 +46,8 @@ This finite backlog follows independent source inspection by review_fp and revie
 
 - [x] Accept persisted execution-origin/recovery exclusion687: both reviewers approve the final 23-file combined scope against a5da755; focused/full/database/artifact/consumer checks pass.
 - [ ] Add persistent named-child selection and restoration: deterministic parent/agent/label identity, bounded saved conversation/suspended state, validated hydration into a fresh current host factory, and reuse through spawn/send. Reuse existing retained sessions, run locks, checkpoint import and versioned storage; never deserialize live resources or old fibers. Provisional incremental effort: 16–32 engineering hours.
-- [ ] Correct MCP embedded-resource request projection: retain lossless canonical resource data while presenting supported visible text/image/binary descriptions to the actual next model request. Reproduce the converter-to-formatter failure before correction. Provisional effort: 6–12 engineering hours.
+- [x] Reproduce and implement MCP embedded-resource request projection, with both independent source approvals and five passing focused groups; exact literal payload descriptions preserve canonical resource history.
+- [x] Complete the [request-projection delivery gates](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#request-only-custom-content-projection): full/database/artifact/consumer checks and both final combined reviews pass. The core default is unchanged; host installation is explicit.
 - [ ] Implement retained workspace task-file routing857 through a borrowed byte-file capability with checked agent/session namespace isolation. This is file routing, not a remote execution service or another CAS database. Provisional effort: 8–14 engineering hours.
 - [ ] Resolve the selected pending-delivery timestamp-order assertion against publication ordering, including an explicit legacy-undated policy; correct applicable behavior with a regression rather than claim equivalent ordering. Provisional effort: 4–8 engineering hours.
 - [ ] Finish the finite original-deliverable/research-lesson disposition, platform/live validation and publication documentation, then perform final independent review and required verification. Provisional audit/documentation effort: 4–8 engineering hours; live availability is external.
@@ -68,17 +69,15 @@ Host authentication, exclusive durable execution claims/fencing, remote executio
 
 ## Current acceptance
 
-The [persisted execution-origin contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persisted-execution-origin) owns twelve exact Scala identities against a5da755, manifest e18b7d8a8fe45317beda85098f30fa591f462a8b186efbfd3e9652577e9dca17. Persisted AgentProtocol observations remain outside local recovery/execution authority; strict schema-7 writes retain origin, and original schemas 1–6 read as Local without writes.
+The [MCP request-only projection contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#request-only-custom-content-projection) owns three exact Scala identities against 6477b3b, manifest 3acf9fb5ac1e382952eff9fc611f13acc3ff509702f718ef9f4d4314266587f0. Explicit installation describes Custom tool data literally for the next request, retains prior settings/hooks and preserves canonical resource history and media validation.
 
-- [x] review_fp and review_invariants approve all twelve exact Scala identities, with no unresolved source findings.
-- [x] target/task-origin-focused.log passes 29 groups, zero failed/ignored/compiler warnings, in 1.277 seconds.
-- [x] Save the URI draft RED and distinguish the migrated legacy fixture failure from production decoder defects.
-- [x] target/task-origin-final-verify.log passes formatting/fatal-warning compilation, 1,654 tests (695 core / 797 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
-- [x] target/task-origin-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
-- [x] target/task-origin-final-consumer.log passes fresh standalone formatting/compilation/execution and four artifact-hash checks. Its unchanged selected-API probe is not direct origin coverage.
-- [x] review_fp and review_invariants approve the final 23-file combined scope against a5da755: twelve unchanged Scala identities and eleven Markdown files, no unresolved findings. English prose, local links and diff checks pass.
+- [x] Reproduce the actual converter/tool/runtime/next-request failure against unchanged production before correction.
+- [x] review_fp and review_invariants approve all three exact Scala identities, no unresolved source findings.
+- [x] Focused five groups pass in 1.605 seconds; the separate full run passes 1,655 tests (695 core / 797 harness / 131 MCP / 24 actual PostgreSQL / eight examples), zero failed/ignored/compiler warnings, and four RC1 packages.
+- [x] Negative archive admission/restoration and fresh standalone consumer verification pass. The unchanged consumer probe is not direct transform coverage.
+- [x] review_fp and review_invariants approve the final eleven-file combined scope against 6477b3b: three unchanged Scala identities and eight Markdown files, no unresolved findings. English prose, local links and diff checks pass.
 
-The finite task-repository inventory has 24 bounded accepted methods; task-file routing857 remains open. Both reviewers approve final combined acceptance of687 above. Persistent named-session restoration and the other finite [library completion tasks](#remaining-library-completion-work) remain visible without importing product cutover into this repository.
+The preceding [origin contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persisted-execution-origin) remains accepted: 24 bounded task-repository methods are closed and routing857 remains open. The [finite library checklist](#remaining-library-completion-work) separates remaining implementation from host/product work.
 
 ## Available capabilities
 

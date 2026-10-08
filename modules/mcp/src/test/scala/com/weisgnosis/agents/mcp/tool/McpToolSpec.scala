@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.mcp.tool
 
 import com.weisgnosis.agents.core.agent.ReActAgent
-import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
+import com.weisgnosis.agents.core.client.{ChatCompletionsRequest, LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.{ToolDef, Toolkit, ToolSchemaStrictness}
@@ -80,6 +80,86 @@ object McpToolSpec extends ZIOSpecDefault:
 
   private def block(kind: String, fields: (String, Json)*): Json.Obj =
     Json.Obj(Chunk("type" -> Json.Str(kind)) ++ Chunk.fromIterable(fields))
+
+  private def embeddedResourceRequest: ZIO[Scope, AgentError, TestResult] =
+    val text = "exact embedded text λ<&>"
+    val resource = Json.Obj(
+      "uri"            -> Json.Str("resource://fixture/text"),
+      "text"           -> Json.Str(text),
+      "mimeType"       -> Json.Str("text/plain"),
+      "_meta"          -> Json.Obj("source" -> Json.Str("retained")),
+      "futureResource" -> Json.Num(7)
+    )
+    val payload = Json.Obj("content" -> Json.Arr(block("resource", "resource" -> resource)))
+    for
+      server <- peer(_ => ZIO.succeed(Right(payload)))
+      bound = McpTool.bind(server.client, "remote_echo", definition)
+      toolkit    <- ZIO.fromEither(Toolkit.empty.register(bound))
+      attempts   <- Ref.make(0)
+      serialized <- Ref.make(Chunk.empty[Json.Obj])
+      model = LlmClient.mockEffectful((history, tools, _) =>
+        attempts.update(_ + 1) *>
+          ZIO
+            .fromEither(ChatCompletionsRequest.encode(history, tools, LlmConfig("test-model")))
+            .flatMap(request => serialized.update(_ :+ request)) *>
+          ZIO.succeed(
+            if history.flatMap(_.toolResults).isEmpty then
+              TurnOutput.ToolCalls(
+                Msg.assistant(Chunk(ContentBlock.ToolUse("embedded", "local_echo", Json.Obj())))
+              )
+            else TurnOutput.FinalText(Msg.assistant("resource accepted"))
+          )
+      )
+      agent <- ReActAgent.make(
+        client = model,
+        toolkit = toolkit,
+        modelInputTransform = McpModelInputTransform()
+      )
+      result   <- agent.call(Msg.user("read embedded resource")).exit
+      history  <- agent.history
+      count    <- attempts.get
+      requests <- serialized.get
+      remote   <- server.requests.get
+      modelToolText = requests
+        .drop(1)
+        .headOption
+        .flatMap(_.get("messages"))
+        .flatMap(_.asArray)
+        .toList
+        .flatten
+        .flatMap(_.asObject)
+        .filter(_.get("role").contains(Json.Str("tool")))
+        .flatMap(_.get("content"))
+        .flatMap(_.asString)
+      literal =
+        """Custom tool content: {"kind":"mcp/resource","payload":{"uri":"resource://fixture/text","body":{"text":"exact embedded text λ<&>"},"mimeType":"text/plain","meta":{"source":"retained"},"extensions":{"futureResource":7}}}"""
+      expected = Chunk(
+        ContentBlock.Text(text),
+        ContentBlock.Custom(
+          "mcp/resource",
+          Json.Obj(
+            "uri"        -> Json.Str("resource://fixture/text"),
+            "body"       -> Json.Obj("text" -> Json.Str(text)),
+            "mimeType"   -> Json.Str("text/plain"),
+            "meta"       -> Json.Obj("source" -> Json.Str("retained")),
+            "extensions" -> Json.Obj("futureResource" -> Json.Num(7))
+          )
+        )
+      )
+    yield assertTrue(
+      result.isSuccess,
+      count == 2,
+      requests.size == 2,
+      modelToolText == List(text + "\n" + literal),
+      remote.map(_.method) == Chunk("initialize", "tools/call"),
+      history
+        .flatMap(_.toolResults)
+        .exists(value =>
+          value.id == "embedded" && value.name.contains("local_echo") &&
+            value.state == ToolResultState.Success && value.output == expected && value.metadata
+              .contains("mcp")
+        )
+    )
 
   private val resultMeta: Json.Obj = Json.Obj("serverTool" -> Json.Bool(true))
   private val structured: Json.Obj = Json.Obj("answer" -> Json.Num(42))
@@ -253,7 +333,8 @@ object McpToolSpec extends ZIOSpecDefault:
           _       <- agent.call(Msg.user("use tool"))
           results <- observed.get
           after   <- server.requests.get
-          result          = results.headOption
+          result = results.headOption
+          embeddedChecks <- embeddedResourceRequest
           data            = result.toList.flatMap(_.output)
           mcp             = result.flatMap(_.metadata.get("mcp")).flatMap(_.asObject)
           contentMetadata = mcp.flatMap(_.get("content")).flatMap(_.asArray)
@@ -310,7 +391,7 @@ object McpToolSpec extends ZIOSpecDefault:
               "extensions" -> Json.Obj("futureResource" -> Json.Num(3))
             )
           )
-        )
+        ) && embeddedChecks
     },
     test(
       "invalid arguments send nothing while success and remote failure remain distinct toolkit observations"

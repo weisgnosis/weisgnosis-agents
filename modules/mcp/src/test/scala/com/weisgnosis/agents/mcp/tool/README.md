@@ -1,5 +1,7 @@
 # MCP tool binding verification
 
+[McpModelInputTransformSpec](McpModelInputTransformSpec.scala) supplies one grouped custom/media/settings boundary table. McpToolSpec also executes the actual MCP tool through ReAct and serializes the second model request, preserving exact canonical resource data. The [request-projection contract](../../../../../../../main/scala/com/weisgnosis/agents/mcp/tool/README.md#request-only-custom-content-projection) owns current review identities and delivery gates.
+
 The [embedded resource projection parity task](../../../../../../../main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity) is accepted within its named finite scope. The grouped regression reproduces the missing visible projection against unchanged production and checks pinned text/image/binary-description behavior together with retained Custom payloads and inner/outer metadata. Focused verification passed and both independent source reviews approved the exact two-file scope; full verification, package preparation and fresh artifact consumption passed. review_fp and review_invariants approved final combined documentation against 1e90db1 with these unchanged identities.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
