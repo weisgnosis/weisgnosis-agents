@@ -20,6 +20,7 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.harness.storage.*
 import java.util.UUID
+import java.time.Instant
 import java.nio.charset.StandardCharsets
 import zio.*
 import zio.json.*
@@ -332,6 +333,46 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
           SubagentTerminalStore.Limits.make(1, 1, -1).isLeft,
           SubagentTerminalStore.Limits.make(1, 1, 0).isRight
         )
+    ,
+    test(
+      "pending delivery uses observed dates with stable ties and leaves raw publication and acknowledgements intact"
+    ):
+      val undatedId = SubagentTaskId(new UUID(0L, 3L))
+      val tiedId    = SubagentTaskId(new UUID(0L, 4L))
+      def terminal(id: SubagentTaskId): SubagentTerminalRecord =
+        SubagentTerminalRecord(id, SubagentTerminalOutcome.Completed("complete"))
+      for
+        backend <- fixture
+        target  <- address("delivery-order")
+        store = SubagentTerminalStore.make(backend.store, target)
+        _ <- store.publish(terminal(undatedId))
+        _ <- TestClock.setTime(Instant.EPOCH.plusSeconds(20))
+        _ <- store.admit(firstId)
+        _ <- store.publish(terminal(firstId))
+        _ <- TestClock.setTime(Instant.EPOCH.plusSeconds(10))
+        _ <- ZIO.foreachDiscard(Chunk(secondId, tiedId))(id =>
+          store.admit(id) *> store.publish(terminal(id))
+        )
+        before <- backend.store.read(target)
+        reopened = SubagentTerminalStore.make(backend.store, target)
+        pending      <- reopened.pending
+        raw          <- reopened.list
+        after        <- backend.store.read(target)
+        _            <- TestClock.setTime(Instant.EPOCH.plusSeconds(30))
+        acknowledged <- reopened.acknowledge(secondId)
+        stampBefore  <- reopened.acknowledgement(secondId)
+        remaining    <- reopened.pending
+        stampAfter   <- reopened.acknowledgement(secondId)
+      yield assertTrue(
+        pending.map(_.id) == Chunk(secondId, tiedId, firstId, undatedId),
+        raw.map(_.id) == Chunk(undatedId, firstId, secondId, tiedId),
+        before == after,
+        acknowledged == SubagentTerminalAcknowledgeResult.Acknowledged(
+          Instant.EPOCH.plusSeconds(30)
+        ),
+        remaining.map(_.id) == Chunk(tiedId, firstId, undatedId),
+        stampBefore == stampAfter
+      )
     ,
     test(
       "legacy observations migrate without invented dates and first acknowledgement survives reopen and publication"

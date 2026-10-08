@@ -45,7 +45,7 @@ trait SubagentTerminalStore:
   def list: IO[AgentError, Chunk[SubagentTerminalRecord]]
   def publish(record: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication]
 
-  /** Persisted terminal observations still awaiting host acknowledgement, in publication order. */
+  /** Oldest dated pending observations first, then undated; equal dates retain publication order. */
   def pending: IO[AgentError, Chunk[SubagentTerminalRecord]] =
     ZIO.fail(
       AgentError.InvalidConfiguration("This terminal store does not support acknowledgement")
@@ -324,14 +324,19 @@ object SubagentTerminalStore:
     def read(id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalRecord]] =
       list.map(_.find(_.id == id))
 
-    override def pending: IO[AgentError, Chunk[SubagentTerminalRecord]] = snapshot.map(
-      _._2.flatMap(entry =>
-        entry.state match
-          case SubagentTaskRecordState.Terminal(_, SubagentTerminalAcknowledgement.Pending) =>
-            entry.terminal
-          case _ => None
-      )
-    )
+    override def pending: IO[AgentError, Chunk[SubagentTerminalRecord]] = snapshot.map:
+      (_, entries) =>
+        entries.zipWithIndex
+          .filter { case (entry, _) =>
+            entry.state match
+              case SubagentTaskRecordState.Terminal(_, SubagentTerminalAcknowledgement.Pending) =>
+                true
+              case _ => false
+          }
+          .sortBy { case (entry, ordinal) =>
+            (entry.metadata.isEmpty, entry.metadata.map(_.lastUpdatedAt), ordinal)
+          }
+          .flatMap { case (entry, _) => entry.terminal }
 
     override def acknowledgement(
         id: SubagentTaskId

@@ -177,7 +177,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
         case SubagentTaskRecovery.Transition.Reconciled(record, _) => record == expectedTerminal
         case _                                                     => false,
       persisted == expectedTerminal,
-      pending.map(_.id) == Chunk(secondId, firstId),
+      pending.map(_.id) == Chunk(firstId, secondId),
       acknowledged.cancellationIntent == expected.cancellationIntent,
       acknowledged.metadata == expectedTerminal.metadata,
       terminalChanged == SubagentTaskRecovery.Transition.Changed(acknowledged),
