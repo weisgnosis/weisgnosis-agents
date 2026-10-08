@@ -6,6 +6,8 @@ The [before-acting contract](../../modules/core/src/main/scala/com/weisgnosis/ag
 
 An explicitly host-selected [unavailable approval channel](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#unavailable-approval-channel) denies unresolved Ask/Passthrough without a waiter or deferred checkpoint, after independent scoped gates and live policy. Standard child construction preserves Plan/ancestor restrictions; interactive waiting and durable suspension remain separate.
 
+An explicit [remote task observer](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#explicit-remote-task-observation) binds a trusted transport to exact persisted admission identity without submission. Generation-bound confirmation claims survive uncertainty; status polling cannot reset them. Schema 8 preserves approval state and strictly reads original schemas 1–7. Peer authentication, stable remote generations and execution fencing remain host contracts.
+
 Current source declarations are authoritative. This document records API contracts rather than maintaining a second implementation.
 
 ## MCP protocol and client boundaries

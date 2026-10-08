@@ -57,3 +57,5 @@ Current source identities: `PostgresFixture.scala` = `7157739ce2456b1065f2cb6124
 - [x] review_fp and review_invariants approved the final combined 19-file increment against 24a9980, including these exact two identities, corrected provisioning contracts and current evidence. No unresolved finding remains in this scope.
 
 This diagnosed creation-stage race does not explain the earlier unexplained connection-acquisition failure.
+
+The existing PostgresSubagentTerminalStoreSpec remote-origin path also persists an Awaiting approval and exact ConfirmationClaimed generation/decisions through independent adapters, rejects a stale competing claim, reopens the claim, preserves it under ordinary Running and resolves it only on terminal publication. Existing acknowledgement checks retain the first stamp. This verifies the schema-8 approval payload over actual PostgreSQL; it does not contact a remote agent or establish distributed execution authority.

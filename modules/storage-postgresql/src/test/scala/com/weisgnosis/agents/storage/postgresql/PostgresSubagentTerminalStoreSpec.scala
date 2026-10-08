@@ -82,6 +82,25 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
       unchanged <- reader.read(target)
       start     <- admitting.confirmAgentProtocolStart(identity)
       running   <- observing.taskRecord(firstId)
+      remoteRecord <- ZIO
+        .fromOption(running)
+        .orElseFail(AgentError.StorageError("Missing remote running record"))
+      generation <- ZIO.fromEither(SubagentRemoteApprovalGeneration.fromLong(1L))
+      calls = Chunk(
+        SubagentRemotePendingApproval("approval", "read", Json.Obj("path" -> Json.Str("λ😀")))
+      )
+      decisions = Chunk(
+        SubagentRemoteConfirmation("approval", SubagentRemoteDecision.Deny("host decision"))
+      )
+      awaiting <- admitting.applyRemoteObservation(
+        remoteRecord,
+        SubagentRemoteObservation.Awaiting(generation, calls)
+      )
+      observedApproval <- observing.taskRecord(firstId)
+      claimed          <- observing.claimRemoteConfirmation(awaiting, decisions)
+      staleClaim       <- admitting.claimRemoteConfirmation(awaiting, decisions).either
+      reopenedClaim    <- SubagentTerminalStore.make(reader, target).taskRecord(firstId)
+      stillClaimed <- admitting.applyRemoteObservation(claimed, SubagentRemoteObservation.Running)
       output = SubagentTerminalRecord(
         firstId,
         SubagentTerminalOutcome.Completed("exact remote λ😀"),
@@ -110,6 +129,13 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
       running.exists(record =>
         record.state == SubagentTaskRecordState.Running && record.origin == identity.origin
       ),
+      observedApproval.contains(awaiting),
+      claimed.remoteApproval == SubagentRemoteApproval
+        .ConfirmationClaimed(generation, calls, decisions),
+      staleClaim.isLeft,
+      reopenedClaim.contains(claimed),
+      stillClaimed.remoteApproval == claimed.remoteApproval,
+      terminal.exists(_.remoteApproval == SubagentRemoteApproval.Resolved(generation)),
       wrongPublication.isLeft,
       terminal.flatMap(_.terminal).contains(output),
       reopened.flatMap(_.terminal).contains(output),

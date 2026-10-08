@@ -92,9 +92,11 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
                 case ("records", Json.Arr(records)) =>
                   "records" -> Json.Arr(records.map:
                     case Json.Obj(entry) =>
-                      Json.Obj(entry.filterNot:
-                        case (key, _) =>
-                          key == "origin" || (version == 5 && key == "cancellationIntent"))
+                      Json.Obj(
+                        entry.filterNot:
+                          case (key, _) =>
+                            key == "remoteApproval" || key == "origin" || (version == 5 && key == "cancellationIntent")
+                      )
                     case value => value)
                 case pair => pair)
             case value => value
@@ -330,7 +332,7 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
                   case Json.Obj(entry) =>
                     Json.Obj(
                       entry.filterNot(pair =>
-                        pair._1 == "cancellationIntent" || pair._1 == "origin"
+                        pair._1 == "cancellationIntent" || pair._1 == "origin" || pair._1 == "remoteApproval"
                       )
                     )
                   case other => other)

@@ -22,6 +22,7 @@ import com.weisgnosis.agents.harness.storage.*
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 import java.time.Instant
+import scala.annotation.unused
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -129,6 +130,20 @@ trait SubagentTerminalStore:
         s"Durable reconciliation is unsupported for ${permit.expected.id.value} at $observedAt"
       )
     )
+
+  /** Apply only to the exact sampled remote record; terminal truth wins a racing observation. */
+  def applyRemoteObservation(
+      @unused expected: SubagentTaskRecord,
+      @unused observation: SubagentRemoteObservation
+  ): IO[AgentError, SubagentTaskRecord] =
+    ZIO.fail(AgentError.InvalidConfiguration("Remote task observation persistence is unsupported"))
+
+  /** Consume one exact pending approval batch before an explicit host transport decision. */
+  def claimRemoteConfirmation(
+      @unused expected: SubagentTaskRecord,
+      @unused decisions: Chunk[SubagentRemoteConfirmation]
+  ): IO[AgentError, SubagentTaskRecord] =
+    ZIO.fail(AgentError.InvalidConfiguration("Remote confirmation persistence is unsupported"))
 
   /** None means admission metadata is unavailable; custom stores override to persist check time. */
   def markChecked(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskMetadata]] =
@@ -290,7 +305,7 @@ object SubagentTerminalStore:
   final private case class Schema6Payload(schemaVersion: Int, records: Chunk[Schema6Entry])
       derives JsonCodec
 
-  final private case class Entry(
+  final private case class Schema7Entry(
       id: UUID,
       workerId: Option[SubagentWorkerId],
       state: SubagentTaskRecordState,
@@ -298,8 +313,34 @@ object SubagentTerminalStore:
       cancellationIntent: SubagentCancellationIntent,
       origin: SubagentExecutionOrigin
   ) derives JsonCodec:
+    def current: Entry = Entry(id, workerId, state, metadata, cancellationIntent, origin)
+
+  final private case class Schema7Payload(schemaVersion: Int, records: Chunk[Schema7Entry])
+      derives JsonCodec
+
+  private enum RemoteUpdate:
+    case Observation(value: SubagentRemoteObservation)
+    case ClaimConfirmation(decisions: Chunk[SubagentRemoteConfirmation])
+
+  final private case class Entry(
+      id: UUID,
+      workerId: Option[SubagentWorkerId],
+      state: SubagentTaskRecordState,
+      metadata: Option[SubagentTaskMetadata],
+      cancellationIntent: SubagentCancellationIntent,
+      origin: SubagentExecutionOrigin,
+      remoteApproval: SubagentRemoteApproval = SubagentRemoteApproval.NotAwaiting
+  ) derives JsonCodec:
     def record: SubagentTaskRecord =
-      SubagentTaskRecord(SubagentTaskId(id), workerId, state, metadata, cancellationIntent, origin)
+      SubagentTaskRecord(
+        SubagentTaskId(id),
+        workerId,
+        state,
+        metadata,
+        cancellationIntent,
+        origin,
+        remoteApproval
+      )
     def terminal: Option[SubagentTerminalRecord] = record.terminal
     def matches(identity: SubagentTaskAdmissionIdentity): Boolean =
       id == identity.id.value && workerId == identity.workerId && origin == identity.origin && metadata
@@ -614,6 +655,155 @@ object SubagentTerminalStore:
           AgentError.InvalidConfiguration("Local recovery cannot reconcile an agent protocol task")
         )
 
+    override def applyRemoteObservation(
+        expected: SubagentTaskRecord,
+        observation: SubagentRemoteObservation
+    ): IO[AgentError, SubagentTaskRecord] =
+      ZIO.fromEither(SubagentRemoteObservation.validate(observation)) *>
+        remoteUpdate(expected, RemoteUpdate.Observation(observation))
+
+    override def claimRemoteConfirmation(
+        expected: SubagentTaskRecord,
+        decisions: Chunk[SubagentRemoteConfirmation]
+    ): IO[AgentError, SubagentTaskRecord] =
+      remoteUpdate(expected, RemoteUpdate.ClaimConfirmation(decisions))
+
+    private def remoteUpdate(
+        expected: SubagentTaskRecord,
+        update: RemoteUpdate
+    ): IO[AgentError, SubagentTaskRecord] =
+      def changed(entry: Entry): Either[AgentError, Entry] = update match
+        case RemoteUpdate.ClaimConfirmation(decisions) =>
+          expected.remoteApproval match
+            case SubagentRemoteApproval.Awaiting(generation, calls)
+                if calls.map(_.callId) == decisions.map(_.callId) =>
+              for
+                ast <- decisions.toJsonAST.left.map(AgentError.StorageError.apply)
+                _   <- JsonBoundary.validate(ast).left.map(AgentError.StorageError.apply)
+                _ <- Either.cond(
+                  JsonBoundary.validUnicode(ast) &&
+                    JsonBoundary
+                      .render(ast)
+                      .getBytes(StandardCharsets.UTF_8)
+                      .length <= limits.maxBytes,
+                  (),
+                  AgentError.StorageError("Invalid remote confirmation decisions")
+                )
+              yield entry.copy(remoteApproval =
+                SubagentRemoteApproval.ConfirmationClaimed(generation, calls, decisions)
+              )
+            case _ =>
+              Left(AgentError.StorageError("Remote approval batch is not awaiting confirmation"))
+        case RemoteUpdate.Observation(value) =>
+          value match
+            case SubagentRemoteObservation.Pending => Right(entry)
+            case SubagentRemoteObservation.Running =>
+              Right(entry.copy(state = SubagentTaskRecordState.Running))
+            case SubagentRemoteObservation.ApprovalResolved(generation) =>
+              val previous = entry.remoteApproval match
+                case SubagentRemoteApproval.NotAwaiting                   => None
+                case SubagentRemoteApproval.Awaiting(at, _)               => Some(at)
+                case SubagentRemoteApproval.ConfirmationClaimed(at, _, _) => Some(at)
+                case SubagentRemoteApproval.Resolved(at)                  => Some(at)
+              if previous.exists(_.value > generation.value) then
+                Left(AgentError.StorageError("Remote approval resolution generation regressed"))
+              else
+                Right(
+                  entry.copy(
+                    state = SubagentTaskRecordState.Running,
+                    remoteApproval = SubagentRemoteApproval.Resolved(generation)
+                  )
+                )
+            case SubagentRemoteObservation.Awaiting(generation, calls) =>
+              val previous = entry.remoteApproval match
+                case SubagentRemoteApproval.NotAwaiting                   => None
+                case SubagentRemoteApproval.Awaiting(at, _)               => Some(at)
+                case SubagentRemoteApproval.ConfirmationClaimed(at, _, _) => Some(at)
+                case SubagentRemoteApproval.Resolved(at)                  => Some(at)
+              if previous.exists(_.value > generation.value) then
+                Left(AgentError.StorageError("Remote approval generation regressed"))
+              else if previous.contains(generation) then
+                entry.remoteApproval match
+                  case SubagentRemoteApproval.Awaiting(_, saved) if saved == calls => Right(entry)
+                  case SubagentRemoteApproval.ConfirmationClaimed(_, saved, _) if saved == calls =>
+                    Right(entry)
+                  case _ =>
+                    Left(
+                      AgentError.StorageError("Remote approval generation was reused or changed")
+                    )
+              else
+                Right(
+                  entry.copy(
+                    state = SubagentTaskRecordState.Running,
+                    remoteApproval = SubagentRemoteApproval.Awaiting(generation, calls)
+                  )
+                )
+            case SubagentRemoteObservation.Terminal(outcome) =>
+              Right(
+                entry.copy(
+                  state = SubagentTaskRecordState
+                    .Terminal(outcome, SubagentTerminalAcknowledgement.Pending),
+                  remoteApproval = SubagentRemoteApproval.resolved(entry.remoteApproval)
+                )
+              )
+
+      def attempt(remaining: Int, candidate: Option[Instant]): IO[AgentError, SubagentTaskRecord] =
+        snapshot.flatMap: (revision, entries) =>
+          entries.find(_.id == expected.id.value) match
+            case Some(entry)
+                if entry.record.origin == expected.origin &&
+                  entry.record.workerId == expected.workerId && entry.metadata.map(
+                    _.createdAt
+                  ) == expected.metadata.map(_.createdAt) =>
+              if entry.terminal.nonEmpty then
+                update match
+                  case RemoteUpdate.Observation(_) => ZIO.succeed(entry.record)
+                  case RemoteUpdate.ClaimConfirmation(_) =>
+                    ZIO.fail(AgentError.StorageError("Remote task is already terminal"))
+              else if entry.record != expected then
+                ZIO.fail(
+                  AgentError.StorageError("Remote task changed before observation or confirmation")
+                )
+              else
+                ZIO
+                  .fromEither(changed(entry))
+                  .flatMap: next =>
+                    if next == entry then ZIO.succeed(entry.record)
+                    else
+                      for
+                        at <- update match
+                          case RemoteUpdate.ClaimConfirmation(_) => ZIO.none
+                          case RemoteUpdate.Observation(_) =>
+                            candidate.fold[UIO[Instant]](Clock.instant)(ZIO.succeed(_)).map(Some(_))
+                        updated = next.copy(metadata =
+                          next.metadata.map(metadata =>
+                            at.fold(metadata)(time => metadata.copy(lastUpdatedAt = time))
+                          )
+                        )
+                        records =
+                          if updated.terminal.nonEmpty then
+                            entries.filterNot(_.id == updated.id) :+ updated
+                          else
+                            entries.map(value => if value.id == updated.id then updated else value)
+                        written <- write(revision, records)
+                        result <- written match
+                          case ConditionalWrite.Applied(_) => ZIO.succeed(updated.record)
+                          case ConditionalWrite.Conflict if remaining > 0 =>
+                            attempt(remaining - 1, at.orElse(candidate))
+                          case ConditionalWrite.Conflict => exhausted("Remote task observation")
+                      yield result
+            case _ =>
+              ZIO.fail(AgentError.StorageError("Remote task identity is missing or changed"))
+      expected.origin match
+        case SubagentExecutionOrigin.AgentProtocol(_) if expected.metadata.nonEmpty =>
+          attempt(limits.maxConflicts, None)
+        case _ =>
+          ZIO.fail(
+            AgentError.InvalidConfiguration(
+              "Only admitted AgentProtocol tasks support remote observation"
+            )
+          )
+
     override def markChecked(
         id: SubagentTaskId
     ): IO[AgentError, Option[SubagentTaskMetadata]] =
@@ -728,6 +918,7 @@ object SubagentTerminalStore:
                   )
                 )(entry =>
                   entry.copy(
+                    remoteApproval = SubagentRemoteApproval.resolved(entry.remoteApproval),
                     state = SubagentTaskRecordState
                       .Terminal(record.outcome, SubagentTerminalAcknowledgement.Pending),
                     metadata = entry.metadata.map(metadata =>
@@ -773,7 +964,7 @@ object SubagentTerminalStore:
 
     private def encode(records: Chunk[Entry]): Either[AgentError, Json] =
       for
-        value <- Payload(7, records).toJsonAST.left.map(AgentError.StorageError.apply)
+        value <- Payload(8, records).toJsonAST.left.map(AgentError.StorageError.apply)
         _     <- decode(value)
       yield value
 
@@ -856,6 +1047,11 @@ object SubagentTerminalStore:
             yield (payload.records.map(_.current), canonical)
           case 7 =>
             for
+              payload   <- rendered.fromJson[Schema7Payload].left.map(AgentError.StorageError.apply)
+              canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
+            yield (payload.records.map(_.current), canonical)
+          case 8 =>
+            for
               payload   <- rendered.fromJson[Payload].left.map(AgentError.StorageError.apply)
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
             yield (payload.records, canonical)
@@ -868,7 +1064,23 @@ object SubagentTerminalStore:
             .size == records.size && JsonBoundary.sameRepresentation(
             validated,
             canonical
-          ) && records.forall(entry => entry.terminal.nonEmpty || entry.metadata.nonEmpty),
+          ) && records.forall(entry =>
+            (entry.terminal.nonEmpty || entry.metadata.nonEmpty) && (entry.remoteApproval match
+              case SubagentRemoteApproval.NotAwaiting => true
+              case SubagentRemoteApproval.Resolved(_) =>
+                entry.origin != SubagentExecutionOrigin.Local
+              case SubagentRemoteApproval.Awaiting(generation, calls) =>
+                entry.origin != SubagentExecutionOrigin.Local && entry.state == SubagentTaskRecordState.Running &&
+                SubagentRemoteObservation
+                  .validate(SubagentRemoteObservation.Awaiting(generation, calls))
+                  .isRight
+              case SubagentRemoteApproval.ConfirmationClaimed(generation, calls, decisions) =>
+                entry.origin != SubagentExecutionOrigin.Local && entry.state == SubagentTaskRecordState.Running &&
+                calls.map(_.callId) == decisions.map(_.callId) &&
+                SubagentRemoteObservation
+                  .validate(SubagentRemoteObservation.Awaiting(generation, calls))
+                  .isRight)
+          ),
           (),
           AgentError.StorageError("Duplicate, oversized or noncanonical terminal aggregate")
         )

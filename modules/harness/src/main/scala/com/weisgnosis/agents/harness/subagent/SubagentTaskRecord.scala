@@ -58,7 +58,8 @@ final case class SubagentTaskRecord(
     state: SubagentTaskRecordState,
     metadata: Option[SubagentTaskMetadata],
     cancellationIntent: SubagentCancellationIntent = SubagentCancellationIntent.NotRequested,
-    origin: SubagentExecutionOrigin = SubagentExecutionOrigin.Local
+    origin: SubagentExecutionOrigin = SubagentExecutionOrigin.Local,
+    remoteApproval: SubagentRemoteApproval = SubagentRemoteApproval.NotAwaiting
 ):
   def terminal: Option[SubagentTerminalRecord] = state match
     case SubagentTaskRecordState.Terminal(outcome, _) =>

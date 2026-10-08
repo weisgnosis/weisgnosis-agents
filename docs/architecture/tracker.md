@@ -39,6 +39,8 @@ These implemented capabilities have existing public API/spec evidence. Checked a
 
 - [x] Deny unresolved approval when the host explicitly has no confirmation channel, including standard child construction; preserve live independent gates, Plan restrictions and interactive/durable defaults. See [unavailable-channel authorization](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#unavailable-approval-channel).
 
+- [x] Observe an already admitted AgentProtocol task through an exact trusted transport binding without resubmission; preserve generation-bound approval claims through uncertainty, explicit cancellation intent and terminal ACK. See [remote observation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#explicit-remote-task-observation). No concrete HTTP client or distributed fence is implied.
+
 ## Remaining library completion work
 
 Check an outcome only after its expected result, relevant review and verification exist. New scope requires a promised behavior, reproduced defect or explicit user request. No percentage or calendar forecast is inferred from the item count.
@@ -51,7 +53,7 @@ Check an outcome only after its expected result, relevant review and verificatio
 
 ## Immediate next work
 
-Current task: implement checked observation of an already admitted AgentProtocol task through a trusted host-supplied transport, without submission/replay or deriving authority from stored URI data. Preserve exact admission identity, pending approval, cancellation intent, terminal publication and acknowledgements. This is a retained pinned-source obligation; a concrete HTTP client and distributed fencing are separate host/adapter contracts. Other runtime/provider, remote/platform and release outcomes above remain open.
+Current task: publish the originally promised subagent Spawn/Start/End milestones with meaningful parent/child session and agent attribution through the existing event path. Use explicit host-selected identities, preserve nested forwarding and emit completion only after joined execution cleanup; do not fabricate session IDs from task UUIDs or promise delivery after the parent port closes. Other remaining runtime/provider, remote/platform and release outcomes above stay open.
 
 ## Verification
 

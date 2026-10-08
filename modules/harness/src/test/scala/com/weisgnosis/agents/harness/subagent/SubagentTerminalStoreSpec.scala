@@ -249,7 +249,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
                       Json.Obj(fields :+ ("unknown" -> Json.Bool(true))),
                       Json.Obj(
                         fields.map((key, value) =>
-                          key -> (if key == "schemaVersion" then Json.Num(8) else value)
+                          key -> (if key == "schemaVersion" then Json.Num(9) else value)
                         )
                       ),
                       Json.Obj(
@@ -512,7 +512,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
         stamp.contains(SubagentTerminalAcknowledgement.Acknowledged(at)),
         absent.isEmpty,
         current.exists(_.value match
-          case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(7))
+          case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(8))
           case _                => false)
       )
     ,
@@ -578,7 +578,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
               crossVersion.isLeft && migrated == records &&
               stamp.exists(_ != SubagentTerminalAcknowledgement.Pending) &&
               upgraded.exists(_.value match
-                case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(7))
+                case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(8))
                 case _                => false)
         causeTarget <- address("exact-cause")
         failure = SubagentTaskFailure("same message", Some("exact direct cause <&😀"))
