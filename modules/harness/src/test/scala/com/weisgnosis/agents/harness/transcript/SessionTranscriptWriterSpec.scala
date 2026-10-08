@@ -16,8 +16,11 @@
 package com.weisgnosis.agents.harness.transcript
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.agent.ReActAgent
+import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.model.{ContentBlock, MediaSource, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.harness.memory.{CompactorConfig, ConversationCompactor}
+import com.weisgnosis.agents.harness.storage.*
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -27,7 +30,174 @@ object SessionTranscriptWriterSpec extends ZIOSpecDefault:
   private def text(id: String, value: String): Msg =
     Msg.user(Chunk(ContentBlock.Text(value)), id = Some(id))
 
+  private def backend: UIO[VersionedJsonStore] =
+    Ref.Synchronized
+      .make(Map.empty[StorageAddress, VersionedJson])
+      .map: values =>
+        new VersionedJsonStore:
+          def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+            values.get.map(_.get(address))
+          def compareAndSet(
+              address: StorageAddress,
+              expected: ExpectedRevision,
+              value: Json
+          ): IO[AgentError, ConditionalWrite] =
+            values.modifyZIO: current =>
+              val previous = current.get(address)
+              val matches = expected match
+                case ExpectedRevision.Absent => previous.isEmpty
+                case ExpectedRevision.AtRevision(revision) =>
+                  previous.exists(_.revision == revision)
+              if !matches then ZIO.succeed((ConditionalWrite.Conflict, current))
+              else
+                val revision = previous.fold(0L)(_.revision.value)
+                if revision == Long.MaxValue then
+                  ZIO.fail(AgentError.StorageError("Revision exhausted"))
+                else
+                  ZIO
+                    .fromEither(StorageRevision.fromLong(revision + 1L))
+                    .map: next =>
+                      (
+                        ConditionalWrite.Applied(next),
+                        current.updated(address, VersionedJson(value, next))
+                      )
+
+  private def selectedStore(
+      storage: VersionedJsonStore,
+      session: TranscriptSession
+  ): IO[AgentError, TranscriptStore] =
+    ZIO.fromEither(session.layout match
+      case TranscriptLayout.Aggregate => VersionedTranscriptStore.make(storage, session.manifest)
+      case TranscriptLayout.Segmented => SegmentedTranscriptStore.make(storage, session.manifest))
+
+  private def registeredContract(layout: TranscriptLayout): ZIO[Scope, AgentError, TestResult] =
+    for
+      storage  <- backend
+      manifest <- ZIO.fromEither(StorageAddress.from(Chunk("transcripts"), "session"))
+      index    <- ZIO.fromEither(StorageAddress.from(Chunk("transcripts"), "catalog"))
+      session <- ZIO.fromEither(
+        TranscriptTargetId
+          .fromString("session")
+          .flatMap(TranscriptSession.make(_, manifest, layout))
+      )
+      underlying <- ZIO.fromEither(VersionedTranscriptSessionCatalog.make(storage, index))
+      reader     <- selectedStore(storage, session)
+      attempts   <- Ref.make(0)
+      reject     <- Ref.make(true)
+      ordered    <- Ref.make(true)
+      failure = AgentError.StorageError("Catalog registration unavailable")
+      catalog = new TranscriptSessionCatalog:
+        def sessions: IO[AgentError, Chunk[TranscriptSession]] = underlying.sessions
+        def register(value: TranscriptSession): IO[AgentError, TranscriptRegistration] =
+          for
+            entries <- reader.entries
+            _       <- ordered.update(_ && entries.nonEmpty && value == session)
+            _       <- attempts.update(_ + 1)
+            denied  <- reject.get
+            result  <- if denied then ZIO.fail(failure) else underlying.register(value)
+          yield result
+      writer <- ZIO.fromEither(SessionTranscriptWriter.registered(storage, session, catalog))
+      before <- attempts.get
+      empty  <- writer.appendMessages(Chunk(Msg.user("<session_context>hidden")))
+      noRegistration <- attempts.get
+      absent         <- storage.read(manifest)
+      failed         <- writer.appendMessages(Chunk(text("seed", "preserved"))).either
+      preserved      <- reader.entries
+      missingIndex   <- underlying.sessions
+      failedAttempts <- attempts.get
+      _              <- reject.set(false)
+      _              <- writer.offload(Chunk(text("seed", "preserved")))
+      repaired       <- underlying.sessions
+      deduplicated   <- reader.entries
+      client = LlmClient.mockFunction((_, _) =>
+        TurnOutput.FinalText(Msg.assistant(Chunk(ContentBlock.Text("done")), id = Some("answer")))
+      )
+      agent <- ReActAgent.make(
+        client = client,
+        completionObserver = writer.completionObserver(AnonymousTranscriptPolicy.RequireStableIds)
+      )
+      result        <- agent.run(text("question", "hello"))
+      coldCatalog   <- ZIO.fromEither(VersionedTranscriptSessionCatalog.make(storage, index))
+      discovered    <- coldCatalog.sessions
+      coldHistory   <- ZIO.foreach(discovered)(selectedStore(storage, _).flatMap(_.entries))
+      _             <- writer.appendMessages(Chunk(text("seed", "preserved")))
+      unchanged     <- reader.entries
+      order         <- ordered.get
+      totalAttempts <- attempts.get
+    yield assertTrue(
+      before == 0 && noRegistration == 0 && empty.isEmpty && absent.isEmpty,
+      failed == Left(failure) && failedAttempts == 1,
+      missingIndex.isEmpty && preserved.size == 1,
+      repaired == Chunk(session) && deduplicated == preserved,
+      result.reply.text == "done",
+      discovered == Chunk(session),
+      coldHistory.map(_.flatMap(_.key)) == Chunk(
+        Chunk("seed", "question", "answer").map(TranscriptKey.Message.apply)
+      ),
+      coldHistory == Chunk(unchanged),
+      order && totalAttempts == 4
+    )
+
+  private def registrationCancellation(
+      layout: TranscriptLayout
+  ): ZIO[Scope, AgentError, TestResult] =
+    for
+      storage  <- backend
+      manifest <- ZIO.fromEither(StorageAddress.from(Chunk("cancel"), "session"))
+      session <- ZIO.fromEither(
+        TranscriptTargetId.fromString("cancel").flatMap(TranscriptSession.make(_, manifest, layout))
+      )
+      entered  <- Promise.make[Nothing, Unit]
+      cleaning <- Promise.make[Nothing, Unit]
+      release  <- Promise.make[Nothing, Unit]
+      defect = new IllegalStateException("Catalog registration cleanup")
+      catalog = new TranscriptSessionCatalog:
+        def sessions: IO[AgentError, Chunk[TranscriptSession]] = ZIO.succeed(Chunk.empty)
+        def register(value: TranscriptSession): IO[AgentError, TranscriptRegistration] =
+          ZIO.scoped(
+            ZIO.addFinalizer(cleaning.succeed(()) *> release.await *> ZIO.die(defect)) *>
+              entered.succeed(()) *> ZIO.never
+          )
+      writer <- ZIO.fromEither(SessionTranscriptWriter.registered(storage, session, catalog))
+      active <- ZIO.uninterruptibleMask: restore =>
+        for
+          fiber <- restore(
+            writer.offload(Chunk(text("committed", "before cancellation")))
+          ).forkScoped
+          _ <- ZIO.addFinalizer(release.succeed(()).unit)
+        yield fiber
+      _          <- entered.await
+      controller <- ZIO.fiberId
+      _          <- active.interruptAsFork(controller)
+      _          <- cleaning.await
+      held       <- active.poll
+      reader     <- selectedStore(storage, session)
+      committed  <- reader.entries
+      _          <- release.succeed(())
+      exit       <- active.await
+    yield assertTrue(
+      held.isEmpty,
+      committed.flatMap(_.key) == Chunk(TranscriptKey.Message("committed")),
+      exit.causeOption.exists(cause =>
+        cause.interruptors.contains(controller) && cause.defects == List(
+          defect
+        ) && cause.failures.isEmpty
+      )
+    )
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SessionTranscriptWriterSpec")(
+    test("registered writers publish history before discovery and repair indexing without replay"):
+      ZIO
+        .foreach(Chunk(TranscriptLayout.Aggregate, TranscriptLayout.Segmented))(registeredContract)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test("registered writer cancellation joins catalog cleanup without rolling back history"):
+      ZIO
+        .foreach(Chunk(TranscriptLayout.Aggregate, TranscriptLayout.Segmented))(
+          registrationCancellation
+        )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("appendMessages_isIdempotent_andKeepsChain; offload skips a persisted prefix") {
       for
         store <- TranscriptStore.inMemory
@@ -335,4 +505,4 @@ object SessionTranscriptWriterSpec extends ZIOSpecDefault:
         .either
         .map(result => assertTrue(result == Left(error)))
     }
-  )
+  ) @@ TestAspect.timeout(20.seconds)

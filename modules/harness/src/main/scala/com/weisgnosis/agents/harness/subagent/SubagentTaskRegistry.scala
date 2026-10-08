@@ -17,6 +17,7 @@ package com.weisgnosis.agents.harness.subagent
 
 import com.weisgnosis.agents.core.agent.AgentResult
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.event.AgentEvent
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolEventPort
 import java.util.UUID
@@ -53,7 +54,7 @@ enum SubagentTaskCancellation:
   case Joined(exit: Exit[AgentError, AgentResult])
 
 enum SubagentTaskRemoval:
-  case Removed, Missing, Running, Unpublished, Unnotified
+  case Removed, Missing, Running, Unpublished, Unnotified, MilestonesPending
 
 /**
  * Host-owned task lookup for one parent and configured factory. Every retained result counts toward
@@ -230,7 +231,8 @@ object SubagentTaskRegistry:
       admissionIdentity: Option[SubagentTaskAdmissionIdentity] = None,
       notification: Option[
         Fiber.Runtime[AgentError.CompletionObservationError, SubagentCompletionReceipt]
-      ] = None
+      ] = None,
+      milestones: Option[Fiber.Runtime[Nothing, Unit]] = None
   )
 
   final private case class Persistence(store: SubagentTerminalStore, owner: Scope.Closeable)
@@ -259,13 +261,26 @@ object SubagentTaskRegistry:
       parent: SubagentSpawner[AgentResult],
       factory: SubagentFactory,
       maxTracked: Int = 256,
-      workerId: Option[SubagentWorkerId] = None
-  ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
-    openWith(
-      (input, id, events) => factory.spawn(parent, input, id, events),
-      maxTracked,
-      workerId = workerId
-    )
+      workerId: Option[SubagentWorkerId] = None,
+      lifecycle: Option[SubagentLifecycleMetadata] = None
+  ): ZIO[Scope, AgentError, SubagentTaskRegistry] = lifecycle match
+    case None =>
+      openWith(
+        (input, id, events) => factory.spawn(parent, input, id, events),
+        maxTracked,
+        workerId = workerId
+      )
+    case Some(metadata) =>
+      openEventPreparedInput[Msg](
+        identity,
+        (input, id, events, beforeStart, started) =>
+          factory.spawn(parent, input, id, events, beforeStart, started),
+        maxTracked,
+        None,
+        workerId,
+        SubagentCompletionNotification.Suppress,
+        ZIO.some(metadata)
+      )
 
   /** Opt-in automatic terminal publication and restored read-only observations. */
   def openDurable(
@@ -275,15 +290,18 @@ object SubagentTaskRegistry:
       maxTracked: Int = 256,
       workerId: Option[SubagentWorkerId] = None,
       completionNotification: SubagentCompletionNotification =
-        SubagentCompletionNotification.Suppress
+        SubagentCompletionNotification.Suppress,
+      lifecycle: Option[SubagentLifecycleMetadata] = None
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
-    openPreparedInput[Msg](
+    openEventPreparedInput[Msg](
       identity,
-      (input, id, events, beforeStart) => factory.spawn(parent, input, id, events, beforeStart),
+      (input, id, events, beforeStart, started) =>
+        factory.spawn(parent, input, id, events, beforeStart, started),
       maxTracked,
       Some(terminalStore),
       workerId,
-      completionNotification
+      completionNotification,
+      ZIO.succeed(lifecycle)
     )
 
   private[subagent] def openWith(
@@ -311,12 +329,13 @@ object SubagentTaskRegistry:
   ): ZIO[Scope, AgentError, Live[Input]] =
     initialize(
       fromMessage,
-      (input, id, events, _) => launchTask(input, id, events),
+      (input, id, events, _, _) => launchTask(input, id, events),
       maxTracked,
       terminalStore,
       workerId,
       LaunchProtocol.TerminalOnly,
-      SubagentCompletionNotification.Suppress
+      SubagentCompletionNotification.Suppress,
+      ZIO.none
     )
 
   private[subagent] def openPreparedInput[Input](
@@ -334,17 +353,55 @@ object SubagentTaskRegistry:
   ): ZIO[Scope, AgentError, Live[Input]] =
     initialize(
       fromMessage,
+      (input, id, events, beforeStart, started) =>
+        launchTask(input, id, events, beforeStart *> started),
+      maxTracked,
+      terminalStore,
+      workerId,
+      LaunchProtocol.Prepared,
+      completionNotification,
+      ZIO.none
+    )
+
+  private[subagent] def openEventPreparedInput[Input](
+      fromMessage: Msg => Input,
+      launchTask: (
+          Input,
+          SubagentTaskId,
+          Option[ToolEventPort],
+          IO[AgentError, Unit],
+          UIO[Unit]
+      ) => ZIO[
+        Scope,
+        AgentError,
+        TaskAdmission[AgentResult]
+      ],
+      maxTracked: Int,
+      terminalStore: Option[SubagentTerminalStore],
+      workerId: Option[SubagentWorkerId],
+      completionNotification: SubagentCompletionNotification,
+      lifecycle: UIO[Option[SubagentLifecycleMetadata]]
+  ): ZIO[Scope, AgentError, Live[Input]] =
+    initialize(
+      fromMessage,
       launchTask,
       maxTracked,
       terminalStore,
       workerId,
       LaunchProtocol.Prepared,
-      completionNotification
+      completionNotification,
+      lifecycle
     )
 
   private def initialize[Input](
       fromMessage: Msg => Input,
-      launchTask: (Input, SubagentTaskId, Option[ToolEventPort], IO[AgentError, Unit]) => ZIO[
+      launchTask: (
+          Input,
+          SubagentTaskId,
+          Option[ToolEventPort],
+          IO[AgentError, Unit],
+          UIO[Unit]
+      ) => ZIO[
         Scope,
         AgentError,
         TaskAdmission[AgentResult]
@@ -353,7 +410,8 @@ object SubagentTaskRegistry:
       terminalStore: Option[SubagentTerminalStore],
       workerId: Option[SubagentWorkerId],
       protocol: LaunchProtocol,
-      defaultNotification: SubagentCompletionNotification
+      defaultNotification: SubagentCompletionNotification,
+      lifecycle: UIO[Option[SubagentLifecycleMetadata]]
   ): ZIO[Scope, AgentError, Live[Input]] =
     ZIO.uninterruptible:
       for
@@ -363,7 +421,8 @@ object SubagentTaskRegistry:
         gate            <- Semaphore.make(1)
         state           <- Ref.make[State](State.Open(Chunk.empty))
         callbackContext <- FiberRef.make(CallbackContext.Outside)
-        persistence <- ZIO.foreach(terminalStore)(store => Scope.make.map(Persistence(store, _)))
+        owner           <- Scope.make
+        persistence = terminalStore.map(store => Persistence(store, owner))
         registry = new Live(
           fromMessage,
           launchTask,
@@ -374,14 +433,22 @@ object SubagentTaskRegistry:
           workerId,
           protocol,
           defaultNotification,
-          callbackContext
+          callbackContext,
+          owner,
+          lifecycle
         )
         _ <- ZIO.addFinalizer(registry.close)
       yield registry
 
   final private[subagent] class Live[Input] private[SubagentTaskRegistry] (
       fromMessage: Msg => Input,
-      launchTask: (Input, SubagentTaskId, Option[ToolEventPort], IO[AgentError, Unit]) => ZIO[
+      launchTask: (
+          Input,
+          SubagentTaskId,
+          Option[ToolEventPort],
+          IO[AgentError, Unit],
+          UIO[Unit]
+      ) => ZIO[
         Scope,
         AgentError,
         TaskAdmission[AgentResult]
@@ -393,7 +460,9 @@ object SubagentTaskRegistry:
       workerId: Option[SubagentWorkerId],
       protocol: LaunchProtocol,
       defaultNotification: SubagentCompletionNotification,
-      callbackContext: FiberRef[CallbackContext]
+      callbackContext: FiberRef[CallbackContext],
+      owner: Scope.Closeable,
+      lifecycle: UIO[Option[SubagentLifecycleMetadata]]
   ) extends SubagentTaskRegistry:
     def submit(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       submit(input, None)
@@ -470,7 +539,21 @@ object SubagentTaskRegistry:
                         )
                       )
                     )
-                    launched <- ZIO.suspendSucceed(launchTask(input, id, events, beforeStart))
+                    metadataForEvents <- lifecycle
+                    started = ZIO.foreachDiscard(metadataForEvents.zip(events)):
+                      (metadata, destination) =>
+                        destination
+                          .publish(
+                            AgentEvent.SubagentStartEvent(
+                              metadata.childSessionId,
+                              metadata.agentId,
+                              Some(id.value.toString)
+                            )
+                          )
+                          .unit
+                    launched <- ZIO.suspendSucceed(
+                      launchTask(input, id, events, beforeStart, started)
+                    )
                     result <- launched match
                       case TaskAdmission.Closed => ZIO.succeed(SubagentTaskSubmission.Closed)
                       case TaskAdmission.Accepted(task) =>
@@ -503,6 +586,7 @@ object SubagentTaskRegistry:
                                 case SubagentTaskAdmissionResult.Created(value) => value
                               }
                               for
+                                spawnAttempted <- Promise.make[Nothing, Unit]
                                 publisher <- ZIO.foreach(persistence)(binding =>
                                   binding.store
                                     .publishJoined(id, task, workerId)
@@ -513,6 +597,27 @@ object SubagentTaskRegistry:
                                   (binding, published) =>
                                     notifyCompletion(id, task, published, policy).interruptible
                                       .forkIn(binding.owner)
+                                milestones <- ZIO.foreach(metadataForEvents.zip(events)):
+                                  (metadata, destination) =>
+                                    // A supervisor can join the paused worker before acceptance.
+                                    // End follows the Spawn attempt, even when Start never occurs.
+                                    (spawnAttempted.await *> task.await)
+                                      .flatMap(exit =>
+                                        destination
+                                          .publish(
+                                            AgentEvent.SubagentEndEvent(
+                                              metadata.childSessionId,
+                                              metadata.agentId,
+                                              lifecycleStatus(
+                                                SubagentTerminalOutcome.fromExit(exit)
+                                              ),
+                                              Some(id.value.toString)
+                                            )
+                                          )
+                                          .unit
+                                      )
+                                      .interruptible
+                                      .forkIn(owner)
                                 _ <- state.set(
                                   State.Open(
                                     entries :+ Entry(
@@ -521,15 +626,40 @@ object SubagentTaskRegistry:
                                       metadata,
                                       publisher = publisher,
                                       admissionIdentity = identity,
-                                      notification = notification
+                                      notification = notification,
+                                      milestones = milestones
                                     )
                                   )
                                 )
+                                publishSpawn = ZIO.foreachDiscard(metadataForEvents.zip(events)):
+                                  (metadata, destination) =>
+                                    destination
+                                      .publish(
+                                        AgentEvent.SubagentSpawnEvent(
+                                          metadata.parentSessionId,
+                                          metadata.childSessionId,
+                                          metadata.agentId,
+                                          metadata.label,
+                                          Some(id.value.toString)
+                                        )
+                                      )
+                                      .unit
+                                _ <- publishSpawn.ensuring(spawnAttempted.succeed(()).unit)
                                 _ <- start.succeed(identity)
                               yield SubagentTaskSubmission.Accepted(id)
                         yield accepted
                   yield result
             yield admission
+
+    private def lifecycleStatus(outcome: SubagentTerminalOutcome): String = outcome match
+      case SubagentTerminalOutcome.Completed(_)      => "completed"
+      case SubagentTerminalOutcome.Suspended(_)      => "suspended"
+      case SubagentTerminalOutcome.Stopped(_)        => "stopped"
+      case SubagentTerminalOutcome.Interrupted(_, _) => "interrupted"
+      case SubagentTerminalOutcome.Failed(_, _)      => "failed"
+
+    private def awaitMilestones(entry: Entry): UIO[Unit] =
+      ZIO.foreachDiscard(entry.milestones)(_.join)
 
     private def notifyCompletion(
         id: SubagentTaskId,
@@ -600,13 +730,21 @@ object SubagentTaskRegistry:
       state.get.flatMap(current => ZIO.foreach(current.entries)(snapshot))
 
     def await(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] =
-      lookup(id).flatMap(ZIO.foreach(_)(_.task.await))
+      lookup(id).flatMap(ZIO.foreach(_)(entry => entry.task.await.tap(_ => awaitMilestones(entry))))
 
     def awaitOrPromote(id: SubagentTaskId): UIO[Option[TaskWait[AgentResult]]] =
-      lookup(id).flatMap(ZIO.foreach(_)(_.task.awaitOrPromote))
+      lookup(id).flatMap(
+        ZIO.foreach(_)(entry =>
+          entry.task.awaitOrPromote.tap:
+            case TaskWait.Completed(_) => awaitMilestones(entry)
+            case TaskWait.Promoted     => ZIO.unit
+        )
+      )
 
     def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] =
-      lookup(id).flatMap(ZIO.foreach(_)(_.task.cancel))
+      lookup(id).flatMap(
+        ZIO.foreach(_)(entry => entry.task.cancel.tap(_ => awaitMilestones(entry)))
+      )
 
     /** Intent persistence is interruptible; a confirmed local signal owns and joins its child cleanup. */
     override def cancelTask(id: SubagentTaskId): IO[AgentError, SubagentTaskCancellation] =
@@ -615,7 +753,7 @@ object SubagentTaskRegistry:
           persistence match
             case None =>
               ZIO
-                .foreach(captured)(_.task.cancel)
+                .foreach(captured)(entry => entry.task.cancel.tap(_ => awaitMilestones(entry)))
                 .map(
                   _.fold[SubagentTaskCancellation](SubagentTaskCancellation.Missing)(
                     SubagentTaskCancellation.Joined(_)
@@ -690,7 +828,9 @@ object SubagentTaskRegistry:
         joined: Exit[AgentError, AgentResult],
         restore: ZIO.InterruptibilityRestorer
     ): IO[AgentError, SubagentTaskCancellation] =
-      restore(ZIO.foreachDiscard(entry.publisher)(_.await.flatMap(exit => exit))).exit.flatMap:
+      restore(
+        awaitMilestones(entry) *> ZIO.foreachDiscard(entry.publisher)(_.await.flatMap(exit => exit))
+      ).exit.flatMap:
         case Exit.Success(_)     => ZIO.succeed(SubagentTaskCancellation.Joined(joined))
         case Exit.Failure(cause) =>
           // A normal interrupted child cannot turn a publication error into caller cancellation.
@@ -1316,7 +1456,13 @@ object SubagentTaskRegistry:
                         .flatMap:
                           case Some(None) | Some(Some(Exit.Failure(_))) =>
                             ZIO.succeed(SubagentTaskRemoval.Unnotified)
-                          case _ => state.update(_.remove(id)).as(SubagentTaskRemoval.Removed)
+                          case _ =>
+                            ZIO
+                              .foreach(entry.milestones)(_.poll)
+                              .flatMap:
+                                case Some(None) | Some(Some(Exit.Failure(_))) =>
+                                  ZIO.succeed(SubagentTaskRemoval.MilestonesPending)
+                                case _ => state.update(_.remove(id)).as(SubagentTaskRemoval.Removed)
 
     private def lookup(id: SubagentTaskId): UIO[Option[Entry]] =
       state.get.map(_.entries.find(_.id == id))
@@ -1337,8 +1483,9 @@ object SubagentTaskRegistry:
           workers <- ZIO.foreachParDiscard(entries)(_.task.cancel).exit
           _       <- ZIO.foreachParDiscard(entries.flatMap(_.publisher))(_.await)
           _       <- ZIO.foreachParDiscard(entries.flatMap(_.notification))(_.await)
-          owner   <- ZIO.foreachDiscard(persistence)(_.owner.close(Exit.unit)).exit
-          _ <- workers.zipWith(owner)(
+          _       <- ZIO.foreachParDiscard(entries.flatMap(_.milestones))(_.await)
+          owned   <- owner.close(Exit.unit).exit
+          _ <- workers.zipWith(owned)(
             (_, _) => (),
             (first: Cause[Nothing], second: Cause[Nothing]) => first ++ second
           )

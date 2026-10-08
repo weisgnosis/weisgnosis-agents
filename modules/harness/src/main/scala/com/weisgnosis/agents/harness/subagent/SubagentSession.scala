@@ -25,12 +25,16 @@ import zio.*
 /** One host-held child runtime; the returned TaskResource owns its lifetime and descendants. */
 final class SubagentSession private (
     val executions: SubagentTaskRegistry,
+    bindMetadata: SubagentLifecycleMetadata => IO[AgentError, Unit],
     submitResume: (Chunk[SuppliedToolResult], Option[ToolEventPort]) => ZIO[
       Scope,
       AgentError,
       SubagentTaskSubmission
     ]
 ):
+  private[subagent] def bindLifecycle(metadata: SubagentLifecycleMetadata): IO[AgentError, Unit] =
+    bindMetadata(metadata)
+
   /** Each accepted send receives a distinct retained execution ID; waiting sends count toward capacity. */
   def send(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] = executions.submit(input)
 
@@ -60,11 +64,20 @@ object SubagentSession:
       parent: SubagentSpawner[AgentResult],
       factory: SubagentFactory,
       maxTracked: Int = 256,
-      terminalBinding: Option[SubagentTerminalBinding] = None
+      terminalBinding: Option[SubagentTerminalBinding] = None,
+      lifecycle: Option[SubagentLifecycleMetadata] = None
   ): ZIO[Scope, AgentError, TaskResourceAdmission[SubagentSession]] =
     validateCapacity(maxTracked) *>
       parent.ownChild((child, supervisor) =>
-        initialize(child, supervisor, factory, maxTracked, None, terminalBinding)
+        initialize(
+          child,
+          supervisor,
+          factory,
+          maxTracked,
+          None,
+          terminalBinding,
+          lifecycle = lifecycle
+        )
       )
 
   /**
@@ -78,22 +91,40 @@ object SubagentSession:
       factory: SubagentFactory,
       checkpoint: AgentResult,
       maxTracked: Int = 256,
-      terminalBinding: Option[SubagentTerminalBinding] = None
+      terminalBinding: Option[SubagentTerminalBinding] = None,
+      lifecycle: Option[SubagentLifecycleMetadata] = None
   ): ZIO[Scope, AgentError, TaskResourceAdmission[SubagentSession]] =
     validateCapacity(maxTracked) *>
       parent.ownChild((child, supervisor) =>
-        initialize(child, supervisor, factory, maxTracked, Some(checkpoint), terminalBinding)
+        initialize(
+          child,
+          supervisor,
+          factory,
+          maxTracked,
+          Some(checkpoint),
+          terminalBinding,
+          lifecycle = lifecycle
+        )
       )
 
   private[subagent] def openRetained(
       parent: SubagentSpawner[AgentResult],
       factory: SubagentFactory,
       maxTracked: Int,
-      terminalBinding: Option[SubagentTerminalBinding] = None
+      terminalBinding: Option[SubagentTerminalBinding] = None,
+      lifecycle: Option[SubagentLifecycleMetadata] = None
   ): IO[AgentError, TaskResourceAdmission[SubagentSession]] =
     validateCapacity(maxTracked) *>
       parent.ownChildRetained((child, supervisor) =>
-        initialize(child, supervisor, factory, maxTracked, None, terminalBinding)
+        initialize(
+          child,
+          supervisor,
+          factory,
+          maxTracked,
+          None,
+          terminalBinding,
+          lifecycle = lifecycle
+        )
       )
 
   private[subagent] def openPersistentRetained(
@@ -103,7 +134,8 @@ object SubagentSession:
       store: SubagentNamedSessionStore,
       authority: SubagentNamedSessions.Authority,
       maxTracked: Int,
-      terminalBinding: Option[SubagentTerminalBinding]
+      terminalBinding: Option[SubagentTerminalBinding],
+      lifecycleEvents: SubagentLifecycleEvents = SubagentLifecycleEvents.Disabled
   ): IO[AgentError, TaskResourceAdmission[SubagentSession]] =
     validateCapacity(maxTracked) *> parent.ownChildRetained((child, supervisor) =>
       initialize(
@@ -113,7 +145,8 @@ object SubagentSession:
         maxTracked,
         None,
         terminalBinding,
-        Some(PersistenceRequest(key, store, authority))
+        Some(PersistenceRequest(key, store, authority)),
+        lifecycleEvents = lifecycleEvents
       )
     )
 
@@ -170,7 +203,9 @@ object SubagentSession:
       maxTracked: Int,
       checkpoint: Option[AgentResult],
       terminalBinding: Option[SubagentTerminalBinding],
-      persistence: Option[PersistenceRequest] = None
+      persistence: Option[PersistenceRequest] = None,
+      lifecycle: Option[SubagentLifecycleMetadata] = None,
+      lifecycleEvents: SubagentLifecycleEvents = SubagentLifecycleEvents.Disabled
   ): ZIO[Scope, AgentError, SubagentSession] =
     for
       loaded <- ZIO.foreach(persistence)(request =>
@@ -187,13 +222,15 @@ object SubagentSession:
       savedState <- ZIO.foreach(loaded)(saved =>
         Ref.make[SaveState](SaveState.Ready(saved.revision))
       )
-      _    <- ZIO.foreachDiscard(checkpoint)(runtime.restore)
-      turn <- Semaphore.make(1)
+      _        <- ZIO.foreachDiscard(checkpoint)(runtime.restore)
+      turn     <- Semaphore.make(1)
+      metadata <- Ref.make(lifecycle)
       launch = (
           command: Command,
           id: SubagentTaskId,
           events: Option[ToolEventPort],
-          beforeStart: IO[AgentError, Unit]
+          beforeStart: IO[AgentError, Unit],
+          executionStarted: UIO[Unit]
       ) =>
         val run = command match
           case Command.Send(input)     => SubagentFactory.run(runtime, input, id, events)
@@ -201,24 +238,39 @@ object SubagentSession:
         val execute = persistence.zip(savedState) match
           case Some((request, state)) => persistedCommand(runtime, request, state, run)
           case None                   => run
-        supervisor.attach(beforeStart *> turn.withPermit(execute))
-      executions <- terminalBinding match
-        case None =>
+        supervisor.attach(beforeStart *> turn.withPermit(executionStarted *> execute))
+      executions <- (terminalBinding, lifecycle, lifecycleEvents) match
+        case (None, None, SubagentLifecycleEvents.Disabled) =>
           SubagentTaskRegistry.openInput[Command](
             Command.Send(_),
-            (command, id, events) => launch(command, id, events, ZIO.unit),
+            (command, id, events) => launch(command, id, events, ZIO.unit, ZIO.unit),
             maxTracked
           )
-        case Some(binding) =>
-          SubagentTaskRegistry.openPreparedInput[Command](
+        case _ =>
+          SubagentTaskRegistry.openEventPreparedInput[Command](
             Command.Send(_),
             launch,
             maxTracked,
-            Some(binding.store),
-            binding.workerId,
-            binding.completionNotification
+            terminalBinding.map(_.store),
+            terminalBinding.flatMap(_.workerId),
+            terminalBinding.fold[SubagentCompletionNotification](
+              SubagentCompletionNotification.Suppress
+            )(_.completionNotification),
+            metadata.get
+          )
+      bind = (value: SubagentLifecycleMetadata) =>
+        metadata
+          .modify:
+            case None    => (true, Some(value))
+            case current => (false, current)
+          .flatMap(bound =>
+            ZIO
+              .fail(AgentError.InvalidConfiguration("Session lifecycle metadata is already bound"))
+              .unless(bound)
+              .unit
           )
     yield new SubagentSession(
       executions,
+      bind,
       (results, events) => executions.submitInput(Command.Resume(results), events)
     )

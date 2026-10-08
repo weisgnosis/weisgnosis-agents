@@ -413,7 +413,7 @@ Unsupported legacy behavior includes StreamOptions filtering, ALL, default final
 - [x] Implement actual model-stream reply/request correlation through the typed event API.
 - [x] Verify [bounded runtime ordering adaptations](#agenteventstreamtest-seven-disabled-ordering-declarations) for current text/thinking/tool cycles and checkpoint decisions.
 - [ ] Define remaining model data-block production and richer attribution contracts.
-- [ ] Define and integrate richer subagent source attribution with the planned supervisor.
+- [x] Implement and verify the original `c9adcb4` HLD lines 89/129 and LLD lines 266–272 subagent milestone promise. [SubagentLifecycleMetadataSpec](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentLifecycleMetadataSpec.scala) exercises actual Spawn/Start/End publication with checked explicit parent/child session and agent fields, queued starts, defaults and named identity reuse; the retained-observer ForwardingSpec checks joined cancellation. This adapts host metadata selection and existing scoped ports, rather than inventing sessions from task UUIDs or a replayable event bus. The [milestone contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#subagent-milestones) states accepted-per-execution Spawn, possible absent Start and closed-port limits. This is original-plan evidence, not another whole Java test-method claim.
 
 ### AgentEventStreamTest: 13 enabled methods
 
@@ -1931,3 +1931,7 @@ The pinned harness TaskTool.java is implementation evidence; no paired TaskToolT
 ## Non-interactive approval disposition
 
 The original research guide lesson 15 requires denial when no interactive approval channel exists. UnavailablePermissionAuthorizer implements that explicitly selected capability through the ordinary ReAct and standard subagent construction paths. Its grouped adapter and construction checks preserve gate priority, live policy after cleanup, no execution on unresolved approval and Plan mutation denial with a Build control. This is a missing-capability implementation, not a reproduced defect in the existing interactive or durable authorizer. No generic AgentProtocol HTTP transport or exhaustive permission-method parity follows.
+
+## Registered transcript writer adaptation
+
+Pinned SessionTranscriptWriter.appendMessages (144) updates WorkspaceManager's session index (406) after recording. [SessionTranscriptWriter.registered](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#registered-transcript-writer) supplies explicit append-then-register composition for aggregate and segmented layouts. Existing writer tables exercise ReAct completion, fresh catalog/store readers, empty projection, failed registration with explicit stable-snapshot repair and joined cancellation. The existing PostgreSQL catalog group repeats exact append/discovery through independent database adapters. Registration records an exact binding rather than Java activity timestamps or workspace layout; it supplies no transaction, global enumeration, retirement authority or automatic replay of uncertain effects.

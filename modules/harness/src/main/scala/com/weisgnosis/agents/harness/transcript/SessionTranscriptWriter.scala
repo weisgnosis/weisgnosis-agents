@@ -19,6 +19,7 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.agent.TurnCompletionObserver
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
+import com.weisgnosis.agents.harness.storage.VersionedJsonStore
 import zio.*
 import zio.json.*
 
@@ -26,9 +27,24 @@ enum AnonymousTranscriptPolicy derives JsonCodec:
   case RequireStableIds, RecordEachSnapshot
 
 /** Lossy observation recording, independent of memory-extraction triggers and prompts. */
-final class SessionTranscriptWriter(store: TranscriptStore):
+final class SessionTranscriptWriter private (
+    store: TranscriptStore,
+    registration: Option[(TranscriptSessionCatalog, TranscriptSession)]
+):
+  def this(store: TranscriptStore) = this(store, None)
+
   def appendMessages(messages: Chunk[Msg]): IO[AgentError, Chunk[TranscriptEntry]] =
-    store.append(messages.flatMap(SessionTranscriptWriter.project))
+    appendDrafts(messages.flatMap(SessionTranscriptWriter.project))
+
+  private def appendDrafts(drafts: Chunk[TranscriptDraft]): IO[AgentError, Chunk[TranscriptEntry]] =
+    store
+      .append(drafts)
+      .flatMap: entries =>
+        val registered = registration match
+          case Some((catalog, session)) if drafts.nonEmpty =>
+            ZIO.suspendSucceed(catalog.register(session)).unit
+          case _ => ZIO.unit
+        registered.as(entries)
 
   /** Install as the compactor offload callback; extraction and canonical history remain separate. */
   def offload(messages: Chunk[Msg]): IO[AgentError, Unit] = appendMessages(messages).unit
@@ -44,14 +60,31 @@ final class SessionTranscriptWriter(store: TranscriptStore):
           )
         )
       else
-        store
-          .append(drafts)
-          .unit
+        appendDrafts(drafts).unit
           .mapError(error => AgentError.CompletionObservationError(error.message))
 
 object SessionTranscriptWriter:
   val InputPreviewChars: Int  = 500
   val OutputPreviewChars: Int = 1000
+
+  /**
+   * Explicitly bind the selected layout and register it after every nonempty projected append,
+   * including duplicate snapshots. Registration failure preserves committed history and is not
+   * retried automatically. The host owns both borrowed capabilities and their nontransactional
+   * publication policy. Segment/count limits apply only to Segmented; Aggregate uses maxAttempts.
+   */
+  def registered(
+      backend: VersionedJsonStore,
+      session: TranscriptSession,
+      catalog: TranscriptSessionCatalog,
+      limits: TranscriptSegmentLimits = TranscriptSegmentLimits.default
+  ): Either[AgentError.InvalidConfiguration, SessionTranscriptWriter] =
+    val selected = session.layout match
+      case TranscriptLayout.Aggregate =>
+        VersionedTranscriptStore.make(backend, session.manifest, limits.maxAttempts)
+      case TranscriptLayout.Segmented =>
+        SegmentedTranscriptStore.make(backend, session.manifest, limits)
+    selected.map(store => new SessionTranscriptWriter(store, Some((catalog, session))))
 
   /** Projection preserves summaries and thinking; only internal user session context is excluded. */
   def project(message: Msg): Chunk[TranscriptDraft] =

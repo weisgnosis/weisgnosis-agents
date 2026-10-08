@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.storage.postgresql
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
 import com.weisgnosis.agents.harness.storage.*
 import com.weisgnosis.agents.harness.transcript.*
 import zio.*
@@ -47,6 +48,36 @@ object VersionedTranscriptSessionCatalogSpec extends ZIOSpecDefault:
     ZIO.fromEither(
       VersionedTranscriptSessionCatalog.make(backend, target, maxSessions, maxAttempts)
     )
+
+  private def registeredWriters(
+      backend: VersionedJsonStore,
+      readerBackend: VersionedJsonStore,
+      name: String
+  ): IO[AgentError, Boolean] =
+    ZIO
+      .foreach(Chunk(TranscriptLayout.Aggregate, TranscriptLayout.Segmented)): layout =>
+        for
+          target     <- address(name + "-writer", layout.toString)
+          manifest   <- address(name + "-writer-history", layout.toString)
+          descriptor <- session(layout.toString, manifest, layout)
+          index      <- catalog(backend, target)
+          writer <- ZIO.fromEither(SessionTranscriptWriter.registered(backend, descriptor, index))
+          message = Msg.user(
+            Chunk(ContentBlock.Text("registered history")),
+            id = Some("stable-message")
+          )
+          appended   <- writer.appendMessages(Chunk(message))
+          _          <- writer.offload(Chunk(message))
+          coldIndex  <- catalog(readerBackend, target)
+          discovered <- coldIndex.sessions
+          coldStore <- ZIO.fromEither(layout match
+            case TranscriptLayout.Aggregate =>
+              VersionedTranscriptStore.make(readerBackend, manifest)
+            case TranscriptLayout.Segmented =>
+              SegmentedTranscriptStore.make(readerBackend, manifest))
+          history <- coldStore.entries
+        yield discovered == Chunk(descriptor) && appended.size == 1 && history == appended
+      .map(_.forall(identity))
 
   private def encoded(
       sessions: Chunk[TranscriptSession],
@@ -85,7 +116,9 @@ object VersionedTranscriptSessionCatalogSpec extends ZIOSpecDefault:
           before          <- backend.read(target)
           repeated        <- ZIO.foreach(restored)(reopened.register)
           after           <- backend.read(target)
+          registered      <- registeredWriters(backend, secondBackend, name)
         yield assertTrue(
+          registered,
           empty.isEmpty,
           absent.isEmpty,
           untouched.isEmpty,

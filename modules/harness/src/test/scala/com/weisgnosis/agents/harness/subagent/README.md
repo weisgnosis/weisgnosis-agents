@@ -1,5 +1,10 @@
 # Scoped child execution verification
 
+## Opt-in milestone checks
+
+[SubagentLifecycleMetadataSpec](SubagentLifecycleMetadataSpec.scala) drives real parent tool invocations through fixed, reusable and persistent named children. It checks exact host correlation and status, unchanged disabled defaults, accepted-but-never-started work, queued Start ordering and reuse of the actual registered child session identity. Invalid Unicode, Unicode blanks and UTF-8 byte limits are checked at metadata admission. [SubagentForwardingSpec](SubagentForwardingSpec.scala) retains its independent active observer during parent cancellation and verifies no milestone End before held worker cleanup, followed by exact nested attribution. These tests do not promise output to a closed port, event replay or terminal ACK. See the [current milestone contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#subagent-milestones). Required review, full verification and artifact/consumer checks cover this bounded contract.
+
+
 The [persisted execution-origin contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#persisted-execution-origin) records current source identities and delivery gates. The URI table, existing store/recovery groups and rejected-admission table verify strict migration, remote exclusion before authority, identity guards and joined rollback. Actual PostgreSQL coverage is recorded by the database package.
 
 ## Local task workspace verification

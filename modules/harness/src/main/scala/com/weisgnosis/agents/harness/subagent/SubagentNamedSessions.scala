@@ -34,7 +34,8 @@ final class SubagentNamedSessions private (
     directory: SubagentSessionDirectory,
     state: Ref.Synchronized[SubagentNamedSessions.State],
     maxSessions: Int,
-    maxTracked: Int
+    maxTracked: Int,
+    lifecycleEvents: SubagentLifecycleEvents
 ):
   import SubagentNamedSessions.*
 
@@ -130,7 +131,8 @@ final class SubagentNamedSessions private (
           store,
           authority,
           maxTracked,
-          entry.terminalBinding
+          entry.terminalBinding,
+          lifecycleEvents
         )
       ).flatMap:
         case TaskResourceAdmission.Closed => ZIO.fail(closed)
@@ -138,7 +140,14 @@ final class SubagentNamedSessions private (
           directory
             .register(resource)
             .flatMap:
-              case SubagentSessionRegistration.Accepted(id) => ZIO.succeed((resource.value, id))
+              case SubagentSessionRegistration.Accepted(id) =>
+                val bind = lifecycleEvents match
+                  case SubagentLifecycleEvents.Disabled => ZIO.unit
+                  case SubagentLifecycleEvents.Enabled =>
+                    ZIO
+                      .fromEither(SubagentLifecycleMetadata.fromNamed(key, id))
+                      .flatMap(resource.value.bindLifecycle)
+                bind.onError(_ => directory.remove(id).unit).as((resource.value, id))
               case rejection =>
                 resource.close *> ZIO.fail(
                   AgentError.InvalidConfiguration(
@@ -186,7 +195,8 @@ object SubagentNamedSessions:
       store: SubagentNamedSessionStore,
       authority: Authority,
       maxSessions: Int = 64,
-      maxTrackedPerSession: Int = 256
+      maxTrackedPerSession: Int = 256,
+      lifecycleEvents: SubagentLifecycleEvents = SubagentLifecycleEvents.Disabled
   ): ZIO[Scope, AgentError, TaskResourceAdmission[SubagentNamedSessions]] =
     for
       _ <- ZIO.fromEither(SubagentNamedSessionKey.from(parentSessionId, "validation", "validation"))
@@ -216,7 +226,8 @@ object SubagentNamedSessions:
             directory,
             state,
             maxSessions,
-            maxTrackedPerSession
+            maxTrackedPerSession,
+            lifecycleEvents
           )
           _ <- ZIO.addFinalizer(sessions.closeAdmissions)
         yield sessions

@@ -162,7 +162,10 @@ object SubagentForwardingSpec extends ZIOSpecDefault:
             )
           )
         )
-        registry <- SubagentTaskRegistry.open(root, child)
+        metadata <- ZIO.fromEither(
+          SubagentLifecycleMetadata.from("owner-session", "cancelled-session", "child")
+        )
+        registry <- SubagentTaskRegistry.open(root, child, lifecycle = Some(metadata))
         parent <- ReActAgent.make(
           client = model("parent", Some(invoke("agent_spawn", "child work")), requests),
           toolkit = SubagentTools.make(registry)
@@ -233,6 +236,20 @@ object SubagentForwardingSpec extends ZIOSpecDefault:
               case event: AgentEvent.AgentEndEvent => event.source.contains(childSource)
               case _                               => false
             },
+            !before.exists(_.isInstanceOf[AgentEvent.SubagentEndEvent]),
+            events.collect { case event: AgentEvent.SubagentEndEvent => event } == Chunk(
+              AgentEvent
+                .SubagentEndEvent("cancelled-session", "child", "interrupted", Some(childSource))
+            ),
+            events.collect { case event: AgentEvent.SubagentSpawnEvent => event } == Chunk(
+              AgentEvent.SubagentSpawnEvent(
+                "owner-session",
+                "cancelled-session",
+                "child",
+                None,
+                Some(childSource)
+              )
+            ),
             cancelled.isInterrupted,
             terminal.exists(_.isInterrupted),
             finishedCleanup,

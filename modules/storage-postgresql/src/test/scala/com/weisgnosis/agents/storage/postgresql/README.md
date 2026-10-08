@@ -38,7 +38,7 @@ The existing backend-failure group additionally requires real read-only transact
 
 ## Explicit transcript catalog
 
-[VersionedTranscriptSessionCatalogSpec](VersionedTranscriptSessionCatalogSpec.scala) uses the real PostgreSQL fixture for three grouped catalog contracts: independent registration/reopen/sorting/isolation; binding/layout/subtree/capacity conflicts; strict schema and conditional-publication budgets/uncertain outcomes. This is discovery through a known host catalog, without global enumeration, transcript validation or retention authority. The [three-file manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#explicit-transcript-session-catalog) owns completed final source/full/artifact evidence and combined documentation approval.
+[VersionedTranscriptSessionCatalogSpec](VersionedTranscriptSessionCatalogSpec.scala) uses the real PostgreSQL fixture for three grouped catalog contracts: independent registration/reopen/sorting/isolation; binding/layout/subtree/capacity conflicts; strict schema and conditional-publication budgets/uncertain outcomes. Its existing independent-reader group also exercises registered writers in both layouts: append and duplicate offload precede fresh catalog/store discovery, preserving exactly one stable observation. This is discovery through a known host catalog, without global enumeration, transcript validation or retention authority. The [three-file manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#explicit-transcript-session-catalog) owns completed final source/full/artifact evidence and combined documentation approval.
 
 ## Remote memory middleware integration
 

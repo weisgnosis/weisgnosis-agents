@@ -4,6 +4,14 @@ The [shared initialization contract](../storage/README.md#scoped-initialization)
 
 [SessionTranscriptWriter](SessionTranscriptWriter.scala) records typed observations through a transcript-bound [TranscriptStore](TranscriptStore.scala). appendMessages returns only newly committed entries; offload discards that result for installation as ConversationCompactor's offload callback. Transcript recording is independent of memory extraction: summaries and thinking remain eligible, while user messages containing `<session_context>` are skipped. System messages remain eligible. Installing the compactor callback alone does not record every turn; install the completion observer described below as well.
 
+## Registered transcript writer
+
+`SessionTranscriptWriter.registered(backend, session, catalog, limits)` explicitly constructs the Aggregate or Segmented store named by the checked descriptor. The original `new SessionTranscriptWriter(store)` remains unregistered. The host owns both borrowed capabilities and must select nonoverlapping catalog and transcript addresses/subtrees. Segment/count limits apply to Segmented; Aggregate uses only the publication-attempt limit.
+
+For nonempty projected input, append completes before exact idempotent catalog registration. The shared append/offload/completion-observer path therefore makes successful recording discoverable through the supplied catalog. A duplicate stable snapshot still attempts registration, so an explicit retry can repair a previous indexing failure without duplicating history. Empty projection creates no session registration.
+
+Registration failure or cancellation preserves already committed history and propagates the failure; there is no automatic replay, rollback or transaction across the two publications. Completion observation retains its existing typed error mapping. Registration records a binding, not activity time, execution authority or retention ownership. This factory supplies no global discovery, retirement or layout migration.
+
 ## Projection and data contract
 
 Projection combines nonblank text/thinking in block order, then emits tool uses and tool results in per-kind order. Media-only and empty messages receive observable placeholders. Tool input JSON uses exact decimal rendering and is complete through 500 UTF-16 characters; larger input carries a typed truncated preview and original character count. Preview boundaries never split a surrogate pair, so a prefix may be one UTF-16 unit shorter than the limit. Joined tool output follows the same rule at 1,000 characters. Result state and output block types are retained. Complete and truncated variants are distinct ADT cases; no truncated JSON is represented as complete arguments.
