@@ -23,7 +23,7 @@ These ZIO Test suites verify all 119 pinned upstream message methods with explic
 - MsgFactorySpec adapts all 26 message factory/builder scenarios; GenerateReasonSpec covers all nine generation-reason methods.
 - ContentBlockCodecSpec checks all ten leaf/base representations and nested discriminators. ToolUseSpec plus ContentBlockSerdeSpec cover all 17 upstream ToolUse methods and canonical/legacy server markers.
 - DataBlockSpec covers all seven upstream DataBlock methods plus seeded lazy allocation/reuse; MediaSourceSpec covers concrete/base codecs, aliases, nested invalid input and canonical optional URL MIME hints, including absent/null omission and duplicate/nonstring rejection.
-- [ ] Complete remaining applicable runtime and provider behavior in the [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md); payload tests alone do not establish execution or human confirmation authority.
+Payload tests alone do not establish execution or human confirmation authority. The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist; the parity reference records bounded mappings and intentional API adaptations.
 
 The [119-method mapping](../../../../../../../../../../docs/architecture/test-parity.md) states each adaptation. Data identity is opt-in inside ZIO; required-source compile-time checks and JSON rejection do not claim direct Java-null constructor protection. Seeded tests show effect construction is lazy and reusing identity consumes no randomness.
 
@@ -34,7 +34,7 @@ Msg.getStructuredData and structured agent preparation share core.json.JsonBound
 This tightens previously permissive parsing; trailing input and ambiguous fields now fail through existing typed/string error channels. It does not add JSON Schema validation. Failed structured preparation publishes no AgentResult or structured metadata; raw observations can remain in history. The shared validator performs no effects and does not depend on models, agents, or transports.
 
 - Six boundary regressions cover full text, duplicate text/metadata/captures/wrappers, metadata authority, and valid wrapped/direct values. Five real loopback HTTP tests cover native schema/thinking/usage, synthetic definition hoisting and compression, HTTP-400 fallback without duplicate input, no retry on HTTP 503, and rejection of trailing native JSON.
-- [ ] Complete hook parity and broader provider compatibility; general JSON Schema validation is outside this acceptance.
+Structured-response parsing checks complete, unambiguous JSON; it does not evaluate arbitrary JSON Schema. Tool argument schema admission is a separate runtime boundary. Provider compatibility is limited to the explicitly selected profiles.
 
 The internal occurrence-specific Msg update is exercised through [ReActAgentToolAuthorizerSpec](../agent/ReActAgentToolAuthorizerSpec.scala), including persistence before execution and duplicate-ID parallel rewrites. Existing model construction/codec contracts are unchanged.
 

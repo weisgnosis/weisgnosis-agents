@@ -115,14 +115,16 @@ object LiveProviderProfiles extends ZIOAppDefault:
       config: LlmConfig,
       toolkit: Toolkit = Toolkit.empty
   ): IO[AgentError, ReActAgent] =
-    ReActAgent
-      .builder()
-      .client(client)
-      .llmConfig(config.copy(maxTokens = Some(1024)))
-      .toolkit(toolkit)
-      .maxIterations(3)
-      .timeout(1.minute)
-      .build
+    LiveProviderSmoke.runTimeout.flatMap(timeout =>
+      ReActAgent
+        .builder()
+        .client(client)
+        .llmConfig(config.copy(maxTokens = config.maxTokens.orElse(Some(1024))))
+        .toolkit(toolkit)
+        .maxIterations(3)
+        .timeout(timeout)
+        .build
+    )
 
   private def structured(
       client: LlmClient,

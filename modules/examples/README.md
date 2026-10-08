@@ -2,13 +2,17 @@
 
 This nonpublished SBT project compiles against core, harness, and MCP. It demonstrates existing library APIs rather than adding a supported facade. Start with the complete applications in [Getting started](../../docs/getting-started.md). Use JDK 21 and the repository-pinned sbt version, and run the commands below from the repository root.
 
-`LiveFileTask`, `LiveProviderSmoke` and `LiveProviderProfiles` are runnable applications. HostAssembly, AuditedLlmClient and LifecycleLogging are composition examples used by a host application; they have no standalone `runMain` entrypoint.
+`LiveFileTask`, `LiveProviderSmoke`, `LiveProviderProfiles` and `MsgHubConversation` are runnable applications. HostAssembly, AuditedLlmClient and LifecycleLogging are composition examples used by a host application; they have no standalone `runMain` entrypoint.
+
+## Persistent-agent conversation
+
+[MsgHubConversation](src/main/scala/com/weisgnosis/agents/examples/MsgHubConversation.scala) is an offline application using two persistent agents and scoped MsgHub subscriptions. It makes no network requests. Run `sbt "examples / runMain com.weisgnosis.agents.examples.MsgHubConversation"`; its expected output is `Bob: Alice recommends typed outcomes and scoped resources.` The offline application compiled and produced this output on 2026-10-09; live collaboration is a separate check. See [membership, delivery and ownership](../core/src/main/scala/com/weisgnosis/agents/core/coordination/README.md).
 
 ## Model-driven file task
 
 [LiveFileTask](src/main/scala/com/weisgnosis/agents/examples/LiveFileTask.scala) demonstrates a useful model → host file tool → model flow with one disposable recipe file. It supplies only `fixture_write(text)` and `fixture_read()`: the model cannot choose paths, run commands or access other files. The host requires exact recipe bytes, one successful write and read in separate tool turns, an authoritative Completed result and joined fixture removal. The final model's verbal confirmation alone cannot satisfy verification.
 
-Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveFileTask"` using the existing `WEISGNOSIS_LIVE_SMOKE=enabled`, `WEISGNOSIS_LIVE_ENDPOINT`, `WEISGNOSIS_LIVE_MODEL` and optional `WEISGNOSIS_LIVE_API_KEY` configuration described below. Model and endpoint are explicit host choices; no default identifier or ambient credential is selected. Enabled execution makes external requests and may incur charges. Limits remain three model iterations, 1,024 output tokens per request, a one-minute run deadline and one-MiB provider responses. File input is fixed and bounded; this is not a general filesystem toolkit or hostile-filesystem sandbox.
+Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveFileTask"` using the existing `WEISGNOSIS_LIVE_SMOKE=enabled`, `WEISGNOSIS_LIVE_ENDPOINT`, `WEISGNOSIS_LIVE_MODEL` and optional `WEISGNOSIS_LIVE_API_KEY` configuration described below. Model and endpoint are explicit host choices; no default identifier or ambient credential is selected. Enabled execution makes external requests and may incur charges. Limits remain three model iterations, 4,096 output tokens per request by default and a five-minute run deadline and one-MiB provider responses. File input is fixed and bounded; this is not a general filesystem toolkit or hostile-filesystem sandbox.
 
 The directory is acquired into an owned scope, native file operations are suspended and joined, and cleanup errors remain typed failures rather than successful verification. Cleanup may extend beyond the model deadline. [LiveFileTaskSpec](src/test/scala/com/weisgnosis/agents/examples/LiveFileTaskSpec.scala) drives the actual ReAct/file path offline and checks the next model request's read observation, exact bytes, cancellation cleanup and typed failure. Offline tests send no provider requests. The actual selected-endpoint run on 2026-10-08 completed with one write, one read, exact expected file bytes and removed owned fixture, using qwen3.8-27b selected from the authenticated model catalog. This is bounded evidence for that run, not all providers, models or filesystem environments.
 
@@ -63,8 +67,8 @@ then releases it and verifies interruption, one Error observation, complete call
 one recovery message. It rejects hidden typed failures or defects. This verifies a live model-to-tool
 chain and local resource cleanup; it does not prove cancellation during an active HTTP response.
 
-Each profile has a one-minute agent deadline, at most three model iterations, 1,024 output tokens per
-request and one-MiB HTTP responses. The three-profile application has no single one-minute deadline;
+Each profile uses the shared live run/token budgets below, at most three model iterations and
+one-MiB HTTP responses. The three-profile application has no single aggregate deadline;
 joined cleanup can extend the elapsed time. Credentials/model selection remain process-local host
 inputs. [Offline tests](src/test/scala/com/weisgnosis/agents/examples/LiveProviderProfilesSpec.scala)
 exercise actual ReAct execution and reject native failure, wrong values, extra object fields and a
@@ -78,6 +82,45 @@ qwen3.8-27b, and Native with catalog-selected lfm2.5-1.2b-instruct-mlx. Each emi
 success message after its checks. This is evidence for those selected runs, not All on one model,
 universal JSON Schema conformance or HTTP-response cancellation.
 
+## Catalog-driven multi-model verification
+
+`LiveMultiModel` reuses the enabled live environment and adds `WEISGNOSIS_LIVE_PEER_MODEL` for a distinct second chat model. Fetch the authenticated `/api/v1/models` catalog before choosing both identifiers; the application validates them against current chat capability, endpoint and status, and checks `/healthz`. It accepts loaded and cold-startable models, rejects malformed/duplicate catalog entries, and bounds each discovery GET to at most two safe attempts. Credentials remain process-local. Run:
+
+```text
+sbt "examples / runMain com.weisgnosis.agents.examples.LiveMultiModel"
+```
+
+The runner uses the token/deadline budgets below and schedules scenarios sequentially. It never automatically retries an admitted model turn or tool. Each scenario immediately prints a JSON result: Passed, Failed, Unsupported, Unavailable or NotRun. Require the individual assertions and receipts; process exit alone is not acceptance. Missing peer selection leaves mixed-model/independent-child scenarios NotRun. Cancellation and defects propagate instead of becoming successful reports.
+
+The current actual run on 2026-10-09 selected loaded `qwen3.8-27b` and catalog instruction model `lfm2.5-1.2b-instruct-mlx`, with 4,096 output tokens, a 180-second per-agent budget and one-MiB profile responses. Eleven of fourteen scenarios passed:
+
+| Profile | qwen3.8-27b | lfm2.5-1.2b-instruct-mlx |
+| --- | --- | --- |
+| Streamed text plus one local-tool continuation | Passed | Failed |
+| Exact disposable-file write/read effects and cleanup | Passed | Failed |
+| Native structured `{"value":7}` | Failed | Passed |
+| Synthetic structured `{"value":7}` | Passed | Passed |
+| Joined local-tool cancellation and recovery | Passed | Passed |
+
+| Collaboration/failure scenario | Actual selection | Result |
+| --- | --- | --- |
+| Three turns through one persistent same-model MsgHub | Qwen/Qwen | Passed |
+| Three turns through persistent mixed-model MsgHub | Qwen/LFM | Passed |
+| Factory-owned parent/tool/child/parent chain | Qwen parent, LFM child | Passed |
+| Definite first-target rejection and explicit ModelTarget fallback | Owned loopback HTTP 503, then Qwen | Passed |
+
+The hub checks exact sender attribution, private canonical histories, delivery receipts and authoritative completion. The child scenario checks one actual dispatch and its exact observation; failover checks one rejected request and no tool replay. Failed profile cells remain failures, not unsupported declarations or successful runs. This matrix does not diagnose their model-level cause or certify every gateway model/native dialect. The paired offline suite exercises the same helpers and deterministic failure/cancellation controls without credentials.
+
 ## Verification and acceptance
 
 From the repository root, run `sbt "examples / test"` for offline example contracts and `sbt "examples / compile"` to compile the applications. Run `sbt verify` for repository formatting checks, fatal-warning compilation, and tests. These commands make no live-provider requests. Actual PostgreSQL verification and native alias fixtures have separate [verification prerequisites](../../verification/README.md); skipped fixture scenarios are not backend or platform verification. These examples are not published library artifacts. [Packaged consumer and candidate preparation](../../verification/README.md#packaged-external-consumer) are separate from running an example and do not sign or publish a release. Remaining library and host integration work is tracked in the [repository tracker](../../docs/architecture/tracker.md).
+
+## Live execution budgets
+
+The shared live configuration accepts `WEISGNOSIS_LIVE_MAX_TOKENS` (64–32,768; default 4,096) and `WEISGNOSIS_LIVE_TIMEOUT_SECONDS` (10–1,800; default 300). Invalid values fail before the selected run. Cleanup is joined and may extend beyond the run deadline. Structured/cancellation profiles preserve an explicitly supplied `LlmConfig.maxTokens`; they no longer replace the host's reasoning allowance with 1,024 tokens. Ordinary offline profile callers without a token limit retain the bounded 1,024 fallback. These limits do not guarantee that a particular model follows the requested mechanism.
+
+## Native hosted-provider checks
+
+`NativeProviderSmoke` is disabled unless `WEISGNOSIS_NATIVE_PROVIDER=anthropic` or `gemini` is selected. It also requires the shared `WEISGNOSIS_LIVE_SMOKE=enabled`, explicit native `WEISGNOSIS_LIVE_ENDPOINT`, `WEISGNOSIS_LIVE_MODEL` and process-local `WEISGNOSIS_LIVE_API_KEY`. Anthropic uses the full Messages endpoint; Gemini uses the full selected-model streamGenerateContent endpoint. Run `sbt "examples / runMain com.weisgnosis.agents.examples.NativeProviderSmoke"`.
+
+The selected check explicitly requests provider-hosted search or Python execution and requires authoritative Completed state, an inline successful outcome and no local Tool messages. These requests can incur provider charges. No native credentials or real native-provider run are claimed here; compiled source and loopback suites are separate evidence. See [native contracts and limitations](../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#native-provider-selection).

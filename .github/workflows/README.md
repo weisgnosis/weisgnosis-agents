@@ -1,6 +1,6 @@
 # Continuous integration
 
-[ci.yml](ci.yml) provisions JDK 21 and sbt, then runs `sbt verify packageArtifacts` on pushes and pull requests. Verification checks formatting, fatal-warning compilation and tests; packaging creates four library binary/source JARs and POMs.
+[ci.yml](ci.yml) provisions JDK 21 and sbt, then runs `sbt verify packageArtifacts` on pushes and pull requests. Verification checks formatting, fatal-warning compilation and tests; packaging creates binary/source JARs and POMs for five selected library modules.
 
 A PostgreSQL 16 service enables actual storage integration scenarios through WEISGNOSIS_POSTGRES_URL/USER/PASSWORD. Missing local configuration skips those scenarios; it does not verify PostgreSQL.
 
@@ -8,4 +8,4 @@ The [artifact consumer checks](../../verification/artifact-consumer/README.md) i
 
 The manual [candidate.yml](candidate.yml) accepts a checked RC version, verifies and packages with the database fixture, validates source admission and runs an isolated consumer against the selected artifacts. Successful steps upload unsigned versioned artifacts with source commit metadata. It does not tag, sign or publish them.
 
-Local successful checks do not prove successful remote workflow execution. No public publication is claimed. The [completion checklist](../../docs/architecture/tracker.md#remaining-library-completion-work) retains remote CI/distribution readiness, and the [build contract](../../project/README.md#local-artifact-packaging) explains packaging boundaries. CI does not contact a public model provider; live smoke is separately enabled.
+Local successful checks do not prove successful remote workflow execution. No public publication is claimed. The [completion checklist](../../docs/architecture/tracker.md#remaining-library-completion-work) tracks library behavior and local artifact integrity; remote CI and publication are not library completion gates, and the [build contract](../../project/README.md#local-artifact-packaging) explains packaging boundaries. CI does not contact a public model provider; live smoke is separately enabled.

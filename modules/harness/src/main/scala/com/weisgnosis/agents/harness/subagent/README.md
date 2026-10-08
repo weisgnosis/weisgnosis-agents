@@ -52,7 +52,7 @@ LocalSubagentTaskWorkspace explicitly binds agents/<agent>/tasks/<session>.json 
 
 Limits.default permits 2,048 inspected entries (including ignored lease/temp names), 256 selected files, 16 MiB of actual envelope bytes and 4,096 decoded records per batch. Each envelope is additionally bounded by Limits.file (2 MiB by default); the existing terminal store retains its own default 256-record/1-MiB per-session limit. Overflow fails rather than truncating. Neither records nor file modification times establish executor liveness, ownership or a global atomic snapshot.
 
-- [x] Implement the shared strict read-only JSON reader, bounded workspace discovery and reproduced shared-lease interruption-provenance correction.
+- Supported: the shared strict read-only JSON reader, bounded workspace discovery and reproduced shared-lease interruption-provenance correction.
 
 Source and paired tests: [LocalVersionedJsonStore.scala](../storage/LocalVersionedJsonStore.scala), [WorkspaceLease.scala](../storage/WorkspaceLease.scala), [LocalSubagentTaskWorkspace.scala](LocalSubagentTaskWorkspace.scala), [LocalVersionedJsonStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/LocalVersionedJsonStoreSpec.scala), [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala), [LocalSubagentTaskWorkspaceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/LocalSubagentTaskWorkspaceSpec.scala).
 
@@ -104,7 +104,7 @@ Pending or failed callbacks prevent forgetting with SubagentTaskRemoval.Unnotifi
 
 Callbacks may inspect persisted records without holding admission locks. The callback context, including inherited child fibers, rejects notification receipt/flush self-waits. Callbacks must not close their captured registry, supervisor or borrowed owner scope, await their own execution, or create cross-owner callback cycles. Hosts bound callback/backend runtime and join any children whose successful work matters; the callback Scope joins owned cleanup before recording completion.
 
-- [x] Implement captured per-submission notification and suppression in the same registry, including public borrowed binding propagation.
+- Supported: captured per-submission notification and suppression in the same registry, including public borrowed binding propagation.
 
 This is additive capability work; no absent baseline callback port was misrepresented as a reproduced production defect.
 
@@ -120,7 +120,7 @@ The current-owner path captures the actual local entry and confirmed admission i
 
 Pinned WorkspaceTaskRepositoryTest.cancelTask_writesCancelRequestedToWorkspace (263) asserts premature CANCELLED before worker cleanup. The Scala adaptation retains intent-before-signal and records the truthful final observation only after joined cleanup. The [completion notification contract](#completion-notifications) now supplies current-owner callbacks and suppression. Remote-owner signaling, durable wakeup replay and restoration of executing children remain separate original obligations.
 
-- [x] Implement and verify strict schema migration, identity-bound requests, start refusal and joined current-owner cancellation.
+- Current-owner cancellation uses strict schema migration, identity-bound requests, start refusal and joined cleanup.
 
 The built-in store writes strict schema 8 with explicit execution origin and remote approval state; the [current migration](#persisted-execution-origin) preserves the cancellation contract. Dedicated legacy codecs validate original schemas 1-5 before normalizing absent cancellation intent to NotRequested, without writes or new dates. A first request samples one clock value and retains it across confirmed CAS conflicts. Uncertain receipts are not retried. Intent growth remains subject to the existing aggregate byte limit; no acknowledgement or consumption receipt is created by a request.
 
@@ -198,7 +198,7 @@ The correction preserves owner/context/ordinal checks and recognizes only the ad
 
 Source and paired tests: [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala), [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala), [SubagentTools.scala](SubagentTools.scala), [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala), [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala).
 
-- [x] Correct the fixture oracle without changing production policy: 300,000 newlines fit the encoded receipt and validly acknowledge; 400,000 exceed it. Both assert actual stored aggregate bytes fit and actual receipt-body UTF-8 bytes lie on the expected side of 1 MiB. Ordinary retrieval independently proves full readable data.
+- Correct the fixture oracle without changing production policy: 300,000 newlines fit the encoded receipt and validly acknowledge; 400,000 exceed it. Both assert actual stored aggregate bytes fit and actual receipt-body UTF-8 bytes lie on the expected side of 1 MiB. Ordinary retrieval independently proves full readable data.
 
 ## Full task output retrieval
 
@@ -290,7 +290,7 @@ The receipt is removed before one interruptible sequential acknowledgement pass 
 
 Attached inspection/wait, all four hooks and close share one permit through prior scoped cleanup and acknowledgement. The barrier budget starts after this permit is acquired, not while queued behind another adapter operation. For the scoped open factory, close first signals and joins its owned wait session, then joins adapter operations. The barrier-only make factory retains its existing close behavior. Neither closes the borrowed inbox; spawn/cancel remain registry-owned and outside the permit. Callbacks must not reenter the adapter or await its parent run lock. Keep the adapter scope alive through configured invocations.
 
-Migration: ordinary registry/session toolkits now include wait_async_results; update exact tool allowlists and resolve explicit toolkit name collisions. No new dependency or core runtime signature is introduced by this increment. [Routed consumption](#routed-task-result-consumption) and [current-owner cancellation](#durable-cancellation-intent) have their own reviewed contracts. Remote running-owner recovery/fencing and restoration of executing children remain open. The separate worker-identity scope records its final acceptance. The current acceptance checklist governs scoped inbox/session changes.
+Migration: ordinary registry/session toolkits now include wait_async_results; update exact tool allowlists and resolve explicit toolkit name collisions. No new dependency or core runtime signature is introduced by this increment. [Routed consumption](#routed-task-result-consumption) and [current-owner cancellation](#durable-cancellation-intent) have their own reviewed contracts. Remote running-owner recovery/fencing and restoration of executing children remain open. Worker identity remains explicit host metadata; scoped inbox/session ownership follows the contract below.
 
 ### Current acceptance
 
@@ -302,7 +302,7 @@ The wait helper owns and joins the worker separately and preserves the winning w
 
 SubagentInboxSpec contributes one grouped arrival/drain/rearm/close contract; SubagentWaitSessionSpec contributes four grouped budget, admission/truth/lifecycle, publication/arrival-race and cleanup-cause contracts. Existing BarrierSpec consumption scenarios additionally exercise scoped selected waits and InboxArrived without acknowledgement. The actual PostgreSQL Inspection/Wait table now uses the scoped middleware for its Wait row and retains ordered Failed/Completed results, post-persistence acknowledgement, original Unicode payloads and immutable first stamps. No new PostgreSQL group is added. Ordinary barriers and scoped sessions now share one private owned-worker/cause policy; progress bookkeeping remains separate. Known publication-failure propagation is source-inspected for status-only readiness; existing barrier failure coverage is not claimed as a separate legacy-readiness regression. One shared private collector captures the first original waiter failure before parallel sibling cancellation. It preserves every aggregated failure/defect and its provenance, retaining interruption leaves belonging to that original cause; a missing witness preserves the full aggregate. The existing table exercises typed failure, self-interruption and foreign interruption only after the other waiter enters actual waiting. Toolkit cancellation semantics remain unchanged.
 
-- [x] Implement scoped arrival signals, explicit session tools and shared empty-timeout policy.
+- Supported: scoped arrival signals, explicit session tools and shared empty-timeout policy.
 
 ## Automatic reasoning reminders
 
@@ -320,9 +320,9 @@ History and Acceptance both observed earlyClose=Some(Success(())) while cleanup 
 
 Source and paired tests: [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala), [SubagentTools.scala](SubagentTools.scala), [SubagentDeliveryMiddlewareSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala), [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala).
 
-- [x] Implement bounded captured reminders, exact winning-input consumption and scoped configured-hook ownership; current four-hook integration belongs to the bound inspection scope above.
-- [x] Implement explicitly bound task inspection consumption under its separate source-reviewed scope above.
-- [ ] Complete the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations), remote-owner cancellation/recovery, remote wakeup ownership and restoration of executing children separately. Current-owner intent follows its [own contract](#durable-cancellation-intent).
+- Supported: bounded captured reminders, exact winning-input consumption and scoped configured-hook ownership; current four-hook integration belongs to the bound inspection scope above.
+- Supported: explicitly bound task inspection consumption under its separate source-reviewed scope above.
+Stored views, local consumption and current-owner notifications follow their contracts above. Durable remote wakeups and restoration of executing children require separate host execution/delivery ownership; a persisted task record supplies neither.
 
 ## Explicit terminal batch delivery
 
@@ -336,10 +336,9 @@ Snapshots are not exclusive claims. Concurrent calls may deliver the same batch;
 
 Source and paired tests: [SubagentTerminalDelivery.scala](SubagentTerminalDelivery.scala), [SubagentTerminalDeliverySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalDeliverySpec.scala), [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala).
 
-- [x] Implement explicit bounded success-only delivery and paired contracts for selected IDs, duplicate rejection, missing/uncertain receipts and callback cleanup.
-- [x] Correct draft fixture cancellation gaps by masking fork/unblock registration together; these were test lifecycle findings, not accepted baseline production defects.
-- [x] Implement the separately configured [reasoning reminder adapter](#automatic-reasoning-reminders); it preserves the helper's explicit host contract.
-- [ ] Complete the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and durable remote wakeup delivery separately; local inspection/wait consumption and [current-owner notifications](#completion-notifications) have their reviewed scopes above.
+- Supported: explicit bounded success-only delivery and paired contracts for selected IDs, duplicate rejection, missing/uncertain receipts and callback cleanup.
+- Correct draft fixture cancellation gaps by masking fork/unblock registration together; these were test lifecycle findings, not accepted baseline production defects.
+- Supported: the separately configured [reasoning reminder adapter](#automatic-reasoning-reminders); it preserves the helper's explicit host contract.
 
 ## Durable terminal acknowledgement
 
@@ -355,8 +354,7 @@ Pending delivery order is ascending observed lastUpdatedAt for dated terminal re
 
 Source and paired tests: [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala), [SubagentTerminalStore.scala](SubagentTerminalStore.scala), [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala), [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala), [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala).
 
-- [x] Implement bounded schema migration, first-stamp acknowledgement and observation-based registry APIs with paired contracts.
-- [ ] Complete durable remote wakeup ordering, the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and remote notification ownership; local reminder/inspection/wait and [current-owner completion callbacks](#completion-notifications) have separate reviewed scopes above.
+- Supported: bounded schema migration, first-stamp acknowledgement and observation-based registry APIs with paired contracts.
 
 ## Registry terminal publication
 
@@ -376,9 +374,9 @@ Earlier compilation failures were draft fixture/type errors, not baseline behavi
 
 Source and paired tests: [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala), [SubagentTaskObservation.scala](SubagentTaskObservation.scala), [SubagentTools.scala](SubagentTools.scala), [SubagentTaskListTool.scala](SubagentTaskListTool.scala), [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala), [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala), [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala).
 
-- [x] Implement the bounded opt-in publication owner and model-facing terminal views.
-- [x] Implement persisted execution-origin exclusion687 through the [current origin contract](#persisted-execution-origin). Current-owner refresh, cancellation and completion notifications retain their separately linked contracts.
-- [ ] Complete library named-session restoration and retained task-file routing under the [finite completion checklist](../../../../../../../../../../docs/architecture/tracker.md#remaining-library-completion-work). Remote execution endpoints, owner signaling, durable wakeup delivery and distributed claims are separate host capabilities.
+- Supported: the bounded opt-in publication owner and model-facing terminal views.
+- Supported: persisted execution-origin exclusion687 through the [current origin contract](#persisted-execution-origin). Current-owner refresh, cancellation and completion notifications retain their separately linked contracts.
+[Persistent named sessions](#persistent-named-sessions) restore idle/suspended state, and [shared task files](#shared-task-files) provide isolated task-file byte routing. Remote endpoint transport, authenticated owner signaling, durable wakeup delivery and distributed claims remain host capabilities.
 
 ## Durable terminal observations
 
@@ -396,9 +394,8 @@ This implements only a terminal persistence subset of pinned WorkspaceTaskReposi
 
 Source and paired tests: [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala), [SubagentTerminalStore.scala](SubagentTerminalStore.scala), [SubagentTerminalOutcomeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalOutcomeSpec.scala), [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala), [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala).
 
-- [x] Implement bounded caller-owned terminal storage, paired contracts and real PostgreSQL integration.
-- [x] Implement persisted execution-origin exclusion687 through the [current origin contract](#persisted-execution-origin). Current-owner refresh, cancellation and completion notifications retain their separately linked contracts.
-- [ ] Complete library named-session restoration and retained task-file routing under the [finite completion checklist](../../../../../../../../../../docs/architecture/tracker.md#remaining-library-completion-work). Remote execution endpoints, owner signaling, durable wakeup delivery and distributed claims are separate host capabilities.
+- Supported: bounded caller-owned terminal storage, paired contracts and real PostgreSQL integration.
+- Supported: persisted execution-origin exclusion687 through the [current origin contract](#persisted-execution-origin). Current-owner refresh, cancellation and completion notifications retain their separately linked contracts.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity).
 
@@ -416,7 +413,7 @@ The paired [task-list specification](../../../../../../../test/scala/com/weisgno
 
 Source and paired tests: [SubagentTaskListTool.scala](SubagentTaskListTool.scala), [SubagentTaskListToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskListToolSpec.scala).
 
-- [x] Implement the bounded selected-registry adapter and paired contract tests.
+- Supported: the bounded selected-registry adapter and paired contract tests.
 
 ## Ownership, cancellation and promotion
 
@@ -506,8 +503,8 @@ Discovery is nonrecursive. Exact lowercase `.md` entries are sorted by filename;
 
 Traversal components are rejected before canonicalization. Both lexical and canonical paths are screened for sensitive locations; the root must be a non-symlink directory, and selected entries must be non-symlink regular files directly inside its canonical directory. Host-controlled ancestors are required throughout the operation. These checks are advisory, not an atomic sandbox against replacement races. Directory and input streams have scoped release; each blocking operation is masked until it finishes, so cancellation waits for that operation and cleanup without a deadline. No hostile/network-filesystem responsiveness or snapshot consistency is promised.
 
-- [x] Three grouped tests establish suspended sorted discovery and exact parsed values; trust/path/nonregular rejection and whole-batch recovery; scan/count/byte/parser bounds, strict UTF-8 and resource release.
-- [ ] Add runtime symlink and held-I/O cancellation integration coverage. Symlink preflight was rejected by automatic execution policy, not demonstrated to be unsupported by the OS; no runtime symlink test or reproduced-defect claim is made.
+- Three grouped tests establish suspended sorted discovery and exact parsed values; trust/path/nonregular rejection and whole-batch recovery; scan/count/byte/parser bounds, strict UTF-8 and resource release.
+This declaration-loader suite does not exercise native symlink creation or held native-I/O cancellation. Path validation is not an atomic filesystem sandbox; the separate native-path checks establish only their documented cases.
 
 Source and paired tests: [LocalSubagentDeclarations.scala](LocalSubagentDeclarations.scala), [LocalSubagentDeclarationsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/LocalSubagentDeclarationsSpec.scala).
 
@@ -545,7 +542,7 @@ The pinned PlanModeSubagentPropagationTest has exactly two methods: declaredSuba
 
 Source and paired tests: [SubagentConstruction.scala](SubagentConstruction.scala), [SubagentPlanInstallationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentPlanInstallationSpec.scala).
 
-- [x] Reconcile the two pinned methods with source installation and existing actual-child assertions; unchanged implementation acceptance remains scoped above.
+- Reconcile the two pinned methods with source installation and existing actual-child assertions; unchanged implementation acceptance remains scoped above.
 
 ### Child skill snapshots
 
@@ -583,7 +580,7 @@ Migration: `resume` is additive; existing send, registry and model-facing tool s
 
 Source and paired tests: [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala), [SubagentFactory.scala](SubagentFactory.scala), [SubagentSession.scala](SubagentSession.scala), [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala), [SubagentSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionSpec.scala).
 
-- [x] Independently review [host checkpoint import](#host-checkpoint-import) into a new child resource; its verification gate is recorded below.
+- Supported: [host checkpoint import](#host-checkpoint-import) into a new child resource; its ownership contract is described below.
 
 ## Host checkpoint import
 
@@ -707,10 +704,10 @@ One owned initializer acquires the entire catalog; any partial failure, defect, 
 
 Close the returned resource to close the aggregate, or end its acquiring caller/supervisor scope. Session workers and finalizers must not remove themselves or await their own catalog/resource closure. Model-facing named routing is an opt-in adapter below. This fixed catalog adds no dynamic arbitrary labels or automatic policy installation through raw factories; [persistent named sessions](#persistent-named-sessions) separately supplies stable reuse keys and idle/suspended restoration. Public SubagentSession.open and SubagentSessionDirectory.open retain their existing caller-lease and closure behavior.
 
-- [x] Three catalog groups verify validation before acquisition, stable names/history and isolated sessions with unchanged depth; partial compound-failure/caller/owner rollback; and concurrent removal/aggregate closure with exact cleanup causes. One additional TaskResourceSpec group verifies retention past a short caller scope, later use, single physical cleanup, exact repeated cause replay and closed admission.
-- [x] Named session tools are independently reviewed below.
-- [x] Supply stable parent/agent/label keys and idle/suspended restoration through [persistent named sessions](#persistent-named-sessions), using fresh trusted construction and current authority.
-- [ ] Define dynamic arbitrary labels, recovery of executing children and post-promotion event delivery separately; terminal outcomes have the completion inbox above.
+- Three catalog groups verify validation before acquisition, stable names/history and isolated sessions with unchanged depth; partial compound-failure/caller/owner rollback; and concurrent removal/aggregate closure with exact cleanup causes. One additional TaskResourceSpec group verifies retention past a short caller scope, later use, single physical cleanup, exact repeated cause replay and closed admission.
+- Named session tools are independently reviewed below.
+- Supply stable parent/agent/label keys and idle/suspended restoration through [persistent named sessions](#persistent-named-sessions), using fresh trusted construction and current authority.
+This fixed catalog does not create arbitrary labels or restore executing children. Post-promotion event delivery requires a live explicit destination; terminal observations use the completion inbox above.
 
 Source and paired tests: [SubagentSessionCatalog.scala](SubagentSessionCatalog.scala), [SubagentSessionCatalogSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentSessionCatalogSpec.scala).
 
@@ -734,26 +731,26 @@ Source and paired tests: [SubagentCatalog.scala](SubagentCatalog.scala), [Subage
 
 Inheritance through arbitrary raw host callbacks, model-selected session construction, external parent permission gates, durable historical policy accumulation and automatic event delivery after promotion remain outside this accepted scope. The host-resume tests cover ordinary-send rejection while suspended.
 
-- [x] Verify scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
-- [x] Verify runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
-- [x] Verify and independently approve live parent-denial inheritance without approval-authority copying at the recorded identities.
-- [x] Verify and independently approve strict model-facing spawn, inspection and cancellation through the retained registry/factory.
-- [x] Verify the host-installed inherited plan gate through configured-child execution without copying review authority.
-- [x] Verify and independently approve shared resource ownership, failure/cancellation cleanup and competing closure.
-- [x] Verify and independently approve host-held reusable child sessions with retained resources, history and current installed policy.
-- [x] Verify and independently approve model-facing send, inspection and cancellation bound to one trusted session.
-- [x] Verify and independently approve bounded host session membership, aliases, rejection ownership and joined removal/shutdown.
-- [x] Verify and independently approve strict model-facing routing among host-registered sessions with scoped task controls.
-- [x] Verify and independently approve policy-aware child construction with automatic descendant restrictions through derived factories and live reused-session admission.
-- [x] Implement inline declarations and the general-purpose preset while retaining construction capability and child approval authority.
-- [x] Implement and independently approve named host factory routing with bounded per-entry registries and parallel joined closure.
-- [x] Parse bounded inline Markdown/YAML declarations into the validated model; see [parser acceptance](#inline-declaration-parsing).
-- [x] Load bounded local declaration data without acquiring execution capabilities; see [loader acceptance](#local-declaration-loading).
-- [x] Install and independently approve finite named reusable sessions with a sole automatic supervisor owner; see [session catalog acceptance](#named-session-catalog).
-- [ ] Complete broader host installation.
-- [x] Implement and independently approve scoped correlated child forwarding through all existing spawn/send routes.
-- [ ] Complete optional remote/durable task routing and independently observed cancellation-tail delivery.
+- Coverage includes scoped admission, cancellation leases, full-Exit observation, same-execution promotion and parallel shutdown with sequential worker cleanup.
+- Coverage includes runtime-owned depth <=3, suspended identity/callback effects and actual nested ReAct reconciliation.
+- Coverage includes live parent-denial inheritance without copying approval authority or inheriting approval tickets.
+- Coverage includes strict model-facing spawn, inspection and cancellation through the retained registry/factory.
+- Coverage includes the host-installed inherited plan gate through configured-child execution without copying review authority.
+- Coverage includes shared resource ownership, failure/cancellation cleanup and competing closure.
+- Coverage includes host-held reusable child sessions with retained resources, history and current installed policy.
+- Coverage includes model-facing send, inspection and cancellation bound to one trusted session.
+- Coverage includes bounded host session membership, aliases, rejection ownership and joined removal/shutdown.
+- Coverage includes strict model-facing routing among host-registered sessions with scoped task controls.
+- Coverage includes policy-aware child construction with automatic descendant restrictions through derived factories and live reused-session admission.
+- Supported: inline declarations and the general-purpose preset while retaining construction capability and child approval authority.
+- Supported: named host factory routing with bounded per-entry registries and parallel joined closure.
+- Parse bounded inline Markdown/YAML declarations into the validated model; see [parser acceptance](#inline-declaration-parsing).
+- Load bounded local declaration data without acquiring execution capabilities; see [loader acceptance](#local-declaration-loading).
+- Supported: finite named reusable sessions with a sole automatic supervisor owner; see [session catalog acceptance](#named-session-catalog).
+The host explicitly installs the selected factory/toolkit and retains its borrowed dependencies; no ambient application installation is performed.
+- Supported: scoped correlated child forwarding through all existing spawn/send routes.
+Remote observation requires the explicitly bound trusted transport; stored records alone do not restore execution. Event delivery after an abandoned consumer lease is not guaranteed.
 
-The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) classifies selected Java context reference identity, external completed-future adoption, deterministic-key and Reactor-context API differences against current explicit capabilities; final documentation review passed. Remote-owner and running-execution restoration and post-lease/remote event delivery remain unfinished. Pure hashing is possible, but the Java exact key protocol is not the selected local identity contract.
+The [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) classifies selected Java context reference identity, external completed-future adoption, deterministic-key and Reactor-context API differences against current explicit capabilities. Remote execution requires explicit trusted host transport; stored state does not restore executing children or guarantee post-lease event delivery. Pure hashing is possible, but the Java exact key protocol is not the selected local identity contract.
 
 See the [repository tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) for immediate next work. No exhaustive upstream parity is claimed.

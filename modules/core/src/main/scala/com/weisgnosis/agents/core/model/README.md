@@ -29,7 +29,9 @@ Migration is a source/JVM change: callers must handle typed failure instead of a
 
 Msg.chatUsage prefers the direct usage field, then decodes legacy `_chat_usage` metadata without mutation. Invalid legacy metadata yields None. Supplied malformed canonical optional fields fail decoding; missing or JSON-null fields retain their documented absence/default behavior. ToolResult rejects malformed state/name/metadata rather than silently defaulting a supplied invalid state to Success. Thinking rejects malformed supplied text/metadata.
 
-Base64 sources encode `media_type`, accept legacy `mediaType`, and reject ambiguous input containing both. This changes the previous camel-case encoder output; consumers should accept the canonical field. User messages accept text, data, image, audio, and video; system messages accept text only. Typed factories enforce these restrictions, and dynamic construction/updates and JSON decoding validate them. Msg has no unchecked public constructor, apply, copy, or Product reconstruction.
+Base64 sources encode `media_type`, accept legacy `mediaType`, and reject ambiguous input containing both. This changes the previous camel-case encoder output; consumers should accept the canonical field. User messages accept text, data, image, audio, video and inert peer observations; system messages accept text only. Typed factories enforce these restrictions, and dynamic construction/updates and JSON decoding validate them. Msg has no unchecked public constructor, apply, copy, or Product reconstruction.
+
+`PeerObservation(senderId, senderName, message)` retains another runtime's exact message as nested data, never as local Assistant/Tool authority. Its `peer_observation` wire discriminator extends the Scala content algebra; older consumers must be upgraded before reading it. Sender fields are attribution, not authentication. See [passive peer context](../agent/README.md#passive-peer-context) for checked admission and request-only projection. Java DTOs intentionally do not support this Scala extension.
 
 Metadata objects decode directly to immutable maps, preserving numeric AST leaves. Missing/null, malformed nonobject and duplicate-key behavior are unchanged. Use [ExactJson.encode](../json/README.md#exact-domain-and-tool-output) when serializing these domain values at an owned host boundary; derived .toJson output is not globally replaced.
 
@@ -70,8 +72,8 @@ MediaSource.Url and Base64 share the same tagged encoding through concrete and b
 ## Current acceptance and remaining work
 
 - All 119 pinned upstream message methods have local evidence or explicitly reviewed Pure FP adaptations in the [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md). This is method coverage with stated differences, not Java API/wire equivalence.
-- Integrate runtime phase suspension and checkpoint authorization under the [agent contracts](../agent/README.md); metadata classification alone grants no authority. Host authentication, durable storage and idempotency remain separate.
-- [ ] Complete broader core/event/harness parity and host integration tracked outside the message-method slice.
+- Supported integration: runtime phase suspension and checkpoint authorization under the [agent contracts](../agent/README.md); metadata classification alone grants no authority. Host authentication, durable storage and idempotency remain separate.
+The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist; the parity reference records bounded mappings and intentional API adaptations.
 
 ## Strict structured JSON
 
@@ -80,7 +82,7 @@ Msg.getStructuredData and structured agent preparation share core.json.JsonBound
 This tightens previously permissive parsing; trailing input and ambiguous fields now fail through existing typed/string error channels. It does not add JSON Schema validation. Failed structured preparation publishes no AgentResult or structured metadata; raw observations can remain in history. The shared validator performs no effects and does not depend on models, agents, or transports.
 
 - Six boundary regressions cover full text, duplicate text/metadata/captures/wrappers, metadata authority, and valid wrapped/direct values. Five real loopback HTTP tests cover native schema/thinking/usage, synthetic definition hoisting and compression, HTTP-400 fallback without duplicate input, no retry on HTTP 503, and rejection of trailing native JSON.
-- [ ] Complete hook parity and broader provider compatibility; general JSON Schema validation is outside this acceptance.
+Structured-response parsing checks complete, unambiguous JSON; it does not evaluate arbitrary JSON Schema. Tool argument schema admission is a separate runtime boundary. Provider compatibility is limited to the explicitly selected profiles.
 
 ## Runtime occurrence updates
 

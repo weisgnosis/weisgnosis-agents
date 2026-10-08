@@ -16,7 +16,7 @@ Existing hardening regressions retain occurrence pairing, inline/local isolation
 
 ## Current review acceptance
 
-- [x] Transcript and memory scheduling implementations have their paired suites under the [transcript contracts](../transcript/README.md) and memory lifecycle sections below; this does not establish durable host scheduling.
+- Transcript and memory scheduling implementations have their paired suites under the [transcript contracts](../transcript/README.md) and memory lifecycle sections below; this does not establish durable host scheduling.
 
 Prior acceptance remains in Git through `52da827`. Run `sbt "harness / test"` or repository-wide `sbt verify`.
 
@@ -51,7 +51,7 @@ These are process-local atomicity and service-contract tests. The earlier increm
 
 The recovery matrix seeds deterministic interrupted-publication states. These are not real process-crash tests or injected I/O failures midway through a live commit. Existing DailyMemoryLeaseSpec verifies admitted-work cancellation and scope ordering; LocalDailyMemoryStoreSpec remains the shared backend's daily regression suite. Test evidence does not establish fsync/power-loss durability, cross-process races, or dynamic symlink/junction resistance. Three upstream filesystem methods have explicit local adaptations; two remote scenarios remain pending in the parity mapping.
 
-DailyMemoryLeaseSpec now exercises the extracted WorkspaceLease through the existing memory adapter. MemoryTestSupport is harness-internal for shared scoped filesystem fixtures; no test behavior changed. Current extraction identity and approval are recorded in the transcript persistence README.
+DailyMemoryLeaseSpec now exercises the extracted WorkspaceLease through the existing memory adapter. MemoryTestSupport is harness-internal for shared scoped filesystem fixtures; no test behavior changed. The [storage contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/storage/README.md#scoped-initialization) describes shared acquisition and cleanup ownership.
 
 ## Explicit watermark migration evidence
 
@@ -121,7 +121,7 @@ The unchanged daily-only scheduler suite also passes.
 
 The [configuration contract and canonical identities](../../../../../../../main/scala/com/weisgnosis/agents/harness/memory/README.md#immutable-memory-configuration) distinguish typed adaptations from Java builder/printf/null compatibility and model selection.
 
-Current ConversationCompactorSpec identity and renewed review for provider/local ownership are recorded in the [runtime acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls). The stale provider-as-local result fixture was corrected; production compactor code is unchanged.
+Provider/local ownership follows the [runtime contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#provider-owned-pending-calls). The stale provider-as-local result fixture was corrected; production compactor code is unchanged.
 
 ## Versioned repository integration
 

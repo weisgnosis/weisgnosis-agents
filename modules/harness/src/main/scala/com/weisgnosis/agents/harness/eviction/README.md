@@ -18,8 +18,8 @@ The adapter covers new local tool completions and matched inline provider observ
 
 ## Current acceptance
 
-- [x] Integrate validated request-only model-input views through ModelInputTransform.
-- [x] Map hook-modified reasoning input while retaining canonical eviction; all seven eviction methods now have explicit adaptations.
+- Supported integration: validated request-only model-input views through ModelInputTransform.
+- Adaptation: hook-modified reasoning input while retaining canonical eviction; all seven eviction methods now have explicit adaptations.
 
 HostControlled ownership and hard-link support remain required. Hostile concurrent filesystem mutation and crash durability remain outside acceptance.
 

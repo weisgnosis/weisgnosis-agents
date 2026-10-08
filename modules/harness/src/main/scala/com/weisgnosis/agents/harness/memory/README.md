@@ -56,10 +56,10 @@ Source and paired tests: [TokenCounter.scala](TokenCounter.scala), [Conversation
 
 ## Current review acceptance
 
-- [x] All seven compactor and ten middleware methods have explicit [applicability decisions](../../../../../../../../../../docs/architecture/test-parity.md#compaction-method-applicability). Failure-policy divergences, summary identity, structured causes, session ownership, and the cyclic-Throwable exclusion are explicit; literal middleware equivalence is not claimed.
-- [x] Complete the bounded local consolidation acceptance recorded below.
+- All seven compactor and ten middleware methods have explicit [applicability decisions](../../../../../../../../../../docs/architecture/test-parity.md#compaction-method-applicability). Failure-policy divergences, summary identity, structured causes, session ownership, and the cyclic-Throwable exclusion are explicit; literal middleware equivalence is not claimed.
+- [Local consolidation](#recoverable-local-consolidation) preserves content/progress through its recoverable journal and cooperative ownership protocol.
 
-The compactor applicability decisions above and [seven eviction mappings](../../../../../../../../../../docs/architecture/test-parity.md#toolresultevictionmiddlewaretest-seven-methods) retain their existing source/spec acceptance. No code, tests or behavior changed, and this classification does not mean literal Java fallback, mutable middleware identity or session-API equivalence.
+The [seven eviction mappings](../../../../../../../../../../docs/architecture/test-parity.md#toolresultevictionmiddlewaretest-seven-methods) describe explicit capability adaptations, not literal Java fallback, mutable middleware identity or session-API equivalence.
 
 Backend applicability is explicit: compaction uses injected scoped callbacks; eviction uses an injected store and an opt-in trusted local/absolute backend. Local canonicalization is not an atomic hostile-filesystem sandbox. Platform-specific symlink/junction checks, untrusted-workspace isolation, crash durability and broader middleware/memory-service inventories remain unfinished.
 
@@ -75,7 +75,7 @@ One Clock instant and explicit zone (UTC default) bind the context lookup, entry
 
 [MemoryExtractor](MemoryExtractor.scala) accepts a lazy scoped host function. Its fromClient adapter creates request correlation and a scoped event hub, sends no tools or response formatting, and returns visible text. Tool requests/observations fail; interrupted outputs remain interruption. The caller closes the scope. Manager extraction failures/cancellation/cleanup defects skip append. Typed storage reads fail explicitly instead of upstream's silent empty-context fallback.
 
-- [ ] Add remote transcript offloading and remaining scheduling integrations; bounded versioned remote memory is available below; explicit local watermark migration is described below.
+[Versioned remote memory](#versioned-remote-memory), [transcript offloading](../transcript/README.md) and [completion-triggered scheduling](#completion-triggered-memory-flush) are explicit adapters; opening a daily store installs none of them.
 
 Source and paired tests: [ConversationCompactor.scala](ConversationCompactor.scala), [DailyMemoryStore.scala](DailyMemoryStore.scala), [MemoryExtractorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryExtractorSpec.scala), [MemoryFlushManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerSpec.scala), [MemoryFlushManagerIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerIntegrationSpec.scala).
 
@@ -91,8 +91,8 @@ Atomic publication is not fsync/crash durability or exactly-once delivery. Cance
 
 The protocol uses the Java [CREATE_NEW contract](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/StandardOpenOption.html#CREATE_NEW) and [atomic move semantics](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/Files.html#move(java.nio.file.Path,java.nio.file.Path,java.nio.file.CopyOption...)). These guarantees are distinct from application-level extraction deduplication. Share one MemoryFlushManager per store owner to serialize the complete context-read/extract/append sequence.
 
-- [ ] Verify cross-process contention and dynamic symlink/junction cases on each supported platform; the current executable contention checks use independent store instances in one JVM.
-- [ ] Complete remaining remote transcript/scheduling integrations; bounded versioned remote memory is available below. The earlier daily-only increment added no new upstream method-parity claim.
+Contention coverage uses independent store instances in one JVM. It does not establish cross-process exclusion or hostile dynamic symlink/junction isolation on every platform.
+The local daily store supplies cooperative filesystem ownership, not remote persistence or automatic scheduling; use the explicit adapters linked above.
 
 Source and paired tests: [LocalDailyMemoryStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryStoreSpec.scala), [DailyMemoryLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/DailyMemoryLeaseSpec.scala).
 
@@ -110,7 +110,7 @@ MemoryExtractor.fromClient also serves consolidation, preserving scoped text-onl
 
 The recoverable local implementation is described below; its journal and shared ownership gate supply the missing protocol around separate atomic file replacements.
 
-- [ ] Complete the two remote filesystem mappings and broader transcript/scheduling integration. Explicit local watermark migration is described below. The earlier process-local increment did not establish filesystem equivalence.
+[Recoverable local consolidation](#recoverable-local-consolidation) and [versioned remote memory](#versioned-remote-memory) provide separate persistence protocols; [watermark migration](#explicit-watermark-migration) is an explicit local operation.
 
 Source and paired tests: [ConsolidationStore.scala](ConsolidationStore.scala), [MemoryExtractor.scala](MemoryExtractor.scala), [MemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRepositorySpec.scala), [MemoryConsolidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidatorSpec.scala).
 
@@ -148,8 +148,7 @@ Journal publication commits the candidate to roll-forward recovery. An error or 
 
 Migration: .consolidation_state is the upstream path, but its versioned JSON contents deliberately replace timestamp-only watermarks. Normal consolidation still rejects legacy timestamp content without reset or overwrite. The explicit local migration below converts canonical timestamps conservatively; no remote filesystem adapter is implemented. Daily-only open remains source compatible but participates in recovery and therefore may publish an already journaled curated transaction.
 
-
-- [ ] Add remote storage/migration, remote transcript persistence, and scheduling; verify cross-process and dynamic path behavior on each supported platform.
+Versioned remote memory and transcript persistence use explicit borrowed backends; local timestamp migration has its own contract below. Cross-process ownership and hostile path mutation remain host responsibilities, not guarantees of these adapters.
 
 ## Explicit watermark migration
 

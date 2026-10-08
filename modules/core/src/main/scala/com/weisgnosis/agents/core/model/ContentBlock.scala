@@ -211,6 +211,18 @@ object ContentBlock:
   object Custom:
     given JsonCodec[Custom] = taggedCodec("custom", PayloadCodecs.custom)
 
+  /** Attribution is retained data, never authentication or local tool authority. */
+  @jsonHint("peer_observation")
+  final case class PeerObservation(
+      senderId: String,
+      senderName: String,
+      message: Msg
+  ) extends ContentBlock
+
+  object PeerObservation:
+    given JsonCodec[PeerObservation] =
+      taggedCodec("peer_observation", PayloadCodecs.peerObservation)
+
   private def decodeOutput(jsonOpt: Option[Json]): Either[String, Chunk[ContentBlock]] =
     jsonOpt match
       case None | Some(Json.Null) => Right(Chunk.empty)
@@ -300,6 +312,10 @@ object ContentBlock:
     given data: JsonCodec[Data]     = DeriveJsonCodec.gen[Data]
     given hint: JsonCodec[Hint]     = DeriveJsonCodec.gen[Hint]
     given custom: JsonCodec[Custom] = DeriveJsonCodec.gen[Custom]
+    given peerObservation: JsonCodec[PeerObservation] = JsonCodec(
+      JsonEncoder.suspend(DeriveJsonEncoder.gen[PeerObservation]),
+      JsonDecoder.suspend(DeriveJsonDecoder.gen[PeerObservation])
+    )
 
   private lazy val wireCodec: JsonCodec[ContentBlock] =
     import PayloadCodecs.given

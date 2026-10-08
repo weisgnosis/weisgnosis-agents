@@ -53,7 +53,7 @@ ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadat
 - Transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
 - Live-client tests verify early deltas, real HTTP tool cycles, request identity, late call identity, malformed/incomplete streams, and cancellation.
 - publisher tests verify indexed content, interleaved calls, and atomic ending-batch validation; event-context tests cover all sixteen correlated variants and legacy payloads.
-- [ ] Complete remaining event integration, other provider signature/metadata decoding, and exhaustive upstream scenario mapping.
+Unselected provider signatures, inline server-response dialects and reasoning-detail variants are not decoded automatically. These tests establish the listed checked boundaries, not every provider format or a global response-size limit.
 
 [ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala) checks a rejected 429 followed by success and a terminal 400, with identical request body/auth, one input projection, one model context, no rejected-response chunks, and exact successful history/usage. Two controlled groups cover exact eligible statuses/budgets, same-valued public error exclusions, held cleanup, full failure causes, cancellation during body/cleanup and an interruptible delay. The unchanged cancellation regression now passes; no broader retry or scheduling coverage is claimed.
 
@@ -85,7 +85,7 @@ The bounded extension targets strict signature-only decoding, unchanged existing
 
 ## Current acceptance
 
-- [ ] Complete other provider signatures/tool metadata, inline server response decoding, other reasoning-detail variants, additional input-size bounds, and exhaustive upstream mapping.
+These fixtures retain the selected-profile limits described above; they do not establish additional provider dialects.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
 

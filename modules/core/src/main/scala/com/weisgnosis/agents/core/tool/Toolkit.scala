@@ -22,7 +22,14 @@ import zio.json.ast.Json
 import zio.stream.ZStream
 
 /** Immutable registration and existentially typed execution without runtime casts. */
-final class Toolkit private (val tools: Map[String, ToolBinding]):
+final class Toolkit private (
+    val tools: Map[String, ToolBinding],
+    dispatchObserver: ToolDispatchObserver = ToolDispatchObserver.ignore
+):
+  /** Registry transformations retain this observer; overlay borrows only the other registry. */
+  def withDispatchObserver(observer: ToolDispatchObserver): Toolkit =
+    new Toolkit(tools, observer)
+
   def register(tool: Tool[Any, ?, ?]): Either[AgentError, Toolkit] = register(
     ToolBinding.Local(tool)
   )
@@ -39,14 +46,14 @@ final class Toolkit private (val tools: Map[String, ToolBinding]):
   def updated(tool: Tool[Any, ?, ?]): Toolkit = updated(ToolBinding.Local(tool))
 
   def updated(tool: ToolBinding): Toolkit =
-    new Toolkit(tools.updated(tool.definition.name, tool))
+    new Toolkit(tools.updated(tool.definition.name, tool), dispatchObserver)
 
   /** Explicit right-side precedence between two already valid registries. */
-  def overlay(other: Toolkit): Toolkit = new Toolkit(tools ++ other.tools)
+  def overlay(other: Toolkit): Toolkit = new Toolkit(tools ++ other.tools, dispatchObserver)
 
   /** Select exact registered values without reconstructing or renaming bindings. */
   def filterNames(keep: String => Boolean): Toolkit =
-    new Toolkit(tools.filter((name, _) => keep(name)))
+    new Toolkit(tools.filter((name, _) => keep(name)), dispatchObserver)
 
   override def equals(other: Any): Boolean = other match
     case value: Toolkit => tools == value.tools
@@ -126,7 +133,11 @@ final class Toolkit private (val tools: Map[String, ToolBinding]):
             Toolkit.Dispatch.Completed(observation(s"Tool '$name' not found in toolkit."))
           )
         case Some(ToolBinding.Local(tool)) =>
-          executeTyped(tool, rawArgs, invocation, observe).map(Toolkit.Dispatch.Completed(_))
+          dispatchObserver
+            .around(name, invocation)(
+              executeTyped(tool, rawArgs, invocation, observe)
+            )(_.result.state)
+            .map(Toolkit.Dispatch.Completed(_))
         case Some(external: ToolBinding.External) =>
           ZIO.suspendSucceed:
             ZIO

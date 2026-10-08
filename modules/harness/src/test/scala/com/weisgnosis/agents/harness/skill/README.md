@@ -10,7 +10,7 @@
 
 [LocalSkillSpec](LocalSkillSpec.scala) covers cold loading: cold scoped loading of exact metadata/body and selected UTF-8 resources with stream release; trust, traversal/sensitive-path, identifier and file-shape rejection; and count, byte, decoding and parser bounds. Selected empty text and multibyte UTF-8 exercise exact limits, while corrupt unselected files remain unread. Metadata is preserved independently of selected resources and activation targets; nonpositive depth limits fail before I/O. No filesystem discovery or generated activation is inferred.
 
-- [x] Bounded repository discovery below is independently reviewed and verified; capability installation remains separate.
+- Bounded repository discovery below is independently reviewed and verified; capability installation remains separate.
 
 ## Local repository discovery
 

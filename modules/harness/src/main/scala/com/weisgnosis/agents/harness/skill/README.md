@@ -16,13 +16,13 @@ Migration: SkillMarkdownLimits appends the defaulted third field maxMetadataDept
 
 Paired suites cover the contract tables and actual UTF-8 files. They retain strict repeated/noninitial BOM and delimiter near-misses, original size bounds, malformed UTF-8 and capability isolation. Upstream generic Markdown parsing returns unchanged raw input when frontmatter is absent; these domain parsers still reject missing required declarations as typed InvalidConfiguration. The subagent body remains exact rather than adopting Java's trim. This scope does not implement the upstream SkillManageTool create/edit APIs.
 
-- [x] Implement one initial BOM plus LF/CRLF/CR framing without changing public signatures, YAML interpretation or resource ownership.
+- Supported: one initial BOM plus LF/CRLF/CR framing without changing public signatures, YAML interpretation or resource ownership.
 
 Source and paired tests: [SkillMarkdownParser.scala](SkillMarkdownParser.scala), [SubagentDeclarationParser.scala](../subagent/SubagentDeclarationParser.scala), [LocalSkillRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillRepositorySpec.scala), [SkillMarkdownParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/SkillMarkdownParserSpec.scala), [LocalSubagentDeclarationsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/LocalSubagentDeclarationsSpec.scala), [SubagentDeclarationParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala).
 
 ## Verification and acceptance
 
-- [x] Bounded repository discovery is independently reviewed and verified below; capability registration remains separate.
+- Bounded repository discovery is independently reviewed and verified below; capability registration remains separate.
 
 Source and paired tests: [SkillMarkdownParser.scala](SkillMarkdownParser.scala), [SkillMarkdownParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/SkillMarkdownParserSpec.scala).
 
@@ -68,4 +68,4 @@ Source and paired tests: [LocalSkillRepository.scala](LocalSkillRepository.scala
 
 Existing load behavior and signature are unchanged.
 
-- [ ] Repository-wide next work is ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, automatic lazy-resource discovery and caches remain unfinished.
+This repository supports the explicit local discovery modes above, not automatic lazy discovery, a source-ID registry or caching. The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist; the parity reference records bounded mappings and intentional API adaptations.

@@ -32,7 +32,8 @@ final case class AgentResult(
     history: Chunk[Msg],
     iterationCount: Int,
     state: AgentRunState = AgentRunState.Completed,
-    usage: Option[ChatUsage] = None
+    usage: Option[ChatUsage] = None,
+    peerDeliveries: Chunk[PeerDelivery] = Chunk.empty
 ) derives JsonCodec:
   def isSuspended: Boolean = state match
     case AgentRunState.Suspended(_) => true

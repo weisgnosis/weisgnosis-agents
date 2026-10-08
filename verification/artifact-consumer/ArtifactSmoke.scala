@@ -59,6 +59,9 @@ import com.weisgnosis.agents.mcp.protocol.{
 }
 import com.weisgnosis.agents.mcp.transport.{McpStdioTransport, McpTransport}
 import com.weisgnosis.agents.storage.postgresql.PostgresVersionedJsonStore
+import com.weisgnosis.agents.otel.AgentTelemetry
+import io.opentelemetry.api.OpenTelemetry
+import zio.telemetry.opentelemetry.context.ContextStorage
 import java.io.File
 import java.util.regex.Pattern
 import java.nio.charset.StandardCharsets
@@ -244,8 +247,9 @@ object ArtifactSmoke extends ZIOAppDefault:
             "mcp-core-",
             "mcp-json-jackson2-",
             "tomcat-",
-            "slf4j-jdk14-",
-            "postgresql-"
+            "postgresql-",
+            "opentelemetry-sdk-",
+            "opentelemetry-exporter-"
           )
           Chunk
             .fromArray(raw.split(Pattern.quote(File.pathSeparator)))
@@ -272,6 +276,29 @@ object ArtifactSmoke extends ZIOAppDefault:
         _        <- verifyJar("harness", PermissionEngine.getClass, manifest)
         _        <- verifyJar("mcp", McpCallResult.getClass, manifest)
         _        <- verifyJar("storage-postgresql", PostgresVersionedJsonStore.getClass, manifest)
+        _        <- verifyJar("otel", AgentTelemetry.getClass, manifest)
+        _ <- ZIO.scoped(
+          (for
+            contexts <- ZIO.service[ContextStorage]
+            tracer   <- ZIO.attempt(OpenTelemetry.noop().getTracer("external-consumer"))
+            adapter  <- AgentTelemetry.make(tracer, contexts)
+            client   <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant("traced"))))
+            agent <- ReActAgent
+              .builder()
+              .model(client)
+              .phaseObserver(adapter.phaseObserver)
+              .completionObserver(adapter.completionObserver)
+              .toolkit(Toolkit.empty.withDispatchObserver(adapter.dispatchObserver))
+              .build
+            result <- agent.run(Msg.user("trace request"))
+            stats  <- adapter.diagnostics
+            _ <- ZIO
+              .fail(failure("Packaged telemetry integration failed"))
+              .unless(
+                result.reply.text == "traced" && stats.operationFailures == 0
+              )
+          yield ()).provideSomeLayer[Scope](zio.telemetry.opentelemetry.OpenTelemetry.contextZIO)
+        )
         invalidEnvironment <- ZIO
           .scoped(
             McpStdioTransport.open(

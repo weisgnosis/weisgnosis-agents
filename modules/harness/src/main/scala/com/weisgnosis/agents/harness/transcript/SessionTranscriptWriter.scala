@@ -142,13 +142,14 @@ object SessionTranscriptWriter:
     else candidate
 
   private def blockType(block: ContentBlock): TranscriptBlockType = block match
-    case _: ContentBlock.Text         => TranscriptBlockType.Text
-    case _: ContentBlock.Thinking     => TranscriptBlockType.Thinking
-    case _: ContentBlock.Image        => TranscriptBlockType.Image
-    case _: ContentBlock.Audio        => TranscriptBlockType.Audio
-    case _: ContentBlock.Video        => TranscriptBlockType.Video
-    case _: ContentBlock.Data         => TranscriptBlockType.Data
-    case _: ContentBlock.Hint         => TranscriptBlockType.Hint
-    case _: ContentBlock.ToolUse      => TranscriptBlockType.ToolUse
-    case _: ContentBlock.ToolResult   => TranscriptBlockType.ToolResult
-    case ContentBlock.Custom(kind, _) => TranscriptBlockType.Custom(kind)
+    case _: ContentBlock.Text            => TranscriptBlockType.Text
+    case _: ContentBlock.Thinking        => TranscriptBlockType.Thinking
+    case _: ContentBlock.Image           => TranscriptBlockType.Image
+    case _: ContentBlock.Audio           => TranscriptBlockType.Audio
+    case _: ContentBlock.Video           => TranscriptBlockType.Video
+    case _: ContentBlock.Data            => TranscriptBlockType.Data
+    case _: ContentBlock.Hint            => TranscriptBlockType.Hint
+    case _: ContentBlock.ToolUse         => TranscriptBlockType.ToolUse
+    case _: ContentBlock.ToolResult      => TranscriptBlockType.ToolResult
+    case ContentBlock.Custom(kind, _)    => TranscriptBlockType.Custom(kind)
+    case _: ContentBlock.PeerObservation => TranscriptBlockType.Custom("peer_observation")

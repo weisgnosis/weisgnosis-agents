@@ -4,7 +4,7 @@
 
 One selection group verifies exact retained definitions, unchanged parent contents, empty selection, blank/unknown rejection and rejection of attempts to recover a removed ID.
 
-The [source contract](../../../../../../../main/scala/com/weisgnosis/agents/core/skill/README.md) owns scope, limitations and final acceptance. One additional table group verifies empty/shared-target reminders, deterministic ordering, JSON quoting and reconstruction without changing raw declarations or duplicating text. This is a bounded reminder adaptation; filesystem loading, Java subclass copying remain separate.
+The [source contract](../../../../../../../main/scala/com/weisgnosis/agents/core/skill/README.md) describes scope and limitations. One additional table group verifies empty/shared-target reminders, deterministic ordering, JSON quoting and reconstruction without changing raw declarations or duplicating text. This is a bounded reminder adaptation; filesystem loading, Java subclass copying remain separate.
 
 ## Deferred resource verification
 

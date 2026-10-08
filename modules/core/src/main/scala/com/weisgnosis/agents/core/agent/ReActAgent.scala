@@ -67,7 +67,10 @@ final class ReActAgent private (
     val modelResponseObserver: ModelResponseObserver,
     val localToolResultObserver: LocalToolResultObserver,
     val invocationPreparer: InvocationPreparer,
-    val phaseObserver: PhaseObserver
+    val phaseObserver: PhaseObserver,
+    private val peerSubscribers: Ref[
+      Vector[(String, AgentResult => IO[AgentError, Chunk[PeerDelivery]])]
+    ]
 ):
 
   val skills: SkillCatalog = skillLibrary.catalog
@@ -79,6 +82,77 @@ final class ReActAgent private (
   def getAgentId: String  = agentId
 
   def history: UIO[Chunk[Msg]] = stateRef.get
+
+  /** Rejects active turns and suspended checkpoints without waiting or changing their state. */
+  def observe(sender: ReActAgent, messages: Chunk[Msg]): IO[AgentError, Unit] =
+    observePeer(sender.agentId, sender.name, messages)
+
+  private[core] def observePeer(
+      senderId: String,
+      senderName: String,
+      messages: Chunk[Msg]
+  ): IO[AgentError, Unit] =
+    runLock
+      .tryWithPermit:
+        for
+          _ <- requireFreshRun
+          _ <- ZIO.fromEither(PeerObservation.validate(senderId, senderName, messages))
+          observations = messages.map(message =>
+            Msg.user(Chunk(ContentBlock.PeerObservation(senderId, senderName, message)))
+          )
+          _ <- stateRef.update(_ ++ observations)
+        yield ()
+      .someOrFail(
+        AgentError.InvalidConfiguration("An active agent cannot receive peer observations")
+      )
+
+  private[core] def subscribePeers(
+      key: String,
+      publish: AgentResult => IO[AgentError, Chunk[PeerDelivery]]
+  ): IO[AgentError, Unit] =
+    peerSubscribers
+      .modify[Either[AgentError, Unit]]: current =>
+        if current.exists(_._1 == key) then
+          (Left(AgentError.InvalidConfiguration("Duplicate peer subscription")), current)
+        else if current.size >= 32 then
+          (Left(AgentError.InvalidConfiguration("Agent peer subscription limit exceeded")), current)
+        else (Right(()), current :+ (key -> publish))
+      .absolve
+
+  private[core] def unsubscribePeers(key: String): UIO[Unit] =
+    peerSubscribers.update(_.filterNot(_._1 == key))
+
+  /** Called only after the invocation gate and all execution cleanup have been released. */
+  private def publishPeers(result: AgentResult): IO[AgentError, AgentResult] = result.state match
+    case AgentRunState.Completed | AgentRunState.Interrupted =>
+      peerSubscribers.get.flatMap(subscribers =>
+        ZIO
+          .foreach(subscribers)(entry =>
+            ZIO
+              .suspendSucceed(entry._2(result))
+              .catchAll(error =>
+                ZIO.succeed(
+                  Chunk(PeerDelivery(entry._1, None, PeerDeliveryOutcome.Rejected(error.message)))
+                )
+              )
+          )
+          .map(deliveries =>
+            result.copy(peerDeliveries =
+              result.peerDeliveries ++ Chunk.fromIterable(deliveries).flatten
+            )
+          )
+      )
+    case AgentRunState.Suspended(_) | AgentRunState.Stopped(_) => ZIO.succeed(result)
+
+  private def publishStructured[A](value: (AgentResult, A)): IO[AgentError, (AgentResult, A)] =
+    publishPeers(value._1).map(result => (result, value._2))
+
+  extension [R, A](execution: ZIO[R, AgentError, A])
+    private def publishAfterGate(publish: A => IO[AgentError, A]): ZIO[R, AgentError, A] =
+      ZIO.uninterruptibleMask: restore =>
+        restore(execution).exit.flatMap:
+          case Exit.Failure(cause) => ZIO.refailCause(cause)
+          case Exit.Success(value) => restore(ZIO.suspendSucceed(publish(value)))
 
   /** Reads history and pending acting state under the same execution lock. */
   def snapshot: UIO[AgentSnapshot] = runLock.withPermit:
@@ -141,17 +215,20 @@ final class ReActAgent private (
 
   /** Supplies checked execution observations and executes only the remaining local occurrences. */
   def resume(results: Chunk[SuppliedToolResult]): ZIO[Scope, AgentError, AgentResult] =
-    runLock.withPermit:
-      for
-        prepared <- prepareResume(results)
-        resumed <- observeInvocation((invocation, complete) =>
-          ZIO.scoped:
-            for
-              hub   <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-              value <- runResumeWithHub(prepared, hub, complete, invocation)
-            yield value
-        )
-      yield resumed
+    runLock
+      .withPermit(
+        for
+          prepared <- prepareResume(results)
+          resumed <- observeInvocation((invocation, complete) =>
+            ZIO.scoped:
+              for
+                hub   <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+                value <- runResumeWithHub(prepared, hub, complete, invocation)
+              yield value
+          )
+        yield resumed
+      )
+      .publishAfterGate(publishPeers)
 
   final private case class PreparedResume(
       result: AgentResult,
@@ -269,6 +346,7 @@ final class ReActAgent private (
                 ),
               Some(context)
             ),
+          publishPeers,
           Some(owner)
         )
     )
@@ -280,24 +358,26 @@ final class ReActAgent private (
       prepared: Option[InvocationContext],
       owner: Option[PreparedInvocation.Control[AgentResult]] = None
   ): ZIO[Scope, AgentError, AgentResult] =
-    runLock.withPermit(
-      owner.fold[IO[AgentError, Unit]](ZIO.unit)(
-        _.admitted
-      ) *> requireFreshRun *> observeInvocation(
-        (invocation, complete) =>
-          ZIO.scoped(for
-            hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-            result <- runOrdinaryWithHub(
-              messages,
-              hub,
-              complete,
-              invocation,
-              owner.map(_.cooperative)
-            )
-          yield result),
-        prepared
+    runLock
+      .withPermit(
+        owner.fold[IO[AgentError, Unit]](ZIO.unit)(
+          _.admitted
+        ) *> requireFreshRun *> observeInvocation(
+          (invocation, complete) =>
+            ZIO.scoped(for
+              hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+              result <- runOrdinaryWithHub(
+                messages,
+                hub,
+                complete,
+                invocation,
+                owner.map(_.cooperative)
+              )
+            yield result),
+          prepared
+        )
       )
-    )
+      .publishAfterGate(publishPeers)
 
   /**
    * Direct execution with scoped event forwarding. A closed destination drops events without
@@ -308,23 +388,28 @@ final class ReActAgent private (
       destination: ToolEventPort,
       source: String
   ): ZIO[Scope, AgentError, AgentResult] =
-    runLock.withPermit(
-      requireFreshRun *> forwardInvocation(destination, source)((hub, complete, invocation) =>
-        runOrdinaryWithHub(messages, hub, complete, invocation)
+    runLock
+      .withPermit(
+        requireFreshRun *> forwardInvocation(destination, source)((hub, complete, invocation) =>
+          runOrdinaryWithHub(messages, hub, complete, invocation)
+        )
       )
-    )
+      .publishAfterGate(publishPeers)
 
   private[agents] def resumeForwarding(
       results: Chunk[SuppliedToolResult],
       destination: ToolEventPort,
       source: String
   ): ZIO[Scope, AgentError, AgentResult] =
-    runLock.withPermit:
-      prepareResume(results).flatMap(prepared =>
-        forwardInvocation(destination, source)((hub, complete, invocation) =>
-          runResumeWithHub(prepared, hub, complete, invocation)
+    runLock
+      .withPermit(
+        prepareResume(results).flatMap(prepared =>
+          forwardInvocation(destination, source)((hub, complete, invocation) =>
+            runResumeWithHub(prepared, hub, complete, invocation)
+          )
         )
       )
+      .publishAfterGate(publishPeers)
 
   private def forwardInvocation(
       destination: ToolEventPort,
@@ -366,14 +451,16 @@ final class ReActAgent private (
       schema: Json,
       mode: StructuredMode = StructuredMode.Auto
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
-    runLock.withPermit(
-      requireFreshRun *> observeInvocation((invocation, complete) =>
-        ZIO.scoped(for
-          hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-          result <- runStructuredWithHub[A](messages, schema, mode, hub, complete, invocation)
-        yield result)
+    runLock
+      .withPermit(
+        requireFreshRun *> observeInvocation((invocation, complete) =>
+          ZIO.scoped(for
+            hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+            result <- runStructuredWithHub[A](messages, schema, mode, hub, complete, invocation)
+          yield result)
+        )
       )
-    )
+      .publishAfterGate(publishStructured[A])
 
   private def runStructuredWithHub[A: JsonCodec](
       messages: Chunk[Msg],
@@ -523,10 +610,12 @@ final class ReActAgent private (
   def streamWithResult(
       messages: Chunk[Msg]
   ): ZStream[Scope, AgentError, AgentRunUpdate[AgentResult]] =
-    streamRun(hub =>
-      requireFreshRun *> observeInvocation((invocation, complete) =>
-        ZIO.scoped(runOrdinaryWithHub(messages, hub, complete, invocation))
-      )
+    streamRun(
+      hub =>
+        requireFreshRun *> observeInvocation((invocation, complete) =>
+          ZIO.scoped(runOrdinaryWithHub(messages, hub, complete, invocation))
+        ),
+      publishPeers
     )
 
   def streamWithResult(message: Msg): ZStream[Scope, AgentError, AgentRunUpdate[AgentResult]] =
@@ -536,12 +625,14 @@ final class ReActAgent private (
   def streamResumeWithResult(
       results: Chunk[SuppliedToolResult] = Chunk.empty
   ): ZStream[Scope, AgentError, AgentRunUpdate[AgentResult]] =
-    streamRun(hub =>
-      prepareResume(results).flatMap(prepared =>
-        observeInvocation((invocation, complete) =>
-          ZIO.scoped(runResumeWithHub(prepared, hub, complete, invocation))
-        )
-      )
+    streamRun(
+      hub =>
+        prepareResume(results).flatMap(prepared =>
+          observeInvocation((invocation, complete) =>
+            ZIO.scoped(runResumeWithHub(prepared, hub, complete, invocation))
+          )
+        ),
+      publishPeers
     )
 
   def streamResumeEvents(
@@ -555,10 +646,12 @@ final class ReActAgent private (
       schema: Json,
       mode: StructuredMode = StructuredMode.Auto
   ): ZStream[Scope, AgentError, AgentRunUpdate[(AgentResult, A)]] =
-    streamRun(hub =>
-      requireFreshRun *> observeInvocation((invocation, complete) =>
-        ZIO.scoped(runStructuredWithHub[A](messages, schema, mode, hub, complete, invocation))
-      )
+    streamRun(
+      hub =>
+        requireFreshRun *> observeInvocation((invocation, complete) =>
+          ZIO.scoped(runStructuredWithHub[A](messages, schema, mode, hub, complete, invocation))
+        ),
+      publishStructured[A]
     )
 
   def streamStructuredWithResult[A: JsonCodec](
@@ -589,6 +682,7 @@ final class ReActAgent private (
 
   private def streamRun[A](
       runEffect: Hub[AgentEvent] => ZIO[Scope, AgentError, A],
+      publish: A => IO[AgentError, A],
       owner: Option[PreparedInvocation.Control[A]] = None
   ): ZStream[Scope, AgentError, AgentRunUpdate[A]] =
     ZStream.unwrapScoped {
@@ -604,7 +698,7 @@ final class ReActAgent private (
         )
         _ <- ZIO.uninterruptibleMask { restore =>
           for
-            execute = runLock.withPermit(runEffect(hub))
+            execute = runLock.withPermit(runEffect(hub)).publishAfterGate(publish)
             exit <- restore(owner.fold(execute)(_.execute(execute))).exit
             _    <- drain
             _ <- exit match
@@ -2786,6 +2880,9 @@ object ReActAgent:
       p                     <- Promise.make[Nothing, Unit]
       interruptedPromiseRef <- Ref.make(p)
       runLock               <- Semaphore.make(1)
+      peerSubscribers <- Ref.make(
+        Vector.empty[(String, AgentResult => IO[AgentError, Chunk[PeerDelivery]])]
+      )
     yield new ReActAgent(
       config,
       toolkit,
@@ -2808,7 +2905,8 @@ object ReActAgent:
       modelResponseObserver,
       localToolResultObserver,
       invocationPreparer,
-      phaseObserver
+      phaseObserver,
+      peerSubscribers
     )
 
   def builder(): Builder = Builder()

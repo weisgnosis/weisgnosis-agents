@@ -63,6 +63,10 @@ trait ModelInputTransform:
 object ModelInputTransform:
   val identity: ModelInputTransform = ModelInputTransform((_, history) => ZIO.succeed(history))
 
+  /** Projects inert peer observations into labelled user context without changing stored history. */
+  val peerAware: ModelInputTransform =
+    ModelInputTransform((_, history) => ZIO.fromEither(PeerObservation.project(history)))
+
   def apply(
       transform: (ModelStreamContext, Chunk[Msg]) => ZIO[Scope, AgentError.ModelInputError, Chunk[
         Msg

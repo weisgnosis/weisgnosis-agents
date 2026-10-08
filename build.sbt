@@ -8,6 +8,8 @@ val snakeYamlEngineVersion: String     = "3.1.1"
 val mcpJavaSdkVersion: String          = "0.17.2"
 val tomcatVersion: String              = "11.0.18"
 val slf4jVersion: String               = "2.0.16"
+val zioOpenTelemetryVersion: String    = "3.1.20"
+val openTelemetryVersion: String       = "1.66.0"
 
 ThisBuild / scalaVersion := scala3Version
 ThisBuild / version := {
@@ -36,6 +38,7 @@ lazy val commonSettings = Seq(
     "-Wunused:all",
     "-Yretain-trees"
   ),
+  Test / parallelExecution := false,
   testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
   Compile / packageBin / mappings +=
     ((LocalRootProject / baseDirectory).value / "LICENSE" -> "META-INF/LICENSE"),
@@ -53,8 +56,9 @@ lazy val core = (project in file("modules/core"))
       "dev.zio"      %% "zio-json"              % zioJsonVersion,
       "dev.zio"      %% "zio-http"              % zioHttpVersion,
       "com.networknt" % "json-schema-validator" % jsonSchemaValidatorVersion,
-      "dev.zio"      %% "zio-test"              % zioVersion % Test,
-      "dev.zio"      %% "zio-test-sbt"          % zioVersion % Test
+      "org.slf4j"     % "slf4j-jdk14"           % slf4jVersion % Test,
+      "dev.zio"      %% "zio-test"              % zioVersion   % Test,
+      "dev.zio"      %% "zio-test-sbt"          % zioVersion   % Test
     )
   )
 
@@ -110,6 +114,21 @@ lazy val storagePostgresql = (project in file("modules/storage-postgresql"))
     )
   )
 
+lazy val otel = (project in file("modules/otel"))
+  .dependsOn(core)
+  .settings(
+    name := "weisgnosis-agents-otel",
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "dev.zio"         %% "zio-opentelemetry"           % zioOpenTelemetryVersion,
+      "dev.zio"         %% "zio-test"                    % zioVersion           % Test,
+      "dev.zio"         %% "zio-test-sbt"                % zioVersion           % Test,
+      "io.opentelemetry" % "opentelemetry-sdk-testing"   % openTelemetryVersion % Test,
+      "io.opentelemetry" % "opentelemetry-exporter-otlp" % openTelemetryVersion % Test,
+      "org.slf4j"        % "slf4j-jdk14"                 % slf4jVersion         % Test
+    )
+  )
+
 lazy val examples = (project in file("modules/examples"))
   .dependsOn(core, harness, mcp)
   .settings(
@@ -117,13 +136,14 @@ lazy val examples = (project in file("modules/examples"))
     publish / skip := true,
     commonSettings,
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-test"     % zioVersion % Test,
-      "dev.zio" %% "zio-test-sbt" % zioVersion % Test
+      "org.slf4j" % "slf4j-jdk14"  % slf4jVersion % Runtime,
+      "dev.zio"  %% "zio-test"     % zioVersion   % Test,
+      "dev.zio"  %% "zio-test-sbt" % zioVersion   % Test
     )
   )
 
 lazy val root = (project in file("."))
-  .aggregate(core, harness, mcp, storagePostgresql, examples)
+  .aggregate(core, harness, mcp, storagePostgresql, otel, examples)
   .settings(
     name           := "weisgnosis-agents",
     publish / skip := true
@@ -135,5 +155,6 @@ addCommandAlias(
   ";core / Compile / packageBin;core / Compile / packageSrc;core / makePom" +
     ";harness / Compile / packageBin;harness / Compile / packageSrc;harness / makePom" +
     ";mcp / Compile / packageBin;mcp / Compile / packageSrc;mcp / makePom" +
-    ";storagePostgresql / Compile / packageBin;storagePostgresql / Compile / packageSrc;storagePostgresql / makePom"
+    ";storagePostgresql / Compile / packageBin;storagePostgresql / Compile / packageSrc;storagePostgresql / makePom" +
+    ";otel / Compile / packageBin;otel / Compile / packageSrc;otel / makePom"
 )

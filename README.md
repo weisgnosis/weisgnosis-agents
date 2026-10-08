@@ -2,7 +2,7 @@
 
 A Scala 3 and ZIO 2 library for agent execution with explicit resource ownership. The runtime owns conversation state and completion; model output is untrusted input. Agent mechanics are adapted from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java).
 
-**Development status:** use local artifacts from this source tree. Public distribution, frozen binary compatibility and complete upstream transfer are not yet established. The [completion checklist](docs/architecture/tracker.md) lists remaining library work.
+**Development status:** use local artifacts from this source tree. Public distribution, frozen binary compatibility and complete upstream transfer are not yet established. The [completion checklist](docs/architecture/tracker.md) records verified delivery scope and explicit boundaries.
 
 ## Start here
 
@@ -34,16 +34,17 @@ object ScriptedAgent extends ZIOAppDefault:
       yield ()
 ```
 
-Run `sbt "runMain example.ScriptedAgent"`. It prints Hello without a network request. Continue with a [real HTTP model and typed tool](docs/getting-started.md#http-completion-with-a-typed-tool), [a model-driven file task](docs/getting-started.md#run-a-model-driven-file-task), or [owned MCP installation](docs/getting-started.md#owned-mcp-installation).
+Run `sbt "runMain example.ScriptedAgent"`. It prints Hello without a network request. Continue with a [real HTTP model and typed tool](docs/getting-started.md#http-completion-with-a-typed-tool), [a model-driven file task](docs/getting-started.md#run-a-model-driven-file-task), [passive multi-agent collaboration](modules/core/src/main/scala/com/weisgnosis/agents/core/coordination/README.md), or [owned MCP installation](docs/getting-started.md#owned-mcp-installation).
 
 ## Modules
 
 | Module | Purpose |
 | --- | --- |
-| [core](modules/core/README.md) | Messages, events, typed tools, ReAct execution, checkpoints, structured output and OpenAI-compatible HTTP completion. |
+| [core](modules/core/README.md) | Messages, events, typed tools, ReAct execution, checkpoints, structured output, passive MsgHub collaboration and OpenAI-compatible/native model transports. |
 | [harness](modules/harness/README.md) | Context compaction, output offload, memory, transcripts, permissions, planning, skills and owned subagents. |
 | [mcp](modules/mcp/README.md) | Scoped MCP tools/resources over direct stdio, legacy HTTP/SSE and Streamable HTTP. |
 | [storage-postgresql](modules/storage-postgresql/README.md) | Optional conditional JSON storage using a host-supplied DataSource and schema ownership. |
+| [otel](modules/otel/README.md) | Optional tracing with host-owned OpenTelemetry SDK/export and fiber-local context. |
 | [examples](modules/examples/README.md) | Host composition, lifecycle logging and opt-in real-model tool/file applications. |
 
 The runtime saves tool calls before local execution. Tool failures become observations; interruption joins owned cleanup and reconciles unfinished calls. Context compaction preserves call/result pairs, and offloading preserves the original observation when persistence fails. See [architecture contracts](docs/architecture/README.md) for precise boundaries.
@@ -51,8 +52,8 @@ The runtime saves tool calls before local execution. Tool failures become observ
 ## Current limits
 
 - General shell, file and web tools are supplied by the host or MCP; there is no bundled general OS toolkit.
-- The model adapter implements OpenAI-compatible completion, with explicit reasoning/media profiles. Native Anthropic and Gemini APIs are not implemented.
-- [Persistent named sessions](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persistent-named-sessions) restore checked data under current factories and host-exclusive claims. Other remaining upstream obligations stay open in the [tracker](docs/architecture/tracker.md#remaining-library-completion-work).
+- The [model adapters](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md) support OpenAI-compatible completion, native Anthropic Messages (including opt-in hosted web search), and a narrow Gemini hosted-code path. Unsupported settings fail explicitly; native adapters have local HTTP integration evidence, with real native-provider runs still requiring separate credentials.
+- [Persistent named sessions](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persistent-named-sessions) restore checked data under current factories and host-exclusive claims. The [tracker](docs/architecture/tracker.md#remaining-library-completion-work) distinguishes delivered scope from unselected candidates.
 - Hosts own authentication, durable workflow replay, exclusive execution claims and idempotency. Process-local Promises do not survive restarts. Local path validation is not an atomic filesystem sandbox.
 - PostgreSQL storage borrows the host's DataSource. It does not supply a pool, deployment or safe automatic replay of uncertain writes.
 

@@ -10,7 +10,7 @@ This is cooperative infrastructure, not a hostile-filesystem sandbox, distribute
 
 Failed construction must release acquired ownership before returning its failure, even when the host catches open.either inside a still-live Scope. Successful construction stays attached to that host Scope. WorkspaceLease.initialize registers an owned child Scope before restoring interruptible initialization, closes it on the actual failed/interrupted Exit and preserves operation and cleanup causes. Later host closure must not repeat already-run finalizers or their defects.
 
-- [x] Pass same-live-host-scope repair/reopen and initialization failure/cancellation/cleanup regressions.
+- Coverage includes same-live-host-scope repair/reopen and initialization failure/cancellation/cleanup regressions.
 
 ## Admitted-work failure and cancellation
 

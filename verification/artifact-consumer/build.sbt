@@ -27,9 +27,11 @@ resolvers := Seq(
   "workspace-artifacts" at (baseDirectory.value / "../../target/artifact-verification/repository").toURI.toString,
   Resolver.mavenCentral
 )
-libraryDependencies ++= Seq("core", "harness", "mcp", "storage-postgresql").map(module =>
+libraryDependencies ++= Seq("core", "harness", "mcp", "storage-postgresql", "otel").map(module =>
   "com.weisgnosis" %% s"weisgnosis-agents-$module" % artifactVersion.value
 )
+libraryDependencies += "org.slf4j" % "slf4j-jdk14" % "2.0.16" % Runtime
+
 Compile / run / fork := true
 Compile / run / javaOptions +=
   s"-Dweisgnosis.artifact.manifest=${(baseDirectory.value / "../../target/artifact-verification/manifest.json").getAbsolutePath}"

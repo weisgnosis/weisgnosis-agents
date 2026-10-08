@@ -13,21 +13,9 @@
 
 ## 1. Measured Codebase and Estimate Correction
 
-Measured on 2026-09-29 at accepted implementation f5bc9a0. Tracked Scala source only; generated outputs and two untracked factory drafts are excluded. Physical lines include comments and blanks. Code lines exclude blank/comment-only lines using the Scala lexer.
+The original line-count and calendar estimates are obsolete. They underestimated explicit runtime state machines, strict protocol validation, scoped ownership, recoverable persistence and meaningful safety scenarios. Code volume and test totals are not quality or completion targets; do not compress away domain guarantees to match an earlier projection.
 
-| Component | Production files | Production physical lines | Production code lines | Test files | Test physical lines | Test code lines |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| core | 42 | 5,624 | 4,202 | 66 | 12,457 | 11,051 |
-| harness | 73 | 5,621 | 3,867 | 91 | 15,842 | 14,184 |
-| Total | 115 | 11,245 | 8,069 | 157 | 28,299 | 25,235 |
-
-That measured revision passed 1,158 tests: 557 core and 601 harness, with zero compiler warnings. These measurements are not current delivery totals, exhaustive upstream parity or production-readiness percentages. The [implementation tracker](architecture/tracker.md) records current verification and unfinished work.
-
-The initial projection of 2,300-3,300 production SLOC and 2,800-4,300 test SLOC did not hold. Current production already exceeds it by approximately 2.4-3.5 times and tests by 5.9-9.0 times. The earlier claim that the complete library and comprehensive tests would fit below 7,600 lines is withdrawn.
-
-The original estimate underestimated explicit runtime state machines, strict protocol validation, scoped ownership, recoverable local persistence, interruption races and the number of meaningful safety/parity scenarios. Scala/ZIO removes much implementation ceremony, but that does not make these contracts or their tests disappear. Code volume is a measurement, not a quality target. Do not compress away domain guarantees or tests to match the earlier projection.
-
-No validated calendar forecast or new final LOC ceiling is established here. A remaining-work estimate needs the unfinished method-level inventory and integration scope. The [implementation tracker](architecture/tracker.md#immediate-next-work) records the current accepted state and next work.
+The [implementation tracker](architecture/tracker.md#immediate-next-work) records the current finite outcomes and next task. No replacement calendar forecast, final line ceiling or project-completion percentage is established here.
 
 ---
 
@@ -79,13 +67,13 @@ Optional local adapters persist memory, transcripts, tool results and plan draft
 
 ## 3. Catalog of Production Edge Cases (35 Hard Lessons)
 
-This catalogue records research requirements, not implemented-capability claims. Current contracts and acceptance are linked from the [tracker](architecture/tracker.md). Independent library/host boundary inspection by review_fp and review_invariants on 2026-10-08 identifies the following conditional obligations; no absent backend is silently claimed implemented or required as a new platform inside this library.
+This catalogue records research requirements, not implemented-capability claims. Current contracts and acceptance are linked from the [tracker](architecture/tracker.md). The following conditional obligations distinguish library contracts from host responsibilities; no absent backend is silently claimed implemented or required as a new platform inside this library.
 
-- [x] Implement lesson 15 through explicit host-selected [unavailable-channel authorization](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#unavailable-approval-channel): unresolved Ask/Passthrough is denied without waiting or checkpointing, including standard child construction. Interactive and durable adapters retain their separate contracts; this adds no remote HTTP transport.
-- [x] Classify lesson 26: namespace-owning adapters must define anonymous-user isolation if they accept absent identity. Current typed StorageAddress requires explicit nonblank host-selected components and does not infer an anonymous tenant.
-- [x] Classify lesson 28: container isolation applies to a sandbox backend; current library resource scopes and path checks do not claim container isolation.
-- [x] Classify lesson 29: archive traversal protection applies to an extracting adapter. No production archive unpacker is supplied; canonical path screening is not claimed as ZipSlip verification.
-- [x] Classify lessons 30–33: snapshot lineage, snapshot-before-session-finalization, mount exclusion and native file permissions belong to an installed sandbox/container backend. No such backend is supplied or implied by local persistence.
+- Implement lesson 15 through explicit host-selected [unavailable-channel authorization](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#unavailable-approval-channel): unresolved Ask/Passthrough is denied without waiting or checkpointing, including standard child construction. Interactive and durable adapters retain their separate contracts; this adds no remote HTTP transport.
+- Classify lesson 26: namespace-owning adapters must define anonymous-user isolation if they accept absent identity. Current typed StorageAddress requires explicit nonblank host-selected components and does not infer an anonymous tenant.
+- Classify lesson 28: container isolation applies to a sandbox backend; current library resource scopes and path checks do not claim container isolation.
+- Classify lesson 29: archive traversal protection applies to an extracting adapter. No production archive unpacker is supplied; canonical path screening is not claimed as ZipSlip verification.
+- Classify lessons 30–33: snapshot lineage, snapshot-before-session-finalization, mount exclusion and native file permissions belong to an installed sandbox/container backend. No such backend is supplied or implied by local persistence.
 
 These checked items record applicability and activation boundaries, not completion of hypothetical sandbox/remote subsystems. Durable named-session restoration remains a concrete library obligation under lesson 18. WeisGnosis OS deployment and Temporal product tests are separate from library completion by explicit user instruction.
 

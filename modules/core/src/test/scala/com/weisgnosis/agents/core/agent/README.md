@@ -95,7 +95,7 @@ The added deferred-reader runtime group verifies ordinary authorization before r
 - StructuredOutputDynamicSpec verifies both runtime-schema scenarios through direct and streaming APIs.
 - ReActAgentEmissionSpec and ReActAgentToolEventSpec verify limits, inline metadata, occurrence matching, persistence before publication, normalized/empty observations, parallel completion, cancellation, and repeated IDs.
 - Six StructuredJsonBoundarySpec and five real-loopback StructuredOutputHttpSpec scenarios cover strict extraction, schema delivery, compression, usage/thinking, fallback, nonretryable errors, and invalid native JSON.
-- [ ] Complete remaining hook, provider continuation, event ordering and partial approval-resumption scenarios.
+The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist; the parity reference records bounded mappings and intentional API adaptations.
 
 StructuredOutputCapabilityRoutingSpec covers all declared/unknown capability routes, explicit overrides, application tool execution, native rejection fallback, and preset response formats. The preset-format regression failed before correction. Four separate client capability tests verify codecs, defaults, invalid declarations, and HTTP-body exclusion. These are local tests, not newly mapped upstream methods.
 

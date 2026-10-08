@@ -7,12 +7,14 @@ The runtime owns conversation history, completion and cancellation. Models propo
 - [High-level design](high-level-design.md): module boundaries and host responsibilities.
 - [Mid-level design](mid-level-design.md): component composition and planned integrations.
 - [Low-level design](low-level-design.md): source-linked API contracts and migration notes.
-- [Completion checklist](tracker.md): current capabilities and remaining library outcomes.
+- [Completion checklist and delivery plan](tracker.md): current capabilities, selected work packages, acceptance scenarios and unselected candidates.
 - [Upstream parity reference](test-parity.md): behavior mappings, adaptations and open evidence.
 
 ## Component contracts
 
 - [Agent runtime](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md): run ownership, checkpoints, authorization and interruption reconciliation.
+- [Multi-agent collaboration](../../modules/core/src/main/scala/com/weisgnosis/agents/core/coordination/README.md): scoped MsgHub membership, passive peer data and explicit delivery outcomes.
+- [Tracing](../../modules/otel/README.md): optional fiber-local span integration with host-owned SDK/export and bounded private attributes.
 - [Model transport](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md): completion profiles, reasoning/media representations and stream boundaries.
 - [Tools](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md): typed execution, schema admission and external observations.
 - [Subagents](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md): scoped children, retained supervision and recovery limits.

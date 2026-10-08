@@ -30,22 +30,22 @@ Installed controls retain ordinary authorization, static boundaries and host-sel
 
 ## Remaining integration
 
-- [x] Implement and independently review static command grammar and typed results.
-- [x] Inventory all fourteen pinned plan-mode methods without claiming completed runtime parity.
-- [x] Add typed mode values, explicit host mode effects and trusted tool classifications, default-denying unknown tools while planning.
-- [x] Install an opt-in permission gate that abstains for eligible calls, denies unsafe calls and rechecks confirmed input.
-- [x] Verify actual ReAct denial persistence/events and mode-change admission boundaries.
-- [x] Implement in-memory draft/review lifecycle with separately held host approval authority.
-- [x] Implement request-only prompt projection from one live session snapshot.
-- [x] Independently verify standalone draft storage, ownership, encoding and atomic publication.
-- [x] Integrate stored publication with session generations and failure/cancellation settlement.
-- [x] Implement strict model-facing controls and exact-ticket confirmed exit through an explicit publisher.
-- [x] Add descriptive configured/observed locations and request-context projection.
-- [x] Implement validated workspace-relative directory selection and its explicit upstream adaptation.
-- [ ] Complete remaining child installation/propagation method parity.
-- [ ] Integrate authenticated host UI routing in the consuming application.
-- [x] Verify a host-installed live parent/child gate through configured child execution without transferring approval authority.
-- [x] The explicit construction path retains live ancestor restrictions across nested and reused children; supported parent controls are verified under trusted Plan classifications. Raw host factories/spawners still require deliberate policy composition.
+- Static command admission uses a checked positive grammar and typed results.
+- Inventory all fourteen pinned plan-mode methods without claiming completed runtime parity.
+- Add typed mode values, explicit host mode effects and trusted tool classifications, default-denying unknown tools while planning.
+- Install an opt-in permission gate that abstains for eligible calls, denies unsafe calls and rechecks confirmed input.
+- Coverage includes actual ReAct denial persistence/events and mode-change admission boundaries.
+- Supported: in-memory draft/review lifecycle with separately held host approval authority.
+- Supported: request-only prompt projection from one live session snapshot.
+- Independently verify standalone draft storage, ownership, encoding and atomic publication.
+- Supported integration: stored publication with session generations and failure/cancellation settlement.
+- Supported: strict model-facing controls and exact-ticket confirmed exit through an explicit publisher.
+- Add descriptive configured/observed locations and request-context projection.
+- Supported: validated workspace-relative directory selection and its explicit upstream adaptation.
+Child plan installation and live ancestor restrictions follow the [subagent contract](../subagent/README.md#child-plan-installation). The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist; the parity reference records bounded mappings and intentional API adaptations.
+The consuming application owns authenticated approval routing and durable approval restoration; a stored draft does not restore live Promise authority.
+- Coverage includes a host-installed live parent/child gate through configured child execution without transferring approval authority.
+- The explicit construction path retains live ancestor restrictions across nested and reused children; supported parent controls are verified under trusted Plan classifications. Raw host factories/spawners still require deliberate policy composition.
 
 The [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) records the next repository task.
 

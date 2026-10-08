@@ -11,13 +11,17 @@ import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
 
-MODULES = ("core", "harness", "mcp", "storage-postgresql")
+MODULES = ("core", "harness", "mcp", "storage-postgresql", "otel")
 DEFAULT_VERSION = "0.1.0-SNAPSHOT"
 RC_VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)-RC[1-9][0-9]*", re.ASCII)
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 TEST_ONLY = frozenset((
     "zio-test_3", "zio-test-sbt_3", "mcp-core", "mcp-json-jackson2",
     "tomcat-embed-core", "slf4j-jdk14", "postgresql",
+    "opentelemetry-sdk", "opentelemetry-sdk-trace", "opentelemetry-sdk-common",
+    "opentelemetry-sdk-testing",
+    "opentelemetry-exporter-otlp", "opentelemetry-exporter-otlp-common",
+    "opentelemetry-exporter-common", "opentelemetry-exporter-sender-okhttp",
 ))
 
 

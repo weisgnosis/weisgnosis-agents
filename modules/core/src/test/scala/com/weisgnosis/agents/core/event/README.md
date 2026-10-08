@@ -25,12 +25,11 @@ These suites verify payload codecs and selected runtime boundaries. They do not 
 - All 13 enabled AgentEventStreamTest declarations now have identifier/payload evidence with documented adaptations.
 - ReActAgentEmissionSpec verifies correlated iteration-limit publication and inline provider metadata/text/data order with occurrence-sensitive cancellation handling.
 - StructuredCompletionSpec verifies finalized result publication after history commit and before AgentEnd; see the reviewed [agent scope](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).
-- Verify reply/request correlation in actual live model streams.
-- Verify bounded current runtime ordering, checkpoint Ask/Decision and optional final-answer presentation filtering.
-- [ ] Define model data-block production, remaining provider output-media projection, richer source attribution and host durable checkpoint integration.
+- Coverage includes reply/request correlation in actual live model streams.
+- Coverage includes bounded current runtime ordering, checkpoint Ask/Decision and optional final-answer presentation filtering.
+A DataBlock codec does not create a model DataBlock producer. Source attribution requires explicit runtime/host context, and durable checkpoint authentication and delivery remain host responsibilities.
 
 The [current event contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md) describe payload, correlation and publication boundaries. The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) records ten deprecated legacy methods as explicit exclusions and records six bounded adaptations of disabled ordering declarations; model data-block production remains pending. Decoding an event does not establish runtime authority or publication.
-
 
 Completed local publication through Tool.encodeResult and ToolResultProcessor produces ordered data events with protected metadata. This does not enable every provider output-media format; see the [tool contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#current-review-acceptance).
 
@@ -42,7 +41,6 @@ ModelStreamContextSpec verifies all sixteen contextual root encodings, source pr
 
 Model/client correlation behavior is described in the [client contracts](../client/README.md). Event codecs and context shapes are unchanged by typed local results.
 
-- [ ] Provider multimodal projection and exhaustive upstream event ordering remain separate work.
-
+Provider media projection is profile-specific; event codecs do not establish every upstream publication order or media dialect.
 
 [Incremental local execution](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution) uses existing event types for provisional text/data; final End remains authoritative and does not change event codecs.

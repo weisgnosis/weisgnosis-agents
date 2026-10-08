@@ -60,7 +60,7 @@ Initialization projects independent optional `resources.subscribe` and `resource
 
 ## 2025-06-18 tool requests and list results
 
-[McpTools](McpTools.scala) adds checked request builders and a one-page list-result parser for the same 2025-06-18 revision. The bounded request/list-result scope is independently reviewed and accepted as recorded below.
+[McpTools](McpTools.scala) adds checked request builders and a one-page list-result parser for the same 2025-06-18 revision. Request builders and result parsing enforce the checked field rules below.
 
 - `listRequest(id, cursor, meta)` constructs `tools/list`; it omits params when both options are absent. `callRequest(id, name, arguments, meta)` constructs `tools/call` and preserves absent arguments separately from an empty object. Both return `Either[AgentError.InvalidMessage, McpMessage.Request]` and reuse checked envelope validation for IDs and recursive duplicate keys.
 - `readListResult(Json.Obj)` returns `Either[AgentError.DeserializationError, McpToolsPage]`. Required tools stay in server order, including duplicate names. Optional nextCursor and object `_meta` are retained; unknown page fields remain in extensions. There is no pagination loop, deduplication, or local registration.
@@ -88,6 +88,6 @@ Run `sbt "mcp / test"` from the repository root for offline and owned local-proc
 
 Selected initialization, capability checks, bounded discovery/invocation and joined deadlines belong to the [client contract](../client/README.md). The protocol projections do not perform transport I/O, lifecycle enforcement, schema evaluation or URI/base64/timestamp interpretation.
 
-- [ ] Extend optional method/revision validation and lifecycle integration as required by the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md#mcp-protocol-and-connection-boundaries).
+Selected revision and method contracts do not establish complete MCP conformance or durable host delivery. The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist.
 
 AgentScope Java delegates wire serialization to MCP Java SDK 0.17.2. These specification-derived codec contracts are separate from wrapper assertion mappings, provider multimodal support and output-schema evaluation.

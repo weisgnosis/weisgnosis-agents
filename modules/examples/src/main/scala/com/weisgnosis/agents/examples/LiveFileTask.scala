@@ -124,13 +124,14 @@ object LiveFileTask extends ZIOAppDefault:
                 )
             )
         )
+        timeout <- LiveProviderSmoke.runTimeout
         agent <- ReActAgent
           .builder()
           .client(client)
           .llmConfig(config)
           .toolkit(Toolkit.single(write).updated(read))
           .maxIterations(3)
-          .timeout(1.minute)
+          .timeout(timeout)
           .build
         result <- agent.run(
           Msg.user(

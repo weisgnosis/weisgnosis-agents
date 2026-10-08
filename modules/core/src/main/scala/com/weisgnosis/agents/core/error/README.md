@@ -19,7 +19,7 @@ Each leaf exposes a message and its individual derived JSON codec. The hierarchy
 
 The boundary table above links the current error semantics and integration contracts.
 
-- [ ] Complete exhaustive error-hierarchy and applicable upstream scenario mapping. Passing suites do not establish exhaustive parity.
+These error contracts and suites cover the listed boundaries; passing them does not establish exhaustive upstream parity.
 
 The [error spec](../../../../../../../test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) checks selected codec/diagnostic contracts. Runtime suites verify callback provenance, storage ownership, tool normalization and MCP cause propagation. The current [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records required build verification.
 

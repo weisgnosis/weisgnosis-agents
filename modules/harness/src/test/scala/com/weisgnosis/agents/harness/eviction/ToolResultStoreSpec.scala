@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.harness.eviction
 
+import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 import zio.test.*
 import java.nio.file.{Files, Path}
@@ -136,8 +137,25 @@ object ToolResultStoreSpec extends ZIOSpecDefault:
               .as("published")
           )
           .exit
+          .provideLayer(Runtime.removeDefaultLoggers)
+        entries  <- ZTestLogger.logOutput
         retained <- ZIO.attemptBlocking(Files.readString(child))
-      yield assertTrue(result == Exit.succeed("published"), retained == "content")
+        warnings = entries.filter(entry =>
+          entry.logLevel == LogLevel.Warning &&
+            entry.message() == s"Could not remove temporary tool result at $directory"
+        )
+      yield assertTrue(
+        result == Exit.succeed("published"),
+        retained == "content",
+        warnings.size == 1,
+        warnings.forall(entry =>
+          entry.cause.failures match
+            case List(error: AgentError.ToolExecutionError) =>
+              error.toolName == "tool_result_store" && error.message.contains(directory.toString) &&
+              entry.cause.defects.isEmpty && !entry.cause.isInterrupted
+            case _ => false
+        )
+      )
     },
     test("rejects traversal keys and sensitive workspace directories") {
       for

@@ -222,7 +222,7 @@ Migration: MediaSource.Url appends mimeType: Option[String] = None with canonica
 
 Existing tables verify six inline MIME mappings, four image URL hints on a misleading .mp3 path, extensionless mixed content, ignored descriptive hints on explicit Image blocks, local-field omission and whole-request rejection. The existing MediaSource codec group covers concrete/base round-trips, omitted/null hints and duplicate/nonstring rejection. There are no new test groups. Existing typed image/audio, signature and reasoning behavior remains unchanged.
 
-- [ ] Audio output, URL retrieval, additional media/provider formats and live-provider interoperability remain unfinished.
+Audio output, automatic URL retrieval and unlisted media/provider formats are not supported by this selected profile. Live compatibility is established only by explicitly documented provider runs.
 
 ## User Video URL projection
 
@@ -232,7 +232,7 @@ The host must select an endpoint that supports this video_url extension. Supplyi
 
 The existing positive/negative request tables add the bounded pinned OpenAIVideoSupportTest.testConvertVideoBlockWithUrlSource (154) and testConvertMixedTextAndVideoContent (219) adaptations, including exact wire order/URL preservation and rejected near-misses. No new test group or whole upstream suite mapping is introduced.
 
-- [ ] Additional inline video MIME types, Data video inference, other provider/media formats and live compatible-endpoint validation remain unfinished; explicit inline video has its own scoped contract.
+Inline video accepts only the MIME types in the profile above; Data blocks do not infer video. Other provider formats and endpoints require separate compatibility evidence.
 
 ## Inline video projection
 
@@ -277,7 +277,7 @@ A nonempty detail array or a nonblank Thinking signature counts as reasoning for
 Migration: exhaustive ReasoningReplay matches must handle OpenRouterDetails. ReasoningDetailsDelta.details now contains Chunk[ReasoningDetail], replacing Chunk[EncryptedReasoningDetail]; direct producers can map encrypted values through toDetail and must recompile. Existing make arguments, decoder overloads and default policies remain. Msg JSON is unchanged. Checked AST codecs preserve validated representation rather than normalizing a DTO. Invalid history fails before serialization instead of silently dropping metadata.
 
 - Two new pure groups and the existing HTTP table cover checked variants, literal null/empty values, scalar precedence, both mixed-chunk orders, exact historical replay and canonical/event agreement. The HTTP rows retain sibling-input protection for both selected profiles. This is loopback evidence, not live OpenRouter interoperability.
-- [ ] Other provider reasoning/signature formats and exhaustive upstream formatter parity remain unfinished; ordinary JSON completion has its separate accepted scope above.
+Only the explicitly selected reasoning/signature profiles are supported. Ordinary JSON completion follows its separate contract above; exhaustive formatter compatibility is not claimed.
 
 ## Summary text alias
 
@@ -335,7 +335,7 @@ This is a typed live-client text transformation point, not the upstream event-re
 
 Use the explicit profiles above and the [test index](../../../../../../../test/scala/com/weisgnosis/agents/core/client/README.md) for their supported boundaries. Passing local fixtures does not establish universal provider interoperability.
 
-- [ ] Complete other provider signatures/tool metadata, inline server response decoding, other reasoning-detail variants, additional input-size bounds, and exhaustive upstream mapping.
+Unselected provider signatures, inline server-response dialects and reasoning-detail variants are not decoded automatically. These tests establish the listed checked boundaries, not every provider format or a global response-size limit.
 
 The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
 
@@ -358,3 +358,17 @@ The expanded existing cancellation group targets cooperative/external interrupti
 ## Text transformation increment identities
 
 [ModelTextTransform](ModelTextTransform.scala) defines request-scoped text transformation; [ChatCompletionsTransformSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) exercises actual HTTP streams, transformed history and interruption boundaries. These tests also distinguish subscription-local event filtering and immutable host result projection from canonical runtime mutation.
+
+## Native provider selection
+
+Select a provider through the existing `ModelTarget(client, config)`; the host borrows a scoped `zio.http.Client` and supplies an explicit full endpoint and credentials. `ChatCompletionsClient` remains the OpenAI-compatible profile. Native profiles do not translate unsupported generation settings silently or infer safe retries from uncertain network failures.
+
+`AnthropicLlmClient.make(http)` implements native Messages text, signed thinking and local tool turns with `x-api-key` and the selected API version. Use the full `/v1/messages` endpoint. System text is encoded separately; exact thinking signatures and indexed text/tool order survive continuation. Choose sufficient maxTokens for an explicitly selected thinking budget and temperature 1. Native responseFormat, penalties, seed, reasoningEffort, media and redacted thinking are rejected by this profile. Synthetic structured output uses the ordinary local `generate_response` mechanism instead of native formatting.
+
+Select basic hosted search explicitly with `AnthropicWebSearch.make(maxUses)` and `AnthropicLlmClient.make(http, webSearch = Some(search))`. Search is provider-owned and adds no executable Toolkit binding. Canonical assistant messages retain inline search outcomes; no separate local Tool messages are created. Native search results, encrypted content and citations are retained for exact replay and checked against the current canonical content before reuse. A host transformation that changes those blocks must remove or regenerate compatible native replay data; stale hidden data fails explicitly. Remote search errors are observations, while unsupported/incomplete protocol termination fails the model request. Advanced dynamic-filtering search variants are outside this profile.
+
+`GeminiLlmClient.make(http, execution = GeminiCodeExecution.Enabled)` implements a narrow native streaming text/code-execution profile. Supply the full selected-model `:streamGenerateContent` endpoint; the client requests SSE and uses `x-goog-api-key`. Provider Python code and terminal execution outcomes become server-marked call/inline-result pairs, including failed/deadline outcomes, and are never executed locally. Native ordered parts and signatures survive checked continuation. Local tool declarations, thought/media content, native structured settings and realtime sessions are explicitly unsupported in this profile.
+
+Each native request owns its response scope and byte budget. Cancellation preserves validated partial data, sanitizes incomplete tool JSON and joins HTTP cleanup. Unsupported stop reasons and early EOF cannot become successful completion. Neither native profile currently grants a definite pre-response failover marker or automatic retry.
+
+The actual loopback public contracts are [AnthropicLlmClientSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/client/AnthropicLlmClientSpec.scala) and [GeminiLlmClientSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/client/GeminiLlmClientSpec.scala). Loopback evidence is distinct from a real native-provider run. [NativeProviderSmoke](../../../../../../../../../examples/src/main/scala/com/weisgnosis/agents/examples/NativeProviderSmoke.scala) is an opt-in executable example. The supplied OpenAI-compatible gateway cannot verify these native wire protocols.

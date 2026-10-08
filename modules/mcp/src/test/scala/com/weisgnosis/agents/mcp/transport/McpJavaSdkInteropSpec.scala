@@ -279,7 +279,7 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
         observed <- ZIO.scoped:
           for
             peer      <- server(None, WireTransport.LegacySse)
-            http      <- ZIO.service[Client]
+            http      <- Client.default.build.map(_.get[Client])
             exchanges <- Ref.make(Chunk.empty[Exchange])
             transport <- McpLegacySseTransport.open(recording(http, exchanges), peer.endpoint)
             client    <- McpClient.open(transport, McpImplementation("scala-legacy", "1"))
@@ -307,7 +307,7 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
         observed <- ZIO.scoped:
           for
             peer      <- server(None)
-            http      <- ZIO.service[Client]
+            http      <- Client.default.build.map(_.get[Client])
             exchanges <- Ref.make(Chunk.empty[Exchange])
             recorded = recording(http, exchanges)
             transport         <- McpStreamableHttpTransport.open(recorded, peer.endpoint)
@@ -400,7 +400,7 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
         observed <- ZIO.scoped:
           for
             peer           <- server(None)
-            http           <- ZIO.service[Client]
+            http           <- Client.default.build.map(_.get[Client])
             exchanges      <- Ref.make(Chunk.empty[Exchange])
             acquisitions   <- Ref.make(0)
             releases       <- Ref.make(Chunk.empty[Int])
@@ -526,7 +526,7 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
         observed <- ZIO.scoped:
           for
             peer       <- server(Some(java.time.Duration.ofMillis(100)))
-            http       <- ZIO.service[Client]
+            http       <- Client.default.build.map(_.get[Client])
             exchanges  <- Ref.make(Chunk.empty[Exchange])
             closedGets <- Ref.make(0)
             messages   <- ZIO.acquireRelease(Queue.unbounded[McpMessage])(_.shutdown)
@@ -608,5 +608,5 @@ object McpJavaSdkInteropSpec extends ZIOSpecDefault:
         state  <- ZIO.attemptBlocking(peer.tomcat.getServer().getState())
         exists <- ZIO.attemptBlocking(Files.exists(peer.directory))
       yield result && assertTrue(state == LifecycleState.DESTROYED, !exists)
-  ).provide(Client.default) @@ TestAspect.sequential @@ TestAspect.withLiveClock @@ TestAspect
+  ) @@ TestAspect.sequential @@ TestAspect.withLiveClock @@ TestAspect
     .timeout(30.seconds)

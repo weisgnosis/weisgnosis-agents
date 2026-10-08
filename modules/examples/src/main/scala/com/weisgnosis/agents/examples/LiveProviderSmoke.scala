@@ -44,16 +44,37 @@ object LiveProviderSmoke extends ZIOAppDefault:
           endpoint <- required("WEISGNOSIS_LIVE_ENDPOINT")
           model    <- required("WEISGNOSIS_LIVE_MODEL")
           key      <- environment("WEISGNOSIS_LIVE_API_KEY")
+          tokens   <- boundedInteger("WEISGNOSIS_LIVE_MAX_TOKENS", 4096, 64, 32768)
         yield Some(
           LlmConfig(
             model,
             endpoint = endpoint,
             apiKey = key.filterNot(_.isBlank),
-            maxTokens = Some(1024)
+            maxTokens = Some(tokens)
           )
         )
       case Some(_) =>
         ZIO.fail(AgentError.InvalidConfiguration("WEISGNOSIS_LIVE_SMOKE must be enabled or unset"))
+
+  private[examples] def runTimeout: IO[AgentError, Duration] =
+    boundedInteger("WEISGNOSIS_LIVE_TIMEOUT_SECONDS", 300, 10, 1800).map(_.seconds)
+
+  private def boundedInteger(
+      name: String,
+      default: Int,
+      minimum: Int,
+      maximum: Int
+  ): IO[AgentError, Int] =
+    environment(name).flatMap:
+      case None => ZIO.succeed(default)
+      case Some(value) =>
+        ZIO
+          .fromOption(value.toIntOption.filter(number => number >= minimum && number <= maximum))
+          .orElseFail(
+            AgentError.InvalidConfiguration(
+              s"$name must be an integer between $minimum and $maximum"
+            )
+          )
 
   private def environment(name: String): IO[AgentError, Option[String]] =
     System.env(name).mapError(_ => AgentError.InvalidConfiguration(s"Cannot read $name"))
@@ -68,7 +89,7 @@ object LiveProviderSmoke extends ZIOAppDefault:
   final private case class SumInput(a: Int, b: Int) derives JsonCodec
   final private case class Observation(textDeltas: Int = 0, result: Option[AgentResult] = None)
 
-  private def exercise(http: Client, config: LlmConfig): IO[AgentError, Unit] =
+  private[examples] def exercise(http: Client, config: LlmConfig): IO[AgentError, Unit] =
     ZIO.scoped:
       for
         executions <- Ref.make(0)
@@ -97,13 +118,14 @@ object LiveProviderSmoke extends ZIOAppDefault:
           http,
           CompletionTransportLimits(responseBytes = 1024L * 1024)
         )
+        timeout <- runTimeout
         agent <- ReActAgent
           .builder()
           .client(client)
           .llmConfig(config)
           .toolkit(toolkit)
           .maxIterations(3)
-          .timeout(1.minute)
+          .timeout(timeout)
           .build
         observed <- agent
           .streamWithResult(

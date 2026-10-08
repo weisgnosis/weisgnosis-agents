@@ -15,9 +15,10 @@
  */
 package com.weisgnosis.agents.core.tool
 
+import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.agent.ReActAgent
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
-import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import zio.*
 import zio.json.ast.Json
 import zio.test.*
@@ -35,7 +36,112 @@ object ToolkitSpec extends ZIOSpecDefault:
       ZIO.succeed("found")
     )
 
-  def spec: Spec[TestEnvironment, Any] = suite("ToolkitSpec (AgentScope Java Parity)")(
+  def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolkitSpec (AgentScope Java Parity)")(
+    test("local dispatch observation follows normalization and excludes missing/external bindings"):
+      for
+        states <- Ref.make(Chunk.empty[(String, ToolResultState)])
+        observer = ToolDispatchObserver((name, _) =>
+          ZIO.succeed(
+            ToolDispatchCompletion(outcome =>
+              outcome match
+                case Exit.Success(state) => states.update(_ :+ (name -> state))
+                case Exit.Failure(_)     => ZIO.unit
+            )
+          )
+        )
+        broken = new Tool[Any, Json, String]:
+          def definition: ToolDef               = ToolDef("broken", "Encoding failure", Json.Obj())
+          def execute(input: Json): UIO[String] = ZIO.succeed("output")
+          def decodeInput(raw: Json): Either[String, Json] = Right(raw)
+          def encodeOutput(out: String): String            = out
+          override def encodeResultChecked(out: String): Either[AgentError, ToolExecutionResult] =
+            Left(AgentError.InvalidMessage("Rejected output"))
+        external <- ZIO.fromEither(
+          ToolBinding.external[Json](ToolDef("external", "Host dispatch", Json.Obj()))
+        )
+        toolkit = Toolkit
+          .single(dummyTool1)
+          .withDispatchObserver(observer)
+          .updated(broken)
+          .overlay(Toolkit.single(external))
+          .filterNames(_ => true)
+        success  <- toolkit.executeSafe("calc", Json.Obj())
+        encoded  <- toolkit.executeSafe("broken", Json.Obj())
+        missing  <- toolkit.executeSafe("missing", Json.Obj())
+        supplied <- toolkit.executeSafe("external", Json.Obj())
+        observed <- states.get
+      yield assertTrue(
+        success.state == ToolResultState.Success,
+        encoded.state == ToolResultState.Error,
+        missing.state == ToolResultState.Error,
+        supplied.state == ToolResultState.Error,
+        observed == Chunk("calc" -> ToolResultState.Success, "broken" -> ToolResultState.Error)
+      )
+    ,
+    test(
+      "dispatch cancellation joins tool cleanup before completion and closes observer scopes inside out"
+    ):
+      for
+        entered <- Promise.make[Nothing, Unit]
+        order   <- Ref.make(Chunk.empty[String])
+        observer = ToolDispatchObserver((_, _) =>
+          ZIO.addFinalizer(order.update(_ :+ "observer closed")) *>
+            ZIO.succeed(
+              ToolDispatchCompletion(outcome =>
+                order.update(_ :+ (if outcome.isInterrupted then "interrupted" else "unexpected"))
+              )
+            )
+        )
+        tool = Tool.make(ToolDef("held", "Wait for cancellation", Json.Obj()))(_ =>
+          (entered.succeed(()) *> ZIO.never).ensuring(order.update(_ :+ "tool closed"))
+        )
+        fiber <- Toolkit
+          .single(tool)
+          .withDispatchObserver(observer)
+          .executeSafe("held", Json.Obj())
+          .forkScoped
+        _        <- entered.await
+        exit     <- fiber.interrupt
+        observed <- order.get
+      yield assertTrue(
+        exit.isInterrupted,
+        observed == Chunk("tool closed", "interrupted", "observer closed")
+      )
+    ,
+    test("cancellation during observer cleanup preserves controller and cleanup defect"):
+      ZIO.scoped:
+        for
+          cleaning <- Promise.make[Nothing, Unit]
+          release  <- Promise.make[Nothing, Unit]
+          defect = new IllegalStateException("dispatch observer cleanup")
+          observer = ToolDispatchObserver((_, _) =>
+            ZIO
+              .addFinalizer(cleaning.succeed(()) *> release.await *> ZIO.die(defect))
+              .as(ToolDispatchCompletion.ignore)
+          )
+          active <- ZIO.uninterruptibleMask: restore =>
+            for
+              active <- restore(
+                Toolkit
+                  .single(dummyTool1)
+                  .withDispatchObserver(observer)
+                  .executeSafe("calc", Json.Obj())
+              ).forkScoped
+              _ <- ZIO.addFinalizer(release.succeed(()).unit)
+            yield active
+          _          <- cleaning.await
+          controller <- ZIO.fiberId
+          _          <- active.interruptAsFork(controller)
+          before     <- active.poll
+          _          <- release.succeed(())
+          exit       <- active.await
+          cause = exit.causeOption.getOrElse(Cause.empty)
+        yield assertTrue(
+          before.isEmpty,
+          cause.interruptors.contains(controller),
+          cause.defects.toList == List(defect)
+        )
+    ,
     test("Map bindings cannot execute a different handler under an approved name"):
       for
         executed <- Ref.make(Chunk.empty[String])

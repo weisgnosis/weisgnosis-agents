@@ -173,7 +173,9 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
       receipt: Receipt
   ): ZIO[TestEnvironment & Scope, AgentError, TestResult] =
     ZIO.scoped:
+      val admittedAt = Instant.parse("2026-10-08T12:00:00Z")
       for
+        _            <- TestClock.setTime(admittedAt)
         backend      <- SubagentTerminalStoreSpec.fixture
         target       <- address("publication")
         writing      <- Promise.make[Nothing, Unit]
@@ -246,15 +248,16 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
         published <- terminal.read(taskId)
         pending: SubagentTaskOutputResult = SubagentTaskOutputResult.PublicationPending(
           taskId.value.toString,
-          Some(createdAt)
+          Some(admittedAt)
         )
         complete: SubagentTaskOutputResult = SubagentTaskOutputResult.Terminal(
           taskId.value.toString,
           None,
           SubagentTerminalOutcome.Completed(fullText),
-          Some(createdAt)
+          Some(admittedAt)
         )
       yield assertTrue(
+        createdAt == admittedAt,
         joined.contains(Exit.succeed(result)),
         zero.output == pending.toJson,
         nonblocking.output == pending.toJson,
@@ -512,6 +515,7 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
   private def storedCase(mode: StoredCase): ZIO[TestEnvironment & Scope, AgentError, TestResult] =
     ZIO.scoped:
       for
+        _       <- TestClock.setTime(Instant.parse("2026-10-08T00:00:00Z"))
         backend <- SubagentTerminalStoreSpec.fixture
         target  <- address("stored-live")
         terminal = SubagentTerminalStore.make(backend.store, target)

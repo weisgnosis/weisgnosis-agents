@@ -75,20 +75,19 @@ Automatic restrictions apply to the derived construction path, not arbitrary raw
 
 Both resource defects were reproduced before correction. Barrier-based regressions now pass and release all held cleanup before assertions. These tests establish library-controlled closure contracts, not new guarantees for arbitrary concurrent calls to raw `Scope.close`.
 
-- [x] Verify supervisor/runtime integration and lineage/error contracts.
-- [x] Verify and independently approve configured-factory/static-boundary scenarios and the two bounded upstream adaptations at the recorded identities.
-- [x] Verify and independently approve bounded registry admission, retention, inspection, caller leases and scoped shutdown.
-- [x] Verify and independently approve live parent-denial checks before authorization and after confirmation without copying approval authority.
-- [x] Verify actual model-facing spawn/inspect/cancel entry points, bounded observations and scoped caller cancellation.
-- [x] Verify opt-in inherited Plan admission with child-owned controls and review authority.
-- [x] Verify retained shared resources, initialization failure/cancellation, worker-before-resource teardown and competing-close outcome sharing.
-- [x] Verify host-held reusable child sessions with per-execution IDs, serialized history, current policy and bounded descendant lifetime.
-- [x] Verify model-facing send through one bound session, task-ID isolation, scoped cancellation and subsequent reuse.
-- [x] Verify bounded host session lookup, aliases, original-owner lifetime, rejection ownership and joined removal/closure.
-- [x] Verify strict model-facing directory routing, selected-session result identity, isolation and joined promoted task control.
-- [x] Verify derived construction propagates static/live-denial/live-Plan restrictions while preserving own child authority across nested execution and reuse.
-- [ ] Complete remaining upstream propagation assertions.
-- [ ] Complete remaining applicable upstream method mappings after those APIs exist.
+- Coverage includes supervisor/runtime integration and lineage/error contracts.
+- Coverage includes configured-factory/static-boundary scenarios and the two bounded upstream adaptations without inheriting approval tickets.
+- Coverage includes bounded registry admission, retention, inspection, caller leases and scoped shutdown.
+- Coverage includes live parent-denial checks before authorization and after confirmation without copying approval authority.
+- Coverage includes actual model-facing spawn/inspect/cancel entry points, bounded observations and scoped caller cancellation.
+- Coverage includes opt-in inherited Plan admission with child-owned controls and review authority.
+- Coverage includes retained shared resources, initialization failure/cancellation, worker-before-resource teardown and competing-close outcome sharing.
+- Coverage includes host-held reusable child sessions with per-execution IDs, serialized history, current policy and bounded descendant lifetime.
+- Coverage includes model-facing send through one bound session, task-ID isolation, scoped cancellation and subsequent reuse.
+- Coverage includes bounded host session lookup, aliases, original-owner lifetime, rejection ownership and joined removal/closure.
+- Coverage includes strict model-facing directory routing, selected-session result identity, isolation and joined promoted task control.
+- Coverage includes derived construction propagates static/live-denial/live-Plan restrictions while preserving own child authority across nested execution and reuse.
+The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist; the parity reference records bounded public scenarios and intentional API adaptations.
 
 See the [repository tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) for immediate next work. Durable host integration and post-promotion event delivery remain separate; the [completion inbox](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#completion-delivery-inbox) covers retained joined outcomes, not pushed events.
 

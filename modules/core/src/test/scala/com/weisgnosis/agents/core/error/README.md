@@ -4,7 +4,7 @@
 
 [McpRequestsSpec](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpRequestsSpec.scala) exercises the additive McpError boundary through capacity rejection, scoped abandonment and closure. It checks complete domain causes and the mapping of foreign typed request-scope failures without losing defects or interruption.
 
-- [ ] Complete exhaustive error-hierarchy and applicable upstream scenario mapping; the current suites do not claim it.
+These error contracts and suites cover the listed boundaries; passing them does not establish exhaustive upstream parity.
 
 Acceptance for unchanged host callback, storage and lineage behavior remains in the relevant [source package contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/error/README.md). Current full-build evidence is recorded in the repository tracker; Git preserves prior review history.
 

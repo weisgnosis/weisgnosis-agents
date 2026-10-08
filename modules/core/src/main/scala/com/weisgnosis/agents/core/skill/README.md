@@ -17,7 +17,7 @@ groupNotes is a pure advisory projection of explicit bindings: groups and their 
 The systemPrompt projection is pure and derived only from this selected catalogue: sorted IDs, descriptions and exact logical resource names are JSON-escaped. It excludes skill bodies, resource content and inert metadata. Empty catalogues produce no prompt. This descriptive text neither loads resources nor activates groups.
 
 - The opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission) verifies actual runtime loader admission with ordinary permission and confirmation policy.
-- [ ] Automatic repository fallback, source IDs, caches, generated registration and durable activation remain unfinished. The harness [skill adapters](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/skill/README.md) own bounded local loading and eager TextTree discovery; repository-wide next work is in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work).
+The harness [skill adapters](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/skill/README.md) supply bounded local loading and eager TextTree discovery. This pure catalogue supplies no automatic repository fallback, source-ID registry, cache or durable activation.
 
 ## Deferred resource capabilities
 

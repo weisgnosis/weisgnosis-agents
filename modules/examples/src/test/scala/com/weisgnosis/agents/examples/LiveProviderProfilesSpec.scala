@@ -80,7 +80,7 @@ object LiveProviderProfilesSpec extends ZIOSpecDefault:
         requests <- Ref.make(Chunk.empty[(Chunk[String], LlmConfig, ModelStreamContext)])
         report <- LiveProviderProfiles.exercise(
           client(Response.Valid, requests),
-          LlmConfig("offline-profile")
+          LlmConfig("offline-profile", maxTokens = Some(4096))
         )
         observed <- requests.get
         cancellation = report.cancellation
@@ -111,7 +111,7 @@ object LiveProviderProfilesSpec extends ZIOSpecDefault:
         observed.headOption.exists(_._2.responseFormat.nonEmpty),
         observed.lift(1).exists(_._1 == Chunk(StructuredOutput.ToolName)),
         observed.lastOption.exists(_._1 == Chunk("profile_hold")),
-        observed.forall(_._2.maxTokens.contains(1024)),
+        observed.forall(_._2.maxTokens.contains(4096)),
         observed.flatMap(_._3.invocation).distinct.size == 3,
         cancellation.exit.isInterrupted,
         cancellation.cleanupJoined,

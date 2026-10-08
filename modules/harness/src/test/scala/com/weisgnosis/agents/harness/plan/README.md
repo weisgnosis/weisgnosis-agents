@@ -8,16 +8,16 @@ Toolkit construction and selection follow the [checked registry identity and mig
 
 These tests execute no shell and establish no path/process isolation. The [current contract and current identity tables](../../../../../../../main/scala/com/weisgnosis/agents/harness/plan/README.md) define the narrow accepted scope.
 
-- [x] Verify ten static syntax/type cases.
-- [x] Verify permission integration, modified confirmation arguments and real runtime denials.
-- [x] Adapt two upstream middleware methods through actual runtime admission.
-- [x] Adapt fresh Build no-hint behavior through request-only projection.
-- [x] Adapt four manager/prompt methods through location context and one directory method through validated workspace selection.
-- [x] Adapt the five child/control methods through opt-in installation and actual retained-session sends; all fourteen inventory methods have bounded mappings.
-- [x] Verify scoped local persistence and exact-ticket host exit approval.
-- [x] Verify host-installed live parent/child admission with independent child controls and exact-review authority.
-- [x] Verify opt-in child-local tool/context installation with retained live ancestor restrictions.
-- [ ] Integrate authenticated host UI routing and durable approval restoration.
+- Coverage includes ten static syntax/type cases.
+- Coverage includes permission integration, modified confirmation arguments and real runtime denials.
+- Adapt two upstream middleware methods through actual runtime admission.
+- Adapt fresh Build no-hint behavior through request-only projection.
+- Adapt four manager/prompt methods through location context and one directory method through validated workspace selection.
+- Adapt the five child/control methods through opt-in installation and actual retained-session sends; all fourteen inventory methods have bounded mappings.
+- Coverage includes scoped local persistence and exact-ticket host exit approval.
+- Coverage includes host-installed live parent/child admission with independent child controls and exact-review authority.
+- Coverage includes opt-in child-local tool/context installation with retained live ancestor restrictions.
+The consuming application owns authenticated approval routing and durable approval restoration; stored drafts do not restore live Promise authority.
 
 The [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) records the next repository task.
 

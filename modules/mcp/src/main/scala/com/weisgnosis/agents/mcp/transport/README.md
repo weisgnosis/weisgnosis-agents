@@ -188,5 +188,5 @@ Run `sbt "mcp / test"` from the repository root for offline and owned local-proc
 
 Selected initialization, optional outbound cancellation, bounded HTTP POST/GET, direct-client/manager expiry replacement and same-send POST-body recovery are implemented within the contracts above. SDK listener evidence covers local cancellation and manual same-session re-listening without a cursor; it does not establish cursor replay or remote-work cancellation.
 
-- [ ] Complete remaining applicable transport mappings and durable host integration documented in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work).
-- [ ] Validate additional platform/process configurations before extending ownership claims.
+Selected revision and method contracts do not establish complete MCP conformance or durable host delivery. The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist.
+Process/platform ownership claims are limited to the documented executed fixtures; additional environments require their own evidence.

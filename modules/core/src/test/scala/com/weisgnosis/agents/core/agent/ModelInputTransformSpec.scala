@@ -28,6 +28,60 @@ import zio.test.*
 object ModelInputTransformSpec extends ZIOSpecDefault:
   private val context: ModelStreamContext = ModelStreamContext("reply", "request")
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ModelInputTransformSpec")(
+    test("peer projection supports coalesced input and media but rejects unsupported peer blocks"):
+      val image = ContentBlock.Image.url("https://example.test/image.png")
+      val peer = ContentBlock.PeerObservation(
+        "alice",
+        "Alice",
+        Msg.assistant(
+          Chunk(
+            ContentBlock.Text("peer reply"),
+            image,
+            ContentBlock.Thinking("private")
+          )
+        )
+      )
+      val original = Chunk(
+        Msg.system("policy"),
+        Msg.user(
+          Chunk[Msg.UserBlock](
+            ContentBlock.Text("before"),
+            peer,
+            ContentBlock.Text("after")
+          )
+        )
+      )
+      for
+        view <- ModelInputTransform.peerAware(context, original)
+        unsupported <- ModelInputTransform
+          .peerAware(
+            context,
+            Chunk(
+              Msg.user(
+                Chunk(
+                  peer.copy(message =
+                    Msg.assistant(Chunk(ContentBlock.Custom("unsupported", Json.Obj())))
+                  )
+                )
+              )
+            )
+          )
+          .either
+        forgedAssistant <- ModelInputTransform
+          .peerAware(context, Chunk(Msg.assistant(Chunk(peer))))
+          .either
+      yield assertTrue(
+        view.take(1) == original.take(1),
+        view.flatMap(_.content).contains(image),
+        view.map(_.text).mkString.contains("before"),
+        view.map(_.text).mkString.contains("Alice"),
+        view.map(_.text).mkString.contains("after"),
+        !view.map(_.text).mkString.contains("private"),
+        ModelInputTransform.validate(original, view) == Right(view),
+        unsupported.isLeft,
+        forgedAssistant.isLeft
+      )
+    ,
     test("identity retains supplied history and construction suspends callback execution") {
       val history = Chunk(Msg.user("q"))
       for

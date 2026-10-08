@@ -21,7 +21,7 @@ sbt scalafmtAll scalafmtSbt
 sbt verify
 ```
 
-`verify` checks formatting, compilation with fatal warnings and tests. Run one sbt process at a time on this host. Focused checks guide development; repeat broad checks only when a relevant change or unresolved failure requires it.
+`verify` checks formatting, compilation with fatal warnings and tests. Run one sbt process at a time on this host. The build serializes suite tasks within each module to bound integration-fixture contention; ZIO concurrency inside each test remains exercised. Aggregated modules may still overlap. Focused checks guide development; repeat broad checks only when a relevant change or unresolved failure requires it.
 
 Changes to public APIs, dependencies, packaging or integration also require the applicable package/archive and fresh [external consumer](verification/artifact-consumer/README.md) checks. For a candidate, run `sbt verify packageArtifacts` and follow the [build contract](project/README.md#local-artifact-packaging). A packaged local JAR is not a published release or a binary-compatibility guarantee.
 

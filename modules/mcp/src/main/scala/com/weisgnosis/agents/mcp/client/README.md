@@ -101,7 +101,6 @@ The paired client tests cover separate deadlines and held cleanup; the catalogue
 
 The [finite builder inventory](../../../../../../../../../../docs/architecture/test-parity.md#finite-core-mcp-builder-applicability) accounts for every one of the 120 pinned McpClientBuilderTest declarations by exact name/line. It distinguishes available typed configuration and lifecycle behavior from Java mutable/fluent/sync/null/helper assertion shapes and selected-profile differences. Optional elicitation, arbitrary protocol negotiation, dynamic customization and broader cache/invalidation contracts remain unfinished; no whole-builder or whole-MCP parity is claimed.
 
-
 ## Initialized client contract
 
 - `open(transport, clientInfo, deadline = 30.seconds)` creates an owned connection in the caller's scope. The host acquires the transport first. The deadline must be positive and finite; invalid values start no reader. Initialization advertises empty optional client capabilities, requires the exact selected revision, and publishes the client only after `notifications/initialized` finishes sending. Failed or interrupted initialization closes and joins the connection immediately.
@@ -164,7 +163,7 @@ Run `sbt "mcp / test"` from the repository root for offline and owned local-proc
 
 Explicit cancellation, descriptive output schemas and grouped installation are implemented within the contracts above. Manual binding and metadata integration have separate tool-package tests.
 
-- [ ] Extend ambient metadata propagation, broader schema transformation or notification invalidation only through explicit host-selected contracts.
-- [ ] Complete remaining applicable wrapper/transport mappings recorded in the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md).
+Ambient metadata bags, automatic schema transformation and notification-driven catalogue invalidation are not installed; hosts compose explicit checked policies.
+Selected revision and method contracts do not establish complete MCP conformance or durable host delivery. The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist.
 
 Controlled-port concurrency tests and real transport fixtures establish selected behavior, not whole-wrapper or complete revision parity. Automatic discovery during open, mutable map/null access and SDK fallback-close mechanics are intentional API differences. MCP 2026-07-28's lifecycle without initialize is not implemented by the selected older payload helpers.

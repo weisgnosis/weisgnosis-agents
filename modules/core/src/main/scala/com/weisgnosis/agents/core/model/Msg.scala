@@ -229,7 +229,7 @@ object Msg:
 
   /**
    * Enforces role-to-content block type compatibility invariants:
-   * - USER: Text, Data, Image, Audio, Video (rejects other block types)
+   * - USER: Text, Data, Image, Audio, Video, inert PeerObservation
    * - SYSTEM: Text only
    * - ASSISTANT: Unrestricted (any content block)
    * - TOOL: Unrestricted (retained for backward compatibility)
@@ -238,12 +238,13 @@ object Msg:
     role match
       case Role.User =>
         val invalid = content.filterNot {
-          case _: ContentBlock.Text  => true
-          case _: ContentBlock.Data  => true
-          case _: ContentBlock.Image => true
-          case _: ContentBlock.Audio => true
-          case _: ContentBlock.Video => true
-          case _                     => false
+          case _: ContentBlock.Text            => true
+          case _: ContentBlock.Data            => true
+          case _: ContentBlock.Image           => true
+          case _: ContentBlock.Audio           => true
+          case _: ContentBlock.Video           => true
+          case _: ContentBlock.PeerObservation => true
+          case _                               => false
         }
         if invalid.isEmpty then Right(())
         else
@@ -295,7 +296,7 @@ object Msg:
     )
 
   type UserBlock = ContentBlock.Text | ContentBlock.Data | ContentBlock.Image | ContentBlock.Audio |
-    ContentBlock.Video
+    ContentBlock.Video | ContentBlock.PeerObservation
 
   def user(text: String): Msg = user(Chunk(ContentBlock.Text(text)))
 

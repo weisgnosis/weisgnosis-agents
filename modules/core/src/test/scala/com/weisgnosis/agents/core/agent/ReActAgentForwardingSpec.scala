@@ -165,16 +165,17 @@ object ReActAgentForwardingSpec extends ZIOSpecDefault:
             exit        <- stopping.join
             completions <- observed.get
             events      <- subscription.takeAll
+            expectedCause = completions.headOption
+              .flatMap(_.outcome.causeOption)
+              .map(_ ++ observationCause)
+            actualCause = exit.causeOption
           yield assertTrue(
             pending.isEmpty,
             exit.isInterrupted,
             exit.causeOption.exists(_.defects.contains(cleanupDefect)),
             completions.size == 1,
-            completions.headOption.exists(completion =>
-              completion.outcome.causeOption.exists(original =>
-                exit.causeOption.contains(original ++ observationCause)
-              )
-            ),
+            expectedCause.nonEmpty,
+            actualCause == expectedCause,
             events.lastOption.exists {
               case event: AgentEvent.AgentEndEvent => event.source.contains("cancelled")
               case _                               => false
