@@ -21,6 +21,8 @@ import com.weisgnosis.agents.mcp.protocol.{
   McpCallOutcome,
   McpContentBlock,
   McpImplementation,
+  McpInitialization,
+  McpSupportedVersions,
   McpMessage,
   McpPacket,
   McpProtocolVersion,
@@ -81,7 +83,8 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
       mode: String,
       environment: Map[String, String] = Map.empty,
       version: McpProtocolVersion = McpProtocolVersion.V20250618,
-      stderr: McpStdioTransport.StderrPolicy = McpStdioTransport.StderrPolicy.Discard
+      stderr: McpStdioTransport.StderrPolicy = McpStdioTransport.StderrPolicy.Discard,
+      supportedVersions: Option[McpSupportedVersions] = None
   ): ZIO[Scope, AgentError, Peer] =
     for
       arguments <- command(mode)
@@ -91,13 +94,18 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
           maxFrameBytes = 16 * 1024 * 1024,
           environment = environment,
           version = version,
-          stderr = stderr
+          stderr = stderr,
+          supportedVersions = supportedVersions
         )
         .withSystem(System.SystemLive)
       ready        <- Promise.make[AgentError, Long]
       writeStarted <- Promise.make[Nothing, Unit]
       observed = new McpTransport:
-        override val protocolVersion: McpProtocolVersion            = underlying.protocolVersion
+        override val protocolVersion: McpProtocolVersion = underlying.protocolVersion
+        override def currentProtocolVersion: UIO[McpProtocolVersion] =
+          underlying.currentProtocolVersion
+        override def acquireProtocolSession: ZIO[Scope, AgentError, McpProtocolLease] =
+          underlying.acquireProtocolSession
         def send(message: McpMessage): ZIO[Scope, AgentError, Unit] = underlying.send(message)
         override def sendPacket(packet: McpPacket): ZIO[Scope, AgentError, Unit] =
           underlying.sendPacket(packet)
@@ -121,6 +129,89 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
     yield Peer(observed, ready, writeStarted)
 
   def spec: Spec[TestEnvironment, Any] = suite("McpStdioTransportSpec")(
+    test("real processes agree supported alternatives without transferring the first client lease"):
+      ZIO
+        .foreach(Chunk.fromArray(McpProtocolVersion.values)): preferred =>
+          for
+            observation <- ZIO.scoped:
+              for
+                supported <- ZIO.fromEither(
+                  McpSupportedVersions.make(Set.from(McpProtocolVersion.values))
+                )
+                server <- peer(
+                  "negotiate",
+                  version = preferred,
+                  supportedVersions = Some(supported)
+                )
+                client <- McpClient.open(server.transport, McpImplementation("first", "1"))
+                pid    <- server.ready.await
+                second <- McpClient.open(server.transport, McpImplementation("second", "1")).exit
+                page   <- client.listToolsPage()
+                result <- client.callTool("echo")
+                agreed <- server.transport.currentProtocolVersion
+                _      <- client.close
+                late   <- server.transport.send(McpMessage.Notification("late")).exit
+                closed <- server.transport.currentProtocolVersion
+                selected =
+                  if preferred == McpProtocolVersion.V20250326 then McpProtocolVersion.V20250618
+                  else McpProtocolVersion.V20250326
+              yield (
+                pid,
+                assertTrue(
+                  client.initialization.protocolVersion == selected,
+                  agreed == selected,
+                  closed == selected,
+                  second.isFailure,
+                  page.tools.map(_.name) == Chunk("echo"),
+                  result.content.map(_.block) == Chunk(McpContentBlock.Text("ok")),
+                  late.isFailure
+                )
+              )
+            remains <- alive(observation._1)
+          yield observation._2 && assertTrue(!remains)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test("unleased negotiation readers cannot consume or close the real process reader"):
+      ZIO.scoped:
+        for
+          supported <- ZIO.fromEither(
+            McpSupportedVersions.make(
+              Set(
+                McpProtocolVersion.V20250326,
+                McpProtocolVersion.V20250618
+              )
+            )
+          )
+          server   <- peer("client", supportedVersions = Some(supported))
+          rejected <- server.transport.incomingPackets.runHead.exit
+          opened   <- McpClient.open(server.transport, McpImplementation("host", "1")).exit
+        yield assertTrue(rejected.isFailure, opened.isSuccess)
+    ,
+    test("invalid initialization encoding leaves negotiation available for a valid request"):
+      ZIO.scoped:
+        for
+          supported <- ZIO.fromEither(McpSupportedVersions.make(Set(McpProtocolVersion.V20250618)))
+          server    <- peer("client", supportedVersions = Some(supported))
+          _         <- server.transport.acquireProtocolSession
+          reader    <- server.transport.incomingPackets.runDrain.forkScoped
+          _         <- server.ready.await
+          valid <- ZIO.fromEither(
+            McpInitialization.request(McpRequestId.Number(1), McpImplementation("host", "1"))
+          )
+          invalid = valid.copy(params =
+            valid.params.map(params =>
+              Json.Obj(
+                params.fields ++ Chunk(
+                  "protocolVersion" -> Json.Str(McpProtocolVersion.V20250618.wire)
+                )
+              )
+            )
+          )
+          rejected <- server.transport.send(invalid).exit
+          admitted <- server.transport.send(valid).exit
+          _        <- reader.interrupt
+        yield assertTrue(rejected.isFailure, admitted.isSuccess)
+    ,
     test("native stderr policies preserve protocol progress and joined process reaping"):
       ZIO
         .foreach(
@@ -340,7 +431,16 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
                 )
               )
               .forkScoped
-            _           <- server.writeStarted.await
+            _ <- server.writeStarted.await
+            validationResult <- server.transport
+              .send(
+                McpMessage.Notification(
+                  "invalid",
+                  Some(Json.Obj("duplicate" -> Json.Num(1), "duplicate" -> Json.Num(2)))
+                )
+              )
+              .exit
+              .timeout(1.second)
             queued      <- server.transport.send(McpMessage.Notification("queued")).forkScoped
             _           <- (ZIO.yieldNow *> queued.status).repeatUntil(_.isSuspended)
             queuedExit  <- queued.interrupt
@@ -349,6 +449,7 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
             remains     <- alive(pid)
             rejected    <- connection.request("after cancellation").exit
           yield assertTrue(
+            validationResult.exists(_.isFailure),
             queuedExit.isInterrupted,
             afterQueued,
             interrupted.isInterrupted,

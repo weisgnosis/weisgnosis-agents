@@ -27,6 +27,9 @@ import zio.stream.{ZChannel, ZStream}
 import zio.test.*
 
 object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
+  private enum RevisionAgreement:
+    case Exact, Negotiated
+
   private val endpoint: String = "http://127.0.0.1/mcp"
   private val initialization: Json.Obj = Json.Obj(
     "protocolVersion" -> Json.Str(McpInitialization.protocolVersion),
@@ -131,6 +134,104 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
     yield transport
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpStreamableHttpTransportSpec")(
+    test("cancelled negotiation seals its lease and joins held HTTP acquisition cleanup"):
+      ZIO.scoped:
+        for
+          supported <- ZIO.fromEither(
+            McpSupportedVersions.make(
+              Set(
+                McpProtocolVersion.V20250326,
+                McpProtocolVersion.V20250618
+              )
+            )
+          )
+          entered <- Promise.make[Nothing, Unit]
+          cleanup <- Promise.make[Nothing, Unit]
+          release <- Promise.make[Nothing, Unit]
+          calls   <- Ref.make(0)
+          http = scripted(_ =>
+            calls.update(_ + 1) *> ZIO.acquireRelease(
+              entered.succeed(())
+            )(_ => cleanup.succeed(()) *> release.await) *> ZIO.never
+          )
+          transport <- McpStreamableHttpTransport.open(
+            http,
+            endpoint,
+            supportedVersions = Some(supported)
+          )
+          opening <- ZIO.uninterruptible:
+            for
+              fiber <- McpClient
+                .open(transport, McpImplementation("cancelled", "1"))
+                .interruptible
+                .forkScoped
+              _ <- ZIO.addFinalizer(release.succeed(()).unit)
+            yield fiber
+          _ <- entered.await
+          stopping <- ZIO.uninterruptible:
+            for
+              fiber <- opening.interrupt.interruptible.forkScoped
+              _     <- ZIO.addFinalizer(release.succeed(()).unit)
+            yield fiber
+          _             <- cleanup.await
+          beforeRelease <- stopping.poll
+          _             <- release.succeed(())
+          stopped       <- stopping.join
+          current       <- transport.currentProtocolVersion
+          second        <- McpClient.open(transport, McpImplementation("second", "1")).exit
+          requests      <- calls.get
+        yield assertTrue(
+          beforeRelease.isEmpty,
+          stopped.isInterrupted,
+          current == McpProtocolVersion.V20250618,
+          second.isFailure,
+          requests == 1
+        )
+    ,
+    test("an unrelated POST cannot select the pending initialization revision"):
+      ZIO.scoped:
+        for
+          supported <- ZIO.fromEither(
+            McpSupportedVersions.make(
+              Set(
+                McpProtocolVersion.V20250326,
+                McpProtocolVersion.V20250618
+              )
+            )
+          )
+          entered <- Promise.make[Nothing, McpRequestId]
+          release <- Promise.make[Nothing, Unit]
+          alternate = Json.Obj(
+            "protocolVersion" -> Json.Str(McpProtocolVersion.V20250326.wire),
+            "serverInfo"      -> Json.Obj("name" -> Json.Str("peer"), "version" -> Json.Str("1")),
+            "capabilities"    -> Json.Obj("tools" -> Json.Obj())
+          )
+          http = scripted(request =>
+            decode(request).flatMap:
+              case McpMessage.Request(id, "initialize", _) =>
+                entered.succeed(id) *> release.await *> json(McpMessage.Success(id, initialization))
+              case McpMessage.Request(_, "ping", _) =>
+                entered.await.flatMap(id => json(McpMessage.Success(id, alternate)))
+              case _: McpMessage.Notification => ZIO.succeed(Response.status(Status.Accepted))
+              case _ => ZIO.fail(AgentError.McpError("Unexpected negotiation fixture request"))
+          )
+          transport <- McpStreamableHttpTransport.open(
+            http,
+            endpoint,
+            supportedVersions = Some(supported)
+          )
+          opening   <- McpClient.open(transport, McpImplementation("host", "1")).forkScoped
+          _         <- entered.await
+          unrelated <- transport.send(McpMessage.Request(McpRequestId.Number(99), "ping")).exit
+          before    <- transport.currentProtocolVersion
+          _         <- release.succeed(())
+          opened    <- opening.await
+        yield assertTrue(
+          unrelated.isFailure,
+          before == McpProtocolVersion.V20250618,
+          opened.isSuccess
+        )
+    ,
     test("March POST replies and GET request batches preserve grouping and join listener cleanup"):
       ZIO.scoped:
         for
@@ -213,61 +314,138 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
         )
     ,
     test(
-      "explicit March revision keeps initialization, POST, GET and DELETE version headers coherent"
+      "exact and negotiated revisions keep POST, GET and closed-session DELETE headers coherent"
     ):
-      ZIO.scoped:
-        for
-          seen <- Ref.make(Chunk.empty[(Method, Headers)])
-          http = scripted: request =>
-            seen.update(_ :+ (request.method -> request.headers)) *>
-              (request.method match
-                case Method.GET    => ZIO.succeed(stream(ZStream.empty))
-                case Method.DELETE => ZIO.succeed(Response.status(Status.Ok))
-                case _ =>
-                  decode(request).flatMap:
-                    case McpMessage.Request(id, "initialize", params) =>
-                      ZIO
-                        .fail(AgentError.InvalidMessage("March initialization payload mismatch"))
-                        .unless(
-                          params
-                            .exists(_.fields.contains("protocolVersion" -> Json.Str("2025-03-26")))
-                        ) *>
-                        json(
-                          McpMessage.Success(
-                            id,
-                            Json.Obj(initialization.fields.map:
-                              case ("protocolVersion", _) =>
-                                "protocolVersion" -> Json.Str("2025-03-26")
-                              case field => field)
-                          )
-                        ).map(_.addHeader("Mcp-Session-Id", "march"))
-                    case McpMessage.Request(id, "tools/list", _) =>
-                      json(McpMessage.Success(id, emptyTools))
-                    case _ => ZIO.succeed(Response.status(Status.Accepted)))
-          transport <- McpStreamableHttpTransport.open(
-            http,
-            endpoint,
-            version = McpProtocolVersion.V20250326
+      ZIO
+        .foreach(
+          Chunk(
+            (McpProtocolVersion.V20250326, McpProtocolVersion.V20250326, RevisionAgreement.Exact),
+            (
+              McpProtocolVersion.V20250618,
+              McpProtocolVersion.V20250326,
+              RevisionAgreement.Negotiated
+            ),
+            (
+              McpProtocolVersion.V20250326,
+              McpProtocolVersion.V20250618,
+              RevisionAgreement.Negotiated
+            )
           )
-          client     <- McpClient.open(transport, McpImplementation("march", "1"))
-          _          <- client.listToolsPage()
-          listened   <- transport.listen
-          terminated <- transport.terminateSession
-          calls      <- seen.get
-          unsupported <- McpStreamableHttpTransport
-            .open(http, endpoint, version = McpProtocolVersion.V20241105)
-            .exit
-          after <- seen.get
-        yield assertTrue(
-          client.initialization.protocolVersion == McpProtocolVersion.V20250326,
-          listened == McpHttpListenResult.Ended,
-          terminated == McpHttpTermination.Deleted,
-          calls
-            .map(_._1) == Chunk(Method.POST, Method.POST, Method.POST, Method.GET, Method.DELETE),
-          calls.forall(_._2.get("MCP-Protocol-Version").contains("2025-03-26")),
-          unsupported.isFailure,
-          after == calls
-        )
+        ): (preferred, selected, agreement) =>
+          ZIO.scoped:
+            for
+              offered <- ZIO.fromEither(McpSupportedVersions.make(Set(preferred, selected)))
+              seen    <- Ref.make(Chunk.empty[(Method, Headers)])
+              listId  <- Ref.make[Option[McpRequestId]](None)
+              listens <- Ref.make(0)
+              http = scripted: request =>
+                seen.update(_ :+ (request.method -> request.headers)) *>
+                  (request.method match
+                    case Method.GET
+                        if request.headers.get("Last-Event-ID").contains("post-cursor") =>
+                      listId.get.flatMap:
+                        case Some(id) =>
+                          ZIO.succeed(stream(event(McpMessage.Success(id, emptyTools))))
+                        case None => ZIO.fail(AgentError.McpError("Missing continued list request"))
+                    case Method.GET =>
+                      listens
+                        .getAndUpdate(_ + 1)
+                        .map(index =>
+                          stream(
+                            if index == 0 then rawEvents("id: listener-cursor\n\n")
+                            else ZStream.empty
+                          )
+                        )
+                    case Method.DELETE => ZIO.succeed(Response.status(Status.Ok))
+                    case _ =>
+                      decode(request).flatMap:
+                        case McpMessage.Request(id, "initialize", params) =>
+                          ZIO
+                            .fail(
+                              AgentError.InvalidMessage("Preferred initialization payload mismatch")
+                            )
+                            .unless(
+                              params
+                                .exists(_.get("protocolVersion").contains(Json.Str(preferred.wire)))
+                            ) *>
+                            json(
+                              McpMessage.Success(
+                                id,
+                                Json.Obj(initialization.fields.map:
+                                  case ("protocolVersion", _) =>
+                                    "protocolVersion" -> Json.Str(selected.wire)
+                                  case field => field)
+                              )
+                            ).map(_.addHeader("Mcp-Session-Id", "selected"))
+                        case McpMessage.Request(id, "tools/list", _) =>
+                          listId
+                            .set(Some(id))
+                            .as(
+                              stream(
+                                rawEvents("id: post-cursor\n") ++ event(
+                                  McpMessage.Notification("notifications/message")
+                                )
+                              )
+                            )
+                        case _ => ZIO.succeed(Response.status(Status.Accepted)))
+              transport <- McpStreamableHttpTransport.open(
+                http,
+                endpoint,
+                version = preferred,
+                continuation = McpHttpContinuation.OnPrematureEof(1),
+                supportedVersions =
+                  if agreement == RevisionAgreement.Negotiated then Some(offered) else None
+              )
+              unleased <-
+                if agreement == RevisionAgreement.Negotiated then
+                  transport.listen.exit.map(_.isFailure)
+                else ZIO.succeed(true)
+              client <- McpClient.open(transport, McpImplementation("selected", "1"))
+              second <-
+                if agreement == RevisionAgreement.Negotiated then
+                  McpClient.open(transport, McpImplementation("second", "1")).exit.map(_.isFailure)
+                else ZIO.succeed(true)
+              _          <- client.listToolsPage()
+              listened   <- transport.listen(McpHttpListenPolicy.Resume(1))
+              _          <- client.close
+              terminated <- transport.terminateSession
+              calls      <- seen.get
+              unsupported <- McpStreamableHttpTransport
+                .open(http, endpoint, version = McpProtocolVersion.V20241105)
+                .exit
+              before <- seen.get
+              wrongSet <- ZIO.fromEither(
+                McpSupportedVersions.make(Set(McpProtocolVersion.V20241105, preferred))
+              )
+              invalidSet <- McpStreamableHttpTransport
+                .open(http, endpoint, version = preferred, supportedVersions = Some(wrongSet))
+                .exit
+              after <- seen.get
+            yield assertTrue(
+              client.initialization.protocolVersion == selected,
+              listened == McpHttpListenResult.Ended,
+              terminated == McpHttpTermination.Deleted,
+              unleased,
+              second,
+              calls.map(_._1) == Chunk(
+                Method.POST,
+                Method.POST,
+                Method.POST,
+                Method.GET,
+                Method.GET,
+                Method.GET,
+                Method.DELETE
+              ),
+              calls.headOption.exists(_._2.get("MCP-Protocol-Version").contains(preferred.wire)),
+              calls.drop(1).forall(_._2.get("MCP-Protocol-Version").contains(selected.wire)),
+              calls.filter(_._1 == Method.GET).map(_._2.get("Last-Event-ID")) ==
+                Chunk(Some("post-cursor"), None, Some("listener-cursor")),
+              unsupported.isFailure,
+              invalidSet.isFailure,
+              before == calls,
+              after == calls
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
     test(
       "listener resumption keeps its stream identity and finite cursor budget without granting reply routing"

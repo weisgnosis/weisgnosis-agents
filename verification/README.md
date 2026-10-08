@@ -1,6 +1,6 @@
 # Distribution verification
 
-Current immutable MCP launcher artifacts pass clean standalone consumption in stdio-functional-launcher-consumer.log after 1,570 passing tests and fresh archive admission. The [launcher manifest](../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#immutable-process-launcher) records exact source identities, diagnostic limits and final combined documentation approval from review_fp and review_invariants against 203401a.
+The current [MCP revision agreement manifest](../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#supported-server-revision-agreement) records the source-approved eighteen-file scope, full 1,581-test verification and final archive refresh. Archive admission and final fresh standalone consumption pass; review_fp and review_invariants approved final combined documentation against 1e18d44 for the thirty-three-file scope. The unchanged consumer does not exercise negotiated transport interoperability.
 
 The consumer also executes packaged valid/invalid schema-admission neighbors and verifies the production evaluator dependency. The [current schema acceptance](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns the exact consumer source and verification evidence.
 

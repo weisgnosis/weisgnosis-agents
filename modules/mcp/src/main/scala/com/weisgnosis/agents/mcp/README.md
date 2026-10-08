@@ -1,5 +1,7 @@
 # mcp: source package index
 
+The current [supported server revision agreement](transport/README.md#supported-server-revision-agreement) adds opt-in checked revision membership, one scoped negotiation owner, atomic correlated initialization and immediate framing/header transitions. Exact-version defaults remain; legacy POST additionally carries the revision header. The linked manifest owns migration, exact source identities, verification and final combined approval by review_fp and review_invariants against 1e18d44 for eighteen unchanged Scala files and fifteen Markdown files. This does not establish complete original-plan parity.
+
 [Resource access and observation](client/README.md#resource-client-contract) add the originally planned resource-server APIs and focused protocol/client/live-loopback coverage. The linked eleven-file manifest has current FP/ZIO and invariant approval and 29 focused passing groups. Full verification, package preparation and the fresh artifact consumer pass. Current source identities and final combined review status belong to the [legacy/revision manifest](transport/README.md#legacy-http-sse-and-explicit-revision-selection); earlier tool-only acceptance does not cover this expanded scope.
 
 - [protocol](protocol/README.md): checked envelopes and explicit selected-lifecycle initialization; accepted tool request/list/call-result projections.

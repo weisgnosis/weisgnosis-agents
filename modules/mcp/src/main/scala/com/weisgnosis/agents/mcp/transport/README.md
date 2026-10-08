@@ -3,6 +3,53 @@
 [McpTransport](McpTransport.scala) is a borrowed duplex message port. [McpStdioTransport](McpStdioTransport.scala) implements it for a host-selected direct child process; [McpStdioFraming](McpStdioFraming.scala) provides bounded UTF-8 newline framing. [McpHttpFraming](McpHttpFraming.scala) supplies bounded JSON/SSE bodies, and [McpStreamableHttpTransport](McpStreamableHttpTransport.scala) supplies the bounded HTTP POST and explicit GET contract below.
 
 
+## Supported server revision agreement
+
+The three built-in transport factories accept a trailing `supportedVersions: Option[McpSupportedVersions] = None`. `McpSupportedVersions.make` checks a nonempty immutable set; the preferred `version` must belong to it. Factories validate the entire set before acquiring processes or HTTP resources. Streamable HTTP excludes the pre-Streamable revision; legacy SSE retains all three existing profiles. Membership conveys neither preference ordering nor automatic probing, reconnection or replay. With None, initialization still requires the exact preferred revision.
+
+`protocolVersion` is the preferred initial revision. `currentProtocolVersion` is an effect reading the committed wire revision. In opt-in mode, one scoped `McpProtocolLease` admits one connection before its reader starts. A rejected second owner cannot close the first connection. Raw users must explicitly acquire that lease before sending or consuming protocol input. Closing is idempotent and terminating: both connection shutdown and owner-scope release may invoke it. It completes owned cleanup and preserves failure causes, seals negotiation and retains the selected version; the host continues to own transport resources. Existing custom ports have exact-version/no-op-lease defaults. Wrappers must explicitly forward the new methods to preserve opt-in behavior.
+
+The complete correlated singleton initialize result is validated before an atomic version transition. Malformed capabilities, unsupported versions, unrelated replies and batched initialize replies cannot commit a selection. Each subsequent frame uses the committed version, including another frame in the same input chunk. Thus selecting March enables its bounded batch framing immediately; selecting June rejects arrays immediately. This follows the [June lifecycle version negotiation contract](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle#version-negotiation).
+
+HTTP encodings and headers share a coherent revision snapshot per outgoing request. Initialize POST responses and their same-send continuation GETs retain the initiating request identity; unsolicited listener GETs and unrelated POST replies cannot negotiate. Subsequent POST, listener GET, resumed GET and explicit DELETE use the selected revision. DELETE remains host-controlled after client lease closure. Legacy POST now also includes MCP-Protocol-Version, including in exact-default mode; unchanged default negotiation does not mean identical default wire output.
+
+Legacy endpoint discovery is factory-owned: its initial GET must find the endpoint before the factory returns. After endpoint publication, protocol-frame consumption waits cancellably for the lease. Public unleased consumers fail before claiming the input queue. This setup GET is intentionally distinct from connection-owned protocol observation.
+
+Migration: rebuild dependent binaries for appended factory parameters and additive transport methods. Existing source calls keep their defaults. No model/provider policy, tool authority, discovery refresh, durable execution or complete optional MCP-method conformance is introduced.
+
+Both review_fp and review_invariants approved the final eighteen Scala identities against 1e18d44 with no unresolved source findings. The sorted `<Git blob> <path>\n` manifest has SHA-256 1fe6259df48bab7eaf4b742e5ec216537887d73429bc6da6231426603a0d045b. This approval includes the public lease cleanup contract; review_fp and review_invariants approved final combined documentation against 1e18d44 for eighteen unchanged Scala files and fifteen Markdown files; no unresolved findings remain within this scope.
+
+| Current reviewed file | Git blob |
+| --- | --- |
+| [McpClient.scala](../client/McpClient.scala) | `552b5ff4502202b4d590383c282b0983b8b53d2e` |
+| [McpConnection.scala](../client/McpConnection.scala) | `331bd04aab357601efe1d0ad45ad8f26900e23d9` |
+| [McpInitialization.scala](../protocol/McpInitialization.scala) | `efd91349c232c41a9fc608491e2a98fe729dbc0f` |
+| [McpSupportedVersions.scala](../protocol/McpSupportedVersions.scala) | `56bdf78f32c96929207eab4de49ab38fb797bb47` |
+| [McpHttpFraming.scala](McpHttpFraming.scala) | `4834d0869fa7704f93caf1ab99be52bc0c2c0beb` |
+| [McpLegacySseTransport.scala](McpLegacySseTransport.scala) | `65caed4ce362c439e4b536fdb9dd015c93763962` |
+| [McpStdioFraming.scala](McpStdioFraming.scala) | `5d9dd01a3f5a9d568e0ee4a602868bfcc595aa31` |
+| [McpStdioTransport.scala](McpStdioTransport.scala) | `2654288df5743c94ae07e07b34463a89635a9993` |
+| [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | `8d1969f95d2a4569a54a4860324d834bfe8d8cb9` |
+| [McpTransport.scala](McpTransport.scala) | `702dd1fd1c3aa36a44528eaa235d885112d0675e` |
+| [McpVersionSession.scala](McpVersionSession.scala) | `30004eebdcc4e1283eee09a03aeb4fc5763e5b80` |
+| [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `9724f3950beab436f3c61ad7a6ef9682ab1c0f2d` |
+| [McpSupportedVersionsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpSupportedVersionsSpec.scala) | `18681a82de6fe5592f00cd689f1e173f45947044` |
+| [McpLegacySseTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpLegacySseTransportSpec.scala) | `f478c9221dda8d2961739158494ee31fca4bf376` |
+| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | `980185c58667ad25e7611021dd9148318d8b90e1` |
+| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | `7ad10d7cf76e9bf8edb415b1b98c36a29b1befe7` |
+| [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | `267b4fc85b2afaff8c8df3b0780dfa10b55a51dd` |
+| [McpVersionSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpVersionSessionSpec.scala) | `bb1fd8aed3e2d0d5f3d529e0850abeb29be15ed6` |
+
+- [x] Complete correlated supported-version validation, sole scoped ownership and per-frame decoding/header transitions.
+- [x] Obtain both independent source approvals, including corrective review of cancellation-fixture finalizer ordering and the exact same-chunk packet oracle.
+- [x] mcp-version-agreement-full-verify.log passes formatting, fatal-warning compilation, 1,581 tests (687 core / 734 harness / 130 MCP / 22 fresh PostgreSQL / 8 examples), zero failed/ignored tests and four RC1 packages. The final lease clarification is Scaladoc-only and separately approved; final archive refresh is tracked below.
+- [x] mcp-version-agreement-final-archives.log refreshes formatting, compilation and four archives after the lease comment clarification. mcp-version-agreement-preparation.log passes source/POM/LICENSE admission and three reversible archive negative cases; mcp-version-agreement-consumer.log passes standalone formatting, clean fatal-warning compilation and forked consumption of four fresh artifact hashes. The owned fresh PostgreSQL fixture was stopped after label validation.
+- [x] review_fp and review_invariants approved final combined documentation against 1e18d44 for eighteen unchanged Scala identities and fifteen Markdown files; no unresolved findings remain in this scope.
+
+The 130 MCP groups include real subprocess alternate-revision initialization, exact same-chunk framing changes, controlled HTTP headers/continuations/listener resumption/deletion, legacy endpoint/lease ordering and held cancellation cleanup. The standalone consumer exercises its unchanged public API probe and four fresh artifact hashes; it does not test negotiated transport interoperability. These are distinct evidence boundaries.
+
+Draft regressions reproduced five independent failures before their corrections: unleased input consumption, unrelated POST selection and premature initialization registration in mcp-version-admission-draft-red.log (25 passed / 3 failed); defective lease cleanup in mcp-version-lease-cleanup-draft-red.log (0 / 1); prompt validation behind a held writer in mcp-version-write-admission-draft-red.log (0 / 1). These failures concern unaccepted feature drafts, not a claim against the accepted 1e18d44 baseline. Corrected behavior passes the full suite. No historical report file is retained as an acceptance substitute.
+
 ## Immutable process launcher
 
 The repository configures direct processes through zio-process 0.7.2's immutable Command API. System properties and inherited environment reads are suspended in ZIO; Windows overrides retain the inherited key spelling. Command.run executes on the blocking executor inside acquireRelease. Because that dependency's run is unscoped, our finalizer is registered before raw-handle extraction and ownership transfer. Failed or cancelled handoff forcibly terminates/reaps the acquired child and closes its streams; completed handoff uses the existing idempotent Live.close. No shell, streamed stdin, background pump or daemon is introduced.
@@ -16,9 +63,9 @@ Both review_fp and review_invariants approved these final source identities agai
 | Reviewed file | Git blob |
 | --- | --- |
 | [build.sbt](../../../../../../../../../../build.sbt) | `d068a6bd206879bef8c3be3063fcc96dbd1421e9` |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | `c1aacae91c2b9d858d42f7b3d0760f1a3e844b8a` |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | `9319622027a23540d7bf1e721be1eada6081c222` |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | `75f1a607f5317458651a45cf1d2e0c72853a79ba` |
+| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
+| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
+| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
 
 - [x] Remove direct repository manipulation of the Java environment map without waiving the engineering rule.
 - [x] Obtain both independent source approvals and focused verification: stdio-functional-launcher-focused.log passes five groups in 2.727 seconds.
@@ -61,20 +108,20 @@ Current source/test identities independently approved by `review_fp` and `review
 
 | File | Git blob |
 | --- | --- |
-| [McpConnection.scala](../client/McpConnection.scala) | `ef19b9c6989aba567f103182024a75ed1887c911` |
+| [McpConnection.scala](../client/McpConnection.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
 | [McpPacket.scala](../protocol/McpPacket.scala) | `670a3597e4b11bc76db5cf9cc157f58d599cbb1a` |
-| [McpHttpFraming.scala](McpHttpFraming.scala) | `f26e97a7b5ec95bdb95b5adde7ec84bc9541020b` |
-| [McpLegacySseTransport.scala](McpLegacySseTransport.scala) | `0e7d7e7ae90600c04baf7d222cc17d1cbf80b2fb` |
-| [McpStdioFraming.scala](McpStdioFraming.scala) | `d49bfcc9bdede6a3a34b01c2b69499ddb0900f83` |
+| [McpHttpFraming.scala](McpHttpFraming.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
+| [McpLegacySseTransport.scala](McpLegacySseTransport.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
+| [McpStdioFraming.scala](McpStdioFraming.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
 | [McpStdioTransport.scala](McpStdioTransport.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | `3468095579944aa55d3d41d640e13716be02de2f` |
-| [McpTransport.scala](McpTransport.scala) | `29a6bd44d8795c8e15273e9fd1c126d6bbb26e51` |
+| [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
+| [McpTransport.scala](McpTransport.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
 | [McpPacketSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpPacketSpec.scala) | `b087df63c66ec47bc00468651e2fb165e7a0b768` |
 | [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | `64961960e3a0a1e5a352b5a9a26d94b429592478` |
-| [McpLegacySseTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpLegacySseTransportSpec.scala) | `4853dba50b478cd2d6f502763f666d773547c419` |
+| [McpLegacySseTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpLegacySseTransportSpec.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
 | [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
 | [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | `7d70b9165aba28ea69b8755f2ca37461d9fbeea4` |
+| [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
 
 ## Legacy HTTP SSE and explicit revision selection
 
@@ -82,7 +129,7 @@ The legacy/revision behavior has independent `review_fp` and `review_invariants`
 
 The advertised endpoint may be relative or absolute but must retain the configured scheme, host and effective port. Credentials and fragments are rejected. Host-supplied authentication headers therefore remain on the configured origin. The borrowed HTTP client must disable implicit redirects and retries; this adapter cannot undo network actions performed internally by a custom client. GET status/content type, UTF-8, cumulative body/event bytes and incoming queue capacity are checked. Overflow is terminal. Queue bounds count packets (singular messages under the legacy default) rather than decoded payload bytes; framing supplies the separate byte bounds. Every POST acknowledgement has an independent bounded response scope. Endpoint timeout/cancellation joins the reader response cleanup; send cancellation joins its response cleanup. The host must join its connection and active sends before closing the borrowed transport lifetime.
 
-[McpProtocolVersion](../protocol/McpProtocolVersion.scala) selects one supported initialized lifecycle explicitly. The legacy default is `V20241105`; Streamable HTTP and custom-port defaults remain `V20250618`. Streamable HTTP also permits `V20250326` but rejects the pre-Streamable revision. Its header and initialization payload use the same immutable selection. Each client instance admits only its configured profile and rejects an unexpected server version. The [2024-11-05 lifecycle](https://modelcontextprotocol.io/specification/2024-11-05/basic/lifecycle#version-negotiation) and [2025-03-26 lifecycle](https://modelcontextprotocol.io/specification/2025-03-26/basic/lifecycle#version-negotiation) permit a server to propose another revision; this exact-profile policy closes that connection rather than broadening the instance's supported profile. This is exact profile selection, not automatic fallback or the Java SDK's ordered `protocolVersions` negotiation. Supporting the three selected handshake revisions does not claim every optional method, batch variant or revision-specific payload is implemented.
+[McpProtocolVersion](../protocol/McpProtocolVersion.scala) supplies three initialized profiles. The legacy default is V20241105; stdio, Streamable HTTP and custom ports default to V20250618. Streamable HTTP also permits V20250326 and rejects V20241105. Exact-profile defaults reject alternatives; explicitly configured supported sets use the [server revision agreement contract](#supported-server-revision-agreement). No complete optional-method or ordered-preference parity is claimed.
 
 Migration: the transport interface gains a default `protocolVersion` method, preserving existing custom implementers. `McpInitialization.request` and `readResult` append defaulted selection arguments; `McpInitializationResult` adds a trailing defaulted selected version. `McpStreamableHttpTransport.open` and `McpStdioTransport.open` append defaulted version arguments. Stdio supports each explicit initialized revision without HTTP headers; its existing real-process fixture verifies all three selected handshakes and reaps each child. Ordinary existing calls retain their defaults; positional patterns and dependent binaries require rebuilding.
 
@@ -99,7 +146,7 @@ Legacy/revision dependencies and current source destinations:
 | File | Git blob |
 | --- | --- |
 | [McpClient.scala](../client/McpClient.scala) | [Current catalogue source identity and gates](../client/README.md#connection-local-original-definition-catalogue) |
-| [McpInitialization.scala](../protocol/McpInitialization.scala) | `da69457d1449589c0b688a44eb600ee6969b442f` |
+| [McpInitialization.scala](../protocol/McpInitialization.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
 | [McpHttpFraming.scala](McpHttpFraming.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
 | [McpStdioTransport.scala](McpStdioTransport.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
 | [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |

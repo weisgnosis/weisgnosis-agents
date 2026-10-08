@@ -367,7 +367,7 @@ object McpClient:
         )
         initialized <- restore(
           withDeadline(
-            initialize(connection, clientInfo, resources, transport.protocolVersion),
+            initialize(connection, clientInfo, resources, transport),
             deadlines.initialization,
             "initialization"
           )
@@ -401,14 +401,17 @@ object McpClient:
       connection: McpConnection,
       clientInfo: McpImplementation,
       resources: Ref[Option[McpResourceCapabilities]],
-      version: McpProtocolVersion
+      transport: McpTransport
   ): IO[AgentError, McpInitializationResult] =
     for
-      reply  <- connection.request(id => McpInitialization.request(id, clientInfo, version))
-      value  <- payload(reply)
-      result <- ZIO.fromEither(McpInitialization.readResult(value, version))
-      _      <- resources.set(result.capabilities.resources)
-      _      <- connection.notify(McpInitialization.initialized)
+      reply <- connection.request(id =>
+        McpInitialization.request(id, clientInfo, transport.protocolVersion)
+      )
+      value   <- payload(reply)
+      version <- transport.currentProtocolVersion
+      result  <- ZIO.fromEither(McpInitialization.readResult(value, version))
+      _       <- resources.set(result.capabilities.resources)
+      _       <- connection.notify(McpInitialization.initialized)
     yield result
 
   private def observeResourceNotification(

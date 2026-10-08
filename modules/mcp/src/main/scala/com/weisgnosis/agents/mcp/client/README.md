@@ -1,5 +1,7 @@
 # com.weisgnosis.agents.mcp.client
 
+The current [supported server revision agreement](../transport/README.md#supported-server-revision-agreement) adds opt-in checked revision membership, one scoped negotiation owner, atomic correlated initialization and immediate framing/header transitions. Exact-version defaults remain; legacy POST additionally carries the revision header. The linked manifest owns migration, exact source identities, verification and final combined approval by review_fp and review_invariants against 1e18d44 for eighteen unchanged Scala files and fifteen Markdown files. This does not establish complete original-plan parity.
+
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
 [McpClient](McpClient.scala) provides initialized tool discovery/invocation (2025-06-18 by default) and resource access over a borrowed transport. [McpRequests](McpRequests.scala) owns bounded request correlation; [McpConnection](McpConnection.scala) owns scoped RPC operations. [McpClientManager](McpClientManager.scala) owns bounded acquisition, host-selected registration and joined removal. The [protocol package](../protocol/README.md) checks envelopes and payloads, and the [stdio adapter](../transport/McpStdioTransport.scala) supplies direct-process connectivity. Manual Toolkit binding has a separate tool-package contract. HTTP POST and explicit GET connectivity has a separate [transport contract](../transport/README.md#http-contract).
@@ -31,7 +33,7 @@ This additive feature has no defective accepted implementation and makes no fail
 
 | Current reviewed file | Git blob |
 | --- | --- |
-| [McpClient.scala](McpClient.scala) | `c042cbd00abc60e487086762be72625311910719` |
+| [McpClient.scala](McpClient.scala) | [Current negotiated revision identity](../transport/README.md#supported-server-revision-agreement) |
 | [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | `0ba785eb4ce2af540ee0a1bd83a81e4ad566d192` |
 
 - [x] Implement explicit bounded acquisition and effectful original-definition lookup without changing open or live discovery.
@@ -81,7 +83,7 @@ Current reviewed scope is resource capabilities and checked projections, resourc
 | [McpInitialization.scala](../protocol/McpInitialization.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
 | [McpCallResult.scala](../protocol/McpCallResult.scala) | `8bf6f992bd3a9a5398efe67e9ba803a076b700f4` |
 | [McpClientSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) | [Current catalogue scope and acceptance gates](#connection-local-original-definition-catalogue) |
-| [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `caa269749f4e8a8847e64517fb1dbfb1ef6821a7` |
+| [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | [Current negotiated revision identity](../transport/README.md#supported-server-revision-agreement) |
 | [McpResourcesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpResourcesSpec.scala) | `0a3e73d48a05f94eda0c6b49844c4d68dc432fc9` |
 | [McpInitializationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpInitializationSpec.scala) | `ea5b58c6368b41be895bc0085e164f5777e3444e` |
 | [McpJavaSdkInteropSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) | [Current approved legacy/revision manifest](../transport/README.md#legacy-http-sse-and-explicit-revision-selection); source independently approved. |

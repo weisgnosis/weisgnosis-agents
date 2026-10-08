@@ -1,5 +1,7 @@
 # weisgnosis-agents
 
+The current [supported server revision agreement](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#supported-server-revision-agreement) adds opt-in checked revision membership, one scoped negotiation owner, atomic correlated initialization and immediate framing/header transitions. Exact-version defaults remain; legacy POST additionally carries the revision header. The linked manifest owns migration, exact source identities, verification and final combined approval by review_fp and review_invariants against 1e18d44 for eighteen unchanged Scala files and fifteen Markdown files. This does not establish complete original-plan parity.
+
 The [immutable MCP process launcher](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#immutable-process-launcher) removes direct mutable Java environment-map manipulation while preserving scoped process ownership. Both source reviews and focused real-process checks pass; full verification, fresh archive admission and standalone consumption pass; review_fp and review_invariants approved final combined documentation against 203401a for four unchanged source/build identities and thirteen Markdown files.
 
 A Scala 3 and ZIO 2 library for agent execution with explicit resource ownership and deterministic runtime authority. It adapts agent mechanics from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java), licensed under Apache-2.0.

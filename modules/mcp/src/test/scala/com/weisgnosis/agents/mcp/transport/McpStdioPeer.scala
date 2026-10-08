@@ -17,7 +17,14 @@ package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
-import com.weisgnosis.agents.mcp.protocol.{McpInitialization, McpMessage}
+import com.weisgnosis.agents.mcp.protocol.{
+  McpBatchMember,
+  McpInitialization,
+  McpMessage,
+  McpPacket,
+  McpProtocolVersion,
+  McpRequestId
+}
 import zio.*
 import zio.json.ast.Json
 
@@ -142,6 +149,65 @@ object McpStdioPeer extends ZIOAppDefault:
           ) *> client(ClientPhase.Ready, version)
         case _ => ZIO.fail(AgentError.McpError("Unexpected message in test client lifecycle"))
 
+  private enum HandshakeMarker:
+    case Initialized, Pong
+
+  private def finishNegotiation(
+      pending: Set[HandshakeMarker],
+      selected: McpProtocolVersion
+  ): IO[AgentError, Nothing] =
+    if pending.isEmpty then client(ClientPhase.Ready, selected.wire)
+    else
+      Console.readLine
+        .mapError(failure)
+        .flatMap(line => ZIO.fromEither(McpPacket.decode(line, selected)))
+        .flatMap:
+          case McpPacket.Single(McpMessage.Notification("notifications/initialized", None))
+              if pending.contains(HandshakeMarker.Initialized) =>
+            finishNegotiation(pending - HandshakeMarker.Initialized, selected)
+          case McpPacket.Batch(members)
+              if pending.contains(HandshakeMarker.Pong) && members == Chunk(
+                McpBatchMember.Message(
+                  McpMessage.Success(McpRequestId.Number(70), Json.Obj())
+                )
+              ) =>
+            finishNegotiation(pending - HandshakeMarker.Pong, selected)
+          case _ =>
+            ZIO.fail(AgentError.McpError("Unexpected alternative initialization acknowledgement"))
+
+  private def negotiate: IO[AgentError, Nothing] =
+    readMessage.flatMap:
+      case McpMessage.Request(id, "initialize", Some(params)) =>
+        val selected = params.get("protocolVersion") match
+          case Some(Json.Str("2025-03-26")) => McpProtocolVersion.V20250618
+          case _                            => McpProtocolVersion.V20250326
+        for
+          success <- ZIO.fromEither(
+            McpMessage.encode(
+              McpMessage.Success(
+                id,
+                Json.Obj(
+                  "protocolVersion" -> Json.Str(selected.wire),
+                  "serverInfo" -> Json
+                    .Obj("name" -> Json.Str("alternative-peer"), "version" -> Json.Str("1")),
+                  "capabilities" -> Json.Obj("tools" -> Json.Obj())
+                )
+              )
+            )
+          )
+          suffix =
+            if selected == McpProtocolVersion.V20250326 then
+              "\n[{\"jsonrpc\":\"2.0\",\"id\":70,\"method\":\"ping\"}]"
+            else ""
+          _ <- Console.printLine(success + suffix).mapError(failure)
+          pending =
+            if selected == McpProtocolVersion.V20250326 then
+              Set(HandshakeMarker.Initialized, HandshakeMarker.Pong)
+            else Set(HandshakeMarker.Initialized)
+          result <- finishNegotiation(pending, selected)
+        yield result
+      case _ => ZIO.fail(AgentError.McpError("Expected alternative initialization"))
+
   def run: ZIO[ZIOAppArgs, AgentError, Unit] =
     for
       arguments <- getArgs
@@ -156,6 +222,7 @@ object McpStdioPeer extends ZIOAppDefault:
           Console.printError("x" * (2 * 1024 * 1024)).mapError(failure) *> echo
         case Some("stderr-inherit") =>
           Console.printError("MCP stderr inheritance probe\n").mapError(failure) *> echo
+        case Some("negotiate") => negotiate
         case Some("client") =>
           client(
             ClientPhase.Initialize,

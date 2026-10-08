@@ -1,5 +1,7 @@
 # mcp: test package index
 
+The current [supported server revision agreement](../../../../../../main/scala/com/weisgnosis/agents/mcp/transport/README.md#supported-server-revision-agreement) adds opt-in checked revision membership, one scoped negotiation owner, atomic correlated initialization and immediate framing/header transitions. Exact-version defaults remain; legacy POST additionally carries the revision header. The linked manifest owns migration, exact source identities, verification and final combined approval by review_fp and review_invariants against 1e18d44 for eighteen unchanged Scala files and fifteen Markdown files. This does not establish complete original-plan parity.
+
 The [resource client contract](../../../../../../main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) records the current eleven-file manifest, FP/ZIO and invariant approvals and 29 focused passing groups for resource requests/results, capability/pagination/subscription behavior, real SDK resource calls and terminal/observer lifecycle regressions. Full verification, package preparation and the fresh artifact consumer passed; final combined documentation approval passed against 1441a97.
 
 - [protocol](protocol/README.md): checked envelope, initialization, tool and resource request/list/read/result contracts.

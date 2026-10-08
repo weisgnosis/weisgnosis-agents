@@ -17,7 +17,7 @@ package com.weisgnosis.agents.mcp.client
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.mcp.protocol.*
-import com.weisgnosis.agents.mcp.transport.McpTransport
+import com.weisgnosis.agents.mcp.transport.{McpProtocolLease, McpTransport}
 import zio.*
 import zio.json.ast.Json
 import zio.stream.*
@@ -61,6 +61,72 @@ object McpConnectionSpec extends ZIOSpecDefault:
       case _                      => false)
 
   def spec: Spec[TestEnvironment, Any] = suite("McpConnectionSpec")(
+    test("defective protocol lease closure still settles requests and joins owned cleanup"):
+      ZIO.scoped:
+        for
+          duplex       <- wire
+          controlReady <- Promise.make[Nothing, Unit]
+          cleanupReady <- Promise.make[Nothing, Unit]
+          release      <- Promise.make[Nothing, Unit]
+          abortControl <- Promise.make[Nothing, Unit]
+          readerClosed <- Promise.make[Nothing, Unit]
+          leaseCloses  <- Ref.make(0)
+          defect = new IllegalStateException("protocol lease close defect")
+          _ <- ZIO.addFinalizer(
+            abortControl.succeed(()).unit *> release.succeed(()).unit *>
+              duplex.received.offer(Take.end).unit
+          )
+          transport = new McpTransport:
+            override def acquireProtocolSession: ZIO[Scope, AgentError, McpProtocolLease] =
+              ZIO.succeed(
+                new McpProtocolLease:
+                  def close: UIO[Unit] = leaseCloses.update(_ + 1) *> ZIO.die(defect)
+              )
+            def send(message: McpMessage): ZIO[Scope, AgentError, Unit] = message match
+              case _: McpMessage.Success =>
+                ZIO.acquireRelease(controlReady.succeed(()))(_ =>
+                  cleanupReady.succeed(()) *> release.await
+                ) *> abortControl.await *> ZIO.fail(AgentError.McpError("Fixture control ended"))
+              case _ => duplex.sent.offer(message).unit
+            def incoming: ZStream[Any, AgentError, McpMessage] =
+              duplex.transport(onReadClose = readerClosed.succeed(()).unit).incoming
+          owner <- ZIO.acquireRelease(Scope.make)(scope =>
+            abortControl.succeed(()).unit *> release.succeed(()).unit *>
+              duplex.received.offer(Take.end).unit *> scope.close(Exit.unit)
+          )
+          connection <- owner.extend(McpConnection.make(transport))
+          request    <- connection.request("pending").forkScoped
+          _          <- duplex.nextRequest
+          _          <- duplex.receive(McpMessage.Request(McpRequestId.Text("server-ping"), "ping"))
+          _          <- controlReady.await
+          closing <- ZIO.uninterruptible:
+            for
+              fiber <- owner.close(Exit.unit).exit.forkScoped
+              _ <- ZIO.addFinalizer(
+                abortControl.succeed(()).unit *> release.succeed(()).unit *>
+                  duplex.received.offer(Take.end).unit
+              )
+            yield fiber
+          reachedCleanup <- cleanupReady.await.as(true).raceFirst(closing.await.as(false))
+          beforeRelease  <- closing.poll
+          _ <- abortControl.succeed(()) *> release.succeed(()) *>
+            duplex.received.offer(Take.end)
+          closed <- closing.join
+          // Explicit fixture signals also finish children under the intentionally defective draft.
+          pending    <- request.await
+          _          <- request.interrupt
+          _          <- readerClosed.await
+          closeCount <- leaseCloses.get
+        yield assertTrue(
+          reachedCleanup,
+          beforeRelease.isEmpty,
+          closed.causeOption.exists(cause =>
+            cause.defects.nonEmpty && cause.defects.forall(_ eq defect)
+          ),
+          pending.isFailure,
+          closeCount == 1
+        )
+    ,
     test("issued abandonment notifies once without blocking cancellation or overflowing controls") {
       val eligibility = ZIO
         .foreach(Chunk.fromArray(CancellationCase.values))(mode =>

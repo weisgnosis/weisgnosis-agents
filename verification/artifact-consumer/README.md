@@ -1,5 +1,7 @@
 # Packaged public API consumer
 
+The current [MCP revision agreement manifest](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#supported-server-revision-agreement) records the source-approved eighteen-file scope, full 1,581-test verification and final archive refresh. Archive admission and final fresh standalone consumption pass; review_fp and review_invariants approved final combined documentation against 1e18d44 for the thirty-three-file scope. The unchanged consumer does not exercise negotiated transport interoperability.
+
 The schema/resource increment updates the classpath contract for the new production evaluator and adds an actual packaged schema-admission probe. The previous consumer rejected legitimate Jackson transitive dependencies in schema-resources-consumer.log; this is recorded before correction. Current source review and artifact evidence belong to the [schema admission acceptance](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission).
 
 This standalone, unpublished SBT fixture resolves core, harness, MCP and optional storage-postgresql through generated Maven POMs and packaged JARs, without a source-project dependency. Its neutral consumer package deliberately sits outside com.weisgnosis.agents and its package-private visibility boundary. It is external host verification infrastructure, not a published library component.

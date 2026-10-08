@@ -16,7 +16,12 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpPacket, McpProtocolVersion}
+import com.weisgnosis.agents.mcp.protocol.{
+  McpMessage,
+  McpPacket,
+  McpProtocolVersion,
+  McpSupportedVersions
+}
 import java.net.URI
 import zio.*
 import zio.http.{Body, Client, Headers, Request, URL}
@@ -35,10 +40,12 @@ object McpLegacySseTransport:
       headers: Headers = Headers.empty,
       limits: McpHttpLimits = McpHttpLimits(),
       endpointDeadline: Duration = 30.seconds,
-      version: McpProtocolVersion = McpProtocolVersion.V20241105
+      version: McpProtocolVersion = McpProtocolVersion.V20241105,
+      supportedVersions: Option[McpSupportedVersions] = None
   ): ZIO[Scope, AgentError, McpTransport] =
     for
-      _ <- ZIO.fromEither(McpStreamableHttpTransport.validate(headers, limits))
+      versions <- McpVersionSession.make(version, supportedVersions)
+      _        <- ZIO.fromEither(McpStreamableHttpTransport.validate(headers, limits))
       _ <- ZIO
         .fail(AgentError.InvalidConfiguration("MCP endpoint deadline must be positive and finite"))
         .unless(endpointDeadline > Duration.Zero && endpointDeadline < Duration.Infinity)
@@ -60,6 +67,7 @@ object McpLegacySseTransport:
             headers,
             limits,
             version,
+            versions,
             queue,
             ready,
             terminal,
@@ -128,6 +136,7 @@ object McpLegacySseTransport:
       headers: Headers,
       limits: McpHttpLimits,
       override val protocolVersion: McpProtocolVersion,
+      versions: McpVersionSession,
       queue: Queue[McpPacket],
       ready: Promise[AgentError, URL],
       terminal: Promise[Nothing, Cause[AgentError]],
@@ -135,13 +144,16 @@ object McpLegacySseTransport:
       requests: Semaphore,
       controls: Semaphore
   ) extends McpTransport:
+    override def currentProtocolVersion: UIO[McpProtocolVersion]                  = versions.current
+    override def acquireProtocolSession: ZIO[Scope, AgentError, McpProtocolLease] = versions.acquire
+
     private def boundary(operation: String)(error: Throwable): AgentError =
       AgentError.McpError(
         s"$operation failed: ${Option(error.getMessage).getOrElse(error.getClass.getName)}"
       )
 
     def stop(cause: Cause[AgentError]): UIO[Unit] =
-      terminal
+      versions.seal *> terminal
         .succeed(cause)
         .flatMap(first => if first then ready.failCause(cause).unit else ZIO.unit)
 
@@ -181,7 +193,8 @@ object McpLegacySseTransport:
                 _ <- ZIO
                   .fail(AgentError.InvalidMessage("MCP legacy SSE message arrived before endpoint"))
                   .unless(published)
-                message <- ZIO.fromEither(McpPacket.decode(data, protocolVersion))
+                _       <- versions.awaitOwned
+                message <- versions.decode(data)
                 _       <- deliver(message)
               yield ()
             case _ => ZIO.unit
@@ -235,61 +248,77 @@ object McpLegacySseTransport:
       val semaphore = packet match
         case McpPacket.Single(_: McpMessage.Request) => requests
         case _                                       => controls
-      semaphore.withPermit:
-        ZIO.scoped:
-          ZIO.uninterruptibleMask: restore =>
-            for
-              _      <- ensureOpen
-              target <- restore(ready.await)
-              bytes  <- McpHttpFraming.encodePacket(packet, protocolVersion, limits.requestBytes)
-              response <- restore(
-                Client
-                  .streaming(
-                    Request
-                      .post(target, Body.fromChunk(bytes))
-                      .addHeaders(
-                        headers ++ Headers(
-                          "Content-Type" -> "application/json",
-                          "Accept"       -> "application/json"
-                        )
+      for
+        proposed <- versions.current
+        encoded  <- McpHttpFraming.encodePacket(packet, proposed, limits.requestBytes)
+        _ <- semaphore.withPermit:
+          ZIO.scoped:
+            ZIO.uninterruptibleMask: restore =>
+              for
+                _        <- ensureOpen
+                target   <- restore(ready.await)
+                selected <- versions.prepare(packet)
+                _ <- (for
+                  bytes <-
+                    if selected == proposed then ZIO.succeed(encoded)
+                    else McpHttpFraming.encodePacket(packet, selected, limits.requestBytes)
+                  response <- restore(
+                    Client
+                      .streaming(
+                        Request
+                          .post(target, Body.fromChunk(bytes))
+                          .addHeaders(
+                            headers ++ Headers(
+                              "Content-Type"         -> "application/json",
+                              "Accept"               -> "application/json",
+                              "MCP-Protocol-Version" -> selected.wire
+                            )
+                          )
                       )
-                  )
-                  .provideSomeEnvironment[Scope](_.add(http))
-              ).mapError(boundary("MCP legacy SSE POST"))
-              _ <- ZIO
-                .fail(
-                  AgentError.McpError(
-                    s"MCP legacy SSE POST rejected with status ${response.status.code}"
-                  )
-                )
-                .unless(
-                  response.status.code == 202 || response.status.code == 200 || response.status.code == 204
-                )
-              _ <- onIssued
-              _ <- restore(
-                response.body.asStream
-                  .mapError(boundary("MCP legacy SSE POST body"))
-                  .runFoldZIO(0L)((size, _) =>
-                    if size >= limits.jsonResponseBytes then
-                      ZIO.fail(
-                        AgentError.InvalidMessage(
-                          "MCP legacy SSE POST acknowledgement exceeds byte limit"
-                        )
+                      .provideSomeEnvironment[Scope](_.add(http))
+                  ).mapError(boundary("MCP legacy SSE POST"))
+                  _ <- ZIO
+                    .fail(
+                      AgentError.McpError(
+                        s"MCP legacy SSE POST rejected with status ${response.status.code}"
                       )
-                    else ZIO.succeed(size + 1)
+                    )
+                    .unless(
+                      response.status.code == 202 || response.status.code == 200 || response.status.code == 204
+                    )
+                  _ <- onIssued
+                  _ <- restore(
+                    response.body.asStream
+                      .mapError(boundary("MCP legacy SSE POST body"))
+                      .runFoldZIO(0L)((size, _) =>
+                        if size >= limits.jsonResponseBytes then
+                          ZIO.fail(
+                            AgentError.InvalidMessage(
+                              "MCP legacy SSE POST acknowledgement exceeds byte limit"
+                            )
+                          )
+                        else ZIO.succeed(size + 1)
+                      )
+                      .unit
                   )
-                  .unit
-              )
-              _ <- ensureOpen
-            yield ()
+                  _ <- ensureOpen
+                yield ()).onExit:
+                  case Exit.Failure(_) if isInitialize(packet) => versions.seal
+                  case _                                       => ZIO.unit
+              yield ()
+      yield ()
+
+    private def isInitialize(packet: McpPacket): Boolean = packet match
+      case McpPacket.Single(McpMessage.Request(_, "initialize", _)) => true
+      case _                                                        => false
 
     def incoming: ZStream[Any, AgentError, McpMessage] =
       incomingPackets.mapZIO(packet => ZIO.fromEither(McpPacket.single(packet)))
 
     override def incomingPackets: ZStream[Any, AgentError, McpPacket] =
       ZStream.unwrap:
-        claimed
-          .getAndSet(Consumer.Claimed)
+        (versions.ensureOwned *> claimed
+          .getAndSet(Consumer.Claimed))
           .map:
             case Consumer.Claimed =>
               ZStream.fail(AgentError.McpError("MCP legacy SSE incoming stream already claimed"))

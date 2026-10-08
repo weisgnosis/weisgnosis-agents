@@ -98,17 +98,35 @@ object McpHttpFraming:
     yield bytes
 
   def json(maxBytes: Int = 1048576): ZPipeline[Any, AgentError, Byte, McpMessage] =
-    jsonDecoded(maxBytes, McpMessage.decode)
+    jsonDecoded(maxBytes, wire => ZIO.fromEither(McpMessage.decode(wire)))
 
   def jsonPackets(
       version: McpProtocolVersion,
       maxBytes: Int = 1048576
   ): ZPipeline[Any, AgentError, Byte, McpPacket] =
-    jsonDecoded(maxBytes, McpPacket.decode(_, version))
+    jsonDecoded(maxBytes, wire => ZIO.fromEither(McpPacket.decode(wire, version)))
+
+  private[mcp] def jsonSession(
+      session: McpVersionSession,
+      maxBytes: Int,
+      origin: McpVersionSession.ReplyOrigin = McpVersionSession.ReplyOrigin.SharedStream
+  ): ZPipeline[Any, AgentError, Byte, McpPacket] =
+    jsonDecoded(maxBytes, wire => session.decode(wire, origin))
+
+  private[mcp] def sseSession(
+      session: McpVersionSession,
+      maxBodyBytes: Long,
+      maxEventBytes: Int,
+      origin: McpVersionSession.ReplyOrigin = McpVersionSession.ReplyOrigin.SharedStream
+  ): ZPipeline[Any, AgentError, Byte, McpSsePacket] =
+    sseFrames(maxBodyBytes, maxEventBytes).mapZIO: frame =>
+      ZIO
+        .foreach(frame.data)(wire => session.decode(wire, origin))
+        .map(packet => McpSsePacket(packet, frame.lastEventId))
 
   private def jsonDecoded[A](
       maxBytes: Int,
-      decode: String => Either[AgentError.DeserializationError, A]
+      decode: String => IO[AgentError, A]
   ): ZPipeline[Any, AgentError, Byte, A] =
     ZPipeline.fromChannel:
       def read(buffer: Buffer): Decoder[A] =
@@ -128,7 +146,7 @@ object McpHttpFraming:
                     ZIO.fail(
                       AgentError.DeserializationError("BOM is not accepted in MCP HTTP JSON bodies")
                     )
-                  else ZIO.fromEither(decode(value))
+                  else decode(value)
                 )
               )
               .flatMap(message => ZChannel.write(Chunk(message)))

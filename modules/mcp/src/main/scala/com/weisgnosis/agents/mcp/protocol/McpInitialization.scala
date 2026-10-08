@@ -85,14 +85,35 @@ object McpInitialization:
       value: Json.Obj,
       selected: McpProtocolVersion = McpProtocolVersion.V20250618
   ): Either[AgentError.DeserializationError, McpInitializationResult] =
+    readResultWith(
+      value,
+      wire =>
+        Either.cond(
+          wire == selected.wire,
+          selected,
+          s"Expected MCP protocol version ${selected.wire}"
+        )
+    )
+
+  /** Validate the complete initialization payload before selecting an explicitly supported revision. */
+  def readSupportedResult(
+      value: Json.Obj,
+      supported: McpSupportedVersions
+  ): Either[AgentError.DeserializationError, McpInitializationResult] =
+    readResultWith(
+      value,
+      wire =>
+        supported.versions.find(_.wire == wire).toRight("Unsupported MCP server protocol revision")
+    )
+
+  private def readResultWith(
+      value: Json.Obj,
+      select: String => Either[String, McpProtocolVersion]
+  ): Either[AgentError.DeserializationError, McpInitializationResult] =
     (for
-      _       <- JsonBoundary.validate(value)
-      version <- required(value, "protocolVersion").flatMap(string(_, "protocolVersion"))
-      _ <- Either.cond(
-        version == selected.wire,
-        (),
-        s"Expected MCP protocol version ${selected.wire}"
-      )
+      _            <- JsonBoundary.validate(value)
+      wire         <- required(value, "protocolVersion").flatMap(string(_, "protocolVersion"))
+      selected     <- select(wire)
       server       <- required(value, "serverInfo").flatMap(implementation)
       capabilities <- required(value, "capabilities").flatMap(serverCapabilities)
       instructions <- optional(value, "instructions", string(_, "instructions"))

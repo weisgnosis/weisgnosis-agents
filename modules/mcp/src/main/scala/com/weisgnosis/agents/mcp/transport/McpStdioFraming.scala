@@ -40,17 +40,23 @@ object McpStdioFraming:
     def bytes: Chunk[Byte] = segments.reverse.foldLeft(Chunk.empty[Byte])(_ ++ _)
 
   def decode(maxFrameBytes: Int = 1048576): ZPipeline[Any, AgentError, Byte, McpMessage] =
-    decodeWith(maxFrameBytes, McpMessage.decode)
+    decodeWith(maxFrameBytes, wire => ZIO.fromEither(McpMessage.decode(wire)))
 
   def decodePackets(
       version: McpProtocolVersion,
       maxFrameBytes: Int = 1048576
   ): ZPipeline[Any, AgentError, Byte, McpPacket] =
-    decodeWith(maxFrameBytes, McpPacket.decode(_, version))
+    decodeWith(maxFrameBytes, wire => ZIO.fromEither(McpPacket.decode(wire, version)))
+
+  private[mcp] def decodeSession(
+      session: McpVersionSession,
+      maxFrameBytes: Int
+  ): ZPipeline[Any, AgentError, Byte, McpPacket] =
+    decodeWith(maxFrameBytes, wire => session.decode(wire))
 
   private def decodeWith[A](
       maxFrameBytes: Int,
-      decodeMessage: String => Either[AgentError.DeserializationError, A]
+      decodeMessage: String => IO[AgentError, A]
   ): ZPipeline[Any, AgentError, Byte, A] =
     ZPipeline.fromChannel:
       def read(frame: Frame): Decoder[A] =
@@ -119,7 +125,7 @@ object McpStdioFraming:
 
   private def readFrame[A](
       bytes: Chunk[Byte],
-      decode: String => Either[AgentError.DeserializationError, A]
+      decode: String => IO[AgentError, A]
   ): IO[AgentError, A] =
     val text = ZIO.attempt:
       val decoder = StandardCharsets.UTF_8
@@ -134,5 +140,5 @@ object McpStdioFraming:
       _ <- ZIO
         .fail(AgentError.DeserializationError("BOM is not accepted in MCP stdio frames"))
         .when(wire.startsWith("\ufeff"))
-      message <- ZIO.fromEither(decode(wire))
+      message <- decode(wire)
     yield message

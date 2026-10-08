@@ -26,8 +26,15 @@ import zio.stream.ZStream
  * and make send/stream cancellation join owned cleanup. A send receives its own bounded Scope.
  */
 trait McpTransport:
-  /** The handshake and any transport version headers must agree on this explicit selection. */
+  /** Preferred initial revision; currentProtocolVersion exposes the selected wire revision. */
   def protocolVersion: McpProtocolVersion = McpProtocolVersion.V20250618
+
+  /** Committed wire revision; exact custom ports retain the immutable default selection. */
+  def currentProtocolVersion: UIO[McpProtocolVersion] = ZIO.succeed(protocolVersion)
+
+  /** Acquire protocol ownership before starting a connection reader; no transport resource transfer. */
+  def acquireProtocolSession: ZIO[Scope, AgentError, McpProtocolLease] =
+    ZIO.succeed(McpProtocolLease.exact)
 
   def send(message: McpMessage): ZIO[Scope, AgentError, Unit]
 
@@ -50,3 +57,15 @@ trait McpTransport:
   def incomingPackets: ZStream[Any, AgentError, McpPacket] = incoming.map(McpPacket.Single(_))
 
   def incoming: ZStream[Any, AgentError, McpMessage]
+
+/** Closing seals protocol negotiation only; the host continues to own transport resources. */
+trait McpProtocolLease:
+  /**
+   * Idempotent, terminating cleanup: both connection shutdown and the owning scope may invoke it.
+   * Complete owned cleanup and preserve failure causes; transport resources remain host-owned.
+   */
+  def close: UIO[Unit]
+
+object McpProtocolLease:
+  val exact: McpProtocolLease = new McpProtocolLease:
+    def close: UIO[Unit] = ZIO.unit

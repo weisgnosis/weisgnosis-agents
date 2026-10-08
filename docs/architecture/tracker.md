@@ -19,6 +19,12 @@ The repository does not currently support a defensible whole-plan completion per
 
 Execute the following sequence without changing the original scope:
 
+- [x] Implement server-selected MCP revision agreement among a checked explicit supported set, preserving exact negotiation defaults, legacy June compatibility and one scoped connection owner. Both independent source reviews approve the eighteen-file manifest.
+- [x] Verify same-chunk framing, coherent HTTP request/continuation/listener/deletion headers, rejected concurrent ownership and joined cancellation. Full verification passes 1,581 tests with no compiler warnings, failed or ignored tests; four RC1 packages are built.
+- [x] Close final combined documentation acceptance for the [supported revision scope](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#supported-server-revision-agreement). Do not extend scoped acceptance to remaining original-plan obligations.
+- [ ] Complete per-chunk accumulated thinking observations alongside existing incremental deltas. The cumulative ReActAgentThinkingCumulativeTest method requires each successive prefix; the incremental method requires exact ordered fragments. Current block-end accumulation is insufficient. Reuse existing indexed publisher state and proportional streaming/codec tests; keep opaque reasoning outside plaintext projection.
+- [ ] Classify both pinned ReActAgentRunIdVisibilityTest methods against explicit invocation semantics. Existing replyId/requestId correlations are related evidence, not stable invocation identity: Auto attempts may use different reply IDs, and resumption reuses a reply ID. Prepared-run handle exposure remains a separate API obligation to resolve explicitly.
+
 - [x] Correct the literal mutable-collection standards finding in McpStdioTransport.open through the immutable zio-process API, preserving inherited environment, Windows key handling, direct execution, stderr policy and joined cleanup. Both source reviews and focused/full/archive/consumer verification pass under the unchanged engineering standard. Final combined documentation acceptance passed against 203401a for the seventeen-file scope below.
 
 - [x] Recheck the accepted implementation independently: current full verification, packaged consumption, compiled guide applications and one authorized live tool-calling run have concrete evidence below.
@@ -33,7 +39,7 @@ Execute the following sequence without changing the original scope:
 - [x] Obtain independent final FP/ZIO and invariant source approvals, proportionate contract/regression coverage and full verification for the current schema/resource increment.
 - [x] Both reviewers approved final combined documentation for the verified current increment against 1441a97. Apply the same gates to every subsequent task.
 
-Current source-approved increment corrects direct mutable Java environment-map manipulation in McpStdioTransport through the immutable zio-process API, preserving direct-process ownership and existing joined cleanup. review_fp and review_invariants approved four final source/build identities against 203401a. Focused process checks, full verification, fresh archives and standalone consumption pass. review_fp and review_invariants approved final combined documentation against 203401a for four unchanged source/build identities and thirteen Markdown files. Next: implement coherent server-selected alternatives among explicitly supported MCP revision profiles, including actual decoding and HTTP headers. No whole-plan completion is claimed.
+Current source-approved increment implements supported server-selected MCP revision agreement against 1e18d44. review_fp and review_invariants approve the eighteen exact Scala identities, including the final public lease contract. Full verification and four-module packaging pass; final archive refresh and fresh consumption pass; combined documentation acceptance passed against 1e18d44 for the exact thirty-three-file scope, approved by review_fp and review_invariants. Next implementation: per-chunk accumulated thinking observations. No whole-plan completion is claimed.
 
 - [x] Implement declared Draft 4, 6, 7 and 2019-09 alongside default Draft 2020-12, preserving exact numeric/reference checks and draft-specific keyword behavior. The [dialect manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#declared-standard-schema-dialects) records bounded evidence; remaining method inventory is open.
 - [x] Implement visible embedded MCP resource text, typed images and binary descriptions alongside lossless Custom payloads. See the [projection manifest](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity).
@@ -48,7 +54,8 @@ These are provisional engineering effort ranges, including implementation, propo
 
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
-| Supported MCP server-selected alternative revisions | 8-14 hours | Coordinate negotiated framing/lifecycle across transports; verify actual supported-version semantics before promising preference ordering. No implicit reconnect/replay. |
+| Supported MCP server-selected alternative revisions | Implementation, source/documentation reviews and verification complete | Both final combined reviews complete; no ordered preference, probing or replay claim. |
+| Per-chunk accumulated thinking observations | 3-6 hours | Preserve incremental payloads, indexed accumulation and opaque reasoning boundaries; document additive event wire/source/JVM migration. |
 | Durable terminal task observations | 12-24 hours | Host-addressed bounded CAS store; reopen/read/list/filter with stable terminal truth. Excludes execution restoration, cancellation and delivery acknowledgement. |
 | Durable delivery publication/acknowledgement | 8-16 hours after terminal storage | Persist before acknowledgement/notification and preserve uncertain-write receipts. No distributed exactly-once promise. |
 | Durable cancellation intent with current-owner handling | 12-24 hours after terminal storage | Persist intent, join owned cancellation and preserve terminal truth before notification. Cross-process takeover/fencing remains separate. |
@@ -73,13 +80,17 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-Current immutable stdio launcher increment is independently source-approved against 203401a. The [launcher manifest](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#immutable-process-launcher) owns four exact identities and evidence. Final combined documentation review passed against 203401a for seventeen files; no whole-plan completion or publication is claimed.
+Current server revision agreement increment has both independent source approvals against 1e18d44. The [canonical manifest](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#supported-server-revision-agreement) owns eighteen exact Scala identities, contracts and verification. Final combined documentation acceptance remains pending; no whole-plan completion or publication is claimed.
 
-- [x] Replace direct mutable Java environment-map handling with immutable process configuration under the unchanged engineering standard, retaining ownership before interruptible handoff.
-- [x] Obtain both independent source approvals and passing focused/full/archive/consumer verification.
-- [x] review_fp and review_invariants approved final combined documentation against 203401a for the unchanged four source/build identities and thirteen Markdown files; no unresolved findings remain in this scope.
+- [x] Implement checked supported-set selection, sole scoped ownership, complete correlated initialization validation and immediate frame/header changes.
+- [x] Obtain final review_fp and review_invariants source approval for manifest 1fe6259df48bab7eaf4b742e5ec216537887d73429bc6da6231426603a0d045b, with no unresolved source findings.
+- [x] mcp-version-agreement-full-verify.log passes formatting, compilation and 1,581 tests: 687 core, 734 harness, 130 MCP, 22 actual PostgreSQL and 8 examples, with no compiler warnings, failed or ignored tests. Four RC1 packages pass. The newly created empty PostgreSQL fixture was stopped after ownership-label validation.
+- [x] mcp-version-agreement-final-archives.log refreshes formatting/compilation and four archives after the final separately reviewed lease Scaladoc clarification. No behavioral source change occurred after full verification.
+- [x] mcp-version-agreement-preparation.log passes source/POM/LICENSE admission and reversible selector/extra-source/duplicate-source negative cases.
+- [x] Confirm final fresh standalone consumption in mcp-version-agreement-consumer.log; its unchanged probe checks four artifact hashes and existing public APIs, not negotiated-transport interoperability.
+- [x] review_fp and review_invariants approved final combined documentation against 1e18d44 for eighteen unchanged Scala files and fifteen Markdown files; no unresolved findings remain within this scope.
 
-stdio-functional-launcher-full-verify.log passes 1,570 tests: 687 core, 734 harness, 119 MCP, 22 actual PostgreSQL and 8 examples. There are zero failed/ignored tests or compiler warnings. Formatting, compilation and four RC1 packages pass against a newly created empty PostgreSQL 16 database; its owned disposable container was stopped. stdio-functional-launcher-preparation.log passes source/POM/LICENSE admission and negative archive cases. stdio-functional-launcher-consumer.log passes clean standalone fatal-warning compilation and fresh four-module hash consumption. The unchanged consumer resolves the dependency without launching a packaged subprocess. stdio-functional-launcher-focused.log passes five actual-process groups in 2.727 seconds, including one new independent stderr progress/reaping contract. This standards correction makes no unchanged-production behavioral RED claim. Explicit dependency eviction diagnostics and a full-run Netty host-connection-aborted diagnostic remain visible and distinct from compiler warnings; no universal binary compatibility or unverified diagnostic cause is claimed.
+The immutable process launcher remains in force and its current modified source identities redirect to the negotiation manifest. Its production dependency eviction diagnostics remain visible: no suppression or universal binary compatibility claim. SLF4J/dependency/runtime notices are distinct from compiler warnings.
 
 The compiled publication guide retains its separate accepted evidence: publication-guide.log compiles all three complete applications with fatal warnings and executes ScriptedAgent successfully. This is not a new live-provider or whole-plan parity claim.
 
@@ -100,7 +111,7 @@ Pair-safe compaction/pruning, offload, bounded memory/transcript publication, kn
 ## Remaining integration and parity
 
 - [x] Implement and independently source-review bounded connection-local discovered-tool catalogue acquisition/lookup/close semantics; full and artifact verification pass, with final combined documentation approval passed against 63776a7. Pinned sync/async wrapper initialization and cached-lookup tests require original remote definitions; immutable registered Toolkit snapshots already cover the separate discovery bridge.
-- [ ] Support a server-selected alternative from explicitly configured supported MCP revisions. Current exact-profile selection deliberately rejects alternatives; it is not equivalent to the upstream supported-version contract.
+- [x] Implement a server-selected alternative from explicitly configured supported MCP revisions, with both independent source approvals and full verification. Final combined delivery gates remain visible above; remaining builder methods are not automatically accepted.
 - [ ] Persist terminal task observations for reopened output/listing. Pinned WorkspaceTaskRepositoryTest methods103/136/178/317/360/388/444 require persistence, failed-result projection, reopen lookup, filtered listing and terminal truth; scoped in-memory retention is insufficient.
 - [ ] Implement durable delivery/acknowledgement and cancellation-intent semantics separately. Pinned WorkspaceTaskRepositoryTest methods263/882/923 require persisted state before notification/delivery; terminal storage alone cannot close them.
 - [ ] Decompose and implement durable reusable-session restoration and cross-process owner recovery with explicit host ownership/fencing. A stable-name/hash helper or persisted result does not restore execution authority.

@@ -23,7 +23,7 @@ import com.weisgnosis.agents.mcp.protocol.{
   McpRequestId,
   McpRpcError
 }
-import com.weisgnosis.agents.mcp.transport.McpTransport
+import com.weisgnosis.agents.mcp.transport.{McpTransport, McpProtocolLease}
 import zio.*
 import zio.json.ast.Json
 
@@ -81,6 +81,7 @@ object McpConnection:
     else
       ZIO.uninterruptible:
         for
+          lease        <- transport.acquireProtocolSession
           owner        <- Scope.make
           requests     <- owner.extend(McpRequests.make(capacity))
           gate         <- Semaphore.make(1)
@@ -94,6 +95,7 @@ object McpConnection:
           closed       <- Promise.make[Nothing, Exit[Nothing, Unit]]
           live = new Live(
             transport,
+            lease,
             capacity,
             owner,
             requests,
@@ -115,6 +117,7 @@ object McpConnection:
 
   final private class Live(
       transport: McpTransport,
+      lease: McpProtocolLease,
       capacity: Int,
       owner: Scope.Closeable,
       requests: McpRequests,
@@ -294,15 +297,25 @@ object McpConnection:
     private def stop(cause: Cause[AgentError]): UIO[Unit] =
       ZIO.uninterruptible:
         for
-          services <- gate.withPermit(admission.get.flatMap:
-            case Admission.Stopped(_) => ZIO.succeed(Chunk.empty[Fiber.Runtime[AgentError, Any]])
+          stopped <- gate.withPermit(admission.get.flatMap:
+            case Admission.Stopped(_) =>
+              ZIO.succeed((Chunk.empty[Fiber.Runtime[AgentError, Any]], Exit.unit))
             case Admission.Open =>
-              admission.set(Admission.Stopped(cause)) *>
-                requests.failAll(cause) *> terminal.succeed(cause) *> observeStop(
-                  cause
-                ) *> background.get)
+              for
+                _         <- admission.set(Admission.Stopped(cause))
+                leaseExit <- lease.close.exit
+                completeCause = leaseExit match
+                  case Exit.Success(_)          => cause
+                  case Exit.Failure(leaseCause) => cause ++ leaseCause
+                _        <- admission.set(Admission.Stopped(completeCause))
+                _        <- requests.failAll(completeCause)
+                _        <- terminal.succeed(completeCause)
+                _        <- observeStop(completeCause)
+                services <- background.get
+              yield (services, leaseExit))
           interrupter <- ZIO.fiberId
-          _           <- ZIO.foreachDiscard(services)(_.interruptAsFork(interrupter))
+          _           <- ZIO.foreachDiscard(stopped._1)(_.interruptAsFork(interrupter))
+          _           <- stopped._2
         yield ()
 
     private def controlReply(id: McpRequestId, method: String): McpMessage =
@@ -386,7 +399,7 @@ object McpConnection:
 
     private def shutdown: UIO[Unit] =
       for
-        _        <- stop(Cause.fail(AgentError.McpError("MCP connection closed")))
+        stopExit <- stop(Cause.fail(AgentError.McpError("MCP connection closed"))).exit
         workers  <- gate.withPermit(active.get.map(_.values.toList))
         services <- background.get
         results <- ZIO.foreachPar(workers ++ services.toList)(_.await.map(exit =>
@@ -396,7 +409,7 @@ object McpConnection:
         _         <- active.set(Map.empty)
         _         <- controls.shutdown
         ownerExit <- owner.close(Exit.unit).exit
-        _         <- Exit.collectAllParDiscard(results :+ ownerExit)
+        _         <- Exit.collectAllParDiscard(results ++ List(stopExit, ownerExit))
       yield ()
 
     def close: UIO[Unit] =

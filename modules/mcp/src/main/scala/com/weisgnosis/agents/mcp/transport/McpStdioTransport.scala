@@ -16,7 +16,12 @@
 package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.mcp.protocol.{McpMessage, McpPacket, McpProtocolVersion}
+import com.weisgnosis.agents.mcp.protocol.{
+  McpMessage,
+  McpPacket,
+  McpProtocolVersion,
+  McpSupportedVersions
+}
 import java.io.File
 import zio.process.{Command, ProcessInput, ProcessOutput}
 import zio.*
@@ -38,7 +43,8 @@ object McpStdioTransport:
       maxFrameBytes: Int = 1048576,
       stderr: StderrPolicy = StderrPolicy.Discard,
       environment: Map[String, String] = Map.empty,
-      version: McpProtocolVersion = McpProtocolVersion.V20250618
+      version: McpProtocolVersion = McpProtocolVersion.V20250618,
+      supportedVersions: Option[McpSupportedVersions] = None
   ): ZIO[Scope, AgentError, McpTransport] =
     if command.headOption.forall(_.trim.isEmpty) || maxFrameBytes <= 0 then
       ZIO.fail(
@@ -55,6 +61,7 @@ object McpStdioTransport:
     then ZIO.fail(AgentError.InvalidConfiguration("MCP stdio environment overrides are invalid"))
     else
       for
+        versions <- McpVersionSession.make(version, supportedVersions)
         writes   <- Semaphore.make(1)
         reader   <- Ref.make(Reader.Available)
         terminal <- Promise.make[Nothing, Cause[AgentError]]
@@ -102,7 +109,17 @@ object McpStdioTransport:
                 .flatten
         )
         raw <- launched.execute(process => process).mapError(ioError("access process", _))
-        transport = new Live(raw, maxFrameBytes, version, writes, reader, terminal, closing, closed)
+        transport = new Live(
+          raw,
+          maxFrameBytes,
+          version,
+          versions,
+          writes,
+          reader,
+          terminal,
+          closing,
+          closed
+        )
         _ <- owner.set(Some(transport))
       yield transport
 
@@ -136,12 +153,16 @@ object McpStdioTransport:
       process: Process,
       maxFrameBytes: Int,
       override val protocolVersion: McpProtocolVersion,
+      versions: McpVersionSession,
       writes: Semaphore,
       reader: Ref[Reader],
       terminal: Promise[Nothing, Cause[AgentError]],
       closing: Ref[Closing],
       closed: Promise[Nothing, Exit[Nothing, Unit]]
   ) extends McpTransport:
+    override def currentProtocolVersion: UIO[McpProtocolVersion]                  = versions.current
+    override def acquireProtocolSession: ZIO[Scope, AgentError, McpProtocolLease] = versions.acquire
+
     private def ensureOpen: IO[AgentError, Unit] =
       terminal.poll.flatMap:
         case Some(cause) => cause.flatMap(ZIO.refailCause(_))
@@ -153,12 +174,14 @@ object McpStdioTransport:
         val cause = descriptor.interrupters.foldLeft[Cause[AgentError]](Cause.empty)((acc, id) =>
           acc && Cause.interrupt(id)
         )
-        terminal.succeed(if cause.isEmpty then Cause.interrupt(descriptor.id) else cause).unit *>
+        versions.seal *> terminal
+          .succeed(if cause.isEmpty then Cause.interrupt(descriptor.id) else cause)
+          .unit *>
           cleanup
 
     private def failWrite[A](cause: Cause[AgentError]): IO[AgentError, A] =
       for
-        _       <- terminal.succeed(cause)
+        _       <- versions.seal *> terminal.succeed(cause)
         release <- cleanup.exit
         first   <- terminal.await
         result <- ZIO.refailCause(release match
@@ -176,25 +199,41 @@ object McpStdioTransport:
       ZIO.fromEither(McpPacket.validateResponse(packet)) *> writePacket(packet, ZIO.unit)
 
     private def writePacket(packet: McpPacket, onIssued: UIO[Unit]): ZIO[Scope, AgentError, Unit] =
-      McpStdioFraming
-        .encodePacket(packet, protocolVersion, maxFrameBytes)
-        .flatMap: frame =>
-          writes.withPermit:
-            ZIO.uninterruptibleMask: restore =>
-              ensureOpen *> restore(
-                ZIO
-                  .attemptBlockingCancelable {
-                    val output = process.getOutputStream
-                    output.write(frame.toArray)
-                    output.flush()
-                  }(cancelIo)
-                  .mapError(ioError("write", _))
-              ).exit.flatMap:
-                case Exit.Success(_)     => ensureOpen *> onIssued
-                case Exit.Failure(cause) => failWrite(cause)
+      for
+        proposed <- versions.current
+        encoded  <- McpStdioFraming.encodePacket(packet, proposed, maxFrameBytes)
+        _ <- writes.withPermit:
+          ZIO.uninterruptibleMask: restore =>
+            for
+              _        <- ensureOpen
+              selected <- versions.prepare(packet)
+              _ <- (for
+                frame <-
+                  if selected == proposed then ZIO.succeed(encoded)
+                  else McpStdioFraming.encodePacket(packet, selected, maxFrameBytes)
+                _ <- restore(
+                  ZIO
+                    .attemptBlockingCancelable {
+                      val output = process.getOutputStream
+                      output.write(frame.toArray)
+                      output.flush()
+                    }(cancelIo)
+                    .mapError(ioError("write", _))
+                ).exit.flatMap:
+                  case Exit.Success(_)     => ensureOpen *> onIssued
+                  case Exit.Failure(cause) => failWrite(cause)
+              yield ()).onExit:
+                case Exit.Failure(_) if isInitialize(packet) => versions.seal
+                case _                                       => ZIO.unit
+            yield ()
+      yield ()
+
+    private def isInitialize(packet: McpPacket): Boolean = packet match
+      case McpPacket.Single(McpMessage.Request(_, "initialize", _)) => true
+      case _                                                        => false
 
     private def claimReader: IO[AgentError, Unit] =
-      ensureOpen *> reader
+      versions.ensureOwned *> ensureOpen *> reader
         .modify {
           case Reader.Available => (true, Reader.Claimed)
           case Reader.Claimed   => (false, Reader.Claimed)
@@ -223,7 +262,7 @@ object McpStdioTransport:
           failure.map:
             case error: AgentError => error
             case other             => AgentError.McpError(s"MCP stdio consumer failed: $other")
-      terminal.succeed(cause).unit *> cleanup
+      versions.seal *> terminal.succeed(cause).unit *> cleanup
 
     private def readChannel: ZChannel[Any, Any, Any, Any, AgentError, Chunk[Byte], Unit] =
       ZChannel
@@ -240,7 +279,7 @@ object McpStdioTransport:
         ZChannel.acquireReleaseExitWith(claimReader)((_, exit) => releaseReader(exit))(_ =>
           ZStream
             .fromChannel(readChannel)
-            .via(McpStdioFraming.decodePackets(protocolVersion, maxFrameBytes))
+            .via(McpStdioFraming.decodeSession(versions, maxFrameBytes))
             .toChannel
         )
       )
@@ -260,7 +299,8 @@ object McpStdioTransport:
 
     def close: UIO[Unit] =
       ZIO.uninterruptible(
-        terminal
-          .succeed(Cause.fail(AgentError.McpError("MCP stdio transport closed")))
-          .unit *> cleanup
+        versions.seal *>
+          terminal
+            .succeed(Cause.fail(AgentError.McpError("MCP stdio transport closed")))
+            .unit *> cleanup
       )

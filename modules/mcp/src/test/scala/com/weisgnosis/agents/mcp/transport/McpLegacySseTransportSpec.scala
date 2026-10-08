@@ -59,6 +59,108 @@ object McpLegacySseTransportSpec extends ZIOSpecDefault:
     )
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Legacy MCP HTTP SSE")(
+    test(
+      "endpoint discovery precedes leased alternative decoding and selected-version POST headers"
+    ):
+      ZIO
+        .foreach(
+          Chunk(
+            (McpProtocolVersion.V20250618, McpProtocolVersion.V20250326),
+            (McpProtocolVersion.V20241105, McpProtocolVersion.V20250618)
+          )
+        ): (preferred, selected) =>
+          ZIO.scoped:
+            for
+              supported <- ZIO.fromEither(McpSupportedVersions.make(Set(preferred, selected)))
+              messages  <- ZIO.acquireRelease(Queue.unbounded[Chunk[Byte]])(_.shutdown)
+              posts     <- Ref.make(Chunk.empty[Headers])
+              pong      <- Promise.make[Nothing, Unit]
+              http = scripted: request =>
+                if request.method == Method.GET then
+                  ZIO.succeed(
+                    events(
+                      ZStream.fromChunk(
+                        bytes(
+                          "event: endpoint\ndata: /messages\n\ndata: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/ready\"}\n\n"
+                        )
+                      ) ++
+                        ZStream.fromQueue(messages).flattenChunks
+                    )
+                  )
+                else
+                  posts.update(_ :+ request.headers) *> request.body.asString.flatMap: wire =>
+                    ZIO
+                      .fromEither(McpPacket.decode(wire, selected))
+                      .flatMap:
+                        case McpPacket.Single(McpMessage.Request(id, "initialize", params)) =>
+                          for
+                            _ <- ZIO
+                              .fail(AgentError.InvalidMessage("Wrong preferred legacy revision"))
+                              .unless(
+                                params.exists(
+                                  _.get("protocolVersion").contains(Json.Str(preferred.wire))
+                                )
+                              )
+                            success <- ZIO.fromEither(
+                              McpMessage.encode(
+                                McpMessage.Success(
+                                  id,
+                                  Json.Obj(
+                                    "protocolVersion" -> Json.Str(selected.wire),
+                                    "serverInfo" -> Json.Obj(
+                                      "name"    -> Json.Str("alternative"),
+                                      "version" -> Json.Str("1")
+                                    ),
+                                    "capabilities" -> Json.Obj("tools" -> Json.Obj())
+                                  )
+                                )
+                              )
+                            )
+                            suffix =
+                              if selected == McpProtocolVersion.V20250326 then
+                                "data: [{\"jsonrpc\":\"2.0\",\"id\":70,\"method\":\"ping\"}]\n\n"
+                              else ""
+                            _ <- messages.offer(bytes(s"data: $success\n\n$suffix"))
+                          yield Response.status(Status.Accepted)
+                        case McpPacket.Batch(members)
+                            if members == Chunk(
+                              McpBatchMember.Message(
+                                McpMessage.Success(McpRequestId.Number(70), Json.Obj())
+                              )
+                            ) =>
+                          pong.succeed(()).as(Response.status(Status.Accepted))
+                        case McpPacket.Single(McpMessage.Request(id, "tools/list", _)) =>
+                          ZIO
+                            .fromEither(
+                              McpMessage
+                                .encode(McpMessage.Success(id, Json.Obj("tools" -> Json.Arr())))
+                            )
+                            .flatMap(value => messages.offer(bytes(s"data: $value\n\n")))
+                            .as(Response.status(Status.Accepted))
+                        case McpPacket.Single(_: McpMessage.Notification) =>
+                          ZIO.succeed(Response.status(Status.Accepted))
+                        case _ =>
+                          ZIO.fail(AgentError.InvalidMessage("Unexpected negotiated legacy packet"))
+              transport <- McpLegacySseTransport
+                .open(http, endpoint, version = preferred, supportedVersions = Some(supported))
+              unleased <- transport.incomingPackets.runHead.exit
+              client   <- McpClient.open(transport, McpImplementation("alternative", "1"))
+              second   <- McpClient.open(transport, McpImplementation("second", "1")).exit
+              page     <- client.listToolsPage()
+              _        <- pong.await.when(selected == McpProtocolVersion.V20250326)
+              headers  <- posts.get
+              current  <- transport.currentProtocolVersion
+            yield assertTrue(
+              unleased.isFailure,
+              second.isFailure,
+              page.tools.isEmpty,
+              client.initialization.protocolVersion == selected,
+              current == selected,
+              headers.headOption.exists(_.get("MCP-Protocol-Version").contains(preferred.wire)),
+              headers.drop(1).forall(_.get("MCP-Protocol-Version").contains(selected.wire))
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("initialization permits server ping batches but rejects a batched initialization reply"):
       ZIO.scoped:
         for
