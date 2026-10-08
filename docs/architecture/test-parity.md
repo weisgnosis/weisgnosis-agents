@@ -1672,9 +1672,9 @@ The [tracker effort table](tracker.md#remaining-library-completion-work) separat
 
 ## Upstream delta checked on 2026-10-08
 
-The local upstream checkout and existing method mappings remain pinned to `f98a685fdc4589f81e626e1686ac2c63d14a2304`. A fetch of `origin/main` on 2026-10-08 found `fbbc2b631691743ec6f2cdad50b1b6f9fba46c09`, exactly 27 commits ahead. No checkout or parity repin occurred. The [primary comparison](https://github.com/agentscope-ai/agentscope-java/compare/f98a685fdc4589f81e626e1686ac2c63d14a2304...fbbc2b631691743ec6f2cdad50b1b6f9fba46c09) defines this finite delta. Upstream tag `v2.0.3` resolves to `1b8e3dcd`, already an ancestor of the pin; it is not a new release after this baseline.
+The local upstream checkout and existing method mappings remain pinned to `f98a685fdc4589f81e626e1686ac2c63d14a2304`. The latest successful fetch of `origin/main` on 2026-10-08 found `768d9613dd8ea2108b5b53111f8d1762e2599565`, 33 commits ahead: the previously inspected 27 plus six additional commits below. No checkout or parity repin occurred. The [current comparison](https://github.com/agentscope-ai/agentscope-java/compare/f98a685fdc4589f81e626e1686ac2c63d14a2304...768d9613dd8ea2108b5b53111f8d1762e2599565) bounds this delta. Newly fetched tag `v2.0.4` resolves to `0b6743b263ba8e39eb417e35048026f1e0196548`; that release-tip commit is not an ancestor of the fetched main, so release and main are distinct comparison targets. Tag `v2.0.3` predates the pinned baseline.
 
-Every commit in the delta is accounted for once below. Inspection/classification is not implementation or executable parity. Differences outside existing Scala profiles are not silently accepted exclusions from the original transfer plan.
+The first table records the previously inspected 27 commits through fbbc2b63. The additional six are listed separately with unresolved applicability explicit. Inspection/classification is not implementation or executable parity. Differences outside existing Scala profiles are not silently accepted exclusions from the original transfer plan.
 
 | Commits | Count | Source change and current applicability |
 | --- | --- | --- |
@@ -1696,6 +1696,21 @@ Every commit in the delta is accounted for once below. Inspection/classification
 | `d5cc463e`, `b4dda79c`, `9172dc5d`, `68f25d27`, `9e43ed83` | 5 | Anthropic, Guava, Bailian, OpenTelemetry and OpenAI dependency updates. These are not Scala dependency requirements or behavioral parity evidence; no automatic bump is justified. |
 | `c0d69deb` | 1 | MiniMax formatter honors disabled tool choice. Scala explicitly serializes ToolChoice.None but has no MiniMax-specific tools-removal formatter; assess endpoint requirements before claiming equivalence. |
 | `e05d45e0` | 1 | Harness builder inherits state-save ConflictPolicy. Scala uses explicit CAS expectations/conflict results and host execution ownership, not an automatic last-writer-wins agent-state policy. |
+
+The six additional commits since fbbc2b63 require the following bounded disposition:
+
+| Commit | Observed change and current status |
+| --- | --- |
+| `bb0d0a78` | Release notes/metadata and 2.0.5-SNAPSHOT version preparation. This is not a behavioral port; the separate v2.0.4 release tip requires its own comparison before claiming release alignment. |
+| `c95eb1f1` | ToolEmitter exposes its associated tool-call ID. Scala contextual tool authors already receive ToolInvocation.Active.call.id, with typed Detached absence and an occurrence ordinal. This is a source-level counterpart, not merely event tagging; changed upstream test mapping remains to be reconciled. |
+| `a2cbea5c` | Large Harness/context and Service/session redesign, including journal/session APIs, request projection and execution identity. The whole commit changes 1,918 files; its core/harness behavior and changed tests have not been exhaustively classified. A focused outcome inventory is required; Service/JEV infrastructure is not automatically library scope. |
+| `b4ee8e32` | OpenAI Official Spring Boot auto-configuration/starter. Spring wiring is Java-specific; this does not implement or certify an equivalent Scala provider adapter. |
+| `a1f0b45f` | OpenAI Responses server tools, deferred loading and provider-item replay; shared core also changes partial Running versus terminal server-tool handling. The current Scala Chat Completions profile is not Responses support. Review the shared completion semantics separately from provider expansion; applicability and executable equivalence remain open. |
+| `768d9613` | JDBC skill/resource tables and repository operations gain namespace isolation. Scala has no equivalent JDBC skill repository; existing storage addresses are not evidence of this API. Reconcile with retained storage obligations before deciding scope. |
+
+- [x] Refresh remote main/tags and record the exact six additional commits without changing the pinned working tree.
+- [ ] Classify the additional core/harness changes and applicable changed tests, including server-tool terminal handling, tool-visible correlation and session/request projection. Preserve original promised behavior; record any Java/host-specific adaptation explicitly.
+- [ ] Compare the separate v2.0.4 release tip before claiming alignment with that release. New release/main commit counts do not prove transferred behavior.
 
 The finite BOM method mapping is against change 2c503d88, not a repin of the existing method inventory:
 
