@@ -1284,7 +1284,7 @@ final class ReActAgent private (
           assistantMsg.toolUses,
           assistantMsg.toolResults,
           _.isServerTool,
-          (call, result) => call.id == result.id
+          (call, result) => call.id == result.id && result.state != ToolResultState.Running
         )
         stage = continuation.fold[PendingActingStage](PendingActingStage.BeforeActing)(_.stage)
         inlineToProcess = stage match
@@ -2562,7 +2562,7 @@ final class ReActAgent private (
           assistant.toolUses,
           assistant.toolResults,
           _.isServerTool,
-          (call, result) => call.id == result.id
+          (call, result) => call.id == result.id && result.state != ToolResultState.Running
         ).pending.filterNot(call => call.call.isServerTool || completed.contains(call.ordinal))
 
   private def finalizeFailedToolPhase(progressRef: Ref[RunProgress]): UIO[Unit] =

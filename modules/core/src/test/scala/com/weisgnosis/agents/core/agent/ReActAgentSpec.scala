@@ -19,7 +19,13 @@ import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.event.AgentEvent
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
+import com.weisgnosis.agents.core.tool.{
+  Tool,
+  ToolDef,
+  Toolkit,
+  ToolResultPayload,
+  ToolResultProcessor
+}
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -430,6 +436,64 @@ object ReActAgentSpec extends ZIOSpecDefault:
           completed.reply.toolUses.forall(_.isServerTool),
           completed.reply.toolResults.forall(_.isServerTool)
         )
+      },
+      test("only terminal inline provider observations complete a turn or reach result processing") {
+        ZIO
+          .foreach(Chunk(ToolResultState.Running, ToolResultState.Success, ToolResultState.Error)):
+            state =>
+              val marker = Map("serverTool" -> Json.Bool(true))
+              val call =
+                ContentBlock.ToolUse("provider", "calculator", Json.Obj(), metadata = marker)
+              val observation = ContentBlock.ToolResult.text(
+                "provider",
+                "calculator",
+                "preview",
+                state = state,
+                metadata = marker
+              )
+              val first = Msg.assistant(Chunk(call, observation, ContentBlock.Text("preview")))
+              val terminal = Msg.assistant(
+                Chunk(
+                  call,
+                  observation.copy(state = ToolResultState.Success),
+                  ContentBlock.Text("finished")
+                )
+              )
+              for
+                requests  <- Ref.make(Chunk.empty[Chunk[Msg]])
+                processed <- Ref.make(Chunk.empty[ToolResultState])
+                client = LlmClient.mockEffectful((history, _, _) =>
+                  requests.modify(previous =>
+                    (
+                      TurnOutput.ToolCalls(if previous.isEmpty then first else terminal),
+                      previous :+ history
+                    )
+                  )
+                )
+                agent <- ReActAgent.make(
+                  client = client,
+                  toolkit = Toolkit.single(createCalculatorTool()),
+                  toolResultProcessor = ToolResultProcessor(result =>
+                    processed.update(_ :+ result.state).as(ToolResultPayload.fromResult(result))
+                  )
+                )
+                result       <- agent.run(Msg.user("search"))
+                seen         <- requests.get
+                observations <- processed.get
+                expected         = if state == ToolResultState.Running then terminal else first
+                expectedRequests = if state == ToolResultState.Running then 2 else 1
+              yield assertTrue(
+                result.state == AgentRunState.Completed,
+                result.reply == expected,
+                result.iterationCount == expectedRequests,
+                seen.size == expectedRequests,
+                seen.drop(1).forall(_.contains(first)),
+                observations == Chunk(
+                  if state == ToolResultState.Running then ToolResultState.Success else state
+                ),
+                !result.history.exists(_.role == Role.Tool)
+              )
+          .map(results => results.reduceOption(_ && _).getOrElse(assertTrue(false)))
       },
       test("Should emit events while streaming turn") {
         val mockClient = LlmClient.mockFunction { (_, _) =>

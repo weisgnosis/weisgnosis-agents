@@ -2,6 +2,10 @@
 
 Pure domain values and codecs model messages, content, roles, media sources, usage, and protocol states. Constructors and decoders never allocate randomness, inspect time, or perform I/O. ReAct interruption reconciliation emits Error observations for unfinished local calls.
 
+## Provider preview pairing
+
+ToolHistory treats an inline Running result associated with a provider call as progress, not a completed occurrence. A later terminal result can match that occurrence within the same assistant message. Unresolved provider work is not a local execution obligation; unknown or local-only inline observations retain ordinary unmatched validation. This pairing contract does not replace previews in a provider stream or implement a Responses API adapter.
+
 ## Checked usage arithmetic
 
 ChatUsage.validated checks all six counters are nonnegative, input plus output fits the existing Int total, and time is finite/nonnegative. totalTokens now returns Either[AgentError.InvalidMessage, Int]; combine now returns Either[AgentError.InvalidMessage, ChatUsage]. Both operands and the result are validated, with widened counter arithmetic, checked per-field bounds and checked aggregate input/output total. Invalid telemetry is rejected without saturation. Constructors/derived codecs and wire fields remain unchanged; raw decoded values still require checked use.

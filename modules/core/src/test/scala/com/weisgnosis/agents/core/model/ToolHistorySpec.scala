@@ -77,6 +77,22 @@ object ToolHistorySpec extends ZIOSpecDefault:
         laterInline.pending.isEmpty && laterInline.unmatched == Chunk(result)
       )
     },
+    test("provider previews neither complete an occurrence nor orphan its later terminal result") {
+      val provider = call("provider").withServerTool(true)
+      val preview =
+        ContentBlock.ToolResult.text("same", "provider", "preview", ToolResultState.Running)
+      val terminal  = preview.copy(state = ToolResultState.Success)
+      val pending   = Msg.assistant(Chunk(provider, preview))
+      val completed = Msg.assistant(Chunk(provider, preview, terminal))
+      val analysis  = ToolHistory.inspect(Chunk(completed))
+      assertTrue(
+        ToolHistory.completedInlineOrdinals(pending).isEmpty,
+        ToolHistory.completedInlineOrdinals(completed) == Set(0),
+        analysis.isComplete,
+        analysis.spans == Chunk(ToolHistory.Span(0, 0)),
+        analysis.unmatched.isEmpty
+      )
+    },
     test("unnamed observations consume FIFO while wrong named observations remain unmatched") {
       val result = ContentBlock.ToolResult("same", None)
       val wrong  = ContentBlock.ToolResult.text("same", "unknown", "wrong")

@@ -56,7 +56,10 @@ private[agents] object ToolHistory:
       Occurrence(call, position, ordinal)
     }
     message.toolResults.foldLeft(Analysis(calls, Chunk.empty, Chunk.empty)) { (current, result) =>
-      consume(current, result, position, _.isServerTool)
+      if result.state == ToolResultState.Running &&
+        calls.exists(value => value.call.isServerTool && value.call.id == result.id)
+      then current
+      else consume(current, result, position, _.isServerTool)
     }
 
   private def consume(

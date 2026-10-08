@@ -33,7 +33,7 @@ Check an outcome only after its expected result, relevant review and verificatio
 
 ## Immediate next work
 
-Next implementation task: resume the shared task-file scenario. The process rules and primary documentation now use outcome-based delivery; package-level legacy journal cleanup remains part of release usability. The named-session draft is paused in C:/workspace/weisgnosis-agents-session and is neither compiled, reviewed nor accepted. The delivery worktree C:/workspace/weisgnosis-agents-delivery contains no accepted implementation. Preserve drafts; their existence does not close a checklist outcome.
+Current implementation task: complete the shared task-file scenario. Provider Running preview completion is corrected and verified; it does not add a Responses adapter or provider-stream replacement accumulator. The process rules and primary documentation now use outcome-based delivery; package-level legacy journal cleanup remains part of release usability. The named-session draft is paused in C:/workspace/weisgnosis-agents-session and is neither compiled, reviewed nor accepted. The delivery worktree C:/workspace/weisgnosis-agents-delivery contains no accepted implementation. Preserve drafts; their existence does not close a checklist outcome.
 
 ## Verification
 
@@ -51,4 +51,4 @@ Hosts supply authentication, approval delivery, exclusive durable execution clai
 
 ## Current acceptance
 
-Implemented capabilities are listed above; remaining outcomes are not accepted merely because component tests pass. Runtime drafts remain paused; this documentation delivery changes no runtime behavior. No public distribution or frozen binary API is claimed. Report each delivery's actual review/verification in its PR/task conversation without a package-hash journal.
+Implemented capabilities are listed above; remaining outcomes are not accepted merely because component tests pass. The named-session draft remains unaccepted; active implementation and review proceed against the remaining outcomes. No public distribution or frozen binary API is claimed. Report each delivery's actual review/verification in its PR/task conversation without a package-hash journal.
