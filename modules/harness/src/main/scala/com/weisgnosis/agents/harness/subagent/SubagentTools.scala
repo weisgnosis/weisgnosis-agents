@@ -24,6 +24,13 @@ import zio.*
 import zio.json.*
 import zio.json.ast.Json
 
+/** Private trusted inspection boundary; execution capabilities are never retained by the sink. */
+private[subagent] trait SubagentInspectionCapture:
+  def inspect(
+      id: SubagentTaskId,
+      invocation: ToolInvocation
+  )(read: => IO[AgentError, SubagentToolResult]): IO[AgentError, SubagentToolResult]
+
 /** Bounded text projection; the registry retains the original result. */
 final case class SubagentToolText(text: String, omittedCharacters: Int) derives JsonCodec
 
@@ -78,6 +85,12 @@ object SubagentTools:
 
   def make(registry: SubagentTaskRegistry, policy: SubagentExecutionPolicy): Toolkit =
     controls(registry, Invocation.Spawn, policy)
+
+  private[subagent] def consuming(
+      registry: SubagentTaskRegistry,
+      policy: SubagentExecutionPolicy,
+      capture: SubagentInspectionCapture
+  ): Toolkit = controls(registry, Invocation.Spawn, policy, Some(capture))
 
   /** Reuse one host-selected session; task inspection and cancellation share its execution registry. */
   def forSession(session: SubagentSession): Toolkit =
@@ -201,7 +214,8 @@ object SubagentTools:
   private def controls(
       registry: SubagentTaskRegistry,
       invocation: Invocation,
-      policy: SubagentExecutionPolicy
+      policy: SubagentExecutionPolicy,
+      capture: Option[SubagentInspectionCapture] = None
   ): Toolkit =
     val invoke = tool[String, SubagentToolResult](
       definition(
@@ -214,7 +228,7 @@ object SubagentTools:
     )((prompt, events) =>
       submit(registry, prompt, events, policy).flatMap(respond(invocation.name, _))
     )
-    val inspect = tool[SubagentTaskId, SubagentToolResult](
+    val inspect = invocationTool[SubagentTaskId, SubagentToolResult](
       definition(
         "agent_task",
         "Inspect a retained task without restarting it or making a model request.",
@@ -222,7 +236,12 @@ object SubagentTools:
         Access.Observation
       ),
       taskIdInput
-    )((id, _) => inspectTask(registry, id).flatMap(respond("agent_task", _)))
+    )((id, invocation) =>
+      val read = inspectTask(registry, id).flatMap(respond("agent_task", _))
+      capture match
+        case Some(sink) => sink.inspect(id, invocation)(read)
+        case None       => read
+    )
     val cancel = tool[SubagentTaskId, SubagentToolResult](
       definition(
         "agent_cancel",
@@ -492,14 +511,24 @@ object SubagentTools:
       decode: Json => Either[String, In]
   )(
       run: (In, Option[ToolEventPort]) => IO[AgentError, Out]
+  ): Tool[Any, In, Out] = invocationTool(definitionValue, decode)((input, invocation) =>
+    val events = invocation match
+      case ToolInvocation.Detached              => None
+      case ToolInvocation.Active(_, _, _, port) => Some(port)
+    run(input, events)
+  )
+
+  private def invocationTool[In, Out: JsonEncoder](
+      definitionValue: ToolDef,
+      decode: Json => Either[String, In]
+  )(
+      run: (In, ToolInvocation) => IO[AgentError, Out]
   ): Tool[Any, In, Out] = new Tool[Any, In, Out]:
-    def definition: ToolDef                     = definitionValue
-    def execute(input: In): IO[AgentError, Out] = ZIO.suspendSucceed(run(input, None))
+    def definition: ToolDef = definitionValue
+    def execute(input: In): IO[AgentError, Out] =
+      ZIO.suspendSucceed(run(input, ToolInvocation.Detached))
     override def executeWithContext(input: In, invocation: ToolInvocation): IO[AgentError, Out] =
-      val events = invocation match
-        case ToolInvocation.Detached              => None
-        case ToolInvocation.Active(_, _, _, port) => Some(port)
-      ZIO.suspendSucceed(run(input, events))
+      ZIO.suspendSucceed(run(input, invocation))
     def decodeInput(raw: Json): Either[String, In] = decode(raw)
     def encodeOutput(output: Out): String          = output.toJson
 

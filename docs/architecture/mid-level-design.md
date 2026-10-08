@@ -112,6 +112,8 @@ LocalDailyMemoryStore delegates to this repository. Its capability cannot propos
 
 ToolAuthorizer returns Approved, Denied or Deferred before local execution. Interactive hosts route authenticated confirmations to Promise waiters. CheckpointPermissionAuthorizer closes both gate scopes before sampling current policy; Ask/Passthrough returns Deferred with no stored waiter. The accepted partial-confirmation extension checkpoints completed ordinal-to-history positions after joined acting cleanup and exposes only unresolved calls. Restored execution preserves original admission and latest group activation without replaying completed processors. Hosts own checkpoint storage, authentication, exclusive claims and side-effect idempotency.
 
+The source-reviewed [bound inspection consumption](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-task-inspection-consumption) removes a trusted volatile receipt before one acknowledgement attempt, after final observation persistence and prior callback cleanup. Changed final content stays pending; completion cleanup does not retry uncertain writes. This is distinct from accepted-response reminder consumption and does not supply wait barriers.
+
 ## 9. Subagent execution and remaining integration
 
 SubagentSessionDirectory adds bounded host registration and lookup of acquired sessions. Removal and shutdown join cleanup without extending the original caller/supervisor lifetime. Directory IDs are membership data, separate from execution IDs and authorization.

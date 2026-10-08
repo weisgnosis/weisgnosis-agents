@@ -18,11 +18,13 @@ package com.weisgnosis.agents.harness.subagent
 import com.weisgnosis.agents.core.agent.*
 import com.weisgnosis.agents.core.client.*
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.event.InvocationContext
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.harness.storage.*
 import java.util.UUID
 import zio.*
+import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
@@ -33,6 +35,38 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
 
   private enum ClosePhase:
     case History, Acceptance, Completion
+
+  private enum Consumption:
+    case Direct, MetadataOnly, Redacted, PriorFailure, UncertainAck, Rewrite, Repeated, Resume,
+      RestoredResume, Historic, InlineSpoof, Oversized, ConflictingOwner
+
+  private enum ConsumptionStage:
+    case Inspection, PriorObserver, Acknowledgement
+
+  private def direct[In, Out](
+      underlying: Tool[Any, In, Out],
+      transformInvocation: ToolInvocation => ToolInvocation
+  ): Tool[Any, In, Out] = new Tool[Any, In, Out]:
+    def definition: ToolDef = underlying.definition.copy(returnMode = ToolReturnMode.Direct)
+    override def fixedArguments: ToolFixedArguments  = underlying.fixedArguments
+    def execute(input: In): ZIO[Any, Throwable, Out] = underlying.execute(input)
+    override def executeWithContext(
+        input: In,
+        invocation: ToolInvocation
+    ): ZIO[Any, Throwable, Out] =
+      underlying.executeWithContext(input, transformInvocation(invocation))
+    def decodeInput(raw: Json): Either[String, In] = underlying.decodeInput(raw)
+    def encodeOutput(output: Out): String          = underlying.encodeOutput(output)
+    override def encodeResultChecked(output: Out): Either[AgentError, ToolExecutionResult] =
+      underlying.encodeResultChecked(output)
+
+  private def directInspection(
+      toolkit: Toolkit,
+      transformInvocation: ToolInvocation => ToolInvocation = identity
+  ): IO[AgentError, Toolkit] = toolkit.resolve("agent_task") match
+    case Some(ToolBinding.Local(executable)) =>
+      ZIO.succeed(toolkit.updated(direct(executable, transformInvocation)))
+    case _ => ZIO.fail(AgentError.InvalidConfiguration("Missing bound inspection tool"))
 
   private val records: Chunk[SubagentTerminalRecord] = Chunk
     .fromIterable(1 to 12)
@@ -62,10 +96,11 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
 
   private def countingStore(
       underlying: SubagentTerminalStore,
-      acknowledgeRecord: SubagentTaskId => IO[AgentError, SubagentTerminalAcknowledgeResult]
+      acknowledgeRecord: SubagentTaskId => IO[AgentError, SubagentTerminalAcknowledgeResult],
+      readRecord: Option[SubagentTaskId => IO[AgentError, Option[SubagentTerminalRecord]]] = None
   ): SubagentTerminalStore = new SubagentTerminalStore:
     def read(id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalRecord]] =
-      underlying.read(id)
+      readRecord.fold(underlying.read(id))(_(id))
     def list: IO[AgentError, Chunk[SubagentTerminalRecord]] = underlying.list
     def publish(record: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication] =
       underlying.publish(record)
@@ -291,6 +326,326 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
                     .exists(_.id == message.id)
                 )
               )
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test(
+      "only bound unchanged persisted terminal inspections acknowledge once; redaction, prior failure and spoofed historical/inline results remain pending"
+    ):
+      ZIO
+        .foreach(Chunk.fromIterable(Consumption.values)): mode =>
+          ZIO.scoped:
+            for
+              terminal <- store(s"consumption-$mode")
+              record = SubagentTerminalRecord(
+                SubagentTaskId(new UUID(1L, 1L)),
+                SubagentTerminalOutcome.Completed("terminal result")
+              )
+              expectedResult: SubagentToolResult = SubagentToolResult.Task(
+                record.id.value.toString,
+                SubagentToolState.Completed(SubagentToolText("terminal result", 0))
+              )
+              expected = expectedResult.toJson
+              acknowledgements <- Ref.make(0)
+              reads            <- Ref.make(0)
+              tracked = countingStore(
+                terminal,
+                id =>
+                  acknowledgements.update(_ + 1) *> terminal
+                    .acknowledge(id)
+                    .flatMap(receipt =>
+                      if mode == Consumption.UncertainAck then
+                        ZIO.fail(AgentError.StorageError("Uncertain inspection acknowledgement"))
+                      else ZIO.succeed(receipt)
+                    ),
+                Some(id => reads.update(_ + 1) *> terminal.read(id))
+              )
+              owner   <- registry(tracked)
+              adapter <- SubagentDeliveryMiddleware.make(owner)
+              transformInvocation = (invocation: ToolInvocation) =>
+                invocation match
+                  case ToolInvocation.Active(context, approved, ordinal, events)
+                      if mode == Consumption.ConflictingOwner =>
+                    val foreign = context.invocation.map(value =>
+                      InvocationContext(
+                        new UUID(
+                          value.invocationId.getMostSignificantBits ^ 1L,
+                          value.invocationId.getLeastSignificantBits
+                        )
+                      )
+                    )
+                    ToolInvocation
+                      .Active(context.copy(invocation = foreign), approved, ordinal, events)
+                  case other => other
+              toolkit <- directInspection(adapter.tools(), transformInvocation)
+              input = Json.Obj("task_id" -> Json.Str(record.id.value.toString))
+              requested = ContentBlock.ToolUse(
+                "same",
+                "agent_task",
+                if mode == Consumption.Rewrite then
+                  Json.Obj("task_id" -> Json.Str(new UUID(1L, 2L).toString))
+                else input,
+                metadata =
+                  if mode == Consumption.Oversized then
+                    Map("retained" -> Json.Str("x" * (1024 * 1024)))
+                  else Map.empty
+              )
+              raw = ContentBlock.ToolResult.text("same", "agent_task", expected)
+              initial =
+                if mode == Consumption.Historic then
+                  Chunk(
+                    Msg.assistant(Chunk(requested)),
+                    Msg.tool(name = Some("agent_task"), content = Chunk(raw))
+                  )
+                else Chunk.empty
+              requests <- Ref.make(0)
+              client = LlmClient.mockEffectful((_, _, _) =>
+                requests
+                  .updateAndGet(_ + 1)
+                  .flatMap(count =>
+                    if count > 1 then ZIO.succeed(TurnOutput.FinalText(Msg.assistant("next turn")))
+                    else
+                      terminal
+                        .publish(record)
+                        .as(mode match
+                          case Consumption.Historic =>
+                            TurnOutput.FinalText(Msg.assistant("accepted without dispatch"))
+                          case Consumption.InlineSpoof =>
+                            TurnOutput.ToolCalls(
+                              Msg.assistant(
+                                Chunk(
+                                  requested.withServerTool(true),
+                                  raw.copy(metadata = Map("serverTool" -> Json.Bool(true)))
+                                )
+                              )
+                            )
+                          case Consumption.Repeated =>
+                            TurnOutput.ToolCalls(Msg.assistant(Chunk(requested, requested)))
+                          case _ => TurnOutput.ToolCalls(Msg.assistant(Chunk(requested))))
+                  )
+              )
+              observed <- Ref.make(Chunk.empty[PersistedLocalToolObservation])
+              prior = LocalToolResultObserver(observation =>
+                observed.update(_ :+ observation) *>
+                  (if mode == Consumption.PriorFailure then
+                     ZIO.fail(AgentError.CompletionObservationError("Prior local observer failed"))
+                   else ZIO.unit)
+              )
+              processor = ToolResultProcessor(result =>
+                ZIO.succeed(mode match
+                  case Consumption.Redacted =>
+                    ToolResultPayload(Chunk(ContentBlock.Text("redacted")))
+                  case Consumption.MetadataOnly =>
+                    ToolResultPayload(
+                      result.output,
+                      result.metadata.updated("diagnostic", Json.Bool(true))
+                    )
+                  case _ => ToolResultPayload.fromResult(result))
+              )
+              agent <- adapter
+                .configure(
+                  ReActAgent
+                    .builder()
+                    .client(client)
+                    .toolkit(toolkit)
+                    .initialHistory(initial)
+                    .maxIterations(
+                      if Set(
+                          Consumption.InlineSpoof,
+                          Consumption.Oversized,
+                          Consumption.ConflictingOwner
+                        ).contains(mode)
+                      then 1
+                      else 20
+                    )
+                    .toolResultProcessor(processor)
+                    .toolAuthorizer(
+                      ToolAuthorizer(_ => ZIO.succeed(ToolAuthorization.Approved(input)))
+                    )
+                    .postReasoningHook(
+                      PostReasoningHook((_, message) =>
+                        ZIO.succeed(
+                          if Set(Consumption.Resume, Consumption.RestoredResume)
+                              .contains(mode) && message.toolUses.nonEmpty
+                          then ReasoningDecision.Suspend("approve")
+                          else ReasoningDecision.Keep
+                        )
+                      )
+                    ),
+                  priorLocalToolResultObserver = prior
+                )
+                .build
+              first <- agent.run(Msg.user("inspect")).exit
+              completed <-
+                if mode == Consumption.RestoredResume then
+                  first match
+                    case Exit.Success(saved) =>
+                      for
+                        restoredAdapter <- SubagentDeliveryMiddleware.make(owner)
+                        restoredTools   <- directInspection(restoredAdapter.tools())
+                        restoredAgent <- restoredAdapter
+                          .configure(
+                            ReActAgent
+                              .builder()
+                              .client(client)
+                              .toolkit(restoredTools)
+                              .toolResultProcessor(processor),
+                            priorLocalToolResultObserver = prior
+                          )
+                          .build
+                        _       <- restoredAgent.restore(saved)
+                        exit    <- restoredAgent.resume().exit
+                        history <- restoredAgent.history
+                      yield (exit, history)
+                    case Exit.Failure(cause) => ZIO.refailCause(cause)
+                else
+                  for
+                    exit <-
+                      if mode == Consumption.Resume then agent.resume().exit else ZIO.succeed(first)
+                    history <- agent.history
+                  yield (exit, history)
+              (result, history) = completed
+              pending       <- terminal.pending
+              stamp         <- terminal.acknowledgement(record.id)
+              acks          <- acknowledgements.get
+              callbacks     <- observed.get
+              count         <- requests.get
+              readCount     <- reads.get
+              detached      <- toolkit.executeSafe("agent_task", input)
+              afterDetached <- acknowledgements.get
+            yield assertTrue(
+              result.isFailure == Set(Consumption.PriorFailure, Consumption.UncertainAck)
+                .contains(mode),
+              pending.size == (if Set(
+                                   Consumption.Redacted,
+                                   Consumption.PriorFailure,
+                                   Consumption.Historic,
+                                   Consumption.InlineSpoof,
+                                   Consumption.Oversized,
+                                   Consumption.ConflictingOwner
+                                 ).contains(mode)
+                               then 1
+                               else 0),
+              acks == (if mode == Consumption.Repeated then 2
+                       else if Set(
+                           Consumption.Redacted,
+                           Consumption.PriorFailure,
+                           Consumption.Historic,
+                           Consumption.InlineSpoof,
+                           Consumption.Oversized,
+                           Consumption.ConflictingOwner
+                         ).contains(mode)
+                       then 0
+                       else 1),
+              afterDetached == acks,
+              detached.state == ToolResultState.Success,
+              count == 1,
+              reminders(history).isEmpty,
+              callbacks.size == (if mode == Consumption.Repeated then 2
+                                 else if Set(Consumption.Historic, Consumption.InlineSpoof)
+                                     .contains(mode)
+                                 then 0
+                                 else 1),
+              mode != Consumption.Rewrite || callbacks.forall(_.call.input == input),
+              !Set(Consumption.Oversized, Consumption.ConflictingOwner).contains(
+                mode
+              ) || (readCount == 0 && callbacks.forall(_.original.state == ToolResultState.Error)),
+              !Set(Consumption.Resume, Consumption.RestoredResume).contains(mode) || (first match
+                case Exit.Success(value) => value.isSuspended
+                case _                   => false),
+              pending.nonEmpty || stamp.exists:
+                case SubagentTerminalAcknowledgement.Acknowledged(_) => true
+                case _                                               => false
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test(
+      "attached inspection and required local callbacks join cancellation cleanup and adapter close without replaying uncertain acknowledgement"
+    ):
+      ZIO
+        .foreach(Chunk.fromIterable(ConsumptionStage.values)): stage =>
+          ZIO.scoped:
+            for
+              terminal <- store(s"consumption-lifecycle-$stage")
+              record = SubagentTerminalRecord(
+                SubagentTaskId(new UUID(2L, 1L)),
+                SubagentTerminalOutcome.Completed("terminal result")
+              )
+              entered          <- Promise.make[Nothing, Unit]
+              cleanup          <- Promise.make[Nothing, Unit]
+              release          <- Promise.make[Nothing, Unit]
+              acknowledgements <- Ref.make(0)
+              held = ZIO.scoped(
+                ZIO.acquireRelease(ZIO.unit)(_ => cleanup.succeed(()) *> release.await) *> entered
+                  .succeed(()) *> ZIO.never
+              )
+              tracked = countingStore(
+                terminal,
+                id =>
+                  acknowledgements.update(_ + 1) *> terminal
+                    .acknowledge(id)
+                    .flatMap(receipt =>
+                      if stage == ConsumptionStage.Acknowledgement then held.as(receipt)
+                      else ZIO.succeed(receipt)
+                    ),
+                Some(id =>
+                  if stage == ConsumptionStage.Inspection then held *> terminal.read(id)
+                  else terminal.read(id)
+                )
+              )
+              owner   <- registry(tracked)
+              adapter <- SubagentDeliveryMiddleware.make(owner)
+              toolkit <- directInspection(adapter.tools())
+              input = Json.Obj("task_id" -> Json.Str(record.id.value.toString))
+              client = LlmClient.mockEffectful((_, _, _) =>
+                terminal
+                  .publish(record)
+                  .as(
+                    TurnOutput.ToolCalls(
+                      Msg.assistant(Chunk(ContentBlock.ToolUse("inspect", "agent_task", input)))
+                    )
+                  )
+              )
+              prior = LocalToolResultObserver(_ =>
+                if stage == ConsumptionStage.PriorObserver then held else ZIO.unit
+              )
+              agent <- adapter
+                .configure(
+                  ReActAgent.builder().client(client).toolkit(toolkit),
+                  priorLocalToolResultObserver = prior
+                )
+                .build
+              worker <- ZIO.uninterruptibleMask: restore =>
+                for
+                  fiber <- restore(agent.run(Msg.user("inspect"))).forkScoped
+                  _     <- ZIO.addFinalizer(release.succeed(()).unit)
+                yield fiber
+              _          <- entered.await
+              earlyClose <- adapter.close.exit.timeout(1.second)
+              cancelling <- ZIO.uninterruptibleMask: restore =>
+                for
+                  fiber <- restore(worker.interrupt).forkScoped
+                  _     <- ZIO.addFinalizer(release.succeed(()).unit)
+                yield fiber
+              _        <- cleanup.await
+              before   <- cancelling.poll
+              pending  <- terminal.pending
+              _        <- release.succeed(())
+              exit     <- cancelling.join
+              attempts <- acknowledgements.get
+              history  <- agent.history
+              _        <- adapter.close
+            yield assertTrue(
+              earlyClose.isEmpty,
+              before.isEmpty,
+              exit.isInterrupted,
+              attempts == (if stage == ConsumptionStage.Acknowledgement then 1 else 0),
+              pending.size == (if stage == ConsumptionStage.Acknowledgement then 0 else 1),
+              history.flatMap(_.toolResults).map(_.state) == Chunk(
+                if stage == ConsumptionStage.Inspection then ToolResultState.Error
+                else ToolResultState.Success
+              ),
+              history.count(_.generationReason == GenerateReason.Interrupted) == 1
             )
         .map(_.foldLeft(assertTrue(true))(_ && _))
     ,

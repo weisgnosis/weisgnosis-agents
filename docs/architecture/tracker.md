@@ -26,8 +26,12 @@ Execute the original scope without replacing it with a narrower release checklis
 - [ ] Persist truthful worker identity metadata and close the remaining reminder attribute assertion.
 - [x] Implement required local-tool observation after final processed persistence with actual authorized dispatch identity; independent source reviews and full/artifact checks pass.
 - [x] review_fp and review_invariants approve the final combined local-tool observation scope against cb320c9: three unchanged Scala identities and ten Markdown files.
-- [ ] Current task: integrate automatic consumed-result acknowledgement for trusted task inspection/wait projections; erased or replaced final output must remain pending.
-- [ ] Implement model-facing selected-task/current-set barriers, legacy inbox-any and bounded empty-wait policy. Synchronous spawn waiting is a different contract; all [18 classified methods](test-parity.md#async-result-wait-method-inventory) remain open.
+- [x] Implement and source-review explicitly bound task inspection acknowledgement after unchanged final observation persistence; focused/full checks pass.
+- [x] Pass final four-artifact packaging, archive preparation and fresh external consumption for the bound inspection increment.
+- [x] Obtain both final combined approvals for bound inspection consumption against ee87c13: four unchanged Scala identities and sixteen Markdown files.
+- [ ] Integrate wait-result and other required routing consumption; erased or replaced final output must remain pending.
+- [ ] Current task: implement local selected-task/current-set barriers with model-facing tools and persisted-result consumption.
+- [ ] Implement legacy inbox-any and bounded empty-wait policy. Synchronous spawn waiting is a different contract; all [18 classified methods](test-parity.md#async-result-wait-method-inventory) remain open.
 - [ ] Implement durable admitted/running identity and current-owner cancellation intent, retaining truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
@@ -42,7 +46,7 @@ These are provisional engineering effort ranges, including implementation, propo
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
 | Local selected-ID/current-set wait barriers | 8-14 engineering hours | Real local handles suffice; bounded waiting must not cancel background tasks. Reopened running support is separate. |
-| Runtime-persisted task-result consumption | 4-8 engineering hours | Define the acknowledgement boundary after truthful observation persistence; preserve partial uncertainty and cancellation. |
+| Wait/other routing persisted-result consumption | 4-8 engineering hours | The core boundary and bound inspection are verified; remaining contexts depend on wait APIs and trusted registry routing. |
 | Legacy inbox-any and bounded empty-wait policy | 6-10 engineering hours | Requires an explicit inbox/arrival dependency; pending terminal records are not arbitrary messages. |
 | Durable cancellation intent with current-owner handling | 12-24 hours after terminal storage | Persist intent, join owned cancellation and preserve terminal truth before notification. Cross-process takeover/fencing remains separate. |
 | Remaining method applicability and resulting behavior | Not yet estimated | The finite inventories do not classify all 2,473 pinned core declarations. An evaluator dependency or passing suites cannot close unknown obligations. |
@@ -66,18 +70,18 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [local tool observation contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#persisted-local-tool-observation) owns the current core increment against cb320c9. The separately accepted reminder adapter retains its scoped contract; it does not supply task-tool consumption.
+The [bound task inspection contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-task-inspection-consumption) owns the current harness increment against ee87c13. The separately accepted core local-tool observation port retains its source identity; task inspection and wait consumption are not inferred from that prerequisite.
 
-- [x] Implement actual authorized local-dispatch identity and atomic final-history observation before completion events.
-- [x] Verify transformed snapshots, return-direct, excluded origins, required failures and joined cancellation with three proportionate groups; source inspection establishes pre-completion-event ordering. Corrected focused verification passes 23/0/0.
-- [x] review_fp and review_invariants approve the three formatted Scala identities against cb320c9, manifest 0c3af5705967716cbe875e39acc40d889e794dc5c0d91e27a2288b356e2dca18, no unresolved source findings.
-- [x] target/local-tool-observer-final-verify.log passes all 1,606 tests (695 core / 749 harness / 130 MCP / 24 actual PostgreSQL / eight examples), formatting/fatal-warning compilation and four RC1 packages, zero failed/ignored/compiler warnings.
-- [x] target/local-tool-observer-final-preparation.log passes archive admission and three restored negative checks.
-- [x] target/local-tool-observer-final-consumer.log passes fresh standalone formatting, compilation/execution and four artifact hash checks. Its unchanged probe does not independently exercise the observer.
-- [x] Update current source identities, migration and parity limits.
-- [x] review_fp and review_invariants approve the final combined scope against cb320c9: three unchanged Scala identities and ten Markdown files, no unresolved findings. Manual English and 79-document/3,389-local-reference checks pass.
+- [x] Implement bounded trusted inspection captures and a required fourth scoped callback with joined closure.
+- [x] Verify actual persisted result consumption, changed-content exclusions, ordinary/uncertain failures, cancellation and restored invocation ownership; focused checks pass 15 harness and two actual PostgreSQL groups.
+- [x] review_fp and review_invariants approve the four formatted Scala identities against ee87c13, manifest bd40999ade08311fae1567535f7baeb23a742792cdb273fb02f3a40ba25f8925, no unresolved source findings.
+- [x] target/task-inspection-final-verify.log passes all 1,608 tests (695 core / 751 harness / 130 MCP / 24 actual PostgreSQL / eight examples), formatting/fatal-warning compilation and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/task-inspection-final-preparation.log passes archive admission and three restored negative checks.
+- [x] target/task-inspection-final-consumer.log passes fresh standalone formatting, compilation/execution and four artifact hash checks. Its unchanged probe does not independently exercise the bound inspection adapter.
+- [x] Update current identities, migration and parity limits.
+- [x] review_fp and review_invariants approve the final combined scope against ee87c13: four unchanged Scala identities and sixteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,406-local-reference validation pass.
 
-Worker metadata, task-tool consumption, wait barriers, completion ordering, cancellation intent, running metadata and session restoration remain unfinished. No whole-plan completion or publication is claimed.
+Worker metadata, wait barriers, completion ordering, cancellation intent, running metadata and session restoration remain unfinished. No whole-plan completion or publication is claimed.
 
 The immutable process launcher remains in force and its current modified source identities redirect to the negotiation manifest. Its production dependency eviction diagnostics remain visible: no suppression or universal binary compatibility claim. SLF4J/dependency/runtime notices are distinct from compiler warnings.
 
@@ -104,7 +108,7 @@ Pair-safe compaction/pruning, offload, bounded memory/transcript publication, kn
 - [x] Persist bounded terminal observations with automatic registry-owned publication and reopened model-facing output/list/filter, including failed results and owner isolation; source and full/artifact checks pass.
 - [x] Classify all 25 pinned WorkspaceTaskRepositoryTest methods: eight bounded observable adaptations, one partial and sixteen open; the [method inventory](test-parity.md#workspace-task-repository-method-inventory) owns exact assertions and differences.
 - [ ] Complete the seventeen partial/open task-repository methods and separately classified TaskRecord metadata. Method444 lacks durable RUNNING/mixed-record count; it does not assert metadata fields or timestamps.
-- [ ] Implement automatic success-only consumption/push, publication-before-notification and cancellation-intent semantics. Pinned WorkspaceTaskRepositoryTest methods263/882/923 require durable admission/control identity and persisted terminal state before notification; the implemented acknowledgement ledger alone does not close these integration obligations.
+- [ ] Complete wait/other routing consumption, publication-before-notification and cancellation-intent semantics. Pinned WorkspaceTaskRepositoryTest methods263/882/923 require durable admission/control identity and persisted terminal state before notification; the implemented acknowledgement ledger alone does not close these integration obligations.
 - [ ] Decompose and implement durable reusable-session restoration and cross-process owner recovery with explicit host ownership/fencing. A stable-name/hash helper or persisted result does not restore execution authority.
 
 - [ ] Complete the applicable upstream method mappings for clients/providers, ReAct lifecycle/hooks/events, permission delivery and richer subagent behavior; retain every original semantic obligation until implemented and independently accepted.

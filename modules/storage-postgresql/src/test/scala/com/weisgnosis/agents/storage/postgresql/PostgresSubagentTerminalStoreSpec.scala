@@ -15,7 +15,13 @@
  */
 package com.weisgnosis.agents.storage.postgresql
 
-import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent}
+import com.weisgnosis.agents.core.agent.{
+  AgentConfig,
+  AgentResult,
+  LocalToolResultObserver,
+  PersistedLocalToolObservation,
+  ReActAgent
+}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
@@ -345,6 +351,60 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             exactAfterReminder   <- terminal.read(reminderId)
             firstMessages  = firstReminder.history.filter(_.reminderKind.contains("task_delivery"))
             secondMessages = secondReminder.history.filter(_.reminderKind.contains("task_delivery"))
+            inspectionId <- Random.nextUUID.map(SubagentTaskId(_))
+            inspectionRecord = SubagentTerminalRecord(
+              inspectionId,
+              SubagentTerminalOutcome.Completed("Fresh inspection result")
+            )
+            inspectionCall = ContentBlock.ToolUse(
+              "consumed-inspection",
+              "agent_task",
+              Json.Obj("task_id" -> Json.Str(inspectionId.value.toString))
+            )
+            inspectionExpected: SubagentToolResult = SubagentToolResult.Task(
+              inspectionId.value.toString,
+              SubagentToolState.Completed(SubagentToolText("Fresh inspection result", 0))
+            )
+            inspectionRequests    <- Ref.make(0)
+            inspectionInputs      <- Ref.make(Chunk.empty[Chunk[Msg]])
+            inspectionSnapshots   <- Ref.make(Chunk.empty[PersistedLocalToolObservation])
+            inspectionBeforeStamp <- Ref.make(Option.empty[SubagentTerminalAcknowledgement])
+            inspectionClient = LlmClient.mockEffectful((history, _, _) =>
+              inspectionInputs.update(_ :+ history) *> inspectionRequests
+                .getAndUpdate(_ + 1)
+                .flatMap:
+                  case 0 =>
+                    terminal
+                      .publish(inspectionRecord)
+                      .as(
+                        TurnOutput.ToolCalls(Msg.assistant(Chunk(inspectionCall)))
+                      )
+                  case _ => ZIO.succeed(TurnOutput.FinalText(Msg.assistant("Inspection accepted")))
+            )
+            inspectionMiddleware <- SubagentDeliveryMiddleware.make(fresh)
+            inspectionAgent <- inspectionMiddleware
+              .configure(
+                ReActAgent.builder().client(inspectionClient).toolkit(inspectionMiddleware.tools()),
+                priorLocalToolResultObserver = LocalToolResultObserver(observation =>
+                  reopened
+                    .acknowledgement(inspectionId)
+                    .flatMap(stamp =>
+                      inspectionBeforeStamp.set(stamp) *> inspectionSnapshots
+                        .update(_ :+ observation)
+                    )
+                    .mapError(error => AgentError.CompletionObservationError(error.message))
+                )
+              )
+              .build
+            inspected           <- inspectionAgent.run(Msg.user("Inspect the newly completed task"))
+            inspectionStamp     <- reopened.acknowledgement(inspectionId)
+            inspectionContinued <- inspectionAgent.run(Msg.user("Continue after inspection"))
+            inspectionStampAgain <- terminal.acknowledgement(inspectionId)
+            inspectionPending    <- terminal.pending
+            inspectionExact      <- SubagentTerminalStore.make(second, target).read(inspectionId)
+            inspectionModels     <- inspectionInputs.get
+            inspectionObserved   <- inspectionSnapshots.get
+            beforeInspectionAck  <- inspectionBeforeStamp.get
           yield assertTrue(
             receipts.map(_.id).toSet == Set(success, failed),
             exact.contains(
@@ -385,6 +445,33 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             firstStamp == secondStamp,
             pendingAfterReminder.isEmpty,
             exactAfterReminder.contains(reminderRecord),
+            beforeInspectionAck.contains(SubagentTerminalAcknowledgement.Pending),
+            inspectionObserved.map(_.call) == Chunk(inspectionCall),
+            inspectionObserved.forall(observation =>
+              observation.persisted.state == ToolResultState.Success &&
+                observation.persisted.outputText == inspectionExpected.toJson &&
+                observation.history.flatMap(_.toolResults).contains(observation.persisted)
+            ),
+            inspectionModels.size == 3,
+            inspectionModels.forall(history =>
+              !history.exists(_.reminderKind.contains("task_delivery"))
+            ),
+            inspectionModels
+              .drop(1)
+              .forall(history =>
+                history.flatMap(_.toolResults).exists(_.outputText == inspectionExpected.toJson)
+              ),
+            inspected.history.flatMap(_.toolResults).map(_.outputText) ==
+              Chunk(inspectionExpected.toJson),
+            inspectionContinued.history.flatMap(_.toolResults) ==
+              inspected.history.flatMap(_.toolResults),
+            inspectionStamp.exists:
+              case SubagentTerminalAcknowledgement.Acknowledged(_) => true
+              case _                                               => false
+            ,
+            inspectionStamp == inspectionStampAgain,
+            inspectionPending.isEmpty,
+            inspectionExact.contains(inspectionRecord),
             observations.size == 4,
             observations.forall(_.state == ToolResultState.Success),
             taskResults.toMap
