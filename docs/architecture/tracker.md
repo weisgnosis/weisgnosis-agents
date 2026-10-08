@@ -45,12 +45,17 @@ These implemented capabilities have existing public API/spec evidence. Checked a
 
 - [x] Register exact transcript bindings after nonempty recording through explicit writer composition. Both layouts support fresh-reader discovery and explicit stable-snapshot index repair; failure/cancellation preserves committed history without automatic replay or rollback. See [registered recording](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#registered-transcript-writer).
 
+- [x] Provide the opt-in pinned-Java event DTO envelope and nested message/content/usage/confirmation values against 58 actual Jackson fixtures, with explicit identity/time and unchanged canonical Scala JSON. See [Java wire DTOs](../../modules/core/src/main/scala/com/weisgnosis/agents/core/event/javawire/README.md).
+
+- [x] Retain immutable provider thinking metadata with array concatenation/latest-value replacement, isolated checked reasoning channels and validated omission from next-request replay. See [metadata](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#provider-thinking-metadata).
+
+- [x] Apply five typed host permission modes through actual tool admission and confirmed checkpoint resume; retain explicit independent safety votes and parent-rule-only inheritance. See [modes](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#host-selected-permission-modes).
+
 ## Remaining library completion work
 
 Check an outcome only after its expected result, relevant review and verification exist. New scope requires a promised behavior, reproduced defect or explicit user request. No percentage or calendar forecast is inferred from the item count.
 
-- [ ] **Pinned extension and policy behavior:** finish the existing pinned hook/middleware, provider reasoning/metadata merge and permission-mode/rule applicability dispositions with named executable mappings or explicit justified API differences. Post-pin classification and milestone delivery do not close these obligations. See [hook inventory](test-parity.md#post-reasoning-decisions-and-accounting), [provider profiles](test-parity.md#selected-reasoning-details) and [permission inventory](test-parity.md#interactive-permission-adaptation).
-- [ ] **Java event wire compatibility:** supply the originally promised opt-in DTO wire adapter, with explicit identity/time and actual pinned-Jackson fixtures for event and nested payloads. Keep the established Scala JSON unchanged; identifier aliases alone are insufficient. See [event mapping](test-parity.md#event-method-mapping).
+- [ ] **Pinned extension and policy behavior:** finish the existing pinned hook/middleware and remaining permission-rule suggestion/applicability dispositions with named executable mappings or explicit justified API differences. Post-pin classification and milestone delivery do not close these obligations. See [hook inventory](test-parity.md#post-reasoning-decisions-and-accounting), [provider profiles](test-parity.md#selected-reasoning-details) and [permission inventory](test-parity.md#interactive-permission-adaptation).
 - [ ] **Event production boundaries:** distinguish automatically emitted events from codec-only informational payloads, and reconcile any promised producer with actual runtime integration. Spawn/Start/End has the bounded implementation above; codecs alone do not establish other emission.
 - [ ] **Fetched upstream changes:** finish the finite behavioral disposition of the 33 commits beyond the pin, including the core/harness portion of the session redesign and its changed assertions. Preserve the pin; new provider dialects, Java configuration frameworks and unrelated services do not become original-plan requirements merely by appearing in the diff. See [upstream delta](test-parity.md#upstream-delta-checked-on-2026-10-08).
 - [ ] **Bounded workspace discovery:** resolve enumeration across explicitly supplied local and remote sources with identity deduplication. Known-address catalogs and local discovery are implemented; neither implies automatic global backend enumeration.
@@ -62,7 +67,7 @@ Check an outcome only after its expected result, relevant review and verificatio
 
 ## Immediate next work
 
-Current task: complete the opt-in pinned-Java event DTO wire adapter against actual deterministic Jackson output, preserving canonical Scala JSON and explicit host-supplied identities. In parallel, reduce the remaining pinned extension/policy dispositions to named observable gaps and finish classification of the fetched upstream redesign. Other unchecked outcomes remain open.
+Current task: complete bounded discovery across explicitly supplied local/catalog transcript sources, preserving exact binding identity and borrowed readers. In parallel, implement the remaining pinned phase-observation/order/Hint hooks and finish the finite upstream delta dispositions. Accepted wire DTOs, metadata merge and permission modes do not close these other obligations.
 
 ## Verification
 

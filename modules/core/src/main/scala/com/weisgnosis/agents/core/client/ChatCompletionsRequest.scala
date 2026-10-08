@@ -411,6 +411,18 @@ object ChatCompletionsRequest:
       )
       name  <- messageName(msg)
       calls <- traverse(msg.toolUses)(call => encodeCall(call, toolSignatureFormat))
+      _ <- traverse(
+        msg.content
+          .collect { case thought: ContentBlock.Thinking => thought }
+          .flatMap(_.metadata.get("providerMetadata"))
+      ):
+        case value: Json.Obj =>
+          JsonBoundary
+            .validate(value)
+            .flatMap(_ => StreamAccumulator.checkedProviderMetadata(value.fields.toMap))
+            .left
+            .map(AgentError.InvalidMessage(_))
+        case _ => Left(AgentError.InvalidMessage("Provider thinking metadata must be an object"))
       details = msg.content
         .collect { case thought: ContentBlock.Thinking => thought }
         .flatMap(_.metadata.get("reasoningDetails"))
@@ -426,7 +438,7 @@ object ChatCompletionsRequest:
           for _ <- message(
               msg.content
                 .collect { case thought: ContentBlock.Thinking => thought }
-                .forall(_.metadata.isEmpty),
+                .forall(_.metadata.keySet.subsetOf(Set("providerMetadata"))),
               "Signed or detailed reasoning requires a provider-specific replay codec"
             )
           yield
@@ -438,7 +450,7 @@ object ChatCompletionsRequest:
             _ <- message(
               msg.content
                 .collect { case thought: ContentBlock.Thinking => thought }
-                .forall(_.metadata.keySet.subsetOf(Set("reasoningDetails"))),
+                .forall(_.metadata.keySet.subsetOf(Set("reasoningDetails", "providerMetadata"))),
               "Unsupported thinking metadata for detailed reasoning replay"
             )
             arrays <- traverse(details)(value =>

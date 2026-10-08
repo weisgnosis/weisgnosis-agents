@@ -44,31 +44,36 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
       case _: LlmChunk.ThinkingDelta
           if state.reasoningDetails.exists(_.exists(_.plaintext.nonEmpty)) =>
         Left("Cannot mix scalar thinking and plaintext reasoning details")
-      case LlmChunk.ThinkingDelta(delta, index, signature) =>
-        validIndex(index).map: _ =>
+      case LlmChunk.ThinkingDelta(delta, index, signature, providerMetadata) =>
+        for
+          _ <- validIndex(index)
+          _ <- checkedProviderMetadata(providerMetadata)
+        yield
           val previous = state.thinkingBlocks.getOrElse(index, ThinkingFragments())
+          val nextSignature = (previous.signature, signature) match
+            case (None, None) => None
+            case _            => Some(previous.signature.getOrElse("") + signature.getOrElse(""))
           state.copy(
             thinkingBlocks = state.thinkingBlocks.updated(
               index,
               ThinkingFragments(
                 previous.text + delta,
-                (previous.signature, signature) match
-                  case (None, None) => None
-                  case _ => Some(previous.signature.getOrElse("") + signature.getOrElse(""))
+                nextSignature,
+                mergeProviderMetadata(previous.providerMetadata, providerMetadata)
               )
             ),
             order = appendKey(ContentKey.Thinking(index))
           )
-      case LlmChunk.ReasoningDetailsDelta(details)
+      case LlmChunk.ReasoningDetailsDelta(details, _)
           if state.thinkingBlocks.nonEmpty && details.exists(_.plaintext.nonEmpty) =>
         Left("Cannot mix scalar thinking and plaintext reasoning details")
-      case LlmChunk.ReasoningDetailsDelta(details) =>
-        Right(
+      case LlmChunk.ReasoningDetailsDelta(details, providerMetadata) =>
+        checkedProviderMetadata(providerMetadata).map: _ =>
           state.copy(
             reasoningDetails = Some(state.reasoningDetails.getOrElse(Chunk.empty) ++ details),
+            reasoningMetadata = mergeProviderMetadata(state.reasoningMetadata, providerMetadata),
             order = appendKey(ContentKey.ReasoningDetails)
           )
-        )
       case tool: LlmChunk.ToolCallChunk => appendTool(tool)
       case LlmChunk.FinishReason(reason) =>
         Either.cond(reason.nonEmpty, state.copy(finishReason = Some(reason)), "Empty finish reason")
@@ -188,7 +193,8 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
           state.reasoningDetails.map(details =>
             ContentBlock.Thinking(
               details.map(_.plaintext).mkString,
-              Map("reasoningDetails" -> Json.Arr(details.map(_.value)))
+              Map("reasoningDetails" -> Json.Arr(details.map(_.value))) ++
+                providerMetadataNamespace(state.reasoningMetadata)
             )
           )
         )
@@ -198,11 +204,13 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
         Chunk.fromIterable(
           state.thinkingBlocks
             .get(index)
-            .filter(value => value.text.nonEmpty || value.signature.nonEmpty)
+            .filter(value =>
+              value.text.nonEmpty || value.signature.nonEmpty || value.providerMetadata.nonEmpty
+            )
             .map(value =>
               ContentBlock.Thinking(
                 value.text,
-                value.signature
+                providerMetadataNamespace(value.providerMetadata) ++ value.signature
                   .map(signature => Map("thoughtSignature" -> Json.Str(signature)))
                   .getOrElse(Map.empty)
               )
@@ -216,7 +224,49 @@ object StreamAccumulator:
     case Thinking(index: Int)
     case ReasoningDetails
 
-  final private case class ThinkingFragments(text: String = "", signature: Option[String] = None)
+  final private case class ThinkingFragments(
+      text: String = "",
+      signature: Option[String] = None,
+      providerMetadata: Map[String, Json] = Map.empty
+  )
+
+  // Checked channels own these names; arbitrary metadata cannot bypass their validation.
+  private val reservedThinkingMetadata: Set[String] =
+    Set(
+      "reasoningDetails",
+      "reasoning_details",
+      "thoughtSignature",
+      "signature",
+      "providerMetadata"
+    )
+
+  private def providerMetadataNamespace(metadata: Map[String, Json]): Map[String, Json] =
+    if metadata.isEmpty then Map.empty
+    else Map("providerMetadata" -> Json.Obj(Chunk.fromIterable(metadata)))
+
+  private[client] def checkedProviderMetadata(metadata: Map[String, Json]): Either[String, Unit] =
+    val value = Json.Obj(Chunk.fromIterable(metadata))
+    for
+      _ <- Either.cond(
+        metadata.keySet.intersect(reservedThinkingMetadata).isEmpty,
+        (),
+        "Provider thinking metadata conflicts with a checked reasoning or signature channel"
+      )
+      _ <- JsonBoundary.validate(value)
+      _ <- Either.cond(JsonBoundary.validUnicode(value), (), "Invalid provider metadata Unicode")
+    yield ()
+
+  /** Upstream thinking accumulation appends arrays and replaces other values with the latest value. */
+  private def mergeProviderMetadata(
+      previous: Map[String, Json],
+      incoming: Map[String, Json]
+  ): Map[String, Json] =
+    incoming.foldLeft(previous): (result, field) =>
+      val (key, value) = field
+      val merged = (result.get(key), value) match
+        case (Some(Json.Arr(before)), Json.Arr(after)) => Json.Arr(before ++ after)
+        case _                                         => value
+      result.updated(key, merged)
 
   final private case class ToolFragments(
       index: Int,
@@ -230,6 +280,7 @@ object StreamAccumulator:
       textBlocks: Map[Int, String] = Map.empty,
       thinkingBlocks: Map[Int, ThinkingFragments] = Map.empty,
       reasoningDetails: Option[Chunk[ReasoningDetail]] = None,
+      reasoningMetadata: Map[String, Json] = Map.empty,
       order: Chunk[ContentKey] = Chunk.empty,
       toolCalls: Map[Int, ToolFragments] = Map.empty,
       usage: Option[ChatUsage] = None,

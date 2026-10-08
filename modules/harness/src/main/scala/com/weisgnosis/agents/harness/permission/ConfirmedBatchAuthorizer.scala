@@ -79,7 +79,8 @@ final class ConfirmedBatchAuthorizer private (
                       request.call.name,
                       input,
                       tool,
-                      interceptor
+                      interceptor,
+                      admittedAccess
                     ) == PermissionBehavior.Deny
                   then
                     ToolAuthorization.Denied(

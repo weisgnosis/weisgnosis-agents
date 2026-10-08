@@ -51,7 +51,7 @@ final class CheckpointPermissionAuthorizer private (
       )
       // Sample after both gate scopes and their finalizers; policy storage remains host-owned.
       policy <- currentPolicy
-    yield policy.authorize(request.requestId, request.call, tool, interceptor) match
+    yield policy.authorize(request.requestId, request.call, tool, interceptor, admittedAccess) match
       case PermissionOutcome.Approved(call)    => ToolAuthorization.Approved(call.input)
       case PermissionOutcome.Denied(_, reason) => ToolAuthorization.Denied(reason)
       case PermissionOutcome.AwaitingApproval(_) =>

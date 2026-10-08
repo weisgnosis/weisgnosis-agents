@@ -15,7 +15,15 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput, StreamAccumulator, LlmChunk}
+import com.weisgnosis.agents.core.client.{
+  ChatCompletionsRequest,
+  LlmClient,
+  LlmConfig,
+  ReasoningReplay,
+  TurnOutput,
+  StreamAccumulator,
+  LlmChunk
+}
 import com.weisgnosis.agents.core.model.*
 import zio.json.ast.Json
 import zio.*
@@ -88,20 +96,55 @@ object ReActAgentThinkingRetrySpec extends ZIOSpecDefault:
         )
       },
       test("thinking with tool calls is an acting turn rather than an empty response") {
+        val providerMetadata = Map("provider" -> Json.Str("retained"))
         val assembled = StreamAccumulator.empty
-          .feed(LlmChunk.ThinkingDelta("reasoning"))
+          .feed(LlmChunk.ThinkingDelta("reasoning", providerMetadata = providerMetadata))
           .flatMap(_.feed(LlmChunk.ToolCallChunk(0, Some("call"), Some("missing"), "{}")))
           .flatMap(_.feed(LlmChunk.FinishReason("tool_calls")))
           .flatMap(_.toTurnOutput)
         for
-          output <- ZIO.fromEither(assembled)
-          client <- LlmClient.mock(Chunk(output, TurnOutput.FinalText(Msg.assistant("answer"))))
+          output   <- ZIO.fromEither(assembled)
+          requests <- Ref.make(Chunk.empty[Json.Obj])
+          client = LlmClient.mockEffectful((history, tools, _) =>
+            ZIO
+              .fromEither(
+                ChatCompletionsRequest.encode(
+                  history,
+                  tools,
+                  LlmConfig("model"),
+                  ReasoningReplay.LatestAssistant
+                )
+              )
+              .flatMap(body => requests.update(_ :+ body)) *>
+              ZIO.succeed(
+                if history.exists(_.toolResults.nonEmpty) then
+                  TurnOutput.FinalText(Msg.assistant("answer"))
+                else output
+              )
+          )
           agent  <- ReActAgent.make(client = client)
           result <- agent.run(Msg.user("question"))
+          bodies <- requests.get
         yield assertTrue(
           !result.history.exists(_.isSynthetic),
           result.history.flatMap(_.toolUses).exists(_.input == Json.Obj()),
-          result.history.flatMap(_.toolResults).size == 1
+          result.history.flatMap(_.toolResults).size == 1,
+          result.history
+            .flatMap(_.content)
+            .contains(
+              ContentBlock.Thinking(
+                "reasoning",
+                Map(
+                  "providerMetadata" -> Json.Obj(Chunk.fromIterable(providerMetadata))
+                )
+              )
+            ),
+          bodies.size == 2,
+          bodies.lastOption.exists(body =>
+            body.toString.contains("reasoning_content") && !body.toString.contains(
+              "providerMetadata"
+            )
+          )
         )
       },
       test("visible responses never consume thinking retries") {

@@ -70,7 +70,7 @@ private[client] object ModelStreamPublisher:
             order = if started then order else order :+ Block.Text(index)
           )
           (next, start :+ AgentEvent.TextBlockDeltaEvent(value, index, context = Some(context)))
-        case LlmChunk.ThinkingDelta(value, index, _) =>
+        case LlmChunk.ThinkingDelta(value, index, _, _) =>
           val started     = thinking.contains(index)
           val accumulated = thinking.getOrElse(index, "") + value
           val start =
@@ -89,7 +89,7 @@ private[client] object ModelStreamPublisher:
               accumulatedThought = Some(accumulated)
             )
           )
-        case LlmChunk.ReasoningDetailsDelta(details) =>
+        case LlmChunk.ReasoningDetailsDelta(details, _) =>
           val text = details.map(_.plaintext).mkString
           if text.isEmpty then (this, Chunk.empty)
           else accept(LlmChunk.ThinkingDelta(text), context)

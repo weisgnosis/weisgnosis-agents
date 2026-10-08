@@ -153,6 +153,71 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
         case other => ZIO.fail(AgentError.InvalidConfiguration(s"Unexpected submission: $other"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentConstructionSpec")(
+    test("host-selected permission modes use actual constructed tool access before execution") {
+      val cases = Chunk(
+        (PermissionMode.Default, None, Set.empty[String]),
+        (PermissionMode.Bypass, None, Set("read", "write")),
+        (PermissionMode.DontAsk, None, Set.empty[String]),
+        (PermissionMode.Explore, None, Set("read")),
+        (PermissionMode.AcceptEdits, None, Set("read")),
+        (PermissionMode.Bypass, Some(PermissionBehavior.Deny), Set.empty[String]),
+        (PermissionMode.Explore, Some(PermissionBehavior.Ask), Set.empty[String])
+      )
+      ZIO
+        .foreach(cases): (mode, vote, expected) =>
+          ZIO.scoped:
+            for
+              supervisor <- TaskSupervisor.open[AgentResult]
+              root       <- SubagentSpawner.root(supervisor)
+              executed   <- Ref.make(Chunk.empty[String])
+              construction = SubagentConstruction
+                .root(root, SubagentToolBoundary(), ZIO.succeed(allow), ZIO.succeed(PlanMode.Build))
+              child <- factory(
+                construction,
+                PlanSession.make.map(plan =>
+                  SubagentPermissions(
+                    UnavailablePermissionAuthorizer(
+                      ZIO.succeed(PermissionEngine(mode = mode)),
+                      PermissionGate((_, _) => ZIO.succeed(vote))
+                    ),
+                    plan.control,
+                    Map.empty
+                  ).copy(planAccess = SubagentPlanAccess.AdmittedTools)
+                ),
+                (_, _) =>
+                  ZIO.succeed(
+                    Chunk("read", "write").foldLeft(Toolkit.empty)((tools, name) =>
+                      tools.updated(
+                        Tool.make(
+                          ToolDef(
+                            name,
+                            "Record actual host access",
+                            Json.Obj(),
+                            isReadOnly = name == "read"
+                          )
+                        )(_ => executed.update(_ :+ name).as("executed"))
+                      )
+                    )
+                  ),
+                _ =>
+                  scripted(
+                    Chunk("read", "write").map(name => ContentBlock.ToolUse(name, name, Json.Obj()))
+                  )
+              )
+              result <- run(child, root)
+              actual <- executed.get
+            yield assertTrue(
+              result.state == AgentRunState.Completed,
+              actual.toSet == expected,
+              actual.size == expected.size,
+              result.history.flatMap(_.toolResults).map(value => value.name -> value.state) ==
+                Chunk("read", "write").map(name =>
+                  Some(name) -> (if expected.contains(name) then ToolResultState.Success
+                                 else ToolResultState.Denied)
+                )
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    } @@ TestAspect.timeout(20.seconds),
     test("unavailable approval denies unresolved child calls without suspending or executing") {
       val cases = Chunk(
         (PermissionEngine(), None, PlanMode.Build, ToolResultState.Denied),
@@ -514,12 +579,19 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
                 (_, _) => ZIO.succeed(tools),
                 _ => ZIO.succeed(client)
               )
-              resource   <- session(root, configured)
-              buildRead  <- turn(resource.value, "read")
-              buildWrite <- turn(resource.value, "write")
-              _          <- parentMode.set(PlanMode.Plan)
-              planRead   <- turn(resource.value, "read")
-              planWrite  <- turn(resource.value, "write")
+              resource     <- session(root, configured)
+              buildRead    <- turn(resource.value, "read")
+              buildWrite   <- turn(resource.value, "write")
+              _            <- policy.set(PermissionEngine(mode = PermissionMode.Explore))
+              exploreRead  <- turn(resource.value, "read")
+              exploreWrite <- turn(resource.value, "write")
+              _            <- policy.set(PermissionEngine(mode = PermissionMode.DontAsk))
+              dontAskRead  <- turn(resource.value, "read")
+              dontAskWrite <- turn(resource.value, "write")
+              _            <- policy.set(PermissionEngine())
+              _            <- parentMode.set(PlanMode.Plan)
+              planRead     <- turn(resource.value, "read")
+              planWrite    <- turn(resource.value, "write")
               _ <- policy.set(
                 PermissionEngine(Chunk(PermissionRule("read", PermissionBehavior.Deny)))
               )
@@ -533,7 +605,9 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
                 ToolResultState.Denied,
                 ToolResultState.Denied
               ),
-              actual == (Chunk("read", "write") ++
+              Chunk(exploreRead, exploreWrite, dontAskRead, dontAskWrite) ==
+                Chunk.fill(4)(ToolResultState.Success),
+              actual == (Chunk("read", "write", "read", "write", "read", "write") ++
                 (if expectedRead == ToolResultState.Success then Chunk("read") else Chunk.empty))
             )
         }

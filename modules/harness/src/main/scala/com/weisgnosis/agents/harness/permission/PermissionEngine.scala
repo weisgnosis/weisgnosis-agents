@@ -16,31 +16,64 @@
 package com.weisgnosis.agents.harness.permission
 
 import com.weisgnosis.agents.core.model.ContentBlock
+import com.weisgnosis.agents.core.tool.AdmittedToolAccess
 import zio.Chunk
 import zio.json.ast.Json
 
-/** Immutable policy state; evaluation and durable resumption never invoke the model. */
-final case class PermissionEngine(rules: Chunk[PermissionRule] = Chunk.empty):
+/**
+ * Immutable host policy. Mode defaults preserve existing Ask behavior. Explicit independent votes
+ * retain Deny > Ask > Passthrough > Allow, including under Bypass and AcceptEdits. Explore requires
+ * actual admitted read-only evidence; missing evidence never grants read-only authority.
+ */
+final case class PermissionEngine(
+    rules: Chunk[PermissionRule] = Chunk.empty,
+    mode: PermissionMode = PermissionMode.Default
+):
   def evaluate(
       toolName: String,
       input: Json,
       toolGate: Option[PermissionBehavior] = None,
-      interceptorGate: Option[PermissionBehavior] = None
+      interceptorGate: Option[PermissionBehavior] = None,
+      admittedAccess: Option[AdmittedToolAccess] = None
   ): PermissionBehavior =
     val decisions = rules.filter(_.matches(toolName, input)).map(_.behavior) ++
       Chunk.fromIterable(toolGate) ++ Chunk.fromIterable(interceptorGate)
-    decisions.reduceOption(PermissionBehavior.combine).getOrElse(PermissionBehavior.Ask)
+    val voted = decisions.reduceOption(PermissionBehavior.combine)
+    val evaluated =
+      if mode == PermissionMode.Explore && !admittedAccess.contains(AdmittedToolAccess.ReadOnly)
+      then PermissionBehavior.Deny
+      else
+        voted.getOrElse:
+          mode match
+            case PermissionMode.Bypass  => PermissionBehavior.Allow
+            case PermissionMode.Explore => PermissionBehavior.Allow
+            case PermissionMode.AcceptEdits
+                if admittedAccess.contains(AdmittedToolAccess.ReadOnly) =>
+              PermissionBehavior.Allow
+            case _ => PermissionBehavior.Ask
+    evaluated match
+      case PermissionBehavior.Ask | PermissionBehavior.Passthrough
+          if mode == PermissionMode.DontAsk =>
+        PermissionBehavior.Deny
+      case other => other
 
   def authorize(
       requestId: String,
       call: ContentBlock.ToolUse,
       toolGate: Option[PermissionBehavior] = None,
-      interceptorGate: Option[PermissionBehavior] = None
+      interceptorGate: Option[PermissionBehavior] = None,
+      admittedAccess: Option[AdmittedToolAccess] = None
   ): PermissionOutcome =
-    evaluate(call.name, call.input, toolGate, interceptorGate) match
+    evaluate(call.name, call.input, toolGate, interceptorGate, admittedAccess) match
       case PermissionBehavior.Allow => PermissionOutcome.Approved(call)
       case PermissionBehavior.Deny =>
-        PermissionOutcome.Denied(call.name, "Tool execution denied by policy")
+        PermissionOutcome.Denied(
+          call.name,
+          mode match
+            case PermissionMode.DontAsk => "Tool execution denied by policy (dont_ask mode)"
+            case PermissionMode.Explore => "Tool execution denied by policy (explore mode)"
+            case _                      => "Tool execution denied by policy"
+        )
       case PermissionBehavior.Ask | PermissionBehavior.Passthrough =>
         PermissionOutcome.AwaitingApproval(PendingApproval(requestId, call))
 

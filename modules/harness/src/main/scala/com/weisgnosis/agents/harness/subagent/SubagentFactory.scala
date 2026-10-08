@@ -287,7 +287,11 @@ object SubagentFactory:
         def parentDenies(input: Json): UIO[Boolean] =
           ZIO
             .suspendSucceed(readParentPolicy)
-            .map(_.evaluate(request.call.name, input) == PermissionBehavior.Deny)
+            .map(
+              _.rules.exists(rule =>
+                rule.behavior == PermissionBehavior.Deny && rule.matches(request.call.name, input)
+              )
+            )
 
         parentDenies(request.call.input).flatMap:
           case true =>

@@ -1,0 +1,2090 @@
+{
+  "pin" : "f98a685fdc4589f81e626e1686ac2c63d14a2304",
+  "fixtures" : [ {
+    "output" : {
+      "type" : "AGENT_START",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "sessionId" : "session",
+      "replyId" : "reply",
+      "name" : "assistant",
+      "role" : "assistant",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "AGENT_START",
+      "sessionId" : "session",
+      "replyId" : "reply",
+      "name" : "assistant",
+      "role" : "assistant"
+    },
+    "name" : "AGENT_START",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "AGENT_END",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "AGENT_END",
+      "replyId" : "reply"
+    },
+    "name" : "AGENT_END",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "AGENT_RESULT",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "result" : {
+        "id" : "message",
+        "name" : "assistant",
+        "content" : [ {
+          "type" : "text",
+          "text" : "hello"
+        }, {
+          "type" : "thinking",
+          "thinking" : "reason",
+          "metadata" : {
+            "signature" : "opaque"
+          }
+        }, {
+          "type" : "image",
+          "source" : {
+            "type" : "url",
+            "url" : "https://example.invalid/item",
+            "mime_type" : "application/octet-stream"
+          },
+          "minPixels" : 16,
+          "maxPixels" : 256
+        }, {
+          "type" : "audio",
+          "source" : {
+            "type" : "base64",
+            "media_type" : "image/png",
+            "data" : "AA=="
+          }
+        }, {
+          "type" : "video",
+          "source" : {
+            "type" : "url",
+            "url" : "https://example.invalid/item",
+            "mime_type" : "application/octet-stream"
+          },
+          "fps" : 2.5,
+          "maxFrames" : 4,
+          "minPixels" : 16,
+          "maxPixels" : 256,
+          "totalPixels" : 1024
+        }, {
+          "type" : "data",
+          "source" : {
+            "type" : "url",
+            "url" : "https://example.invalid/item",
+            "mime_type" : "application/octet-stream"
+          },
+          "id" : "data-id",
+          "name" : "attachment"
+        }, {
+          "type" : "hint",
+          "id" : "hint-id",
+          "hint" : "hint text",
+          "source" : "retrieval"
+        }, {
+          "type" : "tool_use",
+          "id" : "call",
+          "name" : "lookup",
+          "input" : {
+            "q" : "value"
+          },
+          "content" : "raw",
+          "metadata" : {
+            "provider" : "x"
+          },
+          "state" : "asking"
+        }, {
+          "type" : "tool_result",
+          "id" : "call",
+          "name" : "lookup",
+          "output" : [ {
+            "type" : "text",
+            "text" : "hello"
+          } ],
+          "metadata" : {
+            "agentscope_suspended" : true
+          },
+          "state" : "success"
+        } ],
+        "metadata" : {
+          "origin" : "fixture"
+        },
+        "timestamp" : "2026-01-02 03:04:05.006",
+        "usage" : {
+          "inputTokens" : 10,
+          "outputTokens" : 4,
+          "cachedTokens" : 3,
+          "cacheCreationTokens" : 1,
+          "reasoningTokens" : 2,
+          "toolUsePromptTokens" : 1,
+          "time" : 0.25,
+          "totalTokens" : 14
+        },
+        "role" : "ASSISTANT"
+      },
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "AGENT_RESULT",
+      "result" : {
+        "id" : "message",
+        "name" : "assistant",
+        "role" : "ASSISTANT",
+        "content" : [ {
+          "type" : "text",
+          "text" : "hello"
+        }, {
+          "type" : "thinking",
+          "thinking" : "reason",
+          "metadata" : {
+            "signature" : "opaque"
+          }
+        }, {
+          "type" : "image",
+          "source" : {
+            "type" : "url",
+            "url" : "https://example.invalid/item",
+            "mime_type" : "application/octet-stream"
+          },
+          "min_pixels" : 16,
+          "max_pixels" : 256
+        }, {
+          "type" : "audio",
+          "source" : {
+            "type" : "base64",
+            "media_type" : "image/png",
+            "data" : "AA=="
+          }
+        }, {
+          "type" : "video",
+          "source" : {
+            "type" : "url",
+            "url" : "https://example.invalid/item",
+            "mime_type" : "application/octet-stream"
+          },
+          "fps" : 2.5,
+          "max_frames" : 4,
+          "min_pixels" : 16,
+          "max_pixels" : 256,
+          "total_pixels" : 1024
+        }, {
+          "type" : "data",
+          "source" : {
+            "type" : "url",
+            "url" : "https://example.invalid/item",
+            "mime_type" : "application/octet-stream"
+          },
+          "id" : "data-id",
+          "name" : "attachment"
+        }, {
+          "type" : "hint",
+          "id" : "hint-id",
+          "hint" : "hint text",
+          "source" : "retrieval"
+        }, {
+          "type" : "tool_use",
+          "id" : "call",
+          "name" : "lookup",
+          "input" : {
+            "q" : "value"
+          },
+          "content" : "raw",
+          "metadata" : {
+            "provider" : "x"
+          },
+          "state" : "asking"
+        }, {
+          "type" : "tool_result",
+          "id" : "call",
+          "name" : "lookup",
+          "output" : [ {
+            "type" : "text",
+            "text" : "hello"
+          } ],
+          "metadata" : {
+            "agentscope_suspended" : true
+          },
+          "state" : "success"
+        } ],
+        "metadata" : {
+          "origin" : "fixture"
+        },
+        "timestamp" : "2026-01-02 03:04:05.006",
+        "usage" : {
+          "inputTokens" : 10,
+          "outputTokens" : 4,
+          "cachedTokens" : 3,
+          "cacheCreationTokens" : 1,
+          "reasoningTokens" : 2,
+          "toolUsePromptTokens" : 1,
+          "time" : 0.25
+        }
+      }
+    },
+    "name" : "AGENT_RESULT",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "MODEL_CALL_START",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "MODEL_CALL_START",
+      "replyId" : "reply"
+    },
+    "name" : "MODEL_CALL_START",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "MODEL_CALL_END",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "usage" : {
+        "inputTokens" : 10,
+        "outputTokens" : 4,
+        "cachedTokens" : 3,
+        "cacheCreationTokens" : 1,
+        "reasoningTokens" : 2,
+        "toolUsePromptTokens" : 1,
+        "time" : 0.25,
+        "totalTokens" : 14
+      },
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "MODEL_CALL_END",
+      "replyId" : "reply",
+      "usage" : {
+        "inputTokens" : 10,
+        "outputTokens" : 4,
+        "cachedTokens" : 3,
+        "cacheCreationTokens" : 1,
+        "reasoningTokens" : 2,
+        "toolUsePromptTokens" : 1,
+        "time" : 0.25
+      }
+    },
+    "name" : "MODEL_CALL_END",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "EXCEED_MAX_ITERS",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "maxIters" : 3,
+      "currentIter" : 3,
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "EXCEED_MAX_ITERS",
+      "replyId" : "reply",
+      "maxIters" : 3,
+      "currentIter" : 3
+    },
+    "name" : "EXCEED_MAX_ITERS",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "REQUIRE_USER_CONFIRM",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCalls" : [ {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      } ],
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "REQUIRE_USER_CONFIRM",
+      "replyId" : "reply",
+      "toolCalls" : [ {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      } ]
+    },
+    "name" : "REQUIRE_USER_CONFIRM",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "REQUIRE_EXTERNAL_EXECUTION",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCalls" : [ {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      } ],
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "REQUIRE_EXTERNAL_EXECUTION",
+      "replyId" : "reply",
+      "toolCalls" : [ {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      } ]
+    },
+    "name" : "REQUIRE_EXTERNAL_EXECUTION",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "USER_CONFIRM_RESULT",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "confirmResults" : [ {
+        "confirmed" : true,
+        "toolCall" : {
+          "type" : "tool_use",
+          "id" : "call",
+          "name" : "lookup",
+          "input" : {
+            "q" : "value"
+          },
+          "content" : "raw",
+          "metadata" : {
+            "provider" : "x"
+          },
+          "state" : "asking"
+        },
+        "rules" : [ {
+          "tool_name" : "lookup",
+          "rule_content" : "read",
+          "behavior" : "allow",
+          "source" : "host"
+        } ],
+        "reason" : "accepted"
+      } ],
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "USER_CONFIRM_RESULT",
+      "replyId" : "reply",
+      "confirmResults" : [ {
+        "confirmed" : true,
+        "toolCall" : {
+          "type" : "tool_use",
+          "id" : "call",
+          "name" : "lookup",
+          "input" : {
+            "q" : "value"
+          },
+          "content" : "raw",
+          "metadata" : {
+            "provider" : "x"
+          },
+          "state" : "asking"
+        },
+        "rules" : [ {
+          "tool_name" : "lookup",
+          "rule_content" : "read",
+          "behavior" : "allow",
+          "source" : "host"
+        } ],
+        "reason" : "accepted"
+      } ]
+    },
+    "name" : "USER_CONFIRM_RESULT",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "EXTERNAL_EXECUTION_RESULT",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolResults" : [ {
+        "type" : "tool_result",
+        "id" : "call",
+        "name" : "lookup",
+        "output" : [ {
+          "type" : "text",
+          "text" : "hello"
+        } ],
+        "metadata" : {
+          "agentscope_suspended" : true
+        },
+        "state" : "success"
+      } ],
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "EXTERNAL_EXECUTION_RESULT",
+      "replyId" : "reply",
+      "toolResults" : [ {
+        "type" : "tool_result",
+        "id" : "call",
+        "name" : "lookup",
+        "output" : [ {
+          "type" : "text",
+          "text" : "hello"
+        } ],
+        "metadata" : {
+          "agentscope_suspended" : true
+        },
+        "state" : "success"
+      } ]
+    },
+    "name" : "EXTERNAL_EXECUTION_RESULT",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "REQUEST_STOP",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "reason" : "stop",
+      "generateReason" : "INTERRUPTED",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "REQUEST_STOP",
+      "reason" : "stop",
+      "generateReason" : "INTERRUPTED"
+    },
+    "name" : "REQUEST_STOP",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "SUBAGENT_EXPOSED",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "subagentId" : "child",
+      "agentId" : "agent",
+      "sessionId" : "child-session",
+      "label" : "research",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "SUBAGENT_EXPOSED",
+      "subagentId" : "child",
+      "agentId" : "agent",
+      "sessionId" : "child-session",
+      "label" : "research"
+    },
+    "name" : "SUBAGENT_EXPOSED",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "HINT_BLOCK",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "hintSource" : "retrieval",
+      "hint" : "hint text",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "HINT_BLOCK",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "hintSource" : "retrieval",
+      "hint" : "hint text"
+    },
+    "name" : "HINT_BLOCK",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "ALL_TOOLS_DENIED",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "deniedToolCalls" : [ {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      } ],
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "ALL_TOOLS_DENIED",
+      "deniedToolCalls" : [ {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      } ]
+    },
+    "name" : "ALL_TOOLS_DENIED",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "CUSTOM",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "name" : "custom",
+      "value" : {
+        "nested" : [ 1, true, "text" ]
+      },
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "CUSTOM",
+      "name" : "custom",
+      "value" : {
+        "nested" : [ 1, true, "text" ]
+      }
+    },
+    "name" : "CUSTOM",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TEXT_BLOCK_START",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "TEXT_BLOCK_START",
+      "replyId" : "reply",
+      "blockId" : "block"
+    },
+    "name" : "TEXT_BLOCK_START",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TEXT_BLOCK_DELTA",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "delta" : "fragment",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "TEXT_BLOCK_DELTA",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "delta" : "fragment"
+    },
+    "name" : "TEXT_BLOCK_DELTA",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TEXT_BLOCK_END",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "TEXT_BLOCK_END",
+      "replyId" : "reply",
+      "blockId" : "block"
+    },
+    "name" : "TEXT_BLOCK_END",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "THINKING_BLOCK_START",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "THINKING_BLOCK_START",
+      "replyId" : "reply",
+      "blockId" : "block"
+    },
+    "name" : "THINKING_BLOCK_START",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "THINKING_BLOCK_DELTA",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "delta" : "fragment",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "THINKING_BLOCK_DELTA",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "delta" : "fragment"
+    },
+    "name" : "THINKING_BLOCK_DELTA",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "THINKING_BLOCK_END",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "THINKING_BLOCK_END",
+      "replyId" : "reply",
+      "blockId" : "block"
+    },
+    "name" : "THINKING_BLOCK_END",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "DATA_BLOCK_START",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "DATA_BLOCK_START",
+      "replyId" : "reply",
+      "blockId" : "block"
+    },
+    "name" : "DATA_BLOCK_START",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "DATA_BLOCK_DELTA",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "delta" : "fragment",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "DATA_BLOCK_DELTA",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "delta" : "fragment"
+    },
+    "name" : "DATA_BLOCK_DELTA",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "DATA_BLOCK_END",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "blockId" : "block",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "DATA_BLOCK_END",
+      "replyId" : "reply",
+      "blockId" : "block"
+    },
+    "name" : "DATA_BLOCK_END",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TOOL_CALL_START",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "TOOL_CALL_START",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup"
+    },
+    "name" : "TOOL_CALL_START",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TOOL_CALL_DELTA",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "delta" : "{\"q\":",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "TOOL_CALL_DELTA",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "delta" : "{\"q\":"
+    },
+    "name" : "TOOL_CALL_DELTA",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TOOL_CALL_END",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      }
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "TOOL_CALL_END",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup"
+    },
+    "name" : "TOOL_CALL_END",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TOOL_RESULT_START",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "source" : "parent/child"
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "TOOL_RESULT_START",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup"
+    },
+    "name" : "TOOL_RESULT_START",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TOOL_RESULT_TEXT_DELTA",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "delta" : "answer",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "source" : "parent/child"
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "TOOL_RESULT_TEXT_DELTA",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "delta" : "answer"
+    },
+    "name" : "TOOL_RESULT_TEXT_DELTA",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TOOL_RESULT_DATA_DELTA",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "data" : {
+        "type" : "data",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "id" : "data-id",
+        "name" : "attachment"
+      },
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "source" : "parent/child"
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "TOOL_RESULT_DATA_DELTA",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "data" : {
+        "type" : "data",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "id" : "data-id",
+        "name" : "attachment"
+      }
+    },
+    "name" : "TOOL_RESULT_DATA_DELTA",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TOOL_RESULT_END",
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "state" : "success",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "source" : "parent/child"
+    },
+    "input" : {
+      "id" : "event",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "source" : "parent/child",
+      "metadata" : {
+        "trace" : "fixture"
+      },
+      "type" : "TOOL_RESULT_END",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "state" : "success"
+    },
+    "name" : "TOOL_RESULT_END",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "text",
+      "text" : "hello"
+    },
+    "input" : {
+      "type" : "text",
+      "text" : "hello"
+    },
+    "name" : "content-text",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "thinking",
+      "thinking" : "reason",
+      "metadata" : {
+        "signature" : "opaque"
+      }
+    },
+    "input" : {
+      "type" : "thinking",
+      "thinking" : "reason",
+      "metadata" : {
+        "signature" : "opaque"
+      }
+    },
+    "name" : "content-thinking",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "image",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      },
+      "minPixels" : 16,
+      "maxPixels" : 256
+    },
+    "input" : {
+      "type" : "image",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      },
+      "min_pixels" : 16,
+      "max_pixels" : 256
+    },
+    "name" : "content-image",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "audio",
+      "source" : {
+        "type" : "base64",
+        "media_type" : "image/png",
+        "data" : "AA=="
+      }
+    },
+    "input" : {
+      "type" : "audio",
+      "source" : {
+        "type" : "base64",
+        "media_type" : "image/png",
+        "data" : "AA=="
+      }
+    },
+    "name" : "content-audio",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "video",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      },
+      "fps" : 2.5,
+      "maxFrames" : 4,
+      "minPixels" : 16,
+      "maxPixels" : 256,
+      "totalPixels" : 1024
+    },
+    "input" : {
+      "type" : "video",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      },
+      "fps" : 2.5,
+      "max_frames" : 4,
+      "min_pixels" : 16,
+      "max_pixels" : 256,
+      "total_pixels" : 1024
+    },
+    "name" : "content-video",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "data",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      },
+      "id" : "data-id",
+      "name" : "attachment"
+    },
+    "input" : {
+      "type" : "data",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      },
+      "id" : "data-id",
+      "name" : "attachment"
+    },
+    "name" : "content-data",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "hint",
+      "id" : "hint-id",
+      "hint" : "hint text",
+      "source" : "retrieval"
+    },
+    "input" : {
+      "type" : "hint",
+      "id" : "hint-id",
+      "hint" : "hint text",
+      "source" : "retrieval"
+    },
+    "name" : "content-hint",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "tool_use",
+      "id" : "call",
+      "name" : "lookup",
+      "input" : {
+        "q" : "value"
+      },
+      "content" : "raw",
+      "metadata" : {
+        "provider" : "x"
+      },
+      "state" : "asking"
+    },
+    "input" : {
+      "type" : "tool_use",
+      "id" : "call",
+      "name" : "lookup",
+      "input" : {
+        "q" : "value"
+      },
+      "content" : "raw",
+      "metadata" : {
+        "provider" : "x"
+      },
+      "state" : "asking"
+    },
+    "name" : "content-tool_use",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "tool_result",
+      "id" : "call",
+      "name" : "lookup",
+      "output" : [ {
+        "type" : "text",
+        "text" : "hello"
+      } ],
+      "metadata" : {
+        "agentscope_suspended" : true
+      },
+      "state" : "success"
+    },
+    "input" : {
+      "type" : "tool_result",
+      "id" : "call",
+      "name" : "lookup",
+      "output" : [ {
+        "type" : "text",
+        "text" : "hello"
+      } ],
+      "metadata" : {
+        "agentscope_suspended" : true
+      },
+      "state" : "success"
+    },
+    "name" : "content-tool_result",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "url",
+      "url" : "https://example.invalid/item",
+      "mime_type" : "application/octet-stream"
+    },
+    "input" : {
+      "type" : "url",
+      "url" : "https://example.invalid/item",
+      "mime_type" : "application/octet-stream"
+    },
+    "name" : "source-url",
+    "kind" : "source"
+  }, {
+    "output" : {
+      "type" : "base64",
+      "media_type" : "image/png",
+      "data" : "AA=="
+    },
+    "input" : {
+      "type" : "base64",
+      "media_type" : "image/png",
+      "data" : "AA=="
+    },
+    "name" : "source-base64",
+    "kind" : "source"
+  }, {
+    "output" : {
+      "id" : "message",
+      "name" : null,
+      "content" : [ {
+        "type" : "text",
+        "text" : "hello"
+      } ],
+      "metadata" : {
+        "origin" : "fixture"
+      },
+      "timestamp" : "2026-01-02 03:04:05.006",
+      "usage" : null,
+      "role" : "USER"
+    },
+    "input" : {
+      "id" : "message",
+      "name" : null,
+      "role" : "USER",
+      "content" : [ {
+        "type" : "text",
+        "text" : "hello"
+      } ],
+      "metadata" : {
+        "origin" : "fixture"
+      },
+      "timestamp" : "2026-01-02 03:04:05.006",
+      "usage" : null
+    },
+    "name" : "message-user",
+    "kind" : "message"
+  }, {
+    "output" : {
+      "id" : "message",
+      "name" : null,
+      "content" : [ {
+        "type" : "text",
+        "text" : "hello"
+      }, {
+        "type" : "thinking",
+        "thinking" : "reason",
+        "metadata" : {
+          "signature" : "opaque"
+        }
+      }, {
+        "type" : "image",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "minPixels" : 16,
+        "maxPixels" : 256
+      }, {
+        "type" : "audio",
+        "source" : {
+          "type" : "base64",
+          "media_type" : "image/png",
+          "data" : "AA=="
+        }
+      }, {
+        "type" : "video",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "fps" : 2.5,
+        "maxFrames" : 4,
+        "minPixels" : 16,
+        "maxPixels" : 256,
+        "totalPixels" : 1024
+      }, {
+        "type" : "data",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "id" : "data-id",
+        "name" : "attachment"
+      }, {
+        "type" : "hint",
+        "id" : "hint-id",
+        "hint" : "hint text",
+        "source" : "retrieval"
+      }, {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      }, {
+        "type" : "tool_result",
+        "id" : "call",
+        "name" : "lookup",
+        "output" : [ {
+          "type" : "text",
+          "text" : "hello"
+        } ],
+        "metadata" : {
+          "agentscope_suspended" : true
+        },
+        "state" : "success"
+      } ],
+      "metadata" : {
+        "origin" : "fixture"
+      },
+      "timestamp" : "2026-01-02 03:04:05.006",
+      "usage" : null,
+      "role" : "ASSISTANT"
+    },
+    "input" : {
+      "id" : "message",
+      "name" : null,
+      "role" : "ASSISTANT",
+      "content" : [ {
+        "type" : "text",
+        "text" : "hello"
+      }, {
+        "type" : "thinking",
+        "thinking" : "reason",
+        "metadata" : {
+          "signature" : "opaque"
+        }
+      }, {
+        "type" : "image",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "min_pixels" : 16,
+        "max_pixels" : 256
+      }, {
+        "type" : "audio",
+        "source" : {
+          "type" : "base64",
+          "media_type" : "image/png",
+          "data" : "AA=="
+        }
+      }, {
+        "type" : "video",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "fps" : 2.5,
+        "max_frames" : 4,
+        "min_pixels" : 16,
+        "max_pixels" : 256,
+        "total_pixels" : 1024
+      }, {
+        "type" : "data",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "id" : "data-id",
+        "name" : "attachment"
+      }, {
+        "type" : "hint",
+        "id" : "hint-id",
+        "hint" : "hint text",
+        "source" : "retrieval"
+      }, {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      }, {
+        "type" : "tool_result",
+        "id" : "call",
+        "name" : "lookup",
+        "output" : [ {
+          "type" : "text",
+          "text" : "hello"
+        } ],
+        "metadata" : {
+          "agentscope_suspended" : true
+        },
+        "state" : "success"
+      } ],
+      "metadata" : {
+        "origin" : "fixture"
+      },
+      "timestamp" : "2026-01-02 03:04:05.006",
+      "usage" : null
+    },
+    "name" : "message-assistant",
+    "kind" : "message"
+  }, {
+    "output" : {
+      "id" : "message",
+      "name" : null,
+      "content" : [ {
+        "type" : "text",
+        "text" : "hello"
+      } ],
+      "metadata" : {
+        "origin" : "fixture"
+      },
+      "timestamp" : "2026-01-02 03:04:05.006",
+      "usage" : null,
+      "role" : "SYSTEM"
+    },
+    "input" : {
+      "id" : "message",
+      "name" : null,
+      "role" : "SYSTEM",
+      "content" : [ {
+        "type" : "text",
+        "text" : "hello"
+      } ],
+      "metadata" : {
+        "origin" : "fixture"
+      },
+      "timestamp" : "2026-01-02 03:04:05.006",
+      "usage" : null
+    },
+    "name" : "message-system",
+    "kind" : "message"
+  }, {
+    "output" : {
+      "id" : "message",
+      "name" : null,
+      "content" : [ {
+        "type" : "text",
+        "text" : "hello"
+      }, {
+        "type" : "thinking",
+        "thinking" : "reason",
+        "metadata" : {
+          "signature" : "opaque"
+        }
+      }, {
+        "type" : "image",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "minPixels" : 16,
+        "maxPixels" : 256
+      }, {
+        "type" : "audio",
+        "source" : {
+          "type" : "base64",
+          "media_type" : "image/png",
+          "data" : "AA=="
+        }
+      }, {
+        "type" : "video",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "fps" : 2.5,
+        "maxFrames" : 4,
+        "minPixels" : 16,
+        "maxPixels" : 256,
+        "totalPixels" : 1024
+      }, {
+        "type" : "data",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "id" : "data-id",
+        "name" : "attachment"
+      }, {
+        "type" : "hint",
+        "id" : "hint-id",
+        "hint" : "hint text",
+        "source" : "retrieval"
+      }, {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      }, {
+        "type" : "tool_result",
+        "id" : "call",
+        "name" : "lookup",
+        "output" : [ {
+          "type" : "text",
+          "text" : "hello"
+        } ],
+        "metadata" : {
+          "agentscope_suspended" : true
+        },
+        "state" : "success"
+      } ],
+      "metadata" : {
+        "origin" : "fixture"
+      },
+      "timestamp" : "2026-01-02 03:04:05.006",
+      "usage" : null,
+      "role" : "TOOL"
+    },
+    "input" : {
+      "id" : "message",
+      "name" : null,
+      "role" : "TOOL",
+      "content" : [ {
+        "type" : "text",
+        "text" : "hello"
+      }, {
+        "type" : "thinking",
+        "thinking" : "reason",
+        "metadata" : {
+          "signature" : "opaque"
+        }
+      }, {
+        "type" : "image",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "min_pixels" : 16,
+        "max_pixels" : 256
+      }, {
+        "type" : "audio",
+        "source" : {
+          "type" : "base64",
+          "media_type" : "image/png",
+          "data" : "AA=="
+        }
+      }, {
+        "type" : "video",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "fps" : 2.5,
+        "max_frames" : 4,
+        "min_pixels" : 16,
+        "max_pixels" : 256,
+        "total_pixels" : 1024
+      }, {
+        "type" : "data",
+        "source" : {
+          "type" : "url",
+          "url" : "https://example.invalid/item",
+          "mime_type" : "application/octet-stream"
+        },
+        "id" : "data-id",
+        "name" : "attachment"
+      }, {
+        "type" : "hint",
+        "id" : "hint-id",
+        "hint" : "hint text",
+        "source" : "retrieval"
+      }, {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      }, {
+        "type" : "tool_result",
+        "id" : "call",
+        "name" : "lookup",
+        "output" : [ {
+          "type" : "text",
+          "text" : "hello"
+        } ],
+        "metadata" : {
+          "agentscope_suspended" : true
+        },
+        "state" : "success"
+      } ],
+      "metadata" : {
+        "origin" : "fixture"
+      },
+      "timestamp" : "2026-01-02 03:04:05.006",
+      "usage" : null
+    },
+    "name" : "message-tool",
+    "kind" : "message"
+  }, {
+    "output" : {
+      "type" : "thinking",
+      "thinking" : "",
+      "metadata" : null
+    },
+    "input" : {
+      "type" : "thinking",
+      "thinking" : "",
+      "metadata" : null
+    },
+    "name" : "empty-thinking",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "tool_use",
+      "id" : "call",
+      "name" : "lookup",
+      "input" : {
+        "q" : "value"
+      },
+      "content" : null,
+      "metadata" : { },
+      "state" : "pending"
+    },
+    "input" : {
+      "type" : "tool_use",
+      "id" : "call",
+      "name" : "lookup",
+      "input" : {
+        "q" : "value"
+      },
+      "content" : null,
+      "metadata" : null,
+      "state" : null
+    },
+    "name" : "minimal-tool-use",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "tool_result",
+      "id" : null,
+      "name" : null,
+      "output" : [ ],
+      "metadata" : { },
+      "state" : "running"
+    },
+    "input" : {
+      "type" : "tool_result",
+      "id" : null,
+      "name" : null,
+      "output" : [ ],
+      "metadata" : null,
+      "state" : null
+    },
+    "name" : "minimal-tool-result",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "image",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      }
+    },
+    "input" : {
+      "type" : "image",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      }
+    },
+    "name" : "minimal-image",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "video",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      }
+    },
+    "input" : {
+      "type" : "video",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      }
+    },
+    "name" : "minimal-video",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "type" : "data",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      },
+      "id" : "data-id"
+    },
+    "input" : {
+      "type" : "data",
+      "id" : "data-id",
+      "source" : {
+        "type" : "url",
+        "url" : "https://example.invalid/item",
+        "mime_type" : "application/octet-stream"
+      }
+    },
+    "name" : "minimal-data",
+    "kind" : "content"
+  }, {
+    "output" : {
+      "confirmed" : false,
+      "toolCall" : {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      },
+      "rules" : null,
+      "reason" : null
+    },
+    "input" : {
+      "confirmed" : false,
+      "toolCall" : {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      },
+      "rules" : null,
+      "reason" : null
+    },
+    "name" : "confirm-absent",
+    "kind" : "confirmation"
+  }, {
+    "output" : {
+      "confirmed" : true,
+      "toolCall" : {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      },
+      "rules" : [ ],
+      "reason" : ""
+    },
+    "input" : {
+      "confirmed" : true,
+      "toolCall" : {
+        "type" : "tool_use",
+        "id" : "call",
+        "name" : "lookup",
+        "input" : {
+          "q" : "value"
+        },
+        "content" : "raw",
+        "metadata" : {
+          "provider" : "x"
+        },
+        "state" : "asking"
+      },
+      "rules" : [ ],
+      "reason" : ""
+    },
+    "name" : "confirm-empty",
+    "kind" : "confirmation"
+  }, {
+    "output" : {
+      "inputTokens" : 10,
+      "outputTokens" : 4,
+      "cachedTokens" : 3,
+      "cacheCreationTokens" : 1,
+      "reasoningTokens" : 2,
+      "toolUsePromptTokens" : 1,
+      "time" : 0.25,
+      "totalTokens" : 14
+    },
+    "input" : {
+      "inputTokens" : 10,
+      "outputTokens" : 4,
+      "cachedTokens" : 3,
+      "cacheCreationTokens" : 1,
+      "reasoningTokens" : 2,
+      "toolUsePromptTokens" : 1,
+      "time" : 0.25
+    },
+    "name" : "usage",
+    "kind" : "usage"
+  }, {
+    "output" : {
+      "type" : "TOOL_RESULT_START",
+      "id" : "edge",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup"
+    },
+    "input" : {
+      "type" : "TOOL_RESULT_START",
+      "id" : "edge",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup"
+    },
+    "name" : "event-absent",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TOOL_RESULT_START",
+      "id" : "edge",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "source" : ""
+    },
+    "input" : {
+      "type" : "TOOL_RESULT_START",
+      "id" : "edge",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "source" : "",
+      "metadata" : { }
+    },
+    "name" : "event-empty",
+    "kind" : "event"
+  }, {
+    "output" : {
+      "type" : "TOOL_RESULT_START",
+      "id" : "edge",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup"
+    },
+    "input" : {
+      "type" : "TOOL_RESULT_START",
+      "id" : "edge",
+      "createdAt" : "2026-01-02T03:04:05Z",
+      "replyId" : "reply",
+      "toolCallId" : "call",
+      "toolCallName" : "lookup",
+      "source" : null,
+      "metadata" : null
+    },
+    "name" : "event-null",
+    "kind" : "event"
+  } ]
+}

@@ -16,7 +16,7 @@ Use [ReActAgent](src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scal
 | [tool](src/main/scala/com/weisgnosis/agents/core/tool/README.md) | Checked bindings, schema admission, authorization, and typed execution observations |
 | [client](src/main/scala/com/weisgnosis/agents/core/client/README.md) | Model ports, Chat Completions requests, HTTP/SSE ownership, selected provider profiles, retries, and failover boundaries |
 | [agent](src/main/scala/com/weisgnosis/agents/core/agent/README.md) | Serialized ReAct runs and explicit extension points |
-| [event](src/main/scala/com/weisgnosis/agents/core/event/README.md) | Typed model, tool, and agent lifecycle events |
+| [event](src/main/scala/com/weisgnosis/agents/core/event/README.md) | Typed lifecycle events and an opt-in pinned Java wire DTO adapter |
 | [skill](src/main/scala/com/weisgnosis/agents/core/skill/README.md) | Host-selected skill catalogs and deferred resource capabilities |
 | [json](src/main/scala/com/weisgnosis/agents/core/json/README.md) | Strict JSON boundaries and exact numeric rendering |
 

@@ -1,0 +1,11 @@
+# Java event wire DTOs
+
+This opt-in package implements the original Phase 1 DTO wire promise against AgentScope Java `f98a685fdc4589f81e626e1686ac2c63d14a2304`. It provides 31 typed event payloads and the nested Java message, content/source, usage and confirmation/rule DTOs. It does not replace [canonical Scala events](../AgentEvent.scala), install an emitter or convert missing runtime context into invented values.
+
+Construct a checked `JavaEventEnvelope` with caller-supplied `id` and `createdAt`, combine it with `JavaEventPayload`, then call `JavaAgentEvent.encode`. `decode` returns the same explicit DTO layer. Both methods are pure and return typed `AgentError` failures. Neither reads a clock, allocates random identity nor grants permission/execution authority. A data content block likewise requires its identity explicitly rather than using the Java constructor's UUID fallback.
+
+The wire uses uppercase event `type` tags and Java field names, including string block identities and complete confirmation batches. Java content tags and tool states use lowercase values; message roles and generation reasons use uppercase values. Message and confirmation nullable fields remain JSON null, while absent event fields and empty event metadata are omitted. Usage includes its computed `totalTokens`. Image/video dimensions preserve the actual emitted camelCase names; their snake_case creator aliases are accepted without reproducing Java's lossy decode of its own camelCase output.
+
+Unknown extension fields are ignored by the derived DTO decoders and are not retained on encoding. Unknown tags and invalid typed payloads fail. The event boundary rejects duplicate keys, trailing input and invalid Unicode. It preserves JSON decimal values using the repository AST renderer. This is not a claim of lossless conversion between Scala runtime events and Java DTOs: runtime events lack some required Java context and contain extra accumulated/end payloads. No runtime projection, global envelope state or implicit identity/time allocator is supplied.
+
+The [paired suites](../../../../../../../../test/scala/com/weisgnosis/agents/core/event/javawire/README.md) use actual pinned Jackson output, not hand-derived golden expectations. Public Scala codecs and APIs outside this opt-in package retain their existing wire contracts.

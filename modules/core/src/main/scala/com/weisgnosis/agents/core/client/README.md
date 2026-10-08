@@ -53,6 +53,18 @@ Migration: the three new public helpers are additive; prior public factory/encod
 - [x] Focused verification passes 50 tests. Two new integration groups cover ordinary text/tool/reasoning turns and eligible HTTP-status retry, rejection before transforms/events, bounded EOF and joined failure/cancellation cleanup; existing request tables cover stream=false and absent stream_options.
 - [x] nonstream-verify.log passes full formatting, verify and packageArtifacts: 667 core / 724 harness / 85 MCP / 5 examples (1,481 total), zero compiler warnings or failed tests. nonstream-artifact-preparation.log passes archive/POM inspection; nonstream-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against fresh loaded module hashes.
 
+## Provider thinking metadata
+
+`LlmChunk.ThinkingDelta` and `ReasoningDetailsDelta` accept trailing `providerMetadata: Map[String, Json] = Map.empty`. Explicit provider adapters may supply this immutable data; the current HTTP decoder does not invent or automatically collect arbitrary provider fields.
+
+The accumulator merges metadata independently per scalar thinking index, or within the ordered-details channel. Two arrays concatenate; every other incoming value replaces the previous value for its key. Prior snapshots remain unchanged. Canonical Thinking blocks retain the map inside the explicit `providerMetadata` object namespace, separately from checked `reasoningDetails` and `thoughtSignature` fields.
+
+Raw reserved keys `reasoningDetails`, `reasoning_details`, `thoughtSignature`, `signature` and `providerMetadata` fail validation. Duplicate nested keys and invalid Unicode also fail. Metadata alone is retained without becoming visible reasoning, triggering a thinking-only retry or fabricating plaintext. An empty scalar ThinkingDelta still follows ordinary stream-event publication; metadata retention does not suppress those empty events. Interrupted accumulation preserves accepted metadata alongside partial history.
+
+Request encoding validates this known namespace then omits it from provider wire output. Existing signature/details profile requirements and rejection of other unknown canonical metadata remain unchanged; retaining data is not permission to replay it. Existing accumulator/detail suites and the actual ReAct tool-turn table verify merge, snapshot, interruption and next-request behavior.
+
+Migration: ThinkingDelta product/extractor arity changes from three to four; ReasoningDetailsDelta changes from one to two. Ordinary constructor calls retain trailing defaults, and old JSON without providerMetadata uses empty data. Update positional patterns and rebuild dependent binaries.
+
 ## Scalar reasoning aliases
 
 The decoder recognizes string or JSON-null reasoning_content, reasoning and thinking. In scalar profiles, absent/null fields contribute no value, identical supplied strings emit one ThinkingDelta before visible text, and different supplied strings fail with Conflicting scalar reasoning aliases. Empty strings emit no thinking; an empty string conflicting with a nonempty string is rejected. Exact text is preserved without trimming. Malformed recognized values fail even when another alias or detailed reasoning would otherwise take precedence.

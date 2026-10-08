@@ -24,7 +24,6 @@ import com.weisgnosis.agents.core.tool.{
   ToolAuthorizer,
   ToolPreflight
 }
-import scala.annotation.unused
 import zio.*
 
 /** Interactive approval within one invocation; authenticated delivery and durable state belong to the host. */
@@ -50,13 +49,16 @@ final class InteractivePermissionAuthorizer private (
       interceptorGate.and(gate)
     )
 
-  /** Only append-only policy denials are stable across earlier tool execution in this batch. */
+  /** Rule denials and Explore access restrictions are stable; live votes still require authorization. */
   override def preflight(
       request: ToolAuthorizationRequest,
-      @unused admittedAccess: Option[AdmittedToolAccess]
+      admittedAccess: Option[AdmittedToolAccess]
   ): ZIO[Scope, AgentError.PermissionDenied, ToolPreflight] =
     policyRef.get.map: current =>
-      current.authorize(request.requestId, request.call) match
+      val stablePolicy = current.mode match
+        case PermissionMode.Explore => current
+        case _                      => current.copy(mode = PermissionMode.Default)
+      stablePolicy.authorize(request.requestId, request.call, admittedAccess = admittedAccess) match
         case PermissionOutcome.Denied(_, reason) => ToolPreflight.Denied(reason)
         case _                                   => ToolPreflight.Continue
 
@@ -75,7 +77,8 @@ final class InteractivePermissionAuthorizer private (
         request.requestId,
         request.call,
         gates.tool,
-        gates.interceptor
+        gates.interceptor,
+        admittedAccess
       ) match
         case PermissionOutcome.Approved(call) => ZIO.succeed(ToolAuthorization.Approved(call.input))
         case PermissionOutcome.Denied(_, reason) => ZIO.succeed(ToolAuthorization.Denied(reason))
@@ -113,7 +116,8 @@ final class InteractivePermissionAuthorizer private (
                       call.name,
                       call.input,
                       gates.tool,
-                      gates.interceptor
+                      gates.interceptor,
+                      admittedAccess
                     ) == PermissionBehavior.Deny
                   then ToolAuthorization.Denied("Confirmed input is denied by a permission gate")
                   else ToolAuthorization.Approved(call.input)

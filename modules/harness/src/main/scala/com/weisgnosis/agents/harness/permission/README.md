@@ -2,7 +2,27 @@
 
 The [invocation and prepared-run contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) separates fresh execution correlation from saved model-request identity. Ordinary prepared runs expose a lazy single-attempt handle; Auto attempts share one invocation and resumed executions receive a new one. Confirmation authority remains bound to the exact saved reply/request pair and call occurrence, independently of observational invocation identity.
 
-PermissionEngine combines independent policy, tool, and interceptor decisions as Deny > Ask > Passthrough > Allow. No matching decision defaults to Ask. PermissionRule applies content restrictions to its explicit argument path. PermissionRequests registers a Promise before publication, resolves once, rejects duplicate request IDs, and removes interrupted waiters. Its serializable PendingApproval/ConfirmResult values support host persistence but do not provide a durable runtime.
+PermissionEngine combines independent policy, tool, and interceptor decisions as Deny > Ask > Passthrough > Allow. Default mode maps no matching decision to Ask. PermissionRule applies content restrictions to its explicit argument path. PermissionRequests registers a Promise before publication, resolves once, rejects duplicate request IDs, and removes interrupted waiters. Its serializable PendingApproval/ConfirmResult values support host persistence but do not provide a durable runtime.
+
+## Host-selected permission modes
+
+`PermissionEngine(rules, mode = PermissionMode.Default)` has five explicit modes. Independent votes remain Deny > Ask > Passthrough > Allow; mode fallbacks never bypass a supplied safety vote.
+
+| Mode | Fallback and restrictions |
+| --- | --- |
+| Default | No vote becomes Ask. |
+| Bypass | No vote becomes Allow; explicit Ask, Passthrough and Deny remain effective. |
+| DontAsk | Unresolved Ask/Passthrough becomes Deny; an actual Allow vote remains usable. |
+| Explore | Only actual admitted ReadOnly access is eligible; mutation or absent evidence becomes Deny. Eligible calls retain explicit votes, otherwise Allow. |
+| AcceptEdits | Admitted ReadOnly calls without votes become Allow; mutation or absent evidence follows normal Ask fallback. The name does not authorize arbitrary edits. |
+
+The runtime supplies access from the admitted Toolkit. Model fields and host descriptive access maps cannot manufacture it. Interactive, checkpoint, unavailable-channel and confirmed-batch authorization all propagate the sample; positive confirmation still checks current restrictions. Interactive preflight retains stable explicit denials and Explore restrictions, but does not apply DontAsk fallback before live gates can supply Allow.
+
+Child construction inherits only matching explicit parent Deny rules, checked before and after approved input rewriting. A parent's mode does not silently replace the child's independent policy. Parent Plan restrictions remain separate authoritative gates.
+
+JSON uses exact scalar names `default`, `bypass`, `dont_ask`, `explore`, `accept_edits`; `fromString` additionally accepts case-insensitive host names. Trailing defaults preserve ordinary engine/evaluation calls; PermissionEngine product arity changes from one to two and affected JVM signatures require rebuilt consumers. The lower-level `resume` projects confirmation/rule updates only; install an authorizer to enforce current gates/mode before execution.
+
+[PermissionModeSpec](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PermissionModeSpec.scala), the checkpoint integration table and actual child construction cover these contracts. Java permission short-circuiting and suggested-rule generation are separate applicability decisions, not authority granted by a mode.
 
 ## Installation and ownership
 
@@ -107,7 +127,7 @@ Migration: PendingActing retains default-empty permissionRequests; the [current 
 - [PermissionBehavior](PermissionBehavior.scala)
 - [ConfirmResult and pending/outcome values](ConfirmResult.scala)
 
-See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/README.md) and [parity audit](../../../../../../../../../../docs/architecture/test-parity.md). Complete-batch checkpoint confirmation is defined above. Authenticated transport, checkpoint/idempotency storage, post-decision revocation and complete upstream permission mode/batch-event parity remain separate.
+See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/README.md) and [parity audit](../../../../../../../../../../docs/architecture/test-parity.md). Complete-batch checkpoint confirmation is defined above. Authenticated transport, checkpoint/idempotency storage, post-decision revocation and broader upstream rule/batch-event parity remain separate.
 
 ## Current review acceptance
 

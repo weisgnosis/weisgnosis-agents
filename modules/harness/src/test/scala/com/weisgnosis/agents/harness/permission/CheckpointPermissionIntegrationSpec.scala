@@ -28,7 +28,7 @@ import zio.test.*
 
 object CheckpointPermissionIntegrationSpec extends ZIOSpecDefault:
   private enum Admission:
-    case Ask, Allow
+    case Ask, Allow, AskThenExplore, AskThenExploreMutation
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Checkpoint permission integration")(
     test(
@@ -36,6 +36,10 @@ object CheckpointPermissionIntegrationSpec extends ZIOSpecDefault:
     ):
       ZIO
         .foreach(Chunk.fromArray(Admission.values)): admission =>
+          val asks = admission != Admission.Allow
+          val explore =
+            admission == Admission.AskThenExplore || admission == Admission.AskThenExploreMutation
+          val rejectsMutation = admission == Admission.AskThenExploreMutation
           for
             executions <- Ref.make(Chunk.empty[(String, Json)])
             requests   <- Ref.make(0)
@@ -46,9 +50,14 @@ object CheckpointPermissionIntegrationSpec extends ZIOSpecDefault:
               ZIO
                 .fromEither(
                   Tool.withFixedArguments(
-                    Tool.make(ToolDef(name, "Read", Json.Obj(), isReadOnly = true))((input: Json) =>
-                      executions.update(_ :+ (name -> input)).as(name)
-                    ),
+                    Tool.make(
+                      ToolDef(
+                        name,
+                        "Read",
+                        Json.Obj(),
+                        isReadOnly = name != "review" || !rejectsMutation
+                      )
+                    )((input: Json) => executions.update(_ :+ (name -> input)).as(name)),
                     fixed
                   )
                 )
@@ -90,7 +99,7 @@ object CheckpointPermissionIntegrationSpec extends ZIOSpecDefault:
             beforeRequests <- requests.get
             result <- admission match
               case Admission.Allow => ZIO.succeed(first)
-              case Admission.Ask =>
+              case Admission.Ask | Admission.AskThenExplore | Admission.AskThenExploreMutation =>
                 for
                   saved <- ZIO.fromEither(
                     first.toJson.fromJson[AgentResult].left.map(AgentError.DeserializationError(_))
@@ -105,7 +114,9 @@ object CheckpointPermissionIntegrationSpec extends ZIOSpecDefault:
                   authorizer <- ConfirmedBatchAuthorizer.make(
                     saved,
                     Chunk(ConfirmedToolCall(2, ConfirmResult(true, Some(approved)))),
-                    ZIO.succeed(policy)
+                    ZIO.succeed(
+                      if explore then policy.copy(mode = PermissionMode.Explore) else policy
+                    )
                   )
                   restored <- ReActAgent
                     .make(client = client, toolkit = toolkit, toolAuthorizer = authorizer)
@@ -118,12 +129,12 @@ object CheckpointPermissionIntegrationSpec extends ZIOSpecDefault:
             events    = updates.collect { case AgentRunUpdate.Event(event) => event }
           yield assertTrue(
             events.collect { case event: AgentEvent.PermissionAskEvent => event.input } ==
-              (if admission == Admission.Ask then Chunk(candidate) else Chunk.empty),
-            first.isSuspended == (admission == Admission.Ask),
-            beforeRequests == (if admission == Admission.Ask then 1 else 2),
-            before.map(_._1) == (if admission == Admission.Ask then Chunk("read")
+              (if asks then Chunk(candidate) else Chunk.empty),
+            first.isSuspended == asks,
+            beforeRequests == (if asks then 1 else 2),
+            before.map(_._1) == (if asks then Chunk("read")
                                  else Chunk("read", "review")),
-            admission != Admission.Ask || (first.reply.generationReason == GenerateReason.PermissionAsking && first.history
+            !asks || (first.reply.generationReason == GenerateReason.PermissionAsking && first.history
               .flatMap(_.toolResults)
               .size == 2),
             admission != Admission.Allow || (!events
@@ -137,14 +148,16 @@ object CheckpointPermissionIntegrationSpec extends ZIOSpecDefault:
             result.state == AgentRunState.Completed,
             result.reply.text == "done",
             count == 2,
-            done == Chunk(
-              "read"   -> candidate,
-              "review" -> (if admission == Admission.Ask then approved else candidate)
-            ),
+            done == (if rejectsMutation then Chunk("read" -> candidate)
+                     else
+                       Chunk(
+                         "read"   -> candidate,
+                         "review" -> (if asks then approved else candidate)
+                       )),
             result.history.flatMap(_.toolResults).map(_.state) == Chunk(
               ToolResultState.Success,
               ToolResultState.Denied,
-              ToolResultState.Success
+              if rejectsMutation then ToolResultState.Denied else ToolResultState.Success
             )
           )
         .map(_.foldLeft(assertTrue(true))(_ && _))

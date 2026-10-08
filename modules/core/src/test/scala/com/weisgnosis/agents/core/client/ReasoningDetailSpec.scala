@@ -262,8 +262,8 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
         replayed(ordinary).contains(Chunk(all, Json.Null, Json.Arr())),
         replayed(streamed) == replayed(ordinary),
         decoded == envelope._2,
-        decoded.collect { case LlmChunk.ThinkingDelta(value, _, _) => value }.isEmpty,
-        decoded.collect { case LlmChunk.ReasoningDetailsDelta(values) =>
+        decoded.collect { case LlmChunk.ThinkingDelta(value, _, _, _) => value }.isEmpty,
+        decoded.collect { case LlmChunk.ReasoningDetailsDelta(values, _) =>
           values.map(_.value)
         } == Chunk(Chunk(signature, second, signature)),
         output.message.content.collect { case ContentBlock.Thinking(value, _) => value } ==
@@ -431,6 +431,10 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
         encrypted,
         text
       )
+      val providerMetadata = Map(
+        "provider" -> Json.Str("new"),
+        "chunks"   -> Json.Arr(Json.Num(0), Json.Num(1), Json.Num(2))
+      )
       for
         chunks <- ZIO.fromEither(
           frames.foldLeft[Either[AgentError, Chunk[Chunk[LlmChunk]]]](Right(Chunk.empty))(
@@ -441,15 +445,28 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
               yield accumulated :+ decoded
           )
         )
+        retainedChunks = chunks.zipWithIndex.flatMap: (values, index) =>
+          values.map:
+            case value: LlmChunk.ReasoningDetailsDelta =>
+              value.copy(providerMetadata =
+                Map(
+                  "provider" -> Json.Str(if index == 0 then "old" else "new"),
+                  "chunks"   -> Json.Arr(Json.Num(index))
+                )
+              )
+            case value => value
         state <- ZIO.fromEither(
-          chunks.flatten.foldLeft[Either[AgentError, StreamAccumulator]](
+          retainedChunks.foldLeft[Either[AgentError, StreamAccumulator]](
             Right(StreamAccumulator.empty)
           )((previous, chunk) => previous.flatMap(_.feed(chunk)))
         )
         output <- ZIO.fromEither(state.feed(LlmChunk.FinishReason("stop")).flatMap(_.toTurnOutput))
         expected = ContentBlock.Thinking(
           "first summary legacy equal first ",
-          Map("reasoningDetails" -> all)
+          Map(
+            "reasoningDetails" -> all,
+            "providerMetadata" -> Json.Obj(Chunk.fromIterable(providerMetadata))
+          )
         )
         empty <- ZIO.fromEither(
           StreamAccumulator.empty
@@ -474,6 +491,46 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
         state.toInterrupted.message.content == Chunk(expected),
         !empty.message.hasReasoning,
         replayed(body).contains(Chunk(all, Json.Null, Json.Arr())),
+        !body.toString.contains("providerMetadata"),
+        Chunk[Json](
+          Json.Str("invalid"),
+          Json.Obj("reasoningDetails" -> Json.Arr()),
+          Json.Obj("duplicate"        -> Json.Num(1), "duplicate" -> Json.Num(2))
+        ).forall(value =>
+          request(
+            Chunk(
+              Msg.assistant(
+                Chunk(
+                  ContentBlock.Thinking(
+                    "",
+                    Map(
+                      "reasoningDetails" -> all,
+                      "providerMetadata" -> value
+                    )
+                  )
+                )
+              )
+            ),
+            ReasoningReplay.OpenRouterDetails
+          ).isLeft
+        ),
+        request(
+          Chunk(
+            Msg.assistant(
+              Chunk(
+                ContentBlock.Thinking(
+                  "scalar",
+                  Map(
+                    "providerMetadata" -> Json.Obj("provider" -> Json.Str("retained"))
+                  )
+                )
+              )
+            )
+          ),
+          ReasoningReplay.LatestAssistant
+        ).exists(value =>
+          !value.toString.contains("providerMetadata") && value.toString.contains("scalar")
+        ),
         body
           .get("messages")
           .flatMap(_.asArray)

@@ -122,6 +122,8 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
     },
     test("Interruption sanitizes incomplete tool arguments to empty object {}") {
       val chunks = Seq(
+        LlmChunk
+          .ThinkingDelta("partial", 1, providerMetadata = Map("provider" -> Json.Str("received"))),
         LlmChunk.ToolCallChunk(
           streamIndex = 0,
           callId = Some("call_interrupted"),
@@ -137,6 +139,14 @@ object StreamAccumulatorSpec extends ZIOSpecDefault:
         interrupted match
           case Right(TurnOutput.Interrupted(msg)) =>
             msg.toolUses.size == 1 &&
+            msg.content.contains(
+              ContentBlock.Thinking(
+                "partial",
+                Map(
+                  "providerMetadata" -> Json.Obj("provider" -> Json.Str("received"))
+                )
+              )
+            ) &&
             msg.toolUses.headOption.exists(call =>
               call.id == "call_interrupted" && call.input == Json.Obj()
             )

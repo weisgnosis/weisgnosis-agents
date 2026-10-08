@@ -18,6 +18,7 @@ package com.weisgnosis.agents.core.client
 import com.weisgnosis.agents.core.model.ChatUsage
 import zio.Chunk
 import zio.json.*
+import zio.json.ast.Json
 
 /**
  * Sealed algebraic data type representing streaming deltas emitted by an LLM completion stream.
@@ -31,15 +32,21 @@ object LlmChunk:
       blockIndex: Int = 0
   ) extends LlmChunk derives JsonCodec
 
-  /** Ordered checked objects, including an explicitly present empty array, with one plaintext projection. */
+  /**
+   * Ordered checked objects, including an explicitly present empty array, with one plaintext projection.
+   * Provider metadata is retained in a separate canonical namespace and is not replayed on the wire.
+   */
   final case class ReasoningDetailsDelta(
-      details: Chunk[ReasoningDetail]
+      details: Chunk[ReasoningDetail],
+      providerMetadata: Map[String, Json] = Map.empty
   ) extends LlmChunk derives JsonCodec
 
+  /** Provider metadata appends array fragments and otherwise retains the latest supplied value. */
   final case class ThinkingDelta(
       delta: String,
       blockIndex: Int = 0,
-      signature: Option[String] = None
+      signature: Option[String] = None,
+      providerMetadata: Map[String, Json] = Map.empty
   ) extends LlmChunk derives JsonCodec
 
   final case class ToolCallChunk(

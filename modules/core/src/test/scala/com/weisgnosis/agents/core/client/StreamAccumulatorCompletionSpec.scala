@@ -131,22 +131,73 @@ object StreamAccumulatorCompletionSpec extends ZIOSpecDefault:
       assertTrue(result.exists(_.message.toolUses.map(_.id) == Chunk("first", "second")))
     },
     test("indexed text and thinking blocks preserve order and signature fragments") {
+      val exactNumber = Json.Num(new java.math.BigDecimal("-9223372036854775808.123456789"))
+      val firstMetadata = Map(
+        "provider" -> Json.Str("old"),
+        "items"    -> Json.Arr(Json.Str("a"), Json.Str("b")),
+        "changing" -> Json.Arr(Json.Str("before")),
+        "object"   -> Json.Obj("old" -> Json.Bool(true)),
+        "exact"    -> exactNumber
+      )
+      val nextMetadata = Map(
+        "provider" -> Json.Str("new"),
+        "items"    -> Json.Arr(Json.Str("c")),
+        "changing" -> Json.Str("replaced"),
+        "object"   -> Json.Obj("new" -> Json.Bool(true))
+      )
+      val expectedMetadata = firstMetadata ++ nextMetadata ++ Map(
+        "items"    -> Json.Arr(Json.Str("a"), Json.Str("b"), Json.Str("c")),
+        "changing" -> Json.Arr(Json.Str("after"))
+      )
+      val first    = assemble(LlmChunk.ThinkingDelta("reason ", 0, Some("sig-"), firstMetadata))
+      val snapshot = first.map(_.toInterrupted.message)
       val result = assemble(
-        LlmChunk.ThinkingDelta("reason ", 0, Some("sig-")),
+        LlmChunk.ThinkingDelta("reason ", 0, Some("sig-"), firstMetadata),
         LlmChunk.TextDelta("first ", 0),
         LlmChunk.ThinkingDelta("second", 1, Some("other")),
         LlmChunk.TextDelta("block", 0),
-        LlmChunk.ThinkingDelta("done", 0, Some("end")),
+        LlmChunk.ThinkingDelta("done", 0, Some("end"), nextMetadata),
+        LlmChunk.ThinkingDelta(
+          "",
+          0,
+          providerMetadata = Map(
+            "items"    -> Json.Arr(),
+            "changing" -> Json.Arr(Json.Str("after"))
+          )
+        ),
         LlmChunk.FinishReason("stop")
       ).flatMap(_.toTurnOutput)
       assertTrue(
         result.exists(
           _.message.content == Chunk(
-            ContentBlock.Thinking("reason done", Map("thoughtSignature" -> Json.Str("sig-end"))),
+            ContentBlock.Thinking(
+              "reason done",
+              Map(
+                "thoughtSignature" -> Json.Str("sig-end"),
+                "providerMetadata" -> Json.Obj(Chunk.fromIterable(expectedMetadata))
+              )
+            ),
             ContentBlock.Text("first block"),
             ContentBlock.Thinking("second", Map("thoughtSignature" -> Json.Str("other")))
           )
-        )
+        ),
+        snapshot.exists(
+          _.content == Chunk(
+            ContentBlock.Thinking(
+              "reason ",
+              Map(
+                "thoughtSignature" -> Json.Str("sig-"),
+                "providerMetadata" -> Json.Obj(Chunk.fromIterable(firstMetadata))
+              )
+            )
+          )
+        ),
+        first
+          .flatMap(_.feed(LlmChunk.ThinkingDelta("later", providerMetadata = nextMetadata)))
+          .exists(
+            _.toInterrupted.message.content != snapshot.map(_.content).getOrElse(Chunk.empty)
+          ),
+        snapshot == first.map(_.toInterrupted.message)
       )
     },
     test("signature-only thinking blocks survive interruption and completion") {
@@ -154,9 +205,24 @@ object StreamAccumulatorCompletionSpec extends ZIOSpecDefault:
         assemble(LlmChunk.ThinkingDelta("", 2, Some(" signed ")), LlmChunk.FinishReason("stop"))
       val expected =
         Chunk(ContentBlock.Thinking("", Map("thoughtSignature" -> Json.Str(" signed "))))
+      val metadataOnly = assemble(
+        LlmChunk.ThinkingDelta("", providerMetadata = Map("provider" -> Json.Str("only"))),
+        LlmChunk.FinishReason("stop")
+      ).flatMap(_.toTurnOutput)
       assertTrue(
         acc.flatMap(_.toTurnOutput).exists(_.message.content == expected),
-        acc.exists(_.toInterrupted.message.content == expected)
+        acc.exists(_.toInterrupted.message.content == expected),
+        metadataOnly.exists(output =>
+          output.isInstanceOf[TurnOutput.FinalText] && !output.message.hasReasoning &&
+            output.message.content == Chunk(
+              ContentBlock.Thinking(
+                "",
+                Map(
+                  "providerMetadata" -> Json.Obj("provider" -> Json.Str("only"))
+                )
+              )
+            )
+        )
       )
     },
     test("usage is the latest snapshot and may arrive after the finish marker") {
@@ -180,13 +246,39 @@ object StreamAccumulatorCompletionSpec extends ZIOSpecDefault:
       )
     },
     test("negative indexes blank identities and empty finish reasons fail") {
+      val reserved = Chunk(
+        "reasoningDetails",
+        "reasoning_details",
+        "thoughtSignature",
+        "signature",
+        "providerMetadata"
+      )
       assertTrue(
         assemble(LlmChunk.TextDelta("text", -1)).isLeft,
         assemble(LlmChunk.ThinkingDelta("reason", -1)).isLeft,
         assemble(LlmChunk.ToolCallChunk(-1)).isLeft,
         assemble(LlmChunk.ToolCallChunk(0, Some(" "))).isLeft,
         assemble(LlmChunk.ToolCallChunk(0, name = Some(""))).isLeft,
-        assemble(LlmChunk.FinishReason("")).isLeft
+        assemble(LlmChunk.FinishReason("")).isLeft,
+        reserved.forall(key =>
+          assemble(
+            LlmChunk.ThinkingDelta("", providerMetadata = Map(key -> Json.Str("forged")))
+          ).isLeft &&
+            assemble(
+              LlmChunk.ReasoningDetailsDelta(Chunk.empty, Map(key -> Json.Str("forged")))
+            ).isLeft
+        ),
+        assemble(
+          LlmChunk.ThinkingDelta(
+            "",
+            providerMetadata = Map(
+              "nested" -> Json.Obj("duplicate" -> Json.Num(1), "duplicate" -> Json.Num(2))
+            )
+          )
+        ).isLeft,
+        assemble(
+          LlmChunk.ThinkingDelta("", providerMetadata = Map("text" -> Json.Str("\uD800")))
+        ).isLeft
       )
     }
   )
