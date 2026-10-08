@@ -1,6 +1,6 @@
 # Architecture implementation tracker
 
-Last synchronized: 2026-10-08. The original six-phase plan is the completion contract. The plans at `6fe93a5` and audited `c9adcb4` are the reference for promised behavior. The selected release-candidate checklist is a verification subset, never a substitute for that plan. No promised capability is removed or waived by describing a narrower current API.
+Last synchronized: 2026-10-08. The original library deliverables are the completion contract. WeisGnosis OS production cutover and its Temporal end-to-end tests are a separate product task, explicitly excluded from completion of this repository by the user on 2026-10-08. The plans at `6fe93a5` and audited `c9adcb4` are the reference for promised behavior. The selected release-candidate checklist is a verification subset, never a substitute for that plan. No promised capability is removed or waived by describing a narrower current API.
 
 ## Controlling original plan
 
@@ -10,12 +10,14 @@ Last synchronized: 2026-10-08. The original six-phase plan is the completion con
 - [ ] Phase 2: complete tool/client behavior and applicable upstream parity. Declared Draft 4, 6, 7, 2019-09 and 2020-12 schema admission is implemented; remaining method and provider/transport applicability stay open.
 - [ ] Phase 3: close remaining ReAct lifecycle/interruption/hook method mappings. Existing runtime behavior has scoped acceptance; whole-phase parity has not been established.
 - [ ] Phase 4: complete remaining harness/permission/memory/transcript applicability and integration obligations. Existing compaction, eviction, memory, permission and Plan implementations are accepted only within their linked contracts.
-- [ ] Phase 5: finish protocol preference/method applicability, durable workspace/task restoration and remaining subagent/MCP behavior mappings. Embedded-resource projection, bounded March 2025 batch messages, selected legacy SSE and model-facing task listing are implemented and verified below; they do not close the whole phase.
-- [ ] Phase 6: perform the originally planned WeisGnosis OS cutover, including WeisGnosisAgentProvider, replacement of legacy host glue and Temporal Activity end-to-end verification. These are host/product changes; library ports and examples do not complete this phase.
+- [ ] Phase 5: finish remaining protocol methods, durable named-session/task restoration and remaining subagent/MCP behavior mappings. Embedded-resource projection, bounded March 2025 batch messages, selected legacy SSE and model-facing task listing are implemented and verified below; they do not close the whole phase.
+Phase 6 in the historical plan describes the separate WeisGnosis OS product cutover. It is not a library completion gate. This repository must document its integration contracts; installing and verifying them in the product is separate work.
 
-The repository does not currently support a defensible whole-plan completion percentage. The pinned inventory contains 2,473 annotated Java core test declarations, with only named finite inventories classified. Test totals, source lines and available module counts cannot supply the missing denominator. The [parity audit](test-parity.md) owns detailed method evidence.
+Completion is assessed against concrete promised library behaviors and their acceptance evidence. The 2,473 pinned Java test declarations are a source inventory, not 2,473 required Scala implementations or an automatic completion blocker. Remaining applicability work must produce a finite list of missing observable library contracts, with explicit justification for Java-only API adaptations. The [parity audit](test-parity.md) owns detailed method evidence.
 
 ## Immediate next work
+
+Next source task: reproduce and correct MCP embedded-resource projection at the actual next-model-request boundary.
 
 Execute the original scope without substituting a narrower release checklist. Package contracts own exact source identities, independent acceptance and verification evidence; Git retains previous delivery sequences.
 
@@ -28,32 +30,30 @@ Execute the original scope without substituting a narrower release checklist. Pa
 - [x] Implement physical local workspace JSON and actual mixed-state/result/count/reopen behavior (WorkspaceTaskRepositoryTest 469); both reviewers approve eight exact Scala identities and focused/full/artifact/archive checks pass.
 - [x] Pass fresh standalone consumption against all four verified artifacts.
 - [x] review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings.
-- [x] Implement/source-review host-driven stale-owner reconciliation and its admission gate (578/614/665 and 716/734/761), with explicit recovery authority; both reviewers approve six Scala identities. Remote-transport case687 remains open.
+- [x] Implement/source-review host-driven stale-owner reconciliation and its admission gate (578/614/665 and 716/734/761), with explicit recovery authority; both reviewers approve six Scala identities. Persisted-origin case687 is implemented under the current acceptance gates below.
 - [x] Reproduce draft Infinity-policy admission and unnecessary host-authority acquisition for retained local tasks before correction; actual RED logs are linked by the package contract.
 - [x] Pass final recovery focused contracts: 28 harness and two actual PostgreSQL groups, including renewed finite-default and reusable-gate boundary checks.
 - [x] Pass recovery full verification, four packages, negative archive admission/restoration and fresh standalone consumption.
 - [x] review_fp and review_invariants approve the final combined scope against b4e3b37: six unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
 - [x] review_fp and review_invariants approve the final combined scope against 7b59bc9: six unchanged Scala identities and sixteen Markdown files, with no unresolved findings; focused/full/artifact/archive/consumer checks pass for local discovery and the shared cancellation-provenance correction.
-- [ ] Current implementation: persist explicit trusted execution origin and exclude agent-protocol task records from local recovery (method687); endpoint execution/polling remains a separate contract.
-- [ ] Complete durable reusable-session restoration, remote routing/discovery and cross-process owner recovery with explicit ownership/fencing.
+- [x] Implement and independently source-review explicit persisted execution origin and agent-protocol recovery exclusion687; final combined acceptance passes below. Endpoint execution/polling is separate.
+- [ ] Complete durable reusable-session restoration and retained workspace-file routing with explicit host ownership. Distributed claims/fencing remain host integration requirements.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
-- [ ] Execute the original WeisGnosis OS cutover and Temporal Activity end-to-end verification under Phase 6.
 
-## Remaining effort
+## Remaining library completion work
 
-These are provisional engineering effort ranges, including implementation, proportionate verification, independent review/corrections and documentation. They are not elapsed wall-clock forecasts, token estimates or a quote for the entire original plan. Concurrent agents can overlap independent work; integration and final review remain sequential gates.
+This finite backlog follows independent source inspection by review_fp and review_invariants on 2026-10-08. It covers promised observable library behavior, not Java API shape, test declaration totals or WeisGnosis OS deployment. Estimates below are provisional engineering effort including tests, review and documentation, not elapsed agent runtime or token forecasts. Existing implementations must be reused rather than recreated.
 
-| Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
-| --- | --- | --- |
-| Persisted remote execution origin (task-repository method687) | Decomposed scope pending source estimate | Persist a typed trusted execution origin and exclude agent-protocol records before local stale-owner recovery; host-supplied Remote decisions alone do not close this assertion. |
-| Workspace task-file routing (method857) | Port decomposition required | Route arbitrary task-file read/write through a borrowed host filesystem backend with namespace isolation; conditional JSON publication is a different contract. |
-| Remaining method applicability and resulting behavior | Not yet estimated | The finite inventories do not classify all 2,473 pinned core declarations. An evaluator dependency or passing suites cannot close unknown obligations. |
+- [x] Accept persisted execution-origin/recovery exclusion687: both reviewers approve the final 23-file combined scope against a5da755; focused/full/database/artifact/consumer checks pass.
+- [ ] Add persistent named-child selection and restoration: deterministic parent/agent/label identity, bounded saved conversation/suspended state, validated hydration into a fresh current host factory, and reuse through spawn/send. Reuse existing retained sessions, run locks, checkpoint import and versioned storage; never deserialize live resources or old fibers. Provisional incremental effort: 16–32 engineering hours.
+- [ ] Correct MCP embedded-resource request projection: retain lossless canonical resource data while presenting supported visible text/image/binary descriptions to the actual next model request. Reproduce the converter-to-formatter failure before correction. Provisional effort: 6–12 engineering hours.
+- [ ] Implement retained workspace task-file routing857 through a borrowed byte-file capability with checked agent/session namespace isolation. This is file routing, not a remote execution service or another CAS database. Provisional effort: 8–14 engineering hours.
+- [ ] Resolve the selected pending-delivery timestamp-order assertion against publication ordering, including an explicit legacy-undated policy; correct applicable behavior with a regression rather than claim equivalent ordering. Provisional effort: 4–8 engineering hours.
+- [ ] Finish the finite original-deliverable/research-lesson disposition, platform/live validation and publication documentation, then perform final independent review and required verification. Provisional audit/documentation effort: 4–8 engineering hours; live availability is external.
 
-- [ ] Complete the remaining method-applicability inventory and estimate the resulting concrete implementation backlog. No whole-plan total is asserted before this work identifies what remains.
-- [ ] Estimate and execute the original product cutover against its host sources and deployment contract; no product implementation or cutover is claimed here.
-- [ ] Estimate external CI/distribution work after the repository, destination and operational setup exist; these are not assumed zero-cost tasks.
+The estimates are source-based human engineering effort ranges, not a promise of several weeks of agent execution; parallel preparation overlaps work and automated checks have separate observed runtimes. The current origin increment is already implemented and source-approved, so its earlier implementation estimate is not counted again. Concrete newly reproduced contract failures may change this backlog; they must be named and evidenced rather than expanding an indefinite method-count target.
 
-These estimates share persistence/verification work and must not be summed into a project forecast. Durable reusable-session restoration and cross-process owner recovery remain unestimated until their finite contracts are decomposed. The bounded original-definition catalogue now has source approvals and passing focused/full/artifact checks; final combined documentation approval passed against 63776a7 for two unchanged Scala identities and fourteen Markdown files. The [27-commit delta](test-parity.md#upstream-delta-checked-on-2026-10-08) also requires applicability decisions for search, provider replay/formatting, middleware lifecycle, tracing and persistence behavior. Classification does not implement or waive them.
+Host authentication, exclusive durable execution claims/fencing, remote execution endpoints and background scheduling remain explicit integration requirements. Sandbox/container snapshots, archive extraction and mount/permission policies apply when a host installs such backends; their absence does not mandate implementing an unused platform inside this library. Phase 6 WeisGnosis OS cutover and Temporal product tests are separate work. Remote CI/publication require a configured destination and are not claimed completed by local packaging.
 
 ## Current delivery gates
 
@@ -62,23 +62,23 @@ These estimates share persistence/verification work and must not be summed into 
 - [x] Compaction preserves occurrence-aware call/result pairs, summary deduplication and raw-user provenance. [Overflow-safe estimates](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#overflow-safe-token-estimates) preserve trigger/cutoff authority.
 - [x] Eviction, daily/curated memory, local/remote transcript adapters, interactive/checkpoint permissions and Plan governance have accepted explicit ownership boundaries.
 - [x] Scoped subagents, promotion, retained sessions, task registry/inbox, bounded model-facing enumeration and explicitly installed child policies have reviewed source scopes and full verification.
-- [x] MCP tool/resource discovery, stdio, legacy HTTP/SSE, Streamable HTTP and transport-compatible explicit revision profiles have reviewed selected contracts; automatic preference negotiation and broader revision methods remain applicability work.
+- [x] MCP tool/resource discovery, stdio, legacy HTTP/SSE, Streamable HTTP and transport-compatible explicit revision profiles have reviewed selected contracts; broader revision methods require finite applicability classification. Pinned SDK version selection proposes the last configured version and accepts supported server alternatives; it does not implement ranked probing or fallback.
 - [x] Optional PostgreSQL CAS and composed storage adapters pass actual database verification. [Cold-schema fixture provisioning](../../modules/storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/README.md#cold-schema-provisioning) is serialized separately from concurrent DML; production schema provisioning remains host-owned.
 - [x] Four RC1 module artifacts, exact source-archive admission and an independent external consumer pass local verification.
 
 ## Current acceptance
 
-The [local task workspace contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-task-workspace) owns six exact Scala identities against 7b59bc9, manifest 25349389e005a7a8a1bf1f9dad4523060414fc2739a4a4fd9005c4bec91fa237. It implements bounded session-separated read-only discovery with actual inclusive file-mtime filtering and no competing writer lease. The shared resource checkpoint preserves original caller interruption IDs and operation/cleanup causes.
+The [persisted execution-origin contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persisted-execution-origin) owns twelve exact Scala identities against a5da755, manifest e18b7d8a8fe45317beda85098f30fa591f462a8b186efbfd3e9652577e9dca17. Persisted AgentProtocol observations remain outside local recovery/execution authority; strict schema-7 writes retain origin, and original schemas 1–6 read as Local without writes.
 
-- [x] review_fp and review_invariants approve all six exact Scala identities, with no unresolved source findings.
-- [x] target/task-discovery-focused.log passes 28 groups, zero failed/ignored/compiler warnings, in 1.058 seconds.
-- [x] Reproduce the accepted WorkspaceLease exact-controller defect before correction and retain separate draft-kernel RED/diagnostic evidence in the [storage contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#caller-interruption-provenance).
-- [x] target/task-discovery-final-verify.log passes formatting/fatal-warning compilation, 1,653 tests (695 core / 796 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
-- [x] target/task-discovery-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
-- [x] target/task-discovery-final-consumer.log passes fresh standalone formatting/compilation/execution and four artifact-hash checks; its unchanged selected-API probe does not directly exercise discovery/provenance.
-- [x] review_fp and review_invariants approve the final combined scope against 7b59bc9: six unchanged Scala identities and sixteen Markdown files, with no unresolved findings; English prose and local links checked.
+- [x] review_fp and review_invariants approve all twelve exact Scala identities, with no unresolved source findings.
+- [x] target/task-origin-focused.log passes 29 groups, zero failed/ignored/compiler warnings, in 1.277 seconds.
+- [x] Save the URI draft RED and distinguish the migrated legacy fixture failure from production decoder defects.
+- [x] target/task-origin-final-verify.log passes formatting/fatal-warning compilation, 1,654 tests (695 core / 797 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/task-origin-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
+- [x] target/task-origin-final-consumer.log passes fresh standalone formatting/compilation/execution and four artifact-hash checks. Its unchanged selected-API probe is not direct origin coverage.
+- [x] review_fp and review_invariants approve the final 23-file combined scope against a5da755: twelve unchanged Scala identities and eleven Markdown files, no unresolved findings. English prose, local links and diff checks pass.
 
-The finite task-repository inventory retains 23 bounded accepted methods and two unimplemented methods687/857. Cross-process fencing, executable restoration, whole-plan applicability and actual product cutover remain open. [Host-driven recovery](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-driven-task-recovery) retains its accepted bounded scope; it does not infer remote execution origin or provide remote filesystem routing.
+The finite task-repository inventory has 24 bounded accepted methods; task-file routing857 remains open. Both reviewers approve final combined acceptance of687 above. Persistent named-session restoration and the other finite [library completion tasks](#remaining-library-completion-work) remain visible without importing product cutover into this repository.
 
 ## Available capabilities
 
@@ -95,16 +95,17 @@ Pair-safe compaction/pruning, offload, bounded memory/transcript publication, kn
 - [x] Implement and independently source-review bounded connection-local discovered-tool catalogue acquisition/lookup/close semantics; full and artifact verification pass, with final combined documentation approval passed against 63776a7. Pinned sync/async wrapper initialization and cached-lookup tests require original remote definitions; immutable registered Toolkit snapshots already cover the separate discovery bridge.
 - [x] Implement a server-selected alternative from explicitly configured supported MCP revisions, with both independent source approvals and full verification. Final combined delivery gates remain visible above; remaining builder methods are not automatically accepted.
 - [x] Persist bounded terminal observations with automatic registry-owned publication and reopened model-facing output/list/filter, including failed results and owner isolation; source and full/artifact checks pass.
-- [x] Classify all 25 pinned WorkspaceTaskRepositoryTest methods: twenty-three accepted bounded observable adaptations, zero partial and two open; the [method inventory](test-parity.md#workspace-task-repository-method-inventory) owns exact assertions and differences.
-- [ ] Complete the two open task-repository methods687/857 and separately classified TaskRecord metadata. Method444 has verified durable Running/result/mixed-count semantics and physical JSON assertion469 under the linked local adapter contract; it does not assert metadata fields or timestamps.
+- [x] Classify all 25 pinned WorkspaceTaskRepositoryTest methods: twenty-four accepted bounded observable adaptations and open857; the [method inventory](test-parity.md#workspace-task-repository-method-inventory) owns exact assertions and differences.
+- [ ] Complete task-file routing857 and classify separately selected TaskRecord metadata. Method444 has verified durable Running/result/mixed-count semantics and physical JSON assertion469 under the linked local adapter contract; it does not assert metadata fields or timestamps.
 - [x] Implement/source-review the bounded [current-owner cancellation adaptation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-cancellation-intent) of method263; its final combined approval is recorded above.
 - [x] Implement/source-review publication-before-notification and per-submission suppression for WorkspaceTaskRepositoryTest methods882/923; final combined documentation approval is recorded above. Remote durable wakeup replay remains separate.
-- [ ] Decompose and implement durable reusable-session restoration and cross-process owner recovery with explicit host ownership/fencing. A stable-name/hash helper or persisted result does not restore execution authority.
+- [ ] Complete durable reusable-session restoration through fresh trusted factories and validated saved state. Cross-process execution claims/fencing are supplied by the host; stored data does not grant that authority.
 
 - [ ] Complete the applicable upstream method mappings for clients/providers, ReAct lifecycle/hooks/events, permission delivery and richer subagent behavior; retain every original semantic obligation until implemented and independently accepted.
-- [ ] Complete original host persistence, authenticated delivery, exclusive checkpoint claims and idempotency integration; serializable data is insufficient by itself.
+- [x] Classify research requirements 15/26/28–33 against actual adapter boundaries in the [research catalogue](../deep-research-and-porting-guide.md#3-catalog-of-production-edge-cases-35-hard-lessons). Explicit addresses do not infer anonymous tenants; remote noninteractive approval and sandbox/archive/snapshot/container policies apply when those backends are installed. No absent subsystem is claimed implemented or added as an unused platform requirement.
+Host integration requirement: authenticated delivery, exclusive checkpoint claims and idempotency remain host responsibilities. The library documents and exposes checked state/ownership ports; actual product installation is separate work.
 - [ ] Complete remaining selected remote-adapter discovery/pruning/layout-migration contracts. Physical deletion requires all-reader/writer fencing or quiescence, generation/tombstone ABA protection, enumeration and uncertain-delete recovery; current CAS alone cannot safely provide them.
-- [ ] Complete string-ID model selection, remaining metadata applicability and broader schema/provider transformations where applicable to the retained upstream scope; Pure FP is not a reason to exclude their behavior.
+- [ ] Finish finite classification of remaining metadata/provider transformations against actual promised behavior. Injected clients already provide model selection; a Java string-ID registry or builder shape is not itself a missing library capability.
 - [ ] Verify platform-specific symlink/junction behavior and the actual supported trust model. Canonical path checks are not an atomic filesystem sandbox; hostile mutation and crash/fsync guarantees are not established.
 - [ ] Verify live cancellation/resource release and additional required completion/media/structured-output profiles. The successful bounded smoke below does not cover those paths.
 

@@ -1,5 +1,7 @@
 # Scoped child execution verification
 
+The [persisted execution-origin contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#persisted-execution-origin) records current source identities and delivery gates. The URI table, existing store/recovery groups and rejected-admission table verify strict migration, remote exclusion before authority, identity guards and joined rollback. Actual PostgreSQL coverage is recorded by the database package.
+
 ## Local task workspace verification
 
 The [current contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-task-workspace) has both independent source approvals against 7b59bc9 for six exact Scala identities. Focused verification passes 28 groups, including the two new physical-workspace groups and strengthened existing interruption-provenance oracles. Full verification passes 1,653 tests and four packages; archive admission and fresh standalone consumption pass. review_fp and review_invariants approve the final combined scope against 7b59bc9: six unchanged Scala identities and sixteen Markdown files, with no unresolved findings.

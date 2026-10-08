@@ -79,6 +79,16 @@ Optional local adapters persist memory, transcripts, tool results and plan draft
 
 ## 3. Catalog of Production Edge Cases (35 Hard Lessons)
 
+This catalogue records research requirements, not implemented-capability claims. Current contracts and acceptance are linked from the [tracker](architecture/tracker.md). Independent library/host boundary inspection by review_fp and review_invariants on 2026-10-08 identifies the following conditional obligations; no absent backend is silently claimed implemented or required as a new platform inside this library.
+
+- [x] Classify lesson 15: a noninteractive remote invocation adapter must reject an Ask decision instead of waiting for an absent human publisher. The existing local Promise authorizer is interactive; no remote invocation adapter is supplied here.
+- [x] Classify lesson 26: namespace-owning adapters must define anonymous-user isolation if they accept absent identity. Current typed StorageAddress requires explicit nonblank host-selected components and does not infer an anonymous tenant.
+- [x] Classify lesson 28: container isolation applies to a sandbox backend; current library resource scopes and path checks do not claim container isolation.
+- [x] Classify lesson 29: archive traversal protection applies to an extracting adapter. No production archive unpacker is supplied; canonical path screening is not claimed as ZipSlip verification.
+- [x] Classify lessons 30–33: snapshot lineage, snapshot-before-session-finalization, mount exclusion and native file permissions belong to an installed sandbox/container backend. No such backend is supplied or implied by local persistence.
+
+These checked items record applicability and activation boundaries, not completion of hypothetical sandbox/remote subsystems. Durable named-session restoration remains a concrete library obligation under lesson 18. WeisGnosis OS deployment and Temporal product tests are separate from library completion by explicit user instruction.
+
 An analysis of 336 unit and integration tests across `agentscope-core` and `agentscope-harness` identified 35 critical production edge cases:
 
 ### 3.1. Core ReAct Loop & Model Protocol (`agents-core`)

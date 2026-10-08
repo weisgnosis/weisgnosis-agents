@@ -43,13 +43,131 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
     }
     def instant(using Trace): UIO[Instant] = calls.update(_ + 1) *> underlying.instant
 
+  private def remoteOriginContract: ZIO[TestEnvironment, AgentError, TestResult] =
+    for
+      backend <- SubagentTerminalStoreSpec.fixture
+      address <- ZIO.fromEither(StorageAddress.from(Chunk("origin"), "records"))
+      store = SubagentTerminalStore.make(backend.store, address)
+      endpoint <- ZIO.fromEither(SubagentProtocolBaseUri.from("http://remote-agent:8080"))
+      id = SubagentTaskId(new UUID(0L, 49L))
+      admission <- store.admitAgentProtocol(id, endpoint)
+      identity <- admission match
+        case SubagentTaskAdmissionResult.Created(value) => ZIO.succeed(value)
+        case other => ZIO.fail(AgentError.StorageError(s"Unexpected remote admission: $other"))
+      pending    <- store.taskRecord(id)
+      before     <- backend.store.read(address)
+      localStart <- store.confirmStart(identity.copy(origin = SubagentExecutionOrigin.Local)).either
+      localRemoteStart <- store.confirmStart(identity).either
+      heartbeat        <- store.refreshHeartbeat(identity).either
+      wrongIntent <- store
+        .requestCancellation(id, Some(identity.copy(origin = SubagentExecutionOrigin.Local)))
+        .either
+      afterRejected <- backend.store.read(address)
+      started       <- store.confirmAgentProtocolStart(identity)
+      running       <- store.taskRecord(id)
+      output = SubagentTerminalRecord(
+        id,
+        SubagentTerminalOutcome.Completed("remote exact"),
+        origin = identity.origin
+      )
+      wrongPublication <- store.publish(output.copy(origin = SubagentExecutionOrigin.Local)).either
+      _                <- store.publish(output)
+      _                <- store.acknowledge(id)
+      terminal         <- store.taskRecord(id)
+      repeated         <- store.publish(output)
+      stamp            <- store.acknowledgement(id)
+      finalBytes       <- backend.store.read(address)
+      migrations <- ZIO.foreach(Chunk(5, 6)): version =>
+        for
+          target <- ZIO.fromEither(
+            StorageAddress.from(Chunk("origin", s"legacy$version"), "records")
+          )
+          current <- ZIO
+            .fromOption(finalBytes)
+            .orElseFail(AgentError.StorageError("Missing schema fixture"))
+          legacy = current.value match
+            case Json.Obj(fields) =>
+              Json.Obj(fields.map:
+                case ("schemaVersion", _) => "schemaVersion" -> Json.Num(version)
+                case ("records", Json.Arr(records)) =>
+                  "records" -> Json.Arr(records.map:
+                    case Json.Obj(entry) =>
+                      Json.Obj(entry.filterNot:
+                        case (key, _) =>
+                          key == "origin" || (version == 5 && key == "cancellationIntent"))
+                    case value => value)
+                case pair => pair)
+            case value => value
+          _ <- backend.values.update(_.updated(target, current.copy(value = legacy)))
+          reader = SubagentTerminalStore.make(backend.store, target)
+          normalized <- reader.taskRecords
+          unchanged  <- backend.store.read(target)
+          spoof = legacy match
+            case Json.Obj(fields) =>
+              Json.Obj(fields.map:
+                case ("records", Json.Arr(records)) =>
+                  "records" -> Json.Arr(records.map:
+                    case Json.Obj(entry) =>
+                      Json.Obj(entry :+ ("origin" -> Json.Obj("Local" -> Json.Obj())))
+                    case value => value)
+                case pair => pair)
+            case value => value
+          _        <- backend.values.update(_.updated(target, current.copy(value = spoof)))
+          rejected <- reader.taskRecords.either
+        yield normalized.forall(
+          _.origin == SubagentExecutionOrigin.Local
+        ) && normalized.size == 1 &&
+          unchanged.exists(_.value == legacy) && rejected.isLeft
+      missingOrigin = finalBytes
+        .map(_.value)
+        .map:
+          case Json.Obj(fields) =>
+            Json.Obj(fields.map:
+              case ("records", Json.Arr(records)) =>
+                "records" -> Json.Arr(records.map:
+                  case Json.Obj(entry) => Json.Obj(entry.filterNot(_._1 == "origin"))
+                  case value           => value)
+              case pair => pair)
+          case value => value
+      _ <- ZIO.foreachDiscard(finalBytes.zip(missingOrigin))((record, value) =>
+        backend.values.update(_.updated(address, record.copy(value = value)))
+      )
+      missingRejected <- store.taskRecords.either
+    yield assertTrue(
+      identity.origin == SubagentExecutionOrigin.AgentProtocol(endpoint),
+      pending.exists(_.origin == identity.origin),
+      pending.exists(_.state == SubagentTaskRecordState.Pending),
+      localStart.isLeft,
+      localRemoteStart.isLeft,
+      heartbeat.isLeft,
+      wrongIntent.isLeft,
+      before == afterRejected,
+      started == SubagentTaskStartResult.Started,
+      running.exists(record =>
+        record.origin == identity.origin && record.state == SubagentTaskRecordState.Running
+      ),
+      wrongPublication.isLeft,
+      terminal.flatMap(_.terminal).contains(output),
+      repeated match
+        case SubagentTerminalPublication.AlreadyStored(_) => true
+        case _                                            => false
+      ,
+      stamp.exists:
+        case SubagentTerminalAcknowledgement.Acknowledged(_) => true
+        case _                                               => false
+      ,
+      migrations.forall(value => value),
+      missingRejected.isLeft
+    )
+
   def spec: Spec[TestEnvironment, Any] = suite("SubagentTaskRecordSpec")(
     test(
       "confirmed admissions retain exact identity and observed timestamps through start, terminal publication and acknowledgement; legacy data gains no invented times"
     ):
       for
-        backend <- SubagentTerminalStoreSpec.fixture
-        target  <- ZIO.fromEither(StorageAddress.from(Chunk("admission"), "records"))
+        remoteChecks <- remoteOriginContract
+        backend      <- SubagentTerminalStoreSpec.fixture
+        target       <- ZIO.fromEither(StorageAddress.from(Chunk("admission"), "records"))
         store    = SubagentTerminalStore.make(backend.store, target)
         id       = SubagentTaskId(new UUID(0L, 41L))
         legacyId = SubagentTaskId(new UUID(0L, 42L))
@@ -128,7 +246,7 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
             _         <- reopened.acknowledge(legacyId)
             after     <- reopened.taskRecords
           yield (before == afterRead && checked.isEmpty, records, after)
-      yield assertTrue(
+      yield remoteChecks && assertTrue(
         pending.contains(
           SubagentTaskRecord(
             id,
@@ -209,8 +327,13 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
               case ("schemaVersion", _) => "schemaVersion" -> Json.Num(5)
               case ("records", Json.Arr(records)) =>
                 "records" -> Json.Arr(records.map:
-                  case Json.Obj(entry) => Json.Obj(entry.filterNot(_._1 == "cancellationIntent"))
-                  case other           => other)
+                  case Json.Obj(entry) =>
+                    Json.Obj(
+                      entry.filterNot(pair =>
+                        pair._1 == "cancellationIntent" || pair._1 == "origin"
+                      )
+                    )
+                  case other => other)
               case pair => pair)
           case other => other
         _           <- backend.values.update(_.updated(target, raw.copy(value = schema5)))

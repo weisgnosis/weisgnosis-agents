@@ -67,7 +67,7 @@ object SubagentTaskRecovery:
     def local(expected: SubagentTaskRecord): Either[AgentError, Permit] =
       expected.state match
         case SubagentTaskRecordState.Pending | SubagentTaskRecordState.Running
-            if expected.metadata.nonEmpty =>
+            if expected.metadata.nonEmpty && expected.origin == SubagentExecutionOrigin.Local =>
           Right(new Permit(expected))
         case _ =>
           Left(AgentError.InvalidConfiguration("Recovery requires an admitted nonterminal record"))

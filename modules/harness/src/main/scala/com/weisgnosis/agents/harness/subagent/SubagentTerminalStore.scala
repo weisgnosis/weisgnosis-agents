@@ -89,6 +89,28 @@ trait SubagentTerminalStore:
       )
     )
 
+  /** Trusted remote producer admission only; this does not launch or contact an executor. */
+  def admitAgentProtocol(
+      id: SubagentTaskId,
+      baseUri: SubagentProtocolBaseUri,
+      workerId: Option[SubagentWorkerId] = None
+  ): IO[AgentError, SubagentTaskAdmissionResult] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration(
+        s"Agent protocol admission is unsupported for ${id.value}, ${baseUri.value} and worker $workerId"
+      )
+    )
+
+  /** Trusted observation transition; never authorizes a local child or network request. */
+  def confirmAgentProtocolStart(
+      identity: SubagentTaskAdmissionIdentity
+  ): IO[AgentError, SubagentTaskStartResult] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration(
+        s"Agent protocol start is unsupported for ${identity.id.value}"
+      )
+    )
+
   /** Refresh only the exact admitted Running identity; this does not establish execution ownership. */
   def refreshHeartbeat(
       identity: SubagentTaskAdmissionIdentity
@@ -225,7 +247,14 @@ object SubagentTerminalStore:
       state: LegacyState,
       metadata: Option[SubagentTaskMetadata]
   ) derives JsonCodec:
-    def current: Entry = Entry(id, workerId, state.current, metadata)
+    def current: Entry = Entry(
+      id,
+      workerId,
+      state.current,
+      metadata,
+      SubagentCancellationIntent.NotRequested,
+      SubagentExecutionOrigin.Local
+    )
 
   final private case class Schema4Payload(schemaVersion: Int, records: Chunk[Schema4Entry])
       derives JsonCodec
@@ -236,9 +265,29 @@ object SubagentTerminalStore:
       state: SubagentTaskRecordState,
       metadata: Option[SubagentTaskMetadata]
   ) derives JsonCodec:
-    def current: Entry = Entry(id, workerId, state, metadata)
+    def current: Entry = Entry(
+      id,
+      workerId,
+      state,
+      metadata,
+      SubagentCancellationIntent.NotRequested,
+      SubagentExecutionOrigin.Local
+    )
 
   final private case class Schema5Payload(schemaVersion: Int, records: Chunk[Schema5Entry])
+      derives JsonCodec
+
+  final private case class Schema6Entry(
+      id: UUID,
+      workerId: Option[SubagentWorkerId],
+      state: SubagentTaskRecordState,
+      metadata: Option[SubagentTaskMetadata],
+      cancellationIntent: SubagentCancellationIntent = SubagentCancellationIntent.NotRequested
+  ) derives JsonCodec:
+    def current: Entry =
+      Entry(id, workerId, state, metadata, cancellationIntent, SubagentExecutionOrigin.Local)
+
+  final private case class Schema6Payload(schemaVersion: Int, records: Chunk[Schema6Entry])
       derives JsonCodec
 
   final private case class Entry(
@@ -246,15 +295,17 @@ object SubagentTerminalStore:
       workerId: Option[SubagentWorkerId],
       state: SubagentTaskRecordState,
       metadata: Option[SubagentTaskMetadata],
-      cancellationIntent: SubagentCancellationIntent = SubagentCancellationIntent.NotRequested
+      cancellationIntent: SubagentCancellationIntent,
+      origin: SubagentExecutionOrigin
   ) derives JsonCodec:
     def record: SubagentTaskRecord =
-      SubagentTaskRecord(SubagentTaskId(id), workerId, state, metadata, cancellationIntent)
+      SubagentTaskRecord(SubagentTaskId(id), workerId, state, metadata, cancellationIntent, origin)
     def terminal: Option[SubagentTerminalRecord] = record.terminal
     def matches(identity: SubagentTaskAdmissionIdentity): Boolean =
-      id == identity.id.value && workerId == identity.workerId && metadata.exists(
-        _.createdAt == identity.createdAt
-      )
+      id == identity.id.value && workerId == identity.workerId && origin == identity.origin && metadata
+        .exists(
+          _.createdAt == identity.createdAt
+        )
 
   final private case class Payload(schemaVersion: Int, records: Chunk[Entry]) derives JsonCodec
   final private case class Version(schemaVersion: Int) derives JsonCodec
@@ -299,6 +350,20 @@ object SubagentTerminalStore:
         id: SubagentTaskId,
         workerId: Option[SubagentWorkerId]
     ): IO[AgentError, SubagentTaskAdmissionResult] =
+      admitOrigin(id, workerId, SubagentExecutionOrigin.Local)
+
+    override def admitAgentProtocol(
+        id: SubagentTaskId,
+        baseUri: SubagentProtocolBaseUri,
+        workerId: Option[SubagentWorkerId]
+    ): IO[AgentError, SubagentTaskAdmissionResult] =
+      admitOrigin(id, workerId, SubagentExecutionOrigin.AgentProtocol(baseUri))
+
+    private def admitOrigin(
+        id: SubagentTaskId,
+        workerId: Option[SubagentWorkerId],
+        origin: SubagentExecutionOrigin
+    ): IO[AgentError, SubagentTaskAdmissionResult] =
       def attempt(
           remaining: Int,
           candidate: Option[Instant]
@@ -314,14 +379,16 @@ object SubagentTerminalStore:
                   id.value,
                   workerId,
                   SubagentTaskRecordState.Pending,
-                  Some(SubagentTaskMetadata(at, at, at))
+                  Some(SubagentTaskMetadata(at, at, at)),
+                  SubagentCancellationIntent.NotRequested,
+                  origin
                 )
                 result <- write(revision, records :+ entry)
                 admitted <- result match
                   case ConditionalWrite.Applied(_) =>
                     ZIO.succeed(
                       SubagentTaskAdmissionResult.Created(
-                        SubagentTaskAdmissionIdentity(id, workerId, at)
+                        SubagentTaskAdmissionIdentity(id, workerId, at, origin)
                       )
                     )
                   case ConditionalWrite.Conflict if remaining > 0 =>
@@ -337,6 +404,23 @@ object SubagentTerminalStore:
           ZIO.fail(AgentError.StorageError("The admitted task has a durable cancellation request"))
 
     override def confirmStart(
+        identity: SubagentTaskAdmissionIdentity
+    ): IO[AgentError, SubagentTaskStartResult] =
+      identity.origin match
+        case SubagentExecutionOrigin.Local => start(identity)
+        case _ => ZIO.fail(AgentError.StorageError("Local start requires a local admission origin"))
+
+    override def confirmAgentProtocolStart(
+        identity: SubagentTaskAdmissionIdentity
+    ): IO[AgentError, SubagentTaskStartResult] =
+      identity.origin match
+        case SubagentExecutionOrigin.AgentProtocol(_) => start(identity)
+        case _ =>
+          ZIO.fail(
+            AgentError.StorageError("Agent protocol start requires a remote admission origin")
+          )
+
+    private def start(
         identity: SubagentTaskAdmissionIdentity
     ): IO[AgentError, SubagentTaskStartResult] =
       def attempt(
@@ -450,7 +534,8 @@ object SubagentTerminalStore:
       ): IO[AgentError, SubagentTaskHeartbeatResult] =
         snapshot.flatMap: (revision, records) =>
           records.find(_.id == identity.id.value) match
-            case Some(existing) if existing.matches(identity) =>
+            case Some(existing)
+                if existing.matches(identity) && identity.origin == SubagentExecutionOrigin.Local =>
               existing.state match
                 case SubagentTaskRecordState.Terminal(_, _) =>
                   ZIO.succeed(SubagentTaskHeartbeatResult.AlreadyTerminal(existing.record))
@@ -518,7 +603,11 @@ object SubagentTerminalStore:
                   )
                 case ConditionalWrite.Conflict if remaining > 0 => attempt(remaining - 1)
                 case ConditionalWrite.Conflict => exhausted("Abandoned task reconciliation")
-      attempt(limits.maxConflicts)
+      if expected.origin == SubagentExecutionOrigin.Local then attempt(limits.maxConflicts)
+      else
+        ZIO.fail(
+          AgentError.InvalidConfiguration("Local recovery cannot reconcile an agent protocol task")
+        )
 
     override def markChecked(
         id: SubagentTaskId
@@ -610,10 +699,11 @@ object SubagentTerminalStore:
                       "A different terminal observation already occupies this task ID"
                     )
                   )
-            case Some(existing) if existing.workerId != record.workerId =>
+            case Some(existing)
+                if existing.workerId != record.workerId || existing.origin != record.origin =>
               ZIO.fail(
                 AgentError.StorageError(
-                  "Terminal observation does not match the admitted worker identity"
+                  "Terminal observation does not match the admitted worker and execution origin"
                 )
               )
             case existing =>
@@ -627,7 +717,9 @@ object SubagentTerminalStore:
                     record.workerId,
                     SubagentTaskRecordState
                       .Terminal(record.outcome, SubagentTerminalAcknowledgement.Pending),
-                    None
+                    None,
+                    SubagentCancellationIntent.NotRequested,
+                    record.origin
                   )
                 )(entry =>
                   entry.copy(
@@ -676,7 +768,7 @@ object SubagentTerminalStore:
 
     private def encode(records: Chunk[Entry]): Either[AgentError, Json] =
       for
-        value <- Payload(6, records).toJsonAST.left.map(AgentError.StorageError.apply)
+        value <- Payload(7, records).toJsonAST.left.map(AgentError.StorageError.apply)
         _     <- decode(value)
       yield value
 
@@ -695,7 +787,9 @@ object SubagentTerminalStore:
             SubagentTerminalAcknowledgement.Pending
           )(SubagentTerminalAcknowledgement.Acknowledged(_))
         ),
-        None
+        None,
+        SubagentCancellationIntent.NotRequested,
+        SubagentExecutionOrigin.Local
       )
 
     private def decode(value: Json): Either[AgentError.StorageError, Chunk[Entry]] =
@@ -751,6 +845,11 @@ object SubagentTerminalStore:
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
             yield (payload.records.map(_.current), canonical)
           case 6 =>
+            for
+              payload   <- rendered.fromJson[Schema6Payload].left.map(AgentError.StorageError.apply)
+              canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
+            yield (payload.records.map(_.current), canonical)
+          case 7 =>
             for
               payload   <- rendered.fromJson[Payload].left.map(AgentError.StorageError.apply)
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)

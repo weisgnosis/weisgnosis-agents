@@ -54,5 +54,6 @@ object SubagentTerminalOutcome:
 final case class SubagentTerminalRecord(
     id: SubagentTaskId,
     outcome: SubagentTerminalOutcome,
-    workerId: Option[SubagentWorkerId] = None
+    workerId: Option[SubagentWorkerId] = None,
+    origin: SubagentExecutionOrigin = SubagentExecutionOrigin.Local
 )

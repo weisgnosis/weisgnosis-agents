@@ -47,7 +47,7 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
     case Normal, CallerInterrupted
 
   private enum RejectedAdmission:
-    case Uncertain, Collision, CallerCancelled
+    case Uncertain, Collision, CallerCancelled, RemoteCreated
 
   private enum WaitMode:
     case Attached, Promoted
@@ -889,7 +889,8 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
       val cases = Chunk(
         RejectedAdmission.Uncertain,
         RejectedAdmission.Collision,
-        RejectedAdmission.CallerCancelled
+        RejectedAdmission.CallerCancelled,
+        RejectedAdmission.RemoteCreated
       )
       ZIO
         .foreach(cases): mode =>
@@ -910,10 +911,19 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
                     .flatMap: receipt =>
                       mode match
                         case RejectedAdmission.Uncertain => ZIO.fail(failure)
-                        case RejectedAdmission.Collision => ZIO.succeed(receipt)
+                        case RejectedAdmission.Collision | RejectedAdmission.RemoteCreated =>
+                          ZIO.succeed(receipt)
                         case RejectedAdmission.CallerCancelled =>
                           admissionEntered.succeed(()) *> ZIO.never
-              store = SubagentTerminalStore.make(uncertain, target)
+              base = SubagentTerminalStore.make(uncertain, target)
+              endpoint <- ZIO.fromEither(SubagentProtocolBaseUri.from("http://remote-agent:8080"))
+              store = new SubagentTerminalStore:
+                export base.{read, list, publish}
+                override def admit(id: SubagentTaskId, workerId: Option[SubagentWorkerId])
+                    : IO[AgentError, SubagentTaskAdmissionResult] =
+                  if mode == RejectedAdmission.RemoteCreated then
+                    base.admitAgentProtocol(id, endpoint, workerId)
+                  else base.admit(id, workerId)
               _  <- TestRandom.feedLongs(11L, 22L)
               id <- Random.nextUUID.map(SubagentTaskId(_))
               _  <- if mode == RejectedAdmission.Collision then store.admit(id).unit else ZIO.unit
@@ -949,8 +959,14 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
               writes     <- backend.writes.get
               cause = result.causeOption.getOrElse(Cause.empty)
             yield assertTrue(
-              cause.failures == (if mode == RejectedAdmission.Uncertain then List(failure)
-                                 else Nil),
+              cause.failures == (mode match
+                case RejectedAdmission.Uncertain => List(failure)
+                case RejectedAdmission.RemoteCreated =>
+                  List(
+                    AgentError
+                      .StorageError("Local admission returned a different execution identity")
+                  )
+                case _ => Nil),
               cause.defects == List(defect),
               cause.isInterrupted == (mode == RejectedAdmission.CallerCancelled),
               executions == 0,
@@ -958,7 +974,10 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
               writes == 1,
               records.size == 1,
               records.forall(record =>
-                record.state == SubagentTaskRecordState.Pending && record.metadata.nonEmpty
+                record.state == SubagentTaskRecordState.Pending && record.metadata.nonEmpty &&
+                  record.origin == (if mode == RejectedAdmission.RemoteCreated then
+                                      SubagentExecutionOrigin.AgentProtocol(endpoint)
+                                    else SubagentExecutionOrigin.Local)
               )
             )
         .map(_.foldLeft(assertTrue(true))(_ && _))

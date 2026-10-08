@@ -87,6 +87,7 @@ object SubagentTaskRecoverySpec extends ZIOSpecDefault:
           address <- ZIO.fromEither(StorageAddress.from(Chunk("recovery"), "public"))
           store    = SubagentTerminalStore.make(backend.store, address)
           stale    = SubagentTaskId(new UUID(0L, 701L))
+          remote   = SubagentTaskId(new UUID(0L, 704L))
           fresh    = SubagentTaskId(new UUID(0L, 702L))
           terminal = SubagentTaskId(new UUID(0L, 703L))
           _         <- TestClock.setTime(time)
@@ -94,7 +95,15 @@ object SubagentTaskRecoverySpec extends ZIOSpecDefault:
           staleIdentity <- admission match
             case SubagentTaskAdmissionResult.Created(value) => ZIO.succeed(value)
             case other => ZIO.fail(AgentError.StorageError(s"Unexpected admission: $other"))
-          _ <- store.markRunning(staleIdentity)
+          _        <- store.markRunning(staleIdentity)
+          endpoint <- ZIO.fromEither(SubagentProtocolBaseUri.from("http://remote-agent:8080"))
+          remoteAdmission <- store.admitAgentProtocol(remote, endpoint)
+          remoteIdentity <- remoteAdmission match
+            case SubagentTaskAdmissionResult.Created(value) => ZIO.succeed(value)
+            case other => ZIO.fail(AgentError.StorageError(s"Unexpected remote admission: $other"))
+          _            <- store.confirmAgentProtocolStart(remoteIdentity)
+          remoteBefore <- record(store, remote)
+          remotePermit = SubagentTaskRecovery.Permit.local(remoteBefore)
           _ <- store.admit(terminal)
           _ <- store.publish(
             SubagentTerminalRecord(terminal, SubagentTerminalOutcome.Completed("kept"))
@@ -154,6 +163,7 @@ object SubagentTaskRecoverySpec extends ZIOSpecDefault:
           _             <- TestClock.adjust(1.nanos)
           exactGap      <- gapGate.claim(policy)
           defaultPolicy <- ZIO.fromEither(SubagentTaskRecovery.Policy.make())
+          remoteAfter   <- record(store, remote)
           recovered     <- record(store, stale)
           freshAfter    <- record(store, fresh)
           terminalAfter <- record(store, terminal)
@@ -237,6 +247,13 @@ object SubagentTaskRecoverySpec extends ZIOSpecDefault:
           SubagentTaskRecovery.Policy.make(Duration.Zero, Duration.Infinity).isLeft,
           SubagentTaskRecovery.Policy.make(Duration.Zero, Duration.Zero).isRight,
           SubagentTaskRecovery.Policy.make(Duration.fromNanos(Long.MaxValue - 1L)).isRight,
+          remoteAfter == remoteBefore,
+          remoteBefore.origin == SubagentExecutionOrigin.AgentProtocol(endpoint),
+          remotePermit.isLeft,
+          !authorizedIds.contains(remote),
+          receipts.exists(receipt =>
+            receipt.id == remote && receipt.disposition == SubagentTaskRecovery.Disposition.Remote
+          ),
           recovered.state == SubagentTaskRecordState.Terminal(
             SubagentTerminalOutcome.Failed(
               Chunk(SubagentTaskFailure("executor lost", None)),

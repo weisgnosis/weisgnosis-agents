@@ -1,5 +1,7 @@
 # weisgnosis-agents-harness
 
+Persisted [execution origin](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persisted-execution-origin) separates remote observations from local recovery authority; its canonical contract owns exact review identities and current verification.
+
 Context, persistence, permission and subagent components built on core. The host supplies model clients, storage, authentication and durable orchestration; scopes own local resources and explicitly promoted work.
 
 Local artifact: `com.weisgnosis:weisgnosis-agents-harness_3:0.1.0-SNAPSHOT`. See the [packaging contract](../../project/README.md#local-artifact-packaging) for verified local consumption and publication limits.

@@ -57,6 +57,69 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
       }
       def instant(using Trace): UIO[Instant] = ZIO.succeed(at)
 
+  private def agentProtocolOrigin(
+      writer: VersionedJsonStore,
+      reader: VersionedJsonStore,
+      target: StorageAddress
+  ): IO[AgentError, TestResult] =
+    val admitting = SubagentTerminalStore.make(writer, target)
+    val observing = SubagentTerminalStore.make(reader, target)
+    for
+      endpoint <- ZIO.fromEither(
+        SubagentProtocolBaseUri.from("http://remote-agent:8080/worker@team")
+      )
+      admission <- admitting.admitAgentProtocol(firstId, endpoint)
+      identity <- admission match
+        case SubagentTaskAdmissionResult.Created(value) => ZIO.succeed(value)
+        case _ => ZIO.fail(AgentError.StorageError("Remote fixture admission already exists"))
+      pending    <- observing.taskRecord(firstId)
+      original   <- writer.read(target)
+      localStart <- observing.confirmStart(identity).either
+      forgedStart <- observing
+        .confirmStart(identity.copy(origin = SubagentExecutionOrigin.Local))
+        .either
+      heartbeat <- observing.refreshHeartbeat(identity).either
+      unchanged <- reader.read(target)
+      start     <- admitting.confirmAgentProtocolStart(identity)
+      running   <- observing.taskRecord(firstId)
+      output = SubagentTerminalRecord(
+        firstId,
+        SubagentTerminalOutcome.Completed("exact remote λ😀"),
+        origin = SubagentExecutionOrigin.AgentProtocol(endpoint)
+      )
+      wrongPublication <- admitting
+        .publish(output.copy(origin = SubagentExecutionOrigin.Local))
+        .either
+      _             <- admitting.publish(output)
+      terminal      <- observing.taskRecord(firstId)
+      _             <- observing.acknowledge(firstId)
+      stamp         <- admitting.acknowledgement(firstId)
+      _             <- admitting.publish(output)
+      reopened      <- SubagentTerminalStore.make(reader, target).taskRecord(firstId)
+      repeatedStamp <- observing.acknowledgement(firstId)
+    yield assertTrue(
+      pending.exists(record =>
+        record.origin == identity.origin && record.state == SubagentTaskRecordState.Pending
+      ),
+      identity.origin == SubagentExecutionOrigin.AgentProtocol(endpoint),
+      localStart.isLeft,
+      forgedStart.isLeft,
+      heartbeat.isLeft,
+      original == unchanged,
+      start == SubagentTaskStartResult.Started,
+      running.exists(record =>
+        record.state == SubagentTaskRecordState.Running && record.origin == identity.origin
+      ),
+      wrongPublication.isLeft,
+      terminal.flatMap(_.terminal).contains(output),
+      reopened.flatMap(_.terminal).contains(output),
+      reopened.flatMap(_.metadata) == terminal.flatMap(_.metadata),
+      stamp == repeatedStamp,
+      stamp.exists:
+        case SubagentTerminalAcknowledgement.Acknowledged(_) => true
+        case _                                               => false
+    )
+
   private def recoveryTransition(
       writer: VersionedJsonStore,
       reader: VersionedJsonStore,
@@ -270,6 +333,8 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             afterRepeatedCancellation <- admitting.taskRecord(firstId)
             recoveryAddress           <- address(name, "recovery-owner")
             recoveredAbandoned        <- recoveryTransition(backend, second, recoveryAddress)
+            originAddress             <- address(name, "agent-protocol-origin")
+            remoteOrigin              <- agentProtocolOrigin(backend, second, originAddress)
           yield assertTrue(
             before.isEmpty,
             pending.isEmpty,
@@ -408,7 +473,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               case SubagentTaskAdmissionResult.Existing(record) =>
                 acknowledgedRecord.contains(record)
               case SubagentTaskAdmissionResult.Created(_) => false
-          ) && recoveredAbandoned
+          ) && recoveredAbandoned && remoteOrigin
     ,
     test(
       "automatic durable publication survives owner closure and existing ReAct task tools restore exact bounded observations from PostgreSQL"

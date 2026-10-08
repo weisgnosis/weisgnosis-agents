@@ -29,7 +29,8 @@ final case class SubagentTaskMetadata(
 final case class SubagentTaskAdmissionIdentity(
     id: SubagentTaskId,
     workerId: Option[SubagentWorkerId],
-    createdAt: Instant
+    createdAt: Instant,
+    origin: SubagentExecutionOrigin = SubagentExecutionOrigin.Local
 )
 
 /** First durable cancellation request; this is not a completion timestamp or execution lease. */
@@ -56,11 +57,12 @@ final case class SubagentTaskRecord(
     workerId: Option[SubagentWorkerId],
     state: SubagentTaskRecordState,
     metadata: Option[SubagentTaskMetadata],
-    cancellationIntent: SubagentCancellationIntent = SubagentCancellationIntent.NotRequested
+    cancellationIntent: SubagentCancellationIntent = SubagentCancellationIntent.NotRequested,
+    origin: SubagentExecutionOrigin = SubagentExecutionOrigin.Local
 ):
   def terminal: Option[SubagentTerminalRecord] = state match
     case SubagentTaskRecordState.Terminal(outcome, _) =>
-      Some(SubagentTerminalRecord(id, outcome, workerId))
+      Some(SubagentTerminalRecord(id, outcome, workerId, origin))
     case _ => None
 
 enum SubagentTaskAdmissionResult:

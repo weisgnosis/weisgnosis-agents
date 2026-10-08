@@ -488,6 +488,16 @@ object SubagentTaskRegistry:
                                 task,
                                 Exit.succeed(SubagentTaskSubmission.IdentityCollision)
                               )
+                            case Exit.Success(Some(SubagentTaskAdmissionResult.Created(identity)))
+                                if identity.origin != SubagentExecutionOrigin.Local || identity.id != id || identity.workerId != workerId =>
+                              rollbackPaused(
+                                task,
+                                Exit.fail(
+                                  AgentError.StorageError(
+                                    "Local admission returned a different execution identity"
+                                  )
+                                )
+                              )
                             case Exit.Success(created) =>
                               val identity = created.collect {
                                 case SubagentTaskAdmissionResult.Created(value) => value
@@ -637,7 +647,7 @@ object SubagentTaskRegistry:
                     case SubagentCancellationRequestResult.AlreadyTerminal(value)  => Some(value)
                   val matches = record.forall(_.id == id) && expected.forall(identity =>
                     record.exists(value =>
-                      value.id == identity.id && value.workerId == identity.workerId && value.metadata
+                      value.id == identity.id && value.workerId == identity.workerId && value.origin == identity.origin && value.metadata
                         .exists(_.createdAt == identity.createdAt)
                     )
                   )
@@ -926,62 +936,67 @@ object SubagentTaskRegistry:
               record: SubagentTaskRecord,
               at: java.time.Instant
           ): IO[AgentError, SubagentTaskRecovery.Receipt] =
-            state.get.flatMap:
-              case State.Closed(_) => closed
-              case State.Open(entries) if entries.exists(_.id == record.id) =>
-                ZIO.succeed(
-                  SubagentTaskRecovery.Receipt(
-                    record.id,
-                    SubagentTaskRecovery.Disposition.RetainedLocal
+            if record.origin != SubagentExecutionOrigin.Local then
+              ZIO.succeed(
+                SubagentTaskRecovery.Receipt(record.id, SubagentTaskRecovery.Disposition.Remote)
+              )
+            else
+              state.get.flatMap:
+                case State.Closed(_) => closed
+                case State.Open(entries) if entries.exists(_.id == record.id) =>
+                  ZIO.succeed(
+                    SubagentTaskRecovery.Receipt(
+                      record.id,
+                      SubagentTaskRecovery.Disposition.RetainedLocal
+                    )
                   )
-                )
-              case State.Open(_) =>
-                ZIO.scoped:
-                  ZIO
-                    .suspendSucceed(authority.acquire(this, record))
-                    .flatMap:
-                      case SubagentTaskRecovery.Decision.Local(permit) =>
-                        if permit.expected != record then
-                          ZIO.fail(
-                            AgentError.InvalidConfiguration(
-                              "Recovery authority returned a different task record"
+                case State.Open(_) =>
+                  ZIO.scoped:
+                    ZIO
+                      .suspendSucceed(authority.acquire(this, record))
+                      .flatMap:
+                        case SubagentTaskRecovery.Decision.Local(permit) =>
+                          if permit.expected != record then
+                            ZIO.fail(
+                              AgentError.InvalidConfiguration(
+                                "Recovery authority returned a different task record"
+                              )
                             )
-                          )
-                        else
-                          // Keep every retained owner protected, including paused tasks and completed
-                          // publisher/notifier receipts. Host acquisition and cleanup stay outside gate.
-                          gate.withPermit:
-                            ensureOpen *> state.get.flatMap: current =>
-                              if current.entries.exists(_.id == record.id) then
-                                ZIO.succeed(
-                                  SubagentTaskRecovery.Receipt(
-                                    record.id,
-                                    SubagentTaskRecovery.Disposition.RetainedLocal
-                                  )
-                                )
-                              else
-                                binding.store
-                                  .reconcileAbandoned(permit, at)
-                                  .map: result =>
+                          else
+                            // Keep every retained owner protected, including paused tasks and completed
+                            // publisher/notifier receipts. Host acquisition and cleanup stay outside gate.
+                            gate.withPermit:
+                              ensureOpen *> state.get.flatMap: current =>
+                                if current.entries.exists(_.id == record.id) then
+                                  ZIO.succeed(
                                     SubagentTaskRecovery.Receipt(
                                       record.id,
-                                      SubagentTaskRecovery.Disposition.Transitioned(result)
+                                      SubagentTaskRecovery.Disposition.RetainedLocal
                                     )
-                      case SubagentTaskRecovery.Decision.Remote =>
-                        ZIO.succeed(
-                          SubagentTaskRecovery
-                            .Receipt(record.id, SubagentTaskRecovery.Disposition.Remote)
-                        )
-                      case SubagentTaskRecovery.Decision.OwnerPresent =>
-                        ZIO.succeed(
-                          SubagentTaskRecovery
-                            .Receipt(record.id, SubagentTaskRecovery.Disposition.OwnerPresent)
-                        )
-                      case SubagentTaskRecovery.Decision.Unknown =>
-                        ZIO.succeed(
-                          SubagentTaskRecovery
-                            .Receipt(record.id, SubagentTaskRecovery.Disposition.Unknown)
-                        )
+                                  )
+                                else
+                                  binding.store
+                                    .reconcileAbandoned(permit, at)
+                                    .map: result =>
+                                      SubagentTaskRecovery.Receipt(
+                                        record.id,
+                                        SubagentTaskRecovery.Disposition.Transitioned(result)
+                                      )
+                        case SubagentTaskRecovery.Decision.Remote =>
+                          ZIO.succeed(
+                            SubagentTaskRecovery
+                              .Receipt(record.id, SubagentTaskRecovery.Disposition.Remote)
+                          )
+                        case SubagentTaskRecovery.Decision.OwnerPresent =>
+                          ZIO.succeed(
+                            SubagentTaskRecovery
+                              .Receipt(record.id, SubagentTaskRecovery.Disposition.OwnerPresent)
+                          )
+                        case SubagentTaskRecovery.Decision.Unknown =>
+                          ZIO.succeed(
+                            SubagentTaskRecovery
+                              .Receipt(record.id, SubagentTaskRecovery.Disposition.Unknown)
+                          )
           ensureOpen *> claimGate
             .claim(policy)
             .flatMap:
