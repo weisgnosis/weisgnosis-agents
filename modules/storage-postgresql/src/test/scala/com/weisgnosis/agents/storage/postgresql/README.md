@@ -1,5 +1,9 @@
 # PostgreSQL integration verification
 
+## Subagent terminal observations
+
+[PostgresSubagentTerminalStoreSpec](PostgresSubagentTerminalStoreSpec.scala) supplies one grouped actual-database contract over PostgresFixture: independent adapter reopen of exact Unicode output longer than 4,000 characters, owner isolation, failed task plus cleanup defect, concurrent idempotent publication and publication only after actual TaskSupervisor cleanup has joined. target/durable-terminal-focused.log records its executed passing group, rather than an ignored environment-gated declaration. The [five-file storage manifest](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-terminal-observations) owns final independent source approval, passing full verification/archive admission/fresh consumption and pending final combined documentation approval. No automatic registry publication, model-facing restoration or durable execution/delivery guarantee is supplied.
+
 [PostgresVersionedJsonStoreSpec](PostgresVersionedJsonStoreSpec.scala) has three grouped real-database contracts: exact JSON/namespace identity and valid/malformed payload Unicode across independent connections and adapters; create/stale-revision races with one winner; and masked admitted-write cancellation, joined connection cleanup, exhaustion and corrupt stored data. These tests exercise PostgreSQL rather than mocked JDBC.
 
 Set WEISGNOSIS_POSTGRES_URL, WEISGNOSIS_POSTGRES_USER and WEISGNOSIS_POSTGRES_PASSWORD for a disposable fixture database, then run storagePostgresql / test. Without the URL the suite is skipped; skipping is not backend verification. The fixture explicitly initializes the fixed public table and deletes only its generated test namespaces. Use an isolated database and host-selected credentials. Tests use live-clock bounded coordination and driver connection/socket/query limits.

@@ -1,5 +1,36 @@
 # Scoped child execution and sessions
 
+## Durable terminal observations
+
+[SubagentTerminalStore](SubagentTerminalStore.scala) provides an explicitly host-addressed owner partition over VersionedJsonStore. `publish(record)` conditionally appends an immutable caller-supplied observation; the supplied data does not prove that execution or cleanup occurred. Only publishJoined waits for the actual task handle. `read(id)` and `list` return checked stored data, including through a newly constructed adapter. The host supplies the exact StorageAddress and backend and owns authentication, namespace isolation, provisioning and retention. There is no global scan, autonomous scheduler, registry listener, background writer or automatic model-tool restoration bridge.
+
+[SubagentTerminalOutcome](SubagentTerminalOutcome.scala) preserves exact successful reply text as Completed or Suspended, a stopped reason, or typed failure messages plus explicit defect presence. Interruption remains distinguishable even alongside failures/defects. These values are observations, not executable Exit values or serialized Throwable trees. Suspended text does not retain a resumable acting checkpoint. Images, audio, custom content, usage, task timestamps, running records and agent/session labels are outside this text-only terminal format.
+
+`publishJoined(id, task)` is an explicit caller-owned effect that awaits the actual SupervisedTask Exit after all task-owned cleanup before publication. Cancelling the publisher while it awaits the task does not cancel the supervisor-owned task or publish a terminal record; cancellation during an admitted backend write retains that backend's uncertainty semantics. The host must separately own and join execution, and explicitly call this effect when publication is required. Merely creating a registry or supervisor does not install durable publication.
+
+Limits.make requires positive record/UTF-8 byte limits and a nonnegative confirmed-conflict retry budget. Defaults are 256 records, 1,048,576 rendered aggregate bytes and eight retries after the initial conditional attempt. Reads and writes validate the whole aggregate, schema version, strict canonical field structure, Unicode and unique task IDs. Exceeding capacity fails without eviction. Exact repeated publication is idempotent; a different observation for an occupied ID fails. Concurrent callers reread only after a confirmed CAS conflict within the finite budget. Backend failure, uncertain acknowledgement and cancellation propagate without an automatic retry. A later explicit read can recover an acknowledged-or-not write; no exactly-once execution, cancellation/delivery coordination or transaction with task completion is implied.
+
+SubagentTerminalOutcomeSpec covers all terminal states, mixed causes and exact long-text codecs. Three SubagentTerminalStoreSpec groups cover joined cleanup and cancelled waiter isolation, concurrent immutable publication and uncertain acknowledgements, then strict corruption/limits/conflict-budget/cancelled-write behavior. One real PostgresSubagentTerminalStoreSpec group covers independent adapter reopen of exact output longer than 4,000 characters, owner isolation, failed execution plus cleanup defect and concurrent idempotence. PostgreSQL fixtures are opt-in locally; the recorded focused run below actually executed the group.
+
+This implements only a terminal persistence subset of pinned WorkspaceTaskRepositoryTest methods 103, 136, 178, 317, 360, 388 and 444. It does not close their whole model-facing/running-record/filter/restoration contracts. The [finite parity tasks](../../../../../../../../../../docs/architecture/test-parity.md#remaining-original-library-obligations-source-inventory) and original plan retain the missing integration explicitly.
+
+| Current scope against c99596b | Git blob |
+| --- | --- |
+| [SubagentTerminalOutcome.scala](SubagentTerminalOutcome.scala) | `426d3747e0a18f9be3deb5591f04c9616fc7563a` |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `46a9313e506d6b2677f1f3e374e146e31b832d68` |
+| [SubagentTerminalOutcomeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalOutcomeSpec.scala) | `30297045385ba75fa792c5818fe4037bb561a86c` |
+| [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | `b113842a73f57d2c7d5dcd61745b785ee8494057` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `3a59bb1e6109ccb8a9a112659bc47f15d02e6fbc` |
+
+- [x] Implement bounded caller-owned terminal storage, paired contracts and real PostgreSQL integration.
+- [x] target/durable-terminal-focused.log passes four harness groups in 278 ms and one actually executed PostgreSQL group in 648 ms, zero failed/ignored, with fatal-warning compilation.
+- [x] review_fp and review_invariants independently approve these five formatted Scala identities against c99596b, manifest SHA-256 `765852ad4fcfbf401282ac6345ce299da92a37d2f38f2fceccde9af3dc0cbbca`, with no unresolved source findings.
+- [x] target/durable-terminal-full-verify.log passes formatting, fatal-warning compilation and all 1,588 tests (689 core / 738 harness / 130 MCP / 23 actual PostgreSQL / 8 examples), zero failed/ignored/compiler warnings, and builds four RC1 packages.
+- [x] target/durable-terminal-preparation.log passes archive admission and reversible negative checks with restored artifacts.
+- [x] target/durable-terminal-consumer.log passes fresh standalone compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise this new terminal API.
+- [x] review_fp and review_invariants approve final combined documentation against `c99596b` for five unchanged Scala files and eleven Markdown files, with no unresolved findings.
+- [ ] Implement authenticated automatic registry/tool restoration, running-state integration and durable cancellation/delivery ownership from the original plan.
+
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
 [TaskSupervisor](TaskSupervisor.scala), [SupervisedTask](SupervisedTask.scala) and [SubagentSpawner](SubagentSpawner.scala) provide host-owned execution and runtime lineage. [SubagentFactory](SubagentFactory.scala) assembles fresh configured ReAct children with a final [static tool boundary](SubagentToolBoundary.scala) and optional live parent-denial inheritance. [SubagentTaskRegistry](SubagentTaskRegistry.scala) adds bounded task admission and inspection; [SubagentSessionDirectory](SubagentSessionDirectory.scala) supplies bounded host membership for acquired sessions. These APIs are accepted within the exact reviewed scope below.

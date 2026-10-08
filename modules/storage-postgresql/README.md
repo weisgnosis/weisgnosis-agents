@@ -1,5 +1,7 @@
 # Optional PostgreSQL storage
 
+The [durable terminal observation contract](../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-terminal-observations) adds a bounded host-addressed store for exact completed text and serializable failure/interruption observations. Explicit caller-owned publication can await fully joined supervised cleanup, and independent PostgreSQL adapters reopen the same data. It supplies no automatic registry bridge or execution authority. Both source reviewers approve five Scala identities against `c99596b`; full verification, four RC1 packages, archive preparation and fresh external consumption pass; review_fp and review_invariants approve final combined documentation against `c99596b` for five unchanged Scala files and eleven Markdown files.
+
 This fourth library artifact provides an explicit PostgreSQL backend for the harness VersionedJsonStore prerequisite. It depends on harness; core/harness/MCP do not acquire a PostgreSQL dependency. The host supplies javax.sql.DataSource and owns its pool, JDBC driver and connection/login/socket deadlines. PostgreSQL JDBC 42.7.11 is Test-only here.
 
 The new [sanitized SQLSTATE diagnostic contract](src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#sanitized-diagnostics) has both final source approvals and passing full RC1/artifact verification, with final documentation acceptance approved; it preserves only validated state/class data without adding retries or exposing raw driver messages. Existing behavior remains separately scoped.
