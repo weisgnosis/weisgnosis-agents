@@ -125,7 +125,8 @@ object AgentEvent:
       delta: String,
       blockIndex: Int,
       source: Option[String] = None,
-      context: Option[ModelStreamContext] = None
+      context: Option[ModelStreamContext] = None,
+      accumulatedThought: Option[String] = None
   ) extends AgentEvent:
     def withSource(src: String): AgentEvent = copy(source = Some(src))
 

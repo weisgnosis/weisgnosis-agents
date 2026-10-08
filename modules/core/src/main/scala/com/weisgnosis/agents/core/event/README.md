@@ -1,5 +1,31 @@
 # Typed agent event payloads
 
+## Incremental and accumulated thinking
+
+ThinkingBlockDeltaEvent keeps its exact `delta` and adds trailing `accumulatedThought: Option[String] = None`. The built-in model publisher supplies Some(prefix) after applying that fragment to the same block index. Prefixes are independent across interleaved indices and reset with each request publisher. A valid empty raw thinking fragment still has a defined prefix. Reasoning-details events project only their existing admitted plaintext; opaque encrypted/signature data does not become text or produce a plaintext delta by itself.
+
+Hosts can use incremental fragments or the accumulated prefix without selecting a runtime execution mode. Source tagging and correlation preserve both. Custom event publishers may omit the prefix; None means it was not supplied, rather than an empty accumulated value. Final block text and canonical model history retain their existing assembly semantics.
+
+Migration: existing constructor calls retain the trailing default, and old JSON without the field decodes None. Populated fields round-trip through the derived codec; malformed supplied values fail decoding. Positional patterns/product arity and JVM constructor/apply/copy signatures change, so dependent binaries must be rebuilt. The added wire field increases event payload size: cumulative transmission grows with the sum of prefix lengths and may be quadratic for many small fragments. Subscriber retention depends on the host; no constant-memory or arbitrary truncation guarantee is supplied.
+
+The pinned ReActAgentThinkingCumulativeTest methods at lines 65 and 113 require successive prefixes and exact fragments respectively. This is an event-stream adaptation of those observations, not the Java ReasoningChunkEvent middleware API. ModelStreamPublisherSpec checks interleaved prefixes/fragments, empty fragments and unchanged block ends; AgentEventSerdeSpec checks old/new wire data and source copying; ChatCompletionsTransformSpec checks the public ReAct stream; ReasoningDetailSpec checks admitted plaintext and opaque exclusion. Existing groups are extended without adding mechanical test counts.
+
+| Current reviewed file | Git blob |
+| --- | --- |
+| [ModelStreamPublisher.scala](../client/ModelStreamPublisher.scala) | `6bde0acbd255025c54e9592c7a8d94666f30abe8` |
+| [AgentEvent.scala](AgentEvent.scala) | `e09c26385144e6d05f0a9b5798a5f3413a95819c` |
+| [ChatCompletionsTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) | `76c35efc086f16a17247756b9cf6cbb63f45531b` |
+| [ModelStreamPublisherSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelStreamPublisherSpec.scala) | `2936fd12ea88af9933746f360639d127d060c145` |
+| [ReasoningDetailSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ReasoningDetailSpec.scala) | `4a4f73eb589d967ad6f72f3999b853f3043df3b1` |
+| [AgentEventSerdeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/event/AgentEventSerdeSpec.scala) | `7459ccf6a440c2f9e1a59ce9314c7bb0abb4cfb6` |
+
+- [x] review_fp and review_invariants approved all six exact Scala identities against 4cc1225 with no unresolved source findings. Sorted source manifest SHA-256: 1ef611a14703ea0040dd70689393520b88cef30942d4d61b961a90a5a45bcf0d.
+- [x] thinking-prefix-focused-green.log passes 29 groups in 3.414 seconds, including existing encrypted-reasoning coverage selected by the wildcard. thinking-prefix-full-verify.log passes formatting, fatal-warning compilation, all 1,581 tests (687 core / 734 harness / 130 MCP / 22 fresh PostgreSQL / 8 examples), zero failures/ignored and four RC1 packages. The owned empty PostgreSQL fixture was stopped after label validation. thinking-prefix-preparation.log passes source/POM/LICENSE admission and three reversible negative archive checks.
+- [x] Confirm fresh standalone artifact consumption in thinking-prefix-consumer.log. The unchanged external probe checks existing APIs and four hashes; per-chunk prefix behavior is verified in the core integration suites.
+- [x] review_fp and review_invariants approved final combined documentation against 4cc1225 for six unchanged Scala files and fourteen Markdown files, with no unresolved findings in this scope.
+
+## Existing event contracts
+
 Four tool-result event metadata decoders retain numeric AST leaves directly. review_fp and review_invariants approved the final correction with no findings; the [JSON acceptance](../json/README.md#verification-and-acceptance) records exact source/spec identities and full verification.
 
 Generic PermissionAskEvent and PermissionDecisionEvent runtime integration is accepted in the [checkpoint contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events). Ask follows successful batch cleanup and precedes RequestStop; a recorded resumed authorization decision precedes tool Start. UUID correlation is data, not evidence of a human response; event codecs are unchanged.

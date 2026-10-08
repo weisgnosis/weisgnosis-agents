@@ -53,7 +53,7 @@ McpClientManager.make appends default-empty ToolGroups declarations and rejects 
 | ChatUsage | Token metrics with additive combine | [ChatUsage.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/model/ChatUsage.scala) |
 | AgentEventType | 31 canonical uppercase protocol names, 11 aliases, typed case-sensitive lookup; separate from event payload adaptation | [AgentEventType.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/event/AgentEventType.scala) |
 | AgentError | Typed sealed domain failures, including InvalidConfiguration and InvalidMessage | [AgentError.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/error/AgentError.scala) |
-| AgentEvent | Sealed 39-variant hierarchy; shared concrete/base tagged encoding, legacy leaf decoding, source tagging, immutable tool-result event metadata | [AgentEvent.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/event/AgentEvent.scala) |
+| AgentEvent | Sealed 39-variant hierarchy; shared tagged encoding, legacy leaf decoding, source tagging and immutable metadata. Thinking deltas add an [optional indexed accumulated prefix](../../modules/core/src/main/scala/com/weisgnosis/agents/core/event/README.md#incremental-and-accumulated-thinking). | [AgentEvent.scala](../../modules/core/src/main/scala/com/weisgnosis/agents/core/event/AgentEvent.scala) |
 
 Ordinary products/sums use derives JsonCodec. Explicit codecs are reserved for validation, wire compatibility, and AST transformations. Pure constructors and decoders must not allocate random IDs or inspect time/filesystems. Msg.identified and Data.identified allocate optional IDs inside ZIO and preserve existing identity.
 

@@ -1,6 +1,6 @@
 # Distribution verification
 
-The current [MCP revision agreement manifest](../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#supported-server-revision-agreement) records the source-approved eighteen-file scope, full 1,581-test verification and final archive refresh. Archive admission and final fresh standalone consumption pass; review_fp and review_invariants approved final combined documentation against 1e18d44 for the thirty-three-file scope. The unchanged consumer does not exercise negotiated transport interoperability.
+The current [accumulated-thinking manifest](../modules/core/src/main/scala/com/weisgnosis/agents/core/event/README.md#incremental-and-accumulated-thinking) records six independently source-approved Scala identities against 4cc1225. thinking-prefix-full-verify.log passes all 1,581 tests, formatting, fatal-warning compilation and four packages. thinking-prefix-preparation.log passes archive admission; thinking-prefix-consumer.log passes clean standalone compilation and fresh four-module hash consumption. Its unchanged API probe does not establish prefix-specific interoperability; core streaming suites provide that evidence. Final combined documentation acceptance remains pending.
 
 The consumer also executes packaged valid/invalid schema-admission neighbors and verifies the production evaluator dependency. The [current schema acceptance](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns the exact consumer source and verification evidence.
 

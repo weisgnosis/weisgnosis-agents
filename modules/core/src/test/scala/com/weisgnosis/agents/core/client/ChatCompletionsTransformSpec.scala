@@ -151,7 +151,11 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
                   if index == 0 then tool + done
                   else
                     frame(
-                      """{"choices":[{"index":0,"delta":{"reasoning_content":"reason","content":"answer"}}]}"""
+                      """{"choices":[{"index":0,"delta":{"reasoning_content":"I think "}}]}"""
+                    ) + frame(
+                      """{"choices":[{"index":0,"delta":{"reasoning_content":"this is "}}]}"""
+                    ) + frame(
+                      """{"choices":[{"index":0,"delta":{"reasoning_content":"correct.","content":"answer"}}]}"""
                     ) + stop + usage + done
                 )
               )
@@ -179,12 +183,22 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
         released.size == 2,
         released.lastOption.contains(true),
         history.lastOption.exists(message =>
-          message.text == "ANSWER" && message.thinking == "reason" && message.usage.exists(
-            _.totalTokens == Right(30)
-          )
+          message.text == "ANSWER" && message.thinking == "I think this is correct." && message.usage
+            .exists(
+              _.totalTokens == Right(30)
+            )
         ),
         events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent => event.delta } == Chunk(
-          "reason"
+          "I think ",
+          "this is ",
+          "correct."
+        ),
+        events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
+          event.accumulatedThought
+        } == Chunk(
+          Some("I think "),
+          Some("I think this is "),
+          Some("I think this is correct.")
         )
       )
     },

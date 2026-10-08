@@ -71,15 +71,24 @@ private[client] object ModelStreamPublisher:
           )
           (next, start :+ AgentEvent.TextBlockDeltaEvent(value, index, context = Some(context)))
         case LlmChunk.ThinkingDelta(value, index, _) =>
-          val started = thinking.contains(index)
+          val started     = thinking.contains(index)
+          val accumulated = thinking.getOrElse(index, "") + value
           val start =
             if started then Chunk.empty
             else Chunk(AgentEvent.ThinkingBlockStartEvent(index, context = Some(context)))
           val next = copy(
-            thinking = thinking.updated(index, thinking.getOrElse(index, "") + value),
+            thinking = thinking.updated(index, accumulated),
             order = if started then order else order :+ Block.Thinking(index)
           )
-          (next, start :+ AgentEvent.ThinkingBlockDeltaEvent(value, index, context = Some(context)))
+          (
+            next,
+            start :+ AgentEvent.ThinkingBlockDeltaEvent(
+              value,
+              index,
+              context = Some(context),
+              accumulatedThought = Some(accumulated)
+            )
+          )
         case LlmChunk.ReasoningDetailsDelta(details) =>
           val text = details.map(_.plaintext).mkString
           if text.isEmpty then (this, Chunk.empty)

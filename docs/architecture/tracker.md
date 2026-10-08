@@ -22,8 +22,11 @@ Execute the following sequence without changing the original scope:
 - [x] Implement server-selected MCP revision agreement among a checked explicit supported set, preserving exact negotiation defaults, legacy June compatibility and one scoped connection owner. Both independent source reviews approve the eighteen-file manifest.
 - [x] Verify same-chunk framing, coherent HTTP request/continuation/listener/deletion headers, rejected concurrent ownership and joined cancellation. Full verification passes 1,581 tests with no compiler warnings, failed or ignored tests; four RC1 packages are built.
 - [x] Close final combined documentation acceptance for the [supported revision scope](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#supported-server-revision-agreement). Do not extend scoped acceptance to remaining original-plan obligations.
-- [ ] Complete per-chunk accumulated thinking observations alongside existing incremental deltas. The cumulative ReActAgentThinkingCumulativeTest method requires each successive prefix; the incremental method requires exact ordered fragments. Current block-end accumulation is insufficient. Reuse existing indexed publisher state and proportional streaming/codec tests; keep opaque reasoning outside plaintext projection.
-- [ ] Classify both pinned ReActAgentRunIdVisibilityTest methods against explicit invocation semantics. Existing replyId/requestId correlations are related evidence, not stable invocation identity: Auto attempts may use different reply IDs, and resumption reuses a reply ID. Prepared-run handle exposure remains a separate API obligation to resolve explicitly.
+- [x] Complete per-chunk accumulated thinking alongside exact incremental deltas. Both source reviews approve six Scala identities; full verification passes 1,581 tests with existing groups extended. Final combined documentation approval passed against 4cc1225 for the twenty-file scope.
+- [x] Classify both pinned ReActAgentRunIdVisibilityTest methods: reply/request identity is insufficient; explicit per-invocation identity and prepared lazy single-execution exposure are implementation obligations. Same-agent session concurrency remains an explicit API difference.
+- [ ] Implement explicit stable invocation identity across Auto attempts, ordinary/structured execution, resumption, forwarding and applicable callbacks/completion. Allocate it effectfully once per public invocation, independently of persisted reply identity.
+- [ ] Implement a lazy prepared-run handle exposing its invocation identity before single execution, preserving scoped ownership and isolation from unrelated active work. Do not claim the entire Java AgentRun lifecycle from identity alone.
+
 
 - [x] Correct the literal mutable-collection standards finding in McpStdioTransport.open through the immutable zio-process API, preserving inherited environment, Windows key handling, direct execution, stderr policy and joined cleanup. Both source reviews and focused/full/archive/consumer verification pass under the unchanged engineering standard. Final combined documentation acceptance passed against 203401a for the seventeen-file scope below.
 
@@ -39,7 +42,7 @@ Execute the following sequence without changing the original scope:
 - [x] Obtain independent final FP/ZIO and invariant source approvals, proportionate contract/regression coverage and full verification for the current schema/resource increment.
 - [x] Both reviewers approved final combined documentation for the verified current increment against 1441a97. Apply the same gates to every subsequent task.
 
-Current source-approved increment implements supported server-selected MCP revision agreement against 1e18d44. review_fp and review_invariants approve the eighteen exact Scala identities, including the final public lease contract. Full verification and four-module packaging pass; final archive refresh and fresh consumption pass; combined documentation acceptance passed against 1e18d44 for the exact thirty-three-file scope, approved by review_fp and review_invariants. Next implementation: per-chunk accumulated thinking observations. No whole-plan completion is claimed.
+Current source-approved increment adds per-chunk accumulated thinking without changing incremental fragments or opaque-reasoning policy. review_fp and review_invariants approve six exact Scala identities against 4cc1225. Full verification and package preparation pass; fresh consumer passes and final combined documentation acceptance passed against 4cc1225 for the twenty-file scope, approved by review_fp and review_invariants. Next implementation: explicit invocation identity and prepared-run observation. No whole-plan completion is claimed.
 
 - [x] Implement declared Draft 4, 6, 7 and 2019-09 alongside default Draft 2020-12, preserving exact numeric/reference checks and draft-specific keyword behavior. The [dialect manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#declared-standard-schema-dialects) records bounded evidence; remaining method inventory is open.
 - [x] Implement visible embedded MCP resource text, typed images and binary descriptions alongside lossless Custom payloads. See the [projection manifest](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity).
@@ -55,7 +58,8 @@ These are provisional engineering effort ranges, including implementation, propo
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
 | Supported MCP server-selected alternative revisions | Implementation, source/documentation reviews and verification complete | Both final combined reviews complete; no ordered preference, probing or replay claim. |
-| Per-chunk accumulated thinking observations | 3-6 hours | Preserve incremental payloads, indexed accumulation and opaque reasoning boundaries; document additive event wire/source/JVM migration. |
+| Per-chunk accumulated thinking observations | Implementation/source/full checks complete; all delivery reviews/checks complete | Event-stream adaptation preserves incremental data; cumulative payload growth and migration are explicit. |
+| Invocation identity and prepared-run exposure | 8-16 hours, provisional aggregate engineering effort | Thread one explicit context through every invocation path and applicable callback; preserve Auto/resume distinctions, lazy single use and owned cancellation. Broader AgentRun lifecycle remains a separate finite classification. |
 | Durable terminal task observations | 12-24 hours | Host-addressed bounded CAS store; reopen/read/list/filter with stable terminal truth. Excludes execution restoration, cancellation and delivery acknowledgement. |
 | Durable delivery publication/acknowledgement | 8-16 hours after terminal storage | Persist before acknowledgement/notification and preserve uncertain-write receipts. No distributed exactly-once promise. |
 | Durable cancellation intent with current-owner handling | 12-24 hours after terminal storage | Persist intent, join owned cancellation and preserve terminal truth before notification. Cross-process takeover/fencing remains separate. |
@@ -80,15 +84,14 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-Current server revision agreement increment has both independent source approvals against 1e18d44. The [canonical manifest](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#supported-server-revision-agreement) owns eighteen exact Scala identities, contracts and verification. Final combined documentation acceptance remains pending; no whole-plan completion or publication is claimed.
+The current accumulated-thinking increment has both independent source approvals against 4cc1225. The [canonical manifest](../../modules/core/src/main/scala/com/weisgnosis/agents/core/event/README.md#incremental-and-accumulated-thinking) owns six exact Scala identities, migration and verification. review_fp and review_invariants approved final combined documentation against 4cc1225 for the twenty-file scope; no whole-plan completion or publication is claimed.
 
-- [x] Implement checked supported-set selection, sole scoped ownership, complete correlated initialization validation and immediate frame/header changes.
-- [x] Obtain final review_fp and review_invariants source approval for manifest 1fe6259df48bab7eaf4b742e5ec216537887d73429bc6da6231426603a0d045b, with no unresolved source findings.
-- [x] mcp-version-agreement-full-verify.log passes formatting, compilation and 1,581 tests: 687 core, 734 harness, 130 MCP, 22 actual PostgreSQL and 8 examples, with no compiler warnings, failed or ignored tests. Four RC1 packages pass. The newly created empty PostgreSQL fixture was stopped after ownership-label validation.
-- [x] mcp-version-agreement-final-archives.log refreshes formatting/compilation and four archives after the final separately reviewed lease Scaladoc clarification. No behavioral source change occurred after full verification.
-- [x] mcp-version-agreement-preparation.log passes source/POM/LICENSE admission and reversible selector/extra-source/duplicate-source negative cases.
-- [x] Confirm final fresh standalone consumption in mcp-version-agreement-consumer.log; its unchanged probe checks four artifact hashes and existing public APIs, not negotiated-transport interoperability.
-- [x] review_fp and review_invariants approved final combined documentation against 1e18d44 for eighteen unchanged Scala files and fifteen Markdown files; no unresolved findings remain within this scope.
+- [x] Preserve exact deltas and add optional independent indexed prefixes, legacy decoding and unchanged opaque-reasoning boundaries.
+- [x] review_fp and review_invariants approve source manifest 1ef611a14703ea0040dd70689393520b88cef30942d4d61b961a90a5a45bcf0d with no unresolved findings.
+- [x] thinking-prefix-focused-green.log passes 29 existing groups. thinking-prefix-full-verify.log passes formatting, compilation and 1,581 tests: 687 core, 734 harness, 130 MCP, 22 actual PostgreSQL and 8 examples, zero compiler warnings/failures/ignored. Four RC1 packages pass; the fresh owned PostgreSQL fixture was stopped after label validation.
+- [x] thinking-prefix-preparation.log passes source/POM/LICENSE admission and three reversible negative cases.
+- [x] Confirm fresh external consumption in thinking-prefix-consumer.log; its unchanged API probe does not establish prefix-specific interoperability.
+- [x] review_fp and review_invariants approved final combined documentation against 4cc1225 for six unchanged Scala files and fourteen Markdown files, with no unresolved findings in this scope.
 
 The immutable process launcher remains in force and its current modified source identities redirect to the negotiation manifest. Its production dependency eviction diagnostics remain visible: no suppression or universal binary compatibility claim. SLF4J/dependency/runtime notices are distinct from compiler warnings.
 

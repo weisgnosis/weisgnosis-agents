@@ -1,5 +1,7 @@
 # Model client and stream verification
 
+The [incremental and accumulated thinking contract](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md#incremental-and-accumulated-thinking) preserves exact fragments and adds an optional per-index accumulated plaintext prefix. Existing test groups cover both pinned observations, interleaving, old/new codecs and public agent streaming; opaque reasoning stays outside plaintext. The linked six-file manifest owns migration, verification and final combined approval by review_fp and review_invariants against 4cc1225 for six unchanged Scala files and fourteen Markdown files.
+
 Existing request tables now explicitly reject blank call names and two calls with only one matching result. The [finite validator method manifest](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#pinned-tool-validator-method-evidence) records the test-only identities, bounded 39-method classification and remaining verification gates.
 
 Existing parser/detail/HTTP tables cover the [scalar reasoning aliases](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#scalar-reasoning-aliases), including exact coalescing, conflict rejection, null/empty/malformed values and authoritative details. No new groups were added; the linked contract owns current identities, changed precedence and verification.
@@ -130,7 +132,7 @@ Real loopback client/server acquisition, use and release run with a live clock. 
 | --- | --- |
 | ChatCompletionsTransportSpec | Current identity: [retry acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#bounded-http-status-retries). |
 | ChatCompletionsClientSpec | Current identity: [cache-usage acceptance](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#cache-usage-decoding). |
-| [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | [Current checked-usage migration identity](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
+| [ChatCompletionsTransformSpec](ChatCompletionsTransformSpec.scala) | [Current accumulated-thinking identity](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md#incremental-and-accumulated-thinking); earlier behavioral scope retained. |
 
 Existing transport/transform/reasoning usage assertions handle checked totalTokens/combine; serde fixtures preserve the unchanged wire fields. This caller migration belongs to the [checked usage scope](../../../../../../../main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic), with completed source/full/artifact verification and final combined documentation approval.
 

@@ -34,11 +34,23 @@ object ModelStreamPublisherSpec extends ZIOSpecDefault:
             publisher <- ModelStreamPublisher.make(hub, context)
             _ <- publisher.frame(
               "frame-1",
-              Chunk(LlmChunk.ThinkingDelta("why", 2), LlmChunk.TextDelta("a", 2))
+              Chunk(
+                LlmChunk.ThinkingDelta("I think ", 2, Some("opaque-signature")),
+                LlmChunk.TextDelta("a", 2)
+              )
             )
             _ <- publisher.frame(
               "frame-2",
-              Chunk(LlmChunk.TextDelta("b", 2), LlmChunk.TextDelta("c", 0))
+              Chunk(
+                LlmChunk.TextDelta("b", 2),
+                LlmChunk.TextDelta("c", 0),
+                LlmChunk.ThinkingDelta("", 0),
+                LlmChunk.ThinkingDelta("this is ", 2)
+              )
+            )
+            _ <- publisher.frame(
+              "frame-3",
+              Chunk(LlmChunk.ThinkingDelta("separate", 0), LlmChunk.ThinkingDelta("correct.", 2))
             )
             _      <- publisher.finish(TurnOutput.FinalText(Msg.assistant("abc")))
             events <- queue.takeAll
@@ -52,10 +64,22 @@ object ModelStreamPublisherSpec extends ZIOSpecDefault:
               Chunk((2, "ab", Some(context)), (0, "c", Some(context))),
             events.collect { case event: AgentEvent.ThinkingBlockEndEvent =>
               (event.blockIndex, event.fullThought)
-            } == Chunk((2, "why")),
+            } == Chunk((2, "I think this is correct."), (0, "separate")),
+            events.collect { case event: AgentEvent.ThinkingBlockStartEvent =>
+              event.blockIndex
+            } == Chunk(2, 0),
+            events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
+              (event.blockIndex, event.delta, event.accumulatedThought, event.context)
+            } == Chunk(
+              (2, "I think ", Some("I think "), Some(context)),
+              (0, "", Some(""), Some(context)),
+              (2, "this is ", Some("I think this is "), Some(context)),
+              (0, "separate", Some("separate"), Some(context)),
+              (2, "correct.", Some("I think this is correct."), Some(context))
+            ),
             events.collect { case event: AgentEvent.ModelResponseChunkEvent =>
               event.chunk
-            } == Chunk("frame-1", "frame-2")
+            } == Chunk("frame-1", "frame-2", "frame-3")
           )
     ,
     test("keeps interleaved tool identities and subsequent deltas separate"):

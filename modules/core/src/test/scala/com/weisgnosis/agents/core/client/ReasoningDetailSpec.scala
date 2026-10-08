@@ -415,12 +415,22 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
           "reasoning_details" -> Json.Arr(encrypted, text),
           "reasoning_content" -> Json.Str("first ")
         ),
+        frame("reasoning_details" -> Json.Arr(encrypted)),
         frame(
           "reasoning_details" -> Json.Arr(summary, legacySummary, dualSummary, encrypted, text),
           "thinking"          -> Json.Str("summary legacy equal first ")
         )
       )
-      val all = Json.Arr(encrypted, text, summary, legacySummary, dualSummary, encrypted, text)
+      val all = Json.Arr(
+        encrypted,
+        text,
+        encrypted,
+        summary,
+        legacySummary,
+        dualSummary,
+        encrypted,
+        text
+      )
       for
         chunks <- ZIO.fromEither(
           frames.foldLeft[Either[AgentError, Chunk[Chunk[LlmChunk]]]](Right(Chunk.empty))(
@@ -474,6 +484,12 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
         events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
           event.delta
         }.mkString == output.message.thinking,
+        events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
+          (event.delta, event.accumulatedThought)
+        } == Chunk(
+          ("first ", Some("first ")),
+          ("summary legacy equal first ", Some("first summary legacy equal first "))
+        ),
         events.count(_.isInstanceOf[AgentEvent.ThinkingBlockStartEvent]) == 1,
         events.collect { case event: AgentEvent.ThinkingBlockEndEvent =>
           event.fullThought

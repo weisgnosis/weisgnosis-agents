@@ -86,12 +86,12 @@ Pinned ReActAgentEmptyResponseRetryTest methods map to the existing five-group S
 - [x] Full verification passed under the linked test-only contract; no production change or reproduced-defect claim is made.
 - [x] Both reviewers approved final combined documentation in the linked test-only contract.
 
-## Remaining thinking and invocation observations
+## Thinking and invocation observations
 
-The following finite classifications identify remaining obligations against the pinned revision; they do not accept new implementation behavior.
+The following finite classifications separate implemented thinking observations from remaining invocation obligations against the pinned revision.
 
-- [ ] ReActAgentThinkingCumulativeTest.testThinkingBlockCumulativeMode (65): three successive accumulated thinking prefixes are not exposed. [ModelStreamPublisher](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/ModelStreamPublisher.scala) retains indexed prefixes internally but publishes only delta fragments and a final ThinkingBlockEndEvent. A final assembled block does not satisfy per-chunk observation.
-- [ ] ReActAgentThinkingCumulativeTest.testThinkingBlockIncrementalMode (113): incremental events exist, but the existing [publisher spec](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ModelStreamPublisherSpec.scala) uses only one thinking fragment. Extend the existing group to assert exact ordered fragments and independent indexed prefixes alongside the accumulated contract; do not add duplicate accessor groups.
+- [x] ReActAgentThinkingCumulativeTest.testThinkingBlockCumulativeMode (65): ModelStreamPublisherSpec and ChatCompletionsTransformSpec assert all three exact prefixes through indexed publisher state and the public ReAct stream. ThinkingBlockDeltaEvent.accumulatedThought is an event-stream adaptation, not the upstream middleware API. Both source reviews approve the [six-file contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/event/README.md#incremental-and-accumulated-thinking); final combined documentation acceptance passed against 4cc1225 for six unchanged Scala identities and fourteen Markdown files, approved by review_fp and review_invariants.
+- [x] ReActAgentThinkingCumulativeTest.testThinkingBlockIncrementalMode (113): the same existing groups assert all three original ordered fragments, independent interleaved indices, empty fragments and unchanged block ends. Codec/source-tagging and opaque-only exclusion remain explicit assertions; no extra mechanical groups were introduced.
 - [ ] ReActAgentRunIdVisibilityTest.plainCallMiddlewareSeesStableDistinctRunIds (99): existing event/request tests establish related replyId/requestId correlations, not one explicit invocation identity across all applicable callbacks. Auto fallback may allocate two reply IDs in one public invocation; suspend/resume reuses one reply ID across invocations. Same-agent serialization also differs from upstream concurrent sessions.
 - [ ] ReActAgentRunIdVisibilityTest.preparedCallMiddlewareRunIdEqualsHandleRunId (137): a prepared-run handle with a preexposed invocation ID is absent. Resolve this explicit API obligation separately from event correlation; a cold result stream is not equivalent evidence.
 

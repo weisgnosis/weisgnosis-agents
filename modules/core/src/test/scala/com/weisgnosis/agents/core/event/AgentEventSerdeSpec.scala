@@ -61,7 +61,9 @@ object AgentEventSerdeSpec extends ZIOSpecDefault:
     example(AgentEvent.TextBlockDeltaEvent("Hello", 0)),
     example(AgentEvent.TextBlockEndEvent(0, "Hello world")),
     example(AgentEvent.ThinkingBlockStartEvent(0)),
-    example(AgentEvent.ThinkingBlockDeltaEvent("Let me plan", 0)),
+    example(
+      AgentEvent.ThinkingBlockDeltaEvent("plan", 0, accumulatedThought = Some("Let me plan"))
+    ),
     example(AgentEvent.ThinkingBlockEndEvent(0, "Complete thought")),
     example(AgentEvent.ToolCallStartEvent("call-1", "calculator", 0, Some(0))),
     example(AgentEvent.ToolCallDeltaEvent("call-1", "{\"x\": 1}", 0, Some(0))),
@@ -128,7 +130,15 @@ object AgentEventSerdeSpec extends ZIOSpecDefault:
           .fromJson[AgentEvent.TextBlockDeltaEvent]
           .contains(AgentEvent.TextBlockDeltaEvent("hello", 0)),
         legacy.fromJson[AgentEvent].isLeft,
-        invalid.forall(_.fromJson[AgentEvent.TextBlockDeltaEvent].isLeft)
+        invalid.forall(_.fromJson[AgentEvent.TextBlockDeltaEvent].isLeft),
+        """{"delta":"thought","blockIndex":0}""".fromJson[AgentEvent.ThinkingBlockDeltaEvent] ==
+          Right(AgentEvent.ThinkingBlockDeltaEvent("thought", 0)),
+        """{"event":"thinking_block_delta","delta":"thought","blockIndex":0}"""
+          .fromJson[AgentEvent] ==
+          Right(AgentEvent.ThinkingBlockDeltaEvent("thought", 0)),
+        """{"event":"thinking_block_delta","delta":"thought","blockIndex":0,"accumulatedThought":7}"""
+          .fromJson[AgentEvent]
+          .isLeft
       )
     },
     test("every leaf still decodes its legacy untagged payload") {

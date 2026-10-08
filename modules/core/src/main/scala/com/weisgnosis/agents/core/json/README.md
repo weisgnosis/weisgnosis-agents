@@ -32,7 +32,7 @@ The pre-fix memory-numeric-red.log recorded 38 passes/3 failures in provenance, 
 | --- | --- |
 | [ExactJson.scala](ExactJson.scala) | `f9150a264f59c9c20590878b6195fda9b350c033` |
 | [ExactJsonSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/json/ExactJsonSpec.scala) | `4c14c2b3502ba9ef52e77c078b1c9d6243d082a0` |
-| [AgentEvent.scala](../event/AgentEvent.scala) | `cc125e0fc50072a765f32f2cc4d26a63b8650bf6` |
+| [AgentEvent.scala](../event/AgentEvent.scala) | [Current accumulated-thinking identity](../event/README.md#incremental-and-accumulated-thinking); earlier behavioral scope retained. |
 | [JsonFields.scala](../model/JsonFields.scala) | `44095275fbccc029af1ec29ee9ee387a388d4422` |
 | [Msg.scala](../model/Msg.scala) | `2f12a84f6f668f652dff6311088b842af6c495c7` |
 | [ContentBlock.scala](../model/ContentBlock.scala) | `d4b186534f6874b67bab02e2d0d37dec097ecf09` |
