@@ -17,6 +17,8 @@ Use [Getting started](../../docs/getting-started.md) for compiled applications a
 | [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) | Explicit Plan-mode tool admission, command screening, and draft storage |
 | [skill](src/main/scala/com/weisgnosis/agents/harness/skill/README.md) | Bounded skill parsing and explicitly trusted local resources |
 
+The [shared task-file route](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#shared-task-files) exposes exact bytes through a host-supplied backend with checked owner/agent/session partitioning. It provides no local fallback or general filesystem.
+
 For subagents, construct trusted factories and retain the returned scopes/resources. [SubagentSession](src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentSession.scala) reuses one runtime; catalog and directory adapters select host-installed capabilities. [SubagentTools](src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) supplies optional model-facing tools. Durable storage and post-persistence consumption are separate explicit bindings; ordinary observational tools do not silently acknowledge results.
 
 ## Ownership and limits

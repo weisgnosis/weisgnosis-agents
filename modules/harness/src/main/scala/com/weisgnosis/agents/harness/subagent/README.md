@@ -1,5 +1,13 @@
 # Scoped child execution and sessions
 
+## Shared task files
+
+[SharedSubagentTaskFiles](SharedSubagentTaskFiles.scala) binds a borrowed `TaskFileBackend`, an explicit owner `StorageAddress` and a checked agent name. Its `read` and `write` operations accept only `agents/<bound-agent>/tasks/<checked-session>.json`. The backend receives the exact bytes, including non-JSON and non-UTF-8 data, at namespace `owner.namespace ++ Chunk(owner.key, agent, session)` and key `tasks`. Distinct owners and sessions therefore have separate addresses. Rebinding the same owner to the same backend reads the existing file.
+
+The host authenticates the owner and keeps the borrowed backend alive; this route neither acquires nor closes it. Invalid or foreign paths fail before backend access. Missing files, backend failures and cancellation never fall back to local files or another owner. A positive byte limit bounds accepted reads and writes; the backend must separately bound allocation and transfer. Reads over the limit fail without truncation, and oversized writes never reach the backend. Address capacity is validated for each full namespace.
+
+This is the task-file routing behavior of pinned `WorkspaceTaskRepositoryTest.remoteFilesystemSpec_includesTasksRoute` (857), exposed as an explicit capability rather than a general composite filesystem. It grants no task registration, execution, JSON/CAS semantics, network transport or delivery-order guarantee. [SharedSubagentTaskFilesSpec](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SharedSubagentTaskFilesSpec.scala) exercises the public byte route, owner/session isolation, rejected paths, failures and joined cancellation.
+
 ## Persisted execution origin
 
 SubagentExecutionOrigin distinguishes Local from AgentProtocol with a checked exact SubagentProtocolBaseUri. Endpoint observations permit bounded absolute HTTP(S), including an @ in a path, and reject authority credentials, query, fragment, malformed Unicode and whitespace/control characters. This is pure structural validation, not DNS access, an endpoint client or an execution capability. The stricter URI policy is an intentional Scala admission boundary.

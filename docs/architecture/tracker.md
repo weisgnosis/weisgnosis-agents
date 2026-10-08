@@ -15,6 +15,7 @@ These implemented capabilities have existing public API/spec evidence. Checked a
 - [x] Call installed MCP tools/resources over stdio or HTTP; project retained resource data into the next request without changing canonical history. See [request projection](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#request-only-custom-content-projection).
 - [x] Persist bounded data through conditional JSON storage, including actual PostgreSQL with host-owned DataSource/schema. See [storage](../../modules/storage-postgresql/README.md).
 - [x] Run the opt-in live-provider smoke with streamed text, one tool execution and authoritative completion. This proves one selected run, not all providers or cancellation profiles; see [live verification](../../modules/examples/README.md#live-endpoint-verification).
+- [x] Upload/read exact task-file bytes through an explicitly borrowed backend, with checked owner/agent/session isolation and no fallback. This is a typed route adaptation, not a general composite filesystem. See [shared task files](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#shared-task-files).
 - [x] Build local artifacts and consume selected APIs from a separate project. See the [artifact consumer](../../verification/artifact-consumer/README.md); remote publication remains open.
 
 ## Remaining library completion work
@@ -22,7 +23,7 @@ These implemented capabilities have existing public API/spec evidence. Checked a
 Check an outcome only after its expected result, relevant review and verification exist. New scope requires a promised behavior, reproduced defect or explicit user request. No percentage or calendar forecast is inferred from the item count.
 
 - [ ] **Persistent named sessions:** spawn/send by checked parent/agent/label identity, close and reopen idle history or a validated suspended checkpoint through a fresh trusted factory, with no premature model/tool replay. Retained sessions and explicit checkpoint import are prerequisites, not completion. See [session obligations](test-parity.md#remaining-original-library-obligations-source-inventory).
-- [ ] **Shared task files:** upload/read arbitrary bytes at agents/<agent>/tasks/<session>.json through a borrowed backend, preserving owner isolation and failures without fallback leakage. See [method857](test-parity.md#workspace-task-repository-method-inventory).
+
 - [ ] **Pending delivery order:** deliver oldest dated undelivered results first, undated entries last, with explicit ties and preserved raw publication order/ACK stamps. See [delivery](test-parity.md#durable-terminal-delivery-acknowledgement).
 - [ ] **A useful runnable task:** document a complete application using a real selected model and host-supplied or MCP file tools against a disposable fixture. Verify actual tool effects/file bytes, Completed state and cleanup; model claims alone are insufficient. A bundled unrestricted shell/file toolkit is not silently added to library scope.
 - [ ] **Remaining runtime/provider obligations:** finish the finite disposition of promised event/hook, permission/declaration, metadata, reasoning/media and selected upstream-delta behavior. Link executable evidence, implement actual gaps or justify API/host adaptations. See [original scope](test-parity.md#original-plan-disposition), [subagents](test-parity.md#subagent-supervision-inventory) and [upstream delta](test-parity.md#upstream-delta-checked-on-2026-10-08). The latest upstream check found 33 commits beyond the pin, including six newly fetched commits and a substantial Harness/session redesign whose relevant behavior still needs classification. Java declaration totals are not a criterion.
@@ -33,7 +34,7 @@ Check an outcome only after its expected result, relevant review and verificatio
 
 ## Immediate next work
 
-Current implementation task: complete the shared task-file scenario. Provider Running preview completion is corrected and verified; it does not add a Responses adapter or provider-stream replacement accumulator. The process rules and primary documentation now use outcome-based delivery; package-level legacy journal cleanup remains part of release usability. The named-session draft is paused in C:/workspace/weisgnosis-agents-session and is neither compiled, reviewed nor accepted. The delivery worktree C:/workspace/weisgnosis-agents-delivery contains no accepted implementation. Preserve drafts; their existence does not close a checklist outcome.
+Current implementation task: pending delivery order. Provider Running preview completion is corrected and verified; it does not add a Responses adapter or provider-stream replacement accumulator. The process rules and primary documentation now use outcome-based delivery; package-level legacy journal cleanup remains part of release usability. The named-session draft is being completed in C:/workspace/weisgnosis-agents-session and is neither compiled, reviewed nor accepted. The delivery worktree C:/workspace/weisgnosis-agents-delivery contains no accepted implementation. Preserve drafts; their existence does not close a checklist outcome.
 
 ## Verification
 
