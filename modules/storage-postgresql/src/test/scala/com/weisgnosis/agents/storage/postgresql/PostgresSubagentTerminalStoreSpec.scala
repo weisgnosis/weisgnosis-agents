@@ -115,6 +115,18 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             )
             recovered <- reopened.list
             isolated  <- SubagentTerminalStore.make(second, other).list
+            third = SubagentTerminalRecord(
+              SubagentTaskId(new UUID(0L, 3L)),
+              SubagentTerminalOutcome.Completed("concurrent publication")
+            )
+            acknowledgements <- ZIO
+              .foreachPar(Chunk(terminal, reopened))(_.acknowledge(firstId))
+              .zipPar(terminal.publish(third))
+              .map(_._1)
+            stamp         <- reopened.acknowledgement(firstId)
+            undelivered   <- reopened.pending
+            exactAfterAck <- reopened.read(firstId)
+            isolatedStamp <- SubagentTerminalStore.make(second, other).acknowledgement(firstId)
           yield assertTrue(
             before.isEmpty,
             pending.isEmpty,
@@ -145,7 +157,29 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 case SubagentTerminalPublication.AlreadyStored(_) => true
                 case SubagentTerminalPublication.Stored(_)        => false
             ) == 1,
-            isolated.isEmpty
+            isolated.isEmpty,
+            acknowledgements.count(receipt =>
+              receipt match
+                case SubagentTerminalAcknowledgeResult.Acknowledged(_) => true
+                case _                                                 => false
+            ) == 1,
+            acknowledgements.count(receipt =>
+              receipt match
+                case SubagentTerminalAcknowledgeResult.AlreadyAcknowledged(_) => true
+                case _                                                        => false
+            ) == 1,
+            acknowledgements.forall(receipt =>
+              val at = receipt match
+                case SubagentTerminalAcknowledgeResult.Acknowledged(value)        => Some(value)
+                case SubagentTerminalAcknowledgeResult.AlreadyAcknowledged(value) => Some(value)
+                case SubagentTerminalAcknowledgeResult.Missing                    => None
+              at.exists(value =>
+                stamp.contains(SubagentTerminalAcknowledgement.Acknowledged(value))
+              )
+            ),
+            undelivered.map(_.id).toSet == Set(secondId, third.id),
+            exactAfterAck == exact,
+            isolatedStamp.isEmpty
           )
     ,
     test(

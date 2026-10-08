@@ -25,7 +25,7 @@ import zio.test.*
 
 object SubagentTaskObservationSpec extends ZIOSpecDefault:
   private enum SnapshotTiming:
-    case Completed, BeforeCompletion
+    case Completed, BeforeCompletion, BeforeAcknowledgement
 
   private val result: AgentResult = AgentResult(Msg.assistant("exact terminal"), Chunk.empty, 1)
 
@@ -73,21 +73,27 @@ object SubagentTaskObservationSpec extends ZIOSpecDefault:
               Some(terminal)
             )
           )
-          id              <- accepted(registry)
-          _               <- writing.await
-          finished        <- registry.await(id)
-          pending         <- registry.forgetCompleted(id)
-          waiting         <- registry.observe(id).forkScoped
-          cancelled       <- waiting.interrupt
-          stillPending    <- registry.forgetCompleted(id)
-          before          <- backend.store.read(target)
-          _               <- release.succeed(())
-          receipt         <- registry.publication(id)
-          observed        <- registry.observe(id)
-          forgotten       <- registry.forgetCompleted(id)
-          restored        <- registry.observe(id)
-          deliveries      <- registry.pendingDeliveries.either
-          acknowledgement <- registry.acknowledge(id).either
+          id                <- accepted(registry)
+          _                 <- writing.await
+          finished          <- registry.await(id)
+          pending           <- registry.forgetCompleted(id)
+          waiting           <- registry.observe(id).forkScoped
+          cancelled         <- waiting.interrupt
+          stillPending      <- registry.forgetCompleted(id)
+          before            <- backend.store.read(target)
+          _                 <- release.succeed(())
+          receipt           <- registry.publication(id)
+          observed          <- registry.observe(id)
+          forgotten         <- registry.forgetCompleted(id)
+          restored          <- registry.observe(id)
+          deliveries        <- registry.pendingDeliveries.either
+          acknowledgement   <- registry.acknowledge(id).either
+          inboxBefore       <- registry.durablePendingDeliveries
+          ackTime           <- Clock.instant
+          acknowledged      <- registry.acknowledgeTerminal(id)
+          acknowledgedAgain <- registry.acknowledgeTerminal(id)
+          persistedStamp    <- SubagentTerminalStore.make(backend.store, target).acknowledgement(id)
+          inboxAfter        <- registry.durablePendingDeliveries
           legacy <- SubagentTaskRegistry.openWith(
             (_, _, _) => supervisor.attach(ZIO.succeed(result)),
             1
@@ -96,23 +102,30 @@ object SubagentTaskObservationSpec extends ZIOSpecDefault:
           _             <- legacy.await(legacyId)
           legacyView    <- legacy.observe(legacyId)
           legacyReceipt <- legacy.publication(legacyId).either
+          legacyInbox   <- legacy.durablePendingDeliveries.either
+          legacyAck     <- legacy.acknowledgeTerminal(legacyId).either
           finish        <- Promise.make[Nothing, Unit]
           running <- SubagentTaskRegistry.openWith(
             (_, _, _) => supervisor.attach(finish.await.as(result)),
             1,
             Some(terminal)
           )
-          runningId <- accepted(running)
-          active    <- running.observe(runningId)
+          runningId         <- accepted(running)
+          active            <- running.observe(runningId)
+          emptyWhileRunning <- running.durablePendingDeliveries
           _ <- SubagentTerminalStore
             .make(backend.store, target)
             .publish(
               SubagentTerminalRecord(runningId, SubagentTerminalOutcome.Completed("exact terminal"))
             )
-          preferred  <- running.observe(runningId)
-          listed     <- running.observations
-          _          <- finish.succeed(())
-          reconciled <- running.publication(runningId)
+          preferred           <- running.observe(runningId)
+          listed              <- running.observations
+          storedWhileRunning  <- running.durablePendingDeliveries
+          runningAcknowledged <- running.acknowledgeTerminal(runningId)
+          _                   <- finish.succeed(())
+          reconciled          <- running.publication(runningId)
+          retainedStamp       <- running.terminalAcknowledgement(runningId)
+          stillEmpty          <- running.durablePendingDeliveries
         yield assertTrue(
           finished.contains(Exit.succeed(result)),
           pending == SubagentTaskRemoval.Unpublished,
@@ -132,6 +145,18 @@ object SubagentTaskObservationSpec extends ZIOSpecDefault:
           restored == observed,
           deliveries.isLeft,
           acknowledgement.isLeft,
+          inboxBefore.map(_.id) == Chunk(id),
+          acknowledged == SubagentTerminalAcknowledgeResult.Acknowledged(ackTime),
+          acknowledgedAgain == SubagentTerminalAcknowledgeResult.AlreadyAcknowledged(ackTime),
+          persistedStamp.contains(SubagentTerminalAcknowledgement.Acknowledged(ackTime)),
+          inboxAfter.isEmpty,
+          legacyInbox.isLeft,
+          legacyAck.isLeft,
+          emptyWhileRunning.isEmpty,
+          storedWhileRunning.map(_.id) == Chunk(runningId),
+          runningAcknowledged == SubagentTerminalAcknowledgeResult.Acknowledged(ackTime),
+          retainedStamp == persistedStamp,
+          stillEmpty.isEmpty,
           legacyView.contains(
             SubagentTaskObservation(
               legacyId,
@@ -251,7 +276,7 @@ object SubagentTaskObservationSpec extends ZIOSpecDefault:
                   readCount
                     .getAndUpdate(_ + 1)
                     .flatMap: count =>
-                      (if (count == 1 || count == 2) && timing == SnapshotTiming.BeforeCompletion
+                      (if (count == 1 || count == 2) && timing != SnapshotTiming.Completed
                        then heldReads.offer(()) *> committed.await
                        else ZIO.unit) *>
                         backend.store
@@ -273,9 +298,17 @@ object SubagentTaskObservationSpec extends ZIOSpecDefault:
               _ <- ZIO.when(timing == SnapshotTiming.Completed)(
                 finish.succeed(()) *> committed.await *> registry.await(id)
               )
-              one <- registry.observe(id).timeout(1.second).forkScoped
-              all <- registry.observations.timeout(1.second).forkScoped
-              _ <- ZIO.when(timing == SnapshotTiming.BeforeCompletion)(
+              firstObservation =
+                if timing == SnapshotTiming.BeforeAcknowledgement then
+                  registry.terminalAcknowledgement(id).unit
+                else registry.observe(id).unit
+              secondObservation =
+                if timing == SnapshotTiming.BeforeAcknowledgement then
+                  registry.acknowledgeTerminal(id).unit
+                else registry.observations.unit
+              one <- firstObservation.timeout(1.second).forkScoped
+              all <- secondObservation.timeout(1.second).forkScoped
+              _ <- ZIO.when(timing != SnapshotTiming.Completed)(
                 heldReads.take *> heldReads.take *> finish.succeed(
                   ()
                 ) *> committed.await *> registry.await(id)
@@ -284,21 +317,37 @@ object SubagentTaskObservationSpec extends ZIOSpecDefault:
               toolkit   = SubagentTools.make(registry)
               arguments = Json.Obj("task_id" -> Json.Str(id.value.toString))
               control <- toolkit.executeSafe("agent_cancel", arguments).timeout(1.second).forkScoped
-              _       <- TestClock.adjust(1.second)
-              earlyOne     <- one.join
-              earlyAll     <- all.join
-              earlyControl <- control.join
-              _            <- release.succeed(())
-              receipt      <- registry.publication(id).exit
-              laterOne     <- registry.observe(id).exit
-              laterAll     <- registry.observations.exit
-              laterControl <- toolkit.executeSafe("agent_cancel", arguments)
-              raw          <- SubagentTerminalStore.make(backend.store, target).read(id)
-              attempts     <- backend.writes.get
+              inbox   <- registry.durablePendingDeliveries.timeout(1.second).forkScoped
+              stamp   <- registry.terminalAcknowledgement(id).timeout(1.second).forkScoped
+              acknowledge          <- registry.acknowledgeTerminal(id).timeout(1.second).forkScoped
+              _                    <- TestClock.adjust(1.second)
+              earlyOne             <- one.join
+              earlyAll             <- all.join
+              earlyControl         <- control.join
+              earlyInbox           <- inbox.join
+              earlyStamp           <- stamp.join
+              earlyAcknowledgement <- acknowledge.join
+              _                    <- release.succeed(())
+              receipt              <- registry.publication(id).exit
+              laterOne             <- registry.observe(id).exit
+              laterAll             <- registry.observations.exit
+              laterControl         <- toolkit.executeSafe("agent_cancel", arguments)
+              laterInbox           <- registry.durablePendingDeliveries.exit
+              laterStamp           <- registry.terminalAcknowledgement(id).exit
+              laterAcknowledgement <- registry.acknowledgeTerminal(id).exit
+              raw                  <- SubagentTerminalStore.make(backend.store, target).read(id)
+              attempts             <- backend.writes.get
             yield assertTrue(
               earlyOne.isEmpty,
               earlyAll.isEmpty,
               earlyControl.isEmpty,
+              earlyInbox.isEmpty,
+              earlyStamp.isEmpty,
+              earlyAcknowledgement.isEmpty,
+              Chunk(laterInbox, laterStamp, laterAcknowledgement).forall(
+                _.causeOption
+                  .exists(_.failures.map(_.message) == List("Committed acknowledgement lost"))
+              ),
               laterControl.state == ToolResultState.Error,
               laterControl.output == "Execution failed for 'agent_cancel': Committed acknowledgement lost",
               receipt.causeOption

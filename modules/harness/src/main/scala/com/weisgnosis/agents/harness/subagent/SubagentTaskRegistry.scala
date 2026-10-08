@@ -77,6 +77,21 @@ trait SubagentTaskRegistry:
   private[subagent] def awaitTerminalPublication(@unused id: SubagentTaskId): IO[AgentError, Unit] =
     ZIO.unit
 
+  /** Durable terminal observations awaiting explicit host acknowledgement; this is not a claim. */
+  def durablePendingDeliveries: IO[AgentError, Chunk[SubagentTerminalRecord]] =
+    ZIO.fail(AgentError.InvalidConfiguration("This registry does not support durable delivery"))
+
+  def terminalAcknowledgement(
+      @unused id: SubagentTaskId
+  ): IO[AgentError, Option[SubagentTerminalAcknowledgement]] =
+    ZIO.fail(AgentError.InvalidConfiguration("This registry does not support durable delivery"))
+
+  /** Missing means no persisted terminal observation, not absence of a live execution. */
+  def acknowledgeTerminal(
+      @unused id: SubagentTaskId
+  ): IO[AgentError, SubagentTerminalAcknowledgeResult] =
+    ZIO.fail(AgentError.InvalidConfiguration("This registry does not support durable delivery"))
+
   /** Await a retained publication receipt without cancelling its owned worker. */
   def publication(@unused id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalPublication]] =
     ZIO.fail(AgentError.InvalidConfiguration("This registry does not support durable publication"))
@@ -402,6 +417,55 @@ object SubagentTaskRegistry:
                       .StorageError("Successful publication has no visible terminal observation")
                   )
               yield fromStored(record)
+
+    override def durablePendingDeliveries: IO[AgentError, Chunk[SubagentTerminalRecord]] =
+      persistence match
+        case None => super.durablePendingDeliveries
+        case Some(binding) =>
+          for
+            entries <- state.get.map(_.entries)
+            _       <- ZIO.foreachDiscard(entries)(awaitCompletedPublication)
+            records <- binding.store.pending
+            _ <- ZIO.foreachDiscard(records): record =>
+              lookup(record.id).flatMap(entry =>
+                ZIO.foreachDiscard(entry)(awaitCompletedPublication)
+              )
+          yield records
+
+    override def terminalAcknowledgement(
+        id: SubagentTaskId
+    ): IO[AgentError, Option[SubagentTerminalAcknowledgement]] =
+      persistence match
+        case None => super.terminalAcknowledgement(id)
+        case Some(binding) =>
+          for
+            _     <- awaitRetainedCompletion(id)
+            stamp <- binding.store.acknowledgement(id)
+            _     <- ZIO.when(stamp.nonEmpty)(awaitRetainedCompletion(id))
+          yield stamp
+
+    override def acknowledgeTerminal(
+        id: SubagentTaskId
+    ): IO[AgentError, SubagentTerminalAcknowledgeResult] =
+      persistence match
+        case None => super.acknowledgeTerminal(id)
+        case Some(binding) =>
+          for
+            _     <- awaitRetainedCompletion(id)
+            stamp <- binding.store.acknowledgement(id)
+            result <- stamp match
+              case None => ZIO.succeed(SubagentTerminalAcknowledgeResult.Missing)
+              case Some(_) =>
+                awaitRetainedCompletion(id) *> binding.store.acknowledge(id)
+          yield result
+
+    private def awaitRetainedCompletion(id: SubagentTaskId): IO[AgentError, Unit] =
+      lookup(id).flatMap(entry => ZIO.foreachDiscard(entry)(awaitCompletedPublication))
+
+    private def awaitCompletedPublication(entry: Entry): IO[AgentError, Unit] =
+      entry.task.poll.flatMap:
+        case None    => ZIO.unit
+        case Some(_) => awaitTerminalPublication(entry.id)
 
     private def requireLiveDelivery: IO[AgentError.InvalidConfiguration, Unit] =
       ZIO

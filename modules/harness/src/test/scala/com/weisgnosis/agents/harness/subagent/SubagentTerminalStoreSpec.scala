@@ -20,7 +20,9 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.harness.storage.*
 import java.util.UUID
+import java.nio.charset.StandardCharsets
 import zio.*
+import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
@@ -220,12 +222,26 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
             case Json.Obj(fields) =>
               fields.find(_._1 == "records").map(_._2) match
                 case Some(Json.Arr(entries)) =>
+                  val malformedStamps =
+                    Chunk(Json.Str("invalid-instant"), Json.Null, Json.Num(1)).map(stamp =>
+                      Json.Obj(
+                        "schemaVersion" -> Json.Num(2),
+                        "records" -> Json.Arr(
+                          entries.map(entry =>
+                            entry match
+                              case Json.Obj(values) =>
+                                Json.Obj(values :+ ("acknowledgedAt" -> stamp))
+                              case other => other
+                          )
+                        )
+                      )
+                    )
                   ZIO.succeed(
                     Chunk(
                       Json.Obj(fields :+ ("unknown" -> Json.Bool(true))),
                       Json.Obj(
                         fields.map((key, value) =>
-                          key -> (if key == "schemaVersion" then Json.Num(2) else value)
+                          key -> (if key == "schemaVersion" then Json.Num(3) else value)
                         )
                       ),
                       Json.Obj(
@@ -234,7 +250,7 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
                         )
                       ),
                       Json.Obj("schemaVersion" -> Json.Num(1), "records" -> Json.Str("invalid"))
-                    )
+                    ) ++ malformedStamps
                   )
                 case _ => ZIO.fail(AgentError.StorageError("Missing fixture records"))
             case _ => ZIO.fail(AgentError.StorageError("Missing fixture object"))
@@ -301,5 +317,162 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
           SubagentTerminalStore.Limits.make(1, 0, 0).isLeft,
           SubagentTerminalStore.Limits.make(1, 1, -1).isLeft,
           SubagentTerminalStore.Limits.make(1, 1, 0).isRight
+        )
+    ,
+    test(
+      "legacy observations migrate without invented dates and first acknowledgement survives reopen and publication"
+    ):
+      for
+        backend  <- fixture
+        target   <- address("legacy-ack")
+        revision <- ZIO.fromEither(StorageRevision.fromLong(1L))
+        first = SubagentTerminalRecord(firstId, SubagentTerminalOutcome.Completed("exact λ"))
+        second = SubagentTerminalRecord(
+          secondId,
+          SubagentTerminalOutcome.Failed(Chunk("failed"), SubagentTaskDefects.Absent)
+        )
+        outcome <- ZIO.fromEither(first.outcome.toJsonAST.left.map(AgentError.StorageError(_)))
+        legacy = Json.Obj(
+          "schemaVersion" -> Json.Num(1),
+          "records" -> Json.Arr(
+            Json.Obj("id" -> Json.Str(firstId.value.toString), "outcome" -> outcome)
+          )
+        )
+        _ <- backend.values.set(Map(target -> VersionedJson(legacy, revision)))
+        store = SubagentTerminalStore.make(backend.store, target)
+        before        <- store.pending
+        unstamped     <- store.acknowledgement(firstId)
+        missing       <- store.acknowledge(secondId)
+        unchanged     <- backend.store.read(target)
+        boundedTarget <- address("ack-byte-limit")
+        _             <- SubagentTerminalStore.make(backend.store, boundedTarget).publish(first)
+        boundedBefore <- backend.store
+          .read(boundedTarget)
+          .someOrFail(AgentError.StorageError("Missing bounded fixture aggregate"))
+        limits <- ZIO.fromEither(
+          SubagentTerminalStore.Limits.make(
+            256,
+            boundedBefore.value.toJson.getBytes(StandardCharsets.UTF_8).length,
+            8
+          )
+        )
+        bounded = SubagentTerminalStore.make(backend.store, boundedTarget, limits)
+        boundedPending <- bounded.pending
+        oversizedAck   <- bounded.acknowledge(firstId).either
+        boundedAfter   <- backend.store.read(boundedTarget)
+        boundedStamp   <- bounded.acknowledgement(firstId)
+        at             <- Clock.instant
+        acknowledged   <- store.acknowledge(firstId)
+        _              <- TestClock.adjust(1.hour)
+        repeated       <- store.acknowledge(firstId)
+        idempotent     <- store.publish(first)
+        _              <- store.publish(second)
+        reopened = SubagentTerminalStore.make(backend.store, target)
+        records <- reopened.list
+        pending <- reopened.pending
+        stamp   <- reopened.acknowledgement(firstId)
+        absent  <- reopened.acknowledgement(SubagentTaskId(new UUID(0L, 99L)))
+        current <- backend.store.read(target)
+      yield assertTrue(
+        before == Chunk(first),
+        unstamped.contains(SubagentTerminalAcknowledgement.Pending),
+        missing == SubagentTerminalAcknowledgeResult.Missing,
+        unchanged.contains(VersionedJson(legacy, revision)),
+        boundedPending == Chunk(first),
+        oversizedAck.isLeft,
+        boundedAfter.contains(boundedBefore),
+        boundedStamp.contains(SubagentTerminalAcknowledgement.Pending),
+        acknowledged == SubagentTerminalAcknowledgeResult.Acknowledged(at),
+        repeated == SubagentTerminalAcknowledgeResult.AlreadyAcknowledged(at),
+        idempotent match
+          case SubagentTerminalPublication.AlreadyStored(_) => true
+          case _                                            => false
+        ,
+        records == Chunk(first, second),
+        pending == Chunk(second),
+        stamp.contains(SubagentTerminalAcknowledgement.Acknowledged(at)),
+        absent.isEmpty,
+        current.exists(_.value match
+          case Json.Obj(fields) => fields.contains("schemaVersion" -> Json.Num(2))
+          case _                => false)
+      )
+    ,
+    test(
+      "acknowledgement retries only confirmed conflicts with one timestamp and preserves uncertain or cancelled writes"
+    ):
+      ZIO.scoped:
+        for
+          backend <- fixture
+          target  <- address("ack-conflicts")
+          first  = SubagentTerminalRecord(firstId, SubagentTerminalOutcome.Completed("first"))
+          second = SubagentTerminalRecord(secondId, SubagentTerminalOutcome.Completed("second"))
+          store  = SubagentTerminalStore.make(backend.store, target)
+          _        <- store.publish(first)
+          _        <- store.publish(second)
+          attempts <- Ref.make(0)
+          conflicting = new VersionedJsonStore:
+            def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+              backend.store.read(address)
+            def compareAndSet(
+                address: StorageAddress,
+                expected: ExpectedRevision,
+                value: Json
+            ): IO[AgentError, ConditionalWrite] =
+              attempts
+                .updateAndGet(_ + 1)
+                .flatMap:
+                  case 1 => TestClock.adjust(1.hour).as(ConditionalWrite.Conflict)
+                  case _ => backend.store.compareAndSet(address, expected, value)
+          at                <- Clock.instant
+          receipt           <- SubagentTerminalStore.make(conflicting, target).acknowledge(firstId)
+          count             <- attempts.get
+          uncertainAttempts <- Ref.make(0)
+          uncertainty = AgentError.StorageError("Acknowledgement receipt lost")
+          uncertain = new VersionedJsonStore:
+            def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+              backend.store.read(address)
+            def compareAndSet(
+                address: StorageAddress,
+                expected: ExpectedRevision,
+                value: Json
+            ): IO[AgentError, ConditionalWrite] =
+              uncertainAttempts.update(_ + 1) *> backend.store
+                .compareAndSet(address, expected, value) *> ZIO.fail(uncertainty)
+          secondAt       <- Clock.instant
+          lost           <- SubagentTerminalStore.make(uncertain, target).acknowledge(secondId).exit
+          uncertainCount <- uncertainAttempts.get
+          recovered      <- store.acknowledge(secondId)
+          entered        <- Promise.make[Nothing, Unit]
+          cancelAttempts <- Ref.make(0)
+          thirdId = SubagentTaskId(new UUID(0L, 3L))
+          _ <- store.publish(
+            SubagentTerminalRecord(thirdId, SubagentTerminalOutcome.Completed("third"))
+          )
+          cancelledBackend = new VersionedJsonStore:
+            def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+              backend.store.read(address)
+            def compareAndSet(
+                address: StorageAddress,
+                expected: ExpectedRevision,
+                value: Json
+            ): IO[AgentError, ConditionalWrite] =
+              cancelAttempts.update(_ + 1) *> entered.succeed(()) *> ZIO.never
+          writing <- SubagentTerminalStore
+            .make(cancelledBackend, target)
+            .acknowledge(thirdId)
+            .forkScoped
+          _           <- entered.await
+          cancelled   <- writing.interrupt
+          cancelCount <- cancelAttempts.get
+          pending     <- store.pending
+        yield assertTrue(
+          receipt == SubagentTerminalAcknowledgeResult.Acknowledged(at),
+          count == 2,
+          lost == Exit.fail(uncertainty),
+          uncertainCount == 1,
+          recovered == SubagentTerminalAcknowledgeResult.AlreadyAcknowledged(secondAt),
+          cancelled.isInterrupted,
+          cancelCount == 1,
+          pending.map(_.id) == Chunk(thirdId)
         )
   ) @@ TestAspect.timeout(15.seconds)
