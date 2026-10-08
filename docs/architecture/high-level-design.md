@@ -1,5 +1,7 @@
 # High-level architecture
 
+[InvocationPreparer](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#fresh-invocation-preparation) prepares separate prior history/new input once per admitted fresh execution before input persistence. Ordered stages validate rewrites and close scoped resources before committing prior history; input appends afterward. Structured Auto reuses preparation and its cooperative signal; restore/resume bypass this fresh-input boundary. Per-model history preparation and request-only projection remain separate.
+
 Ordinary before-acting suspension, checked supplied results and checkpoint restoration are [accepted](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration). Partial-confirmation checkpoints are independently reviewed. Checkpoint data describes an execution boundary; host authentication, durable workflow coordination and exclusive execution claims remain external; bounded checkpoint data storage is available through the separately composed adapter.
 
 ## Mission and authority

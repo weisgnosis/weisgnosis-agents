@@ -1,5 +1,7 @@
 # Mid-level behavior and planned integrations
 
+[InvocationPreparer](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#fresh-invocation-preparation) prepares separate prior history/new input once per admitted fresh execution before input persistence. Ordered stages validate rewrites and close scoped resources before committing prior history; input appends afterward. Structured Auto reuses preparation and its cooperative signal; restore/resume bypass this fresh-input boundary. Per-model history preparation and request-only projection remain separate.
+
 The [acting-stop decision contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) adds explicit host post-observation termination after the entire admitted batch drains. Both reviews and full verification passed; that acting-stop scope implies no HITL checkpoint or returnDirect flag. The separate ordinary before-acting resume/restoration contract is accepted.
 
 Sections 1-6 describe current components. Section 7 describes daily extraction, scoped daily storage and process-local or recoverable local consolidation. Section 8 describes planned behavior; section 9 distinguishes implemented child execution from inline declarations and remaining configuration integration; section 10 and the later plan sections distinguish implemented boundaries from remaining integrations. [AGENTS.md](../../AGENTS.md) owns invariant IDs; [low-level contracts](low-level-design.md) link to current declarations.

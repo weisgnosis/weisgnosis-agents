@@ -86,6 +86,23 @@ Pinned ReActAgentEmptyResponseRetryTest methods map to the existing five-group S
 - [x] Full verification passed under the linked test-only contract; no production change or reproduced-defect claim is made.
 - [x] Both reviewers approved final combined documentation in the linked test-only contract.
 
+## Fresh invocation preparation adaptation
+
+The fetched main revision 768d9613 includes ReActAgentOnAgentStateReadyTest. Its cold/warm state
+(149), consumer order (172), adjusted input/caller immutability (190), persisted state change (214),
+required failure/gate release (294), ordinary/stream behavior (332) and notification-window interruption
+(402) have bounded adaptations through InvocationPreparerSpec and the explicit scoped
+[preparation port](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#fresh-invocation-preparation).
+Method 214 is a canonical-history/snapshot-restoration adaptation: the Scala fixture reopens the
+prepared snapshot in a fresh runtime, while Java explicitly checks a host state-store save. The
+literal host-store write assertion is not claimed as executed by this fixture. The test groups also
+check once-only structured Auto fallback, restoration without callback replay and checked acting
+resume bypass. Scala commits validated prior history before appending new input;
+this is not a transaction over both values or Java's mutable session-state API.
+
+- [x] Provide separate prior history/input, ordered validated preparation and once-per-fresh-run integration, preserving exact errors and joined cleanup.
+- [ ] Classify noOverrideKeepsExistingBehavior, resubscriptionRefiresWithFreshInputCopy and distinctCallScopedStatePerSession separately before claiming this whole changed upstream suite. Scala prepared handles are one-shot; ambient Java session routing is not introduced.
+
 ## Thinking and invocation observations
 
 The following finite classifications describe thinking and bounded invocation observations against the pinned revision. The [invocation contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) describes execution ownership and current API limits.

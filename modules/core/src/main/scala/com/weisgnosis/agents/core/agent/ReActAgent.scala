@@ -65,7 +65,8 @@ final class ReActAgent private (
     private val skillLibrary: SkillLibrary,
     val fallback: Option[ModelTarget],
     val modelResponseObserver: ModelResponseObserver,
-    val localToolResultObserver: LocalToolResultObserver
+    val localToolResultObserver: LocalToolResultObserver,
+    val invocationPreparer: InvocationPreparer
 ):
 
   val skills: SkillCatalog = skillLibrary.catalog
@@ -382,9 +383,11 @@ final class ReActAgent private (
       invocation: InvocationContext
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
     for
-      runTools    <- makeRunTools
-      capturedRef <- Ref.make[Option[Json]](None)
-      usageRef    <- Ref.make[Option[ChatUsage]](None)
+      signal           <- prepareInvocationSignal(None)
+      preparedMessages <- prepareInvocationInput(invocation, messages)
+      runTools         <- makeRunTools
+      capturedRef      <- Ref.make[Option[Json]](None)
+      usageRef         <- Ref.make[Option[ChatUsage]](None)
       result <-
         val syntheticTool = StructuredOutput.createTool(schema, json => capturedRef.set(Some(json)))
         val nativeConfig = llmConfig.copy(responseFormat =
@@ -402,14 +405,15 @@ final class ReActAgent private (
 
         def nativeAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
           runWithHub(
-            RunEntry.Fresh(messages),
+            RunEntry.Fresh(preparedMessages),
             hub,
             runTools,
             usageRef,
             complete,
             invocation,
             nativeConfig,
-            CompletionMode.Structured(capturedRef)
+            CompletionMode.Structured(capturedRef),
+            Some(signal)
           )(
             prepare
           )
@@ -428,7 +432,8 @@ final class ReActAgent private (
                 complete,
                 invocation,
                 syntheticConfig,
-                CompletionMode.Structured(capturedRef)
+                CompletionMode.Structured(capturedRef),
+                Some(signal)
               )(prepare)
             )
 
@@ -442,19 +447,19 @@ final class ReActAgent private (
 
         def automaticAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
           llmConfig.structuredOutputCapability match
-            case StructuredOutputCapability.Unsupported => syntheticAttempt(messages)
+            case StructuredOutputCapability.Unsupported => syntheticAttempt(preparedMessages)
             case StructuredOutputCapability.Native(NativeToolSupport.Supported) =>
               nativeWithFallback
             case StructuredOutputCapability.Unknown | StructuredOutputCapability.Native(
                   NativeToolSupport.Unsupported
                 ) =>
               runTools.snapshot.flatMap(selected =>
-                if selected.isEmpty then nativeWithFallback else syntheticAttempt(messages)
+                if selected.isEmpty then nativeWithFallback else syntheticAttempt(preparedMessages)
               )
 
         mode match
           case StructuredMode.Native        => nativeAttempt
-          case StructuredMode.SyntheticTool => syntheticAttempt(messages)
+          case StructuredMode.SyntheticTool => syntheticAttempt(preparedMessages)
           case StructuredMode.Auto          => automaticAttempt
     yield result
 
@@ -842,6 +847,26 @@ final class ReActAgent private (
           )
       def encodeOutput(out: String): String = out
 
+  private def prepareInvocationSignal(
+      supplied: Option[Promise[Nothing, Unit]]
+  ): UIO[Promise[Nothing, Unit]] =
+    supplied
+      .fold(Promise.make[Nothing, Unit])(ZIO.succeed(_))
+      .tap(interruptedPromiseRef.set)
+
+  /** The caller owns runLock. Close preparation resources before committing either value. */
+  private def prepareInvocationInput(
+      invocation: InvocationContext,
+      messages: Chunk[Msg]
+  ): IO[AgentError, Chunk[Msg]] =
+    for
+      history <- stateRef.get
+      original = InvocationPreparation(history, messages)
+      candidate <- ZIO.scoped(invocationPreparer.prepare(invocation, original))
+      validated <- ZIO.fromEither(InvocationPreparer.validate(original, candidate))
+      _         <- stateRef.set(validated.history)
+    yield validated.input
+
   private def runOrdinaryWithHub(
       messages: Chunk[Msg],
       hub: Hub[AgentEvent],
@@ -849,18 +874,21 @@ final class ReActAgent private (
       invocation: InvocationContext,
       interruptSignal: Option[Promise[Nothing, Unit]] = None
   ): ZIO[Scope, AgentError, AgentResult] =
-    makeRunTools.zip(Ref.make[Option[ChatUsage]](None)).flatMap { case (runTools, usage) =>
-      runWithHub(
-        RunEntry.Fresh(messages),
+    for
+      signal           <- prepareInvocationSignal(interruptSignal)
+      preparedMessages <- prepareInvocationInput(invocation, messages)
+      runTools         <- makeRunTools
+      usage            <- Ref.make[Option[ChatUsage]](None)
+      result <- runWithHub(
+        RunEntry.Fresh(preparedMessages),
         hub,
         runTools,
         usage,
         complete,
         invocation,
-        interruptSignal = interruptSignal
+        interruptSignal = Some(signal)
       )(result => ZIO.succeed((result, ())))
-        .map(_._1)
-    }
+    yield result._1
 
   private enum RunEntry:
     case Fresh(messages: Chunk[Msg])
@@ -929,18 +957,21 @@ final class ReActAgent private (
           ZIO.uninterruptibleMask { restore =>
             val execute = entry match
               case RunEntry.Fresh(_) =>
-                loop(
-                  0,
-                  0,
-                  runTools,
-                  eventHub,
-                  replyId,
-                  invocation,
-                  requestConfig,
-                  completionMode,
-                  progressRef,
-                  usageRef
-                )
+                p.isDone.flatMap:
+                  case true => handleInterrupt(stateRef, 0, progressRef)
+                  case false =>
+                    loop(
+                      0,
+                      0,
+                      runTools,
+                      eventHub,
+                      replyId,
+                      invocation,
+                      requestConfig,
+                      completionMode,
+                      progressRef,
+                      usageRef
+                    )
               case RunEntry.Resume(result, pending, admitted) =>
                 actBatch(
                   result.reply,
@@ -2727,7 +2758,8 @@ object ReActAgent:
       skills: SkillCatalog | SkillLibrary = SkillCatalog.empty,
       fallback: Option[ModelTarget] = None,
       modelResponseObserver: ModelResponseObserver = ModelResponseObserver.ignore,
-      localToolResultObserver: LocalToolResultObserver = LocalToolResultObserver.ignore
+      localToolResultObserver: LocalToolResultObserver = LocalToolResultObserver.ignore,
+      invocationPreparer: InvocationPreparer = InvocationPreparer.identity
   ): IO[AgentError, ReActAgent] =
     for
       _ <- ZIO.fromEither(config.validated)
@@ -2759,7 +2791,8 @@ object ReActAgent:
       library,
       fallback,
       modelResponseObserver,
-      localToolResultObserver
+      localToolResultObserver,
+      invocationPreparer
     )
 
   def builder(): Builder = Builder()
@@ -2780,7 +2813,9 @@ object ReActAgent:
       private val _skills: SkillCatalog | SkillLibrary = SkillCatalog.empty,
       private val _fallback: Option[ModelTarget] = None,
       private val _modelResponseObserver: ModelResponseObserver = ModelResponseObserver.ignore,
-      private val _localToolResultObserver: LocalToolResultObserver = LocalToolResultObserver.ignore
+      private val _localToolResultObserver: LocalToolResultObserver =
+        LocalToolResultObserver.ignore,
+      private val _invocationPreparer: InvocationPreparer = InvocationPreparer.identity
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -2807,6 +2842,9 @@ object ReActAgent:
     def toolAuthorizer(authorizer: ToolAuthorizer): Builder = copy(_toolAuthorizer = authorizer)
 
     def historyPreparer(preparer: HistoryPreparer): Builder = copy(_historyPreparer = preparer)
+
+    def invocationPreparer(preparer: InvocationPreparer): Builder =
+      copy(_invocationPreparer = preparer)
 
     def modelInputTransform(transform: ModelInputTransform): Builder =
       copy(_modelInputTransform = transform)
@@ -2841,6 +2879,7 @@ object ReActAgent:
             _skills,
             _fallback,
             _modelResponseObserver,
-            _localToolResultObserver
+            _localToolResultObserver,
+            _invocationPreparer
           )
         )

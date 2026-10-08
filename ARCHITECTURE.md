@@ -1,5 +1,7 @@
 # Architecture: weisgnosis-agents
 
+[InvocationPreparer](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#fresh-invocation-preparation) prepares separate prior history/new input once per admitted fresh execution before input persistence. Ordered stages validate rewrites and close scoped resources before committing prior history; input appends afterward. Structured Auto reuses preparation and its cooperative signal; restore/resume bypass this fresh-input boundary. Per-model history preparation and request-only projection remain separate.
+
 ## Runtime authority
 
 The runtime owns state, cancellation, permission decisions, and completion. Model output is input to a deterministic state machine, never authority to bypass invariants. Pure transformations use immutable domain values. Randomness, clocks, filesystem access, network operations, and resource lifetimes belong inside ZIO effects.

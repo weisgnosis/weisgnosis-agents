@@ -65,6 +65,35 @@ Migration: the optional make argument and builder setting are additive at source
 - [x] Record the exact source identities, current API contract and migration limits.
 - [x] review_fp and review_invariants approve the final combined scope against 44c2ded: three unchanged Scala identities and ten Markdown files, no unresolved findings. English prose and 79-document/3,362-local-reference checks pass. The core seam does not install the separately configured harness reminder adapter.
 
+## Fresh invocation preparation
+
+Install [InvocationPreparer](InvocationPreparer.scala) through `ReActAgent.make(invocationPreparer = ...)`
+or `Builder.invocationPreparer`. The identity default preserves existing behavior. A scoped callback
+receives the invocation context and separate immutable prior history/new input, after admission under
+the run permit and before input persistence. It runs once for each fresh ordinary, prepared, streamed,
+forwarded or structured execution; native/synthetic Auto fallback does not repeat it.
+
+`andThen` preserves explicit order and validates each stage before calling the next. Rewrites preserve
+ordered system messages and complete tool-call/result history, both for prior history and the combined
+candidate. Callback, validation and preparation-cleanup failures retain their causes, stop subsequent
+preparation/model work and leave history uncommitted. Preparation resources close before validated
+prior history commits. Input is appended afterward: this is not a transaction combining the two, and
+later cancellation/failure can retain committed prepared history without appended input.
+
+The cooperative signal is installed before preparation and retained through Auto attempts. A signal
+received during preparation is honored before the model starts, after preparation returns. It does
+not preempt a blocked preparation callback. Explicit long-running preparation must cooperate with
+cancellation and own its resources. Caller interruption joins preparation cleanup
+before releasing the run permit. Restoration alone invokes no callback; the next fresh run sees restored
+prior history. Resume retains its checked saved acting state and bypasses fresh-input preparation.
+
+This port changes canonical state/input. [HistoryPreparer](HistoryPreparer.scala) remains a separate
+per-model history boundary, and [ModelInputTransform](ModelInputTransform.scala) changes only the
+request view. None of these values grants tool or durable execution authority. The
+[preparation suite](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/InvocationPreparerSpec.scala)
+checks ordered validation, cold/warm state, immutable caller input, actual streaming/Auto behavior,
+restore/resume boundaries and joined failure/interruption cleanup.
+
 ## Invocation identity and prepared execution
 
 [InvocationContext](../event/InvocationContext.scala) carries a typed UUID allocated in ZIO. Every admitted ordinary, structured, resumed or forwarded execution owns one identity. Model requests, post-reasoning hooks, tool authorization, contextual history preparation and TurnCompletion observe that same identity. Auto native/synthetic attempts and model failover retain it, although individual model request IDs remain fresh. A resumed invocation is fresh while its saved acting replyId/requestId remain unchanged. Forwarding preserves the child execution's context; source tagging does not substitute a parent identity.

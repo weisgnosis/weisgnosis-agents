@@ -1,5 +1,7 @@
 # Low-level contracts
 
+[InvocationPreparer](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#fresh-invocation-preparation) prepares separate prior history/new input once per admitted fresh execution before input persistence. Ordered stages validate rewrites and close scoped resources before committing prior history; input appends afterward. Structured Auto reuses preparation and its cooperative signal; restore/resume bypass this fresh-input boundary. Per-model history preparation and request-only projection remain separate.
+
 The [before-acting contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) stores one AgentResult plus data-only PendingActing. Direct and lazily consumed streaming resume share validation, checkpoint claim, scoped execution and completion observation. Resume claims the saved batch before execution, retains occurrence/context identity and checks the receiving host iteration budget before further reasoning. Checked supplied Success/Error observations are persisted and ledger-marked by original ordinal before interruptible processing, so cancellation preserves completed occurrences and only unfinished local calls execute. Restore rebuilds executable bindings from the host; serialized ToolDefs do not grant execution authority.
 
 Current source declarations are authoritative. This document records API contracts rather than maintaining a second implementation.

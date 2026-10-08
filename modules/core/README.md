@@ -6,7 +6,7 @@ Core provides immutable messages and tool observations, typed tools and authoriz
 
 Follow the runnable applications in [Getting started](../../docs/getting-started.md). The [host assembly example](../examples/src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) shows how to compose the existing builder with harness and MCP dependencies. Development artifact installation is described in the [build guide](../../project/README.md#local-artifact-packaging).
 
-Use [ReActAgent](src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) with an explicit client, toolkit, and authorization policy. Its [runtime contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md) explains streaming, interruption, structured output, suspension, and checked restoration. The host installs optional history preparation, result processing, request projection, and completion observers.
+Use [ReActAgent](src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) with an explicit client, toolkit, and authorization policy. Its [runtime contract](src/main/scala/com/weisgnosis/agents/core/agent/README.md) explains streaming, interruption, structured output, suspension, and checked restoration. The host installs optional [fresh invocation preparation](src/main/scala/com/weisgnosis/agents/core/agent/README.md#fresh-invocation-preparation), per-model history preparation, result processing, request projection and completion observers.
 
 ## Components
 

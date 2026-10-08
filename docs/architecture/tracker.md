@@ -31,6 +31,8 @@ These implemented capabilities have existing public API/spec evidence. Checked a
 
 - [x] Verify native Windows directory junction screening for existing and missing children, sensitive targets and lexical traversal, using an owned fixture whose borrowing JVM is joined before cleanup. See [native verification](../../verification/README.md#native-directory-aliases). POSIX execution, Windows file symlinks and hostile-mutation sandboxing are not implied.
 
+- [x] Prepare separate prior history/new input once per admitted fresh invocation, with ordered scoped validation, exact failure/cancellation causes, retained cooperative interruption and one preparation across structured fallback. Restore/resume bypass this boundary; see [preparation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#fresh-invocation-preparation).
+
 ## Remaining library completion work
 
 Check an outcome only after its expected result, relevant review and verification exist. New scope requires a promised behavior, reproduced defect or explicit user request. No percentage or calendar forecast is inferred from the item count.
@@ -43,7 +45,7 @@ Check an outcome only after its expected result, relevant review and verificatio
 
 ## Immediate next work
 
-Current implementation task: once-per-admitted-invocation preparation of prior history and new input before model execution, with ordered scoped callbacks, validated state changes and one preparation across structured fallback. Prepared invocation lifecycle/controls and native Windows directory-junction screening are verified within their documented scopes. Declaration mode/visibility, persistent named-session restoration, transcript compaction and the model-driven file task are verified within their documented scopes. Other runtime/provider dispositions, remote adapters, platform/live profiles and release usability/delivery remain open.
+Current verification task: exercise independent session runtimes, invocation-local pre-model retry and nested cooperative-signal isolation through the existing prepared/preparation APIs. No generic middleware or whole-execution retry is implied. Fresh invocation preparation, prepared controls and native Windows directory-junction screening are verified within their documented scopes. Declaration mode/visibility, persistent named-session restoration, transcript compaction and the model-driven file task are verified within their documented scopes. Other runtime/provider dispositions, remote adapters, platform/live profiles and release usability/delivery remain open.
 
 ## Verification
 
