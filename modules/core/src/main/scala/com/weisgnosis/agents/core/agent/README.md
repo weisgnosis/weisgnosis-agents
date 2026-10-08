@@ -1,5 +1,35 @@
 # ReAct execution and structured output
 
+## Persisted local tool observation
+
+[LocalToolResultObserver](LocalToolResultObserver.scala) is a trailing optional dependency of ReActAgent.make and Builder.localToolResultObserver, with an ignore default. When installed, its observation is required rather than best effort. PersistedLocalToolObservation contains the ModelStreamContext, actual approved ToolUse, original occurrence ordinal, original completed ToolResult, final processed ToolResult and canonical history returned atomically by the final persistence operation. Rewritten authorization inputs therefore retain the exact dispatched identity even when tool IDs repeat.
+
+Only completed local dispatches invoke the port, including normalized execution or decoding Error observations. Dispatch completion does not prove Tool.execute ran. Pre-dispatch preparation failures and denials, externally supplied results, provider-inline results and synthetic interruption/abort reconciliation do not invoke it. A resumed invocation can observe newly dispatched local calls, but replayed supplied observations do not count.
+
+The runtime first records the completed observation and marks its occurrence completed, runs the optional ToolResultProcessor in its scope, then commits the final result and history snapshot. The required observer runs interruptibly in a fresh scope before ToolResultEnd, acting-stop handling, return-direct completion or the next reasoning turn. ToolResultStart and streamed progress may already have been emitted. andThen closes each callback scope before the next callback. Callback construction is suspended; callbacks must not await this agent's run lock and must explicitly join children whose success matters.
+
+CompletionObservationError propagates outside the optional processor fallback, preserving the full cause with cleanup defects. Ordinary failure joins owned parallel siblings and reconciles only unfinished occurrences; the recorded current result remains intact. Internal sibling interruption may remain in a compound failure cause and does not itself request assistant interruption recovery. Genuine fiber or cooperative interruption joins callback cleanup and uses ordinary INV-2 recovery exactly once. No failed observer retries a model request or emits a completed-result event for that observation.
+
+This boundary proves runtime persistence of the selected observation, not model receipt, caller delivery, durable conversation storage or an atomic transaction with a host acknowledgement store. Automatic task-result acknowledgement remains a separate unfinished harness integration. Its planned policy must require trusted execution provenance and unchanged final output/state; erased or replaced results cannot be counted as delivered merely because their original result was transiently recorded.
+
+Migration: make calls retain their source defaults and builder composition gains localToolResultObserver. JVM signatures and Builder product/extractor arity change, requiring recompilation. The snapshot is runtime-only data rather than a serialized capability or checkpoint. No dependency/build-setting change is required.
+
+LocalToolResultObserverSpec uses three grouped contracts: actual authorized occurrence/raw/final identity and scoped composition with return-direct; typed/cleanup-defect failure and held parallel sibling cleanup; genuine cancellation with exact defects and mixed local Error/excluded origins. The Error fixture exercises execution failure, not a separate custom decoding failure. Completion-event ordering is established by the inspected processing path; it is not a direct event-order assertion in this suite. This is a new lifecycle seam, not closure of upstream TaskTool or wait methods.
+
+| Reviewed source against cb320c9 | Git blob |
+| --- | --- |
+| [LocalToolResultObserver.scala](LocalToolResultObserver.scala) | `8ac19e1492d8ccfc1175c4d630c17c480b127811` |
+| [ReActAgent.scala](ReActAgent.scala) | `2dc5cfaeeb844ab8e08bee751b5954642e3d68b7` |
+| [LocalToolResultObserverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/LocalToolResultObserverSpec.scala) | `7eb0c600ce5b9a6b417e5687aba56c9c31f76647` |
+
+- [x] review_fp and review_invariants independently approve these three formatted Scala identities against cb320c9, path-first manifest SHA-256 `0c3af5705967716cbe875e39acc40d889e794dc5c0d91e27a2288b356e2dca18`, with no unresolved source findings.
+- [x] target/local-tool-observer-focused-corrected-green.log passes 23 core contracts in 1.470 seconds, zero failed/ignored, after formatting and fatal-warning compilation. The initial new fixture incorrectly rejected legitimate internal sibling interruption in a compound parallel failure cause; both reviewers confirmed the explicit Parallel-only expectation correction. Production was unchanged. This was not a reproduced baseline defect.
+- [x] target/local-tool-observer-final-verify.log passes formatting, fatal-warning compilation and all 1,606 tests (695 core / 749 harness / 130 MCP / 24 actual PostgreSQL / eight examples), zero failed/ignored/compiler warnings, and builds four RC1 packages using a fresh PostgreSQL fixture.
+- [x] target/local-tool-observer-final-preparation.log passes archive admission and three reversible negative checks with restored artifacts.
+- [x] target/local-tool-observer-final-consumer.log passes fresh standalone formatting, compilation/execution and four artifact hash checks. Its unchanged public API probe does not independently exercise the new observer.
+- [x] Record exact source identities, migration and evidence limits.
+- [x] review_fp and review_invariants approve the final combined scope against cb320c9: three unchanged Scala identities and ten Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,389-local-reference validation pass.
+
 ## Accepted model response observation
 
 [ModelResponseObserver](ModelResponseObserver.scala) is an optional dependency of ReActAgent.make and Builder.modelResponseObserver. The default ignore retains existing behavior. AcceptedModelResponse contains the selected ModelStreamContext, the winning ModelRequestInput, the accepted assistant message and its persisted canonical history. The request snapshot includes effective projected history/settings, selected model/tools and skill enrichment. It does not describe every provider wire field or HTTP header. Request-only transformations do not replace canonical history.
@@ -15,7 +45,7 @@ Migration: the optional make argument and builder setting are additive at source
 | Reviewed source against 44c2ded | Git blob |
 | --- | --- |
 | [ModelResponseObserver.scala](ModelResponseObserver.scala) | `96ff18248affa2c61377c346b54af6715b1573d8` |
-| [ReActAgent.scala](ReActAgent.scala) | `89937049700ab0eb230685439001137865577ecb` |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation identity](#persisted-local-tool-observation); accepted response behavior retained. |
 | [ModelResponseObserverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelResponseObserverSpec.scala) | `ab1c6079ba278238f322289c04612a87f288c065` |
 
 - [x] review_fp and review_invariants independently approve all three formatted Scala identities against 44c2ded, path-first manifest SHA-256 `b25430db66a42b35d6e85c247f2ee39223b3e8c47fe2fa0bda196be0875becb9`, with no unresolved source findings.
@@ -44,7 +74,7 @@ The first eleven-file draft passed focused checks but failed actual repository i
 | --- | --- |
 | [HistoryPreparer.scala](HistoryPreparer.scala) | `e581cfd235b97d6a1070ff2b8ead78cbd315e78e` |
 | [PreparedInvocation.scala](PreparedInvocation.scala) | `1ec7edf1504af95fa3fef08456281b7e5e95cf5c` |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation identity](#accepted-model-response-observation); prior unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation identity](#persisted-local-tool-observation); prior unrelated behavior retained. |
 | [TurnCompletionObserver.scala](TurnCompletionObserver.scala) | `7769f22f0d0867d8c267fb69b1cf57b5b6ac01bb` |
 | [InvocationContext.scala](../event/InvocationContext.scala) | `9e09ae2ba431c3ddd80892a76fd482f6d9c6702d` |
 | [ModelStreamContext.scala](../event/ModelStreamContext.scala) | `4fd04de59037fb42b0fe28c5ac7aa9961ebbd271` |
@@ -113,7 +143,7 @@ The grouped ReActAgentSpec regression derives expectations from untouched histor
 
 | Source/spec approved by review_fp and review_invariants against b70aa32 | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [ReActAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
 
 - [x] review_fp and review_invariants approved both final identities against b70aa32, with no unresolved findings.
@@ -173,7 +203,7 @@ Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a 
 
 | Reviewed group/skill baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
 
 The table records the group/skill baseline. The current runtime identity is in [scoped model failover](#scoped-model-failover), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
@@ -203,7 +233,7 @@ Migration: configured skill listings move from the loader description to transie
 
 | Reviewed request-projection baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2eb319710008d11433978458c47a01d1c9eac110` |
 
 The [catalogue contract](../skill/README.md#deferred-resource-capabilities) owns current catalogue/library identities and combined verification. Existing execution, forwarding, group and permission contracts retain their scoped evidence below. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals and next work.
@@ -218,7 +248,7 @@ The protected loader retains ordinary authorization and sequential dispatch. An 
 
 | Reviewed deferred-read baseline | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
 
 Current ReActAgent identity and execution approval are in [scoped model failover](#scoped-model-failover); the groups spec above is unchanged.
@@ -252,7 +282,7 @@ Mixed Success/Error, inline/provider batches and incomplete deferred batches do 
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current provider-ownership fixture](#provider-owned-pending-calls) |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this pair, including unchanged Direct behavior through the shared completed-ledger helper. Two grouped cases cover fresh/restored batches, priority and exclusion tables, structured runs, held cleanup and cancellation. Focused checks passed 19 tests in 678 ms (`all-denied-final-focused.log`), including the three existing Direct groups; full `scalafmtAll scalafmtSbt verify` passed in `all-denied-verify.log` with zero compiler warnings or failures. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
@@ -268,7 +298,7 @@ BeforeActing checkpoints may preserve a provider-only pause, with no local pendi
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [PendingActing.scala](PendingActing.scala) | bdcdb1e276a1dcbb1a86dc321c4ecdf39bdbeb4c |
 | [ToolHistory.scala](../model/ToolHistory.scala) | ba82c0b9d409c0eb444b2212c603532efa83235f |
 | [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current ReActAgentToolAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
@@ -289,7 +319,7 @@ Migration: ToolDef appends the defaulted returnMode field. Old JSON without it d
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [ToolDef.scala](../tool/ToolDef.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
 | [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | [Current ReActAgentReturnDirectSpec.scala identity](../tool/README.md#checked-registry-identity) |
 | [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
@@ -318,7 +348,7 @@ Early consumers cancel and join owned execution but abandon later output, includ
 
 | Reviewed file | Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | [Current invocation scope](#invocation-identity-and-prepared-execution); earlier unrelated behavior retained. |
 | [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current invocation scope](#invocation-identity-and-prepared-execution); earlier unrelated behavior retained. |
 
@@ -339,7 +369,7 @@ The [ReActAgentForwardingSpec](../../../../../../../test/scala/com/weisgnosis/ag
 | Reviewed forwarding baseline | Git blob |
 | --- | --- |
 | [AgentEventForwarder.scala](AgentEventForwarder.scala) | `9198abc9f0b13f1cb1e347df0a73c57c50f6e2d1` |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [AgentEventForwarderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) | `2c0bbde7e0e5eb94f8c3f963ead3f1ed4eed37ab` |
 | [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | [Current invocation scope](#invocation-identity-and-prepared-execution); earlier unrelated behavior retained. |
 
@@ -368,7 +398,7 @@ Migration: processDecision is a concrete additive method and deciding is an opt-
 | Reviewed file | Git blob |
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | [Current identity](#before-acting-suspension-and-restoration) |
-| ReActAgent.scala | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| ReActAgent.scala | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [AgentError.scala](../error/AgentError.scala) | 595899f138addfb459d8845f57806bb4a1d2eca6 |
 | [ToolResultProcessor.scala](../tool/ToolResultProcessor.scala) | bf23b2d700291b38545f9c0ed9f57826ac9c5158 |
 | [AgentResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentResultSpec.scala) | a94ecf5e07e816c1b53bbb2532ad251a111cc064 |
@@ -405,7 +435,7 @@ Migration: ordinary construction calls retain fallback=None; appended make/Build
 
 | File | Reviewed Git blob |
 | --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [LlmClient.scala](../client/LlmClient.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | [Current identity](../client/README.md#completion-envelope-profiles) |
 | [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
@@ -492,7 +522,7 @@ Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspen
 | --- | --- |
 | [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
 | [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
 | [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
@@ -519,7 +549,7 @@ Migration: PendingActing appends default-empty suppliedResults, preserving old m
 | File | Reviewed Git blob |
 | --- | --- |
 | [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
 | [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
 | [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | [Current ReActAgentSuppliedResultSpec.scala identity](../tool/README.md#checked-registry-identity) |
@@ -660,7 +690,7 @@ Migration: the default projectRequest method preserves existing ModelInputTransf
 | File | Git blob |
 | --- | --- |
 | [ModelInputTransform.scala](ModelInputTransform.scala) | [Current thinking-budget identity](../client/README.md#optional-thinking-budget); prior behavioral scope retained. |
-| [ReActAgent.scala](ReActAgent.scala) | [Current response-observation scope](#accepted-model-response-observation); earlier unrelated behavior retained. |
+| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
 | [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
 | [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](../client/README.md#optional-frequency-and-presence-penalties) |
 | [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |

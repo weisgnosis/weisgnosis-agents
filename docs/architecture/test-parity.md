@@ -1705,7 +1705,8 @@ Pinned WorkspaceTaskRepositoryDeliveryTest is mapped to the [five-file acknowled
 - [x] Pass final full verification, four RC1 packages and archive admission for these exact sources.
 - [x] Pass fresh standalone consumption for these exact sources in target/durable-ack-final-consumer.log; its unchanged probe does not independently exercise acknowledgement.
 - [x] review_fp and review_invariants approve final combined documentation against `1925481` for sixteen files (five unchanged Scala identities and eleven Markdown files), with no unresolved findings.
-- [ ] Integrate SubagentsMiddleware success-only bounded reminder acknowledgement and TaskTool/WaitAsyncResultsTool consumed-result acknowledgement separately. Explicit host APIs do not establish automatic push, wakeup or exactly-once delivery.
+- [x] Integrate bounded exact reasoning reminder acknowledgement under the [current reminder contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#automatic-reasoning-reminders).
+- [ ] Integrate TaskTool/WaitAsyncResultsTool consumed-result acknowledgement separately. Explicit host APIs and reasoning reminders do not establish tool consumption, wakeup or exactly-once delivery.
 
 ## Explicit success-only terminal delivery
 
@@ -1717,7 +1718,7 @@ The [three-file explicit delivery seam](../../modules/harness/src/main/scala/com
 - [x] Independently review the three exact source identities and run paired harness/actual PostgreSQL contracts.
 - [x] Pass final full verification, four packages, archive admission and fresh standalone consumption in target/durable-delivery-final-verify/preparation/consumer.log; the unchanged standalone probe does not independently exercise delivery.
 - [x] review_fp and review_invariants approve final combined documentation against `bad689e` for fourteen files (three unchanged Scala identities and eleven Markdown files), with no unresolved findings.
-- [ ] Integrate actual reasoning reminder persistence and success-only completion acknowledgement from SubagentsMiddleware/SubagentDeliveryTest.
+- [x] Integrate actual reasoning reminder persistence and exact accepted-response acknowledgement under the [current reminder contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#automatic-reasoning-reminders). The worker attribute remains open in the finite reminder inventory below.
 - [ ] Integrate automatic consumed-result acknowledgement from TaskTool and WaitAsyncResultsTool and completion/wakeup suppression semantics. The explicit effect does not autonomously notify or consume results.
 
 ## Workspace task repository method inventory
@@ -1800,3 +1801,12 @@ Pinned SubagentDeliveryTest has nine executable methods. The [middleware contrac
 - [x] deliveryCapDoesNotAcknowledgeUnseenResultsAndWorksWithoutDeclaredSubagents (303): twelve pending records consume ten then two without a required subagent declaration catalogue.
 
 The middleware additionally verifies exact-content tampering with retained metadata, projected-away reminders, discard/model/prior-observer failure, accepted thinking-only, partial uncertain acknowledgement, suspension/resume, cancellation and closure joining all three prior callback cleanups. These safety regressions are not additional upstream methods. Both independent source reviews, focused/full verification and artifact/consumer checks pass; review_fp and review_invariants approve the final combined scope against a33488e: four unchanged Scala identities and fourteen Markdown files, no unresolved findings.
+
+## Persisted local observation prerequisite
+
+The [local result observer contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#persisted-local-tool-observation) adds the required post-persistence seam for future task-tool consumption. Its three grouped integration contracts cover approved occurrence identity, original/final snapshots, composed cleanup, return-direct, typed/defect failure, joined sibling cleanup, cancellation and excluded observation origins. They add no claimed whole Java method mapping. The TaskTool.taskOutput and eighteen wait-method obligations above remain open until the actual harness tools use trusted consumption receipts and final persisted projections.
+
+- [x] review_fp and review_invariants approve the three formatted Scala identities against cb320c9; corrected focused verification passes 23/0/0. Exact identities and evidence limits belong to the linked contract.
+- [x] Pass full verification, four packages, archive preparation and fresh external consumption for these exact source identities.
+- [x] review_fp and review_invariants approve the final combined scope against cb320c9: three unchanged Scala identities and ten Markdown files, no unresolved findings.
+- [ ] Integrate automatic task inspection and wait-result acknowledgement separately; unchanged final projection and genuine runtime execution provenance are required.

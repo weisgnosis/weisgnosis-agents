@@ -24,7 +24,9 @@ Execute the original scope without replacing it with a narrower release checklis
 - [x] Pass four RC1 packages, archive preparation and fresh external consumption for the reminder adapter.
 - [x] Obtain both final combined documentation approvals for the exact four-Scala/fourteen-Markdown reminder scope against a33488e.
 - [ ] Persist truthful worker identity metadata and close the remaining reminder attribute assertion.
-- [ ] Current task: implement automatic consumed-result acknowledgement at the runtime-persisted observation boundary for task inspection/wait tools.
+- [x] Implement required local-tool observation after final processed persistence with actual authorized dispatch identity; independent source reviews and full/artifact checks pass.
+- [x] review_fp and review_invariants approve the final combined local-tool observation scope against cb320c9: three unchanged Scala identities and ten Markdown files.
+- [ ] Current task: integrate automatic consumed-result acknowledgement for trusted task inspection/wait projections; erased or replaced final output must remain pending.
 - [ ] Implement model-facing selected-task/current-set barriers, legacy inbox-any and bounded empty-wait policy. Synchronous spawn waiting is a different contract; all [18 classified methods](test-parity.md#async-result-wait-method-inventory) remain open.
 - [ ] Implement durable admitted/running identity and current-owner cancellation intent, retaining truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
@@ -64,15 +66,16 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [reasoning reminder manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#automatic-reasoning-reminders) owns four exact Scala identities against a33488e. The existing core observer and explicit delivery helper retain their separately accepted contracts.
+The [local tool observation contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#persisted-local-tool-observation) owns the current core increment against cb320c9. The separately accepted reminder adapter retains its scoped contract; it does not supply task-tool consumption.
 
-- [x] Implement one bounded captured reminder, exact request/canonical-history consumption and joined configured-hook cleanup.
-- [x] Reproduce the new draft close race before its fix: target/subagent-reminder-close-assertion-red.log records two passed/one failed, with early close while prior cleanup remained held. Exact defective/regression blobs are in the component contract.
-- [x] review_fp and review_invariants approve path-first manifest 4f79a409e018b3527b316cfa8d131743d161c02e117b51a1b102a4829813677f, no unresolved source findings. Original PostgreSQL Unicode fixtures are restored.
-- [x] target/subagent-reminder-focused-green.log passes 17 harness and two actual PostgreSQL groups; target/subagent-reminder-pg-unicode-green.log reruns the final PostgreSQL identity, two passed/zero failed/ignored.
-- [x] target/subagent-reminder-final-verify.log passes formatting, fatal-warning compilation and all 1,603 tests (692 core, 749 harness, 130 MCP, 24 actual PostgreSQL, eight examples), zero failed/ignored/compiler warnings, and builds four RC1 packages using a fresh PostgreSQL fixture.
-- [x] target/subagent-reminder-final-preparation.log passes archive admission and three restored negative checks; target/subagent-reminder-final-consumer.log passes fresh standalone compilation/execution and artifact hashes. The unchanged consumer probe does not independently exercise the middleware.
-- [x] review_fp and review_invariants approve final combined documentation against a33488e for four unchanged Scala identities and fourteen Markdown files, including the bounded nine-method reminder and eighteen-method wait inventories, no unresolved findings. English prose and 79-document/3,377-local-reference checks pass.
+- [x] Implement actual authorized local-dispatch identity and atomic final-history observation before completion events.
+- [x] Verify transformed snapshots, return-direct, excluded origins, required failures and joined cancellation with three proportionate groups; source inspection establishes pre-completion-event ordering. Corrected focused verification passes 23/0/0.
+- [x] review_fp and review_invariants approve the three formatted Scala identities against cb320c9, manifest 0c3af5705967716cbe875e39acc40d889e794dc5c0d91e27a2288b356e2dca18, no unresolved source findings.
+- [x] target/local-tool-observer-final-verify.log passes all 1,606 tests (695 core / 749 harness / 130 MCP / 24 actual PostgreSQL / eight examples), formatting/fatal-warning compilation and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/local-tool-observer-final-preparation.log passes archive admission and three restored negative checks.
+- [x] target/local-tool-observer-final-consumer.log passes fresh standalone formatting, compilation/execution and four artifact hash checks. Its unchanged probe does not independently exercise the observer.
+- [x] Update current source identities, migration and parity limits.
+- [x] review_fp and review_invariants approve the final combined scope against cb320c9: three unchanged Scala identities and ten Markdown files, no unresolved findings. Manual English and 79-document/3,389-local-reference checks pass.
 
 Worker metadata, task-tool consumption, wait barriers, completion ordering, cancellation intent, running metadata and session restoration remain unfinished. No whole-plan completion or publication is claimed.
 

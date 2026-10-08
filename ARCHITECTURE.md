@@ -2,7 +2,7 @@
 
 ## Runtime authority
 
-The optional [accepted-response observer](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#accepted-model-response-observation) sees actual winning request input and persisted accepted history before acting. It is interruptible and scoped; ordinary failure reconciles unstarted local calls and preserves the cause. The terminal completion observer retains its distinct once-per-invocation contract. This seam does not install automatic task delivery.
+The optional [accepted-response observer](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#accepted-model-response-observation) sees winning request input and persisted accepted history before acting. The source-reviewed [local tool observer](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#persisted-local-tool-observation) sees completed local dispatches after optional processing and final persistence, before completion events. Installed observers are required scoped effects: ordinary failure retains completed observations, reconciles unfinished local occurrences and preserves the cause. The terminal completion observer retains its distinct once-per-invocation contract. These ports do not themselves install task acknowledgement or durable conversation storage.
 
 The explicitly configured [harness reminder adapter](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#automatic-reasoning-reminders) owns one bounded capture and three scoped hooks. It persists the reminder before reasoning and acknowledges only captured IDs whose exact message appears in the winning request and accepted canonical history. It creates no daemon and grants no task execution authority.
 

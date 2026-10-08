@@ -64,7 +64,8 @@ final class ReActAgent private (
     val toolGroups: Option[ToolGroups],
     private val skillLibrary: SkillLibrary,
     val fallback: Option[ModelTarget],
-    val modelResponseObserver: ModelResponseObserver
+    val modelResponseObserver: ModelResponseObserver,
+    val localToolResultObserver: LocalToolResultObserver
 ):
 
   val skills: SkillCatalog = skillLibrary.catalog
@@ -2319,6 +2320,11 @@ final class ReActAgent private (
         metadata = call.metadata.updated("agentscope_original_tool_input", call.input)
       )
 
+  final private case class CompletedToolObservation(
+      observed: Toolkit.ObservedResult,
+      localCall: Option[ContentBlock.ToolUse]
+  )
+
   private def executeAndRecord(
       prepared: PreparedToolCall,
       assistantPosition: Int,
@@ -2329,7 +2335,7 @@ final class ReActAgent private (
       argumentPolicy: ArgumentPolicy,
       progressRef: Ref[RunProgress],
       savedRequest: Option[PendingPermissionRequest]
-  ): UIO[ActingOutcome] =
+  ): IO[AgentError, ActingOutcome] =
     ZIO.uninterruptibleMask: restore =>
       val indexed = prepared.indexed
       val call    = indexed.call
@@ -2341,24 +2347,30 @@ final class ReActAgent private (
             AgentError.InvalidMessage,
             (PendingPermissionRequest, ToolAuthorization)
           ]
-      ): UIO[Either[ActingOutcome, Toolkit.ObservedResult]] = authorization match
+      ): UIO[Either[ActingOutcome, CompletedToolObservation]] = authorization match
         case Right((request, ToolAuthorization.Deferred(reason))) =>
           ZIO.left(ActingOutcome.Deferred(request, reason))
         case Left(error) =>
           start.as(
             Right(
-              Toolkit.ObservedResult(
-                ToolExecutionResult(error.message, ToolResultState.Error),
-                Toolkit.ProgressDisposition.NoProgress
+              CompletedToolObservation(
+                Toolkit.ObservedResult(
+                  ToolExecutionResult(error.message, ToolResultState.Error),
+                  Toolkit.ProgressDisposition.NoProgress
+                ),
+                None
               )
             )
           )
         case Right((_, ToolAuthorization.Denied(reason))) =>
           start.as(
             Right(
-              Toolkit.ObservedResult(
-                ToolExecutionResult(reason, ToolResultState.Denied),
-                Toolkit.ProgressDisposition.NoProgress
+              CompletedToolObservation(
+                Toolkit.ObservedResult(
+                  ToolExecutionResult(reason, ToolResultState.Denied),
+                  Toolkit.ProgressDisposition.NoProgress
+                ),
+                None
               )
             )
           )
@@ -2391,7 +2403,12 @@ final class ReActAgent private (
             )
           ).flatMap:
             case Toolkit.Dispatch.Completed(observed) =>
-              (if external then start else ZIO.unit).as(Right(observed))
+              val localCall = toolkit.resolve(call.name) match
+                case Some(ToolBinding.Local(_)) => Some(approved)
+                case _                          => None
+              (if external then start else ZIO.unit).as(
+                Right(CompletedToolObservation(observed, localCall))
+              )
             case Toolkit.Dispatch.AwaitingExternal(input) =>
               ZIO.left(ActingOutcome.External(PendingExternalCall(indexed.ordinal, input)))
       val preparedAuthorization: UIO[
@@ -2436,7 +2453,8 @@ final class ReActAgent private (
         observation <- observe(authorization)
         outcome <- observation match
           case Left(deferred) => ZIO.succeed(deferred)
-          case Right(observed) =>
+          case Right(completed) =>
+            val observed = completed.observed
             val resultBlock = observed.result.payload.applyTo(
               ContentBlock.ToolResult(call.id, Some(call.name), state = observed.result.state)
             )
@@ -2449,7 +2467,8 @@ final class ReActAgent private (
                   RecordedToolResult(indexed, resultBlock, position),
                   context,
                   eventHub,
-                  observed.progress
+                  observed.progress,
+                  completed.localCall
                 )
               )
             yield ActingOutcome.Observed(stop)
@@ -2459,15 +2478,34 @@ final class ReActAgent private (
       recorded: RecordedToolResult,
       context: ModelStreamContext,
       eventHub: Hub[AgentEvent],
-      progress: Toolkit.ProgressDisposition
-  ): UIO[Option[ActingStop]] =
+      progress: Toolkit.ProgressDisposition,
+      localCall: Option[ContentBlock.ToolUse] = None
+  ): IO[AgentError, Option[ActingStop]] =
     ZIO.uninterruptibleMask: restore =>
       for
         completed <- restore(processedResult(recorded.result))
-        _ <- stateRef.update(_.zipWithIndex.map { case (message, index) =>
-          if index == recorded.position then message.mapToolResults(_ => completed.result)
-          else message
-        })
+        history <- stateRef.modify: original =>
+          val updated = original.zipWithIndex.map: (message, index) =>
+            if index == recorded.position then message.mapToolResults(_ => completed.result)
+            else message
+          (updated, updated)
+        _ <- localCall match
+          case Some(dispatched) =>
+            restore(
+              ZIO.scoped(
+                localToolResultObserver.observe(
+                  PersistedLocalToolObservation(
+                    context,
+                    dispatched,
+                    recorded.call.ordinal,
+                    recorded.result,
+                    completed.result,
+                    history
+                  )
+                )
+              )
+            )
+          case None => ZIO.unit
         _ <- publishCompletedResult(
           recorded.call.call,
           completed.result,
@@ -2621,7 +2659,8 @@ object ReActAgent:
       toolGroups: Option[ToolGroups] = None,
       skills: SkillCatalog | SkillLibrary = SkillCatalog.empty,
       fallback: Option[ModelTarget] = None,
-      modelResponseObserver: ModelResponseObserver = ModelResponseObserver.ignore
+      modelResponseObserver: ModelResponseObserver = ModelResponseObserver.ignore,
+      localToolResultObserver: LocalToolResultObserver = LocalToolResultObserver.ignore
   ): IO[AgentError, ReActAgent] =
     for
       _ <- ZIO.fromEither(config.validated)
@@ -2652,7 +2691,8 @@ object ReActAgent:
       toolGroups,
       library,
       fallback,
-      modelResponseObserver
+      modelResponseObserver,
+      localToolResultObserver
     )
 
   def builder(): Builder = Builder()
@@ -2672,7 +2712,8 @@ object ReActAgent:
       private val _toolGroups: Option[ToolGroups] = None,
       private val _skills: SkillCatalog | SkillLibrary = SkillCatalog.empty,
       private val _fallback: Option[ModelTarget] = None,
-      private val _modelResponseObserver: ModelResponseObserver = ModelResponseObserver.ignore
+      private val _modelResponseObserver: ModelResponseObserver = ModelResponseObserver.ignore,
+      private val _localToolResultObserver: LocalToolResultObserver = LocalToolResultObserver.ignore
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -2709,6 +2750,9 @@ object ReActAgent:
     def modelResponseObserver(observer: ModelResponseObserver): Builder =
       copy(_modelResponseObserver = observer)
 
+    def localToolResultObserver(observer: LocalToolResultObserver): Builder =
+      copy(_localToolResultObserver = observer)
+
     def build: IO[AgentError, ReActAgent] =
       ZIO
         .fromOption(_client)
@@ -2729,6 +2773,7 @@ object ReActAgent:
             _toolGroups,
             _skills,
             _fallback,
-            _modelResponseObserver
+            _modelResponseObserver,
+            _localToolResultObserver
           )
         )
