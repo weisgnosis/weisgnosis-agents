@@ -38,6 +38,9 @@ object MemoryRepository:
           def readCurated: IO[AgentError, Option[String]] = state.get.map(_.data.curated)
           def readDaily(day: LocalDate): IO[AgentError, Option[String]] =
             state.get.map(_.data.daily.get(day))
+          override def days: IO[AgentError, Chunk[LocalDate]] =
+            state.get
+              .map(value => Chunk.fromIterable(value.data.daily.keys.toList.sortBy(_.toEpochDay)))
           def appendDaily(day: LocalDate, entry: String): IO[AgentError, Unit] =
             if entry.isEmpty then ZIO.unit
             else

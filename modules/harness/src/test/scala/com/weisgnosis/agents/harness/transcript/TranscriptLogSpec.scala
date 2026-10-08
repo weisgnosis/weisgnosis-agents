@@ -37,6 +37,79 @@ object TranscriptLogSpec extends ZIOSpecDefault:
   private val row: String = s"""{"version":1,"entry":${entry.toJson}}"""
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("TranscriptLogSpec")(
+    test(
+      "recovery documents retain strict branches and reject ambiguous identities, wire shapes and bounds"
+    ) {
+      val remote = entry.copy(id = new UUID(0L, 2L), key = Some(TranscriptKey.Message("remote")))
+      val valid = for
+        local       <- TranscriptState.restore(Chunk(entry))
+        remoteState <- TranscriptState.restore(Chunk(remote))
+        next        <- TranscriptLog.reconcile(TranscriptLog.Document.Linear(local), remoteState)
+        encoded     <- TranscriptLog.encodeDocument(next)
+        decoded     <- TranscriptLog.decodeDocument(encoded)
+      yield (next, encoded, decoded)
+      val invalidWire = valid.toOption.toList.flatMap: (_, encoded, _) =>
+        List(
+          encoded.replace("\"version\":2", "\"version\":2,\"version\":2"),
+          encoded.replace("\"version\":2", "\"version\":\"2\""),
+          encoded.replace("\"version\":2", "\"version\":3"),
+          encoded.replace("\"version\":2", "\"version\":2,\"unknown\":true"),
+          encoded + "{}"
+        )
+      val invalid =
+        for
+          local <- TranscriptState.restore(Chunk(entry))
+          branches = Chunk
+            .fromIterable(1 to 17)
+            .map(index =>
+              Chunk(
+                entry.copy(
+                  id = new UUID(0L, index.toLong + 10L),
+                  key = Some(TranscriptKey.Message(s"branch:$index"))
+                )
+              )
+            )
+          oversized = remote.copy(payload =
+            TranscriptPayload.Message(Role.User, "x" * 1048576, Chunk(TranscriptBlockType.Text))
+          )
+          tooManyEntries = Chunk
+            .fromIterable(0 to 4096)
+            .map(index =>
+              entry.copy(
+                id = new UUID(1L, index.toLong),
+                parentId = if index == 0 then None else Some(new UUID(1L, index.toLong - 1L)),
+                key = Some(TranscriptKey.Message(s"entry:$index"))
+              )
+            )
+        yield Chunk(
+          TranscriptLog.Document.Recovered(local, Chunk.empty),
+          TranscriptLog.Document.Recovered(local, branches),
+          TranscriptLog.Document
+            .Recovered(local, Chunk(Chunk(entry.copy(recordedAt = Instant.EPOCH.plusSeconds(1L))))),
+          TranscriptLog.Document.Recovered(local, Chunk(Chunk(oversized))),
+          TranscriptLog.Document.Recovered(local, Chunk(tooManyEntries)),
+          TranscriptLog.Document
+            .Recovered(local, Chunk(Chunk(remote.copy(parentId = Some(entry.id))))),
+          TranscriptLog.Document.Recovered(
+            local,
+            Chunk(
+              Chunk(
+                remote.copy(payload =
+                  TranscriptPayload.Message(Role.User, "\uD800", Chunk(TranscriptBlockType.Text))
+                )
+              )
+            )
+          )
+        )
+      assertTrue(
+        valid.exists((before, encoded, after) =>
+          before == after && after.entries == Chunk(remote, entry) &&
+            after.state.entries == Chunk(entry) && TranscriptLog.decode(encoded).isLeft
+        ),
+        invalidWire.size == 5 && invalidWire.forall(TranscriptLog.decodeDocument(_).isLeft),
+        invalid.exists(_.forall(TranscriptLog.encodeDocument(_).isLeft))
+      )
+    },
     test("round trips escaped newlines and Unicode with optional LF or CRLF ending") {
       assertTrue(
         Chunk(row, row + "\n", row + "\r\n").forall(value =>

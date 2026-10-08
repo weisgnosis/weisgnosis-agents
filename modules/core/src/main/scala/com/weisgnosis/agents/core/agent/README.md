@@ -1,5 +1,13 @@
 # ReAct execution and structured output
 
+## Scoped phase observation
+
+`ReActAgent.make` and its builder accept an optional `PhaseObserver`, defaulting to `PhaseObserver.ignore`. The typed contexts distinguish one invocation, each reasoning iteration and each actual model call. A fallback model receives its own model-call context. Reasoning observation ends after history preparation, the model request and the post-reasoning hook, before accepting the response or starting tools.
+
+Observers compose with `andThen`: first registered enters first, then finishes and closes last. Each observer owns a nested bounded Scope; its completion receives the actual work Exit. It cannot rerun the body or replace its result. Work failures, observer failures, cleanup defects and genuine caller interruption remain visible in the composed cause, and owned cleanup joins before return. A successful observed effect is not necessarily semantic agent completion. An observer failure after committed history cannot roll that history back.
+
+Reasoning/model contexts receive an optional revocable Hint-only capability. Publishing acknowledges enqueue, not subscriber delivery; invocation entry has no Hint capability because its event hub does not yet exist. Callbacks run on the critical path and must not reenter the agent or wait for its run lock. The new trailing factory argument is source-compatible through its default; rebuild downstream binaries.
+
 ## Atomic runtime snapshots
 
 [AgentSnapshot](AgentSnapshot.scala) represents either `Idle(history)` or `Suspended(AgentResult)`. `ReActAgent.snapshot` reads history and pending acting state under the existing run lock; a separate history read cannot establish whether the runtime is suspended. `restoreSnapshot` accepts data only into an empty runtime. Idle history must have complete local call/result pairing, and suspended data uses the existing checked checkpoint restoration path and current executable bindings. Neither accessor starts model/tool execution or imports saved configuration/authority.

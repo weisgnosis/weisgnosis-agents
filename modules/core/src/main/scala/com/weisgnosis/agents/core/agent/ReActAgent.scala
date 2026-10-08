@@ -66,7 +66,8 @@ final class ReActAgent private (
     val fallback: Option[ModelTarget],
     val modelResponseObserver: ModelResponseObserver,
     val localToolResultObserver: LocalToolResultObserver,
-    val invocationPreparer: InvocationPreparer
+    val invocationPreparer: InvocationPreparer,
+    val phaseObserver: PhaseObserver
 ):
 
   val skills: SkillCatalog = skillLibrary.catalog
@@ -1050,10 +1051,12 @@ final class ReActAgent private (
         observation <- Ref.make(ObservationState.Pending)
         execution <- restore(
           ZIO.scoped(
-            runEffect(
-              invocation,
-              result => observeOnce(observation, invocation, Exit.succeed(result))
-            )
+            phaseObserver.around(PhaseContext.Invocation(invocation), None)(
+              runEffect(
+                invocation,
+                result => observeOnce(observation, invocation, Exit.succeed(result))
+              )
+            )(identity[AgentError])
           )
         ).exit
         value <- execution match
@@ -1259,9 +1262,15 @@ final class ReActAgent private (
                         )
               yield result
 
-            def requestModel(history: Chunk[Msg]): ZIO[Scope, AgentError, AgentResult] =
-              raceWithInterrupt(
-                modelTurn(
+            def reason: ZIO[Scope, AgentError, (ReceivedModelTurn, ReasoningOutcome)] =
+              for
+                original <- stateRef.get
+                candidate <- ZIO.scoped(
+                  ZIO.suspendSucceed(historyPreparer.prepare(invocation, original))
+                )
+                history <- ZIO.fromEither(HistoryPreparer.validate(original, candidate))
+                _       <- stateRef.set(history)
+                received <- modelTurn(
                   history,
                   activeToolkit.definitions,
                   requestConfig,
@@ -1271,81 +1280,72 @@ final class ReActAgent private (
                   usageRef,
                   progressRef
                 )
-              ).flatMap:
-                case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
-                case Right(ReceivedModelTurn(TurnOutput.Interrupted(partial), _, _)) =>
-                  persistAssistant(partial, progressRef) *> handleInterrupt(
-                    stateRef,
-                    iteration,
-                    progressRef
-                  )
-                case Right(received) =>
-                  val context = received.context
-                  raceWithInterrupt(ZIO.scoped(applyReasoningHook(received.output, context)))
-                    .flatMap:
-                      case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
-                      case Right(ReasoningOutcome.Discard) =>
-                        restore(
-                          loop(
-                            iteration,
-                            emptyThinkingRetries,
-                            runTools,
-                            eventHub,
-                            replyId,
-                            invocation,
-                            requestConfig,
-                            completionMode,
-                            progressRef,
-                            usageRef
-                          )
-                        )
-                      case Right(ReasoningOutcome.Accept(turnOutput)) =>
-                        turnOutput match
-                          case accepted: TurnOutput.FinalText    => acceptTurn(accepted, received)
-                          case accepted: TurnOutput.ThinkingOnly => acceptTurn(accepted, received)
-                          case accepted: TurnOutput.ToolCalls    => acceptTurn(accepted, received)
-                          case TurnOutput.Interrupted(partial) =>
-                            persistAssistant(partial, progressRef) *> handleInterrupt(
-                              stateRef,
-                              iteration,
-                              progressRef
-                            )
-                      case Right(ReasoningOutcome.Suspend(message, reason)) =>
-                        completionMode match
-                          case CompletionMode.Structured(_) =>
-                            ZIO.fail(
-                              AgentError.ReasoningHookError(
-                                "Structured runs cannot suspend before acting"
-                              )
-                            )
-                          case CompletionMode.Ordinary =>
-                            suspendActing(
-                              message,
-                              reason,
-                              context,
-                              iteration,
-                              runTools,
-                              activeToolkit,
-                              requestConfig,
-                              eventHub,
-                              progressRef,
-                              usageRef,
-                              accepted => observeAccepted(accepted, received)
-                            )
+                outcome <- ZIO.scoped(applyReasoningHook(received.output, received.context))
+              yield (received, outcome)
 
-            for
-              _        <- progressRef.set(RunProgress.Ready)
-              original <- stateRef.get
-              prepared <- raceWithInterrupt(
-                ZIO.scoped(ZIO.suspendSucceed(historyPreparer.prepare(invocation, original)))
-              )
-              result <- prepared match
+            def requestModel: ZIO[Scope, AgentError, AgentResult] =
+              raceWithInterrupt(ZIO.scoped:
+                for
+                  hints <- PhaseHints.open(eventHub)
+                  decided <- phaseObserver.around(
+                    PhaseContext.Reasoning(invocation, iteration),
+                    Some(hints)
+                  )(reason)(identity[AgentError])
+                yield decided).flatMap:
                 case Left(_) => handleInterrupt(stateRef, iteration, progressRef)
-                case Right(candidate) =>
-                  ZIO
-                    .fromEither(HistoryPreparer.validate(original, candidate))
-                    .flatMap(history => stateRef.set(history) *> requestModel(history))
-            yield result
+                case Right((received, outcome)) =>
+                  val context = received.context
+                  outcome match
+                    case ReasoningOutcome.Discard =>
+                      restore(
+                        loop(
+                          iteration,
+                          emptyThinkingRetries,
+                          runTools,
+                          eventHub,
+                          replyId,
+                          invocation,
+                          requestConfig,
+                          completionMode,
+                          progressRef,
+                          usageRef
+                        )
+                      )
+                    case ReasoningOutcome.Accept(turnOutput) =>
+                      turnOutput match
+                        case accepted: TurnOutput.FinalText    => acceptTurn(accepted, received)
+                        case accepted: TurnOutput.ThinkingOnly => acceptTurn(accepted, received)
+                        case accepted: TurnOutput.ToolCalls    => acceptTurn(accepted, received)
+                        case TurnOutput.Interrupted(partial) =>
+                          persistAssistant(partial, progressRef) *> handleInterrupt(
+                            stateRef,
+                            iteration,
+                            progressRef
+                          )
+                    case ReasoningOutcome.Suspend(message, reason) =>
+                      completionMode match
+                        case CompletionMode.Structured(_) =>
+                          ZIO.fail(
+                            AgentError.ReasoningHookError(
+                              "Structured runs cannot suspend before acting"
+                            )
+                          )
+                        case CompletionMode.Ordinary =>
+                          suspendActing(
+                            message,
+                            reason,
+                            context,
+                            iteration,
+                            runTools,
+                            activeToolkit,
+                            requestConfig,
+                            eventHub,
+                            progressRef,
+                            usageRef,
+                            accepted => observeAccepted(accepted, received)
+                          )
+
+            progressRef.set(RunProgress.Ready) *> requestModel
           }
           .onInterrupt(reconcileDanglingToolCalls(stateRef, progressRef).unit)
 
@@ -1716,41 +1716,55 @@ final class ReActAgent private (
               reasoningEffort = validated.settings.reasoningEffort,
               thinkingBudget = validated.settings.thinkingBudget
             )
-            _ <- eventHub.publish(
-              AgentEvent.ModelRequestStartEvent(target.config.model, 0, context = Some(context))
-            )
-            received <- receive(
-              ZIO.scoped(
-                target.client.attemptTurnWithProgress(
-                  view,
-                  tools,
-                  projectedConfig,
-                  eventHub,
-                  context,
-                  partialRef.set
-                )
-              )
-            )
-            output <- ZIO.fromEither(validateModelOutput(received))
-            total  <- admitModelUsage(output, usageRef)
-            _ <- output match
-              case _: TurnOutput.Interrupted => ZIO.unit
-              case _ =>
-                eventHub
-                  .publish(
-                    AgentEvent.ModelResponseEndEvent(
-                      target.config.model,
-                      output.message.chatUsage.fold(0)(_.outputTokens),
-                      total,
-                      context = Some(context)
+            result <- ZIO.scoped:
+              for
+                hints <- PhaseHints.open(eventHub)
+                received <- phaseObserver.around(
+                  PhaseContext.ModelCall(context, target.config.model),
+                  Some(hints)
+                )(
+                  for
+                    _ <- eventHub.publish(
+                      AgentEvent
+                        .ModelRequestStartEvent(target.config.model, 0, context = Some(context))
                     )
+                    received <- receive(
+                      ZIO.scoped(
+                        target.client.attemptTurnWithProgress(
+                          view,
+                          tools,
+                          projectedConfig,
+                          eventHub,
+                          context,
+                          partialRef.set
+                        )
+                      )
+                    )
+                    output <- ZIO.fromEither(validateModelOutput(received))
+                    total  <- admitModelUsage(output, usageRef)
+                    _ <- output match
+                      case _: TurnOutput.Interrupted => ZIO.unit
+                      case _ =>
+                        eventHub
+                          .publish(
+                            AgentEvent.ModelResponseEndEvent(
+                              target.config.model,
+                              output.message.chatUsage.fold(0)(_.outputTokens),
+                              total,
+                              context = Some(context)
+                            )
+                          )
+                          .unit
+                  yield ReceivedModelTurn(
+                    output,
+                    context,
+                    request.copy(history = view, settings = validated.settings)
                   )
-                  .unit
-          yield ReceivedModelTurn(
-            output,
-            context,
-            request.copy(history = view, settings = validated.settings)
-          )
+                ):
+                  case rejection: BeforeResponseRejection => rejection.original
+                  case error: AgentError                  => error
+              yield received
+          yield result
 
         def exposed(cause: Cause[AgentError | BeforeResponseRejection]): Cause[AgentError] =
           cause.map:
@@ -2759,7 +2773,8 @@ object ReActAgent:
       fallback: Option[ModelTarget] = None,
       modelResponseObserver: ModelResponseObserver = ModelResponseObserver.ignore,
       localToolResultObserver: LocalToolResultObserver = LocalToolResultObserver.ignore,
-      invocationPreparer: InvocationPreparer = InvocationPreparer.identity
+      invocationPreparer: InvocationPreparer = InvocationPreparer.identity,
+      phaseObserver: PhaseObserver = PhaseObserver.ignore
   ): IO[AgentError, ReActAgent] =
     for
       _ <- ZIO.fromEither(config.validated)
@@ -2792,7 +2807,8 @@ object ReActAgent:
       fallback,
       modelResponseObserver,
       localToolResultObserver,
-      invocationPreparer
+      invocationPreparer,
+      phaseObserver
     )
 
   def builder(): Builder = Builder()
@@ -2815,7 +2831,8 @@ object ReActAgent:
       private val _modelResponseObserver: ModelResponseObserver = ModelResponseObserver.ignore,
       private val _localToolResultObserver: LocalToolResultObserver =
         LocalToolResultObserver.ignore,
-      private val _invocationPreparer: InvocationPreparer = InvocationPreparer.identity
+      private val _invocationPreparer: InvocationPreparer = InvocationPreparer.identity,
+      private val _phaseObserver: PhaseObserver = PhaseObserver.ignore
   ):
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
@@ -2845,6 +2862,8 @@ object ReActAgent:
 
     def invocationPreparer(preparer: InvocationPreparer): Builder =
       copy(_invocationPreparer = preparer)
+
+    def phaseObserver(observer: PhaseObserver): Builder = copy(_phaseObserver = observer)
 
     def modelInputTransform(transform: ModelInputTransform): Builder =
       copy(_modelInputTransform = transform)
@@ -2880,6 +2899,7 @@ object ReActAgent:
             _fallback,
             _modelResponseObserver,
             _localToolResultObserver,
-            _invocationPreparer
+            _invocationPreparer,
+            _phaseObserver
           )
         )

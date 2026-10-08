@@ -185,7 +185,213 @@ object SessionTranscriptWriterSpec extends ZIOSpecDefault:
       )
     )
 
+  private enum RetirementAttempt:
+    case Conflict, Uncertain, Cancelled
+
+  private def retirementContract: ZIO[Scope, AgentError, TestResult] =
+    for
+      storage  <- backend
+      index    <- ZIO.fromEither(StorageAddress.from(Chunk("retirement"), "catalog"))
+      manifest <- ZIO.fromEither(StorageAddress.from(Chunk("retirement"), "history"))
+      session <- ZIO.fromEither(
+        TranscriptTargetId
+          .fromString("session")
+          .flatMap(TranscriptSession.make(_, manifest, TranscriptLayout.Aggregate))
+      )
+      other <- ZIO.fromEither(
+        TranscriptTargetId
+          .fromString("other")
+          .flatMap(TranscriptSession.make(_, manifest, TranscriptLayout.Aggregate))
+      )
+      distinctManifest <- ZIO.fromEither(StorageAddress.from(Chunk("retirement"), "different"))
+      mismatch <- ZIO.fromEither(
+        TranscriptSession.make(session.id, distinctManifest, session.layout)
+      )
+      fresh <- ZIO.fromEither(TranscriptSession.make(other.id, distinctManifest, session.layout))
+      canonicalSessions <- ZIO.fromEither(
+        Chunk(session).toJsonAST.left.map(AgentError.StorageError(_))
+      )
+      legacy = Json.Obj("schemaVersion" -> Json.Num(1), "sessions" -> canonicalSessions)
+      _      <- storage.compareAndSet(index, ExpectedRevision.Absent, legacy)
+      before <- storage.read(index)
+      catalog <- ZIO.fromEither(
+        VersionedTranscriptSessionCatalog.make(storage, index, maxSessions = 1)
+      )
+      loaded    <- catalog.sessions
+      afterRead <- storage.read(index)
+      grants    <- Ref.make(Chunk.empty[(StorageAddress, TranscriptSession)])
+      released  <- Ref.make(0)
+      authority = new TranscriptRetirementAuthority:
+        def acquire(
+            address: StorageAddress,
+            expected: TranscriptSession
+        ): ZIO[Scope, AgentError, Unit] =
+          ZIO.acquireRelease(grants.update(_ :+ (address -> expected)))(_ => released.update(_ + 1))
+      wrong     <- catalog.retire(mismatch, authority).either
+      missing   <- catalog.retire(fresh, authority)
+      retired   <- catalog.retire(session, authority)
+      committed <- storage.read(index)
+      cold <- ZIO.fromEither(
+        VersionedTranscriptSessionCatalog.make(storage, index, maxSessions = 1)
+      )
+      visible      <- cold.sessions
+      repeated     <- cold.retire(session, authority)
+      afterRepeat  <- storage.read(index)
+      resurrection <- cold.register(session).either
+      overlap      <- cold.register(other).either
+      full         <- cold.register(fresh).either
+      grantValues  <- grants.get
+      releaseCount <- released.get
+      // Each wire version is validated in its original representation before normalization.
+      malformed = Chunk(
+        Json.Obj("schemaVersion" -> Json.Num(2), "sessions" -> canonicalSessions),
+        Json.Obj(
+          "schemaVersion" -> Json.Num(1),
+          "sessions"      -> canonicalSessions,
+          "entries"       -> Json.Arr()
+        ),
+        Json.Obj("schemaVersion" -> Json.Num(3), "entries" -> Json.Arr())
+      )
+      rejected <- ZIO.foreach(malformed): value =>
+        for
+          _ <- storage
+            .read(index)
+            .flatMap:
+              case Some(current) =>
+                storage.compareAndSet(index, ExpectedRevision.AtRevision(current.revision), value)
+              case None => ZIO.fail(AgentError.StorageError("Expected catalog fixture"))
+          beforeDecode <- storage.read(index)
+          result       <- cold.sessions.either
+          afterDecode  <- storage.read(index)
+        yield result.isLeft && beforeDecode == afterDecode
+    yield assertTrue(
+      loaded == Chunk(session) && afterRead == before,
+      wrong.isLeft && missing == TranscriptRetirement.Missing,
+      retired == TranscriptRetirement.Retired && visible.isEmpty,
+      repeated == TranscriptRetirement.AlreadyRetired && afterRepeat == committed,
+      resurrection.isLeft && overlap.isLeft && full.isLeft,
+      grantValues == Chunk(index -> session) && releaseCount == 1,
+      committed.exists(_.value.asObject.flatMap(_.get("schemaVersion")).contains(Json.Num(2))),
+      rejected.forall(identity)
+    )
+
+  private def retirementAttempt(mode: RetirementAttempt): ZIO[Scope, AgentError, TestResult] =
+    for
+      storage  <- backend
+      index    <- ZIO.fromEither(StorageAddress.from(Chunk("retirement-attempt"), "catalog"))
+      manifest <- ZIO.fromEither(StorageAddress.from(Chunk("retirement-attempt"), "session"))
+      session <- ZIO.fromEither(
+        TranscriptTargetId
+          .fromString("session")
+          .flatMap(TranscriptSession.make(_, manifest, TranscriptLayout.Aggregate))
+      )
+      neighborManifest <- ZIO.fromEither(
+        StorageAddress.from(Chunk("retirement-attempt"), "neighbor")
+      )
+      neighbor <- ZIO.fromEither(
+        TranscriptTargetId
+          .fromString("neighbor")
+          .flatMap(TranscriptSession.make(_, neighborManifest, TranscriptLayout.Aggregate))
+      )
+      initial  <- ZIO.fromEither(VersionedTranscriptSessionCatalog.make(storage, index))
+      _        <- initial.register(session)
+      before   <- storage.read(index)
+      writes   <- Ref.make(0)
+      grants   <- Ref.make(0)
+      entered  <- Promise.make[Nothing, Unit]
+      cleaning <- Promise.make[Nothing, Unit]
+      release  <- Promise.make[Nothing, Unit]
+      failure = AgentError.StorageError("Uncertain retirement publication")
+      cleanup = new IllegalStateException("Retirement authority cleanup")
+      intercepted = new VersionedJsonStore:
+        def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+          storage.read(address)
+        def compareAndSet(
+            address: StorageAddress,
+            expected: ExpectedRevision,
+            value: Json
+        ): IO[AgentError, ConditionalWrite] =
+          writes
+            .updateAndGet(_ + 1)
+            .flatMap: count =>
+              mode match
+                case RetirementAttempt.Conflict if count == 1 =>
+                  initial.register(neighbor).as(ConditionalWrite.Conflict)
+                case RetirementAttempt.Uncertain =>
+                  storage.compareAndSet(address, expected, value) *> ZIO.fail(failure)
+                case RetirementAttempt.Cancelled => entered.succeed(()) *> ZIO.never
+                case _                           => storage.compareAndSet(address, expected, value)
+      authority = new TranscriptRetirementAuthority:
+        def acquire(
+            address: StorageAddress,
+            expected: TranscriptSession
+        ): ZIO[Scope, AgentError, Unit] =
+          ZIO.acquireRelease(grants.update(_ + 1))(_ =>
+            if mode == RetirementAttempt.Cancelled then
+              cleaning.succeed(()) *> release.await *> ZIO.die(cleanup)
+            else ZIO.unit
+          )
+      catalog    <- ZIO.fromEither(VersionedTranscriptSessionCatalog.make(intercepted, index))
+      controller <- ZIO.fiberId
+      active <- ZIO.uninterruptibleMask: restore =>
+        for
+          fiber <- restore(catalog.retire(session, authority)).forkScoped
+          _     <- ZIO.addFinalizer(release.succeed(()).unit)
+        yield fiber
+      held <- mode match
+        case RetirementAttempt.Cancelled =>
+          entered.await *> active.interruptAsFork(controller) *> cleaning.await *> active.poll
+        case _ => ZIO.succeed(None)
+      _          <- release.succeed(())
+      exit       <- active.await
+      after      <- storage.read(index)
+      visible    <- initial.sessions
+      count      <- writes.get
+      grantCount <- grants.get
+    yield mode match
+      case RetirementAttempt.Conflict =>
+        assertTrue(
+          exit == Exit.succeed(TranscriptRetirement.Retired),
+          count == 2,
+          grantCount == 1,
+          visible == Chunk(neighbor),
+          after != before
+        )
+      case RetirementAttempt.Uncertain =>
+        assertTrue(
+          exit.causeOption.exists(_.failures == List(failure)),
+          count == 1,
+          grantCount == 1,
+          visible.isEmpty,
+          after != before
+        )
+      case RetirementAttempt.Cancelled =>
+        assertTrue(
+          held.isEmpty,
+          after == before,
+          visible == Chunk(session),
+          count == 1,
+          grantCount == 1,
+          exit.causeOption.exists(cause =>
+            cause.interruptors.contains(controller) && cause.defects == List(cleanup)
+          )
+        )
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SessionTranscriptWriterSpec")(
+    test(
+      "catalog retirement retains exact reservations and scopes host fencing through publication"
+    ):
+      for
+        contract <- retirementContract
+        attempts <- ZIO.foreach(
+          Chunk(
+            RetirementAttempt.Conflict,
+            RetirementAttempt.Uncertain,
+            RetirementAttempt.Cancelled
+          )
+        )(retirementAttempt)
+      yield attempts.foldLeft(contract)(_ && _)
+    ,
     test("registered writers publish history before discovery and repair indexing without replay"):
       ZIO
         .foreach(Chunk(TranscriptLayout.Aggregate, TranscriptLayout.Segmented))(registeredContract)

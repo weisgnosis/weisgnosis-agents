@@ -75,8 +75,30 @@ object VersionedTranscriptSessionCatalogSpec extends ZIOSpecDefault:
               VersionedTranscriptStore.make(readerBackend, manifest)
             case TranscriptLayout.Segmented =>
               SegmentedTranscriptStore.make(readerBackend, manifest))
-          history <- coldStore.entries
-        yield discovered == Chunk(descriptor) && appended.size == 1 && history == appended
+          history  <- coldStore.entries
+          grants   <- Ref.make(0)
+          released <- Ref.make(false)
+          authority = new TranscriptRetirementAuthority:
+            def acquire(
+                selected: StorageAddress,
+                expected: TranscriptSession
+            ): ZIO[Scope, AgentError, Unit] =
+              ZIO
+                .fail(AgentError.StorageError("Unexpected retirement binding"))
+                .unless(selected == target && expected == descriptor)
+                .unit *>
+                grants.update(_ + 1) *> ZIO.addFinalizer(released.set(true)).unit
+          retired     <- index.retire(descriptor, authority)
+          coldRetired <- coldIndex.sessions
+          repeated    <- coldIndex.retire(descriptor, authority)
+          resurrected <- coldIndex.register(descriptor).either
+          retained    <- coldStore.entries
+          count       <- grants.get
+          joined      <- released.get
+        yield discovered == Chunk(descriptor) && appended.size == 1 && history == appended &&
+          retired == TranscriptRetirement.Retired && coldRetired.isEmpty &&
+          repeated == TranscriptRetirement.AlreadyRetired && resurrected.isLeft &&
+          retained == history && count == 1 && joined
       .map(_.forall(identity))
 
   private def encoded(

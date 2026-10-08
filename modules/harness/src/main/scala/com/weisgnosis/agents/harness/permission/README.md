@@ -4,6 +4,14 @@ The [invocation and prepared-run contract](../../../../../../../../../core/src/m
 
 PermissionEngine combines independent policy, tool, and interceptor decisions as Deny > Ask > Passthrough > Allow. Default mode maps no matching decision to Ask. PermissionRule applies content restrictions to its explicit argument path. PermissionRequests registers a Promise before publication, resolves once, rejects duplicate request IDs, and removes interrupted waiters. Its serializable PendingApproval/ConfirmResult values support host persistence but do not provide a durable runtime.
 
+## Permission rule advice
+
+`InteractivePermissionAuthorizer.makeWithAdvisories` publishes a `PermissionAdvisory` containing the exact authorization request and immutable suggested rules. The original `make` callback remains unchanged and advice-free. Advice is produced only for a final Ask/Passthrough outcome, never an authoritative Deny. Each provider runs in a bounded Scope that closes before registering or publishing a pending approval. Provider failure or cancellation leaves no pending waiter.
+
+`PermissionSuggestions.default` suggests an exact tool-level Allow rule; wildcard, blank and malformed Unicode names receive no default advice. Custom providers are trusted host presentation capabilities and must bound their work. Suggestions are neither permission votes nor automatic policy updates. Only explicit human confirmation with selected `ConfirmResult.newRules`, followed by current authorization checks, can install a rule. Existing Deny precedence and admitted tool access remain authoritative.
+
+`CheckpointPermissionAuthorizer.advisories(checkpoint, suggestions)` validates an AwaitingApproval checkpoint and presents only its actual saved permission requests in original ordinal order, preserving checked prepared inputs, request IDs and context. It does not infer requests from other unfinished calls, reevaluate permission, resume execution or make a model call. Advice is regenerated through the supplied provider; hosts needing identical presentation after restart persist it separately. Presentation data grants no execution authority.
+
 ## Host-selected permission modes
 
 `PermissionEngine(rules, mode = PermissionMode.Default)` has five explicit modes. Independent votes remain Deny > Ask > Passthrough > Allow; mode fallbacks never bypass a supplied safety vote.
@@ -22,7 +30,7 @@ Child construction inherits only matching explicit parent Deny rules, checked be
 
 JSON uses exact scalar names `default`, `bypass`, `dont_ask`, `explore`, `accept_edits`; `fromString` additionally accepts case-insensitive host names. Trailing defaults preserve ordinary engine/evaluation calls; PermissionEngine product arity changes from one to two and affected JVM signatures require rebuilt consumers. The lower-level `resume` projects confirmation/rule updates only; install an authorizer to enforce current gates/mode before execution.
 
-[PermissionModeSpec](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PermissionModeSpec.scala), the checkpoint integration table and actual child construction cover these contracts. Java permission short-circuiting and suggested-rule generation are separate applicability decisions, not authority granted by a mode.
+[PermissionModeSpec](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/PermissionModeSpec.scala), the checkpoint integration table and actual child construction cover these contracts. Java permission short-circuiting remains a separate applicability decision. Suggested rules are presentation advice, not authority granted by a mode.
 
 ## Installation and ownership
 

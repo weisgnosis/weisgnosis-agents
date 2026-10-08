@@ -35,10 +35,13 @@ final private[transcript] class TranscriptFiles private (val directory: Path):
   import TranscriptFiles.*
   private val target = directory.resolve("transcript.jsonl")
 
-  def read: IO[AgentError, String] =
+  def read: IO[AgentError, String] = readExisting.map(_.getOrElse(""))
+
+  /** Distinguishes an explicitly empty log from an absent cold-recovery target. */
+  def readExisting: IO[AgentError, Option[String]] =
     validateLocation *> existingFile(target, directory).flatMap:
-      case None       => ZIO.succeed("")
-      case Some(path) => io(Files.readString(path, StandardCharsets.UTF_8))
+      case None       => ZIO.none
+      case Some(path) => io(Files.readString(path, StandardCharsets.UTF_8)).map(Some(_))
 
   def write(content: String): IO[AgentError, Unit] = ZIO.scoped:
     for
@@ -68,7 +71,7 @@ final private[transcript] class TranscriptFiles private (val directory: Path):
         for
           modified <- io(Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toInstant)
           content  <- io(Files.readString(path, StandardCharsets.UTF_8))
-          state    <- ZIO.fromEither(TranscriptLog.decode(content))
+          state    <- ZIO.fromEither(TranscriptLog.decodeDocument(content))
           lastActivity = state.entries.foldLeft(modified)((latest, entry) =>
             if entry.recordedAt.isAfter(latest) then entry.recordedAt else latest
           )

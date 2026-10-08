@@ -4,6 +4,14 @@ The [shared initialization contract](../storage/README.md#scoped-initialization)
 
 ConversationCompactor accepts an effectful summarizer, a pure TokenCounter, and optional flush/offload callbacks. Defaults: triggerTokens=120000, keepTokens=40000, preserveTailMessages=6, maxPruneOutputChars=2000, protectTokens=40000. Valid histories below the trigger remain unchanged. Compaction prunes older payloads, preserves matched call/result pairs and protected tails, deduplicates summaries, and coalesces adjacent user messages. Retained-user provenance survives coalescing for later flushing. MemoryFlushManager implements daily extraction through an injected store; scoped local storage, atomic in-memory consolidation, and recoverable local consolidation are available.
 
+## Daily memory discovery
+
+`DailyMemoryStore.days` lists active daily ledgers, including acknowledged content and excluding archived days. In-memory, local and versioned repositories implement it; custom bindings inherit an explicit unsupported failure until they provide enumeration. Local enumeration uses the existing owned filesystem read/recovery path and may read ledger contents internally.
+
+`DailyMemoryStore.discoverDays(stores, limits)` borrows an explicit list of stores and returns unique days in chronological order. Defaults admit 16 stores and 4,096 raw day candidates. Every candidate counts before deduplication; invalid bounds fail before source reads. A source failure or cancellation propagates without fallback. This operation does not merge same-day content, acknowledge ledgers, archive data or establish an atomic cross-store snapshot. Hosts retain ownership and must bound each source read.
+
+The API is additive at source level; downstream binaries must be rebuilt. Actual local/versioned/in-memory union and independently reopened PostgreSQL enumeration are covered by the corresponding discovery and repository suites.
+
 ## Pairing and pruning
 
 Each call occurrence enters an immutable pending sequence. Inline results consume only eligible provider-hosted calls from their own assistant message. Remaining calls match subsequent Role.Tool observations once, by ID and by name when supplied; unnamed results consume the first matching occurrence. An unmatched provider-marked call remains provider-owned and creates no local pending entry or compaction span; a separate Tool observation cannot complete it. Inline observations cannot steal a pending local call from the same or an earlier assistant message.

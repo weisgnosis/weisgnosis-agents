@@ -117,6 +117,11 @@ object LocalMemoryRepository:
       def readDaily(day: LocalDate): IO[AgentError, Option[String]] = owned(
         files.read(MemoryFile.Daily(day))
       )
+      override def days: IO[AgentError, Chunk[LocalDate]] = owned(
+        files.dailyContents.map(values =>
+          Chunk.fromIterable(values.keys.toList.sortBy(_.toEpochDay))
+        )
+      )
       def appendDaily(day: LocalDate, entry: String): IO[AgentError, Unit] = owned:
         if entry.isEmpty then ZIO.unit
         else

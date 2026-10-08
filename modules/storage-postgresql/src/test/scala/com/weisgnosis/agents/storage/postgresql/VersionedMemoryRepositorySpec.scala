@@ -92,6 +92,7 @@ object VersionedMemoryRepositorySpec extends ZIOSpecDefault:
           reopenedBackend <- store(source)
           reopened        <- repository(reopenedBackend, target)
           content         <- reopened.daily.readDaily(day)
+          days            <- reopened.daily.days
           curated         <- reopened.daily.readCurated
           pending         <- reopened.consolidation.snapshot
           untouched       <- isolated.daily.readDaily(day)
@@ -99,6 +100,7 @@ object VersionedMemoryRepositorySpec extends ZIOSpecDefault:
           unchanged       <- reopened.daily.readDaily(day)
         yield assertTrue(
           initial.curated.isEmpty,
+          days == Chunk(day),
           initial.pending.isEmpty,
           absent.isEmpty,
           content.exists(value => value.split("\\|").toList.sorted == entries.toList.sorted),

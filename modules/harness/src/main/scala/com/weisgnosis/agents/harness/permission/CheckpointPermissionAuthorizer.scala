@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.harness.permission
 
+import com.weisgnosis.agents.core.agent.{AgentResult, PendingActing, PendingActingStage}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.tool.{
   AdmittedToolAccess,
@@ -64,3 +65,35 @@ object CheckpointPermissionAuthorizer:
       interceptorGate: PermissionGate = PermissionGate.abstain
   ): CheckpointPermissionAuthorizer =
     new CheckpointPermissionAuthorizer(currentPolicy, toolGate, interceptorGate)
+
+  /**
+   * Presentation for actual saved permission requests, including their checked prepared inputs.
+   * Advice is regenerated from the explicitly supplied provider; persist it separately if a host
+   * requires identical presentation after reopening. This operation never grants or resumes a call.
+   */
+  def advisories(
+      checkpoint: AgentResult,
+      suggestions: PermissionSuggestions = PermissionSuggestions.default
+  ): IO[AgentError, Chunk[PermissionAdvisory]] =
+    for
+      pending <- ZIO.fromEither(PendingActing.validate(checkpoint))
+      _ <- pending.stage match
+        case _: PendingActingStage.AwaitingApproval => ZIO.unit
+        case _ =>
+          ZIO.fail(
+            AgentError.InvalidConfiguration("Checkpoint is not awaiting permission approval")
+          )
+      requests <- ZIO.foreach(pending.permissionRequests.sortBy(_.callOrdinal)): saved =>
+        ZIO
+          .fromOption(checkpoint.reply.toolUses.lift(saved.callOrdinal))
+          .orElseFail(AgentError.InvalidConfiguration("Missing deferred permission occurrence"))
+          .map(call =>
+            ToolAuthorizationRequest(
+              saved.requestId,
+              pending.context,
+              call.copy(input = saved.input),
+              Some(saved.callOrdinal)
+            )
+          )
+      values <- ZIO.foreach(requests)(PermissionAdvisory.prepare(_, suggestions))
+    yield values

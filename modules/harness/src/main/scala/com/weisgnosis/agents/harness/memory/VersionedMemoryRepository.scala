@@ -53,6 +53,8 @@ object VersionedMemoryRepository:
         def readCurated: IO[AgentError, Option[String]] = read.map(_.data.curated)
         def readDaily(day: LocalDate): IO[AgentError, Option[String]] =
           read.map(_.data.daily.get(day))
+        override def days: IO[AgentError, Chunk[LocalDate]] =
+          read.map(value => Chunk.fromIterable(value.data.daily.keys.toList.sortBy(_.toEpochDay)))
         def appendDaily(day: LocalDate, entry: String): IO[AgentError, Unit] =
           if entry.isEmpty then ZIO.unit
           else modify(data => ZIO.succeed(() -> data.append(day, entry)), maxAttempts)

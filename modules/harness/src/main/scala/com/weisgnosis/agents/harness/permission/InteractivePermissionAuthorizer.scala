@@ -30,7 +30,8 @@ import zio.*
 final class InteractivePermissionAuthorizer private (
     policyRef: Ref[PermissionEngine],
     requests: PermissionRequests,
-    publish: ToolAuthorizationRequest => UIO[Unit],
+    publish: PermissionAdvisory => UIO[Unit],
+    suggestions: PermissionSuggestions,
     toolGate: PermissionGate,
     interceptorGate: PermissionGate
 ) extends ToolAuthorizer:
@@ -45,6 +46,7 @@ final class InteractivePermissionAuthorizer private (
       policyRef,
       requests,
       publish,
+      suggestions,
       toolGate,
       interceptorGate.and(gate)
     )
@@ -92,8 +94,9 @@ final class InteractivePermissionAuthorizer private (
       admittedAccess: Option[AdmittedToolAccess]
   ): ZIO[Scope, AgentError.PermissionDenied, ToolAuthorization] =
     for
+      advisory <- PermissionAdvisory.prepare(request, suggestions)
       confirmation <- requests
-        .awaitApproval(pending)(_ => ZIO.suspendSucceed(publish(request)))
+        .awaitApproval(pending)(_ => ZIO.suspendSucceed(publish(advisory)))
         .mapError {
           case denied: AgentError.PermissionDenied => denied
           case error => AgentError.PermissionDenied(request.call.name, error.message)
@@ -157,4 +160,35 @@ object InteractivePermissionAuthorizer:
   ): UIO[InteractivePermissionAuthorizer] =
     Ref
       .make(initialPolicy)
-      .map(new InteractivePermissionAuthorizer(_, requests, publish, toolGate, interceptorGate))
+      .map(
+        new InteractivePermissionAuthorizer(
+          _,
+          requests,
+          advisory => publish(advisory.request),
+          PermissionSuggestions.none,
+          toolGate,
+          interceptorGate
+        )
+      )
+
+  /** Provider cleanup finishes before Promise registration; advice is installed only by confirmation. */
+  def makeWithAdvisories(
+      requests: PermissionRequests,
+      publish: PermissionAdvisory => UIO[Unit],
+      initialPolicy: PermissionEngine = PermissionEngine(),
+      toolGate: PermissionGate = PermissionGate.abstain,
+      interceptorGate: PermissionGate = PermissionGate.abstain,
+      suggestions: PermissionSuggestions = PermissionSuggestions.default
+  ): UIO[InteractivePermissionAuthorizer] =
+    Ref
+      .make(initialPolicy)
+      .map(
+        new InteractivePermissionAuthorizer(
+          _,
+          requests,
+          publish,
+          suggestions,
+          toolGate,
+          interceptorGate
+        )
+      )
