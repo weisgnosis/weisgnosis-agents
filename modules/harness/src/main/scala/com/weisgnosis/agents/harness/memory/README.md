@@ -1,5 +1,7 @@
 # Conversation compaction
 
+The [shared initialization contract](../storage/README.md#scoped-initialization) corrects failed/interrupted local opening: ownership is released before failure reaches a still-live host Scope; successful resources retain the host lifetime. The unchanged-production regression failed before correction; same-host repair/reopen and exact cleanup-cause tests now pass. Both independent reviewers approve the eight-Scala source manifest linked there; full verification, artifact/archive admission and standalone consumption pass; review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings.
+
 ConversationCompactor accepts an effectful summarizer, a pure TokenCounter, and optional flush/offload callbacks. Defaults: triggerTokens=120000, keepTokens=40000, preserveTailMessages=6, maxPruneOutputChars=2000, protectTokens=40000. Valid histories below the trigger remain unchanged. Compaction prunes older payloads, preserves matched call/result pairs and protected tails, deduplicates summaries, and coalesces adjacent user messages. Retained-user provenance survives coalescing for later flushing. MemoryFlushManager implements daily extraction through an injected store; scoped local storage, atomic in-memory consolidation, and recoverable local consolidation are available.
 
 ## Pairing and pruning
@@ -223,7 +225,7 @@ The API is additive; normal open/snapshot validation stays strict and never migr
 
 | Source | Git blob |
 | --- | --- |
-| [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | 2fe3f34cf680f653f6c57fdef188e0a1804b3e50 |
+| [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | Current identity: [local JSON manifest](../storage/README.md#local-versioned-json) |
 | [LocalMemoryWatermarkMigrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalMemoryWatermarkMigrationSpec.scala) | 1ea5632f33688c97c783c82b36cad6278d7b88c4 |
 
 - [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no findings. Focused checks passed 44 tests in 719 ms. Full `scalafmtAll scalafmtSbt verify` passed in `watermark-migration-verify.log` with zero compiler warnings or failures; aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).

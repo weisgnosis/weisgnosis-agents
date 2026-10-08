@@ -34,11 +34,12 @@ object LocalPlanDraftStore:
     PlanDraftFiles.inWorkspace(workspace, trust, directory).flatMap(owned)
 
   private def owned(files: PlanDraftFiles): ZIO[Scope, AgentError, PlanDraftStore] =
-    for
-      lease <- WorkspaceLease.open(files.directory, WorkspaceOwner.Plan)
-      store = new PlanDraftStore:
-        override val location: Option[PlanLocation]       = Some(files.location)
-        def read: IO[AgentError, Option[PlanDraft]]       = lease.protect(files.read)
-        def write(draft: PlanDraft): IO[AgentError, Unit] = lease.protect(files.write(draft))
-      _ <- store.read
-    yield store
+    WorkspaceLease.initialize:
+      for
+        lease <- WorkspaceLease.open(files.directory, WorkspaceOwner.Plan)
+        store = new PlanDraftStore:
+          override val location: Option[PlanLocation]       = Some(files.location)
+          def read: IO[AgentError, Option[PlanDraft]]       = lease.protect(files.read)
+          def write(draft: PlanDraft): IO[AgentError, Unit] = lease.protect(files.write(draft))
+        _ <- store.read
+      yield store

@@ -1,5 +1,7 @@
 # Session transcript verification
 
+The [shared initialization contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/storage/README.md#scoped-initialization) corrects failed/interrupted local opening: ownership is released before failure reaches a still-live host Scope; successful resources retain the host lifetime. The unchanged-production regression failed before correction; same-host repair/reopen and exact cleanup-cause tests now pass. Both independent reviewers approve the eight-Scala source manifest linked there; full verification, artifact/archive admission and standalone consumption pass; review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings.
+
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
 - [TranscriptEntrySpec](TranscriptEntrySpec.scala): two codec/structural-key cases.

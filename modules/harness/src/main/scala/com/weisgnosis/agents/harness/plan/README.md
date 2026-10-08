@@ -1,5 +1,7 @@
 # Plan-mode admission foundations
 
+The [shared initialization contract](../storage/README.md#scoped-initialization) corrects failed/interrupted local opening: ownership is released before failure reaches a still-live host Scope; successful resources retain the host lifetime. The unchanged-production regression failed before correction; same-host repair/reopen and exact cleanup-cause tests now pass. Both independent reviewers approve the eight-Scala source manifest linked there; full verification, artifact/archive admission and standalone consumption pass; review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings.
+
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 
 [PlanShellInspection.inspect](PlanShellInspection.scala) is a pure, conservative POSIX command-shape inspector. It accepts at most 4,096 characters from ASCII letters, digits, spaces and `_./-`, then applies a command-specific positive grammar. All other characters, including tabs/newlines, quotes, escapes, redirects, pipes, substitutions, separators and glob syntax, fail with a typed ShellRejection.
@@ -314,7 +316,7 @@ Final formatted six-file increment against f147a99, including the reproduced bou
 | Source | Git blob |
 | --- | --- |
 | [PlanDirectory.scala](PlanDirectory.scala) | ea44ad54387a7740036cf13426552a8d2e3eafb3 |
-| [LocalPlanDraftStore.scala](LocalPlanDraftStore.scala) | 956baf6fdda01f07eb67fe813b3c425cb0684f3d |
+| [LocalPlanDraftStore.scala](LocalPlanDraftStore.scala) | Current identity: [local JSON manifest](../storage/README.md#local-versioned-json) |
 | [PlanDraftFiles.scala](PlanDraftFiles.scala) | 3f91a78cd27db273d672aaeb092bee8acf02faf1 |
 | [PlanDirectorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDirectorySpec.scala) | 58baa98395e59ab3314e090cac54c9b6b8cc66ec |
 | [PlanWorkspaceStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanWorkspaceStoreSpec.scala) | fd907878d89368b10bcd75c9483941b8d964a27c |

@@ -17,6 +17,7 @@ package com.weisgnosis.agents.harness.memory
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.harness.eviction.WorkspaceTrust
+import com.weisgnosis.agents.harness.storage.WorkspaceLease
 import java.nio.file.Path
 import java.time.{Instant, LocalDate}
 import zio.*
@@ -42,12 +43,13 @@ object LocalMemoryRepository:
 
   /** The workspace and all ancestors must be protected against uncoordinated mutation. */
   def open(workspace: Path, trust: WorkspaceTrust): ZIO[Scope, AgentError, MemoryRepository] =
-    for
-      files <- MemoryFiles.open(workspace, trust)
-      lease <- DailyMemoryLease.open(files.directory)
-      backend = new Backend(files, lease)
-      _ <- backend.owned(ZIO.unit)
-    yield backend.repository
+    WorkspaceLease.initialize:
+      for
+        files <- MemoryFiles.open(workspace, trust)
+        lease <- DailyMemoryLease.open(files.directory)
+        backend = new Backend(files, lease)
+        _ <- backend.owned(ZIO.unit)
+      yield backend.repository
 
   /**
    * Explicitly replaces a legacy timestamp with empty content acknowledgements. Curated and daily

@@ -21,6 +21,11 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorizer, ToolDef, Toolkit}
 import com.weisgnosis.agents.harness.storage.*
+import com.weisgnosis.agents.harness.eviction.WorkspaceTrust
+import com.weisgnosis.agents.harness.memory.MemoryTestSupport.temporaryDirectory
+import java.nio.file.Files
+import java.nio.charset.StandardCharsets
+import java.util.UUID
 import zio.*
 import zio.json.ast.Json
 import zio.test.*
@@ -689,6 +694,105 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
       ) && exceptional.foldLeft(assertTrue(true))(_ && _)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentTaskRegistrySpec")(
+    test(
+      "public durable tasks persist mixed workspace JSON states at the session path and reopen without execution replay"
+    ):
+      for
+        root <- temporaryDirectory
+        directory <- ZIO.attemptBlocking(
+          Files.createDirectories(root.resolve("agents/parent/tasks"))
+        )
+        target = directory.resolve("sess-rt.json")
+        address  <- ZIO.fromEither(StorageAddress.from(Chunk("parent", "sess-rt"), "tasks"))
+        lifetime <- owner
+        backend <- lifetime.extend(
+          LocalVersionedJsonStore.open(target, address, WorkspaceTrust.HostControlled)
+        )
+        store     = SubagentTerminalStore.make(backend, address)
+        pendingId = SubagentTaskId(new UUID(0L, 991L))
+        _       <- store.admit(pendingId)
+        release <- Promise.make[Nothing, Unit]
+        entered <- Promise.make[Nothing, Unit]
+        builds  <- Ref.make(0)
+        text = "complete λ 😀\n" * 1000
+        registration = builds
+          .updateAndGet(_ + 1)
+          .flatMap:
+            case 1 => entered.succeed(()) *> release.await.as(Toolkit.empty)
+            case _ =>
+              ZIO.fail(
+                AgentError
+                  .ToolExecutionError("file-child", "exact failed output", Some("typed cause λ"))
+              )
+        configured <- factory(
+          _ => registration,
+          _ => LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant(text))))
+        )
+        supervisor   <- lifetime.extend(TaskSupervisor.open[AgentResult])
+        parent       <- SubagentSpawner.root(supervisor)
+        registry     <- lifetime.extend(SubagentTaskRegistry.openDurable(parent, configured, store))
+        _            <- ZIO.addFinalizer(release.succeed(()).unit)
+        runningId    <- lifetime.extend(accepted(registry.submit(input)))
+        _            <- entered.await
+        failedId     <- lifetime.extend(accepted(registry.submit(input)))
+        _            <- registry.await(failedId)
+        _            <- registry.publication(failedId)
+        mixed        <- store.taskRecords
+        observations <- registry.observations
+        exists       <- ZIO.attemptBlocking(Files.isRegularFile(target))
+        json         <- ZIO.attemptBlocking(Files.readString(target, StandardCharsets.UTF_8))
+        _            <- release.succeed(())
+        _            <- registry.await(runningId)
+        _            <- registry.publication(runningId)
+        _            <- registry.acknowledgeTerminal(runningId)
+        finished     <- store.taskRecords
+        _            <- lifetime.close(Exit.unit)
+        closed       <- backend.read(address).either
+        freshBackend <- LocalVersionedJsonStore.open(target, address, WorkspaceTrust.HostControlled)
+        freshStore = SubagentTerminalStore.make(freshBackend, address)
+        recovered       <- freshStore.taskRecords
+        freshSupervisor <- TaskSupervisor.open[AgentResult]
+        freshParent     <- SubagentSpawner.root(freshSupervisor)
+        freshRegistry   <- SubagentTaskRegistry.openDurable(freshParent, configured, freshStore)
+        reopened        <- freshRegistry.observations
+        checked         <- freshStore.acknowledgement(runningId)
+        pending         <- freshStore.pending
+        count           <- builds.get
+      yield assertTrue(
+        exists,
+        json.nonEmpty,
+        mixed.map(_.id).toSet == Set(pendingId, runningId, failedId),
+        mixed.find(_.id == pendingId).exists(_.state == SubagentTaskRecordState.Pending),
+        mixed.find(_.id == runningId).exists(_.state == SubagentTaskRecordState.Running),
+        mixed
+          .find(_.id == failedId)
+          .flatMap(_.terminal)
+          .contains(
+            SubagentTerminalRecord(
+              failedId,
+              SubagentTerminalOutcome.Failed(
+                Chunk(SubagentTaskFailure("exact failed output", Some("typed cause λ"))),
+                SubagentTaskDefects.Absent
+              )
+            )
+          ),
+        observations.map(_.id).toSet == Set(pendingId, runningId, failedId),
+        closed.isLeft,
+        recovered == finished,
+        recovered
+          .find(_.id == runningId)
+          .flatMap(_.terminal)
+          .contains(SubagentTerminalRecord(runningId, SubagentTerminalOutcome.Completed(text))),
+        reopened.map(_.id).toSet == Set(pendingId, runningId, failedId),
+        checked.exists(value =>
+          value match
+            case SubagentTerminalAcknowledgement.Acknowledged(_) => true
+            case _                                               => false
+        ),
+        pending.map(_.id) == Chunk(failedId),
+        count == 2
+      )
+    ,
     test(
       "host heartbeat captures admitted local handles, continues typed failures and joins cancelled observation cleanup without cancelling tasks"
     ):

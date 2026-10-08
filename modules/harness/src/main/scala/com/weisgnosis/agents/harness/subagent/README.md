@@ -1,5 +1,7 @@
 # Scoped child execution and sessions
 
+The [local JSON integration](../storage/README.md#local-versioned-json) persists the actual agents/parent/tasks/sess-rt.json path through the existing terminal store. The public registry test verifies mixed nonterminal/terminal records, exact output/counts, acknowledgement and reopen without child replay. Both independent reviewers approve the eight-Scala source scope; review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings. Remote recovery and executable session restoration remain open.
+
 ## Explicit owner heartbeat
 
 refreshCurrentOwner is an explicit host operation over one captured Open registry membership. It polls actual retained tasks and refreshes only unfinished local handles with confirmed admission identities. Completed handles are skipped without backend work; an empty durable registry performs no storage or clock work. Closed durable registries reject the operation before backend access. Volatile/custom registries and custom stores default to typed unsupported failures; there is no implicit maintenance fiber.
@@ -27,7 +29,7 @@ Current source-approved scope against 3b31430: six Scala identities, path-first 
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `0d965b2a340ec1f38a820307c9f8ec494e08c2c7` |
 | [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `2339eaabeb9372346cc5f66014c7de5613868d82` |
 | [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | `15e50cdd4dd60089bfca6110de2ed25d142e356a` |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `6feb2761921952ad1b20d8af69626c622842a7de` |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [local JSON manifest](../storage/README.md#local-versioned-json) |
 | [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `e7e091b881bd4d0ff64973f5c819c5cf891834d1` |
 
 ## Completion notifications
@@ -140,7 +142,7 @@ Current source-approved scope against bfe12fb comprises thirteen Scala identitie
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | Current identity: [cancellation manifest](#durable-cancellation-intent) |
 | [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
-Source approval does not close whole TaskTool parity, arbitrary Throwable reconstruction, physical workspace storage, remote-owner cancellation/wakeup recovery or executable restoration. Current-owner cancellation and notifications have their linked contracts above. Full delivery passes; review_fp and review_invariants approve the final combined scope against bfe12fb: thirteen unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
+Source approval of typed failures does not itself establish whole TaskTool parity, arbitrary Throwable reconstruction, remote-owner cancellation/wakeup recovery or executable restoration. The [local JSON contract](../storage/README.md#local-versioned-json) supplies the separately reviewed physical workspace path. Current-owner cancellation and notifications have their linked contracts above. Full delivery passes; review_fp and review_invariants approve the final combined scope against bfe12fb: thirteen unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
 
 ## Stored task views
 
@@ -178,7 +180,7 @@ Current source-approved scope against 0bbae03 comprises twelve Scala identities,
 | [SubagentWaitSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWaitSessionSpec.scala) | `b29d5d4309e68886db743e9f5459f17acb019021` |
 | [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
-Full delivery passes; review_fp and review_invariants approve the final combined scope against 0bbae03: twelve unchanged Scala identities and fourteen Markdown files, with no unresolved findings. Stored views do not close physical workspace-file layout, executable restoration, owner recovery/fencing, remote-owner cancellation, stale-owner sweep/discovery or whole TaskTool parity. Explicit current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat).
+Full delivery passes; review_fp and review_invariants approve the final combined scope against 0bbae03: twelve unchanged Scala identities and fourteen Markdown files, with no unresolved findings. Stored views do not themselves establish physical layout; the [local JSON contract](../storage/README.md#local-versioned-json) supplies the separately reviewed workspace file assertion. Executable restoration, owner recovery/fencing, remote-owner cancellation, stale-owner sweep/discovery and whole TaskTool parity remain open. Explicit current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat).
 
 ## Task output creation and check metadata
 

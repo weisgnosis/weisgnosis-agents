@@ -24,25 +24,26 @@ import zio.*
 /** A single transcript in an existing host-controlled directory; every operation owns the same lease. */
 object LocalTranscriptStore:
   def open(directory: Path, trust: WorkspaceTrust): ZIO[Scope, AgentError, TranscriptStore] =
-    for
-      files <- TranscriptFiles.open(directory, trust)
-      lease <- WorkspaceLease.open(files.directory, WorkspaceOwner.Transcript)
-      store = new TranscriptStore:
-        private def state: IO[AgentError, TranscriptState] =
-          files.read.flatMap(text => ZIO.fromEither(TranscriptLog.decode(text)))
-        def entries: IO[AgentError, Chunk[TranscriptEntry]] = lease.protect(state.map(_.entries))
-        def append(drafts: Chunk[TranscriptDraft]): IO[AgentError, Chunk[TranscriptEntry]] =
-          lease.protect:
-            for
-              before     <- state
-              instant    <- Clock.instant
-              candidates <- ZIO.foreach(drafts)(draft => Random.nextUUID.map(id => draft -> id))
-              after      <- ZIO.fromEither(before.append(candidates, instant))
-              appended = after.entries.drop(before.entries.size)
-              _ <- ZIO
-                .fromEither(TranscriptLog.encode(after))
-                .flatMap(files.write)
-                .unless(appended.isEmpty)
-            yield appended
-      _ <- store.entries
-    yield store
+    WorkspaceLease.initialize:
+      for
+        files <- TranscriptFiles.open(directory, trust)
+        lease <- WorkspaceLease.open(files.directory, WorkspaceOwner.Transcript)
+        store = new TranscriptStore:
+          private def state: IO[AgentError, TranscriptState] =
+            files.read.flatMap(text => ZIO.fromEither(TranscriptLog.decode(text)))
+          def entries: IO[AgentError, Chunk[TranscriptEntry]] = lease.protect(state.map(_.entries))
+          def append(drafts: Chunk[TranscriptDraft]): IO[AgentError, Chunk[TranscriptEntry]] =
+            lease.protect:
+              for
+                before     <- state
+                instant    <- Clock.instant
+                candidates <- ZIO.foreach(drafts)(draft => Random.nextUUID.map(id => draft -> id))
+                after      <- ZIO.fromEither(before.append(candidates, instant))
+                appended = after.entries.drop(before.entries.size)
+                _ <- ZIO
+                  .fromEither(TranscriptLog.encode(after))
+                  .flatMap(files.write)
+                  .unless(appended.isEmpty)
+              yield appended
+        _ <- store.entries
+      yield store

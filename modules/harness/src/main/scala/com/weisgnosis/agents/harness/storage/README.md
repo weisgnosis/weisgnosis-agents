@@ -1,33 +1,55 @@
 # Storage contracts
 
-WorkspaceLease shares cooperative ownership machinery between local memory, transcript and plan-draft backends. WorkspaceOwner.Memory selects .daily-writer.lease; Transcript selects .transcript-writer.lease; Plan selects .plan-writer.lease. These fixed names describe independent payload domains, not competing locks for the same files. Callers validate the canonical host-controlled directory before acquisition.
+WorkspaceLease supplies cooperative ownership for local memory, transcript, plan-draft and explicitly bound JSON backends. Default domain filenames remain .daily-writer.lease, .transcript-writer.lease and .plan-writer.lease. A JSON target has a separate checked per-file lease; distinct targets can coexist. Callers must control and validate filesystem ancestors.
 
-CREATE_NEW publishes an opaque token; competitors never delete or overwrite ownership. Waiting remains interruptible; admitted work is masked and finishes before ordinary pending cancellation is delivered. Explicit caller masking is retained. Closing waits for admitted work, marks the handle closed, verifies its token, then deletes the lease. Cleanup verification failures remain observable finalizer defects. Slow filesystem work can delay shutdown; stale leases are never removed automatically.
+CREATE_NEW publishes an opaque ownership token. Competitors never delete or overwrite it. Waiting is interruptible; admitted work is masked and finishes before pending ordinary cancellation is delivered. Closing joins admitted work, marks the handle closed, verifies the token and deletes the lease. Token verification/release failures remain observable finalizer defects. Slow filesystem operations can delay cancellation. Abandoned leases require explicit host recovery.
 
-This is internal cooperative infrastructure, not a hostile-filesystem sandbox, file-object identity guarantee, distributed lock, or crash-durability mechanism. DailyMemoryLease remains a compatibility alias/adapter with the original memory filename. Earlier shared ownership identities are preserved in 083617b; the [transcript persistence contract](../transcript/README.md) retains the earlier scope and unchanged neighboring identities; the new Plan owner and current shared-file identities are recorded in the [plan contract](../plan/README.md#standalone-draft-storage). Plan ownership reports PlanStorageError throughout acquisition, use and release; Memory/Transcript retain MemoryStorageError.
+This is cooperative infrastructure, not a hostile-filesystem sandbox, distributed execution lock, file-object identity guarantee or crash-durability mechanism. DailyMemoryLease retains its compatibility filename. Memory/Transcript failures retain MemoryStorageError, Plan failures retain PlanStorageError, and JSON failures use StorageError.
 
-- [x] `review_fp` and `review_harness` approved the final 14-file local transcript increment against `e4dfc67` on 2026-09-29. Twenty-seven new tests reproduced and fixed Unicode surrogate splitting; full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 258 harness tests with zero compiler warnings. No findings remain within shared cooperative ownership, strict complete-log validation, atomic batch replacement, reopen/deduplication, and Unicode-safe previews. Remote segments, Java layout/wire equivalence, hostile mutation, fsync/power-loss durability, and automatic turn scheduling remain excluded.
+## Scoped initialization
 
-- [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 556 core / 520 harness tests, including fifteen new cases, with zero compiler warnings. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
+Failed construction must release acquired ownership before returning its failure, even when the host catches open.either inside a still-live Scope. Successful construction stays attached to that host Scope. WorkspaceLease.initialize registers an owned child Scope before restoring interruptible initialization, closes it on the actual failed/interrupted Exit and preserves operation and cleanup causes. Later host closure must not repeat already-run finalizers or their defects.
+
+- [x] Reproduce the defect before correction on the unchanged JSON draft: target/local-json-failed-open-red.log fails because .checked.json.versioned-writer.lease remains after rejected initialization.
+- [x] Reproduce the same defect in unchanged accepted Plan/Transcript/Memory factories: target/local-backends-failed-open-red.log fails all three payload-only directory assertions because their writer leases remain.
+- [x] Pass same-live-host-scope repair/reopen and initialization failure/cancellation/cleanup regressions.
+- [x] Obtain renewed independent FP/ZIO and invariant approval of the final eight source identities; the earlier JSON draft approval was superseded.
+- [x] Pass full verification, fresh artifacts/archive admission and standalone consumption.
+- [x] review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings.
 
 ## Admitted-work failure and cancellation
 
-Admitted masked WorkspaceLease work now captures its complete Exit, joins its work/cleanup, then combines pending ordinary caller cancellation with a failed outcome instead of losing interruption. Typed operation failure remains present; caller masking remains respected. This changes no public API and grants no new filesystem/ownership guarantee.
+WorkspaceLease captures the complete Exit of admitted work, joins work and cleanup, and combines pending ordinary caller cancellation with failure. Typed operation errors remain present and explicit caller masking is respected. WorkspaceLeaseSpec retains the reproduced admitted-failure regression as well as initialization lifecycle coverage. The local JSON manifest below records the exact source-approved identities and completed verification and final combined approval by review_fp and review_invariants for eight unchanged Scala identities and twenty-two Markdown files against 73b0fb1.
 
-workspace-lease-failure-red.log reproduces the unchanged lease blob 409edda77d0fcf5b8846d1cc89e3050d190d2740 returning its typed failure without interruption (exit.isInterrupted was false). A paired WorkspaceLeaseSpec regression checks both signals after held admitted work. Current source identities are below; invariant approval and full verification are complete; this is a Scala lifecycle correction, not new Java parity.
+## Local versioned JSON
 
-| Current lease source/spec against c198f98 | Git blob |
+[LocalVersionedJsonStore.open](LocalVersionedJsonStore.scala) binds one explicit StorageAddress to one explicit file beneath an existing host-controlled directory. Construction and all filesystem interaction are suspended in ZIO. There is no automatic partition/path derivation. Limits.default bounds a complete envelope to 2 MiB; checked custom limits leave room for an overflow byte. Target names are portable lowercase ASCII .json components, at most 128 UTF-8 bytes, with device aliases and unsafe path spellings rejected. Domain addresses and JSON values retain exact Unicode and numeric representation.
+
+Opening validates trust, lexical traversal, sensitive lexical/canonical paths, canonical existing non-symlink parents and regular non-symlink targets. Each read reloads bounded strict UTF-8 data from disk. The private formatVersion=1 envelope validates its exact address, positive revision, recursive field uniqueness, Unicode and canonical codec representation. Corruption is a failure, never absence or permission to overwrite.
+
+compareAndSet reloads under the per-target lease. A conflict changes no bytes; creation starts at revision 1 and updates advance the persisted revision. Exhausted Long.MaxValue expectations fail. A bounded candidate is written through a scoped same-directory temporary file and native atomic replacement, with no non-atomic fallback. Operation and release errors retain their causes. Cancellation waits for admitted replacement and cleanup; failure or cancellation does not prove the write did not commit, and uncertain writes are never retried automatically.
+
+The host owns the lifetime and must keep it alive through borrowed adapters. Closing the backend rejects later use. External replacement/deletion invalidates revision assumptions. This adapter provides neither fencing, fsync/power-loss durability, abandoned-lease takeover, directory discovery nor executable session restoration.
+
+The actual registry integration targets agents/parent/tasks/sess-rt.json and verifies mixed Pending/Running/Completed/Failed data, exact results/counts, persisted acknowledgement and fresh-scope reopen without model/execution replay. It reuses SubagentTerminalStore rather than introducing a second task schema. This is the physical assertion in pinned WorkspaceTaskRepositoryTest 469, not Java wire/API equivalence or whole task-repository completion.
+
+- [x] review_fp and review_invariants approve eight exact Scala identities against 73b0fb1, manifest b450bd087a0b14af083c61326935250b7c5d90b8cffa627cc1c7b41f2ddf14c7, with no unresolved source findings.
+- [x] target/local-json-focused-green.log passes 68 groups, zero failed/ignored/compiler warnings, in 1.612 seconds.
+- [x] target/local-json-final-verify.log passes formatting/fatal-warning compilation, 1,648 tests (695 core / 791 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/local-json-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
+- [x] target/local-json-final-consumer.log passes fresh standalone formatting/compilation/execution and four artifact hashes; the unchanged probe does not directly exercise this adapter.
+- [x] review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings. English prose, UTF-8 and local links are checked.
+
+| Reviewed source against 73b0fb1 | Git blob |
 | --- | --- |
-| [WorkspaceLease.scala](WorkspaceLease.scala) | 314294acc67defba99f95cd0375adde756da7c6a |
-| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | 51b8643afce455810915b758ce289e26ee598c85 |
-
-- [x] Reproduce pending cancellation loss on admitted failure before the fix.
-- [x] docs_closure independently approved the final lease source/spec FP/ZIO scope against c198f98; the reviewer authored neither file. Full Cause composition, caller interruptibility and joined ownership were inspected.
-- [x] review_invariants approved these two final lease identities against c198f98.
-- [x] workspace-lease-failure-green.log passed six focused tests in 171 milliseconds, including the unchanged regression that failed before the correction.
-- [x] source-sample-fixes-verify.log passed the final 1,514-test full verification and four packages with zero compiler warnings/failures; source-sample-fixes-preparation.log passed source/archive and restored archive/POM staging.
-- [x] Fresh standalone selected-API consumption passed; checked usage is exercised, while lease behavior remains covered by its direct lifecycle tests.
-- [x] review_fp and review_invariants approved final combined documentation against c198f98 and the unchanged reviewed identities; docs_closure independently approved lease FP/ZIO. Manual English/script/diff checks and 78-document/2,895-local-reference checks pass with zero issues.
+| [LocalMemoryRepository.scala](../memory/LocalMemoryRepository.scala) | `4002a33fa1499c15ac795e8142325869444cb735` |
+| [LocalPlanDraftStore.scala](../plan/LocalPlanDraftStore.scala) | `1f42fd5ae3237ad6f130fb5e702d443cc78b2a32` |
+| [LocalVersionedJsonStore.scala](LocalVersionedJsonStore.scala) | `f633936f0edfb249faa5672371e57b31b43cebb0` |
+| [WorkspaceLease.scala](WorkspaceLease.scala) | `58729f2d2ec9d90c7733250ca7997b383f399195` |
+| [LocalTranscriptStore.scala](../transcript/LocalTranscriptStore.scala) | `2b0102c6aa48668976f64b002320bdb973ce4173` |
+| [LocalVersionedJsonStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/LocalVersionedJsonStoreSpec.scala) | `2b8f2ea62b559a27e1069cfaa6d5753a70e3d268` |
+| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | `a5f8c250763bc39cfc5de1ec646f2dfb8b4910e3` |
+| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `2fbdb76e725bdd8e1fa061c6ac67d39a9cc45174` |
 
 ## Versioned JSON publication
 

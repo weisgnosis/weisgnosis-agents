@@ -21,10 +21,11 @@ import java.nio.file.{Files, LinkOption, Path, StandardOpenOption}
 import zio.*
 
 private[harness] enum WorkspaceOwner:
-  case Memory, Transcript, Plan
+  case Memory, Transcript, Plan, VersionedJson
 
   def failure(message: String): AgentError = this match
     case Plan                => AgentError.PlanStorageError(message)
+    case VersionedJson       => AgentError.StorageError(message)
     case Memory | Transcript => AgentError.MemoryStorageError(message)
 
 /** Cooperative ownership; an unfinished lease is never removed by a competing acquisition. */
@@ -79,16 +80,43 @@ private[harness] object WorkspaceLease:
   private enum Lifetime:
     case Open, Closed
 
+  /**
+   * Failed/interrupted construction unwinds before returning; successful resources remain owned
+   * by the caller scope. A repeated child close does not replay its completed finalizers.
+   */
+  def initialize[A](initialization: ZIO[Scope, AgentError, A]): ZIO[Scope, AgentError, A] =
+    ZIO.uninterruptibleMask: restore =>
+      for
+        child <- ZIO.acquireReleaseExit(Scope.make)((scope, exit) => scope.close(exit))
+        value <- restore(child.extend(ZIO.suspendSucceed(initialization))).onExit:
+          case failure @ Exit.Failure(_) => child.close(failure)
+          case Exit.Success(_)           => ZIO.unit
+      yield value
+
   /** directory is the already validated canonical storage directory of a trusted workspace. */
   def open(directory: Path, owner: WorkspaceOwner): ZIO[Scope, AgentError, WorkspaceLease] =
+    openNamed(
+      directory,
+      owner,
+      owner match
+        case WorkspaceOwner.Memory        => ".daily-writer.lease"
+        case WorkspaceOwner.Transcript    => ".transcript-writer.lease"
+        case WorkspaceOwner.Plan          => ".plan-writer.lease"
+        case WorkspaceOwner.VersionedJson => ".json-writer.lease"
+    )
+
+  /** directory is canonical and host-controlled; the checked name is one portable component. */
+  def openNamed(
+      directory: Path,
+      owner: WorkspaceOwner,
+      name: String
+  ): ZIO[Scope, AgentError, WorkspaceLease] =
     for
+      _        <- ZIO.fromEither(validateName(name, 255).left.map(owner.failure))
       gate     <- Semaphore.make(1)
       lifetime <- Ref.make(Lifetime.Open)
       token    <- Random.nextUUID.map(_.toString)
-      path = directory.resolve(owner match
-        case WorkspaceOwner.Memory     => ".daily-writer.lease"
-        case WorkspaceOwner.Transcript => ".transcript-writer.lease"
-        case WorkspaceOwner.Plan       => ".plan-writer.lease")
+      path = directory.resolve(name)
       lease <- ZIO.acquireRelease(
         io(
           Files.writeString(
@@ -102,6 +130,22 @@ private[harness] object WorkspaceLease:
         ).as(new WorkspaceLease(path, token, owner, gate, lifetime))
       )(_.close)
     yield lease
+
+  private[harness] def validateName(name: String, maxBytes: Int): Either[String, Unit] =
+    val reserved =
+      Set("CON", "PRN", "AUX", "NUL") ++ (1 to 9).flatMap(index => List(s"COM$index", s"LPT$index"))
+    val stem = name.takeWhile(_ != '.').toUpperCase(java.util.Locale.ROOT)
+    Either.cond(
+      name.nonEmpty && name != "." && name != ".." &&
+        name.forall(character =>
+          character >= 'a' && character <= 'z' || character >= '0' && character <= '9' || ".-_"
+            .contains(character)
+        ) &&
+        !name.endsWith(".") && !name.endsWith(" ") && !reserved.contains(stem) &&
+        name.getBytes(StandardCharsets.UTF_8).length <= maxBytes,
+      (),
+      "Storage filename must be one bounded portable lowercase ASCII component"
+    )
 
   private def io[A](operation: => A, owner: WorkspaceOwner): IO[AgentError, A] =
     ZIO

@@ -1,5 +1,7 @@
 # Session transcript observations
 
+The [shared initialization contract](../storage/README.md#scoped-initialization) corrects failed/interrupted local opening: ownership is released before failure reaches a still-live host Scope; successful resources retain the host lifetime. The unchanged-production regression failed before correction; same-host repair/reopen and exact cleanup-cause tests now pass. Both independent reviewers approve the eight-Scala source manifest linked there; full verification, artifact/archive admission and standalone consumption pass; review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings.
+
 [SessionTranscriptWriter](SessionTranscriptWriter.scala) records typed observations through a transcript-bound [TranscriptStore](TranscriptStore.scala). appendMessages returns only newly committed entries; offload discards that result for installation as ConversationCompactor's offload callback. Transcript recording is independent of memory extraction: summaries and thinking remain eligible, while user messages containing `<session_context>` are skipped. System messages remain eligible. Installing the compactor callback alone does not record every turn; install the completion observer described below as well.
 
 ## Projection and data contract
@@ -26,7 +28,7 @@ Public transcript store APIs, file format, trust checks, lease ownership and ato
 | --- | --- |
 | [ReActAgent.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scala) | [Current ReActAgent.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-reasoning-effort) |
 | [StructuredOutputSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/StructuredOutputSpec.scala) | `412794e93602a061639795f9bb1ac8ec3fef597d` |
-| [LocalTranscriptStore.scala](LocalTranscriptStore.scala) | `21a05fc889fc7a1e33c57953ad1a5749041e4b7d` |
+| [LocalTranscriptStore.scala](LocalTranscriptStore.scala) | Current identity: [local JSON manifest](../storage/README.md#local-versioned-json) |
 | [SessionTranscriptWriter.scala](SessionTranscriptWriter.scala) | `a0578e096d12e39920db0524d1896fbd815c6b06` |
 | [TranscriptLog.scala](TranscriptLog.scala) | [Current remote-transcript identity](#versioned-remote-transcript) |
 | [LocalTranscriptStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/LocalTranscriptStoreSpec.scala) | `4d0fc2a79d6deff29a587de30c96acead7cdfd4b` |
