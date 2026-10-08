@@ -73,6 +73,12 @@ trait SubagentTaskRegistry:
   def observations: IO[AgentError, Chunk[SubagentTaskObservation]] =
     list.map(_.map(SubagentTaskObservation.fromSnapshot))
 
+  /** Custom registries must explicitly implement stable captured wait ownership. */
+  private[subagent] def captureWait(
+      @unused selection: SubagentTaskSelection
+  ): IO[AgentError, Chunk[SubagentCapturedWait]] =
+    ZIO.fail(AgentError.InvalidConfiguration("This registry does not support task wait barriers"))
+
   /** Built-in durable tools wait for publication before presenting a joined live outcome. */
   private[subagent] def awaitTerminalPublication(@unused id: SubagentTaskId): IO[AgentError, Unit] =
     ZIO.unit
@@ -298,6 +304,114 @@ object SubagentTaskRegistry:
 
     def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] =
       lookup(id).flatMap(ZIO.foreach(_)(_.task.cancel))
+
+    override private[subagent] def captureWait(
+        selection: SubagentTaskSelection
+    ): IO[AgentError, Chunk[SubagentCapturedWait]] =
+      for
+        entries <- state.get.map(_.entries)
+        initial <- ZIO.foreach(entries)(entry => entry.task.poll.map(entry -> _))
+        _ <-
+          if selection == SubagentTaskSelection.CurrentRunning &&
+            initial.count(_._2.isEmpty) > SubagentTaskSelection.MaximumTasks
+          then
+            ZIO.fail(AgentError.InvalidConfiguration("Current-running wait set exceeds 128 tasks"))
+          else ZIO.unit
+        captured <- selection match
+          case SubagentTaskSelection.CurrentRunning =>
+            ZIO.succeed(initial.collect { case (entry, None) => capturedEntry(entry) })
+          case selected: SubagentTaskSelection.Selected =>
+            val ids = selected.ids
+            val storedRecords = persistence match
+              case Some(binding) => binding.store.list
+              case None          => ZIO.succeed(Chunk.empty[SubagentTerminalRecord])
+            storedRecords.flatMap: stored =>
+              val missing =
+                ids.filterNot(id => entries.exists(_.id == id) || stored.exists(_.id == id))
+              if missing.nonEmpty then
+                ZIO.fail(
+                  AgentError.InvalidConfiguration(
+                    s"Unknown selected task IDs: ${missing.map(_.value).mkString(", ")}"
+                  )
+                )
+              else
+                ZIO.foreach(ids): id =>
+                  entries.find(_.id == id) match
+                    case Some(entry) => ZIO.succeed(capturedEntry(entry))
+                    case None =>
+                      ZIO
+                        .fromOption(stored.find(_.id == id))
+                        .orElseFail(
+                          AgentError.StorageError(
+                            "Selected terminal observation disappeared from captured membership"
+                          )
+                        )
+                        .map: record =>
+                          new SubagentCapturedWait:
+                            val id: SubagentTaskId                            = record.id
+                            def await: IO[AgentError, SubagentTerminalRecord] = ZIO.succeed(record)
+                            def poll: IO[AgentError, Option[SubagentTerminalRecord]] =
+                              ZIO.some(record)
+      yield captured
+
+    private def capturedEntry(entry: Entry): SubagentCapturedWait = new SubagentCapturedWait:
+      val id: SubagentTaskId = entry.id
+
+      private def completed(
+          exit: Exit[AgentError, AgentResult]
+      ): IO[AgentError, SubagentTerminalRecord] =
+        persistence match
+          case None =>
+            ZIO.succeed(SubagentTerminalRecord(id, SubagentTerminalOutcome.fromExit(exit)))
+          case Some(binding) =>
+            ZIO
+              .fromOption(entry.publisher)
+              .orElseFail(
+                AgentError.InvalidConfiguration("Durable task has no publication owner")
+              )
+              .flatMap(_.await.flatMap(receipt => receipt)) *> binding.store
+              .read(id)
+              .someOrFail(
+                AgentError.StorageError(
+                  "Successful publication has no visible terminal observation"
+                )
+              )
+
+      def await: IO[AgentError, SubagentTerminalRecord] =
+        poll.flatMap:
+          case Some(observation) => ZIO.succeed(observation)
+          case None              => entry.task.await.flatMap(completed)
+
+      def poll: IO[AgentError, Option[SubagentTerminalRecord]] =
+        entry.task.poll.flatMap:
+          case Some(exit) =>
+            persistence match
+              case None => completed(exit).map(Some(_))
+              case Some(_) =>
+                ZIO
+                  .fromOption(entry.publisher)
+                  .orElseFail(
+                    AgentError.InvalidConfiguration("Durable task has no publication owner")
+                  )
+                  .flatMap(_.poll)
+                  .flatMap:
+                    case Some(Exit.Success(_))     => completed(exit).map(Some(_))
+                    case Some(Exit.Failure(cause)) => ZIO.refailCause(cause)
+                    case None                      => ZIO.none
+          case None =>
+            persistence match
+              case None => ZIO.none
+              case Some(binding) =>
+                ZIO.foreachDiscard(entry.publisher)(_.poll.flatMap:
+                  case Some(Exit.Failure(cause)) => ZIO.refailCause(cause)
+                  case _                         => ZIO.unit) *> binding.store
+                  .read(id)
+                  .flatMap:
+                    case None => ZIO.none
+                    case Some(record) =>
+                      entry.task.poll.flatMap:
+                        case None       => ZIO.some(record)
+                        case Some(exit) => completed(exit).map(Some(_))
 
     override def observe(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskObservation]] =
       persistence match

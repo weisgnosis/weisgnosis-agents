@@ -24,12 +24,16 @@ import zio.*
 import zio.json.*
 import zio.json.ast.Json
 
-/** Private trusted inspection boundary; execution capabilities are never retained by the sink. */
-private[subagent] trait SubagentInspectionCapture:
+/** Private trusted task-result boundary; execution capabilities are never retained by the sink. */
+private[subagent] trait SubagentTaskConsumptionCapture:
   def inspect(
       id: SubagentTaskId,
       invocation: ToolInvocation
   )(read: => IO[AgentError, SubagentToolResult]): IO[AgentError, SubagentToolResult]
+
+  def waitFor(invocation: ToolInvocation)(
+      read: => IO[AgentError, SubagentTaskBarrierResult]
+  ): IO[AgentError, SubagentTaskBarrierResult]
 
 /** Bounded text projection; the registry retains the original result. */
 final case class SubagentToolText(text: String, omittedCharacters: Int) derives JsonCodec
@@ -49,6 +53,12 @@ enum SubagentToolResult derives JsonCodec:
   case Task(taskId: String, state: SubagentToolState)
   case Rejected(reason: SubagentToolRejection)
   case TimedOut(message: SubagentToolText)
+
+/** Typed local-barrier observations; incomplete admission does not imply an empty wait set. */
+enum SubagentWaitToolResult derives JsonCodec:
+  case Completed(tasks: Chunk[SubagentToolResult])
+  case TimedOut(initialIds: Chunk[String], remainingIds: Chunk[String])
+  case Empty, AdmissionTimedOut
 
 /** Routed observations retain the selected membership without exposing a session capability. */
 enum SubagentSessionToolResult derives JsonCodec:
@@ -89,7 +99,7 @@ object SubagentTools:
   private[subagent] def consuming(
       registry: SubagentTaskRegistry,
       policy: SubagentExecutionPolicy,
-      capture: SubagentInspectionCapture
+      capture: SubagentTaskConsumptionCapture
   ): Toolkit = controls(registry, Invocation.Spawn, policy, Some(capture))
 
   /** Reuse one host-selected session; task inspection and cancellation share its execution registry. */
@@ -215,7 +225,7 @@ object SubagentTools:
       registry: SubagentTaskRegistry,
       invocation: Invocation,
       policy: SubagentExecutionPolicy,
-      capture: Option[SubagentInspectionCapture] = None
+      capture: Option[SubagentTaskConsumptionCapture] = None
   ): Toolkit =
     val invoke = tool[String, SubagentToolResult](
       definition(
@@ -251,7 +261,7 @@ object SubagentTools:
       ),
       taskIdInput
     )((id, _) => cancelTask(registry, id).flatMap(respond("agent_cancel", _)))
-    Toolkit.single(invoke).updated(inspect).updated(cancel)
+    Toolkit.single(invoke).updated(inspect).updated(cancel).updated(waitTool(registry, capture))
 
   private def submit(
       registry: SubagentTaskRegistry,
@@ -484,6 +494,92 @@ object SubagentTools:
               )
             )
     )
+
+  final private case class WaitInput(
+      selection: SubagentTaskSelection,
+      timeout: SubagentTaskWaitTimeout
+  )
+
+  private def waitTool(
+      registry: SubagentTaskRegistry,
+      capture: Option[SubagentTaskConsumptionCapture]
+  ): Tool[Any, WaitInput, SubagentWaitToolResult] =
+    invocationTool[WaitInput, SubagentWaitToolResult](
+      ToolDef(
+        "wait_async_results",
+        "Wait for selected task_ids or the wait_all snapshot, then return bounded terminal previews. " +
+          "Default timeout 60 seconds; maximum 120. Legacy inbox-any mode is not implemented.",
+        Json.Obj(
+          "type" -> Json.Str("object"),
+          "properties" -> Json.Obj(
+            "task_ids"        -> Json.Obj("type" -> Json.Str("string")),
+            "wait_all"        -> Json.Obj("type" -> Json.Str("boolean")),
+            "timeout_seconds" -> Json.Obj("type" -> Json.Str("integer"))
+          ),
+          "additionalProperties" -> Json.Bool(false)
+        ),
+        isConcurrencySafe = true,
+        isReadOnly = true
+      ),
+      waitInput
+    )((input, invocation) =>
+      val waiting = SubagentTaskBarrier.await(registry, input.selection, input.timeout)
+      (capture match
+        case Some(sink) => sink.waitFor(invocation)(waiting)
+        case None       => waiting
+      ).map(projectBarrier)
+    )
+
+  private def waitInput(raw: Json): Either[String, WaitInput] = raw match
+    case Json.Obj(fields)
+        if fields.map(_._1).distinct.size == fields.size &&
+          fields
+            .forall((name, _) => Set("task_ids", "wait_all", "timeout_seconds").contains(name)) =>
+      for
+        selected <- fields.find(_._1 == "task_ids") match
+          case None => Right(None)
+          case Some((_, Json.Str(value))) =>
+            val values = Chunk.fromIterable(value.split(",").toList.map(_.trim).filter(_.nonEmpty))
+            if values.isEmpty then Right(None)
+            else
+              values
+                .foldLeft[Either[String, Chunk[SubagentTaskId]]](Right(Chunk.empty))((acc, value) =>
+                  for
+                    ids    <- acc
+                    parsed <- uuid("task_ids", value)
+                  yield ids :+ SubagentTaskId(parsed)
+                )
+                .flatMap(ids => SubagentTaskSelection.selected(ids).left.map(_.message))
+                .map(Some(_))
+          case _ => Left("task_ids must be a comma-separated string")
+        all <- fields.find(_._1 == "wait_all") match
+          case None                        => Right(false)
+          case Some((_, Json.Bool(value))) => Right(value)
+          case _                           => Left("wait_all must be a boolean")
+        seconds <- fields.find(_._1 == "timeout_seconds") match
+          case None => Right(None)
+          case Some((_, Json.Num(value))) if BigDecimal(value).isValidInt =>
+            Right(Some(value.intValue))
+          case _ => Left("timeout_seconds must be an integer")
+        selection <- selected match
+          case Some(value) => Right(value)
+          case None if all => Right(SubagentTaskSelection.CurrentRunning)
+          case None =>
+            Left("Legacy inbox-any waiting is not implemented; supply task_ids or wait_all=true")
+      yield WaitInput(selection, SubagentTaskWaitTimeout.fromSeconds(seconds))
+    case _ => Left("Expected distinct task_ids, wait_all and timeout_seconds fields")
+
+  private[subagent] def projectBarrier(result: SubagentTaskBarrierResult): SubagentWaitToolResult =
+    result match
+      case SubagentTaskBarrierResult.Completed(tasks) =>
+        SubagentWaitToolResult.Completed(tasks.map(task => project(task.id, task.outcome)))
+      case SubagentTaskBarrierResult.TimedOut(initial, remaining) =>
+        SubagentWaitToolResult.TimedOut(
+          initial.map(_.value.toString),
+          remaining.map(_.value.toString)
+        )
+      case SubagentTaskBarrierResult.Empty             => SubagentWaitToolResult.Empty
+      case SubagentTaskBarrierResult.AdmissionTimedOut => SubagentWaitToolResult.AdmissionTimedOut
 
   private def definition(
       name: String,

@@ -36,6 +36,9 @@ import zio.test.*
 object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
   import PostgresFixture.*
 
+  private enum ConsumptionTool:
+    case Inspection, Wait
+
   private val firstId: SubagentTaskId  = SubagentTaskId(new UUID(0L, 1L))
   private val secondId: SubagentTaskId = SubagentTaskId(new UUID(0L, 2L))
 
@@ -351,60 +354,140 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             exactAfterReminder   <- terminal.read(reminderId)
             firstMessages  = firstReminder.history.filter(_.reminderKind.contains("task_delivery"))
             secondMessages = secondReminder.history.filter(_.reminderKind.contains("task_delivery"))
-            inspectionId <- Random.nextUUID.map(SubagentTaskId(_))
-            inspectionRecord = SubagentTerminalRecord(
-              inspectionId,
-              SubagentTerminalOutcome.Completed("Fresh inspection result")
-            )
-            inspectionCall = ContentBlock.ToolUse(
-              "consumed-inspection",
-              "agent_task",
-              Json.Obj("task_id" -> Json.Str(inspectionId.value.toString))
-            )
-            inspectionExpected: SubagentToolResult = SubagentToolResult.Task(
-              inspectionId.value.toString,
-              SubagentToolState.Completed(SubagentToolText("Fresh inspection result", 0))
-            )
-            inspectionRequests    <- Ref.make(0)
-            inspectionInputs      <- Ref.make(Chunk.empty[Chunk[Msg]])
-            inspectionSnapshots   <- Ref.make(Chunk.empty[PersistedLocalToolObservation])
-            inspectionBeforeStamp <- Ref.make(Option.empty[SubagentTerminalAcknowledgement])
-            inspectionClient = LlmClient.mockEffectful((history, _, _) =>
-              inspectionInputs.update(_ :+ history) *> inspectionRequests
-                .getAndUpdate(_ + 1)
-                .flatMap:
-                  case 0 =>
-                    terminal
-                      .publish(inspectionRecord)
-                      .as(
-                        TurnOutput.ToolCalls(Msg.assistant(Chunk(inspectionCall)))
-                      )
-                  case _ => ZIO.succeed(TurnOutput.FinalText(Msg.assistant("Inspection accepted")))
-            )
-            inspectionMiddleware <- SubagentDeliveryMiddleware.make(fresh)
-            inspectionAgent <- inspectionMiddleware
-              .configure(
-                ReActAgent.builder().client(inspectionClient).toolkit(inspectionMiddleware.tools()),
-                priorLocalToolResultObserver = LocalToolResultObserver(observation =>
-                  reopened
-                    .acknowledgement(inspectionId)
-                    .flatMap(stamp =>
-                      inspectionBeforeStamp.set(stamp) *> inspectionSnapshots
-                        .update(_ :+ observation)
-                    )
-                    .mapError(error => AgentError.CompletionObservationError(error.message))
+            consumptionChecks <- ZIO.foreach(
+              Chunk(ConsumptionTool.Inspection, ConsumptionTool.Wait)
+            ): mode =>
+              for
+                consumptionId <- Random.nextUUID.map(SubagentTaskId(_))
+                failureId     <- Random.nextUUID.map(SubagentTaskId(_))
+                consumptionRecord = SubagentTerminalRecord(
+                  consumptionId,
+                  SubagentTerminalOutcome.Completed("Fresh consumption result")
                 )
+                failedConsumption = SubagentTerminalRecord(
+                  failureId,
+                  SubagentTerminalOutcome.Failed(
+                    Chunk("Selected failed output"),
+                    SubagentTaskDefects.Absent
+                  )
+                )
+                selectedRecords = mode match
+                  case ConsumptionTool.Inspection => Chunk(consumptionRecord)
+                  case ConsumptionTool.Wait       => Chunk(failedConsumption, consumptionRecord)
+                consumptionCall = ContentBlock.ToolUse(
+                  "consumed-consumption",
+                  mode match
+                    case ConsumptionTool.Inspection => "agent_task"
+                    case ConsumptionTool.Wait       => "wait_async_results",
+                  mode match
+                    case ConsumptionTool.Inspection =>
+                      Json.Obj("task_id" -> Json.Str(consumptionId.value.toString))
+                    case ConsumptionTool.Wait =>
+                      Json.Obj(
+                        "task_ids" -> Json.Str(
+                          selectedRecords.map(_.id.value.toString).mkString(",")
+                        )
+                      )
+                )
+                consumptionExpected: SubagentToolResult = SubagentToolResult.Task(
+                  consumptionId.value.toString,
+                  SubagentToolState.Completed(SubagentToolText("Fresh consumption result", 0))
+                )
+                expectedJson = mode match
+                  case ConsumptionTool.Inspection => consumptionExpected.toJson
+                  case ConsumptionTool.Wait =>
+                    val result: SubagentWaitToolResult = SubagentWaitToolResult.Completed(
+                      Chunk(
+                        SubagentToolResult.Task(
+                          failureId.value.toString,
+                          SubagentToolState.Failed(SubagentToolText("Selected failed output", 0))
+                        ),
+                        consumptionExpected
+                      )
+                    )
+                    result.toJson
+                consumptionRequests  <- Ref.make(0)
+                consumptionInputs    <- Ref.make(Chunk.empty[Chunk[Msg]])
+                consumptionSnapshots <- Ref.make(Chunk.empty[PersistedLocalToolObservation])
+                consumptionBeforeStamp <- Ref.make(
+                  Chunk.empty[Option[SubagentTerminalAcknowledgement]]
+                )
+                consumptionClient = LlmClient.mockEffectful((history, _, _) =>
+                  consumptionInputs.update(_ :+ history) *> consumptionRequests
+                    .getAndUpdate(_ + 1)
+                    .flatMap:
+                      case 0 =>
+                        ZIO
+                          .foreachDiscard(selectedRecords)(terminal.publish(_))
+                          .as(
+                            TurnOutput.ToolCalls(Msg.assistant(Chunk(consumptionCall)))
+                          )
+                      case _ =>
+                        ZIO.succeed(TurnOutput.FinalText(Msg.assistant("Task output accepted")))
+                )
+                consumptionMiddleware <- SubagentDeliveryMiddleware.make(fresh)
+                consumptionAgent <- consumptionMiddleware
+                  .configure(
+                    ReActAgent
+                      .builder()
+                      .client(consumptionClient)
+                      .toolkit(consumptionMiddleware.tools()),
+                    priorLocalToolResultObserver = LocalToolResultObserver(observation =>
+                      ZIO
+                        .foreach(selectedRecords)(record => reopened.acknowledgement(record.id))
+                        .flatMap(stamp =>
+                          consumptionBeforeStamp.set(stamp) *> consumptionSnapshots
+                            .update(_ :+ observation)
+                        )
+                        .mapError(error => AgentError.CompletionObservationError(error.message))
+                    )
+                  )
+                  .build
+                inspected <- consumptionAgent.run(Msg.user("Consume the selected task output"))
+                consumptionStamp <- ZIO.foreach(selectedRecords)(record =>
+                  reopened.acknowledgement(record.id)
+                )
+                consumptionContinued <- consumptionAgent.run(Msg.user("Continue after consumption"))
+                consumptionStampAgain <- ZIO.foreach(selectedRecords)(record =>
+                  terminal.acknowledgement(record.id)
+                )
+                consumptionPending <- terminal.pending
+                consumptionExact <- ZIO.foreach(selectedRecords)(record =>
+                  SubagentTerminalStore.make(second, target).read(record.id)
+                )
+                consumptionModels   <- consumptionInputs.get
+                consumptionObserved <- consumptionSnapshots.get
+                beforeInspectionAck <- consumptionBeforeStamp.get
+              yield assertTrue(
+                beforeInspectionAck == selectedRecords.map(_ =>
+                  Some(SubagentTerminalAcknowledgement.Pending)
+                ),
+                consumptionObserved.map(_.call) == Chunk(consumptionCall),
+                consumptionObserved.forall(observation =>
+                  observation.persisted.state == ToolResultState.Success &&
+                    observation.persisted.outputText == expectedJson &&
+                    observation.history.flatMap(_.toolResults).contains(observation.persisted)
+                ),
+                consumptionModels.size == 3,
+                consumptionModels.forall(history =>
+                  !history.exists(_.reminderKind.contains("task_delivery"))
+                ),
+                consumptionModels
+                  .drop(1)
+                  .forall(history =>
+                    history.flatMap(_.toolResults).exists(_.outputText == expectedJson)
+                  ),
+                inspected.history.flatMap(_.toolResults).map(_.outputText) ==
+                  Chunk(expectedJson),
+                consumptionContinued.history.flatMap(_.toolResults) ==
+                  inspected.history.flatMap(_.toolResults),
+                consumptionStamp.forall(_.exists:
+                  case SubagentTerminalAcknowledgement.Acknowledged(_) => true
+                  case _                                               => false),
+                consumptionStamp == consumptionStampAgain,
+                consumptionPending.isEmpty,
+                consumptionExact == selectedRecords.map(Some(_))
               )
-              .build
-            inspected           <- inspectionAgent.run(Msg.user("Inspect the newly completed task"))
-            inspectionStamp     <- reopened.acknowledgement(inspectionId)
-            inspectionContinued <- inspectionAgent.run(Msg.user("Continue after inspection"))
-            inspectionStampAgain <- terminal.acknowledgement(inspectionId)
-            inspectionPending    <- terminal.pending
-            inspectionExact      <- SubagentTerminalStore.make(second, target).read(inspectionId)
-            inspectionModels     <- inspectionInputs.get
-            inspectionObserved   <- inspectionSnapshots.get
-            beforeInspectionAck  <- inspectionBeforeStamp.get
           yield assertTrue(
             receipts.map(_.id).toSet == Set(success, failed),
             exact.contains(
@@ -445,33 +528,6 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             firstStamp == secondStamp,
             pendingAfterReminder.isEmpty,
             exactAfterReminder.contains(reminderRecord),
-            beforeInspectionAck.contains(SubagentTerminalAcknowledgement.Pending),
-            inspectionObserved.map(_.call) == Chunk(inspectionCall),
-            inspectionObserved.forall(observation =>
-              observation.persisted.state == ToolResultState.Success &&
-                observation.persisted.outputText == inspectionExpected.toJson &&
-                observation.history.flatMap(_.toolResults).contains(observation.persisted)
-            ),
-            inspectionModels.size == 3,
-            inspectionModels.forall(history =>
-              !history.exists(_.reminderKind.contains("task_delivery"))
-            ),
-            inspectionModels
-              .drop(1)
-              .forall(history =>
-                history.flatMap(_.toolResults).exists(_.outputText == inspectionExpected.toJson)
-              ),
-            inspected.history.flatMap(_.toolResults).map(_.outputText) ==
-              Chunk(inspectionExpected.toJson),
-            inspectionContinued.history.flatMap(_.toolResults) ==
-              inspected.history.flatMap(_.toolResults),
-            inspectionStamp.exists:
-              case SubagentTerminalAcknowledgement.Acknowledged(_) => true
-              case _                                               => false
-            ,
-            inspectionStamp == inspectionStampAgain,
-            inspectionPending.isEmpty,
-            inspectionExact.contains(inspectionRecord),
             observations.size == 4,
             observations.forall(_.state == ToolResultState.Success),
             taskResults.toMap
@@ -514,6 +570,6 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               result.id == "foreign" && result.state == ToolResultState.Error &&
                 result.outputText == s"Execution failed for 'agent_task': ${missing.toJson}"
             )
-          )
+          ) && consumptionChecks.foldLeft(assertTrue(true))(_ && _)
   ) @@ TestAspect.withLiveRandom @@ TestAspect.withLiveSystem @@ TestAspect.withLiveClock @@ TestAspect
     .timeout(30.seconds) @@ TestAspect.ifEnvSet("WEISGNOSIS_POSTGRES_URL")

@@ -77,7 +77,7 @@ final class SubagentDeliveryMiddleware private (
         LocalToolResultObserver(observation =>
           operations.withPermit:
             ensureOpen.mapError(error => AgentError.CompletionObservationError(error.message)) *>
-              ZIO.scoped(priorLocalToolResultObserver.observe(observation)) *> consumeInspection(
+              ZIO.scoped(priorLocalToolResultObserver.observe(observation)) *> consumeTaskResult(
                 observation
               )
         )
@@ -95,8 +95,8 @@ final class SubagentDeliveryMiddleware private (
       )
 
   /**
-   * Bound task inspection participates in this adapter's lifecycle and consumes unchanged persisted
-   * observations. Spawn/cancel retain registry ownership and are not serialized by this adapter.
+   * Bound task inspection and waits participate in this adapter's lifecycle and consume unchanged
+   * persisted terminal observations. Spawn/cancel retain registry ownership and are not serialized by this adapter.
    * Ordinary, routed and session tool factories do not acquire this consumption capability.
    */
   def tools(
@@ -105,7 +105,7 @@ final class SubagentDeliveryMiddleware private (
     SubagentTools.consuming(
       registry,
       policy,
-      new SubagentInspectionCapture:
+      new SubagentTaskConsumptionCapture:
         def inspect(id: SubagentTaskId, invocation: ToolInvocation)(
             read: => IO[AgentError, SubagentToolResult]
         ): IO[AgentError, SubagentToolResult] =
@@ -113,32 +113,62 @@ final class SubagentDeliveryMiddleware private (
             ensureOpen *> (invocation match
               case ToolInvocation.Detached => ZIO.suspendSucceed(read)
               case ToolInvocation.Active(context, approved, ordinal, _) =>
-                val key = InspectionKey(context, approved, ordinal)
+                val key = ConsumptionKey(context, approved, ordinal)
                 for
-                  identityBytes <- prepareInspection(key, id)
+                  identityBytes <- prepareConsumption(key, Chunk(id))
                   result        <- ZIO.suspendSucceed(read)
                   _ <-
-                    if isTerminal(result) then captureInspection(key, id, result, identityBytes)
+                    if isTerminal(result) then
+                      captureConsumption(key, Chunk(id), result.toJson, identityBytes)
                     else ZIO.unit
+                yield result)
+
+        def waitFor(invocation: ToolInvocation)(
+            read: => IO[AgentError, SubagentTaskBarrierResult]
+        ): IO[AgentError, SubagentTaskBarrierResult] =
+          operations.withPermit:
+            ensureOpen *> (invocation match
+              case ToolInvocation.Detached => ZIO.suspendSucceed(read)
+              case ToolInvocation.Active(context, approved, ordinal, _) =>
+                val key = ConsumptionKey(context, approved, ordinal)
+                for
+                  identityBytes <- prepareConsumption(key, Chunk.empty)
+                  result        <- ZIO.suspendSucceed(read)
+                  _ <- result match
+                    case SubagentTaskBarrierResult.Completed(tasks) =>
+                      val ids = tasks.map(_.id)
+                      captureConsumption(
+                        key,
+                        ids,
+                        SubagentTools.projectBarrier(result).toJson,
+                        identityBytes
+                      )
+                    case _ => ZIO.unit
                 yield result)
     )
 
-  private def prepareInspection(key: InspectionKey, id: SubagentTaskId): IO[AgentError, Long] =
-    val bytes = key.toJson.getBytes(StandardCharsets.UTF_8).length.toLong +
-      id.value.toString.toJson.getBytes(StandardCharsets.UTF_8).length.toLong
+  private def prepareConsumption(
+      key: ConsumptionKey,
+      ids: Chunk[SubagentTaskId]
+  ): IO[AgentError, Long] =
+    val bytes = key.toJson.getBytes(StandardCharsets.UTF_8).length.toLong
+    val minimumBytes =
+      bytes + ids.map(_.value.toString).toJson.getBytes(StandardCharsets.UTF_8).length.toLong
     key.context.invocation match
       case None =>
-        ZIO.fail(AgentError.InvalidConfiguration("Task inspection requires invocation context"))
+        ZIO.fail(AgentError.InvalidConfiguration("Task consumption requires invocation context"))
       case Some(invocation) =>
         state
           .modify:
             case current @ State.Available(capture, owner, receipts, used) =>
-              if owner.exists(_ != invocation) || key.call.name != "agent_task" || key.ordinal < 0
+              if owner.exists(_ != invocation) || !Set("agent_task", "wait_async_results").contains(
+                  key.call.name
+                ) || key.ordinal < 0
               then
                 (
                   Left(
                     AgentError.InvalidConfiguration(
-                      "Task inspection requires this adapter's active invocation"
+                      "Task consumption requires this adapter's active invocation"
                     )
                   ),
                   current
@@ -147,16 +177,16 @@ final class SubagentDeliveryMiddleware private (
                 (
                   Left(
                     AgentError.InvalidConfiguration(
-                      "Task inspection occurrence was already captured"
+                      "Task consumption occurrence was already captured"
                     )
                   ),
                   current
                 )
-              else if receipts.size >= maximumInspections || bytes > maximumInspectionBytes - used
+              else if receipts.size >= maximumConsumptions || minimumBytes > maximumConsumptionBytes - used
               then
                 (
                   Left(
-                    AgentError.StorageError("Task inspection capture exceeds its bounded capacity")
+                    AgentError.StorageError("Task consumption capture exceeds its bounded capacity")
                   ),
                   current
                 )
@@ -164,28 +194,37 @@ final class SubagentDeliveryMiddleware private (
             case State.Closed => (Left(closed), State.Closed)
           .flatMap(ZIO.fromEither(_))
 
-  private def captureInspection(
-      key: InspectionKey,
-      id: SubagentTaskId,
-      result: SubagentToolResult,
+  private def captureConsumption(
+      key: ConsumptionKey,
+      ids: Chunk[SubagentTaskId],
+      encodedResult: String,
       identityBytes: Long
   ): IO[AgentError, Unit] =
-    val expected = ToolExecutionResult(result.toJson).payload
+    val expected = ToolExecutionResult(encodedResult).payload
       .applyTo(ContentBlock.ToolResult(key.call.id, Some(key.call.name)))
-    val bytes = identityBytes + expected.toJson.getBytes(StandardCharsets.UTF_8).length.toLong
+    val bytes = identityBytes + ids
+      .map(_.value.toString)
+      .toJson
+      .getBytes(StandardCharsets.UTF_8)
+      .length
+      .toLong +
+      expected.toJson.getBytes(StandardCharsets.UTF_8).length.toLong
     state
       .modify:
         case current @ State.Available(capture, owner, receipts, used) =>
           if receipts.contains(key) then
             (
               Left(
-                AgentError.InvalidConfiguration("Task inspection occurrence was already captured")
+                AgentError.InvalidConfiguration("Task consumption occurrence was already captured")
               ),
               current
             )
-          else if receipts.size >= maximumInspections || bytes > maximumInspectionBytes - used then
+          else if receipts.size >= maximumConsumptions || bytes > maximumConsumptionBytes - used
+          then
             (
-              Left(AgentError.StorageError("Task inspection capture exceeds its bounded capacity")),
+              Left(
+                AgentError.StorageError("Task consumption capture exceeds its bounded capacity")
+              ),
               current
             )
           else
@@ -194,17 +233,17 @@ final class SubagentDeliveryMiddleware private (
               State.Available(
                 capture,
                 owner,
-                receipts.updated(key, InspectionReceipt(id, expected, bytes)),
+                receipts.updated(key, ConsumptionReceipt(ids, expected, bytes)),
                 used + bytes
               )
             )
         case State.Closed => (Left(closed), State.Closed)
       .flatMap(ZIO.fromEither(_))
 
-  private def consumeInspection(
+  private def consumeTaskResult(
       observation: PersistedLocalToolObservation
   ): IO[AgentError.CompletionObservationError, Unit] =
-    val key = InspectionKey(observation.context, observation.call, observation.callOrdinal)
+    val key = ConsumptionKey(observation.context, observation.call, observation.callOrdinal)
     state
       .modify:
         case State.Available(capture, owner, receipts, used) =>
@@ -222,16 +261,19 @@ final class SubagentDeliveryMiddleware private (
               observation.persisted.name == observation.original.name &&
               observation.persisted.state == observation.original.state &&
               observation.persisted.output == observation.original.output =>
-          registry
-            .acknowledgeTerminal(receipt.id)
-            .flatMap:
-              case SubagentTerminalAcknowledgeResult.Missing =>
-                ZIO.fail(
-                  AgentError.StorageError(
-                    "Consumed terminal observation disappeared before acknowledgement"
-                  )
-                )
-              case _ => ZIO.unit
+          ZIO
+            .foreachDiscard(receipt.ids)(id =>
+              registry
+                .acknowledgeTerminal(id)
+                .flatMap:
+                  case SubagentTerminalAcknowledgeResult.Missing =>
+                    ZIO.fail(
+                      AgentError.StorageError(
+                        "Consumed terminal observation disappeared before acknowledgement"
+                      )
+                    )
+                  case _ => ZIO.unit
+            )
             .mapError(error => AgentError.CompletionObservationError(error.message))
         case _ => ZIO.unit
 
@@ -330,15 +372,15 @@ object SubagentDeliveryMiddleware:
     AgentError.InvalidConfiguration("Task delivery adapter is closed")
 
   // Encoded retained key/task/result data is bounded independently of JVM object overhead.
-  private val maximumInspections: Int      = 128
-  private val maximumInspectionBytes: Long = 1024L * 1024L
-  final private case class InspectionKey(
+  private val maximumConsumptions: Int      = 128
+  private val maximumConsumptionBytes: Long = 1024L * 1024L
+  final private case class ConsumptionKey(
       context: ModelStreamContext,
       call: ContentBlock.ToolUse,
       ordinal: Int
   ) derives JsonCodec
-  final private case class InspectionReceipt(
-      id: SubagentTaskId,
+  final private case class ConsumptionReceipt(
+      ids: Chunk[SubagentTaskId],
       expected: ContentBlock.ToolResult,
       bytes: Long
   )
@@ -356,8 +398,8 @@ object SubagentDeliveryMiddleware:
     case Available(
         capture: Option[Capture],
         owner: Option[InvocationContext],
-        receipts: Map[InspectionKey, InspectionReceipt],
-        inspectionBytes: Long
+        receipts: Map[ConsumptionKey, ConsumptionReceipt],
+        consumptionBytes: Long
     )
     case Closed
 

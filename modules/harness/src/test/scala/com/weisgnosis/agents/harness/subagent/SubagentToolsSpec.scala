@@ -306,7 +306,7 @@ object SubagentToolsSpec extends ZIOSpecDefault:
         count    <- calls.get
         built    <- builds.get
       yield assertTrue(
-        tools.tools.keySet == Set("agent_send", "agent_task", "agent_cancel"),
+        tools.tools.keySet == Set("agent_send", "agent_task", "agent_cancel", "wait_async_results"),
         tools.resolve("agent_send").exists(tool => !tool.isReadOnly && tool.isConcurrencySafe),
         rejected.state == ToolResultState.Error,
         before == 0,
@@ -543,9 +543,14 @@ object SubagentToolsSpec extends ZIOSpecDefault:
         unknown.forall(_.state == ToolResultState.Error),
         missing.forall(_ == (id, SubagentToolState.Missing)),
         count == 0 && tracked.isEmpty,
-        tools.tools.keySet == Set("agent_spawn", "agent_task", "agent_cancel"),
+        tools.tools.keySet == Set(
+          "agent_spawn",
+          "agent_task",
+          "agent_cancel",
+          "wait_async_results"
+        ),
         tools.definitions.forall(definition =>
-          definition.isReadOnly == (definition.name == "agent_task")
+          definition.isReadOnly == Set("agent_task", "wait_async_results").contains(definition.name)
         ),
         tools.definitions.forall(_.isConcurrencySafe),
         tools.definitions.forall(

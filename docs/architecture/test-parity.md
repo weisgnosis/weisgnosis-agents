@@ -1764,7 +1764,7 @@ The [accepted-response observer](../../modules/core/src/main/scala/com/weisgnosi
 
 ## Async result wait method inventory
 
-review_fp independently classified all 18 executable methods in pinned WaitAsyncResultsToolTest against current Scala sources. None is implemented by a model-facing wait tool. Synchronous spawn waits cancel/join children on timeout; the original wait tool times out without cancelling background work. Single-task inspection, durable terminal storage and explicit host delivery are prerequisites, not executed wait-barrier evidence.
+All 18 executable methods in pinned WaitAsyncResultsToolTest are classified below. The [local barrier contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-task-wait-barriers), SubagentTaskBarrierSpec and actual PostgreSQL consumption supply six bounded adaptations; twelve methods remain open. Unlike synchronous spawn waiting, barrier timeout leaves workers/publication owners alive. Checked UUID selections, a 128-member cap, fixed local membership, joined publication and typed post-persistence acknowledgement are explicit adaptations, not identical Java APIs or whole-class parity. Source review and full/artifact checks pass; review_fp and review_invariants approve the final combined seven-Scala/sixteen-Markdown scope against 4cf5069, with no unresolved findings.
 
 - [ ] timeoutClampedToMax (58): cap a requested 600-second wait at the declared 120-second maximum.
 - [ ] nullTimeoutUsesDefault (74): this method actually supplies 1, not null, and asserts a bounded timeout within five seconds; it does not test null/default behavior. The source-declared 60-second default is a separate contract.
@@ -1775,17 +1775,17 @@ review_fp independently classified all 18 executable methods in pinned WaitAsync
 - [ ] timeoutMessageDoesNotEncourageRetry (174): suggest listing/output rather than repeated blocking waits.
 - [ ] allTasksTerminalReturnsImmediately (185): completed and failed tasks with an empty inbox return immediately.
 - [ ] nonTerminalTasksProcedsToWait (208): running work enters bounded waiting.
-- [ ] taskIdsWaitUntilAllListedTasksTerminal (221): wait for every selected ID and embed their terminal results.
-- [ ] taskIdsTimeoutWhenAnyListedTaskStillRunning (255): report an incomplete selected barrier without cancelling its tasks.
-- [ ] taskIdsRejectsUnknownTaskIds (275): reject unknown selected IDs promptly through typed tool observations.
-- [ ] waitAllWaitsForCurrentNonTerminalSnapshot (300): capture the initial running set and exclude later admissions from both waiting and output.
-- [ ] waitAllEmptySnapshotReturnsImmediately (331): an empty initial running set returns immediately.
-- [ ] barrierEmbedsResultsAndMarksDelivered (345): embed terminal payloads and acknowledge exactly the consumed results at the defined consumption boundary.
+- [x] taskIdsWaitUntilAllListedTasksTerminal (221): the paired suite waits for every selected member and preserves explicit order; actual bound-tool and PostgreSQL rows embed ordered terminal previews.
+- [x] taskIdsTimeoutWhenAnyListedTaskStillRunning (255): actual wait_async_results reports initial/remaining IDs while the unfinished task remains Running; component caller cancellation also preserves its worker.
+- [x] taskIdsRejectsUnknownTaskIds (275): a selected running-plus-unknown set fails admission before waiting, and the actual tool returns Error naming the missing UUID.
+- [x] waitAllWaitsForCurrentNonTerminalSnapshot (300): actual wait_all captures the initially locally running handle before a held read; later submission is excluded from waiting and the exact returned JSON.
+- [x] waitAllEmptySnapshotReturnsImmediately (331): empty local capture and actual wait_all return Empty without touching an unrelated blocked backend list. The unchanged defective draft failed this oracle before correction.
+- [x] barrierEmbedsResultsAndMarksDelivered (345): actual bound ReAct wait and real PostgreSQL consume exactly their ordered Failed/Completed projections after final persistence. Redaction/prior failure leave records pending; a later uncertain acknowledgement preserves committed stamps without retry. This strengthens upstream pre-return best-effort acknowledgement.
 - [ ] barrierModeRequiresTaskRepository (360): require an explicit repository dependency for barrier mode rather than nullable construction.
 - [ ] nullTaskRepositoryFallsThrough (370): explicit legacy inbox-only mode works without task-repository authority.
 - [ ] emptyRepositoryDoesNotClaimWorkIsRunningOrCompleted (510): report no_tasks without inventing running or completed work.
 
-TaskTool.taskOutput (129-139) acknowledges before formatting/return and suppresses acknowledgement exceptions. Ordinary agent_task factories still only observe/project terminal results; the explicitly bound [inspection integration](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-task-inspection-consumption) now has source approval and focused/full verification, with final acceptance gates open. The Scala adaptation must define consumption against runtime-persisted observations, retain typed uncertain failures and preserve cancellation. Local selected/all barriers can use real owned registry handles; reopened running barriers require durable admitted/running identity first. Legacy inbox-any requires an explicit arrival/inbox dependency and cannot silently substitute terminal pending records for arbitrary messages.
+TaskTool.taskOutput (129-139) acknowledges before formatting/return and suppresses acknowledgement exceptions. Ordinary task/wait factories observe without acknowledgement; the explicitly bound [result integration](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-task-inspection-consumption) consumes only unchanged final persisted projections. Local wait handles survive registry forgetting, and selected terminal-only records can reopen without live capabilities. Reopened running barriers still require durable admitted/running identity. Legacy inbox-any requires an explicit arrival/inbox dependency and cannot silently substitute terminal pending records for arbitrary messages.
 
 ## Reasoning reminder method inventory
 
@@ -1805,21 +1805,23 @@ The middleware additionally verifies exact-content tampering with retained metad
 
 ## Persisted local observation prerequisite
 
-The [local result observer contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#persisted-local-tool-observation) adds the required post-persistence seam for future task-tool consumption. Its three grouped integration contracts cover approved occurrence identity, original/final snapshots, composed cleanup, return-direct, typed/defect failure, joined sibling cleanup, cancellation and excluded observation origins. They add no claimed whole Java method mapping. The separately bound inspection integration below uses this seam. Whole TaskTool/routing coverage and all eighteen wait methods remain open; the core port alone does not close them.
+The [local result observer contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#persisted-local-tool-observation) adds the required post-persistence seam for future task-tool consumption. Its three grouped integration contracts cover approved occurrence identity, original/final snapshots, composed cleanup, return-direct, typed/defect failure, joined sibling cleanup, cancellation and excluded observation origins. They add no claimed whole Java method mapping. The separately bound inspection integration below uses this seam. Whole TaskTool/routing coverage and twelve wait methods remain open; the core port alone closes none. The separate local barrier implementation above supplies six bounded adaptations.
 
 - [x] review_fp and review_invariants approve the three formatted Scala identities against cb320c9; corrected focused verification passes 23/0/0. Exact identities and evidence limits belong to the linked contract.
 - [x] Pass full verification, four packages, archive preparation and fresh external consumption for these exact source identities.
 - [x] review_fp and review_invariants approve the final combined scope against cb320c9: three unchanged Scala identities and ten Markdown files, no unresolved findings.
 - [x] Implement and source-review explicitly bound inspection through the [current harness contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-task-inspection-consumption); focused/full/artifact checks pass.
-- [ ] Integrate wait-result and other required routing acknowledgement separately; unchanged final projection and genuine runtime execution provenance are required.
+- [x] Integrate complete local wait-result acknowledgement with unchanged final projection and genuine runtime execution provenance.
+- [ ] Integrate other required routed acknowledgement contexts separately.
 
 ## Bound inspection consumption integration
 
-The source-reviewed [bound inspection adapter](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-task-inspection-consumption) connects trusted agent_task execution to required post-persistence observation. This adapts the consumption intent of pinned TaskTool.taskOutput while strengthening its pre-return acknowledgement/exception suppression: final runtime persistence precedes a typed acknowledgement attempt. Ordinary/routed/catalog/session tools and all eighteen wait methods are outside this bounded integration. No whole TaskTool class or exactly-once claim follows from it.
+The source-reviewed [bound inspection adapter](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-task-inspection-consumption) connects trusted agent_task execution to required post-persistence observation. This adapts the consumption intent of pinned TaskTool.taskOutput while strengthening its pre-return acknowledgement/exception suppression: final runtime persistence precedes a typed acknowledgement attempt. Ordinary/routed/catalog/session tools remain observational. Inspection alone supplies no wait-method evidence; the separately implemented local barriers above provide the six named adaptations. No whole TaskTool class or exactly-once claim follows from it.
 
 - [x] Implement exact trusted occurrence capture and unchanged final projection checks.
 - [x] Verify actual runtime/real PostgreSQL consumption and failure/cancellation/closure behavior; exact evidence and inspection limits are in the linked contract.
 - [x] review_fp and review_invariants approve the exact four Scala identities against ee87c13, manifest bd40999ade08311fae1567535f7baeb23a742792cdb273fb02f3a40ba25f8925; focused/full verification passes.
 - [x] Pass four RC1 packages, archive preparation and fresh external consumption for these exact sources.
 - [x] review_fp and review_invariants approve the final combined scope against ee87c13: four unchanged Scala identities and sixteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,406-local-reference validation pass.
-- [ ] Integrate wait-result consumption and other required tool-routing contexts separately.
+- [x] Integrate complete local wait-result consumption within the explicitly bound middleware toolkit.
+- [ ] Integrate other required tool-routing contexts separately.

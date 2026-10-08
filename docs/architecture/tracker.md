@@ -17,27 +17,20 @@ The repository does not currently support a defensible whole-plan completion per
 
 ## Immediate next work
 
-Execute the original scope without replacing it with a narrower release checklist. The linked component contracts own exact source identities and scoped reviewer evidence; this list describes current work.
+Execute the original scope without substituting a narrower release checklist. Linked component contracts own exact source identities and independent acceptance evidence.
 
 - [x] Invocation/prepared execution, durable terminal publication/acknowledgement and accepted-model-response observation have independently accepted prerequisite contracts.
-- [x] Implement automatic per-reasoning reminder capture and exact winning-input consumption; both source reviews and focused/full verification pass.
-- [x] Pass four RC1 packages, archive preparation and fresh external consumption for the reminder adapter.
-- [x] Obtain both final combined documentation approvals for the exact four-Scala/fourteen-Markdown reminder scope against a33488e.
+- [x] Automatic reasoning reminders and bound inspection consume exact trusted persisted observations within their linked accepted scopes.
+- [x] Implement local selected/current-running wait barriers, model-facing tools and complete-result persistence acknowledgement; both independent source reviews and focused checks pass.
+- [x] Pass full verification, four packages, archive preparation and fresh external consumption for the local wait increment.
+- [x] review_fp and review_invariants approve the final combined seven-Scala/sixteen-Markdown scope against 4cf5069 with no unresolved findings.
+- [ ] Next task: implement legacy inbox-any, shared bounded empty-wait policy and arrival recovery. Twelve of the eighteen classified wait methods remain open; local barrier support does not complete the entire wait tool.
 - [ ] Persist truthful worker identity metadata and close the remaining reminder attribute assertion.
-- [x] Implement required local-tool observation after final processed persistence with actual authorized dispatch identity; independent source reviews and full/artifact checks pass.
-- [x] review_fp and review_invariants approve the final combined local-tool observation scope against cb320c9: three unchanged Scala identities and ten Markdown files.
-- [x] Implement and source-review explicitly bound task inspection acknowledgement after unchanged final observation persistence; focused/full checks pass.
-- [x] Pass final four-artifact packaging, archive preparation and fresh external consumption for the bound inspection increment.
-- [x] Obtain both final combined approvals for bound inspection consumption against ee87c13: four unchanged Scala identities and sixteen Markdown files.
-- [ ] Integrate wait-result and other required routing consumption; erased or replaced final output must remain pending.
-- [ ] Current task: implement local selected-task/current-set barriers with model-facing tools and persisted-result consumption.
-- [ ] Implement legacy inbox-any and bounded empty-wait policy. Synchronous spawn waiting is a different contract; all [18 classified methods](test-parity.md#async-result-wait-method-inventory) remain open.
+- [ ] Integrate other required routed result consumption; erased/replaced final output must remain pending.
 - [ ] Implement durable admitted/running identity and current-owner cancellation intent, retaining truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
 - [ ] Execute the original WeisGnosis OS cutover and Temporal Activity end-to-end verification under Phase 6.
-
-The reminder scope has source/full/artifact verification and both final combined approvals against a33488e for four Scala and fourteen Markdown files. No whole-plan completion or publication is claimed.
 
 ## Remaining effort
 
@@ -45,8 +38,7 @@ These are provisional engineering effort ranges, including implementation, propo
 
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
-| Local selected-ID/current-set wait barriers | 8-14 engineering hours | Real local handles suffice; bounded waiting must not cancel background tasks. Reopened running support is separate. |
-| Wait/other routing persisted-result consumption | 4-8 engineering hours | The core boundary and bound inspection are verified; remaining contexts depend on wait APIs and trusted registry routing. |
+| Other required routed persisted-result consumption | 4-8 engineering hours, provisional | Local inspection/wait consumption is source-reviewed; named/directory routing still needs an explicit trusted authority boundary. |
 | Legacy inbox-any and bounded empty-wait policy | 6-10 engineering hours | Requires an explicit inbox/arrival dependency; pending terminal records are not arbitrary messages. |
 | Durable cancellation intent with current-owner handling | 12-24 hours after terminal storage | Persist intent, join owned cancellation and preserve terminal truth before notification. Cross-process takeover/fencing remains separate. |
 | Remaining method applicability and resulting behavior | Not yet estimated | The finite inventories do not classify all 2,473 pinned core declarations. An evaluator dependency or passing suites cannot close unknown obligations. |
@@ -70,18 +62,18 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [bound task inspection contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-task-inspection-consumption) owns the current harness increment against ee87c13. The separately accepted core local-tool observation port retains its source identity; task inspection and wait consumption are not inferred from that prerequisite.
+The [local task wait contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-task-wait-barriers) owns the current seven-Scala increment against 4cf5069, manifest 86871bf20f7ea2d52a9c0311e811c3bf80ecc7d7328f3bc64fe5fda76dd5d911. The unchanged core observer and earlier reminder/inspection contracts remain prerequisites, not whole-plan acceptance.
 
-- [x] Implement bounded trusted inspection captures and a required fourth scoped callback with joined closure.
-- [x] Verify actual persisted result consumption, changed-content exclusions, ordinary/uncertain failures, cancellation and restored invocation ownership; focused checks pass 15 harness and two actual PostgreSQL groups.
-- [x] review_fp and review_invariants approve the four formatted Scala identities against ee87c13, manifest bd40999ade08311fae1567535f7baeb23a742792cdb273fb02f3a40ba25f8925, no unresolved source findings.
-- [x] target/task-inspection-final-verify.log passes all 1,608 tests (695 core / 751 harness / 130 MCP / 24 actual PostgreSQL / eight examples), formatting/fatal-warning compilation and four RC1 packages, zero failed/ignored/compiler warnings.
-- [x] target/task-inspection-final-preparation.log passes archive admission and three restored negative checks.
-- [x] target/task-inspection-final-consumer.log passes fresh standalone formatting, compilation/execution and four artifact hash checks. Its unchanged probe does not independently exercise the bound inspection adapter.
-- [x] Update current identities, migration and parity limits.
-- [x] review_fp and review_invariants approve the final combined scope against ee87c13: four unchanged Scala identities and sixteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,406-local-reference validation pass.
+- [x] Implement fixed local selected/current membership, one deadline, stable captured task/publication handles and actual wait tool projection.
+- [x] Verify post-persistence complete-result consumption, changed-output exclusions, typed/uncertain acknowledgement, caller cancellation and actual PostgreSQL restoration.
+- [x] Reproduce the empty-current-set draft defect before fixing irrelevant backend enumeration; the canonical contract records exact RED identities/assertions.
+- [x] review_fp and review_invariants approve the seven formatted source identities with no unresolved source findings.
+- [x] Focused verification passes 20 harness and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
+- [x] target/task-wait-final-verify.log passes all 1,611 tests (695 core / 754 harness / 130 MCP / 24 actual PostgreSQL / eight examples), formatting/fatal-warning compilation and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] Archive preparation and fresh standalone formatting/compilation/execution with four artifact hash checks pass. The unchanged consumer does not separately exercise new barrier APIs.
+- [x] review_fp and review_invariants approve the final combined scope against 4cf5069: seven unchanged Scala identities and sixteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,416-local-reference validation pass.
 
-Worker metadata, wait barriers, completion ordering, cancellation intent, running metadata and session restoration remain unfinished. No whole-plan completion or publication is claimed.
+Legacy inbox waits, shared empty-wait policy, worker metadata, completion ordering, durable cancellation/running authority and session restoration remain unfinished. No whole-plan completion or publication is claimed.
 
 The immutable process launcher remains in force and its current modified source identities redirect to the negotiation manifest. Its production dependency eviction diagnostics remain visible: no suppression or universal binary compatibility claim. SLF4J/dependency/runtime notices are distinct from compiler warnings.
 
