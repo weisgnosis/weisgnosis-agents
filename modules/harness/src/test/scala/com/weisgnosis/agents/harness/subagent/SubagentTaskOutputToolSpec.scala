@@ -15,13 +15,25 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
-import com.weisgnosis.agents.core.agent.{AgentResult, ReActAgent}
+import com.weisgnosis.agents.core.agent.{
+  AgentResult,
+  LocalToolResultObserver,
+  PersistedLocalToolObservation,
+  ReActAgent
+}
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
-import com.weisgnosis.agents.core.tool.{Toolkit, ToolResultPayload, ToolResultProcessor}
+import com.weisgnosis.agents.core.tool.{
+  Toolkit,
+  ToolExecutionResult,
+  ToolResultPayload,
+  ToolResultProcessor
+}
 import com.weisgnosis.agents.harness.storage.*
+import com.weisgnosis.agents.harness.eviction.{StoredToolResult, ToolResultEvictor, ToolResultStore}
 import java.util.UUID
+import java.nio.charset.StandardCharsets
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -48,6 +60,9 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
     case Default, Clamped, Zero, Negative, Poll
   private enum Receipt:
     case Stored, Failed
+
+  private enum Consumption:
+    case Exact, MetadataOnly, Redacted, Offloaded, PriorFailure, Uncertain, CapacityFits, Capacity
 
   private def accepted(
       effect: ZIO[Scope, AgentError, SubagentTaskSubmission]
@@ -209,6 +224,189 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
             observed.state == ToolResultState.Error && observed.output == "Execution failed for 'task_output': publication unavailable" && stored.isEmpty
       )
 
+  private def consumptionCase(
+      mode: Consumption
+  ): ZIO[TestEnvironment & Scope, AgentError, TestResult] =
+    ZIO.scoped:
+      for
+        backend <- SubagentTerminalStoreSpec.fixture
+        target  <- address("consumption")
+        terminal = SubagentTerminalStore.make(backend.store, target)
+        acknowledgements <- Ref.make(0)
+        tracked = new SubagentTerminalStore:
+          def read(id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalRecord]] =
+            terminal.read(id)
+          def list: IO[AgentError, Chunk[SubagentTerminalRecord]] = terminal.list
+          def publish(record: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication] =
+            terminal.publish(record)
+          override def pending: IO[AgentError, Chunk[SubagentTerminalRecord]] = terminal.pending
+          override def acknowledgement(
+              id: SubagentTaskId
+          ): IO[AgentError, Option[SubagentTerminalAcknowledgement]] = terminal.acknowledgement(id)
+          override def acknowledge(
+              id: SubagentTaskId
+          ): IO[AgentError, SubagentTerminalAcknowledgeResult] =
+            acknowledgements.update(_ + 1) *> terminal
+              .acknowledge(id)
+              .flatMap: receipt =>
+                if mode == Consumption.Uncertain then
+                  ZIO.fail(AgentError.StorageError("Acknowledgement receipt lost"))
+                else ZIO.succeed(receipt)
+        owner   <- registry(tracked)
+        adapter <- SubagentDeliveryMiddleware.make(owner)
+        calls   <- Ref.make(0)
+        text = mode match
+          case Consumption.CapacityFits => "\n" * 300000
+          case Consumption.Capacity     => "\n" * 400000
+          case Consumption.Offloaded    => fullText * 5
+          case _                        => fullText
+        record = SubagentTerminalRecord(id, SubagentTerminalOutcome.Completed(text))
+        expected: SubagentTaskOutputResult = SubagentTaskOutputResult.Terminal(
+          id.value.toString,
+          None,
+          record.outcome
+        )
+        ordinary         <- Ref.make(Option.empty[String])
+        capacityEvidence <- Ref.make(Option.empty[(Int, Int)])
+        client = LlmClient.mockEffectful((_, _, _) =>
+          calls
+            .updateAndGet(_ + 1)
+            .flatMap:
+              case 1 =>
+                for
+                  _ <- terminal.publish(record)
+                  raw <- Toolkit
+                    .single(SubagentTaskOutputTool.make(owner))
+                    .executeSafe("task_output", input(id, "timeout" -> Json.Num(0)))
+                  _      <- ordinary.set(Some(raw.output))
+                  stored <- backend.store.read(target)
+                  receipt = ToolExecutionResult(expected.toJson).payload
+                    .applyTo(ContentBlock.ToolResult("output", Some("task_output")))
+                  _ <- capacityEvidence.set(
+                    stored.map(value =>
+                      (
+                        value.value.toJson.getBytes(StandardCharsets.UTF_8).length,
+                        receipt.toJson.getBytes(StandardCharsets.UTF_8).length
+                      )
+                    )
+                  )
+                yield TurnOutput.ToolCalls(
+                  Msg.assistant(Chunk(ContentBlock.ToolUse("output", "task_output", input(id))))
+                )
+              case _ =>
+                ZIO.fail(AgentError.ModelError(500, "Unexpected additional reasoning request"))
+        )
+        observed  <- Ref.make(Chunk.empty[PersistedLocalToolObservation])
+        beforeAck <- Ref.make(Chunk.empty[Option[SubagentTerminalAcknowledgement]])
+        prior = LocalToolResultObserver(observation =>
+          terminal
+            .acknowledgement(id)
+            .mapError(error => AgentError.CompletionObservationError(error.message))
+            .flatMap(stamp =>
+              observed.update(_ :+ observation) *> beforeAck.update(_ :+ stamp) *>
+                (if mode == Consumption.PriorFailure then
+                   ZIO.fail(AgentError.CompletionObservationError("Prior output observer failed"))
+                 else ZIO.unit)
+            )
+        )
+        cached <- Ref.make(Map.empty[String, String])
+        cache = new ToolResultStore:
+          def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+            cached.get.map(
+              _.get(key).map(text => StoredToolResult(text, s"large_tool_results/$key.txt"))
+            )
+          def persist(key: String, content: String): IO[AgentError, String] =
+            cached.update(_.updated(key, content)).as(s"large_tool_results/$key.txt")
+        processor = mode match
+          case Consumption.Offloaded => new ToolResultEvictor(cache).processor()
+          case _ =>
+            ToolResultProcessor(result =>
+              ZIO.succeed(mode match
+                case Consumption.Redacted => ToolResultPayload(Chunk(ContentBlock.Text("redacted")))
+                case Consumption.MetadataOnly =>
+                  ToolResultPayload(
+                    result.output,
+                    result.metadata.updated("diagnostic", Json.Bool(true))
+                  )
+                case _ => ToolResultPayload.fromResult(result))
+            )
+        agent <- adapter
+          .configure(
+            ReActAgent
+              .builder()
+              .client(client)
+              .toolkit(adapter.tools().updated(adapter.taskOutputTool))
+              .toolResultProcessor(processor)
+              .maxIterations(1),
+            priorLocalToolResultObserver = prior
+          )
+          .build
+        completed   <- agent.run(Msg.user("retrieve and persist output")).exit
+        history     <- agent.history
+        stamp       <- terminal.acknowledgement(id)
+        attempts    <- acknowledgements.get
+        seen        <- observed.get
+        priorStamps <- beforeAck.get
+        raw         <- ordinary.get
+        requests    <- calls.get
+        measured    <- capacityEvidence.get
+        files       <- cached.get
+        persisted = history.flatMap(_.toolResults)
+        succeeded = Set(Consumption.Exact, Consumption.MetadataOnly, Consumption.CapacityFits)
+          .contains(mode)
+        uncertain = mode == Consumption.Uncertain
+        expectedFailure = mode match
+          case Consumption.PriorFailure =>
+            Some(AgentError.CompletionObservationError("Prior output observer failed"))
+          case Consumption.Uncertain =>
+            Some(AgentError.CompletionObservationError("Acknowledgement receipt lost"))
+          case _ => None
+        failureMatches = (expectedFailure, completed) match
+          case (Some(error), Exit.Failure(cause)) =>
+            cause.failures == List(error) && cause.defects.isEmpty && !cause.isInterrupted
+          case (None, Exit.Success(_)) => true
+          case _                       => false
+        receiptMatches =
+          if succeeded || uncertain then
+            stamp.exists:
+              case SubagentTerminalAcknowledgement.Acknowledged(_) => true
+              case _                                               => false
+          else stamp.contains(SubagentTerminalAcknowledgement.Pending)
+        rawMatches = raw.contains(expected.toJson)
+        originalMatches = mode == Consumption.Capacity || seen.map(_.original.outputText) == Chunk(
+          expected.toJson
+        )
+        persistedMatches = mode match
+          case Consumption.Capacity =>
+            persisted.exists(result =>
+              result.state == ToolResultState.Error && result.outputText.contains(
+                "Task consumption capture exceeds its bounded capacity"
+              )
+            )
+          case Consumption.Redacted => persisted.map(_.outputText) == Chunk("redacted")
+          case Consumption.Offloaded =>
+            files.values.toSet == Set(expected.toJson) && persisted.exists(result =>
+              result.outputText != expected.toJson && result.metadata.contains("eviction_cache_key")
+            )
+          case _ => persisted.map(_.outputText) == Chunk(expected.toJson)
+        capacityMatches = measured.exists:
+          case (storedBytes, receiptBytes) =>
+            storedBytes <= 1048576 && (mode match
+              case Consumption.Capacity     => receiptBytes > 1048576
+              case Consumption.CapacityFits => receiptBytes < 1048576
+              case _                        => true)
+      yield assertTrue(
+        requests == 1,
+        capacityMatches,
+        rawMatches,
+        failureMatches,
+        attempts == (if succeeded || uncertain then 1 else 0),
+        receiptMatches,
+        priorStamps == Chunk(Some(SubagentTerminalAcknowledgement.Pending)),
+        persistedMatches,
+        originalMatches
+      )
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentTaskOutputToolSpec")(
     test(
       "full terminal outcomes reach actual ReAct processing with successful retrieval states; retrieval does not acknowledge"
@@ -290,5 +488,23 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
     ):
       ZIO
         .foreach(Chunk(Receipt.Stored, Receipt.Failed))(publicationCase)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test(
+      "explicitly bound full-output consumption acknowledges only unchanged persisted results once within receipt capacity"
+    ):
+      ZIO
+        .foreach(
+          Chunk(
+            Consumption.Exact,
+            Consumption.MetadataOnly,
+            Consumption.Redacted,
+            Consumption.Offloaded,
+            Consumption.PriorFailure,
+            Consumption.Uncertain,
+            Consumption.CapacityFits,
+            Consumption.Capacity
+          )
+        )(consumptionCase)
         .map(_.foldLeft(assertTrue(true))(_ && _))
   )

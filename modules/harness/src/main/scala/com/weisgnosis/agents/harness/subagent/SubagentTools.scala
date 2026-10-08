@@ -36,6 +36,12 @@ private[subagent] trait SubagentTaskConsumptionCapture:
       read: SubagentTaskRegistry => IO[AgentError, (SubagentToolResult, Out)]
   ): IO[AgentError, Out]
 
+  def output(
+      id: SubagentTaskId,
+      registry: SubagentTaskRegistry,
+      invocation: ToolInvocation
+  )(read: => IO[AgentError, SubagentTaskOutputResult]): IO[AgentError, SubagentTaskOutputResult]
+
   def waitFor(registry: SubagentTaskRegistry, invocation: ToolInvocation)(
       read: => IO[AgentError, SubagentWaitOutcome]
   ): IO[AgentError, SubagentWaitOutcome]

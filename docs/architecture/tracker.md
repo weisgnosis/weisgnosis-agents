@@ -46,8 +46,10 @@ Execute the original scope without substituting a narrower release checklist. Li
 - [x] Implement and independently source-review additive observational task_output with default blocking retrieval, a 30-second budget, checked 0-600,000 millisecond timeout, zero-time immediate observation and full terminal output. Existing nonblocking agent_task and multi-task waits retain their distinct contracts.
 - [x] Both independent source reviews and focused checks verify truthful Running/PublicationPending/Terminal readiness and waiter-only cancellation for task_output; preserve stable captured task/publication authority.
 - [x] review_fp and review_invariants approve the final combined observational task_output scope against b70336f: four unchanged Scala identities and twelve Markdown files, no unresolved findings.
-- [ ] Current task: integrate bounded full-output persisted-result acknowledgement with unchanged final content and trusted captured execution authority.
-- [ ] Complete task-output creation/check metadata and explicit full-output persisted-result acknowledgement separately; the observational retrieval increment does not close whole TaskTool parity.
+- [x] Implement and independently source-review bounded full-output persisted-result acknowledgement with unchanged final content and trusted captured execution authority; focused checks pass.
+- [x] review_fp and review_invariants approve the final combined scope against 584ecf1: five unchanged Scala identities and fourteen Markdown files, no unresolved findings.
+- [ ] Current task: implement durable admitted/running identity and creation/check metadata under reviewed lifecycle design.
+- [ ] Complete task-output creation/check metadata; the separately reviewed bounded exact-result consumption does not close whole TaskTool parity or restore durable execution.
 - [ ] Implement durable admitted/running identity and current-owner cancellation intent, retaining truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
@@ -59,8 +61,7 @@ These are provisional engineering effort ranges, including implementation, propo
 
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
-| Routed persisted-result consumption | Implementation, independent source/combined reviews and full/artifact verification complete | The reproduced lookup/closure defect is corrected. No remaining source finding exists in the named scope. |
-| Single-task output retrieval and detail projection | Observational retrieval/source reviews/full verification complete; remaining metadata and persisted-consumption effort not yet estimated | The additive adapter preserves original wait semantics and full data. Durable creation/check metadata and explicit consumption integration remain separate obligations. |
+| Durable task admission and detail metadata | Lifecycle/schema decomposition and independent design review in progress; not yet estimated | The original contract requires admission before work, truthful running state and creation/check metadata. Terminal publication time cannot substitute for admission time. |
 | Durable cancellation intent with current-owner handling | 12-24 hours after terminal storage | Persist intent, join owned cancellation and preserve terminal truth before notification. Cross-process takeover/fencing remains separate. |
 | Remaining method applicability and resulting behavior | Not yet estimated | The finite inventories do not classify all 2,473 pinned core declarations. An evaluator dependency or passing suites cannot close unknown obligations. |
 
@@ -83,16 +84,16 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [full task-output retrieval contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#full-task-output-retrieval) owns the current four-Scala increment against b70336f, manifest def84f78fee21bbc20cae9f48ef82d49ff8ea37ef6e52ce504fdf4e9528e7ec9. Routed consumption, terminal bindings, worker identity and scoped waits retain their prerequisite contracts. Observational retrieval neither acknowledges delivery nor fabricates durable task metadata.
+The [bound full-output consumption contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-full-task-output-consumption) owns the current five-Scala increment against 584ecf1, manifest 3c98da081cc26d03b46c51ebb234f9ac2a7e556d558f631a643fa2603794712c. Observational retrieval, routed consumption, terminal bindings and scoped waits retain their prerequisite contracts. Capacity-denied or changed output grants no tool-result acknowledgement.
 
-- [x] Implement full typed terminal retrieval, original millisecond wait defaults/clamping/zero polling and truthful publication readiness through stable captured references.
-- [x] review_fp and review_invariants explicitly approve all four exact Scala identities, with no unresolved findings.
-- [x] target/task-output-focused.log passes 28 harness groups in 2.271 seconds and two actual PostgreSQL groups in 2.597 seconds, zero failed/ignored/compiler warnings. Three new grouped contracts cover public runtime processing, timeout/cancellation and publication/forget ownership.
-- [x] target/task-output-final-verify.log passes formatting/fatal-warning compilation, 1,623 tests (695 core / 766 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission passes in target/task-output-final-preparation.log.
-- [x] target/task-output-final-consumer.log passes fresh standalone formatting/compilation/execution and four artifact hash checks; the unchanged consumer does not independently exercise task_output.
-- [x] review_fp and review_invariants approve the final combined scope against b70336f: four unchanged Scala identities and twelve Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,513-local-reference validation pass.
+- [x] Implement explicit taskOutputTool composition, trusted operation admission, stable selected-target capture and exact post-persistence acknowledgement within unchanged receipt limits.
+- [x] Reproduce the draft task_output preflight omission through actual assertion failures before correction; review_fp and review_invariants approve all five corrected exact Scala identities with no unresolved source findings.
+- [x] target/task-output-consumption-focused-final-green.log passes 22 harness groups in 5.168 seconds and two actual PostgreSQL groups in 2.676 seconds, zero failed/ignored/compiler warnings. The fourth TaskOutput group includes measured below/above-capacity controls; the previous undersized denial oracle was corrected without production policy changes.
+- [x] target/task-output-consumption-final-verify.log passes formatting/fatal-warning compilation, 1,624 tests (695 core / 767 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission passes in target/task-output-consumption-final-preparation.log.
+- [x] Pass fresh standalone artifact consumption in target/task-output-consumption-final-consumer.log; the unchanged probe does not directly exercise the new tool factory.
+- [x] review_fp and review_invariants approve the final combined scope against 584ecf1: five unchanged Scala identities and fourteen Markdown files, no unresolved findings.
 
-All eighteen classified wait methods and nine reminder methods have bounded mappings. Full-output persisted-consumption integration, creation/check metadata, completion ordering, durable cancellation/running authority, executable session restoration, remaining original-plan applicability and the actual product cutover remain unfinished. No whole-plan completion or publication is claimed.
+All eighteen classified wait methods and nine reminder methods have bounded mappings. Creation/check metadata, completion ordering, durable cancellation/running authority, executable session restoration, remaining original-plan applicability and the actual product cutover remain unfinished. No whole-plan completion or publication is claimed.
 
 The immutable process launcher remains in force and its current modified source identities redirect to the negotiation manifest. Its production dependency eviction diagnostics remain visible: no suppression or universal binary compatibility claim. SLF4J/dependency/runtime notices are distinct from compiler warnings.
 

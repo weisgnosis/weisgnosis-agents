@@ -1,5 +1,36 @@
 # Scoped child execution and sessions
 
+## Bound full task output consumption
+
+SubagentDeliveryMiddleware.taskOutputTool explicitly binds task_output to the middleware's selected registry and required persisted-local-result observer. Compose it intentionally with middleware.tools().updated(middleware.taskOutputTool) and configure the same middleware on the parent builder. SubagentTaskOutputTool.make remains observational; no existing toolkit gains a default registration.
+
+The same typed decoder and retrieval implementation serves both factories. An attached read owns one adapter operation across preflight, membership capture, backend readiness, optional wait and receipt capture. Only Terminal creates a receipt, and its task ID must equal the decoded selected ID. Running, PublicationPending and detached reads create none. The private receipt retains the actual registry, full runtime invocation/call/ordinal and exact encoded full result; no model route string, replayed history or JSON decoding grants authority.
+
+Final persisted id/name/state/output must match the trusted original after prior callback cleanup. Changed, redacted or offloaded output does not authorize this acknowledgement. Remove-before-one-attempt behavior preserves partial/uncertain failure without retry or rollback. A separately accepted reasoning reminder can independently authorize delivery; tests must isolate that distinct path when asserting a tool result remains unacknowledged.
+
+The existing 128-receipt and 1 MiB encoded retained-data limits remain in force. A valid terminal aggregate can fit storage and still exceed receipt capacity after full-result wrapping and invocation accounting. The bound tool then fails closed before exposing a successful result and leaves delivery unacknowledged; the observational factory can still retrieve the full output. This is bounded exact-result consumption, not a guarantee that every stored output can be acknowledged through this factory. No heap-size bound, digest shortcut or larger budget is introduced.
+
+Closing joins an admitted read/wait and its cleanup; hosts bound backend calls and cancel the parent invocation before closing if they need to stop its wait. Borrowed registry/backend ownership does not transfer. Creation/check metadata, durable running/cancellation authority, notification ordering and executable restoration remain separate original obligations. Both independent final source reviews approve this bounded scope; final combined approval is recorded below.
+
+The unchanged draft first failed its new consumption group in target/task-output-consumption-red.log (21 passed / one failed / zero ignored): the private preflight omitted task_output, so an approved bound call persisted an Error instead of the full Terminal result and made zero acknowledgement attempts instead of one. Both reviewers identified the same guard defect. The correction preserves owner/context/ordinal checks and recognizes only the additional explicitly bound operation; the same public regression now passes after correction, with explicit final approval from both independent source reviewers.
+
+The current bound full-output scope against 584ecf1 comprises five Scala identities, path-first manifest SHA-256 3c98da081cc26d03b46c51ebb234f9ac2a7e556d558f631a643fa2603794712c. review_fp and review_invariants approve these exact identities with no unresolved findings.
+
+| Reviewed source | Git blob |
+| --- | --- |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | `59bc6c77fa3fda8e03475bd7b140e441153ae6b9` |
+| [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | `c8c72a83119e196738ab6011c3860f397b91a987` |
+| [SubagentTools.scala](SubagentTools.scala) | `0a902d4121d6549220ac26df6655ea59937296b2` |
+| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | `9b0983cb0a1b3c1c353ab70fdb02c6c25c2f8fba` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `24f278a79cbbd194f6aeb0fac3bd10c70ab128af` |
+
+- [x] review_fp and review_invariants approve the five exact source/specification identities against 584ecf1, with no unresolved findings.
+- [x] target/task-output-consumption-focused-final-green.log passes 22 harness groups in 5.168 seconds and two actual PostgreSQL groups in 2.676 seconds, zero failed/ignored/compiler warnings. The added fourth TaskOutput group has eight table modes: exact, diagnostic metadata, redaction, real offload, prior callback failure, uncertain committed ACK and measured below/above-capacity controls. Existing PostgreSQL groups additionally verify full Unicode output and post-persistence ACK.
+- [x] Correct the fixture oracle without changing production policy: 300,000 newlines fit the encoded receipt and validly acknowledge; 400,000 exceed it. Both assert actual stored aggregate bytes fit and actual receipt-body UTF-8 bytes lie on the expected side of 1 MiB. Ordinary retrieval independently proves full readable data.
+- [x] target/task-output-consumption-final-verify.log passes formatting/fatal-warning compilation, 1,624 tests (695 core / 767 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings. Archive admission passes in target/task-output-consumption-final-preparation.log.
+- [x] target/task-output-consumption-final-consumer.log passes fresh standalone formatting, compilation, execution and all four artifact-hash checks. Its unchanged probe does not directly exercise taskOutputTool; the public harness and actual PostgreSQL specifications supply that evidence.
+- [x] review_fp and review_invariants approve the final combined scope against 584ecf1: five unchanged Scala identities and fourteen Markdown files, no unresolved findings. English/UTF-8/diff checks and 79-document/3,527-local-reference validation pass.
+
 ## Full task output retrieval
 
 The additive SubagentTaskOutputTool.make(registry) exposes task_output for one host-selected registry. It observes full SubagentTerminalOutcome text and optional recorded worker identity without acknowledging consumption. Existing agent_task remains a bounded nonblocking inspection; wait_async_results retains its separate multi-task timeout contract. Both independent final source and combined reviews approve the bounded observational scope below; required verification gates pass.
@@ -10,16 +41,16 @@ Readiness distinguishes Running, PublicationPending and Terminal. A locally join
 
 The wait races only the captured observation. Timeout and caller interruption join owned wait cleanup without cancelling the child or its registry-owned publisher. Successful retrieval of a Failed, Interrupted or Stopped terminal outcome is a Success tool observation containing typed child status, consistent with ordinary inspection; lookup or publication failure is an Error observation, and caller interruption remains interruption. An installed runtime processor may offload full output under its separate contract.
 
-Migration: install the new tool explicitly; no existing factory installs it automatically. No current receipt budget or wire envelope changes. Durable creation/check metadata, full-output persisted-consumption integration, remote running authority and executable restoration remain unfinished original obligations.
+Migration: install the new tool explicitly; no existing factory installs it automatically. No current receipt budget or wire envelope changes. Durable creation/check metadata, remote running authority and executable restoration remain unfinished original obligations. Explicit bounded full-output consumption has its separately reviewed contract above.
 
 The current task-output scope against b70336f comprises four Scala identities, path-first manifest SHA-256 def84f78fee21bbc20cae9f48ef82d49ff8ea37ef6e52ce504fdf4e9528e7ec9. review_fp and review_invariants explicitly approve these exact identities with no unresolved findings.
 
 | Reviewed source | Git blob |
 | --- | --- |
 | [SubagentTaskBarrier.scala](SubagentTaskBarrier.scala) | `524ac43400ca082571480b195e274e37d6f56763` |
-| [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | `0b057bf780202d3528691ec708e18ed5fb995886` |
+| [SubagentTaskOutputTool.scala](SubagentTaskOutputTool.scala) | Current identity: [bound full output](#bound-full-task-output-consumption) |
 | [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `49e6fe0171922cda07a6a3c1df2339bc78c7c1af` |
-| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | `e6132ffec3b41be7a86948425bfaeeb9fb2a8644` |
+| [SubagentTaskOutputToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskOutputToolSpec.scala) | Current identity: [bound full output](#bound-full-task-output-consumption) |
 
 - [x] review_fp and review_invariants approve the four exact source/specification identities against b70336f, with no unresolved findings.
 - [x] target/task-output-focused.log passes 28 harness groups in 2.271 seconds and two actual PostgreSQL groups in 2.597 seconds, zero failed/ignored/compiler warnings. Three new groups cover exact full Unicode/outcome/worker data through actual parent processing without ACK; default/clamped/zero/negative/poll timing and waiter-only cancellation; held publication readiness/failure and captured result survival after forgetting. Existing barrier/session/routing suites retain their behavior.
@@ -43,10 +74,10 @@ The current routed scope against b98fc2f comprises four Scala identities, path-f
 
 | Reviewed source | Git blob |
 | --- | --- |
-| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | `575253883d750f43915858828358a3bcb20f1835` |
-| [SubagentTools.scala](SubagentTools.scala) | `8152df2ff044df84a51f17713bb2e69a705b9081` |
+| [SubagentDeliveryMiddleware.scala](SubagentDeliveryMiddleware.scala) | Current identity: [bound full output](#bound-full-task-output-consumption) |
+| [SubagentTools.scala](SubagentTools.scala) | Current identity: [bound full output](#bound-full-task-output-consumption) |
 | [SubagentRoutedConsumptionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentRoutedConsumptionSpec.scala) | `adc8f31b71d42b0e35f24d75f87de8bce8adcd32` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `900bb16575475b4e975f1a12b6ac41410c5d204d` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [bound full output](#bound-full-task-output-consumption) |
 
 The unchanged defective draft first produced one passing and one failing group in target/routed-consumption-red.log: both held-lookup and held-cleanup probes observed premature close, and parent completion failed with a closed adapter. The same assertions pass after ownership correction. These are reproduced local lifecycle defects, not additional upstream method mappings.
 
@@ -209,7 +240,7 @@ The close defect was reproduced before fixing the new draft in target/subagent-r
 - [x] review_fp and review_invariants approve final combined documentation against a33488e for four unchanged Scala identities and fourteen Markdown files, no unresolved findings. English prose and 79-document/3,377-local-reference checks pass. The separate [worker identity scope](#worker-identity) has final source, combined documentation and verification approval. The [current barriers and scoped inbox/session](#current-acceptance) own eighteen bounded wait mappings; other routing, durable cancellation/running authority and session restoration remain open.
 - [x] Implement and independently source-review explicit worker metadata for the remaining reminder attribute mapping; full/artifact and final combined gates belong to the [worker identity scope](#worker-identity).
 - [x] Implement explicitly bound task inspection consumption under its separate source-reviewed scope above.
-- [ ] Complete the [single-task blocking/full-output/detail contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations), cancellation intent, wakeup ownership and executable session restoration separately.
+- [ ] Complete the [remaining task-detail metadata contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations), cancellation intent, wakeup ownership and executable session restoration separately.
 
 ## Explicit terminal batch delivery
 
@@ -237,7 +268,7 @@ Final formatted source scope against `bad689e`, manifest SHA-256 `048f7c44889cfd
 - [x] target/durable-delivery-final-consumer.log passes fresh standalone formatting, clean compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise explicit delivery.
 - [x] review_fp and review_invariants approve final combined documentation against `bad689e` for fourteen files (three unchanged Scala identities and eleven Markdown files), with no unresolved findings.
 - [x] Implement the separately configured [reasoning reminder adapter](#automatic-reasoning-reminders); it preserves the helper's explicit host contract.
-- [ ] Complete the [single-task blocking/full-output/detail contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and completion/wakeup notification separately; local inspection/wait consumption has its reviewed scope above.
+- [ ] Complete the [remaining task-detail metadata contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and completion/wakeup notification separately; local inspection/wait consumption has its reviewed scope above.
 
 ## Durable terminal acknowledgement
 
@@ -249,7 +280,7 @@ Schema-version-1 data is checked in its original canonical representation and re
 
 Opt-in durable registries expose `durablePendingDeliveries`, `terminalAcknowledgement(id)` and `acknowledgeTerminal(id)`. These methods use the owner-selected store and propagate typed failures. Local completed publication receipts are barriers before exposing or acknowledging stored data, including completion that occurs during a held backend read. Still-running local work does not block authoritative stored terminal data. Cancelling an observer does not cancel an owned publisher. Existing live pendingDeliveries/acknowledge APIs remain separate and still reject durable registries; restored observations never become fabricated live Exit values. These new APIs remain usable after registry closure while the host retains backend access.
 
-Pending order is aggregate publication order, not restored completion/submission-time order. Observation reads are not exclusive claims: concurrent consumers can see duplicates and an acknowledgement can race a pending snapshot. The host owns delivery, authentication, deduplication and the decision to acknowledge. The [explicit success-only delivery seam](#explicit-terminal-batch-delivery) is available. The opt-in [reasoning reminder adapter](#automatic-reasoning-reminders) supplies captured push injection. The [single-task blocking/full-output/detail contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations), durable cancellation intent and executable session restoration remain separate original obligations.
+Pending order is aggregate publication order, not restored completion/submission-time order. Observation reads are not exclusive claims: concurrent consumers can see duplicates and an acknowledgement can race a pending snapshot. The host owns delivery, authentication, deduplication and the decision to acknowledge. The [explicit success-only delivery seam](#explicit-terminal-batch-delivery) is available. The opt-in [reasoning reminder adapter](#automatic-reasoning-reminders) supplies captured push injection. The [remaining task-detail metadata contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations), durable cancellation intent and executable session restoration remain separate original obligations.
 
 The new draft per-ID barrier defect was reproduced in target/durable-ack-running-read-draft-red.log before correction: three groups passed and one failed because a held read exposed a stamp and admitted a second write while a now-completed task's publication receipt was still pending. Defective Registry blob: `86bf25f4b898f070228c0835507cf785e1eb0449`; regression specification: `fcbc6e6b0bfbee25eb6e7d7435cb13f7f6e6a11a`. This is a defect in the new draft, not the accepted 1925481 baseline.
 
@@ -271,7 +302,7 @@ Final formatted source scope against `1925481`, manifest SHA-256 `63a32103584533
 - [x] target/durable-ack-final-preparation.log passes archive admission and reversible negative checks.
 - [x] target/durable-ack-final-consumer.log passes fresh standalone formatting, clean compilation, execution and four artifact hash checks. The unchanged probe does not independently exercise the new acknowledgement APIs.
 - [x] review_fp and review_invariants approve final combined documentation against `1925481` for sixteen files (five unchanged Scala identities and eleven Markdown files), with no unresolved findings.
-- [ ] Complete completion-time ordering, the [single-task blocking/full-output/detail contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and host notification ownership; local reminder/inspection/wait contracts have separate reviewed scopes above.
+- [ ] Complete completion-time ordering, the [remaining task-detail metadata contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and host notification ownership; local reminder/inspection/wait contracts have separate reviewed scopes above.
 
 ## Registry terminal publication
 
@@ -310,7 +341,7 @@ Final formatted source scope against `5f75a0a`, manifest SHA-256 `7a8aa0d20accc4
 - [x] target/durable-registry-final-preparation.log passes archive admission and reversible negative checks.
 - [x] target/durable-registry-final-consumer.log passes fresh standalone formatting, clean compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise the new registry APIs.
 - [x] review_fp and review_invariants approve final combined documentation against `5f75a0a` for eighteen files (seven unchanged Scala identities and eleven Markdown files), with no unresolved findings.
-- [ ] Implement original running-record metadata, durable cancellation intent, durable running-barrier restoration, the [single-task blocking/full-output/detail contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and notification integration and executable session restoration separately. The [durable acknowledgement ledger](#durable-terminal-acknowledgement) is implemented.
+- [ ] Implement original running-record metadata, durable cancellation intent, durable running-barrier restoration, the [remaining task-detail metadata contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and notification integration and executable session restoration separately. The [durable acknowledgement ledger](#durable-terminal-acknowledgement) is implemented.
 
 ## Durable terminal observations
 
@@ -342,7 +373,7 @@ This implements only a terminal persistence subset of pinned WorkspaceTaskReposi
 - [x] target/durable-terminal-consumer.log passes fresh standalone compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise this new terminal API.
 - [x] review_fp and review_invariants accepted the terminal-store contract against `c99596b`; current changed files require the registry increment gates above.
 - [x] Implement and independently source-review the [registry publication integration](#registry-terminal-publication), with full verification and fresh artifact checks.
-- [ ] Complete original running-state metadata, durable cancellation intent and durable running-barrier restoration, the [single-task blocking/full-output/detail contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and notification ownership. Explicit [durable terminal acknowledgement](#durable-terminal-acknowledgement) is available.
+- [ ] Complete original running-state metadata, durable cancellation intent and durable running-barrier restoration, the [remaining task-detail metadata contract](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and notification ownership. Explicit [durable terminal acknowledgement](#durable-terminal-acknowledgement) is available.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 

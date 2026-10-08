@@ -37,7 +37,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
   import PostgresFixture.*
 
   private enum ConsumptionTool:
-    case Inspection, Wait, Catalog
+    case Inspection, Wait, Catalog, TaskOutput
 
   private val firstId: SubagentTaskId  = SubagentTaskId(new UUID(0L, 1L))
   private val secondId: SubagentTaskId = SubagentTaskId(new UUID(0L, 2L))
@@ -374,7 +374,12 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             firstMessages  = firstReminder.history.filter(_.reminderKind.contains("task_delivery"))
             secondMessages = secondReminder.history.filter(_.reminderKind.contains("task_delivery"))
             consumptionChecks <- ZIO.foreach(
-              Chunk(ConsumptionTool.Inspection, ConsumptionTool.Wait, ConsumptionTool.Catalog)
+              Chunk(
+                ConsumptionTool.Inspection,
+                ConsumptionTool.Wait,
+                ConsumptionTool.Catalog,
+                ConsumptionTool.TaskOutput
+              )
             ): mode =>
               for
                 consumptionTarget <- mode match
@@ -402,7 +407,10 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 failureId     <- Random.nextUUID.map(SubagentTaskId(_))
                 consumptionRecord = SubagentTerminalRecord(
                   consumptionId,
-                  SubagentTerminalOutcome.Completed("Fresh consumption result")
+                  SubagentTerminalOutcome.Completed(
+                    if mode == ConsumptionTool.TaskOutput then "Full task output λ😀\n" * 1000
+                    else "Fresh consumption result"
+                  )
                 )
                 failedConsumption = SubagentTerminalRecord(
                   failureId,
@@ -412,16 +420,18 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                   )
                 )
                 selectedRecords = mode match
-                  case ConsumptionTool.Inspection | ConsumptionTool.Catalog =>
+                  case ConsumptionTool.Inspection | ConsumptionTool.Catalog |
+                      ConsumptionTool.TaskOutput =>
                     Chunk(consumptionRecord)
                   case ConsumptionTool.Wait => Chunk(failedConsumption, consumptionRecord)
                 consumptionCall = ContentBlock.ToolUse(
                   "consumed-consumption",
                   mode match
                     case ConsumptionTool.Inspection | ConsumptionTool.Catalog => "agent_task"
-                    case ConsumptionTool.Wait => "wait_async_results",
+                    case ConsumptionTool.Wait       => "wait_async_results"
+                    case ConsumptionTool.TaskOutput => "task_output",
                   mode match
-                    case ConsumptionTool.Inspection =>
+                    case ConsumptionTool.Inspection | ConsumptionTool.TaskOutput =>
                       Json.Obj("task_id" -> Json.Str(consumptionId.value.toString))
                     case ConsumptionTool.Catalog =>
                       Json.Obj(
@@ -441,6 +451,13 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 )
                 expectedJson = mode match
                   case ConsumptionTool.Inspection => consumptionExpected.toJson
+                  case ConsumptionTool.TaskOutput =>
+                    val output: SubagentTaskOutputResult = SubagentTaskOutputResult.Terminal(
+                      consumptionId.value.toString,
+                      consumptionRecord.workerId,
+                      consumptionRecord.outcome
+                    )
+                    output.toJson
                   case ConsumptionTool.Catalog =>
                     val wrapped: SubagentCatalogToolResult =
                       SubagentCatalogToolResult.Agent("selected", consumptionExpected)
@@ -477,20 +494,24 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 )
                 consumptionInbox <- SubagentInboxSignal.open
                 consumptionMiddleware <- mode match
-                  case ConsumptionTool.Inspection | ConsumptionTool.Catalog =>
+                  case ConsumptionTool.Inspection | ConsumptionTool.Catalog |
+                      ConsumptionTool.TaskOutput =>
                     SubagentDeliveryMiddleware.make(fresh)
                   case ConsumptionTool.Wait =>
                     SubagentDeliveryMiddleware.open(fresh, consumptionInbox)
+                consumptionToolkit = mode match
+                  case ConsumptionTool.TaskOutput =>
+                    consumptionMiddleware.tools().updated(consumptionMiddleware.taskOutputTool)
+                  case _ =>
+                    routedCatalog.fold(consumptionMiddleware.tools())(
+                      consumptionMiddleware.toolsForCatalog(_)
+                    )
                 consumptionAgent <- consumptionMiddleware
                   .configure(
                     ReActAgent
                       .builder()
                       .client(consumptionClient)
-                      .toolkit(
-                        routedCatalog.fold(consumptionMiddleware.tools())(
-                          consumptionMiddleware.toolsForCatalog(_)
-                        )
-                      ),
+                      .toolkit(consumptionToolkit),
                     priorLocalToolResultObserver = LocalToolResultObserver(observation =>
                       ZIO
                         .foreach(selectedRecords)(record =>

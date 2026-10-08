@@ -17,7 +17,7 @@ package com.weisgnosis.agents.harness.subagent
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
-import com.weisgnosis.agents.core.tool.{Tool, ToolDef}
+import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolInvocation}
 import java.util.UUID
 import zio.*
 import zio.json.*
@@ -56,11 +56,25 @@ object SubagentTaskOutputTool:
   final private case class Input(id: SubagentTaskId, mode: Mode)
 
   def make(registry: SubagentTaskRegistry): Tool[Any, ?, SubagentTaskOutputResult] =
+    tool(registry, None)
+
+  private[subagent] def consuming(
+      registry: SubagentTaskRegistry,
+      capture: SubagentTaskConsumptionCapture
+  ): Tool[Any, ?, SubagentTaskOutputResult] = tool(registry, Some(capture))
+
+  private def tool(
+      registry: SubagentTaskRegistry,
+      capture: Option[SubagentTaskConsumptionCapture]
+  ): Tool[Any, ?, SubagentTaskOutputResult] =
     new Tool[Any, Input, SubagentTaskOutputResult]:
       def definition: ToolDef = ToolDef(
         "task_output",
-        "Read a task's exact full terminal text without acknowledging delivery. " +
-          "block defaults to true; timeout is milliseconds, default 30000, clamped to 0..600000. " +
+        (capture match
+          case None => "Read a task's exact full terminal text without acknowledging delivery. "
+          case Some(_) =>
+            "Read full terminal text; unchanged persisted results are acknowledged within the middleware receipt capacity. "
+        ) + "block defaults to true; timeout is milliseconds, default 30000, clamped to 0..600000. " +
           "Use block=false or timeout=0 for a nonwaiting status check. " +
           "PublicationPending means execution joined but its durable receipt is not ready. " +
           "Lookup/backend readiness are host-bounded separately from the wait timeout.",
@@ -97,6 +111,16 @@ object SubagentTaskOutputTool:
       def encodeOutput(output: SubagentTaskOutputResult): String = output.toJson
 
       def execute(input: Input): IO[AgentError, SubagentTaskOutputResult] =
+        executeWithContext(input, ToolInvocation.Detached)
+
+      override def executeWithContext(
+          input: Input,
+          invocation: ToolInvocation
+      ): IO[AgentError, SubagentTaskOutputResult] = capture match
+        case None       => read(input)
+        case Some(sink) => sink.output(input.id, registry, invocation)(read(input))
+
+      private def read(input: Input): IO[AgentError, SubagentTaskOutputResult] =
         for
           selection <- ZIO.fromEither(SubagentTaskSelection.selected(Chunk(input.id)))
           captured  <- registry.captureWait(selection)

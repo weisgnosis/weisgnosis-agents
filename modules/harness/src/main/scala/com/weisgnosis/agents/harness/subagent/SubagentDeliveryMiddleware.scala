@@ -19,7 +19,7 @@ import com.weisgnosis.agents.core.agent.*
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{InvocationContext, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
-import com.weisgnosis.agents.core.tool.{ToolExecutionResult, ToolInvocation, Toolkit}
+import com.weisgnosis.agents.core.tool.{Tool, ToolExecutionResult, ToolInvocation, Toolkit}
 import java.nio.charset.StandardCharsets
 import zio.*
 import zio.json.*
@@ -30,7 +30,8 @@ import zio.json.ast.Json
  * agent invocations. Closing joins admitted hooks, including their prior scoped callback cleanup.
  * Hooks must not reenter this adapter or await the same agent run lock. Escaped hooks fail instead
  * of reopening. Hosts bound callback/backend operations and own invocation cancellation.
- * Exact records remain in the host store; reminders and model-facing task tools expose previews.
+ * Exact records remain in the host store. Reminders and task inspection expose previews; the
+ * explicitly bound taskOutputTool exposes full output within the unchanged receipt capacity.
  */
 final class SubagentDeliveryMiddleware private (
     registry: SubagentTaskRegistry,
@@ -110,6 +111,10 @@ final class SubagentDeliveryMiddleware private (
       waitSession
     )
 
+  /** Compose explicitly with a toolkit; oversized exact receipts fail before successful exposure. */
+  def taskOutputTool: Tool[Any, ?, SubagentTaskOutputResult] =
+    SubagentTaskOutputTool.consuming(registry, consumptionCapture)
+
   def toolsForSession(
       session: SubagentSession,
       policy: SubagentExecutionPolicy = SubagentExecutionPolicy.PromoteAfter30Seconds
@@ -159,6 +164,34 @@ final class SubagentDeliveryMiddleware private (
                   else ZIO.unit
               yield output)
 
+      def output(
+          id: SubagentTaskId,
+          target: SubagentTaskRegistry,
+          invocation: ToolInvocation
+      )(
+          read: => IO[AgentError, SubagentTaskOutputResult]
+      ): IO[AgentError, SubagentTaskOutputResult] =
+        operations.withPermit:
+          ensureOpen *> (invocation match
+            case ToolInvocation.Detached => ZIO.suspendSucceed(read)
+            case ToolInvocation.Active(context, approved, ordinal, _) =>
+              val key = ConsumptionKey(context, approved, ordinal)
+              for
+                identityBytes <- prepareConsumption(key, Chunk(id))
+                result        <- ZIO.suspendSucceed(read)
+                _ <- result match
+                  case SubagentTaskOutputResult.Terminal(taskId, _, _) =>
+                    if taskId == id.value.toString then
+                      captureConsumption(target, key, Chunk(id), result.toJson, identityBytes)
+                    else
+                      ZIO.fail(
+                        AgentError.StorageError(
+                          "Task output identity differs from the selected task"
+                        )
+                      )
+                  case _ => ZIO.unit
+              yield result)
+
       def waitFor(target: SubagentTaskRegistry, invocation: ToolInvocation)(
           read: => IO[AgentError, SubagentWaitOutcome]
       ): IO[AgentError, SubagentWaitOutcome] =
@@ -197,7 +230,11 @@ final class SubagentDeliveryMiddleware private (
         state
           .modify:
             case current @ State.Available(capture, owner, receipts, used) =>
-              if owner.exists(_ != invocation) || !Set("agent_task", "wait_async_results").contains(
+              if owner.exists(_ != invocation) || !Set(
+                  "agent_task",
+                  "wait_async_results",
+                  "task_output"
+                ).contains(
                   key.call.name
                 ) || key.ordinal < 0
               then

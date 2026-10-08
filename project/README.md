@@ -130,3 +130,7 @@ The [routed consumption factories](../modules/harness/src/main/scala/com/weisgno
 ## Full task output compatibility
 
 SubagentTaskOutputTool is an additive explicit host installation. The independently source-reviewed adapter introduces no dependency, default tool registration or receipt-budget change. Its public result contains typed terminal observation data and optional worker identity, never execution capabilities. Source acceptance, timeout/readiness boundaries and remaining metadata/consumption obligations belong to the [current contract](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#full-task-output-retrieval).
+
+## Bound full output compatibility
+
+SubagentDeliveryMiddleware.taskOutputTool is an additive explicit factory using the existing task_output wire schema and typed output. Compose it intentionally with Toolkit.updated and configure the same middleware on the parent. It introduces no default registration, dependency or receipt-budget change. Valid stored data can exceed encoded receipt capacity; the [bounded consumption contract](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#bound-full-task-output-consumption) states that failure policy. Both source reviews and focused/full/artifact/external-consumer checks pass; review_fp and review_invariants approve the final combined scope against 584ecf1: five unchanged Scala identities and fourteen Markdown files, no unresolved findings.
