@@ -57,6 +57,9 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
       Some(store)
     )
 
+  private enum StoredCase:
+    case Pending, Running, BecomesTerminal, Disappears
+
   private enum WaitCase:
     case Default, Clamped, Zero, Negative, Poll
   private enum Receipt:
@@ -506,7 +509,189 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
         accessed == 0
       )
 
+  private def storedCase(mode: StoredCase): ZIO[TestEnvironment & Scope, AgentError, TestResult] =
+    ZIO.scoped:
+      for
+        backend <- SubagentTerminalStoreSpec.fixture
+        target  <- address("stored-live")
+        terminal = SubagentTerminalStore.make(backend.store, target)
+        worker    <- ZIO.fromEither(SubagentWorkerId.from("stored worker"))
+        createdAt <- Clock.instant
+        admitted  <- terminal.admit(id, Some(worker))
+        identity <- admitted match
+          case SubagentTaskAdmissionResult.Created(value) => ZIO.succeed(value)
+          case other => ZIO.fail(AgentError.StorageError(s"Expected stored admission: $other"))
+        _ <- mode match
+          case StoredCase.Running => terminal.markRunning(identity)
+          case _                  => ZIO.unit
+        entered          <- Promise.make[Nothing, Unit]
+        release          <- Promise.make[Nothing, Unit]
+        acknowledgements <- Ref.make(0)
+        checked = new SubagentTerminalStore:
+          def read(id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalRecord]] =
+            terminal.read(id)
+          def list: IO[AgentError, Chunk[SubagentTerminalRecord]] = terminal.list
+          def publish(record: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication] =
+            terminal.publish(record)
+          override def pending: IO[AgentError, Chunk[SubagentTerminalRecord]] = terminal.pending
+          override def acknowledge(
+              id: SubagentTaskId
+          ): IO[AgentError, SubagentTerminalAcknowledgeResult] =
+            acknowledgements.update(_ + 1) *> terminal.acknowledge(id)
+          override def taskRecordSnapshot: IO[AgentError, Option[Chunk[SubagentTaskRecord]]] =
+            terminal.taskRecordSnapshot
+          override def markChecked(
+              id: SubagentTaskId
+          ): IO[AgentError, Option[SubagentTaskMetadata]] =
+            terminal
+              .markChecked(id)
+              .flatMap(metadata =>
+                mode match
+                  case StoredCase.BecomesTerminal | StoredCase.Disappears =>
+                    entered.succeed(()) *> release.await.as(metadata)
+                  case _ => ZIO.succeed(metadata)
+              )
+        executions    <- Ref.make(0)
+        registryScope <- ZIO.acquireRelease(Scope.make)(_.close(Exit.unit))
+        owner <- registryScope.extend(
+          SubagentTaskRegistry.openWith(
+            (_, _, _) =>
+              executions.update(_ + 1) *> ZIO.fail(
+                AgentError.InvalidConfiguration("Stored data cannot execute")
+              ),
+            8,
+            Some(checked)
+          )
+        )
+        _ <- ZIO.addFinalizer(release.succeed(()).unit)
+        tools = Toolkit.single(SubagentTaskOutputTool.make(owner))
+        timersBefore <- TestClock.sleeps
+        observed <- mode match
+          case StoredCase.BecomesTerminal | StoredCase.Disappears =>
+            for
+              waiting <- tools.executeSafe("task_output", input(id)).forkScoped
+              _       <- entered.await
+              _       <- registryScope.close(Exit.unit)
+              _ <- mode match
+                case StoredCase.BecomesTerminal =>
+                  terminal
+                    .publish(
+                      SubagentTerminalRecord(
+                        id,
+                        SubagentTerminalOutcome.Completed(fullText),
+                        Some(worker)
+                      )
+                    )
+                    .unit
+                case _ => backend.values.update(_ - target)
+              _      <- release.succeed(())
+              result <- waiting.join
+            yield Chunk(result)
+          case _ =>
+            ZIO.foreach(
+              Chunk(
+                input(id),
+                input(id, "block"   -> Json.Bool(false)),
+                input(id, "timeout" -> Json.Num(0))
+              )
+            )(tools.executeSafe("task_output", _))
+        timers       <- TestClock.sleeps
+        childEffects <- executions.get
+        expected: SubagentTaskOutputResult = mode match
+          case StoredCase.BecomesTerminal =>
+            SubagentTaskOutputResult.Terminal(
+              id.value.toString,
+              Some(worker),
+              SubagentTerminalOutcome.Completed(fullText),
+              Some(createdAt)
+            )
+          case StoredCase.Running =>
+            SubagentTaskOutputResult.NotLocallyWaitable(
+              id.value.toString,
+              SubagentStoredTaskState.Running,
+              Some(worker),
+              Some(createdAt)
+            )
+          case _ =>
+            SubagentTaskOutputResult.NotLocallyWaitable(
+              id.value.toString,
+              SubagentStoredTaskState.Pending,
+              Some(worker),
+              Some(createdAt)
+            )
+        bound <- mode match
+          case StoredCase.Pending | StoredCase.Running =>
+            for
+              adapter  <- SubagentDeliveryMiddleware.make(owner)
+              requests <- Ref.make(0)
+              client = LlmClient.mockEffectful((_, _, _) =>
+                requests
+                  .update(_ + 1)
+                  .as(
+                    TurnOutput.ToolCalls(
+                      Msg.assistant(
+                        Chunk(
+                          ContentBlock.ToolUse(
+                            "inspect",
+                            "agent_task",
+                            Json.Obj("task_id" -> Json.Str(id.value.toString))
+                          ),
+                          ContentBlock.ToolUse("output", "task_output", input(id))
+                        )
+                      )
+                    )
+                  )
+              )
+              agent <- adapter
+                .configure(
+                  ReActAgent
+                    .builder()
+                    .client(client)
+                    .toolkit(adapter.tools().updated(adapter.taskOutputTool))
+                    .maxIterations(1)
+                )
+                .build
+              completed <- agent.run(Msg.user("observe stored data only"))
+              count     <- requests.get
+              record    <- terminal.taskRecord(id)
+              results = completed.history.flatMap(_.toolResults)
+            yield count == 1 && results.size == 2 && results.forall(
+              _.state == ToolResultState.Success
+            ) && results.find(_.id == "output").exists(_.outputText == expected.toJson) && record
+              .exists(_.terminal.isEmpty)
+          case _ => ZIO.succeed(true)
+        ackAttempts <- acknowledgements.get
+      yield assertTrue(
+        ackAttempts == 0,
+        bound,
+        timers == timersBefore,
+        childEffects == 0,
+        mode match
+          case StoredCase.Disappears =>
+            observed.forall(result =>
+              result.state == ToolResultState.Error && result.output == "Execution failed for 'task_output': Captured stored task is no longer visible in its selected store"
+            )
+          case _ =>
+            observed.forall(result =>
+              result.state == ToolResultState.Success && result.output == expected.toJson
+            )
+      )
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentTaskOutputToolSpec")(
+    test(
+      "stored nonterminal output never fabricates waiters; checked snapshots expose later terminal truth and disappearances"
+    ):
+      ZIO
+        .foreach(
+          Chunk(
+            StoredCase.Pending,
+            StoredCase.Running,
+            StoredCase.BecomesTerminal,
+            StoredCase.Disappears
+          )
+        )(storedCase)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test(
       "full terminal outcomes reach actual ReAct processing with successful retrieval states; retrieval does not acknowledge"
     ):

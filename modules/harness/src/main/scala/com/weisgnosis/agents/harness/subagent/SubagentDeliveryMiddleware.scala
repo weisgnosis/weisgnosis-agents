@@ -465,7 +465,8 @@ object SubagentDeliveryMiddleware:
   private def isTerminal(result: SubagentToolResult): Boolean = result match
     case SubagentToolResult.Task(_, state) =>
       state match
-        case SubagentToolState.Running | SubagentToolState.Promoted | SubagentToolState.Missing =>
+        case SubagentToolState.Running | SubagentToolState.Promoted | SubagentToolState.Missing |
+            SubagentToolState.Stored(_) =>
           false
         case _ => true
     case _ => false

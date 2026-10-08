@@ -27,6 +27,8 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.Toolkit
+import com.weisgnosis.agents.harness.storage.StorageAddress
+import java.util.UUID
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -54,6 +56,122 @@ object SubagentTaskListToolSpec extends ZIOSpecDefault:
         else ZIO.fail(AgentError.InvalidMessage(result.output))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentTaskListToolSpec")(
+    test(
+      "persisted pending, running and terminal records remain visible through public task listing"
+    ):
+      for
+        backend <- SubagentTerminalStoreSpec.fixture
+        target  <- ZIO.fromEither(StorageAddress.from(Chunk("stored-views"), "records"))
+        store      = SubagentTerminalStore.make(backend.store, target)
+        pendingId  = SubagentTaskId(new UUID(0L, 81L))
+        runningId  = SubagentTaskId(new UUID(0L, 82L))
+        terminalId = SubagentTaskId(new UUID(0L, 83L))
+        _        <- store.admit(pendingId)
+        admitted <- store.admit(runningId)
+        identity <- admitted match
+          case SubagentTaskAdmissionResult.Created(value) => ZIO.succeed(value)
+          case other =>
+            ZIO.fail(AgentError.StorageError(s"Expected fresh running admission: $other"))
+        _ <- store.markRunning(identity)
+        _ <- store.publish(
+          SubagentTerminalRecord(terminalId, SubagentTerminalOutcome.Completed("exact terminal"))
+        )
+        registry <- SubagentTaskRegistry.openWith(
+          (_, _, _) => ZIO.fail(AgentError.InvalidConfiguration("Stored views cannot launch work")),
+          8,
+          Some(store)
+        )
+        observed <- registry.observations
+        listed   <- page(Toolkit.single(SubagentTaskListTool.make(registry)))
+        pending <- page(
+          Toolkit.single(SubagentTaskListTool.make(registry)),
+          Json.Obj("status_filter" -> Json.Str("pending"))
+        )
+        running <- page(
+          Toolkit.single(SubagentTaskListTool.make(registry)),
+          Json.Obj("status_filter" -> Json.Str("running"))
+        )
+        controls = SubagentTools.make(registry)
+        inspected <- ZIO.foreach(Chunk(pendingId, runningId))(id =>
+          controls.executeSafe("agent_task", Json.Obj("task_id" -> Json.Str(id.value.toString)))
+        )
+        expectedInspection: Chunk[SubagentToolResult] = Chunk(
+          SubagentToolResult.Task(
+            pendingId.value.toString,
+            SubagentToolState.Stored(SubagentStoredTaskState.Pending)
+          ),
+          SubagentToolResult.Task(
+            runningId.value.toString,
+            SubagentToolState.Stored(SubagentStoredTaskState.Running)
+          )
+        )
+        work          <- registry.waitWorkState
+        selected      <- ZIO.fromEither(SubagentTaskSelection.selected(Chunk(pendingId, runningId)))
+        rejected      <- SubagentTaskBarrier.await(registry, selected).either
+        current       <- SubagentTaskBarrier.await(registry, SubagentTaskSelection.CurrentRunning)
+        fallbackReads <- Ref.make(0)
+        unsupported = new SubagentTerminalStore:
+          def read(id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalRecord]] =
+            ZIO.fail(AgentError.StorageError("Terminal read unavailable"))
+          def list: IO[AgentError, Chunk[SubagentTerminalRecord]] =
+            fallbackReads.update(_ + 1) *> store.list
+          def publish(record: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication] =
+            store.publish(record)
+        legacy <- SubagentTaskRegistry.openWith(
+          (_, _, _) => ZIO.fail(AgentError.InvalidConfiguration("No child")),
+          8,
+          Some(unsupported)
+        )
+        legacyObserved <- legacy.observations
+        legacyOne      <- legacy.observe(terminalId).either
+        legacyTool <- SubagentTools
+          .make(legacy)
+          .executeSafe("agent_task", Json.Obj("task_id" -> Json.Str(terminalId.value.toString)))
+        supportedFailure = new SubagentTerminalStore:
+          def read(id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalRecord]] =
+            store.read(id)
+          def list: IO[AgentError, Chunk[SubagentTerminalRecord]] =
+            fallbackReads.update(_ + 1) *> store.list
+          def publish(record: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication] =
+            store.publish(record)
+          override def taskRecordSnapshot: IO[AgentError, Option[Chunk[SubagentTaskRecord]]] =
+            ZIO.fail(AgentError.StorageError("Snapshot unavailable"))
+        failed <- SubagentTaskRegistry.openWith(
+          (_, _, _) => ZIO.fail(AgentError.InvalidConfiguration("No child")),
+          8,
+          Some(supportedFailure)
+        )
+        before      <- fallbackReads.get
+        unavailable <- failed.observations.either
+        after       <- fallbackReads.get
+      yield assertTrue(
+        observed.map(_.id) == Chunk(pendingId, runningId, terminalId),
+        listed.tasks.map(_.taskId) == Chunk(pendingId, runningId, terminalId).map(_.value.toString),
+        listed.totalMatching == 3,
+        listed.tasks.map(_.status) == Chunk(
+          ListedTaskStatus.Pending,
+          ListedTaskStatus.Running,
+          ListedTaskStatus.Completed
+        ),
+        pending.tasks == Chunk(ListedTask(pendingId.value.toString, ListedTaskStatus.Pending)),
+        running.tasks == Chunk(ListedTask(runningId.value.toString, ListedTaskStatus.Running)),
+        inspected.map(_.output) == expectedInspection.map(_.toJson),
+        inspected.forall(_.state == ToolResultState.Success),
+        work == SubagentWaitWorkState.StoredUnresolved,
+        rejected == Left(
+          AgentError.InvalidConfiguration(
+            s"Selected stored tasks are not locally waitable: ${pendingId.value}, ${runningId.value}"
+          )
+        ),
+        current == SubagentTaskBarrierResult.Empty,
+        legacyObserved.map(_.id) == Chunk(terminalId),
+        legacyOne == Left(AgentError.StorageError("Terminal read unavailable")),
+        legacyTool.state == ToolResultState.Error,
+        legacyTool.output == "Execution failed for 'agent_task': Terminal read unavailable",
+        unavailable == Left(AgentError.StorageError("Snapshot unavailable")),
+        before == after
+      )
+    ,
     test("bounded ordered pages expose truthful terminal states without results or task mutation"):
       for
         supervisor <- TaskSupervisor.open[AgentResult]

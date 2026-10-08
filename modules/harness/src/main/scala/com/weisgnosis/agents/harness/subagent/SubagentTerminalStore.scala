@@ -65,6 +65,14 @@ trait SubagentTerminalStore:
     )
 
   /** Complete durable observations, including unresolved admissions; no execution handles are restored. */
+  /**
+   * Explicit full-record observation support; None preserves terminal-only custom stores.
+   * Override together with taskRecords when exposing persisted Pending/Running records.
+   * A supported snapshot failure must propagate rather than become unavailable support.
+   */
+  def taskRecordSnapshot: IO[AgentError, Option[Chunk[SubagentTaskRecord]]] = ZIO.none
+
+  /** Complete durable observations, including unresolved admissions and running tasks. */
   def taskRecords: IO[AgentError, Chunk[SubagentTaskRecord]] =
     ZIO.fail(
       AgentError.InvalidConfiguration("This terminal store does not support durable admission")
@@ -167,6 +175,9 @@ object SubagentTerminalStore:
 
   final private class Backend(store: VersionedJsonStore, address: StorageAddress, limits: Limits)
       extends SubagentTerminalStore:
+    override def taskRecordSnapshot: IO[AgentError, Option[Chunk[SubagentTaskRecord]]] =
+      taskRecords.map(Some(_))
+
     override def taskRecords: IO[AgentError, Chunk[SubagentTaskRecord]] =
       snapshot.map(_._2.map(_.record))
     override def taskRecord(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskRecord]] =

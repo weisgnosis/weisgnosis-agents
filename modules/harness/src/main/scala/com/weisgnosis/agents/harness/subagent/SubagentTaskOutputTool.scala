@@ -28,6 +28,12 @@ import zio.json.ast.Json
 enum SubagentTaskOutputResult derives JsonCodec:
   case Running(taskId: String, createdAt: Option[Instant] = None)
   case PublicationPending(taskId: String, createdAt: Option[Instant] = None)
+  case NotLocallyWaitable(
+      taskId: String,
+      state: SubagentStoredTaskState,
+      workerId: Option[SubagentWorkerId],
+      createdAt: Option[Instant] = None
+  )
   case Terminal(
       taskId: String,
       workerId: Option[SubagentWorkerId],
@@ -37,6 +43,15 @@ enum SubagentTaskOutputResult derives JsonCodec:
 
 /** Only the joined task/publication wait is timed; hosts bound lookup and readiness backend calls. */
 object SubagentTaskOutputTool:
+  /** Retains the selected observation capability; Stored never supplies a fabricated waiter. */
+  private[subagent] enum Capture:
+    case Local(entry: SubagentCapturedWait)
+    case Stored(store: SubagentTerminalStore, id: SubagentTaskId)
+
+    def checkedMetadata: IO[AgentError, Option[SubagentTaskMetadata]] = this match
+      case Local(entry)      => entry.checkedMetadata
+      case Stored(store, id) => store.markChecked(id)
+
   final class WaitTimeout private (val milliseconds: Long):
     def duration: Duration = Duration.fromMillis(milliseconds)
 
@@ -79,6 +94,7 @@ object SubagentTaskOutputTool:
         ) + "block defaults to true; timeout is milliseconds, default 30000, clamped to 0..600000. " +
           "Use block=false or timeout=0 for a nonwaiting status check. " +
           "PublicationPending means execution joined but its durable receipt is not ready. " +
+          "NotLocallyWaitable reports persisted nonterminal state without a local executor; blocking does not create one. " +
           "Lookup/backend readiness are host-bounded separately from the wait timeout.",
         Json.Obj(
           "type" -> Json.Str("object"),
@@ -124,32 +140,59 @@ object SubagentTaskOutputTool:
 
       private def read(input: Input): IO[AgentError, SubagentTaskOutputResult] =
         for
-          selection <- ZIO.fromEither(SubagentTaskSelection.selected(Chunk(input.id)))
-          captured  <- registry.captureWait(selection)
-          entry <- ZIO
-            .fromOption(captured.headOption)
-            .orElseFail(
-              AgentError.InvalidConfiguration(
-                "No task with this ID exists in the selected registry; reconcile it with task_list if installed"
-              )
-            )
-          metadata <- entry.checkedMetadata
+          captured <- registry.captureOutput(input.id)
+          metadata <- captured.checkedMetadata
           createdAt = metadata.map(_.createdAt)
-          ready <- entry.readiness
-          result <- ready match
-            case SubagentCapturedReadiness.Ready(record) => ZIO.succeed(terminal(record, createdAt))
-            case pending =>
-              input.mode match
-                case Mode.Poll => ZIO.succeed(status(input.id, pending, createdAt))
-                case Mode.Wait(timeout) if timeout.milliseconds == 0L =>
-                  ZIO.succeed(status(input.id, pending, createdAt))
-                case Mode.Wait(timeout) =>
-                  SubagentTaskBarrier
-                    .raceWithSignal(entry.await, ZIO.sleep(timeout.duration).as(Exit.unit))
-                    .flatMap:
-                      case Some(record) => ZIO.succeed(terminal(record, createdAt))
-                      case None         => entry.readiness.map(status(input.id, _, createdAt))
+          result <- captured match
+            case Capture.Stored(store, id) => readStored(store, id, createdAt)
+            case Capture.Local(entry) =>
+              entry.readiness.flatMap:
+                case SubagentCapturedReadiness.Ready(record) =>
+                  ZIO.succeed(terminal(record, createdAt))
+                case pending =>
+                  input.mode match
+                    case Mode.Poll => ZIO.succeed(status(input.id, pending, createdAt))
+                    case Mode.Wait(timeout) if timeout.milliseconds == 0L =>
+                      ZIO.succeed(status(input.id, pending, createdAt))
+                    case Mode.Wait(timeout) =>
+                      SubagentTaskBarrier
+                        .raceWithSignal(entry.await, ZIO.sleep(timeout.duration).as(Exit.unit))
+                        .flatMap:
+                          case Some(record) => ZIO.succeed(terminal(record, createdAt))
+                          case None         => entry.readiness.map(status(input.id, _, createdAt))
         yield result
+
+  private def readStored(
+      store: SubagentTerminalStore,
+      id: SubagentTaskId,
+      createdAt: Option[Instant]
+  ): IO[AgentError, SubagentTaskOutputResult] =
+    val missing =
+      AgentError.StorageError("Captured stored task is no longer visible in its selected store")
+    store.taskRecordSnapshot.flatMap:
+      case None => store.read(id).someOrFail(missing).map(terminal(_, createdAt))
+      case Some(records) =>
+        ZIO
+          .fromOption(records.find(_.id == id))
+          .orElseFail(missing)
+          .map: record =>
+            record.state match
+              case SubagentTaskRecordState.Pending =>
+                SubagentTaskOutputResult.NotLocallyWaitable(
+                  id.value.toString,
+                  SubagentStoredTaskState.Pending,
+                  record.workerId,
+                  createdAt
+                )
+              case SubagentTaskRecordState.Running =>
+                SubagentTaskOutputResult.NotLocallyWaitable(
+                  id.value.toString,
+                  SubagentStoredTaskState.Running,
+                  record.workerId,
+                  createdAt
+                )
+              case SubagentTaskRecordState.Terminal(outcome, _) =>
+                terminal(SubagentTerminalRecord(id, outcome, record.workerId), createdAt)
 
   private def terminal(
       record: SubagentTerminalRecord,

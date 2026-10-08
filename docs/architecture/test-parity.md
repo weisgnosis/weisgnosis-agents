@@ -1734,7 +1734,8 @@ Pinned `WorkspaceTaskRepositoryTest` contains 25 executable test methods. review
 - [x] listTasks_readsFromWorkspaceAfterCompaction (317): persisted task IDs remain discoverable through a fresh binding.
 - [x] listTasks_terminalStatusNotOverridden (360): persisted terminal truth wins a live Running snapshot.
 - [x] listTasks_withFilter_crossNode (388): fresh model-facing listing filters exact completed and failed IDs.
-- [ ] workspaceManager_taskRecordRoundTrip (444): exact terminal reopen and the source-reviewed durable Pending/Running observation port exist; classify and verify the mixed running/terminal count through the applicable public view before closing this method. The fixed JSON filesystem layout is a backend adaptation. This method does not assert agent/session metadata fields or timestamps.
+- [x] workspaceManager_taskRecordRoundTrip (444), state/result/count subset: retained Running (456-457), exact terminal result (461-462) and mixed enumeration count (466) are verified through the [stored view contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#stored-task-views). Both independent source reviews and public harness/actual fresh-adapter PostgreSQL checks pass, as does full verification. Both independent reviewers approve the final combined scope under the linked contract. These checks do not assert agent/session metadata fields or timestamps.
+- [ ] workspaceManager_taskRecordRoundTrip (469), physical workspace JSON: the pinned assertion requires agents/parent/tasks/sess-rt.json on disk. PostgreSQL state/count evidence does not satisfy that assertion. Classify and implement the applicable local workspace adapter; no backend waiver or whole-method closure is claimed.
 - [ ] cancelTask_writesCancelRequestedToWorkspace (263): Pending/Running observations exist; persist cancellation intent before current-owner cancellation, which remains unimplemented.
 - [ ] heartbeat_refreshesLastUpdatedAt (478): expose explicit host-driven running-record refresh without an internal daemon.
 - [ ] heartbeat_skipsCompletedTasks (534): preserve terminal truth during refresh.
@@ -1832,7 +1833,16 @@ The source-reviewed [bound inspection adapter](../../modules/harness/src/main/sc
 - [x] Pass four RC1 packages, archive preparation and fresh external consumption for these exact sources.
 - [x] review_fp and review_invariants approve the final combined scope against ee87c13: four unchanged Scala identities and sixteen Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,406-local-reference validation pass.
 - [x] Integrate complete local wait-result consumption within the explicitly bound middleware toolkit.
-- [x] Implement and independently source-review explicit fixed-session/catalog/session-catalog/directory routing and selected fixed-session waits under the [routed contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#routed-task-result-consumption). The separately reviewed single-task blocking/full-output and metadata contracts are below; stored-only Pending/Running views remain unfinished.
+- [x] Implement and independently source-review explicit fixed-session/catalog/session-catalog/directory routing and selected fixed-session waits under the [routed contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#routed-task-result-consumption). The separately reviewed single-task blocking/full-output and metadata contracts are below; the [stored-state scope](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#stored-task-views) has separate final gates.
+
+## Stored task views
+
+- [x] Reproduce the original stored-only Pending/Running visibility gap against unchanged 0bbae03 using public registry and task_list observations; target/stored-task-views-gap-red.log records only Terminal where all three records are expected.
+- [x] Reproduce the draft terminal-only custom-store read-boundary regression through observe and actual agent_task before correction; target/stored-task-views-compatibility-red.log records incorrectly successful output instead of the exact backend error.
+- [x] Implement/source-review complete mixed-state views, selected nonlocal rejection, task_output NotLocallyWaitable/no-ACK and legacy unresolved inbox behavior; focused/full verification passes.
+- [x] review_fp and review_invariants approve the final combined scope against 0bbae03: twelve unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
+
+Pinned WorkspaceTaskRepository get/list fallback paths (515-553 and syntheticTask around 898) reconstruct incomplete futures or remote polling. Scala deliberately exposes stored status without an executable capability; waiting remains local-only. This explicit lifecycle adaptation neither claims remote completion polling nor waives the original restoration/owner-recovery obligations.
 
 ## Task output source obligations
 

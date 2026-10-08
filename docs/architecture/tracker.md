@@ -17,47 +17,17 @@ The repository does not currently support a defensible whole-plan completion per
 
 ## Immediate next work
 
-Execute the original scope without substituting a narrower release checklist. Linked component contracts own exact source identities and independent acceptance evidence.
+Execute the original scope without substituting a narrower release checklist. Package contracts own exact source identities, independent acceptance and verification evidence; Git retains previous delivery sequences.
 
-- [x] Invocation/prepared execution, durable terminal publication/acknowledgement and accepted-model-response observation have independently accepted prerequisite contracts.
-- [x] Automatic reasoning reminders and bound inspection consume exact trusted persisted observations within their linked accepted scopes.
-- [x] Implement local selected/current-running wait barriers, model-facing tools and complete-result persistence acknowledgement; both independent source reviews and focused checks pass.
-- [x] Pass full verification, four packages, archive preparation and fresh external consumption for the local wait increment.
-- [x] review_fp and review_invariants approve the final combined seven-Scala/sixteen-Markdown scope against 4cf5069 with no unresolved findings.
-- [x] Implement and independently source-review scoped inbox-any, shared bounded empty-wait policy and arrival recovery; all eighteen classified wait methods have bounded mappings. Full/artifact checks and final combined documentation review pass below.
-- [x] Compile the initial inbox/session and scoped tool/middleware draft with zero compiler warnings (target/inbox-wait-draft-compile.log). This is not source acceptance.
-- [x] Reproduce draft readiness/publication blocking and arrival-during-no-work-check races with actual assertion failures before correcting them (target/inbox-wait-draft-red.log).
-- [x] Reproduce lost cleanup defects and masked adapter-close cancellation with actual assertion failures before correction (target/inbox-wait-lifecycle-red.log).
-- [x] Reproduce the failing-close-signal race and the same cleanup-loss defect in the previously accepted ordinary barrier through public assertion regressions before correction.
-- [x] Correct every reproduced lifecycle/parallel-wait finding and obtain explicit final FP/ZIO and invariant source approval for the ten exact identities in the canonical contract.
-- [x] Verify shared timeout admission, budget recovery, truthful no-work outcomes and cancellation/close ownership: target/inbox-wait-focused-final.log passes 25 harness and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
-- [x] Obtain final independent FP/ZIO and invariant source approval and pass full/artifact/external-consumer verification for the scoped inbox increment.
-- [x] review_fp and review_invariants approve the final combined ten-Scala/sixteen-Markdown scope against d38b376, with no unresolved findings.
-- [x] Implement explicit checked optional worker identity, schema-3 migration, retained acknowledgement and escaped reminder attributes. Both independent source reviews approve the ten exact identities.
-- [x] Verify 22 focused harness and two actual PostgreSQL groups, including the corrected isolated metadata-byte-growth oracle.
-- [x] Pass worker-identity full/artifact/external-consumer verification with zero failures or compiler warnings.
-- [x] review_fp and review_invariants approve the final combined scope against 7bff28a: ten unchanged Scala identities and fourteen Markdown files, no unresolved findings.
-- [x] Implement and independently source-review explicit borrowed terminal-store bindings through catalogs and ordinary/restored/retained sessions; 20 focused harness groups pass.
-- [x] Pass full/artifact/archive/external-consumer verification for the six-source terminal-binding increment.
-- [x] review_fp and review_invariants approve the final combined scope against ed6d6b4: six unchanged Scala identities and thirteen Markdown files, no unresolved findings.
-- [x] Implement and independently source-review explicit routed result consumption without granting authority from route strings; retain the selected registry through exact final-persistence acknowledgement.
-- [x] Verify routed result consumption and erased/replaced output exclusion. The held-directory regression first reproduced premature closure before lookup/cleanup; correction passes 27 harness and two actual PostgreSQL groups, with both independent final source approvals.
-- [x] review_fp and review_invariants approve the final combined routed-consumption scope against b98fc2f: four unchanged Scala identities and fourteen Markdown files, no unresolved findings.
-- [x] Implement and independently source-review additive observational task_output with default blocking retrieval, a 30-second budget, checked 0-600,000 millisecond timeout, zero-time immediate observation and full terminal output. Existing nonblocking agent_task and multi-task waits retain their distinct contracts.
-- [x] Both independent source reviews and focused checks verify truthful Running/PublicationPending/Terminal readiness and waiter-only cancellation for task_output; preserve stable captured task/publication authority.
-- [x] review_fp and review_invariants approve the final combined observational task_output scope against b70336f: four unchanged Scala identities and twelve Markdown files, no unresolved findings.
-- [x] Implement and independently source-review bounded full-output persisted-result acknowledgement with unchanged final content and trusted captured execution authority; focused checks pass.
-- [x] review_fp and review_invariants approve the final combined scope against 584ecf1: five unchanged Scala identities and fourteen Markdown files, no unresolved findings.
-- [ ] Current task: implement truthful stored-only Pending/Running model views and unresolved-work status without constructing executable handles; preserve existing local publication barriers.
-- [x] Reproduce draft cleanup-cause loss, volatile launch acquisition regression and terminal publication-order regression before correcting production code.
-- [x] Obtain final independent source approval from review_fp and review_invariants for the ten-file pre-start durable admission scope against f87ed98; 27 focused harness and two actual PostgreSQL groups pass.
-- [x] Pass full/artifact/archive/external-consumer checks for pre-start durable admission.
-- [x] review_fp and review_invariants approve the final combined scope against f87ed98: ten unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
-- [x] Implement and independently source-review task-output creation/check metadata; focused harness and actual PostgreSQL checks pass.
-- [x] Pass full/artifact/archive/external-consumer checks for metadata/output.
-- [x] review_fp and review_invariants approve the final combined scope against 38916ce: eight unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
-- [ ] Implement stored-only Pending/Running model views and classify remaining task-detail failure/cause projection; neither metadata nor bounded consumption establishes whole TaskTool parity or executable restoration.
-- [x] Implement and independently source-review durable admitted/running identity; required full/artifact checks pass under the linked admission contract.
+- [x] Implement independently accepted invocation/prepared execution, durable terminal publication/acknowledgement and accepted-model-response observation.
+- [x] Implement independently accepted automatic reminders, bound ordinary/routed inspection and full-output consumption, local selected/current-running barriers and scoped inbox waits.
+- [x] Implement independently accepted checked worker identity, explicit borrowed store bindings and pre-start durable admission without executable restoration.
+- [x] Implement independently accepted original creation/check metadata and exact expanded-result acknowledgement.
+- [x] Reproduce the stored-only visibility gap against unchanged 0bbae03: a persisted Pending/Running/Terminal fixture exposes only its Terminal record (target/stored-task-views-gap-red.log).
+- [x] Implement/source-review truthful stored-only Pending/Running model views and unresolved-work status without constructing executable handles; preserve local publication barriers and custom-store read failures.
+- [x] Obtain final independent FP/ZIO and invariant source approval and pass focused/full/artifact/archive/consumer verification for stored views.
+- [x] Obtain final combined source/documentation acceptance and commit the defined stored-view scope.
+- [ ] Current task: preserve typed task failure messages and direct causes through strict legacy/current storage and public output; neither metadata nor bounded consumption establishes whole TaskTool parity.
 - [ ] Implement current-owner durable cancellation intent and recovery authority, retaining truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
@@ -69,7 +39,7 @@ These are provisional engineering effort ranges, including implementation, propo
 
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
-| Stored-only live task views and remaining task-detail applicability | Finite source decomposition in progress; not yet estimated | Admission and creation/check metadata are implemented within reviewed scopes. Persisted Pending/Running are observations, never executable handles or recovery authority. |
+| Remaining task-detail failure/cause applicability | Not yet estimated | Classify the pinned formatter contract separately from full terminal outcome availability. |
 | Durable cancellation intent with current-owner handling | 12-24 hours after terminal storage | Persist intent, join owned cancellation and preserve terminal truth before notification. Cross-process takeover/fencing remains separate. |
 | Remaining method applicability and resulting behavior | Not yet estimated | The finite inventories do not classify all 2,473 pinned core declarations. An evaluator dependency or passing suites cannot close unknown obligations. |
 
@@ -92,24 +62,16 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [task-output metadata contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#task-output-creation-and-check-metadata) owns the current eight-Scala increment against 38916ce, manifest f7ded0e335a4f89e56b218e3ff0d84e0f8f37ad379af0fd322ed7dda42d48c86. Actual creation precedes volatile launch; durable metadata comes only from the retained store. Check time updates before readiness/wait timing without changing other fields or granting execution authority.
+The [stored-task view contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#stored-task-views) owns the twelve-Scala increment against 0bbae03, manifest 1ac1a1aaeb623167b2eed4d47950db289044245bd5451f1fa97e93d78735bf73. Persisted nonterminals are data-only observations; querying never constructs a local executor or infers remote liveness. Legacy custom per-ID read failures and local publication barriers retain their authority.
 
-- [x] Implement original creation/check metadata, stable capture and exact expanded-result acknowledgement without changing receipt limits or default registration.
-- [x] review_fp and review_invariants approve the eight exact Scala identities with no unresolved findings. target/task-output-metadata-focused-green.log passes 26 harness groups and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
-- [x] target/task-output-metadata-final-verify.log passes formatting/fatal-warning compilation, 1,629 tests (695 core / 772 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
-- [x] target/task-output-metadata-final-preparation.log passes negative archive admission checks, restores original bytes and revalidates the source archives.
-- [x] target/task-output-metadata-final-consumer.log passes fresh standalone formatting, compilation, execution and four artifact-hash checks. Its unchanged probe does not directly exercise metadata; public harness and actual PostgreSQL specifications provide that evidence.
-- [x] review_fp and review_invariants approve the final combined scope against 38916ce: eight unchanged Scala identities and fourteen Markdown files, with no unresolved findings. English/UTF-8/diff checks and local links pass.
+- [x] Implement mixed stored Pending/Running/Terminal listing/inspection, immediate NotLocallyWaitable output and truthful unresolved inbox status.
+- [x] review_fp and review_invariants approve all twelve exact Scala identities, with no unresolved findings. target/stored-task-views-focused-green.log passes 25 harness and two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
+- [x] target/stored-task-views-final-verify.log passes formatting/fatal-warning compilation, 1,631 tests (695 core / 774 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/stored-task-views-final-preparation.log passes negative archive admission/restoration and revalidation.
+- [x] target/stored-task-views-final-consumer.log passes fresh standalone formatting, compilation, execution and four artifact-hash checks. The unchanged consumer probe does not directly exercise stored nonterminals; harness and actual PostgreSQL specifications provide that evidence.
+- [x] review_fp and review_invariants approve the final combined scope against 0bbae03: twelve unchanged Scala identities and fourteen Markdown files, with no unresolved findings. English/UTF-8/diff checks and local Markdown links pass.
 
-All eighteen classified wait methods and nine reminder methods have bounded mappings. Stored-only Pending/Running queries, remaining failure/cause projection, completion ordering, durable cancellation/running authority, executable session restoration, remaining original-plan applicability and the actual product cutover remain unfinished. No whole-plan completion or publication is claimed.
-
-The immutable process launcher remains in force and its current modified source identities redirect to the negotiation manifest. Its production dependency eviction diagnostics remain visible: no suppression or universal binary compatibility claim. SLF4J/dependency/runtime notices are distinct from compiler warnings.
-
-The compiled publication guide retains its separate accepted evidence: publication-guide.log compiles all three complete applications with fatal warnings and executes ScriptedAgent successfully. This is not a new live-provider or whole-plan parity claim.
-
-The separately retained earlier PostgreSQL connection-acquisition failure still has no established cause. The diagnosed cold-schema catalog race and its successful correction do not explain that older failure. Keep correlation of sanitized SQLSTATE, operation stage and server evidence open on recurrence.
-
-Current exact source identities and reviewer evidence belong to [core](../../modules/core/README.md), [harness](../../modules/harness/README.md), [MCP](../../modules/mcp/README.md), [PostgreSQL](../../modules/storage-postgresql/README.md) and their package READMEs. Acceptance never extends to unfinished behavior automatically.
+Stored querying does not close the physical workspace-file assertion, remaining failure/cause projection, completion ordering, durable cancellation authority, executable session restoration, remaining original-plan applicability or the actual product cutover. No whole-plan completion or publication is claimed.
 
 ## Available capabilities
 
@@ -127,8 +89,8 @@ Pair-safe compaction/pruning, offload, bounded memory/transcript publication, kn
 - [x] Implement a server-selected alternative from explicitly configured supported MCP revisions, with both independent source approvals and full verification. Final combined delivery gates remain visible above; remaining builder methods are not automatically accepted.
 - [x] Persist bounded terminal observations with automatic registry-owned publication and reopened model-facing output/list/filter, including failed results and owner isolation; source and full/artifact checks pass.
 - [x] Classify all 25 pinned WorkspaceTaskRepositoryTest methods: eight bounded observable adaptations, one partial and sixteen open; the [method inventory](test-parity.md#workspace-task-repository-method-inventory) owns exact assertions and differences.
-- [ ] Complete the seventeen partial/open task-repository methods and separately classified TaskRecord metadata. Method444 lacks durable RUNNING/mixed-record count; it does not assert metadata fields or timestamps.
-- [ ] Complete wait/other routing consumption, publication-before-notification and cancellation-intent semantics. Pinned WorkspaceTaskRepositoryTest methods263/882/923 require durable admission/control identity and persisted terminal state before notification; the implemented acknowledgement ledger alone does not close these integration obligations.
+- [ ] Complete the seventeen partial/open task-repository methods and separately classified TaskRecord metadata. Method444 now has verified durable Running/result/mixed-count semantics; its physical workspace JSON assertion469 remains open. It does not assert metadata fields or timestamps.
+- [ ] Complete publication-before-notification, wakeup suppression and current-owner cancellation-intent semantics. Bound local/routed inspection and wait consumption are implemented within their accepted scopes. Pinned WorkspaceTaskRepositoryTest methods263/882/923 require durable admission/control identity and persisted terminal state before notification; the implemented acknowledgement ledger alone does not close these integration obligations.
 - [ ] Decompose and implement durable reusable-session restoration and cross-process owner recovery with explicit host ownership/fencing. A stable-name/hash helper or persisted result does not restore execution authority.
 
 - [ ] Complete the applicable upstream method mappings for clients/providers, ReAct lifecycle/hooks/events, permission delivery and richer subagent behavior; retain every original semantic obligation until implemented and independently accepted.

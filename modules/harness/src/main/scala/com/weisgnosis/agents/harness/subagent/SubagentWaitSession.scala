@@ -175,7 +175,8 @@ final class SubagentWaitSession private (
                 tasks.waitWorkState.map:
                   case SubagentWaitWorkState.Empty       => Some(SubagentWaitOutcome.NoTasks)
                   case SubagentWaitWorkState.AllTerminal => Some(SubagentWaitOutcome.AllTerminal)
-                  case SubagentWaitWorkState.Running     => None
+                  case SubagentWaitWorkState.Running | SubagentWaitWorkState.StoredUnresolved =>
+                    None
         bounded(admission, deadline).flatMap:
           case None => ZIO.succeed(admissionTimedOut)
           case Some(Some(result)) =>

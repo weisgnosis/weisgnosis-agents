@@ -23,6 +23,7 @@ import zio.json.*
 import zio.json.ast.Json
 
 enum ListedTaskStatus(val wireName: String):
+  case Pending   extends ListedTaskStatus("pending")
   case Running   extends ListedTaskStatus("running")
   case Completed extends ListedTaskStatus("completed")
   case Failed    extends ListedTaskStatus("failed")
@@ -142,6 +143,10 @@ object SubagentTaskListTool:
   private def project(snapshot: SubagentTaskObservation): ListedTask =
     val status = snapshot.state match
       case SubagentTaskObservationState.Running => ListedTaskStatus.Running
+      case SubagentTaskObservationState.Stored(SubagentStoredTaskState.Pending) =>
+        ListedTaskStatus.Pending
+      case SubagentTaskObservationState.Stored(SubagentStoredTaskState.Running) =>
+        ListedTaskStatus.Running
       case SubagentTaskObservationState.Terminal(outcome) =>
         outcome match
           case SubagentTerminalOutcome.Completed(_) => ListedTaskStatus.Completed

@@ -33,7 +33,7 @@ enum SubagentTaskState:
 final case class SubagentTaskSnapshot(id: SubagentTaskId, state: SubagentTaskState)
 
 private[subagent] enum SubagentWaitWorkState:
-  case Empty, Running, AllTerminal
+  case Empty, Running, StoredUnresolved, AllTerminal
 
 /** A retained, fully joined outcome; delivery does not transfer execution ownership. */
 final case class SubagentTaskDelivery(id: SubagentTaskId, exit: Exit[AgentError, AgentResult])
@@ -79,6 +79,20 @@ trait SubagentTaskRegistry:
   /** Status-only admission never waits for publication and never exposes terminal result payloads. */
   private[subagent] def waitWorkState: IO[AgentError, SubagentWaitWorkState] =
     ZIO.fail(AgentError.InvalidConfiguration("This registry does not support async wait readiness"))
+
+  /** Custom registries retain their existing captured-wait capability unless explicitly overridden. */
+  private[subagent] def captureOutput(
+      id: SubagentTaskId
+  ): IO[AgentError, SubagentTaskOutputTool.Capture] =
+    for
+      selection <- ZIO.fromEither(SubagentTaskSelection.selected(Chunk(id)))
+      captured  <- captureWait(selection)
+      entry <- ZIO
+        .fromOption(captured.headOption)
+        .orElseFail(
+          AgentError.InvalidConfiguration("No task with this ID exists in the selected registry")
+        )
+    yield SubagentTaskOutputTool.Capture.Local(entry)
 
   /** Custom registries must explicitly implement stable captured wait ownership. */
   private[subagent] def captureWait(
@@ -439,20 +453,87 @@ object SubagentTaskRegistry:
     def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] =
       lookup(id).flatMap(ZIO.foreach(_)(_.task.cancel))
 
+    final private case class StoredView(
+        terminals: Chunk[SubagentTerminalRecord],
+        observations: Chunk[SubagentTaskObservation],
+        unresolved: Set[SubagentTaskId]
+    )
+
+    private def storedView(
+        store: SubagentTerminalStore,
+        selected: Option[SubagentTaskId] = None
+    ): IO[AgentError, StoredView] =
+      store.taskRecordSnapshot.flatMap:
+        case None =>
+          val records = selected match
+            case None     => store.list
+            case Some(id) => store.read(id).map(Chunk.fromIterable(_))
+          records.map(values => StoredView(values, values.map(fromStored), Set.empty))
+        case Some(records) =>
+          ZIO.succeed(
+            StoredView(
+              records.flatMap(_.terminal),
+              records.map(record =>
+                SubagentTaskObservation(
+                  record.id,
+                  record.state match
+                    case SubagentTaskRecordState.Pending =>
+                      SubagentTaskObservationState.Stored(SubagentStoredTaskState.Pending)
+                    case SubagentTaskRecordState.Running =>
+                      SubagentTaskObservationState.Stored(SubagentStoredTaskState.Running)
+                    case SubagentTaskRecordState.Terminal(outcome, _) =>
+                      SubagentTaskObservationState.Terminal(outcome)
+                )
+              ),
+              records.filter(_.terminal.isEmpty).map(_.id).toSet
+            )
+          )
+
+    override private[subagent] def captureOutput(
+        id: SubagentTaskId
+    ): IO[AgentError, SubagentTaskOutputTool.Capture] =
+      state.get.flatMap: current =>
+        current.entries.find(_.id == id) match
+          case Some(entry) =>
+            ZIO.succeed(SubagentTaskOutputTool.Capture.Local(capturedEntry(entry)))
+          case None =>
+            persistence match
+              case None =>
+                ZIO.fail(
+                  AgentError.InvalidConfiguration(
+                    "No task with this ID exists in the selected registry"
+                  )
+                )
+              case Some(binding) =>
+                storedView(binding.store).flatMap(view =>
+                  if view.observations.exists(_.id == id) then
+                    ZIO.succeed(SubagentTaskOutputTool.Capture.Stored(binding.store, id))
+                  else
+                    ZIO.fail(
+                      AgentError.InvalidConfiguration(
+                        "No task with this ID exists in the selected registry"
+                      )
+                    )
+                )
+
     override private[subagent] def waitWorkState: IO[AgentError, SubagentWaitWorkState] =
       for
         entries <- state.get.map(_.entries)
         stored <- persistence match
-          case None          => ZIO.succeed(Chunk.empty[SubagentTerminalRecord])
-          case Some(binding) => binding.store.list
+          case None          => ZIO.succeed(StoredView(Chunk.empty, Chunk.empty, Set.empty))
+          case Some(binding) => storedView(binding.store)
         sampled <- ZIO.foreach(entries)(entry => entry.task.poll.map(entry -> _))
         _ <- ZIO.foreachDiscard(entries.flatMap(_.publisher))(_.poll.flatMap:
           case Some(Exit.Failure(cause)) => ZIO.refailCause(cause)
           case _                         => ZIO.unit)
       yield
-        if sampled.exists((entry, exit) => exit.isEmpty && !stored.exists(_.id == entry.id)) then
-          SubagentWaitWorkState.Running
-        else if entries.isEmpty && stored.isEmpty then SubagentWaitWorkState.Empty
+        if sampled.exists((entry, exit) =>
+            exit.isEmpty && !stored.terminals.exists(_.id == entry.id)
+          )
+        then SubagentWaitWorkState.Running
+        else if stored.unresolved.exists(id => !entries.exists(_.id == id)) then
+          SubagentWaitWorkState.StoredUnresolved
+        else if entries.isEmpty && stored.observations.isEmpty then SubagentWaitWorkState.Empty
         else SubagentWaitWorkState.AllTerminal
 
     override private[subagent] def captureWait(
@@ -473,12 +554,21 @@ object SubagentTaskRegistry:
           case selected: SubagentTaskSelection.Selected =>
             val ids = selected.ids
             val storedRecords = persistence match
-              case Some(binding) => binding.store.list
-              case None          => ZIO.succeed(Chunk.empty[SubagentTerminalRecord])
-            storedRecords.flatMap: stored =>
+              case Some(binding) => storedView(binding.store)
+              case None          => ZIO.succeed(StoredView(Chunk.empty, Chunk.empty, Set.empty))
+            storedRecords.flatMap: view =>
+              val stored = view.terminals
+              val nonlocal =
+                ids.filter(id => view.unresolved.contains(id) && !entries.exists(_.id == id))
               val missing =
                 ids.filterNot(id => entries.exists(_.id == id) || stored.exists(_.id == id))
-              if missing.nonEmpty then
+              if nonlocal.nonEmpty then
+                ZIO.fail(
+                  AgentError.InvalidConfiguration(
+                    s"Selected stored tasks are not locally waitable: ${nonlocal.map(_.value).mkString(", ")}"
+                  )
+                )
+              else if missing.nonEmpty then
                 ZIO.fail(
                   AgentError.InvalidConfiguration(
                     s"Unknown selected task IDs: ${missing.map(_.value).mkString(", ")}"
@@ -590,11 +680,12 @@ object SubagentTaskRegistry:
           for
             entry  <- lookup(id)
             live   <- ZIO.foreach(entry)(snapshot)
-            stored <- binding.store.read(id)
+            stored <- storedView(binding.store, Some(id))
             observed <- (entry, live) match
               case (Some(value), Some(current)) =>
-                observeEntry(value, current, stored, binding.store).map(Some(_))
-              case _ => ZIO.succeed(stored.map(fromStored))
+                observeEntry(value, current, stored.terminals.find(_.id == id), binding.store)
+                  .map(Some(_))
+              case _ => ZIO.succeed(stored.observations.find(_.id == id))
           yield observed
 
     override def observations: IO[AgentError, Chunk[SubagentTaskObservation]] =
@@ -604,11 +695,11 @@ object SubagentTaskRegistry:
           for
             entries <- state.get.map(_.entries)
             live    <- ZIO.foreach(entries)(entry => snapshot(entry).map(entry -> _))
-            stored  <- binding.store.list
+            stored  <- storedView(binding.store)
             observed <- ZIO.foreach(live): (entry, current) =>
-              observeEntry(entry, current, stored.find(_.id == entry.id), binding.store)
+              observeEntry(entry, current, stored.terminals.find(_.id == entry.id), binding.store)
             localIds = entries.map(_.id).toSet
-          yield observed ++ stored.filterNot(record => localIds.contains(record.id)).map(fromStored)
+          yield observed ++ stored.observations.filterNot(record => localIds.contains(record.id))
 
     override private[subagent] def awaitTerminalPublication(
         id: SubagentTaskId

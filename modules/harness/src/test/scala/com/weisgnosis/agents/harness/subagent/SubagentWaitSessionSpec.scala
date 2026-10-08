@@ -187,12 +187,21 @@ object SubagentWaitSessionSpec extends ZIOSpecDefault:
               ),
             None
           )
-          completedId      <- submit(completedTasks)
-          failedId         <- submit(completedTasks)
-          _                <- completedTasks.await(completedId)
-          _                <- completedTasks.await(failedId)
-          completedSession <- SubagentWaitSession.open(inbox, Some(completedTasks))
-          allTerminal      <- completedSession.waitFor(SubagentWaitRequest.InboxAny)
+          completedId       <- submit(completedTasks)
+          failedId          <- submit(completedTasks)
+          _                 <- completedTasks.await(completedId)
+          _                 <- completedTasks.await(failedId)
+          completedSession  <- SubagentWaitSession.open(inbox, Some(completedTasks))
+          allTerminal       <- completedSession.waitFor(SubagentWaitRequest.InboxAny)
+          unresolvedStore   <- store
+          unresolvedId      <- Random.nextUUID.map(SubagentTaskId(_))
+          _                 <- unresolvedStore.admit(unresolvedId)
+          unresolvedTasks   <- registry(ZIO.never, Some(unresolvedStore))
+          unresolvedSession <- SubagentWaitSession.open(inbox, Some(unresolvedTasks))
+          unresolved <- timeout(unresolvedSession.waitFor(SubagentWaitRequest.InboxAny, oneSecond))
+          _          <- inbox.setPresence(SubagentInboxPresence.Pending)
+          unresolvedArrival <- unresolvedSession.waitFor(SubagentWaitRequest.InboxAny, oneSecond)
+          _                 <- inbox.setPresence(SubagentInboxPresence.Empty)
           external <- SubagentWaitSession.open(
             inbox,
             Some(emptyTasks),
@@ -255,6 +264,8 @@ object SubagentWaitSessionSpec extends ZIOSpecDefault:
         yield assertTrue(
           noTasks == SubagentWaitOutcome.NoTasks,
           allTerminal == SubagentWaitOutcome.AllTerminal,
+          unresolved == SubagentWaitOutcome.InboxTimedOut(1),
+          unresolvedArrival == SubagentWaitOutcome.InboxArrived,
           externallyWaiting == SubagentWaitOutcome.InboxTimedOut(1),
           failed match
             case Exit.Failure(cause) =>

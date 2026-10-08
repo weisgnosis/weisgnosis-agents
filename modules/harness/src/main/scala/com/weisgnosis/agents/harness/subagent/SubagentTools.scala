@@ -51,6 +51,7 @@ final case class SubagentToolText(text: String, omittedCharacters: Int) derives 
 
 enum SubagentToolState derives JsonCodec:
   case Running, Promoted, Interrupted, Missing
+  case Stored(state: SubagentStoredTaskState)
   case Completed(reply: SubagentToolText)
   case Suspended(reply: SubagentToolText)
   case Stopped(reason: SubagentToolText)
@@ -478,6 +479,8 @@ object SubagentTools:
       .map:
         case Some(SubagentTaskObservation(_, SubagentTaskObservationState.Running)) =>
           Observation.Success(task(id, SubagentToolState.Running))
+        case Some(SubagentTaskObservation(_, SubagentTaskObservationState.Stored(state))) =>
+          Observation.Success(task(id, SubagentToolState.Stored(state)))
         case Some(SubagentTaskObservation(_, SubagentTaskObservationState.Terminal(outcome))) =>
           Observation.Success(project(id, outcome))
         case None => Observation.Error(task(id, SubagentToolState.Missing))

@@ -81,7 +81,8 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
   ): ZIO[Scope, AgentError, AgentResult] =
     for
       toolkit <- ZIO.fromEither(
-        SubagentTools.make(registry) ++ Toolkit.single(SubagentTaskListTool.make(registry))
+        SubagentTools.make(registry).updated(SubagentTaskOutputTool.make(registry)) ++
+          Toolkit.single(SubagentTaskListTool.make(registry))
       )
       client <- LlmClient.mock(
         Chunk(
@@ -456,6 +457,83 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             exactAfterReminder   <- terminal.read(reminderId)
             firstMessages  = firstReminder.history.filter(_.reminderKind.contains("task_delivery"))
             secondMessages = secondReminder.history.filter(_.reminderKind.contains("task_delivery"))
+            mixedTarget <- address(name, "mixed-task-views")
+            mixedStore    = SubagentTerminalStore.make(backend, mixedTarget)
+            mixedReopened = SubagentTerminalStore.make(second, mixedTarget)
+            pendingId        <- Random.nextUUID.map(SubagentTaskId(_))
+            runningId        <- Random.nextUUID.map(SubagentTaskId(_))
+            terminalId       <- Random.nextUUID.map(SubagentTaskId(_))
+            _                <- mixedStore.admit(pendingId, Some(workerId))
+            runningAdmission <- mixedStore.admit(runningId, Some(workerId))
+            _ <- runningAdmission match
+              case SubagentTaskAdmissionResult.Created(identity) => mixedStore.markRunning(identity)
+              case SubagentTaskAdmissionResult.Existing(_) =>
+                ZIO.fail(AgentError.StorageError("Fresh mixed-state fixture already exists"))
+            _ <- mixedStore.publish(
+              SubagentTerminalRecord(
+                terminalId,
+                SubagentTerminalOutcome.Completed("mixed terminal")
+              )
+            )
+            mixed <- SubagentTaskRegistry.openDurable(parent, factory, mixedReopened)
+            mixedResult <- query(
+              mixed,
+              Chunk(
+                ContentBlock.ToolUse("mixed-list", "task_list", Json.Obj()),
+                ContentBlock.ToolUse(
+                  "pending-inspection",
+                  "agent_task",
+                  Json.Obj("task_id" -> Json.Str(pendingId.value.toString))
+                ),
+                ContentBlock.ToolUse(
+                  "running-inspection",
+                  "agent_task",
+                  Json.Obj("task_id" -> Json.Str(runningId.value.toString))
+                ),
+                ContentBlock.ToolUse(
+                  "pending-output",
+                  "task_output",
+                  Json.Obj("task_id" -> Json.Str(pendingId.value.toString))
+                ),
+                ContentBlock.ToolUse(
+                  "running-output",
+                  "task_output",
+                  Json.Obj("task_id" -> Json.Str(runningId.value.toString))
+                )
+              )
+            )
+            mixedResults = mixedResult.history.flatMap(_.toolResults)
+            mixedPage <- ZIO.fromEither(
+              mixedResults
+                .find(_.id == "mixed-list")
+                .toRight(AgentError.StorageError("Missing mixed-state list"))
+                .flatMap(
+                  _.outputText.fromJson[TaskListPage].left.map(AgentError.DeserializationError(_))
+                )
+            )
+            mixedStates <- ZIO.foreach(mixedResults.filter(_.id.endsWith("-inspection")))(value =>
+              ZIO
+                .fromEither(
+                  value.outputText
+                    .fromJson[SubagentToolResult]
+                    .left
+                    .map(AgentError.DeserializationError(_))
+                )
+                .map(value.id -> _)
+            )
+            mixedOutputs <- ZIO.foreach(mixedResults.filter(_.id.endsWith("-output")))(value =>
+              ZIO
+                .fromEither(
+                  value.outputText
+                    .fromJson[SubagentTaskOutputResult]
+                    .left
+                    .map(AgentError.DeserializationError(_))
+                )
+                .map(value.id -> _)
+            )
+            mixedRecords    <- mixedReopened.taskRecords
+            mixedLive       <- mixed.list
+            callsAfterMixed <- childCalls.get
             consumptionChecks <- ZIO.foreach(
               Chunk(
                 ConsumptionTool.Inspection,
@@ -696,6 +774,43 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             liveBefore.isEmpty,
             liveAfter.isEmpty,
             calls == 2,
+            callsAfterMixed == calls,
+            mixedLive.isEmpty,
+            mixedResults.size == 5,
+            mixedResults.forall(_.state == ToolResultState.Success),
+            mixedPage == TaskListPage(
+              Chunk(
+                ListedTask(pendingId.value.toString, ListedTaskStatus.Pending),
+                ListedTask(runningId.value.toString, ListedTaskStatus.Running),
+                ListedTask(terminalId.value.toString, ListedTaskStatus.Completed)
+              ),
+              3,
+              None
+            ),
+            mixedStates.toMap == Map(
+              "pending-inspection" -> SubagentToolResult.Task(
+                pendingId.value.toString,
+                SubagentToolState.Stored(SubagentStoredTaskState.Pending)
+              ),
+              "running-inspection" -> SubagentToolResult.Task(
+                runningId.value.toString,
+                SubagentToolState.Stored(SubagentStoredTaskState.Running)
+              )
+            ),
+            mixedOutputs.toMap == Map(
+              "pending-output" -> SubagentTaskOutputResult.NotLocallyWaitable(
+                pendingId.value.toString,
+                SubagentStoredTaskState.Pending,
+                Some(workerId),
+                mixedRecords.find(_.id == pendingId).flatMap(_.metadata).map(_.createdAt)
+              ),
+              "running-output" -> SubagentTaskOutputResult.NotLocallyWaitable(
+                runningId.value.toString,
+                SubagentStoredTaskState.Running,
+                Some(workerId),
+                mixedRecords.find(_.id == runningId).flatMap(_.metadata).map(_.createdAt)
+              )
+            ),
             deliveredRecords == unacknowledgedDuring,
             deliveredRecords.map(_.id).toSet == Set(success, failed),
             deliveryReceipts.map(_.id) == deliveredRecords.map(_.id),

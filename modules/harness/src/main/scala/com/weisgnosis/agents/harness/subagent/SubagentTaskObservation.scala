@@ -15,9 +15,16 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
+import zio.json.*
+
+/** Stored status does not establish a local executor or a live remote owner. */
+enum SubagentStoredTaskState derives JsonCodec:
+  case Pending, Running
+
 /** Read-only task truth; terminal observations never reconstruct execution capabilities. */
 enum SubagentTaskObservationState:
   case Running
+  case Stored(state: SubagentStoredTaskState)
   case Terminal(outcome: SubagentTerminalOutcome)
 
 final case class SubagentTaskObservation(id: SubagentTaskId, state: SubagentTaskObservationState)
