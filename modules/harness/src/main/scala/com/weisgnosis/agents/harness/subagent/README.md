@@ -1,5 +1,32 @@
 # Scoped child execution and sessions
 
+## Explicit terminal batch delivery
+
+`SubagentTerminalDelivery.deliverPending(registry)(deliver)` is an explicitly invoked host effect, not a scheduler or automatic push hook. It reads one durable pending snapshot, selects at most ten records in its existing order and rejects duplicate IDs in that selected batch before invoking the callback. Empty batches skip both callback and acknowledgement. The callback receives exact immutable terminal observations; no live Exit, model execution or authority is reconstructed.
+
+The helper suspends callback construction and creates a bounded child Scope for delivery. It closes that scope and joins its owned cleanup before acknowledging the included IDs sequentially. Callback or callback-scope finalizer failure, defects or interruption prevent all acknowledgement. The callback must explicitly join children whose successful result matters: forkScoped owns cancellation/cleanup but does not aggregate child success into the callback result. Callback and cleanup causes are preserved rather than normalized to successful observations.
+
+Each successful acknowledgement yields SubagentTerminalDeliveryReceipt(id, acknowledgement). AlreadyAcknowledged is valid idempotent bookkeeping; Missing after delivery fails with StorageError. If a later acknowledgement fails or is interrupted, earlier stamps remain. An uncertain committed write may retain a stamp despite the failed receipt; no automatic retry or rollback occurs. Consumers can explicitly reread the ledger. The effect remains interruptible; hosts retain the normal responsibility for their own uninterruptible regions and bounded callback/backend effects.
+
+Snapshots are not exclusive claims. Concurrent calls may deliver the same batch; only the first acknowledgement timestamp wins. Hosts own authentication, recipient identity, deduplication and the decision to run this effect. Suppressing a wakeup means not invoking delivery; no implicit acknowledgement occurs. This seam does not install reasoning reminders, completion callbacks, middleware, automatic agent_task/wait-result acknowledgement, wakeup scheduling or exactly-once delivery. Those original consumption/push contracts remain open.
+
+Final formatted source scope against `bad689e`, manifest SHA-256 `048f7c44889cfd2eb0c2f3cc9bac8dc0290a904c48495a3f33c17e07d122098a`. review_fp and review_invariants independently approve these exact three identities with no unresolved source findings.
+
+| File | Git blob |
+| --- | --- |
+| [SubagentTerminalDelivery.scala](SubagentTerminalDelivery.scala) | `76b3d126cb78ebeb1aebe9267c6850e14a6db628` |
+| [SubagentTerminalDeliverySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalDeliverySpec.scala) | `52b0f0e1f93dc3539b335baaccbb31cbbe869322` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `f253e374f1993ed5ae1f2d3eba6343b5497b4545` |
+
+- [x] Implement explicit bounded success-only delivery and paired contracts for selected IDs, duplicate rejection, missing/uncertain receipts and callback cleanup.
+- [x] Correct draft fixture cancellation gaps by masking fork/unblock registration together; these were test lifecycle findings, not accepted baseline production defects.
+- [x] review_fp and review_invariants approve the final three-file source manifest; corrected focused verification passes eleven harness groups and two actually executed PostgreSQL groups, zero failed/ignored/compiler warnings.
+- [x] target/durable-delivery-final-verify.log passes formatting, fatal-warning compilation and all 1,597 tests (689 core / 746 harness / 130 MCP / 24 actual PostgreSQL / 8 examples), zero failed/ignored/compiler warnings, and builds four fresh RC1 packages.
+- [x] target/durable-delivery-final-preparation.log passes archive admission and reversible negative checks.
+- [x] target/durable-delivery-final-consumer.log passes fresh standalone formatting, clean compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise explicit delivery.
+- [x] review_fp and review_invariants approve final combined documentation against `bad689e` for fourteen files (three unchanged Scala identities and eleven Markdown files), with no unresolved findings.
+- [ ] Integrate original success-only reasoning reminders, automatic task-tool consumption acknowledgement and completion/wakeup notification separately.
+
 ## Durable terminal acknowledgement
 
 The store's additive `pending`, `acknowledgement(id)` and `acknowledge(id)` APIs expose terminal observations and explicit host receipts, never executable Exit values. `SubagentTerminalAcknowledgement` distinguishes Pending from Acknowledged(at); the checked result distinguishes Missing, Acknowledged(at) and AlreadyAcknowledged(at). Missing means no persisted terminal record, not absence of a live execution. Custom store implementations inherit typed unsupported failures instead of false empty results.
@@ -10,7 +37,7 @@ Schema-version-1 data is checked in its original canonical representation and re
 
 Opt-in durable registries expose `durablePendingDeliveries`, `terminalAcknowledgement(id)` and `acknowledgeTerminal(id)`. These methods use the owner-selected store and propagate typed failures. Local completed publication receipts are barriers before exposing or acknowledging stored data, including completion that occurs during a held backend read. Still-running local work does not block authoritative stored terminal data. Cancelling an observer does not cancel an owned publisher. Existing live pendingDeliveries/acknowledge APIs remain separate and still reject durable registries; restored observations never become fabricated live Exit values. These new APIs remain usable after registry closure while the host retains backend access.
 
-Pending order is aggregate publication order, not restored completion/submission-time order. Observation reads are not exclusive claims: concurrent consumers can see duplicates and an acknowledgement can race a pending snapshot. The host owns delivery, authentication, deduplication and the decision to acknowledge. Middleware push injection, automatic task-tool acknowledgement, durable cancellation intent and executable session restoration remain separate original obligations.
+Pending order is aggregate publication order, not restored completion/submission-time order. Observation reads are not exclusive claims: concurrent consumers can see duplicates and an acknowledgement can race a pending snapshot. The host owns delivery, authentication, deduplication and the decision to acknowledge. The [explicit success-only delivery seam](#explicit-terminal-batch-delivery) is available. Middleware push injection, automatic task-tool acknowledgement, durable cancellation intent and executable session restoration remain separate original obligations.
 
 The new draft per-ID barrier defect was reproduced in target/durable-ack-running-read-draft-red.log before correction: three groups passed and one failed because a held read exposed a stamp and admitted a second write while a now-completed task's publication receipt was still pending. Defective Registry blob: `86bf25f4b898f070228c0835507cf785e1eb0449`; regression specification: `fcbc6e6b0bfbee25eb6e7d7435cb13f7f6e6a11a`. This is a defect in the new draft, not the accepted 1925481 baseline.
 
@@ -22,7 +49,7 @@ Final formatted source scope against `1925481`, manifest SHA-256 `63a32103584533
 | [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `3b6eeeefbf36f892be41176769ea58cc042efb72` |
 | [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | `fcbc6e6b0bfbee25eb6e7d7435cb13f7f6e6a11a` |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | `6b66ac1bf046c809109c478a577a8bd418a1883a` |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `40f1eae475a9d5871b3daed04cb1d7989c856bb7` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current explicit delivery identity](#explicit-terminal-batch-delivery) |
 
 - [x] Implement bounded schema migration, first-stamp acknowledgement and observation-based registry APIs with paired contracts.
 - [x] Reproduce the stale-running per-ID barrier assertion failure before correction.
@@ -60,7 +87,7 @@ Final formatted source scope against `5f75a0a`, manifest SHA-256 `7a8aa0d20accc4
 | [SubagentTaskListTool.scala](SubagentTaskListTool.scala) | `48f77b8784e0bcf9e5c81dd36f9abf06554c8776` |
 | [SubagentTaskObservationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskObservationSpec.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current explicit delivery identity](#explicit-terminal-batch-delivery) |
 
 - [x] Implement the bounded opt-in publication owner and model-facing terminal views.
 - [x] Reproduce the held-ack assertion failure before applying its correction.
@@ -93,7 +120,7 @@ This implements only a terminal persistence subset of pinned WorkspaceTaskReposi
 | [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
 | [SubagentTerminalOutcomeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalOutcomeSpec.scala) | `30297045385ba75fa792c5818fe4037bb561a86c` |
 | [SubagentTerminalStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTerminalStoreSpec.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current terminal acknowledgement identity](#durable-terminal-acknowledgement) |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | [Current explicit delivery identity](#explicit-terminal-batch-delivery) |
 
 - [x] Implement bounded caller-owned terminal storage, paired contracts and real PostgreSQL integration.
 - [x] target/durable-terminal-focused.log passes four harness groups in 278 ms and one actually executed PostgreSQL group in 648 ms, zero failed/ignored, with fatal-warning compilation.

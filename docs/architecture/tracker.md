@@ -17,30 +17,21 @@ The repository does not currently support a defensible whole-plan completion per
 
 ## Immediate next work
 
-Execute the following sequence without changing the original scope:
+Execute the following sequence without changing the original scope. Component contracts retain exact source identities, reproduced defect evidence and scoped reviewer decisions; this checklist describes current work rather than a delivery journal.
 
-- [x] Accept scoped invocation identity and lazy ordinary prepared execution in `c99596b`; the [agent contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) owns exact identities, migration and corrected confirmation-binding evidence.
-- [x] Accept bounded durable terminal observations and caller-owned joined publication in `5f75a0a`; the [store contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-terminal-observations) owns five exact identities and full/artifact/documentation acceptance. The isolated draft worktree was removed after verifying every file against the accepted commit.
-- [x] Reproduce the new unaccepted registry draft's held-acknowledgement defect before correction. `durable-registry-held-ack-draft-red.log` records three passes/one failure: `earlyOne.isEmpty` and `earlyAll.isEmpty` fail because both expose terminal data before the retained publication acknowledgement finishes. Defective registry blob: `528d4f73a6c405a31b08fc59e61c79de1efb7aae`; regression blob: `49152ef34d98b58f288dc78844cf5de082f8f7d1`.
-- [x] Correct receipt-gated terminal observations, including a stale initial Running snapshot. Preserve immediate authoritative stored data for a task still Running at the final decision and original publication failure causes for completed tasks.
-- [x] Implement automatic registry-owned publication, receipt-preserving close/forget semantics and model-facing reopened `agent_task`/`task_list`. Preserve exact stored text separately from bounded model previews; keep legacy live defaults and reject the legacy Exit delivery API in durable mode. The additive durable acknowledgement ledger is tracked separately below.
-- [x] Reproduce and correct the draft control-tool cancellation defect before acceptance. `durable-registry-child-interruption-draft-red.log` records three passes/one failure: a pure publication error imported the interrupted child's cause into a healthy `agent_cancel` caller. Defective Tools blob: `0ec16b4301d15b51b2a2ba88a67098703c6d8290`; regression blob: `b276586d67801271a6cadf7f3fdf5ef694ac76d6`. The corrected publication-error composition passes the unchanged regression.
-- [x] Obtain independent FP/ZIO and invariant source approvals and pass 23 focused harness plus two actual PostgreSQL/ReAct checks. The component README owns exact final identities and approval scope.
-- [x] Pass final full verification, four RC1 packages, artifact preparation and fresh external consumption.
-- [x] Obtain final combined FP/ZIO and invariant documentation approval for seven Scala and eleven Markdown files against `5f75a0a`, with no unresolved findings.
-- [x] Classify the eight pinned WorkspaceTaskRepositoryDeliveryTest methods and independently review the next bounded acknowledgement design. Persisted completion-time ordering and success-only middleware/tool consumption remain separate obligations.
-- [x] Implement schema-2 acknowledgement metadata in the checked terminal aggregate, with strict schema-1 reads as Pending, immutable first acknowledgement time and no automatic uncertain-write replay.
-- [x] Integrate additive observation-based durable inbox/acknowledgement methods with retained local publication receipts; preserve existing live Exit APIs and reject unsupported custom implementations explicitly.
-- [x] Reproduce the draft per-ID acknowledgement race before fixing it: `durable-ack-running-read-draft-red.log` records three passes/one failure because the stamp observer returned Some while publication was held and acknowledgement performed a second CAS. Defective registry blob: `86bf25f4b898f070228c0835507cf785e1eb0449`; regression blob: `fcbc6e6b0bfbee25eb6e7d7435cb13f7f6e6a11a`.
-- [x] Verify the correction against the unchanged three-timing regression table and the finite acknowledgement/migration/conflict contracts, including actual PostgreSQL reopen.
-- [x] Obtain both final independent source approvals for five Scala identities against `1925481` and pass full/artifact verification and fresh external consumption.
-- [x] Obtain both final combined documentation approvals for five Scala and eleven Markdown files against `1925481`; no acceptance beyond that exact scope is claimed.
-- [ ] Implement success-only consumption acknowledgement, automatic push/notification and cancellation intent as separate retained obligations; the checked acknowledgement ledger does not perform delivery.
+- [x] Accept scoped invocation identity and lazy prepared execution in `c99596b`; the [agent contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) owns identity, confirmation binding and migration evidence.
+- [x] Accept bounded durable terminal publication and reopened model-facing output/list/filter in `1925481`; the [registry contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#registry-terminal-publication) owns joined cleanup, receipt barriers, preview/ordering limits and corrected draft defects.
+- [x] Accept strict schema migration, immutable first acknowledgement and observation-based inbox APIs in `bad689e`; the [acknowledgement contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-terminal-acknowledgement) owns the corrected per-ID race and finite eight-method mapping.
+- [x] Implement explicit ten-record host delivery and obtain final independent FP/ZIO and invariant source approvals for three Scala files against `bad689e`; focused verification passes eleven harness and two actual PostgreSQL groups. Callback cleanup precedes acknowledgement; final test-fixture cancellation ownership is corrected.
+- [x] Pass full verification, four RC1 packages, archive preparation and fresh external consumption for the explicit delivery scope.
+- [x] Update current contracts and obtain both final combined documentation approvals for the exact delivery scope: three Scala and eleven Markdown files against `bad689e`.
+- [ ] Integrate automatic per-reasoning reminder delivery and tool consumption acknowledgement. The explicit host seam does not supply these original integrations.
+- [ ] Implement durable admitted/running task identity and current-owner cancellation intent before claiming cross-process cancellation; preserve truthful terminal publication after joined cleanup.
 - [ ] Complete durable reusable-session restoration and cross-process owner recovery with explicit host ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps; classify retained obligations before claiming total completion.
 - [ ] Execute original WeisGnosis OS cutover and Temporal Activity end-to-end verification under Phase 6.
 
-The acknowledgement integration is accepted within its exact five-Scala/eleven-Markdown manifest against `1925481`: both final independent reviews and required verification pass. The reproduced draft race is corrected; preliminary compilation failures are not baseline behavioral defects. No whole-plan completion or publication is claimed.
+The explicit delivery increment is accepted within its exact three-Scala/eleven-Markdown manifest against `bad689e`: both final combined reviews, full verification and artifact checks pass. No whole-plan completion or publication is claimed.
 
 ## Remaining effort
 
@@ -75,14 +66,14 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [terminal acknowledgement manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-terminal-acknowledgement) owns five exact Scala identities and the current review scope against `1925481`.
+The [explicit terminal delivery manifest](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#explicit-terminal-batch-delivery) owns three exact Scala identities and the current review scope against `bad689e`.
 
-- [x] Implement bounded schema-1 read/schema-2 write migration, immutable first acknowledgement and observation-based registry inbox/acknowledgement APIs, preserving publication-receipt barriers.
-- [x] review_fp and review_invariants independently approve source manifest `63a3210358453341ac8f4fa2c02c893fe63f698a7be0fdc7474b7270f061b64e`, with no unresolved source findings.
-- [x] `durable-ack-corrected-focused.log` passes 28 harness groups and two actual PostgreSQL groups, zero failed/ignored. The reproduced per-ID stale-running defect passes its unchanged regression expectation.
-- [x] `durable-ack-final-verify.log` passes formatting, fatal-warning compilation and all 1,595 tests (689 core, 744 harness, 130 MCP, 24 actual PostgreSQL, eight examples), zero failed/ignored/compiler warnings; four RC1 packages are built using a fresh PostgreSQL fixture.
-- [x] `durable-ack-final-preparation.log` and `durable-ack-final-consumer.log` pass source-archive admission, three restored negative checks and fresh standalone compilation/execution; the unchanged consumer probe does not independently exercise new acknowledgement APIs.
-- [x] review_fp and review_invariants approve final combined documentation against `1925481` for five unchanged Scala files and eleven Markdown files, no unresolved findings. English prose and 79-document/3,333-local-reference checks pass. Original completion ordering, success-only integration, cancellation intent, running metadata and session restoration obligations remain unchecked.
+- [x] Implement explicit ten-record delivery with scoped callback cleanup before sequential exact-ID acknowledgement, typed receipts, duplicate rejection and no uncertain-write replay.
+- [x] review_fp and review_invariants independently approve source manifest `048f7c44889cfd2eb0c2f3cc9bac8dc0290a904c48495a3f33c17e07d122098a`, with no unresolved source findings. Draft test-fixture cancellation ownership and the exact cleanup-cause oracle are corrected; no baseline production defect is claimed for that fixture correction.
+- [x] `durable-delivery-final-focused.log` passes eleven harness groups and two actual PostgreSQL groups, zero failed/ignored.
+- [x] `durable-delivery-final-verify.log` passes formatting, fatal-warning compilation and all 1,597 tests (689 core, 746 harness, 130 MCP, 24 actual PostgreSQL, eight examples), zero failed/ignored/compiler warnings; four RC1 packages are built using a fresh PostgreSQL fixture.
+- [x] `durable-delivery-final-preparation.log` and `durable-delivery-final-consumer.log` pass source-archive admission, three restored negative checks and fresh standalone compilation/execution; the unchanged consumer probe does not independently exercise the new delivery API.
+- [x] review_fp and review_invariants approve final combined documentation against `bad689e` for three unchanged Scala files and eleven Markdown files, no unresolved findings. English prose and 79-document/3,346-local-reference checks pass. Automatic per-reasoning reminders, tool consumption, completion ordering, cancellation intent, running metadata and session restoration remain unchecked.
 
 The immutable process launcher remains in force and its current modified source identities redirect to the negotiation manifest. Its production dependency eviction diagnostics remain visible: no suppression or universal binary compatibility claim. SLF4J/dependency/runtime notices are distinct from compiler warnings.
 

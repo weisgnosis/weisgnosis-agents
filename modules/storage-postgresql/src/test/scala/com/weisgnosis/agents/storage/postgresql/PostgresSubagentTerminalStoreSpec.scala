@@ -306,8 +306,18 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             )
             foreignResults = foreign.history.flatMap(_.toolResults)
             missing = SubagentToolResult.Task(success.value.toString, SubagentToolState.Missing)
-            calls     <- childCalls.get
-            liveAfter <- fresh.list
+            calls                 <- childCalls.get
+            liveAfter             <- fresh.list
+            delivered             <- Ref.make(Chunk.empty[SubagentTerminalRecord])
+            pendingDuringDelivery <- Ref.make(Chunk.empty[SubagentTerminalRecord])
+            deliveryReceipts <- SubagentTerminalDelivery.deliverPending(fresh): batch =>
+              reopened.pending.flatMap(pending =>
+                delivered.set(batch) *> pendingDuringDelivery.set(pending)
+              )
+            deliveredRecords     <- delivered.get
+            unacknowledgedDuring <- pendingDuringDelivery.get
+            pendingAfterDelivery <- terminal.pending
+            storedAfterDelivery  <- terminal.list
           yield assertTrue(
             receipts.map(_.id).toSet == Set(success, failed),
             exact.contains(
@@ -325,6 +335,14 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             liveBefore.isEmpty,
             liveAfter.isEmpty,
             calls == 2,
+            deliveredRecords == unacknowledgedDuring,
+            deliveredRecords.map(_.id).toSet == Set(success, failed),
+            deliveryReceipts.map(_.id) == deliveredRecords.map(_.id),
+            deliveryReceipts.forall(_.acknowledgement match
+              case SubagentTerminalAcknowledgeResult.Acknowledged(_) => true
+              case _                                                 => false),
+            pendingAfterDelivery.isEmpty,
+            storedAfterDelivery == deliveredRecords,
             observations.size == 4,
             observations.forall(_.state == ToolResultState.Success),
             taskResults.toMap

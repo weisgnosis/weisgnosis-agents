@@ -1706,3 +1706,16 @@ Pinned WorkspaceTaskRepositoryDeliveryTest is mapped to the [five-file acknowled
 - [x] Pass fresh standalone consumption for these exact sources in target/durable-ack-final-consumer.log; its unchanged probe does not independently exercise acknowledgement.
 - [x] review_fp and review_invariants approve final combined documentation against `1925481` for sixteen files (five unchanged Scala identities and eleven Markdown files), with no unresolved findings.
 - [ ] Integrate SubagentsMiddleware success-only bounded reminder acknowledgement and TaskTool/WaitAsyncResultsTool consumed-result acknowledgement separately. Explicit host APIs do not establish automatic push, wakeup or exactly-once delivery.
+
+## Explicit success-only terminal delivery
+
+The [three-file explicit delivery seam](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#explicit-terminal-batch-delivery) adapts the delivery-before-ack ordering used by pinned SubagentsMiddleware and its SubagentDeliveryTest. It delivers at most ten immutable observations, joins callback-scope cleanup and then acknowledges exactly those IDs. Paired contracts retain partial/uncertain write behavior and duplicate-consumer semantics; real PostgreSQL verifies explicit delivery through a fresh durable registry. Both source reviews and corrected focused checks pass. This does not close whole upstream middleware/tool consumption methods merely by supplying a host callback.
+
+- [x] Implement explicit bounded delivery before acknowledgement, skipping empty snapshots and rejecting selected duplicate IDs.
+- [x] Preserve callback/cleanup failure and cancellation without acknowledgement; close/join callback resources before the first acknowledgement.
+- [x] Retain earlier stamps after later uncertain failure, accept AlreadyAcknowledged and fail Missing without fabricated delivery success.
+- [x] Independently review the three exact source identities and run paired harness/actual PostgreSQL contracts.
+- [x] Pass final full verification, four packages, archive admission and fresh standalone consumption in target/durable-delivery-final-verify/preparation/consumer.log; the unchanged standalone probe does not independently exercise delivery.
+- [x] review_fp and review_invariants approve final combined documentation against `bad689e` for fourteen files (three unchanged Scala identities and eleven Markdown files), with no unresolved findings.
+- [ ] Integrate actual reasoning reminder persistence and success-only completion acknowledgement from SubagentsMiddleware/SubagentDeliveryTest.
+- [ ] Integrate automatic consumed-result acknowledgement from TaskTool and WaitAsyncResultsTool and completion/wakeup suppression semantics. The explicit effect does not autonomously notify or consume results.
