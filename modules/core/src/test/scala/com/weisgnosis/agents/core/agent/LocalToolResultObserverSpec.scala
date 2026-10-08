@@ -180,15 +180,18 @@ object LocalToolResultObserverSpec extends ZIOSpecDefault:
                 client = client,
                 localToolResultObserver = observer
               )
+              handle <- agent.prepareRun(Msg.user("lookup"))
               worker <- ZIO.uninterruptibleMask: restore =>
                 for
-                  fiber <- restore(agent.run(Msg.user("lookup"))).forkScoped
+                  fiber <- restore(handle.run).forkScoped
                   _     <- ZIO.addFinalizer(releaseSibling.succeed(()).unit)
                 yield fiber
               before <-
                 if mode == Failure.Parallel then siblingCleanup.await *> worker.poll else ZIO.none
               _                <- releaseSibling.succeed(())
               failed           <- worker.await
+              termination      <- handle.termination
+              status           <- handle.status
               history          <- agent.history
               executionCount   <- executions.get
               observationCount <- observed.get
@@ -196,6 +199,8 @@ object LocalToolResultObserverSpec extends ZIOSpecDefault:
               requestCount     <- requests.get
             yield assertTrue(
               failed.causeOption.exists(_.failures == List(error)),
+              termination == failed,
+              status == PreparedInvocation.Status.Failed,
               failed.causeOption.exists(
                 _.defects == (if mode == Failure.CleanupDefect then List(defect) else List.empty)
               ),

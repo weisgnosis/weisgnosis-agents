@@ -1,11 +1,43 @@
 # Distribution verification
 
-The current [accumulated-thinking manifest](../modules/core/src/main/scala/com/weisgnosis/agents/core/event/README.md#incremental-and-accumulated-thinking) records six independently source-approved Scala identities against 4cc1225. thinking-prefix-full-verify.log passes all 1,581 tests, formatting, fatal-warning compilation and four packages. thinking-prefix-preparation.log passes archive admission; thinking-prefix-consumer.log passes clean standalone compilation and fresh four-module hash consumption. Its unchanged API probe does not establish prefix-specific interoperability; core streaming suites provide that evidence. Final combined documentation acceptance remains pending.
+## Native directory aliases
 
-The consumer also executes packaged valid/invalid schema-admission neighbors and verifies the production evaluator dependency. The [current schema acceptance](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns the exact consumer source and verification evidence.
+Run the opt-in [PathSafetySpec](../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/PathSafetySpec.scala)
+against actual Windows directory junctions or POSIX directory symlinks:
 
-The [artifact consumer](artifact-consumer/README.md) checks four freshly generated library distributions from an external host namespace, including checked stop-sequence construction, configuration round-trip and stop/reasoning-effort request serialization and per-tool schema strictness. It also checks storage address/revision data and resolves/hashes the optional PostgreSQL backend companion without constructing a DataSource/backend or contacting a database; real database behavior belongs to its separately configured integration suite. It is a standalone unpublished fixture so project-class dependencies cannot substitute for packaged artifacts. CI runs it after normal repository verification and packaging; remote CI execution and publication remain separate gates.
+```text
+python verification/native_paths.py --java-home <jdk-21> --sbt-launch <sbt-launch.jar>
+```
 
-[Candidate preparation](artifact-consumer/README.md#candidate-preparation-acceptance) adds bounded RC selection, exact source archive admission and reversible target-only regressions. The manual workflow uploads verified unsigned artifacts/source metadata only after its checks pass; local selected-version/hash verification passes, current combined documentation approval passed against ce55421, and remote execution, tags, signing and publication remain separate gates.
+The [launcher](native_paths.py) creates a disposable owned directory with ordinary and `.ssh`
+targets and aliases, supplies `WEISGNOSIS_PATH_FIXTURE` to the focused test process, waits for that
+process and removes only its known links, marker files and empty directories. It launches the JDK
+directly with the project JVM options; the project selects its pinned sbt version. Core tests run
+in that JVM for this invocation, so timeout/Ctrl-C joins the process borrowing the fixture.
+Other modules retain their configured fork settings, including MCP subprocess fixture requirements. `JAVA_HOME` can replace `--java-home`. Add
+`--full` to run `verify` while the same fixture remains available. Run only one sbt process at a time.
 
-The [checked usage migration](../modules/core/src/main/scala/com/weisgnosis/agents/core/model/README.md#checked-usage-arithmetic) renews the consumer source to handle typed arithmetic success/failure without changing usage wire fields. Final source approval/full verification and archive preparation pass; fresh artifact execution passes for this changed identity; final combined documentation approval passed.
+Windows needs a Python runtime exposing `_winapi.CreateJunction`; POSIX needs permission to create
+directory symlinks. No administrator permissions or security settings are changed. The integration
+group is explicitly ignored without the environment variable; a supplied invalid fixture fails.
+An external host may instead supply the same fixture layout and own its lifetime through verification.
+The group checks existing and missing-child canonicalization, sensitive-target rejection, permitted
+ordinary aliases and lexical traversal rejection. This does not certify Windows file symlinks or an
+atomic sandbox against concurrent hostile filesystem changes.
+
+## Packaged external consumer
+
+The [artifact consumer](artifact-consumer/README.md) inspects four freshly generated binary/source
+archives and POMs, then compiles and runs a separate application against those artifacts. It checks
+coordinates, licenses, dependency scopes, source admission, selected model/request/schema APIs and
+the optional PostgreSQL companion. It does not construct a DataSource or contact a database;
+backend behavior requires the configured storage integration suite.
+
+[Candidate preparation](artifact-consumer/README.md#candidate-preparation-acceptance) selects a checked
+RC version and includes reversible target-only negative checks. See the consumer guide for commands.
+CI runs verification and packaging before consumption. The manual candidate workflow uploads unsigned
+artifacts and source metadata; local success does not establish remote execution, signing or publication.
+
+The runnable [examples](../modules/examples/README.md) distinguish offline application checks from
+explicit live-provider runs. Keep endpoint credentials in the process environment. The
+[completion checklist](../docs/architecture/tracker.md) records remaining library outcomes.

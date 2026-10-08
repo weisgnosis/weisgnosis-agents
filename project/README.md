@@ -16,6 +16,8 @@ Default coordinates are `com.weisgnosis:weisgnosis-agents-{core,harness,mcp,stor
 
 ## Compatibility policy
 
+PreparedInvocation adds status, replayable termination, typed cancel/interrupt and one-shot streamWithResult without changing prepareRun/context/run source signatures. Recompile JVM consumers. Returned describes invocation return, not AgentResult.Completed; cancellation receipts preserve full Exit causes. Execution callbacks must not await their own termination, and self-cancel is rejected before mutation. See [invocation controls](../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution).
+
 The local-tool observer appends an optional make argument and builder setting; rebuild JVM consumers and update Builder product patterns. The [wait APIs](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-task-wait-barriers) add wait_async_results and typed inbox/budget outcomes; hosts must update tool allowlists/exhaustive matches and explicitly install a scoped inbox where needed. Pure factories remain barrier-only.
 
 [Completion notifications](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#completion-notifications) are host-only policy/receipt ports. Custom registries fail explicitly when unsupported. Update optional binding/product patterns and exhaustive removal matches, including Unnotified. Callbacks and Cause-bearing receipts are runtime values: no durable replay is provided. Inspect typed callback failures through receipt/flush; legacy UIO closure joins cleanup without surfacing those typed failures.

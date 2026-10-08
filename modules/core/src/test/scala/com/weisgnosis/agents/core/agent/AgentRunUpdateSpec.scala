@@ -398,9 +398,11 @@ object AgentRunUpdateSpec extends ZIOSpecDefault:
                   )
                 )
               )
-              stream = agent
-                .streamWithResult(Msg.user("work"))
-                .tap(update => seen.update(_ :+ update))
+              prepared <- agent.prepareRun(Msg.user("work"))
+              stream = (mode match
+                case Consumer.Early     => agent.streamWithResult(Msg.user("work"))
+                case Consumer.Cancelled => prepared.streamWithResult
+              ).tap(update => seen.update(_ :+ update))
               selected = mode match
                 case Consumer.Early =>
                   stream.takeUntil {
@@ -422,7 +424,18 @@ object AgentRunUpdateSpec extends ZIOSpecDefault:
                 released <- cleaned.get
                 actual   <- seen.get
                 observed <- observations.get
+                terminal <- ZIO.when(mode == Consumer.Cancelled)(
+                  prepared.termination.zip(prepared.status)
+                )
               yield assertTrue(
+                terminal.forall { case (outcome, status) =>
+                  status == PreparedInvocation.Status.Cancelled &&
+                  outcome.isInterrupted && outcome.causeOption.exists(
+                    _.failures.contains(
+                      AgentError.CompletionObservationError("abandoned observation")
+                    )
+                  )
+                },
                 pending.isEmpty,
                 released,
                 results(actual).isEmpty,

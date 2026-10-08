@@ -15,13 +15,81 @@
  */
 package com.weisgnosis.agents.core.tool
 
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 import zio.test.*
 
 object PathSafetySpec extends ZIOSpecDefault:
+  private def fixtureIO[A](operation: => A): IO[AgentError, A] =
+    ZIO
+      .attemptBlocking(operation)
+      .mapError(error =>
+        AgentError.PermissionDenied(
+          "native path fixture",
+          Option(error.getMessage).getOrElse(error.toString)
+        )
+      )
+
   def spec: Spec[TestEnvironment, Any] = suite("PathSafetySpec")(
+    (test(
+      "native directory aliases resolve existing and missing children before sensitive screening"
+    ):
+      for
+        configured <- zio.System
+          .env("WEISGNOSIS_PATH_FIXTURE")
+          .mapError(error => AgentError.InvalidConfiguration(error.toString))
+        supplied <- ZIO
+          .fromOption(configured)
+          .orElseFail(
+            AgentError.InvalidConfiguration(
+              "WEISGNOSIS_PATH_FIXTURE is required for native path verification"
+            )
+          )
+        root      <- fixtureIO(Path.of(supplied).toRealPath())
+        ordinary  <- fixtureIO(root.resolve("ordinary").toRealPath())
+        sensitive <- fixtureIO(root.resolve(".ssh").toRealPath())
+        markersPresent <- fixtureIO(
+          Files.isRegularFile(ordinary.resolve("marker.txt")) &&
+            Files.isRegularFile(sensitive.resolve("marker.txt"))
+        )
+        ordinaryAlias  = root.resolve("ordinary-alias")
+        sensitiveAlias = root.resolve("sensitive-alias")
+        existing <- ZIO.foreach(Chunk(ordinaryAlias, sensitiveAlias))(alias =>
+          PathSafety.canonicalPath(alias.resolve("marker.txt"))
+        )
+        missing <- ZIO.foreach(Chunk(ordinaryAlias, sensitiveAlias))(alias =>
+          PathSafety.canonicalPath(alias.resolve("not-created").resolve("file.txt"))
+        )
+        dangerous <- ZIO.foreach(Chunk(ordinaryAlias, sensitiveAlias))(alias =>
+          PathSafety.isDangerousPath(alias.resolve("marker.txt").toString)
+        )
+        missingDangerous <- ZIO.foreach(Chunk(ordinaryAlias, sensitiveAlias))(alias =>
+          PathSafety.isDangerousPath(alias.resolve("not-created").resolve("file.txt").toString)
+        )
+        traversal <- PathSafety
+          .canonicalPath(ordinaryAlias.resolve("..").resolve("marker.txt"))
+          .either
+        missingStillAbsent <- fixtureIO(
+          !Files.exists(ordinary.resolve("not-created")) &&
+            !Files.exists(sensitive.resolve("not-created"))
+        )
+      yield assertTrue(
+        ordinary.startsWith(root),
+        sensitive.startsWith(root),
+        markersPresent,
+        !PathSafety.isSensitivePath(sensitiveAlias),
+        existing == Chunk(ordinary.resolve("marker.txt"), sensitive.resolve("marker.txt")),
+        missing == Chunk(
+          ordinary.resolve("not-created").resolve("file.txt"),
+          sensitive.resolve("not-created").resolve("file.txt")
+        ),
+        dangerous == Chunk(false, true),
+        missingDangerous == Chunk(false, true),
+        traversal.left.exists(_.isInstanceOf[AgentError.PermissionDenied]),
+        missingStillAbsent
+      )
+    ) @@ TestAspect.withLiveSystem @@ TestAspect.ifEnvSet("WEISGNOSIS_PATH_FIXTURE"),
     test("sensitive files, variants, directory segments, and shell configuration are denied") {
       val paths = Chunk(
         "/home/user/.env",

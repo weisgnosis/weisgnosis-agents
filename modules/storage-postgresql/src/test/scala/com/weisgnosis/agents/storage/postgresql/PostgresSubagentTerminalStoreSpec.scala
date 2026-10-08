@@ -652,6 +652,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             liveAfter             <- fresh.list
             delivered             <- Ref.make(Chunk.empty[SubagentTerminalRecord])
             pendingDuringDelivery <- Ref.make(Chunk.empty[SubagentTerminalRecord])
+            storedBeforeDelivery  <- terminal.list
             deliveryReceipts <- SubagentTerminalDelivery.deliverPending(fresh): batch =>
               reopened.pending.flatMap(pending =>
                 delivered.set(batch) *> pendingDuringDelivery.set(pending)
@@ -1060,7 +1061,10 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               case SubagentTerminalAcknowledgeResult.Acknowledged(_) => true
               case _                                                 => false),
             pendingAfterDelivery.isEmpty,
-            storedAfterDelivery == deliveredRecords,
+            storedAfterDelivery == storedBeforeDelivery,
+            storedAfterDelivery.size == deliveredRecords.size,
+            storedAfterDelivery.map(record => record.id -> record).toMap ==
+              deliveredRecords.map(record => record.id -> record).toMap,
             firstMessages.size == 1,
             firstMessages == secondMessages,
             reminderInputs.size == 2,

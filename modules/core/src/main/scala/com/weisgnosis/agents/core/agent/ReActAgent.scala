@@ -255,20 +255,43 @@ final class ReActAgent private (
 
   /** Reserve a stable invocation identity without admitting or starting execution. */
   def prepareRun(messages: Chunk[Msg]): UIO[PreparedInvocation[AgentResult]] =
-    PreparedInvocation.make(context => runAdmitted(messages, Some(context)))
+    PreparedInvocation.make(
+      (context, owner) => runAdmitted(messages, Some(context), Some(owner)),
+      (context, owner) =>
+        streamRun(
+          hub =>
+            owner.admitted *> requireFreshRun *> observeInvocation(
+              (invocation, complete) =>
+                ZIO.scoped(
+                  runOrdinaryWithHub(messages, hub, complete, invocation, Some(owner.cooperative))
+                ),
+              Some(context)
+            ),
+          Some(owner)
+        )
+    )
 
   def prepareRun(message: Msg): UIO[PreparedInvocation[AgentResult]] = prepareRun(Chunk(message))
 
   private def runAdmitted(
       messages: Chunk[Msg],
-      prepared: Option[InvocationContext]
+      prepared: Option[InvocationContext],
+      owner: Option[PreparedInvocation.Control[AgentResult]] = None
   ): ZIO[Scope, AgentError, AgentResult] =
     runLock.withPermit(
-      requireFreshRun *> observeInvocation(
+      owner.fold[IO[AgentError, Unit]](ZIO.unit)(
+        _.admitted
+      ) *> requireFreshRun *> observeInvocation(
         (invocation, complete) =>
           ZIO.scoped(for
-            hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-            result <- runOrdinaryWithHub(messages, hub, complete, invocation)
+            hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+            result <- runOrdinaryWithHub(
+              messages,
+              hub,
+              complete,
+              invocation,
+              owner.map(_.cooperative)
+            )
           yield result),
         prepared
       )
@@ -559,7 +582,8 @@ final class ReActAgent private (
     streamStructuredEvents[A](Chunk(message), schema, StructuredMode.Auto)
 
   private def streamRun[A](
-      runEffect: Hub[AgentEvent] => ZIO[Scope, AgentError, A]
+      runEffect: Hub[AgentEvent] => ZIO[Scope, AgentError, A],
+      owner: Option[PreparedInvocation.Control[A]] = None
   ): ZStream[Scope, AgentError, AgentRunUpdate[A]] =
     ZStream.unwrapScoped {
       for
@@ -574,10 +598,9 @@ final class ReActAgent private (
         )
         _ <- ZIO.uninterruptibleMask { restore =>
           for
-            exit <- restore(
-              runLock.withPermit(runEffect(hub))
-            ).exit
-            _ <- drain
+            execute = runLock.withPermit(runEffect(hub))
+            exit <- restore(owner.fold(execute)(_.execute(execute))).exit
+            _    <- drain
             _ <- exit match
               case Exit.Success(value) =>
                 delivery.offer(Take.single(AgentRunUpdate.Result(value))) *> delivery.offer(
@@ -823,12 +846,19 @@ final class ReActAgent private (
       messages: Chunk[Msg],
       hub: Hub[AgentEvent],
       complete: AgentResult => IO[AgentError, Unit],
-      invocation: InvocationContext
+      invocation: InvocationContext,
+      interruptSignal: Option[Promise[Nothing, Unit]] = None
   ): ZIO[Scope, AgentError, AgentResult] =
     makeRunTools.zip(Ref.make[Option[ChatUsage]](None)).flatMap { case (runTools, usage) =>
-      runWithHub(RunEntry.Fresh(messages), hub, runTools, usage, complete, invocation)(result =>
-        ZIO.succeed((result, ()))
-      )
+      runWithHub(
+        RunEntry.Fresh(messages),
+        hub,
+        runTools,
+        usage,
+        complete,
+        invocation,
+        interruptSignal = interruptSignal
+      )(result => ZIO.succeed((result, ())))
         .map(_._1)
     }
 
@@ -852,7 +882,8 @@ final class ReActAgent private (
       complete: AgentResult => IO[AgentError, Unit],
       invocation: InvocationContext,
       requestConfig: LlmConfig = llmConfig,
-      completionMode: CompletionMode = CompletionMode.Ordinary
+      completionMode: CompletionMode = CompletionMode.Ordinary,
+      interruptSignal: Option[Promise[Nothing, Unit]] = None
   )(
       prepareResult: AgentResult => IO[AgentError, (AgentResult, A)]
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
@@ -860,7 +891,7 @@ final class ReActAgent private (
       _ <- entry match
         case RunEntry.Fresh(_) => requireFreshRun
         case _                 => ZIO.unit
-      p <- Promise.make[Nothing, Unit]
+      p <- interruptSignal.fold(Promise.make[Nothing, Unit])(ZIO.succeed(_))
       _ <- interruptedPromiseRef.set(p)
       replyId <- entry match
         case RunEntry.Fresh(_)              => Random.nextUUID.map(_.toString)

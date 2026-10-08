@@ -22,7 +22,7 @@ Use [ReActAgent](src/main/scala/com/weisgnosis/agents/core/agent/ReActAgent.scal
 
 ## Ownership and limits
 
-An agent retains in-memory canonical history and serializes its runs. Run and model-request scopes own their resources; cancellation joins cleanup and reconciles unfinished local calls while preserving completed observations. Streaming progress is provisional, and terminal events are not a substitute for the returned result and cause.
+An agent retains in-memory canonical history and serializes its runs. [Prepared invocations](src/main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) reserve identity for single-use execution or streaming, expose joined termination, and control only their own invocation. Run and model-request scopes own their resources; cancellation joins cleanup and reconciles unfinished local calls while preserving completed observations. Streaming progress is provisional, and terminal events are not a substitute for the returned result and cause.
 
 Atomic AgentSnapshot values distinguish idle history from a suspended acting checkpoint; checked restoration loads data into an empty runtime using current host bindings. Core does not supply durable execution ownership, authentication, exactly-once replay, or a persistent session service. Model content never grants tool authority. Required observers can fail a run after work has already occurred; hosts must not blindly replay that work.
 
