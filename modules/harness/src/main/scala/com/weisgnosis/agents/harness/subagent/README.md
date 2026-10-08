@@ -1,5 +1,42 @@
 # Scoped child execution and sessions
 
+## Host-driven task recovery
+
+recoverStaleTasks(policy, claimGate, authority) operates only on this durable registry's bound store. Volatile/custom registries and custom stores default to typed unsupported failures. The host explicitly invokes recovery; the library installs no sweeper or scheduling daemon. Both independent reviewers approve the six exact Scala identities below; full/artifact/archive/consumer verification passes; review_fp and review_invariants approve the final combined scope against b4e3b37: six unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
+
+Policy.make defaults to the pinned upstream 10.minutes staleAfter and 5.minutes minGap, and checks nonnegative finite durations strictly below Duration.Infinity. Gate.local allocates its Ref in ZIO, claims atomically using monotonic time and refuses backward time. One gate instance belongs to one host-selected scheduling domain. The gate is claimed once before task-store scanning and publication-clock sampling; denied attempts perform neither. Admitted attempts consume their interval even if later work fails or is interrupted. The gate is a throttle, never an execution lease or distributed claim.
+
+An admitted sweep samples one observedAt and selects metadata-bearing Pending/Running records whose lastUpdatedAt is at or before observedAt minus staleAfter. Fresh, terminal and legacy records without metadata are excluded. An out-of-range cutoff fails explicitly. Timestamps select candidates; they never prove that an executor is abandoned.
+
+Known retained local entries are skipped before requesting host authority, including paused execution and completed workers whose publication/notification ownership remains retained. This initial read is conservative. Authority.acquire receives this exact registry capability and candidate outside the admission gate. Its child Scope must hold the host's actual ownership/fencing resources for this registry's bound storage partition, not a different partition with equal task data. Remote, OwnerPresent and Unknown decisions perform no recovery write. A Local permit must match the exact candidate. Permit.local is only a checked host assertion; never cache/reuse it after the ownership scope closes or mistake it for a fence.
+
+Before mutation, recovery acquires the same admission gate as submission, rechecks Open state and every retained local ID, then performs conditional publication under that gate. This second check protects tasks admitted while host authority was acquired. Authority acquisition and cleanup run outside the gate; no worker or publisher is joined inside it. Hosts must avoid callbacks/cleanup that create ownership cycles with this registry or its owner scopes.
+
+SubagentTerminalStore.reconcileAbandoned compares the complete expected record on every CAS attempt. Missing returns Missing; any identity, state, timestamp, check, intent or terminal change returns Changed without replacement. An unchanged nonterminal becomes Failed with typed message "executor lost", no invented direct cause/defects, Pending acknowledgement and lastUpdatedAt equal to observedAt. Creation/check times, worker identity and cancellation intent remain intact; the new terminal observation moves to the publication tail. Schema 6 is unchanged. Only confirmed conflicts retry, with the same permit and observedAt; uncertain failures and cancellation never retry automatically.
+
+Recovery processes candidates sequentially and stops on failure or interruption. Previously committed observations remain committed; failure/cancellation is not rollback or proof of non-publication. Cancellation joins host authority cleanup and preserves its defects together with the caller cause, without cancelling task workers. Reconciled output remains pending normal consumption; recovery performs no acknowledgement, notification replay, model request or executable restoration. A later admission colliding with recovered terminal truth cannot start a child.
+
+Pinned WorkspaceTaskRepositoryTest methods578/614/665 and 716/734/761 define this bounded adaptation. Explicit one-partition calls replace scheduled cross-session scanning; injected gate identity replaces a Java gate-name string. Remote transport method687, cross-session discovery789/812/821, remote routing857, durable execution recovery/fencing and reusable-session restoration remain open. Host classification as Remote is a useful protection seam, not acceptance of persisted agent-protocol behavior.
+
+- [x] Reproduce both Infinity acceptance assertions before correction: target/task-recovery-policy-red.log has one passed and one failed group. The same run separately exposed an unsynchronized Pending-to-Running fixture snapshot; the fixture now waits for actual start.
+- [x] Reproduce unnecessary authority acquisition for an already-owned local task before correction: target/task-recovery-retained-authority-red.log has one passed and one failed group at authorizedIds.contains(live).
+- [x] target/task-recovery-focused-green.log passes 28 harness groups in 1.398 seconds; target/task-recovery-postgres-focused-green.log passes two actual PostgreSQL groups in 3.575 seconds, zero failed/ignored/compiler warnings. The existing group verifies independent changed-heartbeat no-write, exact intent/check/time preservation, publication-tail order and immutable acknowledged terminal data.
+- [x] review_fp and review_invariants approve six exact Scala identities against b4e3b37, manifest 283819a376e054fbdfc4a31c9dfb9b249122c92108a3720447075ff0a78a11e6, with no unresolved source findings. The renewed throttle oracle proves before-gap denial and exact-gap re-admission.
+- [x] Reproduce incorrect draft defaults before correction: target/task-recovery-defaults-red.log has one passed and one failed group; staleAfter was PT5M instead of PT10M and minGap PT30S instead of PT5M. Fixture compilation diagnostics are preserved separately and are not behavioral RED evidence.
+- [x] target/task-recovery-final-verify.log passes formatting/fatal-warning compilation, 1,651 tests (695 core / 794 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/task-recovery-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
+- [x] target/task-recovery-final-consumer.log passes fresh standalone formatting/compilation/execution and four artifact hashes; the unchanged probe does not directly exercise recovery.
+- [x] review_fp and review_invariants approve the final combined scope against b4e3b37: six unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
+
+| Reviewed source against b4e3b37 | Git blob |
+| --- | --- |
+| [SubagentTaskRecovery.scala](SubagentTaskRecovery.scala) | `4bad91f789ac024b14d87a144f6e34c7ec50a424` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `9c885e845921386c205931d2c9b3d6b135fc8aa3` |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `c9f2b0e9e7e616f95537641199c7fc138885181b` |
+| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | `b3aaf3a84dcfbce7b0f741bcdbae9474af6e0b5a` |
+| [SubagentTaskRecoverySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecoverySpec.scala) | `9b327769ea960d6624dfaac19e526f9498fc084b` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `4423c851a8e40ecc3f3e9f78110fcecf31a3eef9` |
+
 The [local JSON integration](../storage/README.md#local-versioned-json) persists the actual agents/parent/tasks/sess-rt.json path through the existing terminal store. The public registry test verifies mixed nonterminal/terminal records, exact output/counts, acknowledgement and reopen without child replay. Both independent reviewers approve the eight-Scala source scope; review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings. Remote recovery and executable session restoration remain open.
 
 ## Explicit owner heartbeat
@@ -26,11 +63,11 @@ Current source-approved scope against 3b31430: six Scala identities, path-first 
 | Reviewed source | Git blob |
 | --- | --- |
 | [SubagentTaskRecord.scala](SubagentTaskRecord.scala) | `100462f268591c76c45ba5883ea18a05c3deaf5d` |
-| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | `0d965b2a340ec1f38a820307c9f8ec494e08c2c7` |
-| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | `2339eaabeb9372346cc5f66014c7de5613868d82` |
-| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | `15e50cdd4dd60089bfca6110de2ed25d142e356a` |
+| [SubagentTaskRegistry.scala](SubagentTaskRegistry.scala) | Current identity: [recovery manifest](#host-driven-task-recovery) |
+| [SubagentTerminalStore.scala](SubagentTerminalStore.scala) | Current identity: [recovery manifest](#host-driven-task-recovery) |
+| [SubagentTaskRecordSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRecordSpec.scala) | Current identity: [recovery manifest](#host-driven-task-recovery) |
 | [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | Current identity: [local JSON manifest](../storage/README.md#local-versioned-json) |
-| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | `e7e091b881bd4d0ff64973f5c819c5cf891834d1` |
+| [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [recovery manifest](#host-driven-task-recovery) |
 
 ## Completion notifications
 
@@ -180,7 +217,7 @@ Current source-approved scope against 0bbae03 comprises twelve Scala identities,
 | [SubagentWaitSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentWaitSessionSpec.scala) | `b29d5d4309e68886db743e9f5459f17acb019021` |
 | [PostgresSubagentTerminalStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresSubagentTerminalStoreSpec.scala) | Current identity: [heartbeat manifest](#explicit-owner-heartbeat) |
 
-Full delivery passes; review_fp and review_invariants approve the final combined scope against 0bbae03: twelve unchanged Scala identities and fourteen Markdown files, with no unresolved findings. Stored views do not themselves establish physical layout; the [local JSON contract](../storage/README.md#local-versioned-json) supplies the separately reviewed workspace file assertion. Executable restoration, owner recovery/fencing, remote-owner cancellation, stale-owner sweep/discovery and whole TaskTool parity remain open. Explicit current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat).
+Full delivery passes; review_fp and review_invariants approve the final combined scope against 0bbae03: twelve unchanged Scala identities and fourteen Markdown files, with no unresolved findings. Stored views do not themselves establish physical layout; the [local JSON contract](../storage/README.md#local-versioned-json) supplies the separately reviewed workspace file assertion. The [host-driven recovery contract](#host-driven-task-recovery) supplies the separately reviewed six local recovery/gate methods. Executable restoration, cross-process fencing, remote-owner cancellation, remote transport687, cross-session discovery789/812/821 and whole TaskTool parity remain open. Explicit current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat).
 
 ## Task output creation and check metadata
 
@@ -587,7 +624,7 @@ Final formatted source scope against `5f75a0a`, manifest SHA-256 `7a8aa0d20accc4
 - [x] target/durable-registry-final-preparation.log passes archive admission and reversible negative checks.
 - [x] target/durable-registry-final-consumer.log passes fresh standalone formatting, clean compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise the new registry APIs.
 - [x] review_fp and review_invariants approve final combined documentation against `5f75a0a` for eighteen files (seven unchanged Scala identities and eleven Markdown files), with no unresolved findings.
-- [ ] Implement remaining stale-owner sweep/discovery applicability, remote-owner cancellation/recovery and durable running-barrier restoration, the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and remote wakeup integration and executable session restoration separately. Current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat). Current-owner callbacks are supplied by the [completion notification contract](#completion-notifications). The [durable acknowledgement ledger](#durable-terminal-acknowledgement) is implemented.
+- [ ] Complete remote transport687 and cross-session discovery789/812/821 after the delivered [local recovery/gate contract](#host-driven-task-recovery), together with remote-owner cancellation/recovery and durable running-barrier restoration, the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and remote wakeup integration and executable session restoration separately. Current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat). Current-owner callbacks are supplied by the [completion notification contract](#completion-notifications). The [durable acknowledgement ledger](#durable-terminal-acknowledgement) is implemented.
 
 ## Durable terminal observations
 
@@ -619,7 +656,7 @@ This implements only a terminal persistence subset of pinned WorkspaceTaskReposi
 - [x] target/durable-terminal-consumer.log passes fresh standalone compilation, execution and four artifact hash checks. Its unchanged probe does not independently exercise this new terminal API.
 - [x] review_fp and review_invariants accepted the terminal-store contract against `c99596b`; current changed files require the registry increment gates above.
 - [x] Implement and independently source-review the [registry publication integration](#registry-terminal-publication), with full verification and fresh artifact checks.
-- [ ] Complete remaining stale-owner sweep/discovery applicability, remote-owner cancellation/recovery and durable running-barrier restoration, the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and remote wakeup ownership. Current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat). Current-owner notification ownership is defined by the [completion notification contract](#completion-notifications). Explicit [durable terminal acknowledgement](#durable-terminal-acknowledgement) is available.
+- [ ] Complete remote transport687 and cross-session discovery789/812/821 after the delivered [local recovery/gate contract](#host-driven-task-recovery), together with remote-owner cancellation/recovery and durable running-barrier restoration, the [remaining stored-state and task-detail applicability](../../../../../../../../../../docs/architecture/test-parity.md#task-output-source-obligations) and remote wakeup ownership. Current-owner refresh follows the [heartbeat contract](#explicit-owner-heartbeat). Current-owner notification ownership is defined by the [completion notification contract](#completion-notifications). Explicit [durable terminal acknowledgement](#durable-terminal-acknowledgement) is available.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
 

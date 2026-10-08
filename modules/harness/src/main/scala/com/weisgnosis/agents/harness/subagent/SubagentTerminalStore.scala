@@ -97,6 +97,17 @@ trait SubagentTerminalStore:
       AgentError.InvalidConfiguration(s"Durable heartbeat is unsupported for ${identity.id.value}")
     )
 
+  /** Exact host-authorized transition; uncertainty never triggers automatic replay. */
+  def reconcileAbandoned(
+      permit: SubagentTaskRecovery.Permit,
+      observedAt: Instant
+  ): IO[AgentError, SubagentTaskRecovery.Transition] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration(
+        s"Durable reconciliation is unsupported for ${permit.expected.id.value} at $observedAt"
+      )
+    )
+
   /** None means admission metadata is unavailable; custom stores override to persist check time. */
   def markChecked(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskMetadata]] =
     read(id).as(None)
@@ -475,6 +486,39 @@ object SubagentTerminalStore:
                 )
               )
       attempt(limits.maxConflicts, None)
+
+    override def reconcileAbandoned(
+        permit: SubagentTaskRecovery.Permit,
+        observedAt: Instant
+    ): IO[AgentError, SubagentTaskRecovery.Transition] =
+      val expected = permit.expected
+      val outcome = SubagentTerminalOutcome.Failed(
+        Chunk(SubagentTaskFailure("executor lost", None)),
+        SubagentTaskDefects.Absent
+      )
+      def attempt(remaining: Int): IO[AgentError, SubagentTaskRecovery.Transition] =
+        snapshot.flatMap: (revision, records) =>
+          records.find(_.id == expected.id.value) match
+            case None => ZIO.succeed(SubagentTaskRecovery.Transition.Missing)
+            case Some(existing) if existing.record != expected || existing.terminal.nonEmpty =>
+              ZIO.succeed(SubagentTaskRecovery.Transition.Changed(existing.record))
+            case Some(existing) =>
+              val updated = existing.copy(
+                state = SubagentTaskRecordState
+                  .Terminal(outcome, SubagentTerminalAcknowledgement.Pending),
+                metadata = existing.metadata.map(_.copy(lastUpdatedAt = observedAt))
+              )
+              write(revision, records.filterNot(_.id == existing.id) :+ updated).flatMap:
+                case ConditionalWrite.Applied(revision) =>
+                  ZIO.succeed(
+                    SubagentTaskRecovery.Transition.Reconciled(
+                      updated.record,
+                      SubagentTerminalPublication.Stored(revision)
+                    )
+                  )
+                case ConditionalWrite.Conflict if remaining > 0 => attempt(remaining - 1)
+                case ConditionalWrite.Conflict => exhausted("Abandoned task reconciliation")
+      attempt(limits.maxConflicts)
 
     override def markChecked(
         id: SubagentTaskId

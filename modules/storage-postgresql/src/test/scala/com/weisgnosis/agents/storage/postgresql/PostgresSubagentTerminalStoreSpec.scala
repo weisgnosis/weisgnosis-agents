@@ -26,6 +26,7 @@ import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.{ToolAuthorizer, Toolkit}
+import com.weisgnosis.agents.harness.storage.{StorageAddress, VersionedJsonStore}
 import com.weisgnosis.agents.harness.subagent.*
 import java.time.Instant
 import java.util.UUID
@@ -55,6 +56,70 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
         sleep
       }
       def instant(using Trace): UIO[Instant] = ZIO.succeed(at)
+
+  private def recoveryTransition(
+      writer: VersionedJsonStore,
+      reader: VersionedJsonStore,
+      target: StorageAddress
+  ): IO[AgentError, TestResult] =
+    val recovering = SubagentTerminalStore.make(writer, target)
+    val observing  = SubagentTerminalStore.make(reader, target)
+    def required: IO[AgentError, SubagentTaskRecord] =
+      observing
+        .taskRecord(firstId)
+        .someOrFail(AgentError.StorageError("Recovery fixture record missing"))
+    for
+      originalClock <- observedClock(Instant.EPOCH.plusSeconds(100L))
+      admission     <- recovering.admit(firstId).withClock(originalClock)
+      identity <- admission match
+        case SubagentTaskAdmissionResult.Created(value) => ZIO.succeed(value)
+        case _ => ZIO.fail(AgentError.StorageError("Recovery fixture admission already exists"))
+      _             <- recovering.markRunning(identity).withClock(originalClock)
+      original      <- required
+      stalePermit   <- ZIO.fromEither(SubagentTaskRecovery.Permit.local(original))
+      laterClock    <- observedClock(Instant.EPOCH.plusSeconds(110L))
+      _             <- recovering.refreshHeartbeat(identity).withClock(laterClock)
+      refreshed     <- required
+      beforeChanged <- writer.read(target)
+      observedAt = Instant.EPOCH.plusSeconds(120L)
+      changed      <- observing.reconcileAbandoned(stalePermit, observedAt)
+      afterChanged <- reader.read(target)
+      _            <- recovering.markChecked(firstId).withClock(laterClock)
+      _            <- recovering.requestCancellation(firstId, Some(identity)).withClock(laterClock)
+      expected     <- required
+      permit       <- ZIO.fromEither(SubagentTaskRecovery.Permit.local(expected))
+      _ <- recovering.publish(
+        SubagentTerminalRecord(secondId, SubagentTerminalOutcome.Completed("earlier terminal"))
+      )
+      receipt   <- recovering.reconcileAbandoned(permit, observedAt)
+      persisted <- required
+      pending   <- observing.pending
+      expectedTerminal = expected.copy(
+        state = SubagentTaskRecordState.Terminal(
+          SubagentTerminalOutcome
+            .Failed(Chunk(SubagentTaskFailure("executor lost")), SubagentTaskDefects.Absent),
+          SubagentTerminalAcknowledgement.Pending
+        ),
+        metadata = expected.metadata.map(_.copy(lastUpdatedAt = observedAt))
+      )
+      _               <- observing.acknowledge(firstId).withClock(laterClock)
+      acknowledged    <- required
+      beforeTerminal  <- writer.read(target)
+      terminalChanged <- recovering.reconcileAbandoned(permit, observedAt.plusSeconds(1L))
+      afterTerminal   <- reader.read(target)
+    yield assertTrue(
+      changed == SubagentTaskRecovery.Transition.Changed(refreshed),
+      beforeChanged == afterChanged,
+      receipt match
+        case SubagentTaskRecovery.Transition.Reconciled(record, _) => record == expectedTerminal
+        case _                                                     => false,
+      persisted == expectedTerminal,
+      pending.map(_.id) == Chunk(secondId, firstId),
+      acknowledged.cancellationIntent == expected.cancellationIntent,
+      acknowledged.metadata == expectedTerminal.metadata,
+      terminalChanged == SubagentTaskRecovery.Transition.Changed(acknowledged),
+      beforeTerminal == afterTerminal
+    )
 
   private def accepted(
       admission: TaskAdmission[AgentResult]
@@ -203,6 +268,8 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             duplicateAdmission        <- observing.admit(firstId, Some(workerId))
             repeatedCancellation      <- observing.requestCancellation(firstId, Some(identity))
             afterRepeatedCancellation <- admitting.taskRecord(firstId)
+            recoveryAddress           <- address(name, "recovery-owner")
+            recoveredAbandoned        <- recoveryTransition(backend, second, recoveryAddress)
           yield assertTrue(
             before.isEmpty,
             pending.isEmpty,
@@ -341,7 +408,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               case SubagentTaskAdmissionResult.Existing(record) =>
                 acknowledgedRecord.contains(record)
               case SubagentTaskAdmissionResult.Created(_) => false
-          )
+          ) && recoveredAbandoned
     ,
     test(
       "automatic durable publication survives owner closure and existing ReAct task tools restore exact bounded observations from PostgreSQL"

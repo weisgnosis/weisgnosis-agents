@@ -25,6 +25,9 @@ import zio.json.ast.Json
 import zio.test.*
 
 object SubagentTaskRecordSpec extends ZIOSpecDefault:
+  private enum RecoveryRace:
+    case Start, Cancellation, Terminal, Unrelated, Uncertain
+
   private enum HeartbeatRace:
     case Terminal, Cancellation
 
@@ -554,5 +557,132 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
             record.metadata.map(_.copy(lastUpdatedAt = created.plusSeconds(20L)))
           )
         )
+      ) && raceChecks.foldLeft(assertTrue(true))(_ && _)
+    ,
+    test(
+      "recovery compares the whole admitted record and preserves terminal truth, metadata, intent and publication order"
+    ):
+      for
+        backend <- SubagentTerminalStoreSpec.fixture
+        target  <- ZIO.fromEither(StorageAddress.from(Chunk("recovery"), "conditional"))
+        store     = SubagentTerminalStore.make(backend.store, target)
+        one       = SubagentTaskId(new UUID(0L, 601L))
+        two       = SubagentTaskId(new UUID(0L, 602L))
+        missingId = SubagentTaskId(new UUID(0L, 603L))
+        created   = Instant.parse("2026-10-08T00:00:00Z")
+        _       <- TestClock.setTime(created)
+        _       <- store.admit(one)
+        _       <- store.admit(two)
+        initial <- store.taskRecord(one).someOrFail(AgentError.StorageError("Missing admission"))
+        permit  <- ZIO.fromEither(SubagentTaskRecovery.Permit.local(initial))
+        _       <- store.requestCancellation(one)
+        changedRecord <- store.taskRecord(one)
+        changed       <- store.reconcileAbandoned(permit, created.plusSeconds(5L))
+        requested <- ZIO
+          .fromOption(changedRecord)
+          .orElseFail(AgentError.StorageError("Missing requested record"))
+        requestedPermit <- ZIO.fromEither(SubagentTaskRecovery.Permit.local(requested))
+        recovered       <- store.reconcileAbandoned(requestedPermit, created.plusSeconds(5L))
+        after           <- store.taskRecord(one)
+        pending         <- store.pending
+        _               <- store.acknowledge(one)
+        beforeRepeat    <- backend.store.read(target)
+        repeat          <- store.reconcileAbandoned(requestedPermit, created.plusSeconds(9L))
+        afterRepeat     <- backend.store.read(target)
+        missingPermit <- ZIO.fromEither(
+          SubagentTaskRecovery.Permit.local(initial.copy(id = missingId))
+        )
+        missing <- store.reconcileAbandoned(missingPermit, created)
+        current <- store.taskRecord(one)
+        raceChecks <- ZIO.foreach(Chunk.fromIterable(RecoveryRace.values)): mode =>
+          for
+            raced <- SubagentTerminalStoreSpec.fixture
+            fresh = SubagentTerminalStore.make(raced.store, target)
+            admitted <- fresh.admit(one)
+            identity <- admitted match
+              case SubagentTaskAdmissionResult.Created(value) => ZIO.succeed(value)
+              case other => ZIO.fail(AgentError.StorageError(s"Unexpected admission: $other"))
+            before <- fresh
+              .taskRecord(one)
+              .someOrFail(AgentError.StorageError("Missing race admission"))
+            claim <- ZIO.fromEither(SubagentTaskRecovery.Permit.local(before))
+            calls <- Ref.make(0)
+            lost = AgentError.StorageError("Recovery CAS receipt lost")
+            racing = new VersionedJsonStore:
+              def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+                raced.store.read(address)
+              def compareAndSet(
+                  address: StorageAddress,
+                  expected: ExpectedRevision,
+                  value: Json
+              ): IO[AgentError, ConditionalWrite] =
+                calls
+                  .updateAndGet(_ + 1)
+                  .flatMap:
+                    case 1 =>
+                      mode match
+                        case RecoveryRace.Start =>
+                          fresh.markRunning(identity).as(ConditionalWrite.Conflict)
+                        case RecoveryRace.Cancellation =>
+                          fresh.requestCancellation(one).as(ConditionalWrite.Conflict)
+                        case RecoveryRace.Terminal =>
+                          fresh
+                            .publish(
+                              SubagentTerminalRecord(
+                                one,
+                                SubagentTerminalOutcome.Completed("winner")
+                              )
+                            )
+                            .as(ConditionalWrite.Conflict)
+                        case RecoveryRace.Unrelated =>
+                          fresh.admit(two).as(ConditionalWrite.Conflict)
+                        case RecoveryRace.Uncertain =>
+                          raced.store.compareAndSet(address, expected, value) *> ZIO.fail(lost)
+                    case _ => raced.store.compareAndSet(address, expected, value)
+            result <- SubagentTerminalStore
+              .make(racing, target)
+              .reconcileAbandoned(claim, created.plusSeconds(7L))
+              .either
+            current <- fresh.taskRecord(one)
+            count   <- calls.get
+          yield mode match
+            case RecoveryRace.Start | RecoveryRace.Cancellation | RecoveryRace.Terminal =>
+              assertTrue(
+                current.exists(record =>
+                  result == Right(SubagentTaskRecovery.Transition.Changed(record))
+                ),
+                count == 1
+              )
+            case RecoveryRace.Unrelated =>
+              assertTrue(
+                result match
+                  case Right(SubagentTaskRecovery.Transition.Reconciled(record, _)) =>
+                    current.contains(record) && record.metadata.exists(
+                      _.lastUpdatedAt == created.plusSeconds(7L)
+                    )
+                  case _ => false,
+                count == 2
+              )
+            case RecoveryRace.Uncertain =>
+              assertTrue(result == Left(lost), count == 1, current.exists(_.terminal.nonEmpty))
+        outcome = SubagentTerminalOutcome.Failed(
+          Chunk(SubagentTaskFailure("executor lost", None)),
+          SubagentTaskDefects.Absent
+        )
+        expected = requested.copy(
+          state =
+            SubagentTaskRecordState.Terminal(outcome, SubagentTerminalAcknowledgement.Pending),
+          metadata = requested.metadata.map(_.copy(lastUpdatedAt = created.plusSeconds(5L)))
+        )
+      yield assertTrue(
+        changedRecord.exists(record => changed == SubagentTaskRecovery.Transition.Changed(record)),
+        after.contains(expected),
+        recovered match
+          case SubagentTaskRecovery.Transition.Reconciled(record, _) => record == expected
+          case _                                                     => false,
+        pending == Chunk(SubagentTerminalRecord(one, outcome)),
+        current.exists(record => repeat == SubagentTaskRecovery.Transition.Changed(record)),
+        beforeRepeat == afterRepeat,
+        missing == SubagentTaskRecovery.Transition.Missing
       ) && raceChecks.foldLeft(assertTrue(true))(_ && _)
   )

@@ -130,6 +130,14 @@ trait SubagentTaskRegistry:
   def refreshCurrentOwner: IO[AgentError, Chunk[SubagentTaskHeartbeatResult]] =
     ZIO.fail(AgentError.InvalidConfiguration("This registry does not support durable heartbeat"))
 
+  /** Explicit host-owned reconciliation of this registry's bound partition only. */
+  def recoverStaleTasks(
+      @unused policy: SubagentTaskRecovery.Policy,
+      @unused claimGate: SubagentTaskRecovery.Gate,
+      @unused authority: SubagentTaskRecovery.Authority
+  ): ZIO[Scope, AgentError, SubagentTaskRecovery.Result] =
+    ZIO.fail(AgentError.InvalidConfiguration("This registry does not support durable recovery"))
+
   /** Custom registries retain their existing captured-wait capability unless explicitly overridden. */
   private[subagent] def captureOutput(
       id: SubagentTaskId
@@ -899,6 +907,93 @@ object SubagentTaskRegistry:
                             SubagentCapturedReadiness.Ready(_)
                           )
                         )
+
+    override def recoverStaleTasks(
+        policy: SubagentTaskRecovery.Policy,
+        claimGate: SubagentTaskRecovery.Gate,
+        authority: SubagentTaskRecovery.Authority
+    ): ZIO[Scope, AgentError, SubagentTaskRecovery.Result] =
+      persistence match
+        case None => super.recoverStaleTasks(policy, claimGate, authority)
+        case Some(binding) =>
+          def closed: IO[AgentError, Nothing] =
+            ZIO.fail(AgentError.InvalidConfiguration("A closed registry cannot reconcile tasks"))
+          def ensureOpen: IO[AgentError, Unit] = state.get.flatMap:
+            case State.Open(_)   => ZIO.unit
+            case State.Closed(_) => closed
+
+          def reconcile(
+              record: SubagentTaskRecord,
+              at: java.time.Instant
+          ): IO[AgentError, SubagentTaskRecovery.Receipt] =
+            state.get.flatMap:
+              case State.Closed(_) => closed
+              case State.Open(entries) if entries.exists(_.id == record.id) =>
+                ZIO.succeed(
+                  SubagentTaskRecovery.Receipt(
+                    record.id,
+                    SubagentTaskRecovery.Disposition.RetainedLocal
+                  )
+                )
+              case State.Open(_) =>
+                ZIO.scoped:
+                  ZIO
+                    .suspendSucceed(authority.acquire(this, record))
+                    .flatMap:
+                      case SubagentTaskRecovery.Decision.Local(permit) =>
+                        if permit.expected != record then
+                          ZIO.fail(
+                            AgentError.InvalidConfiguration(
+                              "Recovery authority returned a different task record"
+                            )
+                          )
+                        else
+                          // Keep every retained owner protected, including paused tasks and completed
+                          // publisher/notifier receipts. Host acquisition and cleanup stay outside gate.
+                          gate.withPermit:
+                            ensureOpen *> state.get.flatMap: current =>
+                              if current.entries.exists(_.id == record.id) then
+                                ZIO.succeed(
+                                  SubagentTaskRecovery.Receipt(
+                                    record.id,
+                                    SubagentTaskRecovery.Disposition.RetainedLocal
+                                  )
+                                )
+                              else
+                                binding.store
+                                  .reconcileAbandoned(permit, at)
+                                  .map: result =>
+                                    SubagentTaskRecovery.Receipt(
+                                      record.id,
+                                      SubagentTaskRecovery.Disposition.Transitioned(result)
+                                    )
+                      case SubagentTaskRecovery.Decision.Remote =>
+                        ZIO.succeed(
+                          SubagentTaskRecovery
+                            .Receipt(record.id, SubagentTaskRecovery.Disposition.Remote)
+                        )
+                      case SubagentTaskRecovery.Decision.OwnerPresent =>
+                        ZIO.succeed(
+                          SubagentTaskRecovery
+                            .Receipt(record.id, SubagentTaskRecovery.Disposition.OwnerPresent)
+                        )
+                      case SubagentTaskRecovery.Decision.Unknown =>
+                        ZIO.succeed(
+                          SubagentTaskRecovery
+                            .Receipt(record.id, SubagentTaskRecovery.Disposition.Unknown)
+                        )
+          ensureOpen *> claimGate
+            .claim(policy)
+            .flatMap:
+              case SubagentTaskRecovery.Claim.Throttled =>
+                ZIO.succeed(SubagentTaskRecovery.Result.Throttled)
+              case SubagentTaskRecovery.Claim.Admitted =>
+                for
+                  at         <- Clock.instant
+                  records    <- binding.store.taskRecords
+                  candidates <- SubagentTaskRecovery.candidates(records, policy, at)
+                  receipts   <- ZIO.foreach(candidates)(record => reconcile(record, at))
+                yield SubagentTaskRecovery.Result.Swept(receipts)
 
     override def refreshCurrentOwner: IO[AgentError, Chunk[SubagentTaskHeartbeatResult]] =
       persistence match
