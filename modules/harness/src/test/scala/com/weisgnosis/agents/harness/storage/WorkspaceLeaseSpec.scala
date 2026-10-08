@@ -239,7 +239,7 @@ object WorkspaceLeaseSpec extends ZIOSpecDefault:
     },
     test(
       "failed admitted work preserves its failure and pending cancellation after ownership cleanup"
-    ) {
+    ):
       for
         root    <- temporaryDirectory
         entered <- Promise.make[Nothing, Unit]
@@ -254,7 +254,8 @@ object WorkspaceLeaseSpec extends ZIOSpecDefault:
               )
           .forkScoped
         _          <- entered.await
-        interrupt  <- fiber.interrupt.forkScoped
+        controller <- ZIO.fiberId
+        interrupt  <- fiber.interruptAs(controller).forkScoped
         _          <- TestClock.adjust(0.seconds)
         pending    <- interrupt.poll
         competitor <- ZIO.scoped(WorkspaceLease.open(root, WorkspaceOwner.Plan)).either
@@ -266,9 +267,10 @@ object WorkspaceLeaseSpec extends ZIOSpecDefault:
         competitor.isLeft,
         exit.isInterrupted,
         exit.causeOption.exists(_.failures == Chunk(failure)),
+        exit.causeOption.exists(_.interruptors.contains(controller)),
         names.isEmpty
       )
-    },
+    ,
     test("typed owners retain independent fixed ownership filenames") {
       for
         root <- temporaryDirectory

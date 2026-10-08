@@ -21,6 +21,20 @@ Failed construction must release acquired ownership before returning its failure
 
 WorkspaceLease captures the complete Exit of admitted work, joins work and cleanup, and combines pending ordinary caller cancellation with failure. Typed operation errors remain present and explicit caller masking is respected. WorkspaceLeaseSpec retains the reproduced admitted-failure regression as well as initialization lifecycle coverage. The local JSON manifest below records the exact source-approved identities and completed verification and final combined approval by review_fp and review_invariants for eight unchanged Scala identities and twenty-two Markdown files against 73b0fb1.
 
+## Caller interruption provenance
+
+**Accepted within the six-Scala scope against 7b59bc9 in the linked manifest.** A tightened existing WorkspaceLeaseSpec oracle reproduced loss of the external cancelling fiber ID on the unchanged accepted WorkspaceLease blob 58729f2d2ec9d90c7733250ca7997b383f399195. target/task-discovery-lease-provenance-red.log records eight passing groups and the exact-controller assertion failure before correction; the production checkpoint retains the unchanged identity. ZIO 2.1.26 allowInterrupt synthesizes self-interruption at this explicit checkpoint.
+
+The shared checkpoint retains actual pending descriptor interruptor IDs alongside the original operation/cleanup causes and preserves explicit caller masking. The new standalone reader's managed-kernel regression separately failed when cancellation arrived during cleanup; target/task-discovery-cleanup-draft-red.log records that draft failure. The first correction retained interruption but substituted the worker ID, confirmed by target/task-discovery-cleanup-first-fix-red.log and target/task-discovery-cleanup-diagnostic.log. Public discovery already had an outer admitted-I/O checkpoint; the direct-kernel failure is not evidence that its public discovery tests failed.
+
+The [local task workspace acceptance](../subagent/README.md#local-task-workspace) covers the resulting six-Scala scope, including WorkspaceLease and its existing paired specification. No new test group is added for the lease correction.
+
+## Read-only JSON snapshots
+
+**Accepted within the six-Scala scope against 7b59bc9 in the linked manifest.** LocalVersionedJsonStore.readSnapshot shares the owned backend's strict path/envelope reader without acquiring a writer lease. SnapshotRead distinguishes Missing, Older(observedModifiedAt) and Found(snapshot). A cutoff excludes strictly older files before payload decoding; equality remains included. Found retains the exact VersionedJson, observed modification time and actual encoded-byte count.
+
+Modification time and payload are observational samples, not one atomic filesystem generation. Admitted bounded reads and stream cleanup finish before pending ordinary cancellation is delivered; typed failures, cleanup causes and caller interruption remain observable. Native filesystem blocking can delay cancellation; byte/entry bounds are not wall-clock deadlines. Reading does not grant execution authority, acknowledge data, change revisions or perform abandoned-lease takeover. Host-controlled ancestors remain required. The [local task workspace](../subagent/README.md#local-task-workspace) owns this six-Scala source/specification scope and its final combined approval by review_fp and review_invariants for six unchanged Scala identities and sixteen Markdown files against 7b59bc9.
+
 ## Local versioned JSON
 
 [LocalVersionedJsonStore.open](LocalVersionedJsonStore.scala) binds one explicit StorageAddress to one explicit file beneath an existing host-controlled directory. Construction and all filesystem interaction are suspended in ZIO. There is no automatic partition/path derivation. Limits.default bounds a complete envelope to 2 MiB; checked custom limits leave room for an overflow byte. Target names are portable lowercase ASCII .json components, at most 128 UTF-8 bytes, with device aliases and unsafe path spellings rejected. Domain addresses and JSON values retain exact Unicode and numeric representation.
@@ -44,11 +58,11 @@ The actual registry integration targets agents/parent/tasks/sess-rt.json and ver
 | --- | --- |
 | [LocalMemoryRepository.scala](../memory/LocalMemoryRepository.scala) | `4002a33fa1499c15ac795e8142325869444cb735` |
 | [LocalPlanDraftStore.scala](../plan/LocalPlanDraftStore.scala) | `1f42fd5ae3237ad6f130fb5e702d443cc78b2a32` |
-| [LocalVersionedJsonStore.scala](LocalVersionedJsonStore.scala) | `f633936f0edfb249faa5672371e57b31b43cebb0` |
-| [WorkspaceLease.scala](WorkspaceLease.scala) | `58729f2d2ec9d90c7733250ca7997b383f399195` |
+| [LocalVersionedJsonStore.scala](LocalVersionedJsonStore.scala) | Superseded by the [current six-Scala scope](../subagent/README.md#local-task-workspace) |
+| [WorkspaceLease.scala](WorkspaceLease.scala) | Superseded by the [current six-Scala scope](../subagent/README.md#local-task-workspace) |
 | [LocalTranscriptStore.scala](../transcript/LocalTranscriptStore.scala) | `2b0102c6aa48668976f64b002320bdb973ce4173` |
-| [LocalVersionedJsonStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/LocalVersionedJsonStoreSpec.scala) | `2b8f2ea62b559a27e1069cfaa6d5753a70e3d268` |
-| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | `a5f8c250763bc39cfc5de1ec646f2dfb8b4910e3` |
+| [LocalVersionedJsonStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/LocalVersionedJsonStoreSpec.scala) | Superseded by the [current six-Scala scope](../subagent/README.md#local-task-workspace) |
+| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | Superseded by the [current six-Scala scope](../subagent/README.md#local-task-workspace) |
 | [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `2fbdb76e725bdd8e1fa061c6ac67d39a9cc45174` |
 
 ## Versioned JSON publication

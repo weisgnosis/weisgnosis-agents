@@ -1,12 +1,8 @@
 # weisgnosis-agents
 
-The [host-driven task recovery contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-driven-task-recovery) defines explicit stale-owner reconciliation, scoped host authority, protected local admissions and exact-record conditional publication. Defaults preserve the pinned 10-minute stale timeout and 5-minute sweep interval. Both independent reviewers approve six Scala identities against b4e3b37; 28 harness and two actual PostgreSQL focused groups pass. Full verification passes 1,651 tests and four packages; archive admission passes. Fresh standalone consumption passes; review_fp and review_invariants approve the final combined scope against b4e3b37: six unchanged Scala identities and fourteen Markdown files, with no unresolved findings. Recovery does not install a daemon or supply cross-process fencing, remote transport or executable restoration.
-
 A Scala 3 and ZIO 2 library for agent execution with explicit resource ownership and deterministic runtime authority. It adapts agent mechanics from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java), licensed under Apache-2.0.
 
 **Development status:** locally verified candidate artifacts are available from this source tree; no public distribution, frozen binary compatibility baseline or complete upstream transfer is claimed. Read the [getting-started guide](docs/getting-started.md), [current tracker](docs/architecture/tracker.md) and [method-level parity audit](docs/architecture/test-parity.md) before integration.
-
-The [completion notification contract](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#completion-notifications) supplies captured host defaults and per-submission suppression, with callbacks only after joined execution and confirmed terminal publication. Separate runtime receipts retain failures without acknowledgement or replay; borrowed bindings preserve the policy in public session/catalog factories. Both independent reviewers approve eight exact Scala identities against ff4566e; 42 focused harness and two actual PostgreSQL groups pass. Full verification passes 1,640 tests and four RC1 packages; negative archive admission and fresh standalone consumption pass. review_fp and review_invariants approve the final combined scope against ff4566e: eight unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
 
 ## Implemented components
 

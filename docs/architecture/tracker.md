@@ -33,7 +33,8 @@ Execute the original scope without substituting a narrower release checklist. Pa
 - [x] Pass final recovery focused contracts: 28 harness and two actual PostgreSQL groups, including renewed finite-default and reusable-gate boundary checks.
 - [x] Pass recovery full verification, four packages, negative archive admission/restoration and fresh standalone consumption.
 - [x] review_fp and review_invariants approve the final combined scope against b4e3b37: six unchanged Scala identities and fourteen Markdown files, with no unresolved findings.
-- [ ] Next implementation: explicit cross-session local workspace task discovery and recent-file window (789/812/821), sharing strict read-only validation without acquiring competing writer ownership.
+- [x] review_fp and review_invariants approve the final combined scope against 7b59bc9: six unchanged Scala identities and sixteen Markdown files, with no unresolved findings; focused/full/artifact/archive/consumer checks pass for local discovery and the shared cancellation-provenance correction.
+- [ ] Current implementation: persist explicit trusted execution origin and exclude agent-protocol task records from local recovery (method687); endpoint execution/polling remains a separate contract.
 - [ ] Complete durable reusable-session restoration, remote routing/discovery and cross-process owner recovery with explicit ownership/fencing.
 - [ ] Complete remaining method-applicability inventories and resulting original library behavior gaps before claiming total completion.
 - [ ] Execute the original WeisGnosis OS cutover and Temporal Activity end-to-end verification under Phase 6.
@@ -44,7 +45,8 @@ These are provisional engineering effort ranges, including implementation, propo
 
 | Confirmed missing original library obligation | Remaining engineering effort | Principal uncertainty |
 | --- | --- | --- |
-| Cross-session local task discovery and recent-file window | Decomposed scope pending implementation estimate | Read-only strict snapshots must coexist with live writer ownership, preserve session identity, bound enumeration and apply actual file modification times. |
+| Persisted remote execution origin (task-repository method687) | Decomposed scope pending source estimate | Persist a typed trusted execution origin and exclude agent-protocol records before local stale-owner recovery; host-supplied Remote decisions alone do not close this assertion. |
+| Workspace task-file routing (method857) | Port decomposition required | Route arbitrary task-file read/write through a borrowed host filesystem backend with namespace isolation; conditional JSON publication is a different contract. |
 | Remaining method applicability and resulting behavior | Not yet estimated | The finite inventories do not classify all 2,473 pinned core declarations. An evaluator dependency or passing suites cannot close unknown obligations. |
 
 - [ ] Complete the remaining method-applicability inventory and estimate the resulting concrete implementation backlog. No whole-plan total is asserted before this work identifies what remains.
@@ -66,17 +68,17 @@ These estimates share persistence/verification work and must not be summed into 
 
 ## Current acceptance
 
-The [host-driven recovery contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-driven-task-recovery) owns six exact Scala identities against b4e3b37, manifest 283819a376e054fbdfc4a31c9dfb9b249122c92108a3720447075ff0a78a11e6. The host supplies scoped recovery authority for the exact registry partition and candidate. Initial/final retained-owner checks protect concurrent local work; whole-record CAS preserves newer state and uncertain failures are never retried automatically.
+The [local task workspace contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-task-workspace) owns six exact Scala identities against 7b59bc9, manifest 25349389e005a7a8a1bf1f9dad4523060414fc2739a4a4fd9005c4bec91fa237. It implements bounded session-separated read-only discovery with actual inclusive file-mtime filtering and no competing writer lease. The shared resource checkpoint preserves original caller interruption IDs and operation/cleanup causes.
 
 - [x] review_fp and review_invariants approve all six exact Scala identities, with no unresolved source findings.
-- [x] target/task-recovery-focused-green.log passes 28 harness groups, and target/task-recovery-postgres-focused-green.log passes two actual PostgreSQL groups, zero failed/ignored/compiler warnings.
-- [x] Record actual RED-before-fix evidence for draft Infinity validation, unnecessary retained-owner authority acquisition and upstream-default mismatch; preserve separate fixture compilation diagnostics.
-- [x] target/task-recovery-final-verify.log passes formatting/fatal-warning compilation, 1,651 tests (695 core / 794 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
-- [x] target/task-recovery-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
-- [x] target/task-recovery-final-consumer.log passes fresh standalone formatting/compilation/execution with four artifact-hash checks; its unchanged probe does not directly exercise recovery.
-- [x] review_fp and review_invariants approve the final combined scope against b4e3b37: six unchanged Scala identities and fourteen Markdown files, with no unresolved findings; English prose and local links checked.
+- [x] target/task-discovery-focused.log passes 28 groups, zero failed/ignored/compiler warnings, in 1.058 seconds.
+- [x] Reproduce the accepted WorkspaceLease exact-controller defect before correction and retain separate draft-kernel RED/diagnostic evidence in the [storage contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#caller-interruption-provenance).
+- [x] target/task-discovery-final-verify.log passes formatting/fatal-warning compilation, 1,653 tests (695 core / 796 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
+- [x] target/task-discovery-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
+- [x] target/task-discovery-final-consumer.log passes fresh standalone formatting/compilation/execution and four artifact-hash checks; its unchanged selected-API probe does not directly exercise discovery/provenance.
+- [x] review_fp and review_invariants approve the final combined scope against 7b59bc9: six unchanged Scala identities and sixteen Markdown files, with no unresolved findings; English prose and local links checked.
 
-The six finite recovery/gate methods do not close remote transport687, cross-session discovery789/812/821, remote routing857, cross-process fencing, executable restoration, whole-plan applicability or actual product cutover. No whole-plan completion or publication is claimed.
+The finite task-repository inventory retains 23 bounded accepted methods and two unimplemented methods687/857. Cross-process fencing, executable restoration, whole-plan applicability and actual product cutover remain open. [Host-driven recovery](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-driven-task-recovery) retains its accepted bounded scope; it does not infer remote execution origin or provide remote filesystem routing.
 
 ## Available capabilities
 
@@ -93,8 +95,8 @@ Pair-safe compaction/pruning, offload, bounded memory/transcript publication, kn
 - [x] Implement and independently source-review bounded connection-local discovered-tool catalogue acquisition/lookup/close semantics; full and artifact verification pass, with final combined documentation approval passed against 63776a7. Pinned sync/async wrapper initialization and cached-lookup tests require original remote definitions; immutable registered Toolkit snapshots already cover the separate discovery bridge.
 - [x] Implement a server-selected alternative from explicitly configured supported MCP revisions, with both independent source approvals and full verification. Final combined delivery gates remain visible above; remaining builder methods are not automatically accepted.
 - [x] Persist bounded terminal observations with automatic registry-owned publication and reopened model-facing output/list/filter, including failed results and owner isolation; source and full/artifact checks pass.
-- [x] Classify all 25 pinned WorkspaceTaskRepositoryTest methods: twenty source-approved bounded observable adaptations, zero partial and five open; the [method inventory](test-parity.md#workspace-task-repository-method-inventory) owns exact assertions and differences.
-- [ ] Complete the five open task-repository methods and separately classified TaskRecord metadata. Method444 has verified durable Running/result/mixed-count semantics and physical JSON assertion469 under the linked local adapter contract; it does not assert metadata fields or timestamps.
+- [x] Classify all 25 pinned WorkspaceTaskRepositoryTest methods: twenty-three accepted bounded observable adaptations, zero partial and two open; the [method inventory](test-parity.md#workspace-task-repository-method-inventory) owns exact assertions and differences.
+- [ ] Complete the two open task-repository methods687/857 and separately classified TaskRecord metadata. Method444 has verified durable Running/result/mixed-count semantics and physical JSON assertion469 under the linked local adapter contract; it does not assert metadata fields or timestamps.
 - [x] Implement/source-review the bounded [current-owner cancellation adaptation](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-cancellation-intent) of method263; its final combined approval is recorded above.
 - [x] Implement/source-review publication-before-notification and per-submission suppression for WorkspaceTaskRepositoryTest methods882/923; final combined documentation approval is recorded above. Remote durable wakeup replay remains separate.
 - [ ] Decompose and implement durable reusable-session restoration and cross-process owner recovery with explicit host ownership/fencing. A stable-name/hash helper or persisted result does not restore execution authority.

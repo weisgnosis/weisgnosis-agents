@@ -19,6 +19,7 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.tool.PathSafety
 import com.weisgnosis.agents.harness.eviction.WorkspaceTrust
+import java.time.Instant
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.{
@@ -90,50 +91,76 @@ object LocalVersionedJsonStore:
       case WorkspaceTrust.HostControlled =>
         WorkspaceLease.initialize:
           for
-            absolute <- io(path.toAbsolutePath)
-            _ <- deny("Parent traversal is not permitted").when(
-              (0 until absolute.getNameCount).exists(index =>
-                absolute.getName(index).toString == ".."
-              )
-            )
-            name <- ZIO
-              .fromOption(Option(absolute.getFileName))
-              .orElseFail(AgentError.StorageError("Local JSON target needs a filename"))
-              .map(_.toString)
-            _ <- ZIO.fromEither(
-              WorkspaceLease.validateName(name, 128).left.map(AgentError.StorageError(_))
-            )
-            _ <- deny("Local JSON targets require a portable lowercase .json filename").unless(
-              name.endsWith(".json") && name.headOption.exists(character =>
-                character >= 'a' && character <= 'z' || character >= '0' && character <= '9'
-              )
-            )
-            _ <- deny("Sensitive local JSON target").when(PathSafety.isSensitivePath(absolute))
-            parentPath <- ZIO
-              .fromOption(Option(absolute.getParent))
-              .orElseFail(AgentError.StorageError("Local JSON target needs a parent directory"))
-            parent <- canonicalDirectory(parentPath)
-            target = parent.resolve(name)
-            _ <- deny("Sensitive local JSON target").when(PathSafety.isSensitivePath(target))
+            reader <- prepare(path, address, limits)
             lease <- WorkspaceLease.openNamed(
-              parent,
+              reader.parent,
               WorkspaceOwner.VersionedJson,
-              s".$name.versioned-writer.lease"
+              s".${reader.target.getFileName}.versioned-writer.lease"
             )
-            backend = new Backend(parent, target, address, limits, lease, atomicReplace)
+            backend = new Backend(reader, address, lease, atomicReplace)
             _ <- backend.read(address)
           yield backend
 
+  /** Mtime is observed before opening bytes; this is not an atomic mtime/payload snapshot. */
+  final case class Snapshot(record: VersionedJson, observedModifiedAt: Instant, encodedBytes: Int)
+
+  enum SnapshotRead:
+    case Missing
+    case Older(observedModifiedAt: Instant)
+    case Found(snapshot: Snapshot)
+
+    private[LocalVersionedJsonStore] def record: Option[VersionedJson] = this match
+      case Found(snapshot) => Some(snapshot.record)
+      case _               => None
+
+  /** No writer lease is acquired. Old files are excluded before payload decoding. */
+  def readSnapshot(
+      path: Path,
+      address: StorageAddress,
+      trust: WorkspaceTrust,
+      limits: Limits = Limits.default,
+      modifiedSince: Option[Instant] = None
+  ): IO[AgentError, SnapshotRead] = trust match
+    case WorkspaceTrust.Untrusted =>
+      deny("Untrusted local JSON storage requires a secure platform backend")
+    case WorkspaceTrust.HostControlled =>
+      boundedIO(prepare(path, address, limits).flatMap(_.load(modifiedSince)))
+
+  private def prepare(path: Path, address: StorageAddress, limits: Limits): IO[AgentError, Reader] =
+    for
+      absolute <- io(path.toAbsolutePath)
+      _ <- deny("Parent traversal is not permitted").when(
+        (0 until absolute.getNameCount).exists(index => absolute.getName(index).toString == "..")
+      )
+      name <- ZIO
+        .fromOption(Option(absolute.getFileName))
+        .orElseFail(AgentError.StorageError("Local JSON target needs a filename"))
+        .map(_.toString)
+      _ <- ZIO.fromEither(
+        WorkspaceLease.validateName(name, 128).left.map(AgentError.StorageError(_))
+      )
+      _ <- deny("Local JSON targets require a portable lowercase .json filename").unless(
+        name.endsWith(".json") && name.headOption.exists(character =>
+          character >= 'a' && character <= 'z' || character >= '0' && character <= '9'
+        )
+      )
+      _ <- deny("Sensitive local JSON target").when(PathSafety.isSensitivePath(absolute))
+      parentPath <- ZIO
+        .fromOption(Option(absolute.getParent))
+        .orElseFail(AgentError.StorageError("Local JSON target needs a parent directory"))
+      parent <- canonicalDirectory(parentPath)
+      target = parent.resolve(name)
+      _ <- deny("Sensitive local JSON target").when(PathSafety.isSensitivePath(target))
+    yield new Reader(parent, target, address, limits)
+
   final private class Backend(
-      parent: Path,
-      target: Path,
+      reader: Reader,
       bound: StorageAddress,
-      limits: Limits,
       lease: WorkspaceLease,
       atomicReplace: (Path, Path) => IO[AgentError, Unit]
   ) extends VersionedJsonStore:
     def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
-      checkAddress(address) *> lease.protect(load)
+      checkAddress(address) *> lease.protect(reader.load(None).map(_.record))
 
     def compareAndSet(
         address: StorageAddress,
@@ -149,7 +176,7 @@ object LocalVersionedJsonStore:
                 case ExpectedRevision.AtRevision(revision) if revision.value == Long.MaxValue =>
                   ZIO.fail(AgentError.StorageError("Storage revision exhausted"))
                 case _ => ZIO.unit
-              current <- load
+              current <- reader.load(None).map(_.record)
               matches = (expected, current) match
                 case (ExpectedRevision.Absent, None) => true
                 case (ExpectedRevision.AtRevision(revision), Some(record)) =>
@@ -167,7 +194,7 @@ object LocalVersionedJsonStore:
                       envelope.toJsonAST.left.map(AgentError.StorageError(_))
                     )
                     text = JsonBoundary.render(encoded)
-                    _ <- checkSize(text.getBytes(StandardCharsets.UTF_8).length.toLong)
+                    _ <- reader.checkSize(text.getBytes(StandardCharsets.UTF_8).length.toLong)
                     _ <- replace(text)
                   yield ConditionalWrite.Applied(revision)
             yield result
@@ -178,17 +205,35 @@ object LocalVersionedJsonStore:
         .unless(address == bound)
         .unit
 
-    private def checkSize(bytes: Long): IO[AgentError, Unit] =
+    private def replace(text: String): IO[AgentError, Unit] =
+      managed(io(Files.createTempFile(reader.parent, ".versioned-json-pending-", ".tmp")))(
+        temporary => io(Files.deleteIfExists(temporary)).unit
+      ): temporary =>
+        for
+          _ <- io(
+            Files.writeString(temporary, text, StandardCharsets.UTF_8, StandardOpenOption.WRITE)
+          )
+          _ <- reader.location *> reader.attributes
+          _ <- ZIO.suspendSucceed(atomicReplace(temporary, reader.target))
+        yield ()
+
+  final private class Reader(
+      val parent: Path,
+      val target: Path,
+      bound: StorageAddress,
+      limits: Limits
+  ):
+    def checkSize(bytes: Long): IO[AgentError, Unit] =
       ZIO
         .fail(AgentError.StorageError("Local JSON file exceeds its byte limit"))
         .when(bytes > limits.maxBytes.toLong)
         .unit
 
-    private def location: IO[AgentError, Unit] = canonicalDirectory(parent).flatMap(actual =>
+    def location: IO[AgentError, Unit] = canonicalDirectory(parent).flatMap(actual =>
       deny("Local JSON directory changed").unless(actual == parent).unit
     )
 
-    private def attributes: IO[AgentError, Option[BasicFileAttributes]] =
+    def attributes: IO[AgentError, Option[BasicFileAttributes]] =
       ZIO
         .attemptBlocking(
           Files.readAttributes(target, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS)
@@ -210,7 +255,7 @@ object LocalVersionedJsonStore:
               )
             yield Some(found)
 
-    private def boundedText: IO[AgentError, String] =
+    private def boundedText: IO[AgentError, (String, Int)] =
       managed(io(Files.newInputStream(target, LinkOption.NOFOLLOW_LINKS)))(stream =>
         io(stream.close())
       ): stream =>
@@ -218,16 +263,18 @@ object LocalVersionedJsonStore:
           bytes <- io(stream.readNBytes(limits.maxBytes + 1))
           _     <- checkSize(bytes.length.toLong)
           text  <- io(StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes)).toString)
-        yield text
+        yield (text, bytes.length)
 
-    private def load: IO[AgentError, Option[VersionedJson]] =
+    def load(modifiedSince: Option[Instant]): IO[AgentError, SnapshotRead] =
       location *> attributes.flatMap:
-        case None => ZIO.none
+        case None => ZIO.succeed(SnapshotRead.Missing)
+        case Some(found) if modifiedSince.exists(found.lastModifiedTime().toInstant.isBefore) =>
+          ZIO.succeed(SnapshotRead.Older(found.lastModifiedTime().toInstant))
         case Some(found) =>
           for
             _    <- checkSize(found.size())
-            text <- boundedText
-            _    <- checkSize(text.getBytes(StandardCharsets.UTF_8).length.toLong)
+            read <- boundedText
+            (text, bytes) = read
             json <- ZIO.fromEither(JsonBoundary.decode(text).left.map(AgentError.StorageError(_)))
             _    <- ZIO.fromEither(validate(json))
             envelope  <- ZIO.fromEither(json.as[Envelope].left.map(AgentError.StorageError(_)))
@@ -242,36 +289,41 @@ object LocalVersionedJsonStore:
                 envelope.formatVersion == 1 && envelope.address == bound && JsonBoundary
                   .sameRepresentation(json, canonical)
               )
-          yield Some(envelope.record)
-
-    private def replace(text: String): IO[AgentError, Unit] =
-      managed(io(Files.createTempFile(parent, ".versioned-json-pending-", ".tmp")))(temporary =>
-        io(Files.deleteIfExists(temporary)).unit
-      ): temporary =>
-        for
-          _ <- io(
-            Files.writeString(temporary, text, StandardCharsets.UTF_8, StandardOpenOption.WRITE)
+          yield SnapshotRead.Found(
+            Snapshot(envelope.record, found.lastModifiedTime().toInstant, bytes)
           )
-          _ <- location *> attributes
-          _ <- ZIO.suspendSucceed(atomicReplace(temporary, target))
-        yield ()
 
   /** Register release before use; retain typed cleanup failures after the resource scope joins. */
-  private def managed[A, B](
+  private[harness] def managed[A, B](
       acquire: IO[AgentError, A]
   )(release: A => IO[AgentError, Unit])(use: A => IO[AgentError, B]): IO[AgentError, B] =
-    for
-      cleanup <- Ref.make[Exit[AgentError, Unit]](Exit.unit)
-      outcome <- ZIO
-        .scoped(
-          ZIO
-            .acquireRelease(acquire)(resource => release(resource).exit.flatMap(cleanup.set))
-            .flatMap(use)
-        )
-        .exit
-      released <- cleanup.get
-      result   <- outcome.zipWith(released)((value, _) => value, _ ++ _)
-    yield result
+    ZIO.checkInterruptible: status =>
+      ZIO.uninterruptibleMask: restore =>
+        for
+          cleanup <- Ref.make[Exit[AgentError, Unit]](Exit.unit)
+          outcome <- restore(
+            ZIO.scoped(
+              ZIO
+                .acquireRelease(acquire)(resource => release(resource).exit.flatMap(cleanup.set))
+                .flatMap(use)
+            )
+          ).exit
+          released  <- cleanup.get
+          cancelled <- WorkspaceLease.pendingCancellation(status)
+          result <- outcome
+            .zipWith(released)((value, _) => value, _ ++ _)
+            .zipWith(cancelled)((value, _) => value, _ ++ _)
+        yield result
+
+  /** Bounded admitted filesystem I/O joins before a pending caller interruption is returned. */
+  private[harness] def boundedIO[A](operation: IO[AgentError, A]): IO[AgentError, A] =
+    ZIO.checkInterruptible: status =>
+      ZIO.uninterruptible:
+        for
+          outcome   <- operation.exit
+          cancelled <- WorkspaceLease.pendingCancellation(status)
+          result    <- outcome.zipWith(cancelled)((value, _) => value, _ ++ _)
+        yield result
 
   private def canonicalDirectory(path: Path): IO[AgentError, Path] =
     for

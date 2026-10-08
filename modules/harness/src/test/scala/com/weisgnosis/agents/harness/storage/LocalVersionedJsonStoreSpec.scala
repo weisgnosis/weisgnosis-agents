@@ -19,7 +19,7 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.harness.eviction.WorkspaceTrust
 import com.weisgnosis.agents.harness.memory.MemoryTestSupport.{children, temporaryDirectory}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, StandardCopyOption}
+import java.nio.file.{Files, Path, StandardCopyOption}
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -148,6 +148,62 @@ object LocalVersionedJsonStoreSpec extends ZIOSpecDefault:
         else names == Set("owned.json", ".owned.json.versioned-writer.lease")
       )
 
+  private enum KernelExit:
+    case Failure, CallerDuringCleanup
+
+  private def kernelOwnership(path: Path, mode: KernelExit): ZIO[Scope, AgentError, TestResult] =
+    for
+      entered  <- Promise.make[Nothing, Unit]
+      incoming <- Promise.make[Nothing, Boolean]
+      release  <- Promise.make[Nothing, Unit]
+      original = AgentError.StorageError("Read-only original failure")
+      cleanup  = AgentError.StorageError("Read-only cleanup failure")
+      defect   = new IllegalStateException("Read-only cleanup defect")
+      worker <- ZIO.uninterruptibleMask: restore =>
+        for
+          fiber <- restore(
+            ZIO.checkInterruptible(status => incoming.succeed(status.isInterruptible).unit) *>
+              LocalVersionedJsonStore.managed(
+                ZIO
+                  .attemptBlocking(Files.newInputStream(path))
+                  .mapError(error => AgentError.StorageError(error.toString))
+              )(stream =>
+                entered.succeed(()) *> release.await *>
+                  ZIO
+                    .attemptBlocking(stream.close())
+                    .mapError(error => AgentError.StorageError(error.toString)) *>
+                  ZIO.refailCause(Cause.fail(cleanup) ++ Cause.die(defect))
+              )(_ =>
+                mode match
+                  case KernelExit.Failure             => ZIO.fail(original)
+                  case KernelExit.CallerDuringCleanup => ZIO.unit
+              )
+          ).forkScoped
+          _ <- ZIO.addFinalizer(release.succeed(()).unit)
+        yield fiber
+      observedStatus <- incoming.await
+      _              <- entered.await
+      controller     <- ZIO.fiberId
+      _ <- mode match
+        case KernelExit.Failure             => ZIO.unit
+        case KernelExit.CallerDuringCleanup => worker.interruptAsFork(controller)
+      early <- worker.poll
+      _     <- release.succeed(())
+      exit  <- worker.await
+      cause = exit.causeOption.getOrElse(Cause.empty)
+      expected = mode match
+        case KernelExit.Failure             => List(original, cleanup)
+        case KernelExit.CallerDuringCleanup => List(cleanup)
+    yield assertTrue(
+      observedStatus,
+      early.isEmpty,
+      cause.failures == expected,
+      cause.defects == List(defect),
+      mode match
+        case KernelExit.Failure             => !cause.isInterrupted
+        case KernelExit.CallerDuringCleanup => cause.interruptors.contains(controller)
+    )
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("LocalVersionedJsonStoreSpec")(
     test(
       "actual atomic file CAS retains exact Unicode and revisions across reopen; distinct targets coexist and stale writers cannot overwrite"
@@ -165,7 +221,12 @@ object LocalVersionedJsonStoreSpec extends ZIOSpecDefault:
         second <- owner.extend(
           LocalVersionedJsonStore.open(other, secondAddress, WorkspaceTrust.HostControlled)
         )
-        absent       <- store.read(firstAddress)
+        absent <- store.read(firstAddress)
+        absentSnapshot <- LocalVersionedJsonStore.readSnapshot(
+          target,
+          firstAddress,
+          WorkspaceTrust.HostControlled
+        )
         wrongAddress <- store.read(secondAddress).either
         competitor <- ZIO
           .scoped(LocalVersionedJsonStore.open(target, firstAddress, WorkspaceTrust.HostControlled))
@@ -192,10 +253,20 @@ object LocalVersionedJsonStoreSpec extends ZIOSpecDefault:
             new java.math.BigDecimal("-9.2233720368547758081234567890123456789")
           )
         )
-        first          <- store.compareAndSet(firstAddress, ExpectedRevision.Absent, exact)
-        firstRevision  <- ZIO.fromEither(StorageRevision.fromLong(1L))
-        exactRead      <- store.read(firstAddress)
-        beforeConflict <- ZIO.attemptBlocking(Files.readString(target, StandardCharsets.UTF_8))
+        first               <- store.compareAndSet(firstAddress, ExpectedRevision.Absent, exact)
+        firstRevision       <- ZIO.fromEither(StorageRevision.fromLong(1L))
+        exactRead           <- store.read(firstAddress)
+        beforeConflict      <- ZIO.attemptBlocking(Files.readString(target, StandardCharsets.UTF_8))
+        beforeSnapshotMtime <- ZIO.attemptBlocking(Files.getLastModifiedTime(target).toInstant)
+        beforeSnapshotNames <- children(directory)
+        readonly <- LocalVersionedJsonStore.readSnapshot(
+          target,
+          firstAddress,
+          WorkspaceTrust.HostControlled
+        )
+        afterSnapshotNames <- children(directory)
+        afterSnapshotMtime <- ZIO.attemptBlocking(Files.getLastModifiedTime(target).toInstant)
+        afterSnapshotBytes <- ZIO.attemptBlocking(Files.readString(target, StandardCharsets.UTF_8))
         conflict <- store.compareAndSet(
           firstAddress,
           ExpectedRevision.Absent,
@@ -225,11 +296,15 @@ object LocalVersionedJsonStoreSpec extends ZIOSpecDefault:
         replacementChecks <- ZIO.foreach(
           Chunk(Replacement.Failed, Replacement.Cancelled, Replacement.CleanupFailed)
         )(replacementOwnership)
+        kernelChecks <- ZIO.foreach(Chunk.fromIterable(KernelExit.values))(mode =>
+          kernelOwnership(target, mode)
+        )
         applied = parallel.count:
           case ConditionalWrite.Applied(_) => true
           case _                           => false
       yield assertTrue(
         absent.isEmpty,
+        absentSnapshot == LocalVersionedJsonStore.SnapshotRead.Missing,
         wrongAddress == Left(
           AgentError.StorageError("Local JSON store is bound to a different address")
         ),
@@ -242,6 +317,15 @@ object LocalVersionedJsonStoreSpec extends ZIOSpecDefault:
         beforeConflict == afterConflict,
         applied == 1,
         exactRead.contains(VersionedJson(exact, firstRevision)),
+        readonly match
+          case LocalVersionedJsonStore.SnapshotRead.Found(snapshot) =>
+            snapshot.record == VersionedJson(exact, firstRevision) &&
+            snapshot.observedModifiedAt == beforeSnapshotMtime &&
+            snapshot.encodedBytes == beforeConflict.getBytes(StandardCharsets.UTF_8).length
+          case _ => false,
+        beforeSnapshotNames == afterSnapshotNames,
+        beforeSnapshotMtime == afterSnapshotMtime,
+        beforeConflict == afterSnapshotBytes,
         parallel.count(_ == ConditionalWrite.Conflict) == 1,
         advanced.exists(record =>
           record.revision.value == 2L && Set(Json.Str("left"), Json.Str("right"))
@@ -254,7 +338,9 @@ object LocalVersionedJsonStoreSpec extends ZIOSpecDefault:
         escaped.isLeft,
         recovered == advanced,
         names == Set("sess-rt.json", "other.json", ".sess-rt.json.versioned-writer.lease")
-      ) && replacementChecks.foldLeft(assertTrue(true))(_ && _)
+      ) && replacementChecks.foldLeft(assertTrue(true))(_ && _) && kernelChecks.foldLeft(
+        assertTrue(true)
+      )(_ && _)
     ,
     test(
       "untrusted paths, ambiguous or invalid envelopes, exhausted revisions and byte overflow fail without replacing existing bytes"

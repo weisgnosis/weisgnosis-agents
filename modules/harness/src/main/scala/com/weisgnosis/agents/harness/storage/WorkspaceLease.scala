@@ -50,7 +50,7 @@ final private[harness] class WorkspaceLease private (
               _     <- verify
               value <- operation
             yield value).exit
-            cancellation <- ZIO.allowInterrupt.when(status.isInterruptible).exit
+            cancellation <- WorkspaceLease.pendingCancellation(status)
             result       <- outcome.zipWith(cancellation)((value, _) => value, _ ++ _)
           yield result
 
@@ -79,6 +79,18 @@ final private[harness] class WorkspaceLease private (
 private[harness] object WorkspaceLease:
   private enum Lifetime:
     case Open, Closed
+
+  /**
+   * Called under a mask after owned work joins. Preserve the original cancellation identities;
+   * allowInterrupt would instead synthesize interruption by this fiber itself.
+   */
+  private[harness] def pendingCancellation(status: InterruptStatus): UIO[Exit[Nothing, Unit]] =
+    if status.isInterruptible then
+      ZIO.descriptor.map: descriptor =>
+        val cancellation = descriptor.interrupters.foldLeft[Cause[Nothing]](Cause.empty):
+          (cause, interrupter) => cause ++ Cause.interrupt(interrupter)
+        if cancellation.isEmpty then Exit.unit else Exit.failCause(cancellation)
+    else ZIO.succeed(Exit.unit)
 
   /**
    * Failed/interrupted construction unwinds before returning; successful resources remain owned
