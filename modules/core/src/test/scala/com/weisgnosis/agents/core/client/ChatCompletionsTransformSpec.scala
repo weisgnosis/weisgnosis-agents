@@ -17,6 +17,7 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.agent.{
   AgentResult,
+  AgentRunState,
   AgentRunUpdate,
   ReActAgent,
   StructuredMode,
@@ -68,6 +69,74 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
     agent.streamEvents(Msg.user("question")).runCollect
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ChatCompletionsTransformSpec")(
+    test("subscription-local text-delta suppression preserves canonical completion and history") {
+      for
+        client <- ChatCompletionsClient.make(
+          scripted(_ => ZIO.succeed(response(text("ok") + stop + done)))
+        )
+        rawAgent      <- ReActAgent.make(client = client, llmConfig = config)
+        filteredAgent <- ReActAgent.make(client = client, llmConfig = config)
+        raw           <- record(rawAgent)
+        filtered <- filteredAgent
+          .streamEvents(Msg.user("question"))
+          .filterNot(_.isInstanceOf[AgentEvent.TextBlockDeltaEvent])
+          .runCollect
+        rawHistory      <- rawAgent.history
+        filteredHistory <- filteredAgent.history
+      yield assertTrue(
+        raw.collect { case delta: AgentEvent.TextBlockDeltaEvent => delta.delta } == Chunk("ok"),
+        !filtered.exists(_.isInstanceOf[AgentEvent.TextBlockDeltaEvent]),
+        raw.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent]),
+        filtered.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent]),
+        raw.collect { case result: AgentEvent.AgentResultEvent => result.result.text } == Chunk(
+          "ok"
+        ),
+        filtered.collect { case result: AgentEvent.AgentResultEvent =>
+          result.result.text
+        } == Chunk("ok"),
+        rawHistory.map(message => message.role -> message.text) ==
+          Chunk(Role.User -> "question", Role.Assistant -> "ok"),
+        filteredHistory.map(message => message.role -> message.text) ==
+          rawHistory.map(message => message.role -> message.text)
+      )
+    },
+    test(
+      "immutable host result projection changes returned metadata without rewriting runtime truth"
+    ) {
+      for
+        client <- ChatCompletionsClient.make(
+          scripted(_ => ZIO.succeed(response(text("ok") + stop + usage + done)))
+        )
+        agent <- ReActAgent.make(client = client, llmConfig = config)
+        updates <- agent
+          .streamWithResult(Msg.user("question"))
+          .map {
+            case AgentRunUpdate.Result(result) =>
+              AgentRunUpdate.Result(
+                result.copy(reply = result.reply.withMetadata("modified", Json.Bool(true)))
+              )
+            case AgentRunUpdate.Event(event) => AgentRunUpdate.Event(event)
+          }
+          .runCollect
+        history <- agent.history
+        events    = updates.collect { case AgentRunUpdate.Event(event) => event }
+        published = events.collect { case event: AgentEvent.AgentResultEvent => event.result }
+        returned  = updates.collect { case AgentRunUpdate.Result(result) => result }
+      yield assertTrue(
+        published.size == 1,
+        returned.size == 1,
+        returned.zip(published).forall { case (result, original) =>
+          result.reply == original.withMetadata("modified", Json.Bool(true)) &&
+          result.history == history && result.state == AgentRunState.Completed &&
+          result.iterationCount == 1 && result.usage == original.usage && result.usage.nonEmpty
+        },
+        history.lastOption == published.headOption,
+        history.forall(message => !message.metadata.contains("modified")),
+        events.collect { case delta: AgentEvent.TextBlockDeltaEvent => delta.delta } == Chunk("ok"),
+        events.count(_.isInstanceOf[AgentEvent.ModelRequestStartEvent]) == 1,
+        events.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent])
+      )
+    },
     test("modelCallTextDeltaReplacement_updatesNativeStructuredOutput over real HTTP") {
       val payload = """{"city":"Shanghai","temperature":"32°C"}"""
       val fenced  = text("```json\n") + text(payload) + text("\n```") + stop + usage + done

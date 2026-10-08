@@ -1,6 +1,8 @@
 # Host integration examples
 
-This nonpublished SBT project compiles against core, harness, and MCP. It demonstrates existing library APIs rather than adding a supported facade. Start with the complete applications in [Getting started](../../docs/getting-started.md).
+This nonpublished SBT project compiles against core, harness, and MCP. It demonstrates existing library APIs rather than adding a supported facade. Start with the complete applications in [Getting started](../../docs/getting-started.md). Use JDK 21 and the repository-pinned sbt version, and run the commands below from the repository root.
+
+`LiveFileTask`, `LiveProviderSmoke` and `LiveProviderProfiles` are runnable applications. HostAssembly, AuditedLlmClient and LifecycleLogging are composition examples used by a host application; they have no standalone `runMain` entrypoint.
 
 ## Model-driven file task
 
@@ -9,7 +11,6 @@ This nonpublished SBT project compiles against core, harness, and MCP. It demons
 Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveFileTask"` using the existing `WEISGNOSIS_LIVE_SMOKE=enabled`, `WEISGNOSIS_LIVE_ENDPOINT`, `WEISGNOSIS_LIVE_MODEL` and optional `WEISGNOSIS_LIVE_API_KEY` configuration described below. Model and endpoint are explicit host choices; no default identifier or ambient credential is selected. Enabled execution makes external requests and may incur charges. Limits remain three model iterations, 1,024 output tokens per request, a one-minute run deadline and one-MiB provider responses. File input is fixed and bounded; this is not a general filesystem toolkit or hostile-filesystem sandbox.
 
 The directory is acquired into an owned scope, native file operations are suspended and joined, and cleanup errors remain typed failures rather than successful verification. Cleanup may extend beyond the model deadline. [LiveFileTaskSpec](src/test/scala/com/weisgnosis/agents/examples/LiveFileTaskSpec.scala) drives the actual ReAct/file path offline and checks the next model request's read observation, exact bytes, cancellation cleanup and typed failure. Offline tests send no provider requests. The actual selected-endpoint run on 2026-10-08 completed with one write, one read, exact expected file bytes and removed owned fixture, using qwen3.8-27b selected from the authenticated model catalog. This is bounded evidence for that run, not all providers, models or filesystem environments.
-
 
 ## Scoped host usage
 
@@ -41,9 +42,9 @@ Its static allowlist excludes prompts, reasoning, outputs, metadata, raw tool/mo
 
 [LiveProviderSmoke](src/main/scala/com/weisgnosis/agents/examples/LiveProviderSmoke.scala) is opt-in and sends real requests that may incur charges. Set WEISGNOSIS_LIVE_SMOKE to enabled, WEISGNOSIS_LIVE_ENDPOINT to the full endpoint URL, and WEISGNOSIS_LIVE_MODEL to the selected model identifier. Supply WEISGNOSIS_LIVE_API_KEY only if bearer authentication is required. Keep credentials in the process environment, outside tracked files and command history.
 
-Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveProviderSmoke"` from the repository root. The program bounds model iterations, output tokens, runtime, and response bytes; it checks addition-tool execution, streamed text, and the exact completed reply. Its logs expose aggregate validation counts.
+Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveProviderSmoke"` from the repository root. The program bounds model iterations, output tokens, runtime, and response bytes; it checks addition-tool execution, streamed text, and the exact completed reply. Its logs expose aggregate validation counts. Require the explicit `Live provider smoke passed:` message; a disabled run or a logged application failure is not successful endpoint verification.
 
-The smoke is a narrow endpoint check, not evidence for cancellation, ordinary JSON completion, structured output, media, failover, subagent/MCP chains, or durable recovery. Offline verification does not contact or validate that endpoint.
+Unset `WEISGNOSIS_LIVE_SMOKE` disables external execution; other values besides `enabled` fail configuration. The endpoint must be the complete Chat Completions URL, including `/chat/completions`. The smoke is a narrow endpoint check, not evidence for cancellation, ordinary JSON completion, structured output, media, failover, subagent/MCP chains, or durable recovery. Offline verification does not contact or validate that endpoint.
 
 ## Selected structured-output and cancellation profiles
 
@@ -79,4 +80,4 @@ universal JSON Schema conformance or HTTP-response cancellation.
 
 ## Verification and acceptance
 
-From the repository root, run `sbt "examples / test"` for offline example contracts and `sbt "examples / compile"` to compile the applications. Run `sbt verify` for repository formatting checks, fatal-warning compilation, and tests. These examples are not published library artifacts; remaining library and host integration work is tracked in the [repository tracker](../../docs/architecture/tracker.md).
+From the repository root, run `sbt "examples / test"` for offline example contracts and `sbt "examples / compile"` to compile the applications. Run `sbt verify` for repository formatting checks, fatal-warning compilation, and tests. These commands make no live-provider requests. Actual PostgreSQL verification and native alias fixtures have separate [verification prerequisites](../../verification/README.md); skipped fixture scenarios are not backend or platform verification. These examples are not published library artifacts. [Packaged consumer and candidate preparation](../../verification/README.md#packaged-external-consumer) are separate from running an example and do not sign or publish a release. Remaining library and host integration work is tracked in the [repository tracker](../../docs/architecture/tracker.md).

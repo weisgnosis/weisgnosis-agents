@@ -6,6 +6,14 @@ Core uses NetworkNT json-schema-validator 2.0.4 behind a suspended private adapt
 
 MCP tests fork a JVM to start a peer with its actual test classpath. Java MCP SDK 0.17.2, Tomcat 11.0.18 and logging fixtures remain Test-only; the test JVM opens the JDK packages required for Tomcat cleanup. storagePostgresql reuses harness test fixtures through its test configuration without exporting them in production artifacts.
 
+## Phase, advice and recovery compatibility
+
+The optional [PhaseObserver](../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#scoped-phase-observation) adds a defaulted factory/builder dependency. Recompile JVM consumers and update builder product patterns; no serialized callback or result-replacement capability is introduced. Subscription filtering and immutable host result projection remain separate presentation operations.
+
+[Permission advice](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#permission-rule-advice) is additive and opt-in; the original interactive callback remains advice-free. Advice has no policy authority. Custom daily stores inherit an unsupported `days` operation until implemented, and custom transcript catalogs inherit unsupported retirement; neither silently fabricates empty state.
+
+Transcript catalogs strictly read version 1 and publish version 2 with retained retired bindings. Older readers cannot consume the new schema; coordinate upgrades and host-owned backups. [Local handoff](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#local-and-remote-handoff) preserves legacy version-1 linear rows until branch recovery requires a version-2 document. Current ordinary local writers retain recovered branches while extending the selected continuation; older binaries fail closed on recovery documents. No downgrade, remote write, executable checkpoint conversion or distributed writer fence is supplied.
+
 ## Local artifact packaging
 
 `packageArtifacts` creates binary JARs, source JARs and Maven POMs for core, harness, MCP and storage-postgresql under each module's target/scala-3.9.0. Each archive includes one META-INF/LICENSE. The root aggregate, examples and external consumer remain unpublished. Examples compile against core/harness/MCP and have their own test dependencies; they do not inherit the optional storage module or Java server fixtures.

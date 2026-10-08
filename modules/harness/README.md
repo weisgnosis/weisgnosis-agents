@@ -9,10 +9,10 @@ Use [Getting started](../../docs/getting-started.md) for compiled applications a
 | Package | Purpose |
 | --- | --- |
 | [memory](src/main/scala/com/weisgnosis/agents/harness/memory/README.md) | Pair-safe compaction, daily extraction, consolidation, and explicit maintenance |
-| [transcript](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md) | Observation recording, aggregate/segment storage, explicit compaction, registered recording, and selected discovery |
+| [transcript](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md) | Observation recording, aggregate/segment storage, registered recording, bounded source discovery, membership retirement and branch-preserving local/remote handoff |
 | [storage](src/main/scala/com/weisgnosis/agents/harness/storage/README.md) | Versioned JSON publication, local files, acting checkpoints, and cooperative workspace leases |
 | [eviction](src/main/scala/com/weisgnosis/agents/harness/eviction/README.md) | Large-result offloading and bounded previews |
-| [permission](src/main/scala/com/weisgnosis/agents/harness/permission/README.md) | Decision composition, interactive waiting, explicit unavailable-channel denial, and serializable confirmation data |
+| [permission](src/main/scala/com/weisgnosis/agents/harness/permission/README.md) | Decision composition, host modes, interactive waiting, immutable rule advice, unavailable-channel denial and serializable confirmation data |
 | [subagent](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) | Configured children, persistent named sessions, task tools, durable observations, opt-in lifecycle milestones, and host-driven controls |
 | [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) | Explicit Plan-mode tool admission, command screening, and draft storage |
 | [skill](src/main/scala/com/weisgnosis/agents/harness/skill/README.md) | Bounded skill parsing and explicitly trusted local resources |

@@ -4,7 +4,8 @@ Start with [Getting started](getting-started.md): local installation and complet
 
 ## Guides and contracts
 
-- [Host examples](../modules/examples/README.md): composition, lifecycle logging and opt-in live verification.
+- [Host examples](../modules/examples/README.md): runnable model/file applications, composition and opt-in live verification.
+- [Distribution verification](../verification/README.md#packaged-external-consumer): packaged consumer checks and unsigned candidate preparation; packaging does not publish a release.
 - [Compatibility and migration](../project/README.md#compatibility-policy): public API rebuild requirements.
 - [Architecture overview](../ARCHITECTURE.md): runtime authority and host boundaries.
 - [Architecture index](architecture/README.md): component contracts and design documents.
@@ -19,6 +20,6 @@ Start with [Getting started](getting-started.md): local installation and complet
 
 ## Maintaining documentation
 
-Describe current APIs, usage, ownership, compatibility and limitations. Update affected contracts instead of appending delivery history. Keep review outcomes in the PR or task conversation; Git retains previous findings. Older package review journals still require cleanup, with their applicable contracts preserved.
+Describe current APIs, usage, ownership, compatibility and limitations. Update affected contracts instead of appending delivery history. Keep review outcomes in the PR or task conversation; Git retains previous findings. Preserve applicable API, security and migration contracts when removing obsolete review history.
 
 Documentation distinguishes offline checks, actual live runs and unsupported behavior. Never include credentials or imply that passing tests establish exhaustive parity or production readiness.

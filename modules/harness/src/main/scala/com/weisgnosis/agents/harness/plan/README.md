@@ -1,8 +1,8 @@
 # Plan-mode admission foundations
 
-The [shared initialization contract](../storage/README.md#scoped-initialization) corrects failed/interrupted local opening: ownership is released before failure reaches a still-live host Scope; successful resources retain the host lifetime. The unchanged-production regression failed before correction; same-host repair/reopen and exact cleanup-cause tests now pass. Both independent reviewers approve the eight-Scala source manifest linked there; full verification, artifact/archive admission and standalone consumption pass; review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings.
+The [shared initialization contract](../storage/README.md#scoped-initialization) corrects failed/interrupted local opening: ownership is released before failure reaches a still-live host Scope; successful resources retain the host lifetime. The unchanged-production regression failed before correction; same-host repair/reopen and exact cleanup-cause tests now pass.
 
-Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
+Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity).
 
 [PlanShellInspection.inspect](PlanShellInspection.scala) is a pure, conservative POSIX command-shape inspector. It accepts at most 4,096 characters from ASCII letters, digits, spaces and `_./-`, then applies a command-specific positive grammar. All other characters, including tabs/newlines, quotes, escapes, redirects, pipes, substitutions, separators and glob syntax, fail with a typed ShellRejection.
 
@@ -18,23 +18,15 @@ An operand must not begin with a hyphen. Implicit stdin, unknown options, wrappe
 
 [PosixReadCommand](PosixReadCommand.scala) carries a fixed program identity and immutable arguments; it has no public constructor or command codec. The host must bind that identity to its trusted implementation and consume the parsed argv without shell re-parsing. This is static syntax eligibility only, not execution approval or a sandbox. Operands can still identify sensitive paths, symlinks, devices or unbounded data. Canonical path authorization, regular-file/device policy, trusted executables/environment, output/time limits and scoped process ownership remain required at the executor boundary. Prefer dedicated read capabilities where available. This package does not execute any command.
 
-## Current acceptance and identities
-
 Current APIs provide typed admission, scoped draft/review authority, stored publication, model controls, request-only context and opt-in child installation. The [subagent package](../subagent/README.md#child-plan-installation) retains live ancestor restrictions across named reused sessions without copying approvals. The [parity inventory](../../../../../../../../../../docs/architecture/test-parity.md#plan-mode-inventory) records fourteen bounded adaptations; this is not literal Java API, middleware or durable recovery parity. Authenticated host UI and durable approval restoration remain separate.
 
-| Source | Git blob |
-| --- | --- |
-| [PosixReadCommandSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PosixReadCommandSpec.scala) | 5010e0c6d9f880f2c6a6a4db4f34297a0dcb6fc3 |
-
-- [x] `review_fp` and `review_harness` approved the final four-file static-shell increment against `2d4094b` on 2026-09-29. No findings remain within bounded positive syntax inspection and immutable argv results. Runtime plan enforcement, process execution, path authorization and resource isolation are excluded.
+Source and paired tests: [PosixReadCommandSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PosixReadCommandSpec.scala).
 
 ## Child installation acceptance
 
 SubagentPlanInstallation.Enabled(publisher) opts a constructed child into its own Plan controls and request-only inherited context; Disabled preserves previous behavior. Parent Plan never mutates the child session or grants approval. PlanInputTransform.inherited uses live ancestor mode plus child-local context; a locally approved Build draft under ancestor Plan remains described as restricted, with no instruction to execute it. Child location is descriptive data, not evidence of a current physical file.
 
 Installed controls retain ordinary authorization, static boundaries and host-selected ToolGroups visibility. Explicit host classifications override default PlanControl entries. Installation validates required names before registration, rejects collisions before client acquisition and activates no groups. The host retains publisher/store/control lifetimes and exact-ticket reviewer authority. These dependencies are borrowed; this adapter neither acquires a backend nor copies parent approval.
-
-- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for the five current identities in the admission/location tables and [subagent acceptance](../subagent/README.md#child-plan-installation), with no findings. Two child groups cover declared/general-purpose installation and named reuse; one parent integration group verifies supported spawn/send/task/cancel admission with denied child mutation. Focused checks passed 31 groups in 919 ms. Full `scalafmtAll scalafmtSbt verify` passed in `child-plan-verify.log`: 605 core / 696 harness / 82 MCP tests (1,383 total), compile task 1 second and test task 14 seconds, zero compiler warnings or failures.
 
 ## Remaining integration
 
@@ -56,8 +48,6 @@ Installed controls retain ordinary authorization, static boundaries and host-sel
 - [x] The explicit construction path retains live ancestor restrictions across nested and reused children; supported parent controls are verified under trusted Plan classifications. Raw host factories/spawners still require deliberate policy composition.
 
 The [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) records the next repository task.
-
-- [x] Retain `review_docs` acceptance of the unchanged static-shell contracts against `2d4094b`; current source identities and limitations are recorded in the associated sections.
 
 ## Dynamic plan admission
 
@@ -91,26 +81,11 @@ Install the returned gate explicitly in the configured child's InteractivePermis
 
 This is a host adapter rather than automatic factory wiring. It does not register tools, copy parent plan-directory/prompt configuration, install nested gates, grant default exemptions to `agent_spawn`, `agent_task`, `agent_cancel` or `agent_send`, or implement persistent reuse. Hosts must retain the correct live mode sources. The reviewed [SubagentConstruction](../subagent/README.md) path installs live ancestor/child admission in derived factories and retained sessions; raw child paths still require explicit configuration.
 
-## Current admission identities
+The scope covers opt-in admitted-tool fallback, explicit host precedence, actual skill loading followed by mutation denial, model spoof rejection and confirmation rechecks retaining evidence while sampling live mode. Unchanged inherited admission retains its acceptance. The separate [child construction contract](../subagent/README.md#admitted-tool-plan-access) owns opt-in admitted-access propagation through child factories. Full Plan tool/prompt installation and post-admission revocation remain excluded.
 
-`path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the current gate and two changed admission suites, with no findings. The scope covers opt-in admitted-tool fallback, explicit host precedence, actual skill loading followed by mutation denial, model spoof rejection and confirmation rechecks retaining evidence while sampling live mode. Unchanged inherited admission retains its acceptance. Full `scalafmtAll scalafmtSbt verify` passed with zero compiler warnings or failed tests (`skill-reminders-final-verify.log`); current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). The separate [child construction contract](../subagent/README.md#admitted-tool-plan-access) owns opt-in admitted-access propagation through child factories. Full Plan tool/prompt installation and post-admission revocation remain excluded.
+Source and paired tests: [PlanMode.scala](PlanMode.scala), [PlanPermissionGate.scala](PlanPermissionGate.scala), [PlanInheritedPermissionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInheritedPermissionSpec.scala), [PlanShellInspection.scala](PlanShellInspection.scala), [PosixReadCommand.scala](PosixReadCommand.scala), [PlanModeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanModeSpec.scala), [PlanPermissionGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionGateSpec.scala), [PlanPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionIntegrationSpec.scala), [PlanShellInspectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanShellInspectionSpec.scala).
 
-| Source | Git blob |
-| --- | --- |
-| [PlanMode.scala](PlanMode.scala) | 8ee5910af797c790f08ac61cfa0cf7f4cf03ab38 |
-| [PlanPermissionGate.scala](PlanPermissionGate.scala) | b56772173cf6027f441a5adbc8b5cb352856f2d4 |
-| [PlanInheritedPermissionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInheritedPermissionSpec.scala) | [Current PlanInheritedPermissionSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
-| [PlanShellInspection.scala](PlanShellInspection.scala) | 9bcbef0da418bba1707d018ee653ff5700045b61 |
-| [PosixReadCommand.scala](PosixReadCommand.scala) | b1279b9d804743bc8e9df9fc46f0f4fd44a4bee9 |
-| [PlanModeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanModeSpec.scala) | 269fe9cba0e22e4bfbda8735ed9d4dc7b43c1e52 |
-| [PlanPermissionGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionGateSpec.scala) | ae9f03e2d791c575d0703986401a3d1addc83cbe |
-| [PlanPermissionIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPermissionIntegrationSpec.scala) | [Current PlanPermissionIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
-| [PlanShellInspectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanShellInspectionSpec.scala) | 06263d26f34e47b65a869298ac9d3db515d0fe7c |
-
-- [x] Retain `review_fp`, `review_harness` and `review_docs` acceptance against `0ad16e5` for unchanged typed classifications, exact command input and ordinary admission integration.
-- [x] Both reviewers approved the current opt-in gate and admission suites; unchanged configured-child integration retains its reviewed identity above.
-
-The skill integration compares exact call-ID/state pairs, retaining cardinality checks without assuming completion order for parallel tools. A Promise barrier releases the reader only after the denied write result is persisted. Diagnostic spec `9fe7828d5efbbf5854059dc10aaaa28419e7e3af` failed the old ordered expectation in `plan-admission-order-barrier-red.log`: Success/Denied/Success instead of Success/Success/Denied. This was a fixture expectation defect, not a runtime correction. Both reviewers approved the corrected spec identity above; full verification passed. The initial aggregate failure is recorded in `skill-reminders-verify.log`.
+The skill integration compares exact call-ID/state pairs, retaining cardinality checks without assuming completion order for parallel tools. A Promise barrier releases the reader only after the denied write result is persisted. This was a fixture expectation defect, not a runtime correction.
 
 ## In-memory plan-session lifecycle
 
@@ -126,19 +101,9 @@ Request registration uses acquireRelease. The owning Scope must remain alive whi
 
 Pass session.control.mode directly to PlanPermissionGate to avoid mirrored flags. The existing admission-only rule remains: a mode transition affects later checks without revoking already admitted tools. For PlanSession.make, drafts and approvals are in memory only; the stored factory below persists drafts but still keeps approval in memory only. The in-memory factory claims no plan-file path, file existence, filesystem publication, restore protocol or model-facing control tool; request projection is implemented below. The upstream manager's live mode assertions are adapted with stricter review authority; its path recording/retention assertions are now adapted by location context below.
 
-## Current session identities
+The current PlanSession identity is in the location-context table; PlanSessionReviewSpec remains in the stored-session table.
 
-Current linked identities from the five-file increment against 87b2d8b. Their earlier PlanSession and PlanSessionReviewSpec identities are preserved in 2a73621. The current PlanSession identity is in the location-context table; PlanSessionReviewSpec remains in the stored-session table.
-
-| Source | Git blob |
-| --- | --- |
-| [PlanSessionState.scala](PlanSessionState.scala) | 09a0c147ce95c82376ee9f5931edacd8c8c56668 |
-| [PlanSessionStateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanSessionStateSpec.scala) | 26a3059f88ed81cb695054449a03b1e85b76156e |
-| [PlanSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanSessionSpec.scala) | e9ffabb278cc8bd420cf7a7721bb69f45f6a3261 |
-
-- [x] `review_fp` and `review_harness` approved the final five-file in-memory plan-session increment against `87b2d8b` on 2026-09-29. No findings remain within typed snapshots, exact-ticket host review, atomic settlement, scoped cancellation and live gate integration. Paths/files, durable restoration, prompt projection and control-tool/authenticated-UI integration are excluded.
-
-- [x] Retain `review_docs` acceptance of the unchanged plan-session contracts against `87b2d8b`; current source identities and limitations are recorded in the associated sections.
+Source and paired tests: [PlanSessionState.scala](PlanSessionState.scala), [PlanSessionStateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanSessionStateSpec.scala), [PlanSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanSessionSpec.scala).
 
 ## Request-only plan context
 
@@ -152,18 +117,7 @@ Ordered System messages and complete tool pairs remain unchanged. The core rewri
 
 Migration from upstream: request-only User context replaces System-prompt mutation. Fresh Build preserves the no-hint behavior. Legacy snapshot-only projection has no location metadata; the additive context projection below supplies configured/observed location data without presenting in-memory content as an existing approved file. The upstream Build-hint test checks recorded path text, not actual file existence. Opt-in controls are implemented below; authenticated host routing, durable restoration and child propagation remain separate work.
 
-## Current projection identities
-
-Two unchanged identities from the five-file increment against 132a81a; PlanInputTransform has its current identity in the location table and acceptance under child installation. Their earlier PlanPrompt and PlanPromptSpec identities are preserved in 2a73621. Current PlanPrompt is in the location-context table; PlanPromptSpec remains in the stored-session table.
-
-| Source | Git blob |
-| --- | --- |
-| [PlanInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputTransformSpec.scala) | a63dee4e6d8d1258c2f020fce788f07547a2c230 |
-| [PlanInputIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputIntegrationSpec.scala) | [Current PlanInputIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
-
-- [x] `review_fp` and `review_harness` approved the final five-file plan-input increment against `132a81a` on 2026-09-29. No findings remain within truthful snapshot rendering, request-only projection, final-user coalescing, preserved canonical/system/tool history and live gate authority. Files/restoration and automatic tool/UI/child integration are excluded.
-
-- [x] Retain `review_docs` acceptance of the unchanged projection contracts against `132a81a`; current source identities and limitations are recorded in the associated sections.
+Source and paired tests: [PlanInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputTransformSpec.scala), [PlanInputIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanInputIntegrationSpec.scala).
 
 ## Standalone draft storage
 
@@ -179,19 +133,7 @@ AgentError.PlanStorageError distinguishes plan I/O, invalid stored content and o
 
 The standalone backend itself changes no session state; the stored-session integration below connects publication to PlanSession. Opt-in model-facing controls are implemented below; location-aware prompts are implemented below; restoration of session mode/approval remains pending. No additional complete upstream method is claimed: the current inventory has fourteen bounded adaptations; see the parity inventory.
 
-## Current draft-storage identities
-
-Current linked identities from the nine-file increment against 083617b. AgentError and AgentErrorSpec identities are preserved in 279b7a3 and replaced in the [lineage table](../subagent/README.md#current-lineage-identities). Earlier store/files identities are preserved in fd496a4; changed PlanDraftFilesSpec, LocalPlanDraftStore and PlanDraftFiles identities are preserved in f147a99 and replaced in the directory table. PlanDraftStore remains in the location table. The original storage migration's earlier AgentError, AgentErrorSpec and WorkspaceLease identities are preserved in 083617b.
-
-| Source | Git blob |
-| --- | --- |
-| [WorkspaceLease.scala](../storage/WorkspaceLease.scala) | [Current failure/cancellation scope](../storage/README.md#admitted-work-failure-and-cancellation) |
-| [LocalPlanDraftStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/LocalPlanDraftStoreSpec.scala) | 564df5e17f6c8c0998e060aea890adcf0bed5fc7 |
-| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | [Current failure/cancellation identity](../storage/README.md#admitted-work-failure-and-cancellation); prior plan behavior retained. |
-
-- [x] `review_fp` and `review_harness` approved the final nine-file standalone plan-storage increment against `083617b` on 2026-09-29. No findings remain within exact content/encoding, scoped cooperative ownership, atomic replacement, hardlink preservation, typed errors and cancellation ordering. Session/publication integration, persisted approval, hostile filesystem isolation, crash durability and new whole-method upstream parity are excluded.
-
-- [x] Retain `review_docs` acceptance of the unchanged standalone plan-storage contracts against `083617b`; current source identities and limitations are recorded in the associated sections.
+Source and paired tests: [WorkspaceLease.scala](../storage/WorkspaceLease.scala), [LocalPlanDraftStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/LocalPlanDraftStoreSpec.scala), [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala).
 
 ## Stored-session publication and review
 
@@ -209,20 +151,7 @@ Storage callbacks must not await mutation methods or review resolution on the sa
 
 Migration: PlanSessionControl.replaceDraft now returns IO[AgentError, Unit], widening its former InvalidMessage-only channel so stored failures retain their identity. Callers explicitly declaring the narrower channel must widen or handle storage errors. PlanSession.make retains initial Build behavior and atomic in-memory replacement. Snapshot and review DTO shapes are unchanged. Existing stored text initializes Plan rather than restoring Build or pending approval, and ticket identities remain session-local. The initial stored-session increment provided no location identity; descriptive location context is now implemented below. It still provides no durable approval record or automatic tool/UI registration; no additional whole upstream plan method is marked complete.
 
-## Current stored-session identities
-
-Four unchanged identities from the six-file increment against 2a73621; changed PlanSession and PlanPrompt identities are preserved in fd496a4 and replaced in the location table. Earlier changed identities remain in that revision.
-
-| Source | Git blob |
-| --- | --- |
-| [PlanPromptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPromptSpec.scala) | 4b9f7d2127023a6f3d37645c3b281ccb1edaf3fd |
-| [PlanSessionReviewSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanSessionReviewSpec.scala) | 1cafefc8ef32aea7f391991665b30eb175b01c58 |
-| [PlanStoredPublicationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanStoredPublicationSpec.scala) | 3e7c47eb387816b6ece46d1224ab89fdd9a4b6ff |
-| [PlanStoredSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanStoredSessionSpec.scala) | 0fd9a44108f060d8383d65631c57cf7faff8e5e7 |
-
-- [x] `review_fp` and `review_harness` approved the final six-file stored-session increment against `2a73621` on 2026-09-29. No findings remain within unapproved initialization, pre-write review invalidation, serialized mutations, cause-preserving settlement, early/late cancellation and local reopen. Saved-path evidence, durable approval, external store mutation and automatic tool/UI integration are excluded.
-
-- [x] Retain `review_docs` acceptance of the unchanged stored-session contracts against `2a73621`; current source identities and limitations are recorded in the associated sections.
+Source and paired tests: [PlanPromptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanPromptSpec.scala), [PlanSessionReviewSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanSessionReviewSpec.scala), [PlanStoredPublicationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanStoredPublicationSpec.scala), [PlanStoredSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanStoredSessionSpec.scala).
 
 ## Model-facing controls and host review delivery
 
@@ -248,23 +177,7 @@ The same controls work with make and stored sessions. In-memory DraftReplaced do
 
 This is an explicit adaptation of the pinned PlanModeTools implementation: strict total input replaces coercion, separate exact-ticket review replaces an unversioned generic permission exit, and typed observations replace path claims. The control increment alone closes no additional named method; location context below adds four adaptations. The current inventory has fourteen bounded adaptations for child installation and propagation.
 
-## Current model-control identities
-
-Final formatted seven-file increment against bfca341.
-
-| Source | Git blob |
-| --- | --- |
-| [PlanReviewPublisher.scala](PlanReviewPublisher.scala) | ae1ef6ba98941228500602a494defe7cfa3ab92e |
-| [PlanToolResult.scala](PlanToolResult.scala) | 5d816a3438c938b1df1e5e3afb2924f9dc742018 |
-| [PlanTools.scala](PlanTools.scala) | [Current PlanTools.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
-| [PlanReviewPublisherSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanReviewPublisherSpec.scala) | 417dd96dfb195dd28a65fbdda7bc6ac2288ea058 |
-| [PlanToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolResultSpec.scala) | c910dc8c1d439941a31bbbe448c864a05a3021ee |
-| [PlanToolsIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolsIntegrationSpec.scala) | 6977f7ece6a49a632721a56b9b7268e23ac2a3c1 |
-| [PlanToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolsSpec.scala) | f0a2f26074b60baf5dbc30b07c1ac7330fd663cd |
-
-- [x] `review_fp` and `review_harness` approved the final seven-file model-control increment against `bfca341` on 2026-09-29 after strengthening the concurrency fixture. No findings remain within strict inputs, suspended/scoped delivery, mandatory exact-ticket review, failure/cancellation handling and actual ReAct ordering under Allow/Parallel configuration. Authenticated UI transport, saved-path evidence, durable handoff and child propagation are excluded.
-
-- [x] Retain `review_docs` acceptance of the unchanged model-control contracts against `bfca341`; current source identities and limitations are recorded in the associated sections.
+Source and paired tests: [PlanReviewPublisher.scala](PlanReviewPublisher.scala), [PlanToolResult.scala](PlanToolResult.scala), [PlanTools.scala](PlanTools.scala), [PlanReviewPublisherSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanReviewPublisherSpec.scala), [PlanToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolResultSpec.scala), [PlanToolsIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolsIntegrationSpec.scala), [PlanToolsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanToolsSpec.scala).
 
 ## Descriptive locations and context provenance
 
@@ -280,24 +193,7 @@ Planning(None), including active/failed publication, labels the location only as
 
 This is recorded provenance, not continuous existence or content revalidation. External edits, independent sessions and raw store writes remain outside the session's exclusive-publication contract. No default workspace directory is created or discovered. Native open(Path) accepts an explicit existing relative or absolute directory and preserves native path meaning. The additive logical-directory adapter below supports workspace-relative slash normalization through a separate validated type.
 
-## Current location-context identities
-
-Eight unchanged identities from the ten-file increment against fd496a4, including the corrected code-point validator. Changed LocalPlanDraftStore and PlanDraftFiles identities are preserved in f147a99 and replaced in the directory table. Earlier identities remain in their recorded revisions.
-
-| Source | Git blob |
-| --- | --- |
-| [PlanContext.scala](PlanContext.scala) | 37e323f303235e6bdce70c22da21aafd596266e1 |
-| [PlanDraftStore.scala](PlanDraftStore.scala) | 478bd5c4de6c8eb39c6d4b857f09c171d3c2639b |
-| [PlanInputTransform.scala](PlanInputTransform.scala) | a94a1de0a7e4b998ec096432af73fde323901abf |
-| [PlanPrompt.scala](PlanPrompt.scala) | ec2b932b615ef600235e6ece6da21191f662a7ec |
-| [PlanSession.scala](PlanSession.scala) | 2bd0ebde5a2d1e95e0cb223f3f68f74ec321dabd |
-| [PlanContextInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanContextInputSpec.scala) | 0662a99969dce13aadec27a8768c9de47ed088db |
-| [PlanContextSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanContextSpec.scala) | 619b5e074a59bd73a70178e6e44010edaff1ed82 |
-| [PlanLocationIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanLocationIntegrationSpec.scala) | f38b42608f683db7c0b18c5c8a383e58e990a387 |
-
-- [x] `review_fp` and `review_harness` approved the final ten-file location-context increment against `fd496a4` on 2026-09-29 after reproducing and fixing supplementary Unicode FORMAT validation. No findings remain within validated descriptive locations, canonical local metadata, single-snapshot context, provenance wording and four explicit manager/prompt adaptations. Continuous file revalidation, approval restoration, arbitrary third-party store truthfulness and legacy workspace-relative slash rebasing are excluded.
-
-- [x] Retain `review_docs` acceptance of the unchanged location-context contracts against `fd496a4`; current source identities and limitations are recorded in the associated sections.
+Source and paired tests: [PlanContext.scala](PlanContext.scala), [PlanDraftStore.scala](PlanDraftStore.scala), [PlanInputTransform.scala](PlanInputTransform.scala), [PlanPrompt.scala](PlanPrompt.scala), [PlanSession.scala](PlanSession.scala), [PlanContextInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanContextInputSpec.scala), [PlanContextSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanContextSpec.scala), [PlanLocationIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanLocationIntegrationSpec.scala).
 
 ## Workspace-relative plan directories
 
@@ -309,19 +205,4 @@ Both entry points share the same canonical directory lease, fixed PLAN.md public
 
 The customPlanDirNormalised adaptation retains stricter normalization and existing-directory requirements. Together with opt-in skill admission and child installation, the inventory now records fourteen bounded adaptations. Explicit host storage, review, authentication and lifetime obligations remain unchanged.
 
-## Current directory identities
-
-Final formatted six-file increment against f147a99, including the reproduced boundary-control regression and strip correction.
-
-| Source | Git blob |
-| --- | --- |
-| [PlanDirectory.scala](PlanDirectory.scala) | ea44ad54387a7740036cf13426552a8d2e3eafb3 |
-| [LocalPlanDraftStore.scala](LocalPlanDraftStore.scala) | Current identity: [local JSON manifest](../storage/README.md#local-versioned-json) |
-| [PlanDraftFiles.scala](PlanDraftFiles.scala) | 3f91a78cd27db273d672aaeb092bee8acf02faf1 |
-| [PlanDirectorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDirectorySpec.scala) | 58baa98395e59ab3314e090cac54c9b6b8cc66ec |
-| [PlanWorkspaceStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanWorkspaceStoreSpec.scala) | fd907878d89368b10bcd75c9483941b8d964a27c |
-| [PlanDraftFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDraftFilesSpec.scala) | 2123dde5a64c716a5e76df7a1d0cfaba208361a2 |
-
-- [x] `review_fp` and `review_harness` approved the final six-file directory increment against `f147a99` on 2026-09-29 after reproducing and correcting boundary control normalization. No findings remain within validated logical directory selection, canonical strict containment, shared ownership and the explicit manager-method adaptation. Directory creation, hostile mutation isolation, dynamic privileged link fixtures and child propagation are excluded.
-
-- [x] Retain `review_docs` acceptance of the unchanged directory contracts against `f147a99`; current source identities and limitations are recorded in the associated sections.
+Source and paired tests: [PlanDirectory.scala](PlanDirectory.scala), [LocalPlanDraftStore.scala](LocalPlanDraftStore.scala), [PlanDraftFiles.scala](PlanDraftFiles.scala), [PlanDirectorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDirectorySpec.scala), [PlanWorkspaceStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanWorkspaceStoreSpec.scala), [PlanDraftFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/plan/PlanDraftFilesSpec.scala).

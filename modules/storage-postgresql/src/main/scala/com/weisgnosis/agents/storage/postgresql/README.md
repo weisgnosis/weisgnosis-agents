@@ -24,10 +24,10 @@ The [shared fixture](../../../../../../../test/scala/com/weisgnosis/agents/stora
 
 The older unexplained connection-acquisition failure has no established cause. Subsequent successful runs and sanitized diagnostic coverage do not resolve that investigation.
 
-Regression expectations remain contract-derived: cancellation acknowledges interruption only after joined cleanup and preserves an independent timeout failure even when a write committed; malformed payload Unicode produces StorageError without publication, while valid astral keys/values and escaped controls remain intact. These behaviors are exercised in the existing three-group suite without treating cancellation as rollback or driver replacement encoding as valid storage.
+Regression expectations remain contract-derived: cancellation acknowledges interruption only after joined cleanup and preserves an independent timeout failure even when a write committed; malformed payload Unicode produces StorageError without publication, while valid astral keys/values and escaped controls remain intact. The suite checks these behaviors without treating cancellation as rollback or driver replacement encoding as valid storage.
 
 ## Schema provisioning
 
 The host serializes initial schema provisioning. `initialize` uses repeatable `CREATE TABLE IF NOT EXISTS`, which neither verifies an existing schema nor guarantees concurrent creation is safe. Reads and writes do not provision or migrate tables. The shared disposable test fixture serializes only initialization using a scoped physical connection and a fixed session advisory lock; independent DML remains concurrent. This fixture mechanism is not installed by the production backend.
 
-The [fixture contract](../../../../../../../test/scala/com/weisgnosis/agents/storage/postgresql/README.md#cold-schema-provisioning) describes serialization of the reproduced cold-schema catalog race. The separately retained older connection-acquisition failure still has no established cause.
+The [fixture contract](../../../../../../../test/scala/com/weisgnosis/agents/storage/postgresql/README.md#cold-schema-provisioning) describes serialization of the reproduced cold-schema catalog race.

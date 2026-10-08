@@ -1,8 +1,8 @@
 # Typed tools and path validation
 
-The additive [interactive batch preflight](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight) screens initial monotonic policy denials before approval publication while retaining fresh ordinary authorization, occurrence identity and runtime-owned persistence/cleanup. ToolPreflight.Continue grants no approval; legacy authorizers default to Continue. Dynamic gates remain execution-time checks so earlier plan transitions affect later calls. Final source/full/artifact checks passed; final combined documentation approval passed.
+The additive [interactive batch preflight](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight) screens initial monotonic policy denials before approval publication while retaining fresh ordinary authorization, occurrence identity and runtime-owned persistence/cleanup. ToolPreflight.Continue grants no approval; legacy authorizers default to Continue. Dynamic gates remain execution-time checks so earlier plan transitions affect later calls.
 
-Tool keeps its input/output codecs and effectful handler together. [External bindings](#external-tool-bindings) add an explicit declaration-only capability with final scoped acceptance. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation. The [native alias check](../../../../../../../../../../verification/README.md#native-directory-aliases) exercises existing and missing children through real directory aliases; Windows junction verification is available, while POSIX execution and Windows file-symlink privileges remain separate prerequisites.
+Tool keeps its input/output codecs and effectful handler together. [External bindings](#external-tool-bindings) add an explicit declaration-only capability. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation. The [native alias check](../../../../../../../../../../verification/README.md#native-directory-aliases) exercises existing and missing children through real directory aliases; Windows junction verification is available, while POSIX execution and Windows file-symlink privileges remain separate prerequisites.
 
 ## Runtime schema admission
 
@@ -16,62 +16,15 @@ Trusted AwaitingResults checkpoints describe previously issued external work. Th
 
 Migration: declared constraints now reject arguments formerly accepted by a permissive decoder. Initial validation errors may appear in history before executable siblings complete; consumers correlate observations by occurrence/ID rather than assuming invocation arrival order. Toolkit.validateSchemaInput is additive; direct typed Tool.execute calls remain a trusted typed API. The declared standard profiles below are implemented; remaining method-level applicability stays explicit in the tracker.
 
-The admission integration and consumer identities below retain their independent approval against 1441a97. The changed evaluator/specification identities and their additional declared-draft scope are owned by the current manifest below; both review_fp and review_invariants approved those two files against 1e90db1. Remaining method applicability stays open; no exhaustive standards-conformance claim follows from these finite contracts.
-
-| Current source/spec/consumer | Git blob |
-| --- | --- |
-| [build.sbt](../../../../../../../../../../build.sbt) | [Current build identity](../../../../../../../../../../project/README.md#local-artifact-packaging) |
-| [ToolSchemaValidator.scala](ToolSchemaValidator.scala) | [Current declared-draft manifest](#declared-standard-schema-dialects) |
-| [Toolkit.scala](Toolkit.scala) | `5e539478bce0721851eff926595e99b435f8ee3b` |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | `e8238759c0ba058bd326fb94b5bad5a073ea942c` |
-| [ToolSchemaValidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolSchemaValidatorSpec.scala) | [Current declared-draft manifest](#declared-standard-schema-dialects) |
-| [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | `1da01f75b2e896af276c22584d5dda3eee2fb376` |
-| [ReActAgentExternalToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentExternalToolSpec.scala) | `99a1e0b677e4871d2e73212761a94fd1445f0bad` |
-| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2ef2dc9e6b21c8a0be334b05deb7195bf71b0586` |
-| [SubagentDeclarationSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala) | `55b8a9c2308e1d2626218f76016891482c1856c5` |
-| [McpClientManagerSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpClientManagerSpec.scala) | `dac7464726f3c8c17c338ab413bd239201682ae0` |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | `212988aed44a63d0f4f21afb077c141eb450c336` |
-
-- [x] Both independent final source reviews approved the exact schema/runtime/integration/consumer scope with no unresolved findings.
-- [x] schema-admission-red.log reproduces permissive decoder execution; schema-evaluator-exact-red.log reproduces tiny-divisor underflow. schema-pointer-red.log, schema-encoded-slash-red-mcp-final.log, schema-invalid-reference-red.log and schema-dynamic-reference-red.log reproduce distinct reference failures before correction. Assertions derive from schema constraints and URI semantics, not current implementation output.
-- [x] schema-resources-final-verify.log passes formatting, compilation with fatal warnings, 1,540 tests (685 core / 731 harness / 94 MCP / 22 fresh PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages.
-- [x] schema-resources-preparation.log passes fresh archive/POM/LICENSE admission and reversible rejection cases. schema-resources-consumer.log records the obsolete Jackson classpath rejection; schema-resources-consumer-green.log passes fresh standalone formatting/clean compilation/forked execution and the actual valid/invalid packaged schema probe. JVM/SLF4J diagnostic notices are distinct from compiler warnings.
-- [x] review_fp and review_invariants approved the final combined scope against 1441a97 with unchanged source identities; English and local-link checks pass.
-
 ## Declared standard schema dialects
 
 The evaluator admits the five standard dialects recognized by the pinned upstream registry: Draft 4, 6, 7, 2019-09 and 2020-12. An absent declaration selects 2020-12; unknown or malformed declarations fail closed. Every evaluation owns its registry/configuration and uses bundled official meta-schemas only. Keyword traversal follows each dialect, so unsupported annotation data is not interpreted as a schema. Draft 4 retains lexical integer node semantics; newer drafts accept mathematically integral decimal nodes. Original input remains unchanged.
 
 Local $ref pointers retain strict UTF-8 canonicalization in every supported draft; 2020-12 $dynamicRef uses its own validator. Draft 2019-09 retains the standard root-only $recursiveRef policy: '#' is supported and other values are rejected. This follows [core section 8.2.4.2.1](https://json-schema.org/draft/2019-09/json-schema-core#rfc.section.8.2.4.2.1), rather than substituting ordinary pointer semantics for recursion. Remote schema acquisition remains disabled.
 
-review_fp and review_invariants approved this exact two-file source scope against 1e90db1 with no unresolved findings. Full verification and fresh packaged consumption pass; review_fp and review_invariants approved final combined documentation against 1e90db1 with the unchanged source identities.
-
-| Reviewed file | Git blob identity |
-| --- | --- |
-| [ToolSchemaValidator.scala](ToolSchemaValidator.scala) | `8041db0be7bd796787f7f30e2d3182c01c837c3b` |
-| [ToolSchemaValidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolSchemaValidatorSpec.scala) | [Current finite method-evidence identity](#pinned-tool-validator-method-evidence) |
-
-- [x] schema-dialects-red.log records three passing groups and one failed group against unchanged 1e90db1 production: valid declared older-draft schemas were rejected.
-- [x] schema-dialects-offload-review-green.log records five passing core groups, including lexical integer and recursive-reference controls. Its later example segment failed a draft final-history retention expectation after additional compaction; it is not full-build passing evidence.
-- [x] Both independent reviewers approved the two exact source/spec identities above.
-- [x] dialects-projection-full-verify.log passes 1,555 tests and four RC1 packages with zero compiler warnings/failures/ignored. dialects-projection-preparation.log and dialects-projection-consumer.log pass fresh archive admission and standalone four-module consumption.
-- [x] review_fp and review_invariants approved the final combined 20-file scope against 1e90db1, with five unchanged source/spec identities and fifteen Markdown files; no unresolved findings remain in this scope.
-
 ## Pinned tool validator method evidence
 
 All 39 pinned ToolValidatorTest methods now have an explicit [method-level disposition](../../../../../../../../../../docs/architecture/test-parity.md#runtime-schema-admission-finite-evidence). Existing test tables add missing standard constraints, root versus misplaced definitions, exact nested error paths, blank call names and incomplete parallel results. No production behavior or test-group count changes. Java nullable strings/maps, mutable bean reflection and throwing helpers have explicit typed API adaptations; JSON literal null is not conflated with an absent Java reference.
-
-review_fp and review_invariants independently approved these two identities against 55df42a, with no unresolved source findings. The evaluator and runtime production identities retain their separately accepted scopes.
-
-| Test-only file | Git blob |
-| --- | --- |
-| [ToolSchemaValidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolSchemaValidatorSpec.scala) | `756e3337db2e47225188df418dfe3b4aea389cb7` |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | `55ed7164c11fa17f1864037b970d6c2fa698e643` |
-
-- [x] schema-method-inventory-focused-final.log passes 28 groups in 778 ms; this is additional contract evidence, not a reproduced production defect or a RED claim.
-- [x] Both independent reviewers approved the exact two-file test scope and bounded method classification.
-- [x] mcp-march-batch-full-verify.log passes full formatting/compilation, 1,564 tests and four RC1 packages; preparation and fresh standalone consumer logs pass.
-- [x] review_fp and review_invariants approved the final combined 35-file scope against 55df42a, with sixteen unchanged source/spec identities and nineteen Markdown files; no unresolved findings remain in this scope.
 
 ## External tool bindings
 
@@ -83,29 +36,6 @@ The [acting contract](../agent/README.md#external-execution-checkpoints) preserv
 
 Migration: Toolkit.tools is Map[String, ToolBinding] and resolve returns Option[ToolBinding]. Pattern-match Local to access an executable Tool. Existing Tool-based register/updated/single/fromMap conveniences remain; binding overloads and checked fromBindings support mixed registries. Overlay/filter/merge preserve exact bindings and collision rules. Public signatures change, so dependent source using the former view must migrate and dependent JVM binaries must rebuild. PendingActing adds defaulted externalRequests/externalTools fields and AwaitingResults; absent JSON fields retain empty defaults, but positional patterns/Product arity and enum matches must migrate. No frozen ABI or general checkpoint compatibility is claimed.
 
-review_fp and external_invariant_review approved the final ten-file source scope against db39101 with no unresolved source findings; prior registry and acting contracts retain only their separately accepted scopes.
-
-| Frozen source/spec/consumer file | Git blob |
-| --- | --- |
-| [PendingActing.scala](../agent/PendingActing.scala) | `0ed479897fa65972fcf16df203aa93903f9576e5` |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current schema admission manifest](#runtime-schema-admission) |
-| [ToolBinding.scala](ToolBinding.scala) | `c574ff46ee3496281427a4be7779da42c9d196af` |
-| [Toolkit.scala](Toolkit.scala) | [Current schema admission manifest](#runtime-schema-admission) |
-| [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | `96c2c6f1e7fec3b30eb83cdddf2421a0428ccbd8` |
-| [ReActAgentExternalToolSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentExternalToolSpec.scala) | [Current schema admission manifest](#runtime-schema-admission) |
-| [ToolBindingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolBindingSpec.scala) | `87b21c337ffbed8bf6c7d69fffe47364ceb6ba1c` |
-| [ToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolGroupsSpec.scala) | `d693808018737ea93abf2825b744e99c412cd2c1` |
-| [ToolkitSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolkitSpec.scala) | `cd735ace343c4d6091bf3dab7ac5cb2f2976fe35` |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current consumer identity](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#independent-deadlines); external-binding behavioral scope retained. |
-
-- [x] review_fp approved FP/ZIO correctness and external_invariant_review independently approved invariants for all ten exact identities above. The author of the integration regression did not provide its independent approval.
-- [x] external-tools-focused.log passes 25 tests, zero failed/ignored, in 845 ms. The actual-runtime tables cover approved-input rewriting, restored completion, mixed sequential/parallel execution and inactive-group rejection. An initial new-capability fixture exposed inactive calls reaching suspension; admission now rejects them before authorization, and the final table requires exact Error states. This was a draft capability gap, not a defect in an already accepted external-tool profile.
-- [x] external-tools-release-verify.log passes all 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored. The complete final source/spec scope is verified. Four RC1 packages were produced by external-tools-verify.log with unchanged production sources; archive preparation and fresh four-hash consumer checks validate those artifacts after the test-only oracle refinement. The later external-tools-final-verify.log records 1,525 passes/one failure: VersionedMemoryRepositorySpec failed acquiring a PostgreSQL connection with StorageError(PSQLException). The unchanged isolated suite subsequently passed three tests in 2.223 seconds (external-tools-postgresql-diagnostic.log). The connection failure remains recorded; its exact cause is unknown, and isolated success alone did not replace the subsequent full verification.
-- [x] external-tools-preparation.log passed exact source/POM/LICENSE and reversible archive-admission checks; external-tools-consumer.log passed standalone formatting, clean compilation and forked public external-tool suspension/resume against four fresh actual RC1 module hashes.
-- [x] review_fp and external_invariant_review approved the final combined 24-file source/test/consumer/documentation scope against db39101, with no unresolved findings in that scope. English/diff inspection and 78-document/2,985-local-reference checks pass with zero issues.
-
-The [test-only failure fixtures](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#failure-fixtures) add nested-exception and mixed-parallel evidence with final scoped acceptance; the accepted external-binding manifest above remains unchanged.
-
 ## Provider tool-schema strictness
 
 ToolDef.schemaStrictness is an optional host-selected ToolSchemaStrictness.Strict or Relaxed preference. ChatCompletions emits tools[].function.strict as true or false respectively; None omits it. This is per-tool provider generation metadata. Parameters remain unchanged, and the setting adds no local schema-validation, authorization or successful-completion guarantee. Hosts must supply suitable schemas and compatible endpoints/fallback targets; there is no automatic model detection or compatibility-formatter suppression.
@@ -114,21 +44,6 @@ Fixed-argument wrappers and MCP bindings preserve the host's full definition. Re
 
 Migration: ToolDef has eight positional/Product fields. Existing construction/named copy calls and legacy JSON retain the default; absent/JSON-null schemaStrictness means None. Supplied domain values use the enum codec, distinct from provider Booleans. Adapt positional patterns/constructor method values and rebuild dependent binaries.
 
-| Reviewed file | Git blob |
-| --- | --- |
-| [ChatCompletionsRequest.scala](../client/ChatCompletionsRequest.scala) | [Current ordinary-JSON identity](../client/README.md#ordinary-json-completions) |
-| [ToolDef.scala](ToolDef.scala) | 26657363aff7ca859fc0025610d0e3cc272e6215 |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current ordinary-JSON identity](../client/README.md#ordinary-json-completions) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | f044810dc8596f7c8bb30b5968755999079d1d30 |
-| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | db7cb8b8cfd4188a7e977bf9040ccc08975f8781 |
-| [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | 6d805de6cc291b8afc29c1e6696a3d2f81b17ca0 |
-| [McpToolSpec.scala](../../../../../../../../../mcp/src/test/scala/com/weisgnosis/agents/mcp/tool/McpToolSpec.scala) | [Current embedded-resource projection scope](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#embedded-resource-projection-parity) |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current ordinary-JSON identity](../client/README.md#ordinary-json-completions) |
-
-- [x] review_fp and review_invariants approved the seven library/spec identities after checking exact tool membership/counts and full definitions. Final formatted consumer review is part of combined closure.
-- [x] tool-strictness-focused.log passes 26 core / 3 MCP groups; tool-strictness-review-focused.log passes all three corrected failover groups. Existing groups were extended without increasing the total.
-- [x] Formatting, verify and packageArtifacts pass in tool-strictness-verify.log: 660 core / 724 harness / 85 MCP / 5 examples (1,474 total), zero compiler warnings or failed tests. tool-strictness-artifact-preparation.log validates fresh archives/POMs; tool-strictness-artifact-consumer.log clean-compiles and runs the neutral external consumer against fresh loaded JAR hashes, including exact tool count/name, strictness and unchanged parameters. English prose and local links are checked before commit.
-
 ## Checked registry identity
 
 Toolkit is a final class with a private representation. Every key equals its tool's declared definition.name, so advertised definitions, authorization lookup and execution share one identity. Tool.definition is a pure, stable host extension contract; mutable or effectful custom metadata violates that contract.
@@ -136,23 +51,6 @@ Toolkit is a final class with a private representation. Every key equals its too
 Use Toolkit.fromMap for a host-supplied immutable map; it returns Either[AgentError, Toolkit] and rejects the first lexical key/name mismatch as InvalidConfiguration. It never silently renames, drops or dispatches a mismatched binding. Single-tool construction uses Toolkit.single. updated explicitly inserts or replaces by declared name; overlay explicitly gives the right registry precedence. register, withTool, checked tool-varargs construction and ++ continue rejecting collisions. filterNames retains exact values and their policies/resources. These operations grant no model permission or resource ownership.
 
 Migration: unchecked Toolkit(map) and new Toolkit(map), copy, generated unapply and Product reconstruction are removed. Lift fromMap through ZIO.fromEither at effectful configuration boundaries. Use single/updated for deliberate pure construction/replacement, overlay for deliberate replacement merges, and filterNames for selection. Toolkit(), empty, the immutable binding-based tools read view, checked registration/merge and map-based equality/hash semantics remain available. Rebuild dependent binaries; this is a source/JVM migration, not a new persisted checkpoint format.
-
-- [x] Reproduce the defect on unchanged Toolkit 7a6789a12bd958ae507b2d6d12eefa4583d29797 with ToolkitSpec f660e0b18de521c5b75e17ff7278e5e2107d888a: toolkit-identity-red.log records 3 passes/1 failure; approval named allowed, but the swapped map executed forbidden. The regression now checks typed rejection before a registry exists and canonical permitted execution. Existing merge coverage also distinguishes replacement precedence from collision rejection; only one regression group is added.
-- [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the complete 55-file source/spec manifest, with no unresolved findings. Final documentation closure uses the same bounded scope.
-- [x] toolkit-identity-verify.log passes formatting, fatal-warning compilation, 659 core / 724 harness / 85 MCP / 5 examples tests (1,473 total), and packaging. toolkit-artifact-preparation.log validates all three fresh distributions and toolkit-artifact-consumer.log clean-compiles/runs the external public API fixture. Focused verification passes 19 core / 27 harness / 10 MCP tests.
-
-The reviewed revision is the source/spec manifest for 8d898e8 relative to e86d62d: sort the changed Scala paths, concatenate UTF-8 lines `<git-blob> <repository-path>\n`, and compute SHA-256. The accepted registry 55-file manifest (seven production files and 48 specs) is 941238f0447200ee6ce0df7fccd50346f79babd9cba20e82ec9e8871cd5a5edf. Test fixture construction migrates without adding groups apart from the reproduced identity regression. Final approval applies only to this manifest and the recorded contracts, not all future API changes.
-
-| Reviewed implementation/regression | Git blob |
-| --- | --- |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | `da0c6d2ff1959bb9a92297d7ec6fc57e397afa44` |
-| [ToolGroups.scala](ToolGroups.scala) | `19e6c47357dcce6407735ed3eaeba79e3fa57ba3` |
-| [Toolkit.scala](Toolkit.scala) | `a2fc53c7691d0f74db95f37d3208f5e39815901c` |
-| [ToolkitSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolkitSpec.scala) | `4b0a774270914646ee1ea8cf152b776e3ed94e44` |
-| [PlanTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/PlanTools.scala) | `53deca1258aa4b97fcb134be126adef098f8b317` |
-| [SubagentToolBoundary.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentToolBoundary.scala) | `0178268ff550d56b5acb5e1d9e78973309097eb4` |
-| [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | `d3f46f380d07fd9b4d6cdee35e35895fd20e3ed9` |
-| [McpClientManager.scala](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/client/McpClientManager.scala) | `bdb26179f6891de577c3e234c702a7585692da6e` |
 
 ## Host-selected tool groups
 
@@ -164,12 +62,10 @@ The reviewed revision is the source/spec manifest for 8d898e8 relative to e86d62
 
 Removing groups or membership reports `newlyUngrouped` names alongside the next registry. Removing the last membership makes a retained tool available as ungrouped. A host that wants to remove those tools must also prune its Toolkit; group removal performs no disposal or capability revocation. Group selection does not replace permission policy.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for ToolGroups (current source identity: [checked registry migration](#checked-registry-identity)), and [ToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolGroupsSpec.scala), blob `64db7b416f38bced4792c2eb653da87a74850626`, with no findings. Five grouped contracts cover sorted/empty/scoped notes, atomic transitions, scope separation, membership/removal and policy preservation, and actual ReAct snapshot visibility/dispatch.
-- [x] Formatting and full `verify` passed in `tool-group-notes-verify.log`, with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals.
 The runtime installs an optional [run-owned activation adapter](../agent/README.md#run-owned-tool-group-activation) over this foundation.
 
-- [x] Opt-in [harness Plan admission](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission) consumes the runtime admitted-access view.
-- [ ] Complete remaining skill/child integration from the root tracker; pure reminders have separate [catalogue acceptance](../skill/README.md). Durable activation remains separate work.
+- Opt-in [harness Plan admission](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission) consumes the runtime admitted-access view.
+- [ ] Complete remaining skill/child integration from the root tracker; pure reminders have separate [catalogue contract](../skill/README.md). Durable activation remains separate work.
 
 Group data/enums use derived codecs; decoding does not bypass checked registration. Immutable values replace Java builders and defensive copying, and null contracts are not reproduced. Unknown activation/membership groups fail atomically rather than following upstream permissive or partially applied paths. The pure activeNotes/metaNotes accessors are additive; no existing Tool or Toolkit signature changes. Runtime note output has the [adapter migration](../agent/README.md#run-owned-tool-group-activation).
 
@@ -183,14 +79,6 @@ ReAct prepares before authorization. Invalid preparation becomes Error without c
 
 Migration: Tool.fixedArguments has a concrete empty default, and the wrapper and Toolkit checks are additive. Existing raw scalar tools retain their decoding contract. MCP model-overridable defaults remain separate; manager installation of framework-fixed arguments has a separate [MCP contract](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#fixed-arguments).
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Unchanged component identities are below; current Tool/Toolkit identities are in [incremental execution](#incremental-execution), and current ReActAgent identity is in [acting-stop decisions](../agent/README.md#acting-stop-decisions). Scoped verification passed in `tool-fixed-arguments-verify.log`; current full-repository evidence and totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-
-| Source/test | Reviewed Git blob |
-| --- | --- |
-| [ToolFixedArguments.scala](ToolFixedArguments.scala) | `5b0a707baa22e1407fe4d87dd7a13fcc48fed3dc` |
-| [ToolFixedArgumentsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolFixedArgumentsSpec.scala) | [Current identity](#provider-tool-schema-strictness) |
-| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current identity](../client/README.md#encrypted-reasoning) |
-
 ## Descriptive output schemas
 
 `ToolDef.outputSchema: Option[Json]` carries an optional host-selected output schema. Toolkit snapshots and model-call tool definitions retain this AST; it does not validate returned values or grant execution authority. A host selecting an MCP tool may explicitly retain, replace or omit the remote schema. Preset input-schema projection leaves this field unchanged.
@@ -199,17 +87,9 @@ The current Chat Completions encoder emits function name, description, input par
 
 The derived domain codec reads an absent or explicit-null outputSchema as None and omits None when encoding. Non-null schema ASTs retain their structure; Some(Json.Null) does not round-trip as present. Existing constructors and named copies can omit the defaulted field; positional pattern matches and Product arity follow the [current eight-field migration](#provider-tool-schema-strictness), and downstream binaries must be rebuilt. No schema evaluation or custom compatibility codec is introduced.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this scope, with no findings. Current core identities are linked below; current integration tests belong to the [MCP binding acceptance](../../../../../../../../../mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#verification-and-acceptance). Formatting and full `verify` passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
-
-| Reviewed source/test | Git blob |
-| --- | --- |
-| [ToolDef.scala](ToolDef.scala) | [Current identity](#provider-tool-schema-strictness) |
-| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | [Current identity](#provider-tool-schema-strictness) |
-| ChatCompletionsRequestSpec.scala | [Current ordinary-JSON identity](../client/README.md#ordinary-json-completions) |
-
 ## Local return mode
 
-ToolDef.returnMode is a host-selected Continue (default) or Direct policy, not model/output metadata. Only an ordinary all-local, all-Direct successful batch may return processed presentation content without another model call, after joined cleanup and approval/Stop precedence. Full Tool observations remain in history. See the [runtime completion contract](../agent/README.md#host-selected-return-direct-completion) and [current ToolDef migration](#provider-tool-schema-strictness) for exact limits, current identities and full verification.
+ToolDef.returnMode is a host-selected Continue (default) or Direct policy, not model/output metadata. Only an ordinary all-local, all-Direct successful batch may return processed presentation content without another model call, after joined cleanup and approval/Stop precedence. Full Tool observations remain in history.
 
 ## Incremental execution
 
@@ -219,30 +99,17 @@ Progress contains provisional content and metadata, not call IDs or execution st
 
 Migration: streamWithContext is a defaulted source-compatible method, but dependent binaries should be rebuilt. ToolExecutionUpdate has no wire codec; no event schema, public callback setter, mutable emitter or hook fanout is added. Existing executeSafe remains a final-result operation and discards progress. Caller cancellation joins stream-owned cleanup and must preserve its complete cause; errors without interruption remain Error observations. Consumers cancelling an event stream still abandon later output.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the six-file incremental scope, with no findings. Unchanged identities and the renewed current ReAct identity link are below. Focused `tool-stream-focused-green.log` passed 32 tests in 841 ms, including the unchanged legacy external-cancellation regression.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed in `tool-stream-verify.log`, with zero compiler warnings or test failures. Current repository totals and task timings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-- [x] `tool-stream-legacy-cancel-red.log` records 31 passing tests and one failure in 848 ms against uncommitted draft Tool `d4adead5f19a6b775cf00dbb7f3bc2da66fbb00e` and Toolkit `caffe50fd4de998be892d0a65add4e8f200f9885`: the unchanged ToolExecutionSpec external-cancellation assertion lost its held cleanup defect. This is a new-feature draft defect, not a defect in the committed baseline. The corrected Toolkit consumer uses a scoped public channel pull and immutable chunk fold, preserving the complete Cause before final normalization. The default Tool bridge is unchanged; no producer fiber or output journal is added. Custom streams remain responsible for their own internal effect/combinator semantics.
-
-| Current incremental execution file | Git blob |
-| --- | --- |
-| [Tool.scala](Tool.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
-| [Toolkit.scala](Toolkit.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
-| [ToolExecutionUpdate.scala](ToolExecutionUpdate.scala) | `36f338a5d77db0660a283be80b709fb67ec10391` |
-| [ReActAgent.scala](../agent/ReActAgent.scala) | [Current identity](../agent/README.md#acting-stop-decisions) |
-| [ToolExecutionUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionUpdateSpec.scala) | [Current ToolExecutionUpdateSpec.scala identity](README.md#checked-registry-identity) |
-| [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) | [Current failure-fixture identity](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#failure-fixtures); final source approvals and focused/full verification pass; final combined documentation acceptance approved; prior behavioral scope retained. |
-
 ## Typed execution observations
+
+`Tool.encodeResultChecked` returns `Either[AgentError, ToolExecutionResult]`. Its default preserves custom `encodeResult` projections; `Tool.fromFunction` uses [ExactJson](../json/README.md#exact-domain-and-tool-output), and fixed wrappers forward the checked operation. Toolkit normalizes encoding failures and defects after joined cleanup while preserving interruption. Legacy direct `encodeOutput` and `encodeResult` calls are unchanged. Existing implementations need no new abstract method; rebuild dependent binaries.
 
 `Tool.encodeResult(out)` defaults to the existing `encodeOutput(out)` as a successful text observation. Implementations may override it to return `ToolExecutionResult(payload, state)`, where `ToolResultPayload` retains ordered content blocks and metadata. Toolkit accepts only Success or Error from this projection; Running, Interrupted and Denied become descriptive Error observations. Authorization denials are produced separately by the runtime, and actual interruption remains cancellation.
 
-ReAct supplies the original call ID, name and accepted state, then applies the payload through `ToolResultPayload.applyTo`. Tool-provided metadata cannot set serverTool, agentscope_server_tool or agentscope_suspended. Typed local content survives history persistence, result processing and ordered text/data events. The current ChatCompletions request codec still rejects non-text tool output; provider multimodal support remains separate; incremental local execution has its separate contract above.
+ReAct supplies the original call ID, name and accepted state, then applies the payload through `ToolResultPayload.applyTo`. Tool-provided metadata cannot set serverTool, agentscope_server_tool or agentscope_suspended. Typed local content survives history persistence, result processing and ordered text/data events. ChatCompletions defaults to text-only tool output; the explicit [tool-image profile](../client/README.md#tool-image-result-projection) admits its bounded Text/Image shape. Other provider multimodal support and incremental local execution retain their separate contracts.
 
 Migration: String `ToolExecutionResult(...)` constructors and the `output` text projection remain available. The projection joins Text blocks with newlines and omits other block types. The canonical constructor, generated copy/unapply and derived JSON shape now use `payload` and explicit `state`; persisted legacy output/state JSON requires host migration. There is no manual compatibility codec. Existing Tool implementations inherit encodeResult without an abstract-method migration.
 
 Interrupted compound causes are refailed with `orDie`: interruption and cleanup defects survive, while typed Throwable leaves become defects to retain the UIO contract. Ordinary non-interrupted failures and defects remain Error observations.
-
-The additive encodeResultChecked returns Either[AgentError, ToolExecutionResult]. Its default preserves custom encodeResult projections; fromFunction uses ExactJson and fixed wrappers forward it. Toolkit normalizes encoding failures/defects after joined cleanup without swallowing interruption. Legacy direct encodeOutput and encodeResult calls are unchanged. There is no new abstract-method requirement; rebuild dependent binaries. review_fp and review_invariants approved this exact runtime encoding scope with no findings. [Exact output acceptance](../json/README.md#verification-and-acceptance) owns current Tool/Toolkit/ToolExecutionSpec identities, the numeric regression and full/package verification.
 
 ## Invocation event capability
 
@@ -252,13 +119,7 @@ ReAct creates `Active(context, call, callOrdinal, events)` only for approved loc
 
 `ToolEventPort` exposes publication only. Its scoped lease closes after execution cleanup and before result processing. Publication and closure are serialized: Published means enqueued on the runtime's unbounded hub, not consumed; retained ports return Closed after revocation. Cancellation joins cleanup and preserves interruption and cleanup defects. The lease does not own a child task, provide replay/backpressure, or forward child events automatically. Trusted contextual tools remain responsible for the events they publish; the port does not authenticate arbitrary event payloads.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this capability, with no unresolved findings. Unchanged capability identities are below; current Tool/Toolkit identities are in [incremental execution](#incremental-execution), and current ReActAgent identity is in [acting-stop decisions](../agent/README.md#acting-stop-decisions). Three grouped tests cover approved occurrences, legacy/detached/denied execution, concurrent revocation and actual ReAct cancellation. Formatting, fatal-warning compilation and full verification passed in `tool-invocation-verify.log`; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-- [x] The separately reviewed [harness integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#scoped-child-event-forwarding) uses this capability for owned child execution and promotion. Its acceptance and bounded parity mappings remain distinct from this core contract.
-
-| Reviewed file | Git blob |
-| --- | --- |
-| [ToolInvocation.scala](ToolInvocation.scala) | `afaab56599f0bbb22efa95852bafb3938812aff9` |
-| [ToolInvocationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolInvocationSpec.scala) | [Current ToolInvocationSpec.scala identity](README.md#checked-registry-identity) |
+- The separately reviewed [harness integration](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#scoped-child-event-forwarding) uses this capability for owned child execution and promotion. Its acceptance and bounded parity mappings remain distinct from this core contract.
 
 ## Implementation
 
@@ -279,17 +140,7 @@ PathSafety's default sensitive filenames include `.bash_login`, `.zshenv`, `.zlo
 
 The [GNU Bash manual](https://www.gnu.org/s/bash/manual/bash.html) identifies `.bash_login` as a login initialization file. The [Zsh Files documentation](https://zsh.sourceforge.io/Doc/Release/Files.html) identifies `.zshenv`/`.zlogin` and explains compiled original-name-plus-`.zwc` replacements. This bounded fix adds explicit filenames rather than treating every `.zwc` or similarly prefixed file as sensitive. Ordinary near-misses `.bash_login.txt`, `.zshenv.example`, `.zlogin.notes`, `startup.zwc` and `.zshrc.zwc.backup` remain permitted by this filename screen. Traversal rejection, canonical ancestor checks and advisory command classification are unchanged; canonical screening remains non-atomic against hostile filesystem mutation.
 
-| Current source scope against de8b21f | Git blob |
-| --- | --- |
-| [PathSafety.scala](PathSafety.scala) | 17eaaa76590dfe11274828c74693b982a69b57ec |
-| [PathSafetySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/PathSafetySpec.scala) | 3e885dbef006686bb2a7715d69f2554bed8e30fd |
-
-- [x] path-startup-red.log reproduces the omitted startup names against unchanged source 3d7a102d03c47719271ad2e4ba791af81247170e: seven groups pass and the sensitive-path table fails in 176 ms, reporting the seven omitted names plus uppercase `.ZSHENV.ZWC`.
-- [x] Extend the two existing sensitive/permitted-path tables with the explicit startup names and ordinary near-misses; no new test groups.
-- [x] review_fp and review_invariants independently approved these final source/spec identities against de8b21f with no findings.
-- [x] path-startup-green.log passes all eight existing groups in 143 ms. path-startup-verify.log passes 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, and four RC1 packages.
-- [x] path-startup-preparation.log validates fresh source/POM/LICENSE artifacts and reversible selector/archive rejection checks; path-startup-consumer.log passes standalone formatting, clean compilation and forked execution against the four fresh RC1 hashes.
-- [x] review_fp and review_invariants approved the final six-file combined scope against de8b21f with no findings. Manual English review, changed-script/diff checks and 78-document/3,011-local-reference validation pass.
+[PathSafetySpec](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/PathSafetySpec.scala) pairs these rejected startup names with ordinary permitted near-misses.
 
 ## Command screening
 
@@ -297,18 +148,7 @@ The [GNU Bash manual](https://www.gnu.org/s/bash/manual/bash.html) identifies `.
 
 ## Current review acceptance
 
-- [x] Independent FP/ZIO and invariant reviewer `path_review` approved the advisory command-screening scope at source 3d7a102d03c47719271ad2e4ba791af81247170e/test 981212ee32c51cf92d12d844f4fe5a7403f70b78. Its behavior is unchanged; current PathSafety/source-spec identities and renewed acceptance belong to [shell startup defaults](#shell-startup-defaults).
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for typed execution payloads, state admission, runtime control protection and compound-cause preservation. Both approved this scope with no findings; unchanged component identities are below, and current Tool/Toolkit identities are in [incremental execution](#incremental-execution), and current ReActAgent identity is in [acting-stop decisions](../agent/README.md#acting-stop-decisions).
-- [x] Full formatting, fatal-warning compilation and verification passed; current repository totals are recorded in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance), and scoped verification evidence remains under [fixed raw arguments](#fixed-raw-arguments).
-- [x] Existing processor contracts below retain their scoped acceptance and unchanged implementations. Authorization acceptance is scoped by [fixed raw arguments](#fixed-raw-arguments) and [admitted tool access](#admitted-tool-access).
-
-| Typed-result source/test | Reviewed Git blob |
-| --- | --- |
-| [ToolExecutionResult.scala](ToolExecutionResult.scala) | 1c3e999a1363e6a042a0c83186006fda2060992f |
-| [ToolExecutionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala) | [Current failure-fixture identity](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#failure-fixtures); final source approvals and focused/full verification pass; final combined documentation acceptance approved; prior behavioral scope retained. |
-| [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | [Current ReActAgentToolResultProcessorSpec.scala identity](README.md#checked-registry-identity) |
-
-The table records unchanged typed-result components. Current Tool and Toolkit identities are recorded under [incremental execution](#incremental-execution); current ReActAgent identity is in [acting-stop decisions](../agent/README.md#acting-stop-decisions); separate invocation and [direct event forwarding](../agent/README.md#direct-event-forwarding) contracts retain their scoped evidence. Typed result behavior is unchanged. Result-bearing stream acceptance remains in the [agent contract](../agent/README.md#result-bearing-streams).
+See [fixed raw arguments](#fixed-raw-arguments), [admitted tool access](#admitted-tool-access) and [result-bearing streams](../agent/README.md#result-bearing-streams) for the corresponding authorization and delivery contracts.
 
 Platform-specific symlink/junction behavior and hostile filesystem races remain outside the verified guarantees. Current command-screening evidence is recorded in the [test README](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/README.md#command-screening-regressions).
 
@@ -324,7 +164,6 @@ Tool execution can return completed typed payloads. A processor can replace thei
 
 Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. Processor values are runtime dependencies, not serialized agent configuration.
 
-
 ## Admitted tool access
 
 `AdmittedToolAccess.ReadOnly | Mutating` is transient host/runtime metadata with no codec. The additive concrete `authorize(request, admittedAccess: Option[AdmittedToolAccess])` overload delegates to the original abstract single-argument method by default. Lambda construction is unchanged; the partial-confirmation extension adds a Deferred decision codec case. The separate checkpoint-confirmation increment appends optional callOrdinal to ToolAuthorizationRequest and is accepted.
@@ -332,13 +171,6 @@ Appending the optional make parameter preserves ordinary callers; positional Bui
 ReAct resolves the tool from the same admitted Toolkit used for the request batch and samples its actual Tool.isReadOnly accessor, including host overrides; it does not trust the definition flag or model metadata. Missing tools provide None. Sampling and overload invocation stay inside the suspended authorization decision boundary, preserving existing defect/interruption handling and ownership. Fixed preparation, approval validation and dispatch ordering are unchanged.
 
 Custom authorizers compile without implementing the overload. To consume or forward the metadata they must override it explicitly; legacy wrappers otherwise delegate through the old method. The harness SubagentFactory composition now forwards the sample through live parent-denial checks; its scoped acceptance belongs to the [child construction contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#admitted-tool-plan-access). Rebuild dependent binaries; source compatibility is not a binary compatibility claim. The opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission) combines this view with existing permission policy and confirmation rather than treating read-only as an Allow decision.
-
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the two identities below and the linked [runtime integration](../agent/README.md#run-owned-tool-group-activation), with no findings. Full `scalafmtAll scalafmtSbt verify` passed in `plan-admission-verify.log`, with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-
-| Reviewed file | Git blob |
-| --- | --- |
-| [ToolAuthorizer.scala](ToolAuthorizer.scala) | [Current interactive-preflight identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#interactive-batch-preflight), final combined documentation approval passed; prior behavioral scope retained. |
-| [ToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolAuthorizerSpec.scala) | [Current confirmed-batch identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) |
 
 ## Scoped local authorization
 
@@ -352,9 +184,6 @@ Denials never execute the tool. Typed PermissionDenied failures retain their rea
 
 Interruption reconciliation first consumes eligible inline observations, then matches remaining locally dispatched occurrences against Role.Tool results by ID and optional name. These pools cannot consume each other's observations. The internal Msg.mapToolUseAt helper updates by tool ordinal, preserving role/content compatibility; duplicate IDs and identical calls do not collapse into one rewrite.
 
-Appending the optional make argument preserves ordinary calls; positional Builder matches must follow the current Builder constructor. This core extension point is implemented by the opt-in harness InteractivePermissionAuthorizer for policy checks, interactive confirmation, and atomic policy updates. Durable suspension/resumption and full upstream permission event ordering remain pending.
-
+Appending the optional make argument preserves ordinary calls; positional Builder matches must follow the current Builder constructor. This core extension point is implemented by the opt-in harness InteractivePermissionAuthorizer for policy checks, interactive confirmation, and atomic policy updates. The harness supplies explicit [checkpoint confirmation](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations); durable orchestration and full upstream permission event ordering are separate obligations.
 
 The optional [interactive harness adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md) owns policy lifetime and approval callbacks; the core remains independent of harness dependencies.
-
-Current authorizer-port identities are in [admitted tool access](#admitted-tool-access); unchanged fixed-argument evidence is in [fixed raw arguments](#fixed-raw-arguments); separate runtime/processor contracts remain in the [agent README](../agent/README.md).

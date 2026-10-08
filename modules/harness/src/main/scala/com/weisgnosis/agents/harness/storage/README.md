@@ -10,30 +10,25 @@ This is cooperative infrastructure, not a hostile-filesystem sandbox, distribute
 
 Failed construction must release acquired ownership before returning its failure, even when the host catches open.either inside a still-live Scope. Successful construction stays attached to that host Scope. WorkspaceLease.initialize registers an owned child Scope before restoring interruptible initialization, closes it on the actual failed/interrupted Exit and preserves operation and cleanup causes. Later host closure must not repeat already-run finalizers or their defects.
 
-- [x] Reproduce the defect before correction on the unchanged JSON draft: target/local-json-failed-open-red.log fails because .checked.json.versioned-writer.lease remains after rejected initialization.
-- [x] Reproduce the same defect in unchanged accepted Plan/Transcript/Memory factories: target/local-backends-failed-open-red.log fails all three payload-only directory assertions because their writer leases remain.
 - [x] Pass same-live-host-scope repair/reopen and initialization failure/cancellation/cleanup regressions.
-- [x] Obtain renewed independent FP/ZIO and invariant approval of the final eight source identities; the earlier JSON draft approval was superseded.
-- [x] Pass full verification, fresh artifacts/archive admission and standalone consumption.
-- [x] review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings.
 
 ## Admitted-work failure and cancellation
 
-WorkspaceLease captures the complete Exit of admitted work, joins work and cleanup, and combines pending ordinary caller cancellation with failure. Typed operation errors remain present and explicit caller masking is respected. WorkspaceLeaseSpec retains the reproduced admitted-failure regression as well as initialization lifecycle coverage. The local JSON manifest below records the exact source-approved identities and completed verification and final combined approval by review_fp and review_invariants for eight unchanged Scala identities and twenty-two Markdown files against 73b0fb1.
+WorkspaceLease captures the complete Exit of admitted work, joins work and cleanup, and combines pending ordinary caller cancellation with failure. Typed operation errors remain present and explicit caller masking is respected. WorkspaceLeaseSpec retains the reproduced admitted-failure regression as well as initialization lifecycle coverage.
 
 ## Caller interruption provenance
 
-**Accepted within the six-Scala scope against 7b59bc9 in the linked manifest.** A tightened existing WorkspaceLeaseSpec oracle reproduced loss of the external cancelling fiber ID on the unchanged accepted WorkspaceLease blob 58729f2d2ec9d90c7733250ca7997b383f399195. target/task-discovery-lease-provenance-red.log records eight passing groups and the exact-controller assertion failure before correction; the production checkpoint retains the unchanged identity. ZIO 2.1.26 allowInterrupt synthesizes self-interruption at this explicit checkpoint.
+ZIO 2.1.26 allowInterrupt synthesizes self-interruption at this explicit checkpoint.
 
-The shared checkpoint retains actual pending descriptor interruptor IDs alongside the original operation/cleanup causes and preserves explicit caller masking. The new standalone reader's managed-kernel regression separately failed when cancellation arrived during cleanup; target/task-discovery-cleanup-draft-red.log records that draft failure. The first correction retained interruption but substituted the worker ID, confirmed by target/task-discovery-cleanup-first-fix-red.log and target/task-discovery-cleanup-diagnostic.log. Public discovery already had an outer admitted-I/O checkpoint; the direct-kernel failure is not evidence that its public discovery tests failed.
+The shared checkpoint retains actual pending descriptor interruptor IDs alongside the original operation/cleanup causes and preserves explicit caller masking. Public discovery already had an outer admitted-I/O checkpoint; the direct-kernel failure is not evidence that its public discovery tests failed.
 
-The [local task workspace acceptance](../subagent/README.md#local-task-workspace) covers the resulting six-Scala scope, including WorkspaceLease and its existing paired specification. No new test group is added for the lease correction.
+No new test group is added for the lease correction.
 
 ## Read-only JSON snapshots
 
-**Accepted within the six-Scala scope against 7b59bc9 in the linked manifest.** LocalVersionedJsonStore.readSnapshot shares the owned backend's strict path/envelope reader without acquiring a writer lease. SnapshotRead distinguishes Missing, Older(observedModifiedAt) and Found(snapshot). A cutoff excludes strictly older files before payload decoding; equality remains included. Found retains the exact VersionedJson, observed modification time and actual encoded-byte count.
+LocalVersionedJsonStore.readSnapshot shares the owned backend's strict path/envelope reader without acquiring a writer lease. SnapshotRead distinguishes Missing, Older(observedModifiedAt) and Found(snapshot). A cutoff excludes strictly older files before payload decoding; equality remains included. Found retains the exact VersionedJson, observed modification time and actual encoded-byte count.
 
-Modification time and payload are observational samples, not one atomic filesystem generation. Admitted bounded reads and stream cleanup finish before pending ordinary cancellation is delivered; typed failures, cleanup causes and caller interruption remain observable. Native filesystem blocking can delay cancellation; byte/entry bounds are not wall-clock deadlines. Reading does not grant execution authority, acknowledge data, change revisions or perform abandoned-lease takeover. Host-controlled ancestors remain required. The [local task workspace](../subagent/README.md#local-task-workspace) owns this six-Scala source/specification scope and its final combined approval by review_fp and review_invariants for six unchanged Scala identities and sixteen Markdown files against 7b59bc9.
+Modification time and payload are observational samples, not one atomic filesystem generation. Admitted bounded reads and stream cleanup finish before pending ordinary cancellation is delivered; typed failures, cleanup causes and caller interruption remain observable. Native filesystem blocking can delay cancellation; byte/entry bounds are not wall-clock deadlines. Reading does not grant execution authority, acknowledge data, change revisions or perform abandoned-lease takeover. Host-controlled ancestors remain required.
 
 ## Local versioned JSON
 
@@ -43,35 +38,17 @@ Opening validates trust, lexical traversal, sensitive lexical/canonical paths, c
 
 compareAndSet reloads under the per-target lease. A conflict changes no bytes; creation starts at revision 1 and updates advance the persisted revision. Exhausted Long.MaxValue expectations fail. A bounded candidate is written through a scoped same-directory temporary file and native atomic replacement, with no non-atomic fallback. Operation and release errors retain their causes. Cancellation waits for admitted replacement and cleanup; failure or cancellation does not prove the write did not commit, and uncertain writes are never retried automatically.
 
-The host owns the lifetime and must keep it alive through borrowed adapters. Closing the backend rejects later use. External replacement/deletion invalidates revision assumptions. This adapter provides neither fencing, fsync/power-loss durability, abandoned-lease takeover, directory discovery nor executable session restoration.
+The host owns the lifetime and must keep it alive through borrowed adapters. Closing the backend rejects later use. External replacement/deletion invalidates revision assumptions. This adapter provides neither fencing, fsync/power-loss durability, abandoned-lease takeover, directory discovery nor executable checkpoint restoration.
 
 The actual registry integration targets agents/parent/tasks/sess-rt.json and verifies mixed Pending/Running/Completed/Failed data, exact results/counts, persisted acknowledgement and fresh-scope reopen without model/execution replay. It reuses SubagentTerminalStore rather than introducing a second task schema. This is the physical assertion in pinned WorkspaceTaskRepositoryTest 469, not Java wire/API equivalence or whole task-repository completion.
 
-- [x] review_fp and review_invariants approve eight exact Scala identities against 73b0fb1, manifest b450bd087a0b14af083c61326935250b7c5d90b8cffa627cc1c7b41f2ddf14c7, with no unresolved source findings.
-- [x] target/local-json-focused-green.log passes 68 groups, zero failed/ignored/compiler warnings, in 1.612 seconds.
-- [x] target/local-json-final-verify.log passes formatting/fatal-warning compilation, 1,648 tests (695 core / 791 harness / 130 MCP / 24 actual PostgreSQL / eight examples) and four RC1 packages, zero failed/ignored/compiler warnings.
-- [x] target/local-json-final-preparation.log passes negative archive admission, original-byte restoration and revalidation.
-- [x] target/local-json-final-consumer.log passes fresh standalone formatting/compilation/execution and four artifact hashes; the unchanged probe does not directly exercise this adapter.
-- [x] review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings. English prose, UTF-8 and local links are checked.
-
-| Reviewed source against 73b0fb1 | Git blob |
-| --- | --- |
-| [LocalMemoryRepository.scala](../memory/LocalMemoryRepository.scala) | `4002a33fa1499c15ac795e8142325869444cb735` |
-| [LocalPlanDraftStore.scala](../plan/LocalPlanDraftStore.scala) | `1f42fd5ae3237ad6f130fb5e702d443cc78b2a32` |
-| [LocalVersionedJsonStore.scala](LocalVersionedJsonStore.scala) | Superseded by the [current six-Scala scope](../subagent/README.md#local-task-workspace) |
-| [WorkspaceLease.scala](WorkspaceLease.scala) | Superseded by the [current six-Scala scope](../subagent/README.md#local-task-workspace) |
-| [LocalTranscriptStore.scala](../transcript/LocalTranscriptStore.scala) | `2b0102c6aa48668976f64b002320bdb973ce4173` |
-| [LocalVersionedJsonStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/LocalVersionedJsonStoreSpec.scala) | Superseded by the [current six-Scala scope](../subagent/README.md#local-task-workspace) |
-| [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala) | Superseded by the [current six-Scala scope](../subagent/README.md#local-task-workspace) |
-| [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala) | `2fbdb76e725bdd8e1fa061c6ac67d39a9cc45174` |
+Source and paired tests: [LocalMemoryRepository.scala](../memory/LocalMemoryRepository.scala), [LocalPlanDraftStore.scala](../plan/LocalPlanDraftStore.scala), [LocalVersionedJsonStore.scala](LocalVersionedJsonStore.scala), [WorkspaceLease.scala](WorkspaceLease.scala), [LocalTranscriptStore.scala](../transcript/LocalTranscriptStore.scala), [LocalVersionedJsonStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/LocalVersionedJsonStoreSpec.scala), [WorkspaceLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/storage/WorkspaceLeaseSpec.scala), [SubagentTaskRegistrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentTaskRegistrySpec.scala).
 
 ## Versioned JSON publication
 
 [VersionedJsonStore.scala](VersionedJsonStore.scala) adds public checked StorageAddress, opaque positive StorageRevision, ExpectedRevision, ConditionalWrite and VersionedJson data plus the effectful read/compareAndSet port. Address codecs reapply exact Unicode/nonblank/512-UTF-8-byte checks; namespace serialization uses a reserved U+001F separator. The revision codec accepts only positive signed-Long JSON numbers, rejecting string/fraction/overflow coercion. Conflict changes nothing; creation starts at 1 and exact-revision updates advance without reuse. Exhausted Long.MaxValue expectations fail without publication. Cancellation/lost acknowledgement does not establish that a write did not commit.
 
-The optional [PostgreSQL backend](../../../../../../../../../storage-postgresql/README.md) is a separately packaged implementation. The separately composed memory/transcript adapters implement bounded aggregates. The checkpoint adapter below has final source/full/artifact verification; final documentation approval passed. This prerequisite does not supply deletion/search, multi-address transactions or exclusive host execution claims. Existing WorkspaceLease remains private cooperative local infrastructure; this new public storage port does not turn local leases into distributed locks.
-
-- [x] review_fp and review_invariants approved this additive public port and its named backend; full verification with real PostgreSQL passes. The [backend manifest](../../../../../../../../../storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance) records exact identities, verification and bounded acceptance. Existing workspace ownership scopes remain unchanged.
+The optional [PostgreSQL backend](../../../../../../../../../storage-postgresql/README.md) is a separately packaged implementation. The separately composed memory/transcript adapters implement bounded aggregates. This prerequisite does not supply deletion/search, multi-address transactions or exclusive host execution claims. Existing WorkspaceLease remains private cooperative local infrastructure; this new public storage port does not turn local leases into distributed locks.
 
 ## Versioned acting checkpoints
 
@@ -87,21 +64,7 @@ Persistent checkpoint data does not grant approval. ReActAgent.restore and host 
 
 Migration: the capability/wrapper and factory are additive. Existing runtime restore and memory/transcript APIs remain unchanged. Remote version 1 is a separate private envelope; there is no automatic import from local logs or a blanket upstream checkpoint-format/parity claim.
 
-| Reviewed source/spec against b7488cc | Git blob |
-| --- | --- |
-| [ActingCheckpointStore.scala](ActingCheckpointStore.scala) | `5da51e857554bd120dcadf5642c9f2dfc34611ce` |
-| [VersionedActingCheckpointStore.scala](VersionedActingCheckpointStore.scala) | `c984be08b7e25037aad625cbb01cd102cff50223` |
-| [JsonBoundary.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/JsonBoundary.scala) | `9d44f157ffe49ec2a0994a8562bec31e5ff04fd9` |
-| [JsonBoundarySpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/json/JsonBoundarySpec.scala) | `34e46cc9cd042634ba6b701851639391dc938738` |
-| [TranscriptLog.scala](../transcript/TranscriptLog.scala) | `f0619827e1545be6413ee185dd80792b1b2163c8` |
-| [VersionedTranscriptStore.scala](../transcript/VersionedTranscriptStore.scala) | `7a42b1271420bd9767da516b576d709dc4ca971c` |
-| [ActingCheckpointStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/ActingCheckpointStoreSpec.scala) | `4a19f4ece7664b13c957b8b8406bef50905aeeaa` |
-
-- [x] review_fp and review_invariants approved these seven final identities against b7488cc, with no unresolved findings.
-- [x] Focused JSON verification passes nine JsonBoundarySpec and six StructuredJsonBoundarySpec cases (15 total); existing transcript suites pass 18 groups. acting-checkpoint-final-green.log passes all 12 real PostgreSQL groups in 3.771 seconds, including three checkpoint groups.
-- [x] acting-checkpoint-final-verify.log passes formatting, fatal-warning compilation, four packages and 1,497 tests: 669 core / 726 harness / 85 MCP / 12 PostgreSQL / 5 examples, with zero compiler warnings or failed tests. acting-checkpoint-artifact-preparation.log passes all four archive/POM checks.
-- [x] acting-checkpoint-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh module JAR hashes. Its existing selected API smoke does not construct the checkpoint adapter; real PostgreSQL/runtime integration verifies the new capability.
-- [x] review_fp and review_invariants approved final combined source/documentation closure against b7488cc and these seven identities. English inspection passed; all 2,710 local references in 78 Markdown documents passed with zero issues.
+Source and paired tests: [ActingCheckpointStore.scala](ActingCheckpointStore.scala), [VersionedActingCheckpointStore.scala](VersionedActingCheckpointStore.scala), [JsonBoundary.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/JsonBoundary.scala), [JsonBoundarySpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/json/JsonBoundarySpec.scala), [TranscriptLog.scala](../transcript/TranscriptLog.scala), [VersionedTranscriptStore.scala](../transcript/VersionedTranscriptStore.scala), [ActingCheckpointStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/ActingCheckpointStoreSpec.scala).
 
 ## Remote object lifetime
 

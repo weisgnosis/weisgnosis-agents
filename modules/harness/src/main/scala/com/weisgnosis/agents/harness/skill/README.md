@@ -14,39 +14,17 @@ Migration: SkillMarkdownLimits appends the defaulted third field maxMetadataDept
 
 [Upstream change 2c503d88](https://github.com/agentscope-ai/agentscope-java/commit/2c503d88ba844fe5ee149e8e5f0c1ed32b036420) adds one initial U+FEFF to shared skill frontmatter, preserves interior BOMs and tests LF/CRLF/CR, actual file discovery/loading and subagent declarations. Current [SkillMarkdownParser](SkillMarkdownParser.scala) and [SubagentDeclarationParser](../subagent/SubagentDeclarationParser.scala) implement that framing at their existing checked boundaries. Both parsers adjust only delimiter recognition, preserving original offsets and exact body whitespace. Existing document UTF-16 limits include the initial BOM; header limits exclude delimiter lines; local byte bounds include the original three UTF-8 BOM bytes. No global stripping, newline normalization or new YAML leniency is introduced.
 
-The existing four suites now carry the contract tables and actual UTF-8 files, with no new test groups. They retain strict repeated/noninitial BOM and delimiter near-misses, original size bounds, malformed UTF-8 and capability isolation. Upstream generic Markdown parsing returns unchanged raw input when frontmatter is absent; these domain parsers still reject missing required declarations as typed InvalidConfiguration. The subagent body remains exact rather than adopting Java's trim. This scope does not implement the upstream SkillManageTool create/edit APIs.
+Paired suites cover the contract tables and actual UTF-8 files. They retain strict repeated/noninitial BOM and delimiter near-misses, original size bounds, malformed UTF-8 and capability isolation. Upstream generic Markdown parsing returns unchanged raw input when frontmatter is absent; these domain parsers still reject missing required declarations as typed InvalidConfiguration. The subagent body remains exact rather than adopting Java's trim. This scope does not implement the upstream SkillManageTool create/edit APIs.
 
-- [x] `frontmatter-bom-red.log` reproduces typed missing-opening-delimiter failures against unchanged `7692d70` in both parsers and actual repositories; eight groups passed and eight failed.
-- [x] `frontmatter-bom-assertion-red.log` records three passing and two failing groups in 295 ms, including an explicit unchanged-production assertion: valid BOM table input returns Left(InvalidConfiguration) instead of the expected Right(SkillDefinition), preserving exact expected body and metadata.
 - [x] Implement one initial BOM plus LF/CRLF/CR framing without changing public signatures, YAML interpretation or resource ownership.
-- [x] `frontmatter-bom-focused-final.log` passes all sixteen existing groups in 382 ms with zero failures, ignored tests or compiler warnings.
-- [x] `review_fp` and `review_invariants` independently approved all six exact source/test identities below against `7692d70`, with no unresolved findings.
-- [x] `frontmatter-bom-full-verify.log` passes formatting, fatal-warning compilation, all 1,564 existing tests (687 core / 734 harness / 113 MCP / 22 fresh PostgreSQL / 8 examples) and four RC1 packages, with zero failures, ignored tests or compiler warnings.
-- [x] `frontmatter-bom-preparation.log` passes archive preparation and negative selector/source-archive regressions.
-- [x] `frontmatter-bom-consumer.log` passes standalone formatting, clean fatal-warning compilation and forked consumption of four fresh module hashes. Its existing packaged API smoke does not claim direct BOM parsing coverage.
-- [x] `review_fp` and `review_invariants` approved the final combined twenty-file scope against `7692d70`, including six unchanged source/spec identities and fourteen Markdown files; no unresolved findings remain in this scope.
 
-Current independently approved source/test manifest:
-
-| File | Git blob |
-| --- | --- |
-| [SkillMarkdownParser.scala](SkillMarkdownParser.scala) | `6c0616eb9cee601f23e80ae46533fd73de369766` |
-| [SubagentDeclarationParser.scala](../subagent/SubagentDeclarationParser.scala) | `8e9b4e87312a75fb4f6d3b865a6fd965f8fb630f` |
-| [LocalSkillRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillRepositorySpec.scala) | `08be327e19529fdbd3369c6c88790877e1c7e724` |
-| [SkillMarkdownParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/SkillMarkdownParserSpec.scala) | `f932cb0dab39ff35e4882f44ac68dd8322ab0622` |
-| [LocalSubagentDeclarationsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/LocalSubagentDeclarationsSpec.scala) | `72ad8fe7b48c286dbf3d5ff0fbb8de346cdb3efe` |
-| [SubagentDeclarationParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala) | `f34160b0dd8cb09a2ec9127a6c8f7dc7145a3250` |
+Source and paired tests: [SkillMarkdownParser.scala](SkillMarkdownParser.scala), [SubagentDeclarationParser.scala](../subagent/SubagentDeclarationParser.scala), [LocalSkillRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillRepositorySpec.scala), [SkillMarkdownParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/SkillMarkdownParserSpec.scala), [LocalSubagentDeclarationsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/LocalSubagentDeclarationsSpec.scala), [SubagentDeclarationParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationParserSpec.scala).
 
 ## Verification and acceptance
 
-- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for ordered inert metadata, bounded parsing and preservation, with no findings.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed in `skill-metadata-verify.log`: 600 core / 687 harness / 79 MCP tests (1,366 total), compile task 1 second and test task 14 seconds, with zero compiler warnings or failures. Five parser groups include two new metadata groups; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals.
 - [x] Bounded repository discovery is independently reviewed and verified below; capability registration remains separate.
 
-| Reviewed file | Reviewed Git blob |
-| --- | --- |
-| [SkillMarkdownParser.scala](SkillMarkdownParser.scala) | [Current BOM scope and acceptance gates](#utf-8-bom-frontmatter-compatibility) |
-| [SkillMarkdownParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/SkillMarkdownParserSpec.scala) | [Current BOM scope and acceptance gates](#utf-8-bom-frontmatter-compatibility) |
+Source and paired tests: [SkillMarkdownParser.scala](SkillMarkdownParser.scala), [SkillMarkdownParserSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/SkillMarkdownParserSpec.scala).
 
 The [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/README.md) and [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) record the bounded mappings and exclusions. No exhaustive upstream skill-parser or loader parity is claimed.
 
@@ -60,12 +38,7 @@ LocalSkillLimits defaults to 64 resources, 512,000 document bytes, 256,000 bytes
 
 LocalSkill keeps its call signature; its nested parser limits and returned SkillDefinition follow the migrations above. Hosts explicitly choose trust, directory and resources, then may validate/install the returned definition through SkillCatalog; no filesystem authority enters the core catalogue. Limits use a derived codec and are validated on every load. Binary resources, recursive discovery, caches, writes and automatic group generation are outside this boundary.
 
-- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for local metadata preservation and pre-I/O depth validation, with no findings. The three local-loader groups and full verification passed in `skill-metadata-verify.log`, as recorded above.
-
-| Reviewed file | Reviewed Git blob |
-| --- | --- |
-| [LocalSkill.scala](LocalSkill.scala), reviewed eager baseline | `d260589839585de3588c3a14ccb2a69f31200330` |
-| [LocalSkillSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillSpec.scala) | `cd0a1531f8de85150a98b70c234b13865b3a1404` |
+Source and paired tests: [LocalSkill.scala](LocalSkill.scala), [LocalSkillSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillSpec.scala).
 
 Tests cover real selected reads and resource release. Symlink rejection is source-reviewed; platform symlink/junction integration coverage remains unverified.
 
@@ -73,12 +46,7 @@ Tests cover real selected reads and resource release. Symlink rejection is sourc
 
 LocalSkill.resourceReader binds one host-selected directory, logical resource and limits without I/O. Each read revalidates explicit WorkspaceTrust, portable path, lexical/canonical sensitive checks, file shape and strict UTF-8/byte bounds through the existing scoped reader. The host binds that reader to an exact SkillResourceKey in core SkillLibrary; model input cannot choose a physical path. Read results are fresh, uncached text. Existing advisory race/platform and joined-blocking cancellation limits remain unchanged.
 
-- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for the current LocalSkill source/spec below, with no findings; full verification passed. Existing eager behavior and repository discovery are unchanged. Combined ten-file `skill-library-final-verify.log` evidence is in the [core capability acceptance](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/skill/README.md#deferred-resource-capabilities).
-
-| Current local reader file | Git blob |
-| --- | --- |
-| [LocalSkill.scala](LocalSkill.scala) | `acf28d1b119bc47fa04372df48f7804431803057` |
-| [LocalSkillSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillSpec.scala) | `8c7f6e551f67393de01d873a06f950b099fc9282` |
+Source and paired tests: [LocalSkill.scala](LocalSkill.scala), [LocalSkillSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillSpec.scala).
 
 ## Local repository discovery
 
@@ -94,15 +62,10 @@ Only the root document, compared by filesystem-provider Path equality, is exclud
 
 Migration: load appends a defaulted resources argument, preserving ordinary documents-only source calls; method-value adaptation and dependent binaries may require rebuilding. No binary compatibility is promised. LocalSkill.load and its limits remain unchanged.
 
-- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for the current TextTree source/spec below, with no findings; full verification passed. Focused `skill-resource-tree-focused.log` passed eight repository/local-loader groups in 378 ms. DocumentsOnly behavior and the unchanged LocalSkill helper retain their prior acceptance.
-Full `scalafmtAll scalafmtSbt verify` passed in `skill-resource-tree-verify.log`: 602 core / 692 harness / 82 MCP tests (1,376 total), compile task 1 second and test task 12 seconds, with zero compiler warnings or failures. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository acceptance.
+The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository acceptance.
 
-| Reviewed file | Git blob |
-| --- | --- |
-| [LocalSkillRepository.scala](LocalSkillRepository.scala) | `eff186771a953bc0b3c6ea0bf71b603927499f37` |
-| [LocalSkillRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillRepositorySpec.scala) | [Current BOM scope and acceptance gates](#utf-8-bom-frontmatter-compatibility) |
-| [LocalSkill.scala](LocalSkill.scala), package-visible helper reuse | `d260589839585de3588c3a14ccb2a69f31200330` |
+Source and paired tests: [LocalSkillRepository.scala](LocalSkillRepository.scala), [LocalSkillRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/skill/LocalSkillRepositorySpec.scala), [LocalSkill.scala](LocalSkill.scala), package-visible helper reuse.
 
-The repository table retains its reviewed helper baseline; current LocalSkill source/spec identities are in the explicit reader section. Existing load behavior and signature are unchanged.
+Existing load behavior and signature are unchanged.
 
 - [ ] Repository-wide next work is ordered in the [tracker](../../../../../../../../../../docs/architecture/tracker.md). Other repository variants, source IDs, automatic lazy-resource discovery and caches remain unfinished.

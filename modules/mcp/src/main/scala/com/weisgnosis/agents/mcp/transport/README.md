@@ -2,7 +2,6 @@
 
 [McpTransport](McpTransport.scala) is a borrowed duplex message port. [McpStdioTransport](McpStdioTransport.scala) implements it for a host-selected direct child process; [McpStdioFraming](McpStdioFraming.scala) provides bounded UTF-8 newline framing. [McpHttpFraming](McpHttpFraming.scala) supplies bounded JSON/SSE bodies, and [McpStreamableHttpTransport](McpStreamableHttpTransport.scala) supplies the bounded HTTP POST and explicit GET contract below.
 
-
 ## Supported server revision agreement
 
 The three built-in transport factories accept a trailing `supportedVersions: Option[McpSupportedVersions] = None`. `McpSupportedVersions.make` checks a nonempty immutable set; the preferred `version` must belong to it. Factories validate the entire set before acquiring processes or HTTP resources. Streamable HTTP excludes the pre-Streamable revision; legacy SSE retains all three existing profiles. Membership conveys neither preference ordering nor automatic probing, reconnection or replay. With None, initialization still requires the exact preferred revision.
@@ -17,38 +16,7 @@ Legacy endpoint discovery is factory-owned: its initial GET must find the endpoi
 
 Migration: rebuild dependent binaries for appended factory parameters and additive transport methods. Existing source calls keep their defaults. No model/provider policy, tool authority, discovery refresh, durable execution or complete optional MCP-method conformance is introduced.
 
-Both review_fp and review_invariants approved the final eighteen Scala identities against 1e18d44 with no unresolved source findings. The sorted `<Git blob> <path>\n` manifest has SHA-256 1fe6259df48bab7eaf4b742e5ec216537887d73429bc6da6231426603a0d045b. This approval includes the public lease cleanup contract; review_fp and review_invariants approved final combined documentation against 1e18d44 for eighteen unchanged Scala files and fifteen Markdown files; no unresolved findings remain within this scope.
-
-| Current reviewed file | Git blob |
-| --- | --- |
-| [McpClient.scala](../client/McpClient.scala) | `552b5ff4502202b4d590383c282b0983b8b53d2e` |
-| [McpConnection.scala](../client/McpConnection.scala) | `331bd04aab357601efe1d0ad45ad8f26900e23d9` |
-| [McpInitialization.scala](../protocol/McpInitialization.scala) | `efd91349c232c41a9fc608491e2a98fe729dbc0f` |
-| [McpSupportedVersions.scala](../protocol/McpSupportedVersions.scala) | `56bdf78f32c96929207eab4de49ab38fb797bb47` |
-| [McpHttpFraming.scala](McpHttpFraming.scala) | `4834d0869fa7704f93caf1ab99be52bc0c2c0beb` |
-| [McpLegacySseTransport.scala](McpLegacySseTransport.scala) | `65caed4ce362c439e4b536fdb9dd015c93763962` |
-| [McpStdioFraming.scala](McpStdioFraming.scala) | `5d9dd01a3f5a9d568e0ee4a602868bfcc595aa31` |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | `2654288df5743c94ae07e07b34463a89635a9993` |
-| [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | `8d1969f95d2a4569a54a4860324d834bfe8d8cb9` |
-| [McpTransport.scala](McpTransport.scala) | `702dd1fd1c3aa36a44528eaa235d885112d0675e` |
-| [McpVersionSession.scala](McpVersionSession.scala) | `30004eebdcc4e1283eee09a03aeb4fc5763e5b80` |
-| [McpConnectionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/client/McpConnectionSpec.scala) | `9724f3950beab436f3c61ad7a6ef9682ab1c0f2d` |
-| [McpSupportedVersionsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpSupportedVersionsSpec.scala) | `18681a82de6fe5592f00cd689f1e173f45947044` |
-| [McpLegacySseTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpLegacySseTransportSpec.scala) | `f478c9221dda8d2961739158494ee31fca4bf376` |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | `980185c58667ad25e7611021dd9148318d8b90e1` |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | `7ad10d7cf76e9bf8edb415b1b98c36a29b1befe7` |
-| [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | `267b4fc85b2afaff8c8df3b0780dfa10b55a51dd` |
-| [McpVersionSessionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpVersionSessionSpec.scala) | `bb1fd8aed3e2d0d5f3d529e0850abeb29be15ed6` |
-
-- [x] Complete correlated supported-version validation, sole scoped ownership and per-frame decoding/header transitions.
-- [x] Obtain both independent source approvals, including corrective review of cancellation-fixture finalizer ordering and the exact same-chunk packet oracle.
-- [x] mcp-version-agreement-full-verify.log passes formatting, fatal-warning compilation, 1,581 tests (687 core / 734 harness / 130 MCP / 22 fresh PostgreSQL / 8 examples), zero failed/ignored tests and four RC1 packages. The final lease clarification is Scaladoc-only and separately approved; final archive refresh is tracked below.
-- [x] mcp-version-agreement-final-archives.log refreshes formatting, compilation and four archives after the lease comment clarification. mcp-version-agreement-preparation.log passes source/POM/LICENSE admission and three reversible archive negative cases; mcp-version-agreement-consumer.log passes standalone formatting, clean fatal-warning compilation and forked consumption of four fresh artifact hashes. The owned fresh PostgreSQL fixture was stopped after label validation.
-- [x] review_fp and review_invariants approved final combined documentation against 1e18d44 for eighteen unchanged Scala identities and fifteen Markdown files; no unresolved findings remain in this scope.
-
-The 130 MCP groups include real subprocess alternate-revision initialization, exact same-chunk framing changes, controlled HTTP headers/continuations/listener resumption/deletion, legacy endpoint/lease ordering and held cancellation cleanup. The standalone consumer exercises its unchanged public API probe and four fresh artifact hashes; it does not test negotiated transport interoperability. These are distinct evidence boundaries.
-
-Draft regressions reproduced five independent failures before their corrections: unleased input consumption, unrelated POST selection and premature initialization registration in mcp-version-admission-draft-red.log (25 passed / 3 failed); defective lease cleanup in mcp-version-lease-cleanup-draft-red.log (0 / 1); prompt validation behind a held writer in mcp-version-write-admission-draft-red.log (0 / 1). These failures concern unaccepted feature drafts, not a claim against the accepted 1e18d44 baseline. Corrected behavior passes the full suite. No historical report file is retained as an acceptance substitute.
+Controlled negotiation/header fixtures and real subprocess handshakes exercise different boundaries; packaged consumer probes do not establish negotiated interoperability with external servers.
 
 ## Immutable process launcher
 
@@ -56,31 +24,13 @@ The repository configures direct processes through zio-process 0.7.2's immutable
 
 Stdin/stdout explicitly use Pipe. Inherit selects native stderr inheritance; Discard redirects to the operating-system null device. The dependency internally uses JVM process machinery; this boundary does not claim immutable dependency internals. Application code neither obtains nor updates a mutable Java environment map. Public open arguments, default policies and direct-process ownership remain unchanged. Rebuild consumers to resolve the new production dependency.
 
-This corrects a literal engineering-standard violation in the prior adapter, not a reproduced process-behavior defect. The new stderr table checks exact correlated reply and joined reaping under 2 MB discard pressure and a small inherited marker. The actual log contains that marker, but the test is not an exact inherited-byte oracle. Existing real-process environment and cancellation groups remain. No Linux execution, arbitrary stderr sink behavior or descendant-process containment is established by this Windows run.
+Process fixtures check exact correlated replies and joined reaping under discarded stderr pressure and native inheritance. Inherited log markers are supplementary evidence, not exact byte oracles. Descendant-process containment, arbitrary stderr sinks and Linux execution are not established by the Windows process fixtures.
 
-Both review_fp and review_invariants approved these final source identities against 203401a with no unresolved source findings. Full delivery verification passes; review_fp and review_invariants approved final combined documentation against 203401a for four unchanged source/build identities and thirteen Markdown files.
-
-| Reviewed file | Git blob |
-| --- | --- |
-| [build.sbt](../../../../../../../../../../build.sbt) | `d068a6bd206879bef8c3be3063fcc96dbd1421e9` |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-
-- [x] Remove direct repository manipulation of the Java environment map without waiving the engineering rule.
-- [x] Obtain both independent source approvals and focused verification: stdio-functional-launcher-focused.log passes five groups in 2.727 seconds.
-- [x] stdio-functional-launcher-full-verify.log passes 1,570 tests (687 core / 734 harness / 119 MCP / 22 actual PostgreSQL / 8 examples), zero compiler warnings/failures/ignored, formatting, compilation and four RC1 packages. A newly created empty PostgreSQL 16 database was used and its owned container was stopped.
-- [x] stdio-functional-launcher-preparation.log passes fresh source/POM/LICENSE admission and reversible invalid-selector/extra/duplicate-source checks. stdio-functional-launcher-consumer.log passes standalone formatting, clean compilation and fresh four-module hash consumption. The unchanged consumer resolves the launcher dependency but does not launch a packaged subprocess; actual process execution belongs to the focused/full MCP suites.
-
-The full log also contains SLF4J notices and a Netty host-connection-aborted diagnostic during loopback execution. These are distinct from compiler warnings; no cause beyond the recorded exception/context is asserted.
-
-- [x] review_fp and review_invariants approved final combined documentation against 203401a for these four unchanged source/build identities and thirteen Markdown files; no unresolved findings remain in this scope.
-
-The explicit evicted diagnostic selects ZIO/Streams 2.1.26 over the dependency's 2.0.9 and scala-collection-compat 2.14.0 over 2.9.0. sbt flags suspected binary incompatibility; no override or warning suppression was added. Actual process paths pass against selected versions; this is not universal binary compatibility proof or zero dependency-diagnostic evidence.
+Dependency resolution selects ZIO/Streams 2.1.26 over zio-process's 2.0.9 and scala-collection-compat 2.14.0 over 2.9.0. sbt reports suspected binary incompatibility without an override or warning suppression. Process fixtures exercise these selected versions; they do not prove universal binary compatibility.
 
 ## March 2025 batch packets
 
-The current batch correction has final independent `review_fp` and `review_invariants` approval for the fourteen frozen source/test identities below, with no unresolved findings. Full repository verification, package preparation and fresh artifact consumption passed. review_fp and review_invariants approved final combined documentation against 55df42a for these unchanged source identities. The [March 2025 transport specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports) permits JSON-RPC arrays; the [June 2025 changelog](https://modelcontextprotocol.io/specification/2025-06-18/changelog) removes them. Exact selected handshakes alone did not implement this wire behavior. The actual `mcp-march-batch-red.log` regression against unchanged `55df42a` failed because a valid March request batch was decoded as a singular object; no grouped response was emitted.
+The [March 2025 transport specification](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports) permits JSON-RPC arrays; the [June 2025 changelog](https://modelcontextprotocol.io/specification/2025-06-18/changelog) removes them. Batch support is selected by the committed protocol revision, not inferred from a successful handshake alone.
 
 [McpPacket](../protocol/McpPacket.scala) preserves Single, nonempty Batch and the empty-array InvalidRequest case. A batch contains at most 64 members. Existing byte limits apply to the entire JSON body, SSE event or stdio line; one bounded incoming queue slot contains one complete packet. Complete parsing and direction validation precede publication, so an invalid response suffix cannot settle a valid prefix. Recursive duplicate keys reject the complete frame under the existing strict ambiguity policy.
 
@@ -94,38 +44,9 @@ Framing evidence is bounded: fragmented March arrays pass through stdio, JSON an
 
 The pinned [Java SDK 0.17.2 McpSchema](https://github.com/modelcontextprotocol/java-sdk/blob/v0.17.2/mcp-core/src/main/java/io/modelcontextprotocol/spec/McpSchema.java#L188) `deserializeJsonRpcMessage` decodes a HashMap into three singular envelope records and leaves batching as a TODO; the AgentScope wrappers provide no batching method. Existing SDK interoperability therefore does not prove array support. Current batch fixtures derive from the official March transport and [JSON-RPC batch contract](https://www.jsonrpc.org/specification#batch), using controlled HTTP and a real direct subprocess.
 
-- [x] Record the failing-before-fix March grouped-response regression against unchanged `55df42a`.
-- [x] Implement bounded packet preservation, selected-version gates and grouped server responses.
-- [x] Record draft-guard regression `mcp-march-init-guard-red.log`: seven groups passed and one failed in 841 ms under the unaccepted broad guard; no grouped ping reply was emitted while initialize was pending. The corrected guard checks only correlated initialization responses, preserving independent ping batches.
-- [x] `review_invariants` approved all fourteen exact source/test identities below with no unresolved findings.
-- [x] `review_fp` approved all fourteen exact source/test identities below with no unresolved findings.
-- [x] `mcp-march-batch-full-verify.log` passes formatting, fatal-warning compilation, all 1,564 tests (687 core / 734 harness / 113 MCP / 22 fresh PostgreSQL / 8 examples) and four RC1 packages, with zero compiler warnings, failures or ignored tests. This includes the corrected initialization guard and grouped held-POST cleanup.
-- [x] `mcp-march-batch-preparation.log` passes archive preparation and negative selector/source-archive regressions.
-- [x] `mcp-march-batch-consumer.log` passes standalone formatting, clean fatal-warning compilation and forked consumption of four fresh module hashes, including actual packaged default-schema admission/rejection probes. Its existing API smoke does not claim direct March batch interoperability coverage.
-- [x] review_fp and review_invariants approved the final combined 35-file scope against 55df42a, with sixteen unchanged source/spec identities and nineteen Markdown files; no unresolved findings remain in this scope.
-
-Current source/test identities independently approved by `review_fp` and `review_invariants` against `55df42a`:
-
-| File | Git blob |
-| --- | --- |
-| [McpConnection.scala](../client/McpConnection.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-| [McpPacket.scala](../protocol/McpPacket.scala) | `670a3597e4b11bc76db5cf9cc157f58d599cbb1a` |
-| [McpHttpFraming.scala](McpHttpFraming.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-| [McpLegacySseTransport.scala](McpLegacySseTransport.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-| [McpStdioFraming.scala](McpStdioFraming.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-| [McpTransport.scala](McpTransport.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-| [McpPacketSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpPacketSpec.scala) | `b087df63c66ec47bc00468651e2fb165e7a0b768` |
-| [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | `64961960e3a0a1e5a352b5a9a26d94b429592478` |
-| [McpLegacySseTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpLegacySseTransportSpec.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-
 ## Legacy HTTP SSE and explicit revision selection
 
-The legacy/revision behavior has independent `review_fp` and `review_invariants` approval with no unresolved findings. Files changed by the current packet correction point to its separate acceptance gates above; unchanged identities retain their recorded approval. Full verification and package preparation passed; the fresh artifact consumer passed; final combined documentation review passed against ce55421. [McpLegacySseTransport](McpLegacySseTransport.scala) implements the original two-endpoint transport described by [MCP 2024-11-05](https://modelcontextprotocol.io/specification/2024-11-05/basic/transports). The scoped owner starts one GET reader, awaits a bounded initial `endpoint` event, and directs subsequent POST messages to the advertised URI. Server JSON-RPC arrives through `message` events; unnamed SSE events have the standard message meaning. Unknown named events are ignored, and a repeated endpoint is rejected. No reconnect, implicit redirect or POST replay is performed.
+The scoped owner starts one GET reader, awaits a bounded initial `endpoint` event, and directs subsequent POST messages to the advertised URI. Server JSON-RPC arrives through `message` events; unnamed SSE events have the standard message meaning. Unknown named events are ignored, and a repeated endpoint is rejected. No reconnect, implicit redirect or POST replay is performed.
 
 The advertised endpoint may be relative or absolute but must retain the configured scheme, host and effective port. Credentials and fragments are rejected. Host-supplied authentication headers therefore remain on the configured origin. The borrowed HTTP client must disable implicit redirects and retries; this adapter cannot undo network actions performed internally by a custom client. GET status/content type, UTF-8, cumulative body/event bytes and incoming queue capacity are checked. Overflow is terminal. Queue bounds count packets (singular messages under the legacy default) rather than decoded payload bytes; framing supplies the separate byte bounds. Every POST acknowledgement has an independent bounded response scope. Endpoint timeout/cancellation joins the reader response cleanup; send cancellation joins its response cleanup. The host must join its connection and active sends before closing the borrowed transport lifetime.
 
@@ -133,33 +54,7 @@ The advertised endpoint may be relative or absolute but must retain the configur
 
 Migration: the transport interface gains a default `protocolVersion` method, preserving existing custom implementers. `McpInitialization.request` and `readResult` append defaulted selection arguments; `McpInitializationResult` adds a trailing defaulted selected version. `McpStreamableHttpTransport.open` and `McpStdioTransport.open` append defaulted version arguments. Stdio supports each explicit initialized revision without HTTP headers; its existing real-process fixture verifies all three selected handshakes and reaps each child. Ordinary existing calls retain their defaults; positional patterns and dependent binaries require rebuilding.
 
-- [x] `legacy-focused-4.log` passes 52 focused MCP groups with zero failures, ignored tests or compiler warnings, including raw framing, selected initialization, held cleanup, unchanged Java SDK legacy/Streamable interoperability and real stdio processes.
-- [x] `review_fp` and `review_invariants` independently approved the legacy/revision behavior. Changed packet identities require the separate current review above; unchanged dependencies below retain their recorded approval.
-- [x] Unchanged reviewed dependencies and current source destinations are recorded below; the current packet correction has separate acceptance gates above.
-- [x] `legacy-tasklist-full-verify.log` passes formatting, fatal-warning compilation, all 1,552 tests (685 core, 734 harness, 103 MCP, 22 fresh PostgreSQL and eight examples) and four RC1 packages, with zero failed or ignored tests and zero compiler warnings.
-- [x] `legacy-tasklist-preparation.log` passes source-archive preparation and negative selector/source cases.
-- [x] `legacy-tasklist-consumer.log` passes formatting, clean fatal-warning compilation and a forked external consumer loading all four fresh package hashes, including actual packaged schema admission/rejection.
-- [x] review_fp and review_invariants approved the legacy/revision delivery against ce55421. This earlier combined approval does not accept the changed packet source or documentation.
-
 Legacy/revision dependencies and current source destinations:
-
-| File | Git blob |
-| --- | --- |
-| [McpClient.scala](../client/McpClient.scala) | [Current catalogue source identity and gates](../client/README.md#connection-local-original-definition-catalogue) |
-| [McpInitialization.scala](../protocol/McpInitialization.scala) | [Current negotiated revision identity](README.md#supported-server-revision-agreement) |
-| [McpHttpFraming.scala](McpHttpFraming.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpTransport.scala](McpTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpJavaSdkInteropSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) | `e9fb597dc90eaf58f83cd5b8176e86bf216582d1` |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpProtocolVersion.scala](../protocol/McpProtocolVersion.scala) | `070dc498191235347233b065937c84976bbb3bea` |
-| [McpLegacySseTransport.scala](McpLegacySseTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpProtocolVersionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/protocol/McpProtocolVersionSpec.scala) | `3192250db568951830c0573e65190a903b78e923` |
-| [McpLegacySseTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpLegacySseTransportSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
 
 The paired [legacy transport suite](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpLegacySseTransportSpec.scala) checks selected handshakes, safe/unsafe URI near-misses, held GET/POST cleanup and inbound violation/EOF/queue-exhaustion termination. Owned reader execution restores interruptibility inside masked acquisition; the initial new-feature run exposed the inherited-mask hang and was terminated rather than accepted. The SDK legacy servlet advertises only 2024-11-05; other selections have controlled-port evidence rather than an invented SDK compatibility claim. The existing framing suite checks named raw events without changing current Streamable message projection.
 
@@ -181,7 +76,6 @@ A generic port may recover from a local send failure only if framing remains int
 
 This is direct-process ownership, not a process-tree sandbox. Descendant processes and inherited handles remain host/server responsibilities. The adapter has no graceful-shutdown timeout, reconnect policy, working-directory overrides, protocol initialization, request deadlines or self-originated cancellation notifications; it can carry the connection-owned notifications described below. A selected executable is trusted host configuration, not untrusted model output.
 
-
 ## Child environment overrides
 
 The appended immutable environment map overrides selected inherited variables only in the direct child. Empty maps retain inheritance; empty values are preserved. Keys must be nonempty and contain neither equals signs nor NUL; values must not contain NUL. Override names that compare equal with String.equalsIgnoreCase are rejected on every platform, including Unicode case aliases. Windows updates the inherited key spelling; other platforms retain case-sensitive inherited names. This conservative override collision rule is portable admission policy, not a claim of identical native environment rules across operating systems.
@@ -190,18 +84,7 @@ Environment configuration uses the [immutable process launcher](#immutable-proce
 
 Migration: omitted/named Scala source calls retain their defaults. The appended parameter changes the JVM method signature and method-value arity; rebuild consumers and update explicitly typed function values. Existing send/read/cancellation/cleanup contracts are unchanged.
 
-| Source reviewed by review_fp and review_invariants against 0661e31 | Git blob |
-| --- | --- |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [ArtifactSmoke.scala](../../../../../../../../../../verification/artifact-consumer/ArtifactSmoke.scala) | [Current consumer identity and schema admission scope](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) |
-
-- [x] Both independent reviewers approved the final four-file source scope with no unresolved findings; manifest SHA-256 706b2f52662ada4e9b8aeeba1ec1b9dab20f29b3c485fb79837d30c9cdf9b77d.
-- [x] stdio-environment-collision-red.log records the sixth invalid-environment row failing against draft transport blob 5232b2b0887bed572897d9ef9827e3fdd868b83b: Locale-based folding admitted I/dotless-I aliases. The corrected comparison matches key selection; stdio-environment-collision-green.log passes all three groups in 1.604 seconds.
-- [x] Existing real-process groups now observe inherited PATH replacement, another retained inherited value, added/empty values, unchanged parent and joined reaping. Existing read/write cancellation coverage remains; no new group was added.
-- [x] stdio-environment-final-verify.log passed all 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests, and four RC1 packages. stdio-environment-preparation.log passed exact source/POM/LICENSE admission, invalid-selector/extra/duplicate-entry rejection and restored archives. stdio-environment-consumer.log passed standalone formatting, clean compilation and forked execution against four actual fresh RC1 hashes, including the new named environment parameter and pre-launch typed rejection.
-- [x] review_fp and review_invariants approved the final combined thirteen-file source/documentation scope against 0661e31 with no unresolved findings. Manual English inspection, diff checks and 78-document/2,897-local-reference validation pass with zero issues.
+- Existing real-process groups now observe inherited PATH replacement, another retained inherited value, added/empty values, unchanged parent and joined reaping. Existing read/write cancellation coverage remains; no new group was added.
 
 This bounded adaptation of pinned McpClientBuilderTest.testStdioTransport_WithEnvironmentVariables (74) does not implement the mutable builder, complete-wrapper assertions, automatic discovery caching or every platform/process configuration.
 
@@ -231,7 +114,7 @@ This component performs no HTTP requests, session negotiation, media-type dispat
 
 `McpStreamableHttpTransport.open(http, endpoint, headers = Headers.empty, limits = McpHttpLimits(), continuation = McpHttpContinuation.Disabled)` returns `ZIO[Scope, AgentError, McpStreamableHttpTransport]` and borrows the injected zio-http Client. The acquired `McpStreamableHttpTransport` extends `McpTransport` with explicit `listen` and `terminateSession` operations. The absolute HTTP(S) endpoint cannot contain user information or a fragment. Header names must be ASCII tokens and values visible ASCII or spaces; transport-controlled headers cannot be overridden. Invalid configuration performs no network request.
 
-Every message uses a separate POST with JSON content type, JSON/SSE Accept values and the selected `2025-06-18` protocol header. Requests accept one matching JSON reply or an SSE stream containing server requests/notifications before the matching reply. Matching completion closes the response scope without demanding an open tail. A premature SSE EOF fails the send unless bounded continuation is enabled below; a mismatched reply always fails it. Notifications and responses require exactly status 202 with an empty body. For JSON-RPC requests, response Content-Type must appear once and be JSON or SSE; only absent parameters or exact case-insensitive `charset=utf-8` / `charset="utf-8"` parameters are accepted. This parameter whitelist is a local compatibility constraint.
+Every message uses a separate POST with JSON content type, JSON/SSE Accept values and the selected protocol revision (`2025-06-18` by default). Requests accept one matching JSON reply or an SSE stream containing server requests/notifications before the matching reply. Matching completion closes the response scope without demanding an open tail. A premature SSE EOF fails the send unless bounded continuation is enabled below; a mismatched reply always fails it. Notifications and responses require exactly status 202 with an empty body. For JSON-RPC requests, response Content-Type must appear once and be JSON or SSE; only absent parameters or exact case-insensitive `charset=utf-8` / `charset="utf-8"` parameters are accepted. This parameter whitelist is a local compatibility constraint.
 
 The first admitted initialize exchange can capture one nonempty visible-ASCII Mcp-Session-Id header before its SSE messages are delivered. Later POSTs carry that session ID; conflicting or malformed session headers terminate the transport. Duplicate initialize requests fail before sending, and rejected or queued-cancelled initializers cannot poison an existing session. Failure or cancellation after initialization admission terminates it, including response cleanup failures. Arbitrary stateless raw port requests remain possible; McpClient owns protocol initialization order, negotiated-version validation and capability checks.
 
@@ -289,7 +172,7 @@ Migration: `terminateSession` is a new abstract member of `McpStreamableHttpTran
 
 ## Independent-server interoperability
 
-[McpJavaSdkInteropSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) runs the unchanged MCP Java SDK 0.17.2 HTTP servlet provider on Tomcat 11.0.18 over real loopback HTTP. The initialized Scala client verifies server information/capabilities, listing, successful text, tool `isError` and distinct RPC code/data. The current resource extension additionally checks resource discovery/read and the template-list route against the unchanged SDK, and typed resource list-change delivery in the explicit listener rounds. These assertions passed the current 29-group focused run and have FP/ZIO and invariant approvals within the [resource scope](../client/README.md#resource-client-contract); resource-scope full verification, package preparation and the fresh artifact consumer passed. Current packet-scope final combined documentation approval passed against 55df42a; unchanged legacy/revision scope retains its separate acceptance. An independent DELETE expires the live client's session; its next call produces exactly McpSessionExpired after one POST/404, without replay. The host closes that client, opens a fresh transport/client with a distinct session, rediscovers and calls successfully. The old Toolkit binding remains failed without network traffic. Final client closure and DELETE precede verified Tomcat `DESTROYED` and temporary-directory removal. A second group exercises actual McpClientManager removal and fresh registration against the same SDK. It holds old acquisition cleanup, proves replacement cannot acquire early, reruns discovery/selection into a distinct session, and checks immutable old definitions and zero stale-binding traffic. Bound-tool expiry remains an Error observation; the failed call produces one POST/404 and is not replayed. Manager closure releases both acquisitions and makes escaped client/transport snapshots reject without HTTP. The SDK groups run sequentially because embedded Tomcat instances share JMX names; the held-removal schedule remains concurrent within its group. These checks do not change the server catalogue or claim automatic recovery. A third group runs two explicit host-owned GET listeners in succession on one session. Each receives an actual SDK keepalive ping and tools/list_changed notification, then local cancellation joins response-scope cleanup before a successful POST. Both GETs return 200 with the same session and no Last-Event-ID. The prior joined GET and subsequent POST reply cross the same FIFO incoming consumer before its observation queue is drained, preventing prior-round traffic from satisfying the next listener. Keepalive ownership is retained during startup and transferred to servlet destruction only after successful startup; failed-startup schedules remain untested.
+[McpJavaSdkInteropSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) runs the unchanged MCP Java SDK 0.17.2 HTTP servlet provider on Tomcat 11.0.18 over real loopback HTTP. The initialized Scala client verifies server information/capabilities, listing, successful text, tool `isError` and distinct RPC code/data. The current resource extension additionally checks resource discovery/read and the template-list route against the unchanged SDK, and typed resource list-change delivery in the explicit listener rounds. An independent DELETE expires the live client's session; its next call produces exactly McpSessionExpired after one POST/404, without replay. The host closes that client, opens a fresh transport/client with a distinct session, rediscovers and calls successfully. The old Toolkit binding remains failed without network traffic. Final client closure and DELETE precede verified Tomcat `DESTROYED` and temporary-directory removal. A second group exercises actual McpClientManager removal and fresh registration against the same SDK. It holds old acquisition cleanup, proves replacement cannot acquire early, reruns discovery/selection into a distinct session, and checks immutable old definitions and zero stale-binding traffic. Bound-tool expiry remains an Error observation; the failed call produces one POST/404 and is not replayed. Manager closure releases both acquisitions and makes escaped client/transport snapshots reject without HTTP. The SDK groups run sequentially because embedded Tomcat instances share JMX names; the held-removal schedule remains concurrent within its group. These checks do not change the server catalogue or claim automatic recovery. A third group runs two explicit host-owned GET listeners in succession on one session. Each receives an actual SDK keepalive ping and tools/list_changed notification, then local cancellation joins response-scope cleanup before a successful POST. Both GETs return 200 with the same session and no Last-Event-ID. The prior joined GET and subsequent POST reply cross the same FIFO incoming consumer before its observation queue is drained, preventing prior-round traffic from satisfying the next listener. Keepalive ownership is retained during startup and transferred to servlet destruction only after successful startup; failed-startup schedules remain untested.
 
 [McpHttpRecoveryIntegrationSpec](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpRecoveryIntegrationSpec.scala) uses real zio-http Server/Client and Netty. A chunked-body probe establishes the exact cause-free IOException produced by premature closure. With OnPrematureEofOrBodyIoFailure enabled, a POST SSE notification commits a cursor before truncation; one GET preserves that cursor, session, authentication, protocol version and original reply ID. Recorded requests prove no POST replay. The server response finalizer is observed before the GET; controlled-driver tests separately establish client response-scope cleanup and cause exclusions. This is same-send raw-transport evidence, not listener reconnection or every body-failure schedule.
 
@@ -299,45 +182,11 @@ The [test-only build dependencies](../../../../../../../../../../project/README.
 
 ## Verification and acceptance
 
-- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for the current HTTP source/spec, including typed captured-session expiry, with no findings. Existing HTTP groups assert POST, continuation and listener expiry, stateless rejection, no additional traffic and expiry combined with independent cleanup failure. [Host recovery](../client/README.md#explicit-host-recovery-after-session-expiry) uses existing manager removal/registration without replay.
-- [x] Full `scalafmtAll scalafmtSbt verify` passed in `sdk-listener-verify.log` with zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns repository-wide current totals.
-
-- [x] `review_fp` and `review_invariants` approved the current SDK fixture identity in the [resource/connection manifest](../client/README.md#resource-client-contract), for the resource behavior; changed fixture review is governed by the legacy/revision manifest. Its three real SDK groups pass within the current 29-group focused run, including resource reads and typed list-change delivery; full verification, package preparation and the fresh artifact consumer passed. Final combined documentation approval passed against 1441a97. Unchanged Netty evidence retains its separate scoped approval.
-- [x] Eighteen HTTP groups cover POST, explicit GET with bounded resumption, opt-in same-send continuation, cancellation and explicit termination. Two body-I/O groups and extended exclusion fixtures verify held cleanup, exact cause-free IOException classification, acquisition exclusion, captured sessions/cursors, finite budgets, one original POST and complete causes. Existing loopback traffic exercises initialization/control routing and single-GET listening; these retry cases use controlled drivers; the separate Netty integration above covers one real POST-body truncation. The [test contract](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/README.md) describes the bounded evidence.
-
-- [x] `mcp-http-continuation-session-red.log` records nine passing groups and one failing group against source `7a99df8727368110c0e06f02b6022bdb0cf2d297` and spec `656e201a0cecf1e5ec077168515318481bb88da7`: a raw stateless request's continuation expected no session header but acquired `new-session` from concurrent initialization. The original POST count already passed. Returning the request's captured session fixes the unchanged regression; no compile/fixture failure is claimed as defect evidence.
-- [x] `mcp-post-acquisition-red.log` records six passing groups and one failing group against source `b4cc28dd46328e9542e1e2441111eccdeec046e9` and spec `73b180a72384447261642a56e0869506b484f277`: public client cancellation lost the driver's typed acquisition failure. The unchanged assertion now preserves interruption, exactly one expected typed failure and no defects. Error translation runs under the existing mask while network acquisition remains interruptible; issuance timing and public APIs are unchanged.
-- [x] `mcp-get-listener-red.log` records six passing groups and one failing group against source `cf6841cf8030672c9ea3012ed7d215185482dda9` and spec `2881f525e93e4685414d1d9bf67edeef58f038e5`: two independent equal typed failures were expected, but only one survived. The correction separates GET-originated failures from terminal signalling and masks error translation around restored, interruptible acquisition. Removing value-based deduplication alone did not fix the interruption-time loss. The regression expectations remain unchanged and pass; an earlier fixture failure is not defect evidence.
-- [x] `mcp-http-transport-red.log` records two failing groups against defective source blob `088d057c91673b87f90ea6d93b3b348627d55bc7`: incoming lost the defect branch of a compound terminal Cause, and rejected duplicate initialization poisoned a valid session. Both regressions pass after correction. Terminal publication and reader acquisition races were corrected by inspection; no reproduced red run is claimed for those races.
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for HTTP framing at the exact source/spec identities below, with no findings. Five grouped tests cover literal IDs, response-local inheritance/reset, ID-only and unfinished blocks, line/Unicode boundaries, exact budgets, checked JSON, unread suffixes, complete causes and joined cancellation. This additive framing feature has no reproduced-defect claim. Acceptance excludes HTTP requests, header serialization and network resumption.
-- [x] `path_review` approved framing FP/ZIO correctness and `child_factory` approved framing invariants, with no findings at the recorded source/spec identities.
-- [x] The direct-process ownership baseline and forked test configuration retain `path_review` and `registry_contract` approval; the current issuance callback extension has separate approval below. `path_review` and `current_docs` approved the final process fixtures/spec, including initialized-client list/call and reaping, with no findings at the recorded identities.
-- [x] Four framing groups and three real-process groups pass. They verify chunking, exact limits, strict Unicode, full upstream causes, early stop, direct validation, concurrent frames, one-reader admission, malformed/EOF handling and read/queued-write/active-write cancellation with direct-child reaping.
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the unchanged port and stdio issuance boundaries/spec, with no findings at the identities below and in the linked client table. Current HTTP approval is recorded above. Full `scalafmtAll scalafmtSbt verify` passed in `mcp-java-sdk-interop-verify.log`, with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-
-| Reviewed file | Git blob identity |
-| --- | --- |
-| [McpJavaSdkInteropSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpJavaSdkInteropSpec.scala) | [Current approved legacy/revision manifest](#legacy-http-sse-and-explicit-revision-selection); source independently approved. |
-| [McpHttpRecoveryIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpRecoveryIntegrationSpec.scala) | `24e7fbf77eb3e5149fbe89e72f4201d5829f597d` |
-| [build.sbt](../../../../../../../../../../build.sbt), test-only interoperability configuration | [Current build identity](../../../../../../../../../../project/README.md#local-artifact-packaging) |
-| [McpStreamableHttpTransport.scala](McpStreamableHttpTransport.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpStreamableHttpTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStreamableHttpTransportSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpHttpFraming.scala](McpHttpFraming.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpHttpFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpHttpFramingSpec.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpStdioFraming.scala](McpStdioFraming.scala) | [Current packet scope and acceptance gates](#march-2025-batch-packets) |
-| [McpStdioFramingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioFramingSpec.scala) | `83db8decf53febdb299190ac7a9c1237e039ae85` |
-| [McpStdioTransport.scala](McpStdioTransport.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStdioTransportSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioTransportSpec.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-| [McpStdioPeer.scala](../../../../../../../test/scala/com/weisgnosis/agents/mcp/transport/McpStdioPeer.scala) | [Current immutable launcher identity](#immutable-process-launcher) |
-
-The port/connection acceptance is recorded separately in the [client contract](../client/README.md#verification-and-acceptance). Stdio tests exercise a local JVM peer; they do not establish complete MCP revision support or interoperability with every server/platform.
+Run `sbt "mcp / test"` from the repository root for offline and owned local-process/loopback contracts. `sbt verify` also checks formatting and fatal-warning compilation. These tests do not establish interoperability with every server, complete protocol conformance or durable delivery.
 
 ## Remaining work
 
-- [x] Selected 2025-06-18 client initialization, capability checks, list/call and joined deadlines are implemented and reviewed in the [client contract](../client/README.md).
-- [x] Bounded manager registration/removal and host selection have separate [client acceptance](../client/README.md#scoped-manager-contract); manual Toolkit binding retains its separate tool-package contract.
-- [x] Support the connection-owned optional outbound cancellation policy, with conservative issuance signals and no delivery acknowledgement.
-- [x] Implement and independently review the selected HTTP POST and explicit GET contract with bounded bodies, scoped cleanup and loopback integration.
-- [x] Verify direct-client and manager replacement against expired SDK sessions and same-send POST-body recovery against real Netty truncation. Local listener cancellation and manual same-session cursorless re-listening have separate SDK evidence above; cursor replay and remote-work cancellation remain outside these checks.
-- [ ] Complete remaining applicable transport mappings and durable host integration; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work) owns the next task.
-- [ ] Validate additional platform/process configurations before extending the documented ownership claims.
+Selected initialization, optional outbound cancellation, bounded HTTP POST/GET, direct-client/manager expiry replacement and same-send POST-body recovery are implemented within the contracts above. SDK listener evidence covers local cancellation and manual same-session re-listening without a cursor; it does not establish cursor replay or remote-work cancellation.
+
+- [ ] Complete remaining applicable transport mappings and durable host integration documented in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work).
+- [ ] Validate additional platform/process configurations before extending ownership claims.

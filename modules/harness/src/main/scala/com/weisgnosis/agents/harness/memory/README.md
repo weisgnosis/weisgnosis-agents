@@ -1,6 +1,6 @@
 # Conversation compaction
 
-The [shared initialization contract](../storage/README.md#scoped-initialization) corrects failed/interrupted local opening: ownership is released before failure reaches a still-live host Scope; successful resources retain the host lifetime. The unchanged-production regression failed before correction; same-host repair/reopen and exact cleanup-cause tests now pass. Both independent reviewers approve the eight-Scala source manifest linked there; full verification, artifact/archive admission and standalone consumption pass; review_fp and review_invariants approve the final combined scope against 73b0fb1: eight unchanged Scala identities and twenty-two Markdown files, with no unresolved findings.
+The [shared initialization contract](../storage/README.md#scoped-initialization) corrects failed/interrupted local opening: ownership is released before failure reaches a still-live host Scope; successful resources retain the host lifetime. The unchanged-production regression failed before correction; same-host repair/reopen and exact cleanup-cause tests now pass.
 
 ConversationCompactor accepts an effectful summarizer, a pure TokenCounter, and optional flush/offload callbacks. Defaults: triggerTokens=120000, keepTokens=40000, preserveTailMessages=6, maxPruneOutputChars=2000, protectTokens=40000. Valid histories below the trigger remain unchanged. Compaction prunes older payloads, preserves matched call/result pairs and protected tails, deduplicates summaries, and coalesces adjacent user messages. Retained-user provenance survives coalescing for later flushing. MemoryFlushManager implements daily extraction through an injected store; scoped local storage, atomic in-memory consolidation, and recoverable local consolidation are available.
 
@@ -22,7 +22,7 @@ Older text output is pruned while retaining non-text blocks and execution metada
 
 Prior summaries enter summarization once but never raw-memory flushing. A replacement summary is coalesced with an initial retained user turn, with validated provenance for later flushing. System messages are preserved. Typed hook/summarizer failures propagate, cancellation remains cancellation, and completed external flush/offload effects cannot be rolled back.
 
-Retained-user provenance and numeric argument previews use [exact JSON boundaries](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output). Conversion errors fail preparation before a candidate is returned; message/block metadata decodes directly without numeric text conversion. review_fp and review_invariants approved the linked exact-output source/spec identities with no findings; full formatting, verification, packaging and packaged-consumer checks passed. The regression preserves provenance through later extraction exactly once. This does not change protected arguments, pruning limits, hook ownership or flush ordering.
+Retained-user provenance and numeric argument previews use [exact JSON boundaries](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output). The regression preserves provenance through later extraction exactly once. This does not change protected arguments, pruning limits, hook ownership or flush ordering.
 
 ## Implementation
 
@@ -30,7 +30,7 @@ Retained-user provenance and numeric argument previews use [exact JSON boundarie
 - [CompactorConfig](CompactorConfig.scala)
 - [TokenCounter](TokenCounter.scala)
 
-See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/README.md), [tracker](../../../../../../../../../../docs/architecture/tracker.md), and [parity audit](../../../../../../../../../../docs/architecture/test-parity.md). Prior provenance and message-migration acceptance is preserved in Git through `6ed928a`.
+See the [test index](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/README.md), [tracker](../../../../../../../../../../docs/architecture/tracker.md), and [parity audit](../../../../../../../../../../docs/architecture/test-parity.md).
 
 ## Runtime installation
 
@@ -50,41 +50,20 @@ ToolResultEvictor.preparer can precede ConversationCompactor.preparer via Histor
 
 TokenCounter is a pure estimator, distinct from exact model-usage telemetry. History estimates are additive while representable and cap at Long.MaxValue beyond that range. The same checked nonnegative addition computes compactor suffix estimates, preserving monotone cutoff selection. All compactor trigger/keep/protect budgets are Int values, so the ceiling preserves their comparisons with exact unbounded nonnegative sums. Existing negative history normalization is unchanged; custom per-message estimates must still be nonnegative. Public signatures are unchanged. Callers must not interpret a capped estimate as an exact usage count.
 
-The reproduced public-extension defect wrapped valid large sums into negative values, skipped required compaction and selected cutoff zero instead of three. publication-counter-red.log records 27 passing and two failing tests against unchanged TokenCounter 3951f2451d1170834859cd32dff26233a03f8970 and ConversationCompactor e926e44021ee976bfaf0b3cc2da107fc23eb6b8e. The existing counter table now checks empty, ordinary, exact-maximum and overflow estimates; one new compactor group checks actual summarization admission, prefix and retained tail.
+The existing counter table now checks empty, ordinary, exact-maximum and overflow estimates; one new compactor group checks actual summarization admission, prefix and retained tail.
 
-| Source/spec against 24a9980 | Git blob |
-| --- | --- |
-| [TokenCounter.scala](TokenCounter.scala) | 8c478f39062ba97823464cd518308c940203e56e |
-| [ConversationCompactor.scala](ConversationCompactor.scala) | 403f1085677e686fa7a8544cea660f34f6e37a9f |
-| [TokenCounterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/TokenCounterSpec.scala) | d2f46f9ff1802172ed8119d56c7b7cf35f546ec9 |
-| [ConversationCompactorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | 271ecfe13ff0ce8b18dfcf51e747c9b9063c238a |
-
-- [x] review_fp and review_invariants independently approve these four final source identities with no findings.
-- [x] publication-counter-green.log passes 29 tests, zero failed/ignored, in 327 ms after the reproduced RED.
-- [x] publication-cold-verify.log passes full formatting/compile/test and four RC1 packages: 1,527 tests (680 core / 731 harness / 86 MCP / 22 actual PostgreSQL / 8 examples), zero failed/ignored or compiler warnings.
-- [x] publication-preparation.log passes exact archive admission and invalid-selector/extra/duplicate-source rejection; publication-consumer.log passes standalone formatting, clean compilation and selected-public-API execution against fresh packaged artifacts.
-- [x] review_fp and review_invariants approved the final combined 19-file increment against 24a9980, including the four exact identities above and the PostgreSQL fixture correction/publication documentation. No unresolved finding remains within this scope; broader transfer and release gates remain open.
+Source and paired tests: [TokenCounter.scala](TokenCounter.scala), [ConversationCompactor.scala](ConversationCompactor.scala), [TokenCounterSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/TokenCounterSpec.scala), [ConversationCompactorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala).
 
 ## Current review acceptance
 
-- [x] `review_fp` and `review_harness` approved the two test-file diff against `52da827` on 2026-09-29, with no findings. Thirteen additional cases and strengthened existing assertions cover exact summary/flush/tail routing, short-circuiting, preparation and downstream cancellation, mixed causes, and separate-agent isolation.
-- [x] Full `sbt scalafmtAll scalafmtSbt verify` passed 529 core and 114 harness tests, including 39 compactor tests, with zero compiler warnings. Production code is unchanged in this increment.
 - [x] All seven compactor and ten middleware methods have explicit [applicability decisions](../../../../../../../../../../docs/architecture/test-parity.md#compaction-method-applicability). Failure-policy divergences, summary identity, structured causes, session ownership, and the cyclic-Throwable exclusion are explicit; literal middleware equivalence is not claimed.
 - [x] Complete the bounded local consolidation acceptance recorded below.
 
-The documentation-only reconciliation against 75265e0 accounts for all 24 methods in three pinned suites at upstream f98a685: seven ConversationCompactorTest, ten CompactionMiddlewareTest and seven ToolResultEvictionMiddlewareTest. The compactor applicability decisions above and [seven eviction mappings](../../../../../../../../../../docs/architecture/test-parity.md#toolresultevictionmiddlewaretest-seven-methods) retain their existing source/spec acceptance. No code, tests or behavior changed, and this classification does not mean literal Java fallback, mutable middleware identity or session-API equivalence.
+The compactor applicability decisions above and [seven eviction mappings](../../../../../../../../../../docs/architecture/test-parity.md#toolresultevictionmiddlewaretest-seven-methods) retain their existing source/spec acceptance. No code, tests or behavior changed, and this classification does not mean literal Java fallback, mutable middleware identity or session-API equivalence.
 
 Backend applicability is explicit: compaction uses injected scoped callbacks; eviction uses an injected store and an opt-in trusted local/absolute backend. Local canonicalization is not an atomic hostile-filesystem sandbox. Platform-specific symlink/junction checks, untrusted-workspace isolation, crash durability and broader middleware/memory-service inventories remain unfinished.
 
-- [x] review_fp and review_invariants approved the four-file reconciliation against 75265e0 with no unresolved findings; existing source acceptance is unchanged.
-- [x] Manual English inspection, changed-script/diff checks and 78-document/2,989-local-reference checks pass; existing source verification remains applicable without a new build.
-
-Previous implementation/hardening approvals remain in Git through `52da827`. Current reviewed test blobs (Git-normalized):
-
-| Source | Blob identity |
-| --- | --- |
-| [ConversationCompactorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](#overflow-safe-token-estimates); prior compaction scope retained. |
-| [ConversationCompactorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorIntegrationSpec.scala) | [Current ConversationCompactorIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
+Source and paired tests: [ConversationCompactorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala), [ConversationCompactorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorIntegrationSpec.scala).
 
 ## Daily-memory extraction
 
@@ -96,19 +75,9 @@ One Clock instant and explicit zone (UTC default) bind the context lookup, entry
 
 [MemoryExtractor](MemoryExtractor.scala) accepts a lazy scoped host function. Its fromClient adapter creates request correlation and a scoped event hub, sends no tools or response formatting, and returns visible text. Tool requests/observations fail; interrupted outputs remain interruption. The caller closes the scope. Manager extraction failures/cancellation/cleanup defects skip append. Typed storage reads fail explicitly instead of upstream's silent empty-context fallback.
 
-- [x] `review_fp` and `review_harness` approved the seven-file daily-memory extraction increment against `738b216` on 2026-09-29. No findings remain within the injected-store capability, scoped client extraction, provenance/date handling, one-manager serialization, and compactor integration. Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new tests. Filesystem persistence, cross-manager/process guarantees, consolidation, watermarks, and transcript offloading are excluded.
-- [x] Full formatting/fatal-warning verification passed 529 core / 136 harness tests, including 22 new daily-memory tests and all 39 compactor regressions.
 - [ ] Add remote transcript offloading and remaining scheduling integrations; bounded versioned remote memory is available below; explicit local watermark migration is described below.
 
-Current daily-memory Git-normalized source identities; prior compactor implementation identity is preserved in `738b216`:
-
-| Source | Blob identity |
-| --- | --- |
-| [ConversationCompactor.scala](ConversationCompactor.scala) | [Current identity](#overflow-safe-token-estimates); prior daily-memory scope retained. |
-| [DailyMemoryStore.scala](DailyMemoryStore.scala) | 204a494090531403e1a7b2f3108787770a9bd5a0 |
-| [MemoryExtractorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryExtractorSpec.scala) | 2db567e78995479fd0c733f1346db8720d5df566 |
-| [MemoryFlushManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerSpec.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) |
-| [MemoryFlushManagerIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerIntegrationSpec.scala) | f97c09f6e95790fbac180608591f1d22bd3b6b2c |
+Source and paired tests: [ConversationCompactor.scala](ConversationCompactor.scala), [DailyMemoryStore.scala](DailyMemoryStore.scala), [MemoryExtractorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryExtractorSpec.scala), [MemoryFlushManagerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerSpec.scala), [MemoryFlushManagerIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushManagerIntegrationSpec.scala).
 
 ## Scoped local daily store
 
@@ -122,16 +91,10 @@ Atomic publication is not fsync/crash durability or exactly-once delivery. Cance
 
 The protocol uses the Java [CREATE_NEW contract](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/StandardOpenOption.html#CREATE_NEW) and [atomic move semantics](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/Files.html#move(java.nio.file.Path,java.nio.file.Path,java.nio.file.CopyOption...)). These guarantees are distinct from application-level extraction deduplication. Share one MemoryFlushManager per store owner to serialize the complete context-read/extract/append sequence.
 
-- [x] `review_fp` and `review_harness` approved the final seven-file local daily-memory backend against `d1a4cf2` on 2026-09-29. Nineteen added tests exposed and corrected pending cancellation being reported as success after admitted work. Full formatting/fatal-warning verification passed 530 core / 154 harness tests. Acceptance covers cooperative ownership, scoped cleanup, day-derived paths, atomic replacement, and typed storage errors on the tested Windows filesystem. Crash durability, exactly-once delivery, hostile mutation protection, dynamic symlink/junction behavior, and automatic stale-lease recovery are excluded.
 - [ ] Verify cross-process contention and dynamic symlink/junction cases on each supported platform; the current executable contention checks use independent store instances in one JVM.
 - [ ] Complete remaining remote transcript/scheduling integrations; bounded versioned remote memory is available below. The earlier daily-only increment added no new upstream method-parity claim.
 
-Current local-backend Git-normalized identities:
-
-| Source | Blob identity |
-| --- | --- |
-| [LocalDailyMemoryStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryStoreSpec.scala) | 232a08a6ac50c6e4e32873cee36752765b4f51fb |
-| [DailyMemoryLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/DailyMemoryLeaseSpec.scala) | 09a2cda7bb306becd4718b3e49f5e65a0dedd321 |
+Source and paired tests: [LocalDailyMemoryStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryStoreSpec.scala), [DailyMemoryLeaseSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/DailyMemoryLeaseSpec.scala).
 
 ## Atomic consolidation and process-local storage
 
@@ -146,18 +109,10 @@ The output budget is enforced against counter.count(Msg.assistant(strippedOutput
 MemoryExtractor.fromClient also serves consolidation, preserving scoped text-only requests and rejecting tool observations. A MemoryFlushManager receives only the repository's daily writer; MemoryConsolidator receives only its curated writer. Hosts are trusted capability owners. Separate consolidator instances can extract concurrently, but only one can commit against a given revision.
 
 The recoverable local implementation is described below; its journal and shared ownership gate supply the missing protocol around separate atomic file replacements.
+
 - [ ] Complete the two remote filesystem mappings and broader transcript/scheduling integration. Explicit local watermark migration is described below. The earlier process-local increment did not establish filesystem equivalence.
 
-- [x] `review_fp` and `review_harness` approved the final six-file consolidation increment against `46c6174` on 2026-09-29. Twenty-one new tests and full formatting/fatal-warning verification passed 530 core / 175 harness tests. No findings remain within process-local atomic content/progress commits, separate writer capabilities, scoped extraction, configured-counter budget enforcement, and conflict handling. Filesystem transactions, persistent watermarks, crash recovery, and the five upstream filesystem mappings remain outside this scope.
-
-The previous MemoryExtractor comment identity is preserved in `46c6174`; its current scope is included below. Current Git-normalized consolidation identities:
-
-| Source | Blob identity |
-| --- | --- |
-| [ConsolidationStore.scala](ConsolidationStore.scala) | bc4d87299b785335051b8c44553c0c3670b859dd |
-| [MemoryExtractor.scala](MemoryExtractor.scala) | fe620774f366965032f4582046b8fc79282ec164 |
-| [MemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRepositorySpec.scala) | 090804a4d20f01d838c8d7e381175287374cadc2 |
-| [MemoryConsolidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidatorSpec.scala) | 49f460b8ba9e77b202e146b50a0c6b9b561445b1 |
+Source and paired tests: [ConsolidationStore.scala](ConsolidationStore.scala), [MemoryExtractor.scala](MemoryExtractor.scala), [MemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRepositorySpec.scala), [MemoryConsolidatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidatorSpec.scala).
 
 ## Remote middleware throttle integration
 
@@ -165,19 +120,7 @@ The shared MemoryLifecycleIsolationSpec oracle now runs unchanged eight local sc
 
 Distinct row addresses isolate the cases; they do not prove cross-scope collision handling. This bounded adaptation verifies middleware throttle/reconstruction combinations, not host restart, distributed scheduling, delivery, physical retention or broader middleware parity. Production API behavior is unchanged. storagePostgresql test compilation borrows the harness test oracle through compile->compile;test->test; fixture types remain private[agents] test infrastructure and do not enter production artifacts.
 
-| Source/build approved by review_fp and review_invariants against 5caa18f | Git blob |
-| --- | --- |
-| [build.sbt](../../../../../../../../../../build.sbt) | [Current build identity](../../../../../../../../../../project/README.md#local-artifact-packaging) |
-| [Harness MemoryLifecycleIsolationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryLifecycleIsolationSpec.scala) | f2c942c2811b9755e9a30df88e0e47f2675fcd1e |
-| [PostgreSQL MemoryLifecycleIsolationSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/MemoryLifecycleIsolationSpec.scala) | 291785b68ce0935c0af15c60cec55b784b230210 |
-
-- [x] review_fp approved the final three source/build identities against 5caa18f.
-- [x] review_invariants approved the same three final identities, with no unresolved findings.
-- [x] remote-memory-lifecycle-focused.log passed eight local groups in 444 milliseconds and one actual PostgreSQL group in 2.414 seconds.
-- [x] remote-memory-lifecycle-verify.log exited zero: 1,509 tests (669 core / 726 harness / 86 MCP / 22 PostgreSQL / 6 examples), zero compiler warnings/failures and four packages.
-- [x] remote-memory-lifecycle-preparation.log passed source/archive regressions and restored package/POM staging, including the test-only fixture dependency boundary.
-- [x] remote-memory-lifecycle-consumer.log passed fresh standalone formatting, clean compilation and forked selected-API execution without fixture classpath/dependency leakage.
-- [x] review_fp and review_invariants approved final combined documentation against 5caa18f and the three unchanged identities; manual English review, script/diff checks and 78-document/2,839-local-reference checks pass with zero issues.
+Source and paired tests: [build.sbt](../../../../../../../../../../build.sbt), [Harness MemoryLifecycleIsolationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryLifecycleIsolationSpec.scala), [PostgreSQL MemoryLifecycleIsolationSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/MemoryLifecycleIsolationSpec.scala).
 
 ## Versioned remote memory
 
@@ -191,21 +134,7 @@ One aggregate contains all daily entries, acknowledgements and archives. Each re
 
 Migration: the factory is additive, and existing MemoryRepository.inMemory/source calls remain unchanged. Remote version 1 is a separate private aggregate format; local journal/checkpoint data is not migrated automatically. StorageError from the backend remains typed; invalid aggregate/domain consistency failures use MemoryStorageError. PostgreSQL schema/DataSource ownership and cancellation limits belong to the [named backend contract](../../../../../../../../../storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md). Remote transcript segmentation/discovery/pruning/layout migration and authenticated execution claims remain unfinished; the [acting-checkpoint adapter](../storage/README.md#versioned-acting-checkpoints) supplies separately reviewed conditional persistence.
 
-| Reviewed source/spec | Git blob |
-| --- | --- |
-| [MemoryRepository.scala](MemoryRepository.scala) | `3684ec420d865e7b981d95a5e9b1e3ea30b31937` |
-| [MemoryRepositoryState.scala](MemoryRepositoryState.scala) | `cac4e5ddd9af76b567138c4c764049200d73ace3` |
-| [VersionedMemoryRepository.scala](VersionedMemoryRepository.scala) | `8695ca654d6cfd9678a80e0617a523f9748cec5c` |
-| [PostgresFixture.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresFixture.scala) | [Current fixture identity](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/README.md#cold-schema-provisioning) |
-| [PostgresVersionedJsonStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresVersionedJsonStoreSpec.scala) | `17635a16f964462743c96964ea965e4cb3c4b4e2` |
-| [VersionedMemoryRepositorySpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/VersionedMemoryRepositorySpec.scala) | `14b5e250ca9d39bc4b60db3792e6ff5b51ef05e6` |
-
-- [x] review_fp approved FP/ZIO correctness of these six final identities with no findings.
-- [x] review_invariants approved the same six final identities and bounded memory/publication contracts with no findings.
-- [x] versioned-memory-nested-green.log passes all six PostgreSQL groups in 2.237 seconds; three are new remote-memory groups. The existing 55 memory tests passed separately after the shared-transition refactor.
-- [x] versioned-memory-verify.log passes formatting, fatal-warning compilation, four artifact packages and 1,489 tests: 667 core / 726 harness / 85 MCP / 6 PostgreSQL / 5 examples, with zero compiler warnings or failed tests. versioned-memory-artifact-preparation.log validates all four archives/POM/source sets.
-- [x] versioned-memory-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh packaged JAR hashes. The consumer exercises its existing selected APIs; it does not construct this repository.
-- [x] review_fp and review_invariants approved these final six identities and the combined documentation scope against b1b3848, with no unresolved findings. English inspection and all 2,661 local references in 78 Markdown documents passed.
+Source and paired tests: [MemoryRepository.scala](MemoryRepository.scala), [MemoryRepositoryState.scala](MemoryRepositoryState.scala), [VersionedMemoryRepository.scala](VersionedMemoryRepository.scala), [PostgresFixture.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresFixture.scala), [PostgresVersionedJsonStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/PostgresVersionedJsonStoreSpec.scala), [VersionedMemoryRepositorySpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/VersionedMemoryRepositorySpec.scala).
 
 ## Recoverable local consolidation
 
@@ -217,10 +146,9 @@ A conditional commit first compares the current snapshot. Conflict publishes no 
 
 Journal publication commits the candidate to roll-forward recovery. An error or cancellation after publication can have uncertain acknowledgement: a later operation may complete the candidate. Inspect the recovered snapshot before deciding whether a new extraction is needed; do not automatically replay model output. API users honoring the shared lease observe coherent content/progress. Uncoordinated raw file readers can observe intermediate files. There is no fsync/power-loss durability, raw multi-file atomicity, exactly-once extraction, automatic stale-lease removal, or hostile-filesystem guarantee. The existing operator procedure for abandoned leases still applies before reopening.
 
-Migration: .consolidation_state is the upstream path, but its versioned JSON contents deliberately replace timestamp-only watermarks. Normal consolidation still rejects legacy timestamp content without reset or overwrite. The explicit local migration below converts canonical timestamps conservatively; no remote filesystem adapter is implemented. Daily-only open remains source compatible but participates in recovery and therefore may publish an already journaled curated transaction. The former LocalDailyMemoryStore and MemoryRepository identities are preserved in e4bd6b0.
+Migration: .consolidation_state is the upstream path, but its versioned JSON contents deliberately replace timestamp-only watermarks. Normal consolidation still rejects legacy timestamp content without reset or overwrite. The explicit local migration below converts canonical timestamps conservatively; no remote filesystem adapter is implemented. Daily-only open remains source compatible but participates in recovery and therefore may publish an already journaled curated transaction.
 
-- [x] `review_fp` and `review_harness` approved the final nine-file persistence increment against `e4bd6b0` on 2026-09-29. No findings remain within cooperative local ownership, strict journal validation, recovery before API operations, conditional content/progress publication, and persisted generation tracking. Full `sbt scalafmtAll scalafmtSbt verify` passed 530 core / 209 harness tests, including 34 new persistence tests, with zero compiler warnings. Acceptance covers constructed interrupted-publication states on the tested Windows filesystem; live crash/fault-injection, fsync durability, remote storage, and hostile mutation are excluded.
-- [x] `review_docs` approved the final persistence documentation against `e4bd6b0`, including nine current identities, 34 new cases, three local upstream adaptations, two pending remote scenarios, migration, and durability limits. All 59 Markdown files passed local link/script checks; git diff --check passed.
+
 - [ ] Add remote storage/migration, remote transcript persistence, and scheduling; verify cross-process and dynamic path behavior on each supported platform.
 
 ## Explicit watermark migration
@@ -231,28 +159,13 @@ An absent checkpoint is not created. A valid current checkpoint is left byte-for
 
 The API is additive; normal open/snapshot validation stays strict and never migrates implicitly. No model is invoked by migration. Failure or cancellation can follow checkpoint publication, so inspect storage before retrying; a successful repeat returns AlreadyCurrent. Existing cooperative ownership, path checks and durability limits apply. This is a conservative local format conversion, not timestamp-authority preservation, remote storage or a new whole-method upstream parity claim.
 
-| Source | Git blob |
-| --- | --- |
-| [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | Current identity: [local JSON manifest](../storage/README.md#local-versioned-json) |
-| [LocalMemoryWatermarkMigrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalMemoryWatermarkMigrationSpec.scala) | 1ea5632f33688c97c783c82b36cad6278d7b88c4 |
-
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these two identities, with no findings. Focused checks passed 44 tests in 719 ms. Full `scalafmtAll scalafmtSbt verify` passed in `watermark-migration-verify.log` with zero compiler warnings or failures; aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
+Source and paired tests: [LocalMemoryRepository.scala](LocalMemoryRepository.scala), [LocalMemoryWatermarkMigrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalMemoryWatermarkMigrationSpec.scala).
 
 ## Unchanged persistence identities
 
-Unchanged Git-normalized persistence identities (earlier changes remain in e4bd6b0; the four files changed for retention are preserved in b2ab23e and indexed in the retention table below):
+Source and paired tests: [JsonBoundary.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/JsonBoundary.scala), [LocalDailyMemoryStore.scala](LocalDailyMemoryStore.scala), [LocalMemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalMemoryRepositorySpec.scala), [MemoryFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFilesSpec.scala), [MemoryJournalSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryJournalSpec.scala).
 
-| Source | Blob identity |
-| --- | --- |
-| [JsonBoundary.scala](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/JsonBoundary.scala) | [Current JSON identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-seed-and-exact-request-rendering) |
-| [LocalDailyMemoryStore.scala](LocalDailyMemoryStore.scala) | 2a8c2ddfc0a7a9940bd0da7ead4a8b6c16ed5ed7 |
-| [LocalMemoryRepositorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalMemoryRepositorySpec.scala) | 6fc453b560fd36612ba3eb5470d75814edc0b36d |
-| [MemoryFilesSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFilesSpec.scala) | 80b616760f88a68fb8fb289cc87d079dcba7f259 |
-| [MemoryJournalSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryJournalSpec.scala) | 3ab28f0738b396ef5b277febb514564059cc5bf8 |
-
-DailyMemoryLease now delegates to the shared internal [WorkspaceLease](../storage/WorkspaceLease.scala) with the same memory ownership filename and interruption policy. The former lease and test-helper identities are preserved in e4dfc67; current extraction acceptance and identities belong to the [transcript persistence scope](../transcript/README.md). Existing memory ownership/regression suites remain required.
-
-The previous AgentError.scala identity is preserved in `0349b1a`; its current identity and acceptance are in the completion-observer table in the [core agent contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+DailyMemoryLease now delegates to the shared internal [WorkspaceLease](../storage/WorkspaceLease.scala) with the same memory ownership filename and interruption policy. Existing memory ownership/regression suites remain required.
 
 ## Memory lifecycle admission
 
@@ -268,22 +181,7 @@ cleanup(retention) samples the same monotonic clock under the same state authori
 
 A claim records permission to start at the protected sample, not completed work or exclusive execution ownership. Slow jobs can overlap after the interval unless a separate execution service serializes them. Cancellation after an admitted transition can leave its reservation committed; no acknowledgement rollback is promised. The in-memory capability supplies local admission only; the persistent admission adapter below is separate. The scoped queue foundation described below now supplies owned execution and pending coalescing. Completion-triggered flush integration is described below. Owned consolidation integration and explicit acknowledged-daily archival are available below; combined retention maintenance is available below; persistent admission is defined below; distributed execution authority and session deletion remain pending.
 
-## Current memory-trigger identities
-
-Final formatted six-file scope against `73cd376`:
-
-| Source | Git blob |
-| --- | --- |
-| [MemoryInterval.scala](MemoryInterval.scala) | 0332f778d040180cbea43bbb7744a077f3a1c122 |
-| [MemoryTrigger.scala](MemoryTrigger.scala) | [Current normalized-scope identity](#versioned-memory-trigger-gate) |
-| [MemoryTriggerGate.scala](MemoryTriggerGate.scala) | [Current normalized-scope identity](#versioned-memory-trigger-gate) |
-| [MemoryIntervalSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryIntervalSpec.scala) | 66085f594567f5703712911b93a26d4f909ab845 |
-| [MemoryTriggerGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTriggerGateSpec.scala) | 6cc2e51535a30f857fceecf0710caa4f1fb5bacf |
-| [MemoryTriggerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTriggerSpec.scala) | 0bdce255c3008037ffb077011130836c60c46b02 |
-
-- [x] `review_fp` and `review_harness` approved the final six-file memory-trigger increment against `73cd376` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 287 harness tests, including 23 new cases, with zero compiler warnings. No findings remain within typed finite intervals, strict numeric codecs, immutable policies, explicit shared ownership, atomic monotonic admission and active-window-safe cleanup. Scheduling, execution locks, remote authority and full memory configuration parity remain outside this scope.
-
-- [x] `review_docs` approved the corrected memory-trigger documentation against `73cd376`: six identities, 23 tests, finite/monotonic admission, active-window cleanup, explicit owner sharing and conservative upstream applicability. Full verification passed 552 core / 287 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+Source and paired tests: [MemoryInterval.scala](MemoryInterval.scala), [MemoryTrigger.scala](MemoryTrigger.scala), [MemoryTriggerGate.scala](MemoryTriggerGate.scala), [MemoryIntervalSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryIntervalSpec.scala), [MemoryTriggerGateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTriggerGateSpec.scala), [MemoryTriggerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTriggerSpec.scala).
 
 ## Versioned memory trigger gate
 
@@ -297,20 +195,7 @@ Stored data requires the exact canonical version/policy/reservation shape, recur
 
 Migration is additive. Existing in-memory monotonic clock behavior and gate/scheduler signatures are unchanged; normalized-scope extraction preserves existing local decisions. Persistent wall-clock reservations are a separate private format and are not imported from process-local counters. This bounded read/CAS adaptation does not establish complete remote middleware/coordination parity or distributed task execution.
 
-| Reviewed source/spec against 072164f | Git blob |
-| --- | --- |
-| [VersionedMemoryTriggerGate.scala](VersionedMemoryTriggerGate.scala) | `6524a8192d420d2203b0ea98670a6951abcafe2c` |
-| [MemoryTrigger.scala](MemoryTrigger.scala) | `81f433996f2a048910e565bb8e8b7350610d248a` |
-| [MemoryTriggerGate.scala](MemoryTriggerGate.scala) | `e98988db1861cb11983ff4c762c363913a51ea22` |
-| [VersionedMemoryTriggerGateSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/VersionedMemoryTriggerGateSpec.scala) | `7bfd89a9b7f4ce8d7840ecc521be8d51f75c1e38` |
-
-- [x] review_fp and review_invariants approved these four final identities against 072164f, with no unresolved findings.
-- [x] Focused verification passes 16 existing groups and three new real PostgreSQL gate groups in 1.621 seconds.
-- [x] versioned-memory-gate-verify.log passes formatting, fatal-warning compilation, four packages and 1,501 tests: 669 core / 726 harness / 86 MCP / 15 PostgreSQL / 5 examples, with zero compiler warnings or failed tests.
-- [x] versioned-memory-gate-artifact-preparation.log passes all four archive/POM checks.
-- [x] versioned-memory-gate-artifact-consumer.log passes standalone formatting, clean compilation and forked execution against four fresh module hashes; its existing selected API smoke does not construct the gate.
-- [x] English inspection and all 2,764 local references in 78 Markdown documents pass with zero issues.
-- [x] review_fp and review_invariants approved final combined source/documentation closure against 072164f and these four unchanged identities, with no unresolved findings.
+Source and paired tests: [VersionedMemoryTriggerGate.scala](VersionedMemoryTriggerGate.scala), [MemoryTrigger.scala](MemoryTrigger.scala), [MemoryTriggerGate.scala](MemoryTriggerGate.scala), [VersionedMemoryTriggerGateSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/VersionedMemoryTriggerGateSpec.scala).
 
 ## Scoped memory task queue
 
@@ -328,21 +213,7 @@ Acquisition and shutdown-finalizer registration are masked, while the persistent
 
 Tasks must not await their own ticket, another task on this serial queue, or the queue's idleness. Those dependencies deadlock. Read mutable host-owned conversation state inside the submitted effect when execution-time freshness is intended. Coalescing is safe only when newer work subsumes displaced work; compaction can remove earlier content, so preserve prefixes through offload/flush independently. This queue supplies the scheduling mechanism, not a proof that arbitrary user effects are coalescible or that memory lifecycle integration is complete.
 
-## Current task-queue identities
-
-Final formatted five-file scope against `ad12c7b`:
-
-| Source | Git blob |
-| --- | --- |
-| [MemoryTaskQueue.scala](MemoryTaskQueue.scala) | 4d69eeb49216544655bde81c4f2474f2baf73eac |
-| [MemoryTaskTicket.scala](MemoryTaskTicket.scala) | 11c7e15541e0cd9359d7e083d8fcf50f7067c012 |
-| [MemoryTaskQueueLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTaskQueueLifecycleSpec.scala) | 4a5f14172ec4e73ea3a0c23465bf0ae037028c6f |
-| [MemoryTaskQueueSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTaskQueueSpec.scala) | 149fed57f1be5d7848be0543e9d885ad8b478abb |
-| [MemoryTaskTicketSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTaskTicketSpec.scala) | d2604a73f310fe10ef04f11da85f4833d241c0e7 |
-
-- [x] `review_fp` and `review_harness` approved the final five-file scoped queue increment against `ad12c7b` on 2026-09-29. Twenty new tests reproduced and corrected masked-acquisition shutdown blocking; full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 307 harness tests with zero compiler warnings. No findings remain within bounded pending work, FIFO coalescing, runtime ticket outcomes, host-owned worker/task scopes and cancellation-safe cleanup. Real memory hooks, trigger/extractor integration, durable tasks and distributed scheduling remain outside this scope.
-
-- [x] `review_docs` approved the corrected scoped queue documentation against `ad12c7b`: five identities, twenty new tests, bounded coalescing, explicit runtime ticket outcomes, host-owned cleanup and pending real middleware integration. Full verification passed 552 core / 307 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+Source and paired tests: [MemoryTaskQueue.scala](MemoryTaskQueue.scala), [MemoryTaskTicket.scala](MemoryTaskTicket.scala), [MemoryTaskQueueLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTaskQueueLifecycleSpec.scala), [MemoryTaskQueueSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTaskQueueSpec.scala), [MemoryTaskTicketSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTaskTicketSpec.scala).
 
 ## Completion-triggered memory flush
 
@@ -358,21 +229,7 @@ registerTicket is a required synchronous handoff callback returning IO[Completio
 
 Compaction preservation is separate. Install manager.flush as the compactor's awaited flush callback, and transcript offload as appropriate, before deleting a prefix. Enqueueing the old prefix on this coalescing scheduler is not a preservation guarantee because newer work could replace it. The integration tests establish local daily-store reopen and awaited-prefix extraction; they do not prove semantic memory fidelity, exactly-once facts, crash durability, automatic receipt monitoring or maintenance scheduling.
 
-The previous MemoryFlushManager.scala identity is preserved in `1c8e3ee`; the completion-triggered flush identity is preserved in 005bacf, and the current identity is in the linked exact-output acceptance.
-
-## Current completion-triggered flush identities
-
-Three unchanged identities from the four-file scope against `1c8e3ee`:
-
-| Source | Git blob |
-| --- | --- |
-| [MemoryFlushScheduler.scala](MemoryFlushScheduler.scala) | 1d42d91f92ed0a46816f28746a4ed2b9b7d722b4 |
-| [MemoryFlushSchedulerLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushSchedulerLifecycleSpec.scala) | bf9eecccbea5143e2c2aec09c688649d623e66b2 |
-| [MemoryFlushSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushSchedulerSpec.scala) | 02da0630ca918cbf9935adc1fd6533b1a4b21df2 |
-
-- [x] `review_fp` and `review_harness` approved the final four-file flush-scheduler increment against `1c8e3ee` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 552 core / 324 harness tests, including 17 new integration cases, with zero compiler warnings. No findings remain within shared pure preparation, successful-completion queue integration, immutable snapshots, worker-side triggers, ticket handoff, local reopen and awaited compactor flushing. Maintenance scheduling, automatic receipt monitoring, live-history reads and stronger durability remain outside this scope.
-
-- [x] `review_docs` approved the corrected flush-scheduler documentation against `1c8e3ee`: four identities, seventeen new tests, immutable completed snapshots, explicit receipt handoff, four upstream runtime adaptations and pending maintenance work. Full verification passed 552 core / 324 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+Source and paired tests: [MemoryFlushScheduler.scala](MemoryFlushScheduler.scala), [MemoryFlushSchedulerLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushSchedulerLifecycleSpec.scala), [MemoryFlushSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryFlushSchedulerSpec.scala).
 
 ## Completion-triggered consolidation
 
@@ -388,20 +245,9 @@ TurnCompletionObserver.andThen composes lazy, fail-fast observations in separate
 
 This scheduler performs consolidation only. Explicit acknowledged-daily archival is available below. The combined scheduler below adds retention policy. Session-file pruning, distributed authority, durable work receipts and operational monitoring remain unfinished. The local reopen regression establishes persisted consolidation despite a failed report, not crash or power-loss durability.
 
-## Current consolidation/composition identities
+Independent acceptance of the earlier scope is recorded below.
 
-Current linked harness identities from the consolidation/composition increment against `3e817e3`; the changed scheduler identity is preserved in b3d2723 and indexed in the maintenance table below. MemoryMaintenanceScheduler also changed for coordinator support; its previous identity is preserved in b86fd14. Independent acceptance of the earlier scope is recorded below.
-
-| Source | Git blob |
-| --- | --- |
-| [MemoryConsolidationSchedulerLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidationSchedulerLifecycleSpec.scala) | 52cb68b9d9151cfca1924e09337af6f86f2df965 |
-| [MemoryConsolidationSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidationSchedulerSpec.scala) | 978a32d2c3a77dd93cc9b6e01a1e8213c1dcf5bd |
-| [MemoryLifecycleIsolationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryLifecycleIsolationSpec.scala) | [Current shared oracle identity](#remote-middleware-throttle-integration) |
-| [MemorySchedulerCompositionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemorySchedulerCompositionSpec.scala) | 09dce79b7ea16b2e64c7c2720ad7a76feb28723a |
-
-- [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 346 harness tests, including 25 new cases, with zero compiler warnings. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
-
-- [x] `review_docs` approved the corrected consolidation/composition documentation against `3e817e3`: seven identities, 25 new cases, scoped composition, reporting limits, FIFO ordering and conservative parity classifications. Full verification passed 555 core / 346 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+Source and paired tests: [MemoryConsolidationSchedulerLifecycleSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidationSchedulerLifecycleSpec.scala), [MemoryConsolidationSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConsolidationSchedulerSpec.scala), [MemoryLifecycleIsolationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryLifecycleIsolationSpec.scala), [MemorySchedulerCompositionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemorySchedulerCompositionSpec.scala).
 
 ## Acknowledged daily-memory archival
 
@@ -417,25 +263,9 @@ Retention is not an atomic multi-file filesystem transaction. A failure before c
 
 This deliberately hardens upstream expireDailyFiles, which archives old files before consolidation without checking acknowledgement. It is a source-level behavioral adaptation with new regressions, not a newly mapped upstream test method. Combined maintenance is implemented below; session pruning remains separate. The local intermediate-state tests seed states after copy publication and checkpoint advancement; they are not live I/O fault injection or process-crash tests.
 
-Migration: MemoryRepository now exposes retention alongside its existing ports. Public open/make call sites remain compatible; callers opt into archival explicitly. Archive files are outside daily enumeration and cannot become consolidation input or implicit acknowledgement. The existing checkpoint format remains version 1; retention legitimately advances its generation while removing acknowledged days. Previous changed source identities are preserved in b2ab23e.
+Migration: MemoryRepository now exposes retention alongside its existing ports. Public open/make call sites remain compatible; callers opt into archival explicitly. Archive files are outside daily enumeration and cannot become consolidation input or implicit acknowledgement. The existing checkpoint format remains version 1; retention legitimately advances its generation while removing acknowledged days.
 
-## Current retention identities
-
-Final formatted seven-file increment against `b2ab23e`; independent acceptance is recorded below.
-
-| Source | Git blob |
-| --- | --- |
-| [DailyMemoryRetention.scala](DailyMemoryRetention.scala) | b679d771b1aee3100d223816cde76c043927caec |
-| [LocalMemoryRepository.scala](LocalMemoryRepository.scala) | Current identity: [explicit watermark migration](#explicit-watermark-migration) |
-| [MemoryFiles.scala](MemoryFiles.scala) | 1b1bf9a91f118c1b99d2f891ad6c2a58b41b831d |
-| [MemoryJournal.scala](MemoryJournal.scala) | cc8f693e7fda49876f11ff07e842716ead0828d6 |
-| [MemoryRepository.scala](MemoryRepository.scala) | [Current shared-transition identity](#versioned-remote-memory) |
-| [DailyMemoryRetentionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/DailyMemoryRetentionSpec.scala) | 87ca3e833ba23868dfdbe59f66dbe7ad6d47c5df |
-| [LocalDailyMemoryRetentionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryRetentionSpec.scala) | 8a6b13eb2f2736f869bb99be1c8cabeba74c4449 |
-
-- [x] `review_fp` and `review_harness` approved the final seven-file daily-retention increment against `b2ab23e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 370 harness tests, including 24 new cases, with zero compiler warnings. No findings remain within typed archive identity, exact acknowledged eligibility, atomic in-memory retirement, verified local copy/checkpoint/removal ordering, conservative partial progress and strict shared fingerprinting. Automatic policy, session pruning, crash durability and hostile concurrent filesystem mutation are excluded.
-
-- [x] `review_docs` approved the corrected daily-retention documentation against `b2ab23e`: seven identities, 24 new tests, archive ordering, migration and conservative partial-progress limits. Full verification passed 555 core / 370 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Automatic policy, session pruning and crash guarantees remain excluded, with no new named upstream test parity claimed.
+Source and paired tests: [DailyMemoryRetention.scala](DailyMemoryRetention.scala), [LocalMemoryRepository.scala](LocalMemoryRepository.scala), [MemoryFiles.scala](MemoryFiles.scala), [MemoryJournal.scala](MemoryJournal.scala), [MemoryRepository.scala](MemoryRepository.scala), [DailyMemoryRetentionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/DailyMemoryRetentionSpec.scala), [LocalDailyMemoryRetentionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/LocalDailyMemoryRetentionSpec.scala).
 
 ## Daily retention maintenance
 
@@ -451,27 +281,13 @@ Scheduled date selection happens in the worker, not when the observer admits the
 
 Consolidation, archival and aggregate reporting are sequential effects, not one transaction. Archive failure can follow a committed consolidation and produces no aggregate success report. Report failure can follow completed archival. Tickets retain the failed cause, but neither a failed receipt nor an absent report implies unchanged storage or supplies a durable phase/result journal. Inspect storage before retrying. The queue serializes scheduled owner work; direct concurrent service calls can interleave phases, with each repository CAS/lease/acknowledgement check retaining its individual guarantees. No extra cross-phase lock, exactly-once report or rollback promise is made.
 
-This intentionally differs from upstream expiry-before-consolidation and swallowed maintenance failures. The stronger acknowledged-only archival capability and observable task failures are retained. Bounded local transcript discovery is available; remote discovery and scheduling remain unfinished; typed custom prompts and immutable configuration are implemented below. Prior MemoryConsolidationScheduler.scala is preserved in b3d2723.
+This intentionally differs from upstream expiry-before-consolidation and swallowed maintenance failures. The stronger acknowledged-only archival capability and observable task failures are retained. Bounded local transcript discovery is available; remote discovery and scheduling remain unfinished; typed custom prompts and immutable configuration are implemented below.
 
-## Current maintenance identities
+Independent acceptance of the earlier scope is recorded below.
 
-Unchanged identities from the eight-file maintenance increment against `b3d2723`; MemoryRetentionPolicy changed to add the shared session default, with its previous identity preserved in f1a005e and its current identity in the transcript policy contract. MemoryMaintenanceScheduler also changed for coordinator support; its previous identity is preserved in b86fd14. Independent acceptance of the earlier scope is recorded below.
-
-| Source | Git blob |
-| --- | --- |
-| [MemoryConsolidationScheduler.scala](MemoryConsolidationScheduler.scala) | 215b1a897951f7ae1be0259c8c45107c82822656 |
-| [MemoryMaintenanceTask.scala](MemoryMaintenanceTask.scala) | 2adffe5b970b0824d0092a15a78acf19ebd09512 |
-| [MemoryMaintenanceSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSchedulerSpec.scala) | d31c5ab3e0628f94d691ad4865c855d6671d4cc7 |
-| [MemoryMaintenanceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSpec.scala) | bbf02388ef56d1918059869fa8e6a37558ac28cd |
-| [MemoryRetentionPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRetentionPolicySpec.scala) | 775e786516e5201925ede608ed1f5a9d3981c43d |
-
-- [x] `review_fp` and `review_harness` approved the final eight-file maintenance increment against `b3d2723` on 2026-09-29, including corrected consolidation-only ScalaDoc. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 391 harness tests, including 21 new cases, with zero compiler warnings. No findings remain within validated calendar policy, repository-bound sequential maintenance, typed aggregate outcomes, one owned gate/job and preserved consolidation-only behavior. Session pruning, unified configuration, cross-phase atomicity and durable reporting are excluded.
-
-- [x] `review_docs` approved the corrected maintenance documentation against `b3d2723`: eight identities, 21 new tests, policy and shared-window contracts, reporting limits and incomplete configuration mappings. Full verification passed 555 core / 391 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed.
+Source and paired tests: [MemoryConsolidationScheduler.scala](MemoryConsolidationScheduler.scala), [MemoryMaintenanceTask.scala](MemoryMaintenanceTask.scala), [MemoryMaintenanceSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSchedulerSpec.scala), [MemoryMaintenanceSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceSpec.scala), [MemoryRetentionPolicySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryRetentionPolicySpec.scala).
 
 RetentionDays now supplies separately named DailyDefault (90) and SessionDefault (180) values. The [transcript policy contract](../transcript/README.md) owns the updated MemoryRetentionPolicy.scala identity and acceptance. Daily calendar-cutoff behavior is unchanged; transcript policy uses exact 24-hour Instant subtraction.
-
-- [x] `review_fp` and `review_harness` approved the final five-file transcript-policy increment against `f1a005e` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 412 harness tests, including eight new cases, with zero compiler warnings. No findings remain within explicit 180-day policy, strict shared day validation, safe Instant arithmetic, one pre-ownership clock sample and complete KeepAll bypass. Batch/scheduler integration and complete upstream configuration parity are excluded.
 
 ## Selected transcript maintenance
 
@@ -483,22 +299,7 @@ Effects are sequential and preserve partial progress: a later target failure can
 
 The [transcript batch contract](../transcript/README.md) defines exact correlation IDs, capability ownership and replayable preparation. Bounded local discovery is available through TranscriptRetentionBatch.fromDiscovery; remote pruning remains pending; the six MemoryConfig method adaptations are completed below. This is a hardened source-level maintenance adaptation, not a new named upstream test mapping.
 
-## Current batch and coordinator identities
-
-Unchanged target/coordinator identities retain their reviewed scope. Current batch source/spec identities and additive discovery acceptance are in the [transcript contract](../transcript/README.md#bounded-local-transcript-discovery).
-
-| Source | Git blob |
-| --- | --- |
-| [TranscriptRetentionTarget.scala](../transcript/TranscriptRetentionTarget.scala) | c6d59b3dfb5c1552724d1fe01bd7e396a64eced4 |
-| [MemoryMaintenanceCoordinator.scala](MemoryMaintenanceCoordinator.scala) | 73e81f2ce7e33e37dabcaf94e009d6de397515c3 |
-| [MemoryMaintenanceScheduler.scala](MemoryMaintenanceScheduler.scala) | bf449d58b9f02088c3ddc8f0be4237d2eaab3a09 |
-| [TranscriptRetentionTargetSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptRetentionTargetSpec.scala) | a8996c67dfabf98a6dd1e4a3516316f1b8c43a1f |
-| [MemoryMaintenanceCoordinatorSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceCoordinatorSchedulerSpec.scala) | fb7a06ce627b87980f17080500522b666fa7d697 |
-| [MemoryMaintenanceCoordinatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceCoordinatorSpec.scala) | fe6a61638f8dc8a296d187929a57e69e8fa7e759 |
-
-- [x] `review_fp` and `review_harness` approved the final eight-file batch/coordinator increment against `b86fd14` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 434 harness tests, including 22 new cases, with zero compiler warnings. No findings remain within explicit ordered capabilities, cutoff preparation, sequential partial progress and one owned maintenance job. Cross-phase rollback, exactly-once execution and complete configuration parity are excluded; additive discovery has separate acceptance.
-
-- [x] `review_docs` approved batch/coordinator documentation against `b86fd14`: eight identities, 22 new cases, explicit ordering, cutoff preparation and partial-progress contracts. Full verification passed 555 core / 434 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. Remote integration remains unfinished; current discovery acceptance is linked above.
+Source and paired tests: [TranscriptRetentionTarget.scala](../transcript/TranscriptRetentionTarget.scala), [MemoryMaintenanceCoordinator.scala](MemoryMaintenanceCoordinator.scala), [MemoryMaintenanceScheduler.scala](MemoryMaintenanceScheduler.scala), [TranscriptRetentionTargetSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/transcript/TranscriptRetentionTargetSpec.scala), [MemoryMaintenanceCoordinatorSchedulerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceCoordinatorSchedulerSpec.scala), [MemoryMaintenanceCoordinatorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryMaintenanceCoordinatorSpec.scala).
 
 ## Memory model selection
 
@@ -514,27 +315,6 @@ Hosts already select the primary or a dedicated memory model through [MemoryExtr
 
 MemoryFlushManager.fromConfig consumes the flush prompt. MemoryConsolidator.fromConfig consumes the custom template and budget. MemoryMaintenance.fromConfig additionally consumes daily retention. All retain existing scoped extraction, semaphores and storage invariants. Hosts explicitly pass config.triggers to their shared MemoryTriggerGate and config.transcriptRetention to TranscriptRetentionBatch.make. No factory installs a gate, queue, scheduler or transcript catalog. A copied policy does not change existing authority; constructing a replacement gate starts new windows. Extractor injection continues to select the model; upstream model-registry configuration is not implemented.
 
-Existing make calls remain source-compatible; optional custom prompt parameters are appended to consolidation/maintenance factories. Binary compatibility is not asserted. The previous MemoryFlushManager, MemoryConsolidator and MemoryMaintenance identities are preserved in 005bacf; their retired table rows above are replaced by the current identities below. See the [test mapping](../../../../../../../../../../docs/architecture/test-parity.md#daily-policy-and-configuration-method-adaptations) for all six bounded method adaptations.
+Existing make calls remain source-compatible; optional custom prompt parameters are appended to consolidation/maintenance factories. Binary compatibility is not asserted. See the [test mapping](../../../../../../../../../../docs/architecture/test-parity.md#daily-policy-and-configuration-method-adaptations) for all six bounded method adaptations.
 
-## Current configuration identities
-
-Final formatted ten-file increment against 005bacf; this table owns current identities for the changed components and their new regression suites.
-
-| Source | Git blob |
-| --- | --- |
-| [MemoryTokenBudget.scala](MemoryTokenBudget.scala) | ea4942bf39b8a4e0a4ab97b9ce48026d6fbc9f6b |
-| [ConsolidationPrompt.scala](ConsolidationPrompt.scala) | 267aed5a80ab496b532fe17f540854ebea6f2efd |
-| [MemoryConfig.scala](MemoryConfig.scala) | 43fc031c469ef8275619d8af97213722f677c624 |
-| [MemoryConsolidator.scala](MemoryConsolidator.scala) | 9bda529fc30cd8f7999d5e86e63a5a5f84f876a8 |
-| [MemoryMaintenance.scala](MemoryMaintenance.scala) | 55ef865e4cf556e932a2b94f9c0ea0bf5a3ce827 |
-| [MemoryFlushManager.scala](MemoryFlushManager.scala) | [Current identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/json/README.md#exact-domain-and-tool-output) |
-| [MemoryTokenBudgetSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTokenBudgetSpec.scala) | 2b43e152c7ea5a14289e0cbbdca2790c43a0e182 |
-| [ConsolidationPromptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConsolidationPromptSpec.scala) | 4863fa628c7e10b034db9c6e187cd87042ecfebf |
-| [MemoryConfigSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConfigSpec.scala) | 4cfce91bf016eaaa72c6b5f73c6c84c664c050e2 |
-| [MemoryConfigIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConfigIntegrationSpec.scala) | 1fcd6e5da103fcd01bff6a1d3ae163386e35f869 |
-
-- [x] `review_fp` and `review_harness` approved the final ten-file memory-configuration increment against `005bacf` on 2026-09-29. Full `sbt scalafmtAll scalafmtSbt verify` passed 555 core / 451 harness tests, including 17 new cases, with zero compiler warnings. No findings remain within immutable policy values, strict budgets, total prompt rendering, configuration factories and the six explicit upstream method adaptations. Java builder/null/printf compatibility, live model fields, string-ID model registry resolution and automatic gate/queue installation are excluded.
-
-- [x] `review_docs` approved corrected memory-configuration documentation against `005bacf`: ten identities, 17 new cases, preserved defaults, literal template semantics and all ten configuration-method classifications with explicit differences. Full verification passed 555 core / 451 harness tests; all 63 Markdown files passed local-link/script checks and git diff --check passed. No findings remain in this scope.
-
-Earlier AgentErrorSpec.scala identities are preserved in 083617b and 279b7a3; the [current lineage table](../subagent/README.md#current-lineage-identities) records their replacements and renewed acceptance.
+Source and paired tests: [MemoryTokenBudget.scala](MemoryTokenBudget.scala), [ConsolidationPrompt.scala](ConsolidationPrompt.scala), [MemoryConfig.scala](MemoryConfig.scala), [MemoryConsolidator.scala](MemoryConsolidator.scala), [MemoryMaintenance.scala](MemoryMaintenance.scala), [MemoryFlushManager.scala](MemoryFlushManager.scala), [MemoryTokenBudgetSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryTokenBudgetSpec.scala), [ConsolidationPromptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/ConsolidationPromptSpec.scala), [MemoryConfigSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConfigSpec.scala), [MemoryConfigIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/memory/MemoryConfigIntegrationSpec.scala).

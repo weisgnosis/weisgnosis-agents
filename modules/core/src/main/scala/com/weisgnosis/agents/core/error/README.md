@@ -17,11 +17,10 @@ Each leaf exposes a message and its individual derived JSON codec. The hierarchy
 
 ## Current review acceptance
 
-- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for McpSessionExpired and its codec/diagnostic integration, with no findings. Current error source/spec identities are accepted in the [storage review manifest](../../../../../../../../../storage-postgresql/src/main/scala/com/weisgnosis/agents/storage/postgresql/README.md#verification-and-acceptance); the previously reviewed expiry semantics are unchanged.
-- [x] Scoped `mcp-session-expiry-verify.log` verification passed with zero compiler warnings or failures. Five focused core groups passed in 239 ms; the HTTP/manager focused run passed 24 groups in 3.846 seconds. The linked MCP contracts own their reviewed integration identities.
-- [x] Existing failure boundaries retain their originating package acceptance and integration evidence; the links above describe current behavior instead of repeating closed review history.
-- [ ] Complete exhaustive error-hierarchy and applicable upstream scenario mapping. Neither this additive review nor passing suites establishes exhaustive parity.
+The boundary table above links the current error semantics and integration contracts.
+
+- [ ] Complete exhaustive error-hierarchy and applicable upstream scenario mapping. Passing suites do not establish exhaustive parity.
 
 The [error spec](../../../../../../../test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) checks selected codec/diagnostic contracts. Runtime suites verify callback provenance, storage ownership, tool normalization and MCP cause propagation. The current [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records required build verification.
 
-StorageError is an additive sealed AgentError leaf for the [versioned publication prerequisite](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-json-publication). Exhaustive downstream error matches must handle it; this adds no shared error wire envelope. review_fp and review_invariants approved the exact source/spec identities; full verification passes and the backend contract records current delivery gates.
+StorageError is an additive sealed AgentError leaf for [versioned publication](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-json-publication). Exhaustive downstream matches must handle it; the hierarchy still provides no shared error wire envelope.

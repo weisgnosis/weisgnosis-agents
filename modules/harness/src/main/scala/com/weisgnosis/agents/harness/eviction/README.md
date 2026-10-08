@@ -18,16 +18,10 @@ The adapter covers new local tool completions and matched inline provider observ
 
 ## Current acceptance
 
-- [x] Unchanged local store safety/publication contracts retain earlier acceptance through `8850a60`; Git preserves prior source identities and reviews.
-- [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Full formatting, fatal-warning compilation, and verification passed 466 core and 45 harness tests.
 - [x] Integrate validated request-only model-input views through ModelInputTransform.
 - [x] Map hook-modified reasoning input while retaining canonical eviction; all seven eviction methods now have explicit adaptations.
 
 HostControlled ownership and hard-link support remain required. Hostile concurrent filesystem mutation and crash durability remain outside acceptance.
-
-The [core tool table](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md) records unchanged processor/eviction identities; commit `a34201f` preserves the full eight-file scope.
-
-- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Fourteen added regressions and the full formatting/fatal-warning verification passed: 510 core and 74 harness tests. No findings remain in this scope. Supplied-history eviction is covered by a later scope; exhaustive upstream middleware parity remains pending. Exact current identities are in the [agent table](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
 
 ## Supplied history and preview integrity
 
@@ -45,20 +39,7 @@ The local resolver validates the key before filesystem access, creates no direct
 
 Custom ToolResultStore implementations must now implement resolve as well as persist and return their authoritative path with the complete original content. There is no default missing lookup that would silently weaken idempotency. Existing ToolResultEvictor constructors remain pure and source-compatible. StoredToolResult has a derived JSON codec; serialized values alone do not establish trust. HistoryPreparer.andThen is additive and validates intermediate as well as final stage output.
 
-- [x] `review_fp` and `review_harness` approved the final nine-file history-eviction scope against `cc8fa7b` on 2026-09-29. Twenty-two added regressions and full formatting/fatal-warning verification passed: 516 core and 90 harness tests. Two new regressions exposed and closed strict-number and Windows storage-layout gaps. No findings remain within store-backed integrity, explicit workspace trust, and validated composition; absolute storage is covered by a later scope; request-only input views are covered by a later scope.
-
-## Current history-eviction identities
-
-Unchanged identities from the scope against `cc8fa7b`; commit `3718e18` preserves all nine original identities. The changed ToolResultStore identity belongs to the location scope below; changed preparation/history-test identities belong to the agent model-input table linked at the end:
-
-| File | Git blob |
-| --- | --- |
-| [HistoryPreparerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/HistoryPreparerSpec.scala) | 087459eab0ad56b15ee3c53fe81667505bff6a71 |
-| [ToolResultEvictor.scala](ToolResultEvictor.scala) | 9821483cf3f617f55ffa3487df357c4967365f20 |
-| [ToolResultEvictorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorIntegrationSpec.scala) | [Current ToolResultEvictorIntegrationSpec.scala identity](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity) |
-| [ToolResultEvictorRecognitionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorRecognitionSpec.scala) | 4c81fae29456c429589d6d8f646ac8f6d2ce96c0 |
-| [ToolResultEvictorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorSpec.scala) | c59677db41b87de222575f446a5d6212be87668a |
-| [ToolResultStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultStoreSpec.scala) | 5b8bf8b5d152f9741dcc4339430a9eacf74983d2 |
+Source and paired tests: [HistoryPreparerSpec.scala](../../../../../../../../../core/src/test/scala/com/weisgnosis/agents/core/agent/HistoryPreparerSpec.scala), [ToolResultEvictor.scala](ToolResultEvictor.scala), [ToolResultEvictorIntegrationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorIntegrationSpec.scala), [ToolResultEvictorRecognitionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorRecognitionSpec.scala), [ToolResultEvictorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultEvictorSpec.scala), [ToolResultStoreSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ToolResultStoreSpec.scala).
 
 ## Storage location selection
 
@@ -70,18 +51,4 @@ The backend retains and revalidates the canonical directory before each read/wri
 
 Configuration ownership deliberately belongs to the storage backend rather than EvictionConfig. ResultStorageLocation uses a derived JSON codec; decoded configuration is validated when constructing the store. This additive parameter preserves existing callers. The absolute-directory behavior adapts the upstream trailing-separator scenario, with Scala's flat agent/call/hash filenames and no Java RuntimeContext identity assertion.
 
-- [x] `review_fp` and `review_harness` approved the final three-file storage-location scope against `3718e18` on 2026-09-29. Eight added tests and full formatting/fatal-warning verification passed: 516 core and 98 harness tests. No findings remain within explicit host ownership and canonical-location validation. Dynamic symlink/junction checks, hostile mutation protection, and filesystem object identity are not claimed.
-
-## Current storage-location identities
-
-Final formatted scope against `3718e18`:
-
-| File | Git blob |
-| --- | --- |
-| [ResultStorageLocation.scala](ResultStorageLocation.scala) | efbdf1b6a7065acf9a9d4e7fa5bf7814e744de07 |
-| [ToolResultStore.scala](ToolResultStore.scala) | 03ca61724459ce839c3bb5ae62011bd99bb8f950 |
-| [ResultStorageLocationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ResultStorageLocationSpec.scala) | 5eeec2f1e5d2af688336047e4683582a96aec5ca |
-
-Superseded model-input scope identities remain in `40f6f05`; changed identities are in the [agent model-input table](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
-
-- [x] `review_fp` and `review_harness` approved the final seven-file model-input scope against `40f6f05` on 2026-09-29. Sixteen added regressions and full formatting/fatal-warning verification passed: 529 core and 101 harness tests. No findings remain within request-only projection, structural validation, canonical-state isolation, and eviction integration. Broader legacy hook/middleware parity remains pending. Exact identities and migration are in the [agent contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md).
+Source and paired tests: [ResultStorageLocation.scala](ResultStorageLocation.scala), [ToolResultStore.scala](ToolResultStore.scala), [ResultStorageLocationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ResultStorageLocationSpec.scala).

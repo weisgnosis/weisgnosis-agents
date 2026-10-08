@@ -8,12 +8,17 @@ Observers compose with `andThen`: first registered enters first, then finishes a
 
 Reasoning/model contexts receive an optional revocable Hint-only capability. Publishing acknowledges enqueue, not subscriber delivery; invocation entry has no Hint capability because its event hub does not yet exist. Callbacks run on the critical path and must not reenter the agent or wait for its run lock. The new trailing factory argument is source-compatible through its default; rebuild downstream binaries.
 
+## Host-side presentation
+
+The returned `ZStream` supports subscription-local presentation filtering: `streamEvents(input).filterNot(_.isInstanceOf[AgentEvent.TextBlockDeltaEvent])` omits text deltas for that subscriber while canonical assembly, history, result publication and execution remain unchanged. It does not suppress the model fragment before accumulation, redact other event payloads or install general model-call middleware. `ModelTextTransform` instead replaces visible fragments before assembly and still emits a delta for an empty replacement.
+
+Immutable host composition can project a returned `AgentResult`, for example `result.copy(reply = result.reply.withMetadata("modified", Json.Bool(true)))`, after `run` or on the `AgentRunUpdate.Result` branch of `streamWithResult`. This changes the host-facing value only: existing canonical history, runtime state/iteration/usage, emitted events and completion observations are not rewritten. It is not an installed before-broadcast post-call hook and grants no execution or completion authority. [ChatCompletionsTransformSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransformSpec.scala) verifies both adaptations through actual ReAct requests, with a positive unfiltered stream control.
+
 ## Atomic runtime snapshots
 
 [AgentSnapshot](AgentSnapshot.scala) represents either `Idle(history)` or `Suspended(AgentResult)`. `ReActAgent.snapshot` reads history and pending acting state under the existing run lock; a separate history read cannot establish whether the runtime is suspended. `restoreSnapshot` accepts data only into an empty runtime. Idle history must have complete local call/result pairing, and suspended data uses the existing checked checkpoint restoration path and current executable bindings. Neither accessor starts model/tool execution or imports saved configuration/authority.
 
 The enum has a derived JSON codec, but decoding alone does not validate runtime restoration. Hosts must call checked restoration, hold exclusive runtime ownership and retain their current authorization. The harness [persistent named sessions](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persistent-named-sessions) uses the atomic accessor after joined commands and handles persistence uncertainty separately.
-
 
 Snapshot operations acquire the run lock and must not be called reentrantly from an observer executing inside that same run. Historical inline provider previews are retained; incomplete local calls and local Running observations are rejected in idle snapshots.
 
@@ -33,20 +38,6 @@ Migration: make calls retain their source defaults and builder composition gains
 
 LocalToolResultObserverSpec uses three grouped contracts: actual authorized occurrence/raw/final identity and scoped composition with return-direct; typed/cleanup-defect failure and held parallel sibling cleanup; genuine cancellation with exact defects and mixed local Error/excluded origins. The Error fixture exercises execution failure, not a separate custom decoding failure. Completion-event ordering is established by the inspected processing path; it is not a direct event-order assertion in this suite. This is a new lifecycle seam, not closure of upstream TaskTool or wait methods.
 
-| Reviewed source against cb320c9 | Git blob |
-| --- | --- |
-| [LocalToolResultObserver.scala](LocalToolResultObserver.scala) | `8ac19e1492d8ccfc1175c4d630c17c480b127811` |
-| [ReActAgent.scala](ReActAgent.scala) | `2dc5cfaeeb844ab8e08bee751b5954642e3d68b7` |
-| [LocalToolResultObserverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/LocalToolResultObserverSpec.scala) | `7eb0c600ce5b9a6b417e5687aba56c9c31f76647` |
-
-- [x] review_fp and review_invariants independently approve these three formatted Scala identities against cb320c9, path-first manifest SHA-256 `0c3af5705967716cbe875e39acc40d889e794dc5c0d91e27a2288b356e2dca18`, with no unresolved source findings.
-- [x] target/local-tool-observer-focused-corrected-green.log passes 23 core contracts in 1.470 seconds, zero failed/ignored, after formatting and fatal-warning compilation. The initial new fixture incorrectly rejected legitimate internal sibling interruption in a compound parallel failure cause; both reviewers confirmed the explicit Parallel-only expectation correction. Production was unchanged. This was not a reproduced baseline defect.
-- [x] target/local-tool-observer-final-verify.log passes formatting, fatal-warning compilation and all 1,606 tests (695 core / 749 harness / 130 MCP / 24 actual PostgreSQL / eight examples), zero failed/ignored/compiler warnings, and builds four RC1 packages using a fresh PostgreSQL fixture.
-- [x] target/local-tool-observer-final-preparation.log passes archive admission and three reversible negative checks with restored artifacts.
-- [x] target/local-tool-observer-final-consumer.log passes fresh standalone formatting, compilation/execution and four artifact hash checks. Its unchanged public API probe does not independently exercise the new observer.
-- [x] Record exact source identities, migration and evidence limits.
-- [x] review_fp and review_invariants approve the final combined scope against cb320c9: three unchanged Scala identities and ten Markdown files, no unresolved findings. Manual English review, changed UTF-8/script/diff checks and 79-document/3,389-local-reference validation pass.
-
 ## Accepted model response observation
 
 [ModelResponseObserver](ModelResponseObserver.scala) is an optional dependency of ReActAgent.make and Builder.modelResponseObserver. The default ignore retains existing behavior. AcceptedModelResponse contains the selected ModelStreamContext, the winning ModelRequestInput, the accepted assistant message and its persisted canonical history. The request snapshot includes effective projected history/settings, selected model/tools and skill enrichment. It does not describe every provider wire field or HTTP header. Request-only transformations do not replace canonical history.
@@ -58,20 +49,6 @@ Each callback owns a scope that closes before execution proceeds. andThen closes
 A typed observer failure uses CompletionObservationError and cannot trigger model failover or structured Auto fallback. Ordinary failure or defects reconcile unfinished local call occurrences as Error observations before preserving the original cause; completed and inline provider observations remain intact. Genuine interruption preserves interruption and cleanup defects and invokes ordinary interruption reconciliation. Failed observation does not install a suspended checkpoint. This interruptible per-response boundary is distinct from the mandatory terminal TurnCompletionObserver, which observes one invocation outcome under its existing cancellation mask.
 
 Migration: the optional make argument and builder setting are additive at source level; Builder product/extractor and JVM signatures change, requiring recompilation. AcceptedModelResponse is runtime data, not a serialized checkpoint or provider request envelope. No dependency or build-setting change is required. The explicitly installed [harness reminder adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#automatic-reasoning-reminders) verifies that its exact reminder survived request projection before acknowledging consumption.
-
-| Reviewed source against 44c2ded | Git blob |
-| --- | --- |
-| [ModelResponseObserver.scala](ModelResponseObserver.scala) | `96ff18248affa2c61377c346b54af6715b1573d8` |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation identity](#persisted-local-tool-observation); accepted response behavior retained. |
-| [ModelResponseObserverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelResponseObserverSpec.scala) | `ab1c6079ba278238f322289c04612a87f288c065` |
-
-- [x] review_fp and review_invariants independently approve all three formatted Scala identities against 44c2ded, path-first manifest SHA-256 `b25430db66a42b35d6e85c247f2ee39223b3e8c47fe2fa0bda196be0875becb9`, with no unresolved source findings.
-- [x] target/accepted-response-focused-green.log passes 57 core contracts in 1.749 seconds, zero failed/ignored, after formatting and fatal-warning compilation. The projected-input fixture now uses a permitted transient user message; production system-message validation remains unchanged.
-- [x] target/accepted-response-final-verify.log passes formatting, fatal-warning compilation and all 1,600 tests (692 core / 746 harness / 130 MCP / 24 actual PostgreSQL / eight examples), zero failed/ignored/compiler warnings, and builds four RC1 packages using a fresh PostgreSQL fixture.
-- [x] target/accepted-response-final-preparation.log passes archive admission and three reversible negative checks with restored artifacts.
-- [x] target/accepted-response-final-consumer.log passes fresh standalone compilation/execution and four artifact hash checks; its unchanged public API probe does not independently exercise the new observer.
-- [x] Record the exact source identities, current API contract and migration limits.
-- [x] review_fp and review_invariants approve the final combined scope against 44c2ded: three unchanged Scala identities and ten Markdown files, no unresolved findings. English prose and 79-document/3,362-local-reference checks pass. The core seam does not install the separately configured harness reminder adapter.
 
 ## Fresh invocation preparation
 
@@ -128,16 +105,6 @@ The existing successful-stream group in ReActAgentEventSpec now covers both `Fin
 
 This is a bounded runtime-intent adaptation of pinned AgentStreamingTest.testReActAgentStreamCompletesWhenModelReturnsEmptyText (256). Its legacy first REASONING/isLast envelope is deliberately outside the typed event contract. Production, public APIs and test-group counts are unchanged; this is additional liveness evidence, not a reproduced defect or classification of the other streaming methods.
 
-| Test-only scope against 4e82fb6 | Git blob |
-| --- | --- |
-| [ReActAgentEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentEventSpec.scala) | 4879fcfe99172f6af32daac5a66fade2f2da43ba |
-
-- [x] review_fp and review_invariants independently approved the final formatted test identity against 4e82fb6 with no findings.
-- [x] empty-stream-focused.log passes all eight existing groups in 515 ms. empty-stream-verify.log passes 1,526 tests (680 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored.
-- [x] review_fp and review_invariants approved the final six-file combined scope against 4e82fb6 with no findings. Manual English review, changed-script/diff checks and 78-document/3,016-local-reference validation pass.
-
-Unchanged production/build/consumer retain their accepted artifact evidence; this test-only scope does not claim regenerated packages or a new ZIP snapshot.
-
 ## External execution checkpoints
 
 The accepted [external binding scope](../tool/README.md#external-tool-bindings) distinguishes external execution from permission waiting. AwaitingResults retains completed occurrence/history positions, current group state, saved Stop, exact externalRequests inputs and an externalTools binding-kind manifest. Mixed batches retain separate permissionRequests; only those publish Ask. The assistant call is persisted before acting, and approved argument edits are persisted before dispatch. External waiting contributes no placeholder Tool message or successful result event.
@@ -146,32 +113,17 @@ Partial host results use SuppliedToolResult with checked original ordinals, pres
 
 Hosts must dispatch from the returned or fully consumed validated Suspended result, authenticate supplied observations and own remote execution/claims/recovery. Interrupted runs reconcile unresolved calls with Error observations whose external wording reports an unaccepted result and unknown execution status. Joined local cleanup does not cancel remote work. Checkpoint storage supplies no lease, exclusive claim or exactly-once guarantee. Structured runs reject this waiting mode.
 
-Final documentation acceptance passed in the canonical [binding scope](../tool/README.md#external-tool-bindings). Existing local permission and checkpoint acceptance remains separately scoped.
-
 ## Model turn trust boundary
 
 The runtime validates every custom LlmClient TurnOutput after scoped client cleanup and before accepting usage, model-end publication, post-reasoning hooks or assistant persistence. All variants, including Interrupted, require Role.Assistant. ToolCalls requires at least one tool use. ThinkingOnly requires no calls, blank visible text and reasoning. FinalText requires no calls and either visible text or no reasoning; empty nonreasoning FinalText remains valid. Interrupted permits partial assistant content. Inline provider-hosted tool behavior is unchanged.
 
-Invalid role/classification fails with static ModelError code zero before runtime completion/persistence authority. This failure does not trigger model retry/fallback. Public signatures/codecs are unchanged; host custom clients must return consistent tags. Client audit Returned outcomes are observations, not runtime acceptance; the unpublished audited example keeps that distinction and does not forward private failover authority. This boundary adds no duplicate-ID, arbitrary metadata/general content validation, or retraction of events already emitted directly by a custom client.
+Invalid role/classification fails with static ModelError code zero before runtime completion/persistence authority. This failure does not trigger model retry/fallback. Public signatures/codecs are unchanged; host custom clients must return consistent tags. Client audit Returned outcomes are observations, not runtime contract; the unpublished audited example keeps that distinction and does not forward private failover authority. This boundary adds no duplicate-ID, arbitrary metadata/general content validation, or retraction of events already emitted directly by a custom client.
 
-The grouped ReActAgentSpec regression derives expectations from untouched history/hooks/completion behavior. model-turn-contract-red.log reproduces malformed-turn acceptance against runtime blob 70ba09d5499cfe862e814bb79b918668dc4c168e and spec e9e1d2b6d39fc274dbe55d4306d83c1db9255711, failing concrete history/hook/success assertions. Initial model-turn-contract-green.log passes eleven focused tests in 518 milliseconds. The final grouped table contains eight malformed rows and two valid controls; the final full verification below covers every final row. This hardens a Scala extension boundary without closing a Java test method.
+- The final full run covers the refined eight-malformed/two-valid table; the earlier focused eleven-test run predates the last row.
 
-| Source/spec approved by review_fp and review_invariants against b70aa32 | Git blob |
-| --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [ReActAgentSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
+Toolkit construction and selection follow the [checked registry identity and migration contract](../tool/README.md#checked-registry-identity).
 
-- [x] review_fp and review_invariants approved both final identities against b70aa32, with no unresolved findings.
-- [x] The final full run covers the refined eight-malformed/two-valid table; the earlier focused eleven-test run predates the last row.
-- [x] model-turn-contract-final-verify.log exited zero: 1,510 tests (670 core / 726 harness / 86 MCP / 22 PostgreSQL / 6 examples), zero compiler warnings/failures and four packages.
-- [x] model-turn-contract-preparation.log passed source/archive regressions and restored archive/POM staging.
-- [x] model-turn-contract-consumer.log passed fresh standalone formatting, clean compilation and forked selected-API execution; its existing custom LlmClient smoke remains valid.
-- [x] review_fp and review_invariants approved final combined documentation against b70aa32 and the two unchanged identities; manual English inspection, script/diff checks and 78-document/2,848-local-reference checks pass with zero issues.
-
-
-Toolkit construction and selection follow the [checked registry identity and migration contract](../tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
-
-[Runtime ordering acceptance](../client/README.md#runtime-event-ordering) records exact current lifecycle-spec identities and bounded text/thinking/tool-cycle adaptations. Fully drained invocations begin with AgentStart and end with correlated AgentEnd; early consumers abandon later output.
+Fully drained invocations begin with AgentStart and end with correlated AgentEnd; early consumers abandon later output.
 
 ReActAgent retains history and serializes runs. Model requests receive their own Scope, closed before the next request. Assistant tool calls are persisted before dispatch. Completed observations survive cancellation; unfinished local occurrences receive Error observations followed by one recovery message for the run. Thinking-only responses trigger bounded synthetic reminders. AgentConfig uses ToolExecution and a five-minute timeout; AgentResult uses AgentRunState and optional ChatUsage.
 
@@ -184,22 +136,11 @@ ReActAgent retains history and serializes runs. Model requests receive their own
 - [StructuredOutput](StructuredOutput.scala)
 - [TurnCompletionObserver](TurnCompletionObserver.scala)
 
-
 ## Thinking-only retry contract
 
 Thinking-only replies with blank visible text and no calls append one synthetic user reminder named system before the next request. Retry and iteration budgets are independent. For repeated thinking-only replies with sufficient iteration budget, retries 0/1/2 produce exactly 1/2/3 calls and 0/1/2 reminders; a larger retry budget with maxIterations=2 produces two calls/two reminders and max_iterations. There is no extra summarizing request. Visible answers do not consume thinking retries, and reasoning with a tool call enters acting rather than the empty-response loop.
 
 The existing five-group ReActAgentThinkingRetrySpec now directly verifies reminder-dependent model behavior, role/name/metadata, exact request/reminder bounds and separate maximum-iteration precedence. This is test-only contract strengthening: production behavior and group count are unchanged, and no defect RED claim is made.
-
-| Source/spec approved by review_fp and review_invariants against 8792744 | Git blob |
-| --- | --- |
-| [ReActAgentThinkingRetrySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentThinkingRetrySpec.scala) | b3ba2ecf4760a9e4ff4768436571994851170bf0 |
-
-- [x] Both independent reviewers approved the exact final test identity with no unresolved findings.
-- [x] thinking-retry-contract-focused.log passed five tests in 410 milliseconds.
-- [x] thinking-retry-contract-verify.log exited zero: 1,517 tests (674 core / 727 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests. Production/build/consumer are unchanged from accepted 8792744 packaging and fresh-consumer evidence; no artifact repeat is required for this test-only scope.
-- [x] review_fp and review_invariants approved the final combined five-file test/documentation scope against 8792744, with ReActAgentThinkingRetrySpec blob b3ba2ecf4760a9e4ff4768436571994851170bf0 unchanged. Manual English inspection, diff checks and 78-document/2,878-local-reference validation pass with zero issues; full verification above passed all 1,517 tests.
-
 
 ## Run-owned tool-group activation
 
@@ -213,15 +154,7 @@ Reset input is exactly an object containing `to_activate`, an array of group-nam
 
 Migration: make appends `toolGroups: Option[ToolGroups] = None`; Builder adds a toolGroups setter and a defaulted field. Ordinary call sites retain prior behavior. Positional Builder patterns/Product arity change and downstream binaries must be rebuilt. This explicit dependency is not Toolkit metadata; filtering the supplied base toolkit cannot recover removed tools. Control-name collisions retain Toolkit's existing ToolExecutionError type/message. The reset result now adds a notes string; consumers that reject unknown result fields must accept it. Descriptions now reflect each request snapshot rather than static construction-time text.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the group/skill baseline below, including group/skill reminders, preloaded skills and admitted-access propagation, with no findings. Formatting and full `verify` passed in `skill-reminders-final-verify.log`: zero compiler warnings or failures; the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) records current repository totals.
 - [ ] Complete other skill repository variants and durable activation; bounded local discovery/loading is available in the harness. Exact Java prose is not a compatibility contract.
-
-| Reviewed group/skill baseline | Git blob |
-| --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `e313fa6b8db16c4f935eac3c7aefa620488d53fa` |
-
-The table records the group/skill baseline. The current runtime identity is in [scoped model failover](#scoped-model-failover), while the unchanged groups spec is recorded under [deferred skill reads](#deferred-skill-reads); earlier contracts retain their scoped acceptance.
 
 ## Preloaded skills
 
@@ -233,8 +166,7 @@ The loader is read-only and concurrency-unsafe, uses ordinary authorization and 
 
 Reset descriptions and result notes include the catalogue's pure group-binding reminders beside the corresponding Meta snapshot. Rendering starts from immutable raw definitions each time, so repeated requests, fresh runs and structured fallback do not accumulate reminders. Notes are advisory: successful reset-to-empty still deactivates all Meta groups and returns their current inactive notes. Empty/no-target catalogues preserve previous note text. No active-skill state or automatic group registration is introduced.
 
-- [x] Both reviewers approved the preloaded-skill runtime contracts; [scoped runtime evidence](#deferred-skill-reads) and full verification cover union, exact content, error/denial isolation, hidden collisions, construction validation, fresh runs, fallback and content-only Auto routing.
-- [x] Actual skill-loader admission is verified through the opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission), including policy/confirmation and denial of mutating tools. The read-only flag alone grants no permission.
+- Actual skill-loader admission is verified through the opt-in [harness Plan adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#dynamic-plan-admission), including policy/confirmation and denial of mutating tools. The read-only flag alone grants no permission.
 
 ## Request-only skill catalogue
 
@@ -244,14 +176,7 @@ The same projection runs for every model request, including native-to-synthetic 
 
 Migration: configured skill listings move from the loader description to transient model-request system content. This changes observable prompt text and projection ordering, not tool names, schemas, permission authority or skill activation. The loader retains its instruction sentence and strict schema.
 
-- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for the reviewed request-projection baseline below, with no findings. One runtime table group verifies first-system field/content preservation, prepend/empty behavior and canonical isolation across requests and public runs; existing activation/fallback assertions verify one catalogue projection per request. The paired pure catalogue test checks selection and escaping. Focused verification passed 15 groups in 623 ms (`skill-system-prompt-focused.log`). Full `scalafmtAll scalafmtSbt verify` passed in `skill-system-prompt-verify.log`: 602 core / 690 harness / 82 MCP tests (1,374 total), compile task 2 seconds and test task 15 seconds, zero compiler warnings or failures.
-
-| Reviewed request-projection baseline | Git blob |
-| --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `2eb319710008d11433978458c47a01d1c9eac110` |
-
-The [catalogue contract](../skill/README.md#deferred-resource-capabilities) owns current catalogue/library identities and combined verification. Existing execution, forwarding, group and permission contracts retain their scoped evidence below. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals and next work.
+Existing execution, forwarding, group and permission contracts retain their scoped evidence below. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals and next work.
 
 ## Deferred skill reads
 
@@ -259,20 +184,9 @@ The skills parameter and Builder setter accept SkillCatalog or SkillLibrary thro
 
 The protected loader retains ordinary authorization and sequential dispatch. An approved exact library key performs one scoped read; only successful read and finalizer completion can union catalogue-owned Meta targets. Failed reads or cleanup produce Error observations without activation; cancellation joins cleanup and preserves its cause. Prompt projection lists logical deferred paths without fetching content. There is no automatic disk fallback or new model-controlled location authority.
 
-- [x] `registry_contract` approved FP/ZIO correctness and `current_docs` approved invariants for the current identities below, with no findings; full verification passed. The earlier request-projection table records its preloaded baseline. Combined ten-file verification is recorded in the [capability acceptance](../skill/README.md#deferred-resource-capabilities).
-
-| Reviewed deferred-read baseline | Git blob |
-| --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [ReActAgentToolGroupsSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolGroupsSpec.scala) | `9dcf3a5ef4342db59486413a25675eb74c51efa0` |
-
-Current ReActAgent identity and execution approval are in [scoped model failover](#scoped-model-failover); the groups spec above is unchanged.
-
 ## Fixed-argument authorization
 
 Attached [fixed raw arguments](../tool/README.md#fixed-raw-arguments) are prepared before local authorization, without changing the persisted original call while approval is pending. Malformed preparation yields Error without callback execution; signed-input changes and approved fixed-field alterations yield Denied. Nonfixed rewrites remain allowed. Approved history, invocation context and execution share the final prepared input, retaining original model-input provenance. Inline provider results still bypass local dispatch. Cancellation joins authorizer cleanup and retains the complete interruption/cleanup cause.
-
-Current Tool/Toolkit identities and scoped verification belong to the linked tool acceptance; the current ReActAgent identity is in [scoped model failover](#scoped-model-failover); the result/event contracts below remain separate bounded scopes.
 
 ## Incremental local tool results
 
@@ -280,14 +194,9 @@ The [incremental execution contract](../tool/README.md#incremental-execution) pu
 
 Final-delta suppression is local to each execution occurrence, including repeated model IDs. Provisional content does not replace the final result: ToolResultEnd carries its final text/state/metadata, while full typed final content remains in canonical history. Ordinary tools and metadata-only progress retain aggregate publication. A cancelled unfinished stream follows existing reconciliation; completed siblings survive. Inline server results bypass local execution unchanged.
 
-- [x] `path_review` and `current_docs` approved the final six-file scope at the [current identities](../tool/README.md#incremental-execution).
-- [x] Full `tool-stream-verify.log` verification passed with zero compiler warnings or test failures; the linked tool contract records scoped identities and evidence. Two added ToolEventSpec groups cover visible provisional text/image before completion, persisted-call and model-history boundaries, protected metadata, cleanup before the next model request, and parallel repeated IDs with two streams plus a legacy sibling. The existing cancellation fixture now includes an unfinished streaming tool. Shared-Toolkit destination isolation has the separate acceptance below.
-
 ### Shared-Toolkit destination isolation
 
 Concurrent independently owned agents can share the same Tool and immutable Toolkit while retaining separate incremental-event destinations and canonical histories. The shared fixture holds both executions between their first and second progress chunks, then checks exact per-agent deltas/final results and distinct request/reply contexts despite identical tool-call IDs. This is not support for concurrent runs on one Scala agent; no production API or implementation changed.
-
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for [ReActAgentToolEventSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolEventSpec.scala) at [Current ReActAgentToolEventSpec.scala identity](../tool/README.md#checked-registry-identity), with no findings. Focused verification passed nine tests in 417 ms (`shared-toolkit-focused.log`); full `scalafmtAll scalafmtSbt verify` passed in `shared-toolkit-verify.log` with zero compiler warnings or failures. Current repository totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
 
 ## All-tools-denied observation
 
@@ -295,12 +204,6 @@ After successful cleanup of a nonempty entirely local admitted batch, ReAct publ
 
 Mixed Success/Error, inline/provider batches and incomplete deferred batches do not qualify. A tool cannot grant itself denial authority: tool-produced Denied is normalized to Error. Optional processor failure preserves the authoritative observation. An interrupted or defective phase retains its full cause and does not reach aggregate publication; later cancellation cannot retract an already published observation. No public API or event codec changes.
 
-| Reviewed file | Git blob |
-| --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current provider-ownership fixture](#provider-owned-pending-calls) |
-
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for this pair, including unchanged Direct behavior through the shared completed-ledger helper. Two grouped cases cover fresh/restored batches, priority and exclusion tables, structured runs, held cleanup and cancellation. Focused checks passed 19 tests in 678 ms (`all-denied-final-focused.log`), including the three existing Direct groups; full `scalafmtAll scalafmtSbt verify` passed in `all-denied-verify.log` with zero compiler warnings or failures. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current totals.
 Provider-owned pending calls have the separate reviewed ownership contract below; AllToolsDenied remains restricted to entirely local batches.
 
 ## Provider-owned pending calls
@@ -311,19 +214,6 @@ ToolHistory completeness describes local obligations. Same-message inline result
 
 BeforeActing checkpoints may preserve a provider-only pause, with no local pending choices; resume continues the provider rather than inventing a result. Supplied results and permission requests can identify only unresolved local ordinals. AwaitingApproval requires unfinished locals, and a saved Stop must identify a completed local ledger entry or an actually matched inline occurrence. No checkpoint wire shape changes; malformed checkpoints relying on local ownership of provider calls now reject.
 
-| Reviewed file | Git blob |
-| --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [PendingActing.scala](PendingActing.scala) | bdcdb1e276a1dcbb1a86dc321c4ecdf39bdbeb4c |
-| [ToolHistory.scala](../model/ToolHistory.scala) | ba82c0b9d409c0eb444b2212c603532efa83235f |
-| [ReActAgentToolAuthorizerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala) | [Current ReActAgentToolAuthorizerSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | 349c047eebb15bcfb2b4c2113714047384780597 |
-| [ToolHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | 2ff6291ca75b49770c0a337da5488608f8fa040e |
-| [ConversationCompactorSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/memory/ConversationCompactorSpec.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
-
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these seven identities, with no remaining findings. Focused checks passed 33 tests in 795 ms (`provider-ownership-focused.log`); full `scalafmtAll scalafmtSbt verify` passed in `provider-ownership-final-verify.log` with zero compiler warnings or failures. Current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-- [x] `provider-ownership-behavior-red.log` recorded 17 passing and four failing tests against production revision `eca5c4d`, with regression specs `6c2a92f81637503ce70b3c4a928c46637d974cbe` (authorizer), `349c047eebb15bcfb2b4c2113714047384780597` (checkpoint) and `2ff6291ca75b49770c0a337da5488608f8fa040e` (history): provider sentinel execution occurred, mixed history contained an extra local result, cancellation retained provider Success alongside local Error, and local-history/checkpoint ownership assertions failed. The corrected regression assertions remain unchanged; the authorizer fixture only received a title correction. A separate stale compactor fixture was replaced with genuine crossing/noncrossing local-pair cases, rather than treating a Tool-role observation as provider completion. The initial compile-only run is not defect evidence.
-
 ## Host-selected return-direct completion
 
 ToolDef.returnMode defaults to ToolReturnMode.Continue. Direct permits an ordinary fresh or resumed run to finish without another model request only when its original nonempty admitted batch contains exclusively local Direct calls and every processed observation is Success. Eligibility uses the admitted definitions and complete original-ordinal ledger, including supplied and previously completed results. Later activation changes do not grant this policy. Deferred approval takes precedence, followed by the earliest current or saved acting Stop; all admitted work and processor cleanup join before direct completion. Cancellation and defects retain their existing failure authority. Native and synthetic structured runs continue to their normal capture boundary.
@@ -332,22 +222,9 @@ Successful direct completion preserves the full processed Tool history and appen
 
 Migration: ToolDef appends the defaulted returnMode field. Old JSON without it decodes as Continue; named construction/copies retain defaults. Current positional/Product arity and binary migration follow the [tool strictness contract](../tool/README.md#provider-tool-schema-strictness). Restoring a checkpoint still requires exact trusted host definitions, including returnMode. ChatCompletions does not serialize this local completion policy as a provider tool-schema field.
 
-| Reviewed file | Git blob |
-| --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [ToolDef.scala](../tool/ToolDef.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
-| [ReActAgentReturnDirectSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReturnDirectSpec.scala) | [Current ReActAgentReturnDirectSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ToolDefSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolDefSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
-| [ChatCompletionsRequestSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ChatCompletionsRequestSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
-
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for these five identities, with no findings. Three grouped runtime tests cover ordered processed output and rejection cases, live/restored/supplied/partial resumes, joined cleanup/cancellation and native/synthetic exclusion; existing tables cover codec compatibility and provider-field omission. The resumed supplied Error and mixed-mode rows verify zero local execution, exact-once processing, preserved result states/content in the actual following model request and one further request. Supplied Denied remains unsupported. Both reviewers renewed approval of the current spec; the Direct contract remains unchanged, with the runtime helper reviewed in the linked AllToolsDenied scope. Focused checks passed three groups in 599 ms (`return-direct-resume-focused.log`).
-- [x] Full `scalafmtAll scalafmtSbt verify` passed in `return-direct-resume-verify.log` with zero compiler warnings or test failures. Current totals and process-local verification settings are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-
 ## Current typed-result acceptance
 
-The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity. The current ReActAgent identity belongs to [result-bearing streams](#result-bearing-streams); unchanged typed-result component identities remain in the [tool acceptance](../tool/README.md#current-review-acceptance).
-
-- [x] `path_review` and `current_docs` approved typed local result publication within the linked tool acceptance; full repository verification passed with no warnings or failures.
+The [tool contract](../tool/README.md#typed-execution-observations) owns the result API migration, protected metadata and cancellation-cause semantics. Typed payloads reach persisted history and existing text/data events without changing runtime call identity.
 
 ## Result-bearing streams
 
@@ -357,17 +234,7 @@ The additive `streamResumeWithResult(results = Chunk.empty)` and `streamResumeEv
 
 All events precede Result, including the terminal AgentEnd. Result preserves history, iteration count, aggregate usage and runtime state: ordinary cooperative interruption yields an Interrupted result with recovery history. Result does not imply Completed. A failing invocation emits no Result; fully consuming the stream retains its complete typed/defect/interruption Cause.
 
-Early consumers cancel and join owned execution but abandon later output, including later completion-observer errors. Existing unbounded delivery buffers provide neither backpressure nor replay. This additive execution envelope has no wire codec and changes no AgentEvent payload or constructor. The separately reviewed [invocation event capability](../tool/README.md#invocation-event-capability) grants scoped publication to approved local tools; harness child forwarding has separate acceptance, while delivery after promotion remains pending.
-
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the three changed identities below, with no remaining findings. Full `scalafmtAll scalafmtSbt verify` passed in `resumed-streams-verify.log`, with zero compiler warnings or failures; current totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). Focused `resumed-streams-green.log` passed 35 core tests in 733 ms and five harness tests in 420 ms. Two new core groups verify lazy resume, supplied-result correlation, full observer failure causes and joined early/cancelled consumers; one harness table verifies custom/default denial text, ordered original-context events and no local execution.
-
-| Reviewed file | Git blob |
-| --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [AgentRunUpdateSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentRunUpdateSpec.scala) | [Current invocation scope](#invocation-identity-and-prepared-execution); earlier unrelated behavior retained. |
-| [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current invocation scope](#invocation-identity-and-prepared-execution); earlier unrelated behavior retained. |
-
-[AgentRunUpdate.scala](AgentRunUpdate.scala) retains its accepted identity `e441b9614dba3364da17b6b4780c3a6fae002396`; its ADT and codec policy are unchanged. Existing ordinary/structured scenarios retain full-value, cooperative interruption and terminal ordering coverage. The separately reviewed [invocation capability](../tool/README.md#invocation-event-capability) closes each approved tool's publication lease before result processing.
+Early consumers cancel and join owned execution but abandon later output, including later completion-observer errors. Existing unbounded delivery buffers provide neither backpressure nor replay. This additive execution envelope has no wire codec and changes no AgentEvent payload or constructor.
 
 ## Direct event forwarding
 
@@ -375,20 +242,9 @@ The package-visible `runForwarding(messages, destination, source)` and `resumeFo
 
 The host-selected source prefixes any existing nested source with `/`; reply/request identities remain unchanged. Source labels are diagnostic data, not authentication. A closed destination drops publication without cancelling execution. Delivery remains unbounded, with no replay or backpressure. These internal ordinary-run primitives support the reviewed [host-only child resume](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume); they add no structured child execution.
 
-The [ReActAgentForwardingSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) exposed the previous competing-consumer race in `local-skill-verify.log`: against ReActAgent blob `0fbbe1a282f1740efcb96b05d3d4befb39f44f4c`, the final event was ModelResponseEnd rather than the expected AgentEnd. The fix changes delivery ownership, not the regression expectation. Its existing three groups retain result, attribution, compound-cause and cancellation coverage.
+[AgentEventForwarderSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) adds three barrier-based groups for held-prefix/queued-suffix order, empty and claimed-only shutdown, exact delivery defects, and cancellation joining held publication.
 
-[AgentEventForwarderSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) adds three barrier-based groups for held-prefix/queued-suffix order, empty and claimed-only shutdown, exact delivery defects, and cancellation joining held publication. The focused helper/integration/stream run passed 27 tests in 522 ms.
-
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the three changed identities below, with no findings; the original forwarding spec remains unchanged. Full `event-forwarder-verify.log` verification passed with zero compiler warnings or failures. The [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance) owns current repository totals.
-
-| Reviewed forwarding baseline | Git blob |
-| --- | --- |
-| [AgentEventForwarder.scala](AgentEventForwarder.scala) | `9198abc9f0b13f1cb1e347df0a73c57c50f6e2d1` |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [AgentEventForwarderSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentEventForwarderSpec.scala) | `2c0bbde7e0e5eb94f8c3f963ead3f1ed4eed37ab` |
-| [ReActAgentForwardingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentForwardingSpec.scala) | [Current invocation scope](#invocation-identity-and-prepared-execution); earlier unrelated behavior retained. |
-
-- [x] The separately reviewed [harness adapters](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#scoped-child-event-forwarding) install this primitive for owned spawn/send operations with task attribution and per-invocation leases.
+- The separately reviewed [harness adapters](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#scoped-child-event-forwarding) install this primitive for owned spawn/send operations with task attribution and per-invocation leases.
 
 ## Runtime events and result pairing
 
@@ -410,25 +266,7 @@ Typed processor failure retains the raw observation and contributes no Stop; def
 
 Migration: processDecision is a concrete additive method and deciding is an opt-in factory; legacy processors need no override. ToolResultDecision is a runtime ADT without a wire codec. Exhaustive AgentRunState, AgentError and SubagentToolState matches must handle Stopped/ExecutionStopped. AgentRunState's derived codec gains Stopped(reason); the new error leaf has its own codec. Dependent binaries must be rebuilt. Child spawn/send projects Stopped as a bounded Error observation while task inspection retains the terminal value; retained sessions accept fresh work when the core runtime has no pending checkpoint.
 
-| Reviewed file | Git blob |
-| --- | --- |
-| [AgentResult.scala](AgentResult.scala) | [Current identity](#before-acting-suspension-and-restoration) |
-| ReActAgent.scala | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [AgentError.scala](../error/AgentError.scala) | 595899f138addfb459d8845f57806bb4a1d2eca6 |
-| [ToolResultProcessor.scala](../tool/ToolResultProcessor.scala) | bf23b2d700291b38545f9c0ed9f57826ac9c5158 |
-| [AgentResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/AgentResultSpec.scala) | a94ecf5e07e816c1b53bbb2532ad251a111cc064 |
-| [AgentErrorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/error/AgentErrorSpec.scala) | d54380b0026082045e870169362ef81dfe3abd2f |
-| [ToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/tool/ToolResultProcessorSpec.scala) | 79dc47e7a7d411978aed8d7361e02d351bd2c894 |
-| [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | [Current identity](#before-acting-suspension-and-restoration) |
-| [SubagentToolsSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentToolsSpec.scala) | [Current SubagentToolsSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ReActAgentActingStopSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentActingStopSpec.scala) | [Current ReActAgentActingStopSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | [Current ReActAgentInlineProcessingSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current identity](#current-model-input-identities) |
-
-- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the acting-stop scope (unchanged identities above and runtime baseline e9f789c2de31afa312c01e04ec1d464efbcb441f), with no findings. Full scalafmtAll scalafmtSbt verify passed in acting-stop-accepted-verify.log with zero compiler warnings or failed tests. Focused acting-stop-origin-green.log passed 39 core tests in 568 ms and eight harness tests in 519 ms. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-- [x] Accept the separate [before-acting suspension contract](#before-acting-suspension-and-restoration); partial HITL confirmations, returnDirect flags and host persistence remain separate.
-
-The cancellation-origin regression in acting-stop-origin-red.log ran unchanged expectations against draft ReActAgent 88020c23137d08e7bf58eeba232b59c8155dcc27 and InlineProcessingSpec a96798914868b8698405643d4f5f15618748bf14: eight tests passed and two failed. Cooperative interruption with a cleanup defect lacked the required recovery and complete pairing; timeout with a cleanup defect incorrectly added user-interruption recovery. The final caller-boundary exit hook checks actual caller interruption or this run's cooperative signal after joined cleanup, retains generic failure pairing and preserves the full Cause. The same expectations pass alongside unchanged timeout and sibling-defect controls.
+- Accept the separate [before-acting suspension contract](#before-acting-suspension-and-restoration); partial HITL confirmations, returnDirect flags and host persistence remain separate.
 
 ## Structured output
 
@@ -448,21 +286,7 @@ Compatibility follows the active request plan. Without responseFormat, fallback 
 
 Migration: ordinary construction calls retain fallback=None; appended make/Builder fields may require method-value or positional-extractor updates and dependent binaries must be rebuilt. ModelTarget contains a live client and is intentionally not a JSON codec/configuration registry. There is no failover listener, persistent selected-model state, automatic capability discovery or remote routing.
 
-| File | Reviewed Git blob |
-| --- | --- |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [LlmClient.scala](../client/LlmClient.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
-| [ChatCompletionsClient.scala](../client/ChatCompletionsClient.scala) | [Current identity](../client/README.md#completion-envelope-profiles) |
-| [ChatCompletionsTransport.scala](../client/ChatCompletionsTransport.scala) | [Current seed/rendering identity](../client/README.md#optional-seed-and-exact-request-rendering) |
-| [BeforeResponseRejection.scala](../client/BeforeResponseRejection.scala) | 96121e91541c7858bd5f6f6764546cb6aa2d4bf2 |
-| [ModelTarget.scala](../client/ModelTarget.scala) | 5820bc6829e9ae0eaa81ca1bcad1d5024bba3bec |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
-| [StructuredOutputCapabilityRoutingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/StructuredOutputCapabilityRoutingSpec.scala) | 5eb368d7df046fafb4a3993711800a667675432a |
-
-- [x] path_review approved FP/ZIO correctness and current_docs approved invariants for the eight exact identities above, with no findings. Focused model-failover-green.log passed 51 tests in 5.313 seconds. Full scalafmtAll scalafmtSbt verify passed in model-failover-verify.log with zero compiler warnings or failed tests. Current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-- [x] Three grouped controlled-driver tests exercise primary HTTP retry exhaustion before target selection, repeated runtime requests, history/projection/context isolation, native/synthetic plan compatibility, excluded failures, held cleanup/cancellation and complete target failure causes. They are not live-provider interoperability or exhaustive scheduling evidence.
-
-The existing Auto boundary regression failed against ReActAgent e9f789c2de31afa312c01e04ec1d464efbcb441f with StructuredOutputCapabilityRoutingSpec 5eb368d7df046fafb4a3993711800a667675432a: model-failover-structured-red.log recorded 12 passing tests and one failure in 408 ms. Sequential/parallel compound failures incorrectly produced a successful synthetic result with two model calls instead of the original Cause and one call. The unchanged regression passes after narrowing fallback to the exact singleton failure shape.
+- Three grouped controlled-driver tests exercise primary HTTP retry exhaustion before target selection, repeated runtime requests, history/projection/context isolation, native/synthetic plan compatibility, excluded failures, held cleanup/cancellation and complete target failure causes. They are not live-provider interoperability or exhaustive scheduling evidence.
 
 ## Model request correlation
 
@@ -497,25 +321,16 @@ The declaration is serialized with LlmConfig but excluded from the HTTP request 
 
 ## Current acceptance
 
-- [x] The accepted runtime baseline through `06bd2e1` includes lifecycle cleanup, finalized result ordering, occurrence-based reconciliation, correlated model/tool events, strict structured JSON, and loopback HTTP completion. Git preserves the earlier reviewer approvals and exact identities.
-- [x] `review_fp` and `review_harness` approved the final five-file capability increment against `06bd2e1` on 2026-09-29 after the preset-format correction. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope.
-- [ ] Complete general model-call middleware and remaining legacy hook behavior.
-- [ ] Complete provider continuation and provider multimodal serialization, full event ordering, and event adapters.
-- [x] Review and verify before-acting suspension/restoration.
-- [x] Integrate the host-selected [complete-batch ConfirmResult adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) with restored checkpoints.
-- [x] Integrate checked external partial results with an original-ordinal completion ledger.
-- [x] Expose resumed result/event streams through the shared run/stream lifecycle.
-- [x] Independently review and verify [partial confirmations](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations); host persistence and broader middleware remain separate.
+The runtime provides scoped request/run cleanup, finalized-result ordering, occurrence-based reconciliation, correlated model/tool events and strict structured JSON. Before-acting checkpoints, partial human confirmations, checked external results and resumed streams use the contracts below; hosts retain authentication, exclusive ownership and side-effect idempotency responsibilities.
 
-The [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md) distinguishes verified contracts from remaining scenarios. General JSON Schema validation and exhaustive provider compatibility are not claimed.
+- [ ] Complete remaining applicable hook and provider behavior identified in the [parity mapping](../../../../../../../../../../docs/architecture/test-parity.md).
+- [ ] Complete remaining provider continuation, media profiles and event-production contracts; supported codecs alone do not establish runtime producers or interoperability.
 
-The [client capability table](../client/README.md) records unchanged capability identities; commit `02b4654` preserves all five identities from that increment.
+General JSON Schema validation of model-generated structured responses and exhaustive provider compatibility are not claimed. Tool argument schema admission is a separate checked boundary.
 
 ## Transformed live-model text
 
 The optional [ModelTextTransform](../client/ModelTextTransform.scala) on ChatCompletionsClient replaces visible fragments before accumulation and event publication. Native structured extraction receives that same transformed text and still enforces complete unambiguous JSON. The real HTTP fence-removal scenario closes the mapped text-replacement behavior with an explicit typed adaptation; it does not establish general model-call or post-reasoning middleware parity.
-
-- [x] `review_fp` and `review_harness` approved the final seven-file text-transformation increment against `02b4654` on 2026-09-29 after the fallback-provenance correction. No findings remain within this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope. Exact identities are in the [client README](../client/README.md); ReAct source was unchanged by this increment.
 
 ## Before-acting suspension and restoration
 
@@ -525,29 +340,13 @@ This contract supports ordinary before-acting checkpoints and saved-batch execut
 
 `ReasoningDecision.Suspend(reason)` pauses an ordinary tool-call turn after the model and hook scopes close and before inline-result processing or local execution. The returned `AgentResult` carries the complete assistant, canonical history, iteration and accumulated usage. `AgentRunState.Suspended(PendingActing)` adds data for the reason, original model context, assistant position, admitted tool definitions, group snapshot and response format; it contains no tool implementations, credentials, fibers or approval promises. Structured execution and non-tool-call suspension are rejected before the assistant is committed.
 
-`resume()` consumes the live pending batch once under the run lock, using a fresh owned scope and timeout. It processes that saved batch before another model request or post-reasoning hook, preserving the original context and occurrence identities. After checking the saved history, the runtime changes only its ReasoningStopRequested or PermissionAsking generation tag to ToolCalls; assistant content, signatures and other metadata remain intact. Inline provider results remain inline and bypass local dispatch. Local calls retain ordinary authorization and cancellation reconciliation. Resuming the final permitted iteration may finish its saved tools but makes no further model request; the limit check precedes integer increment. A fresh run rejects pending work; `resetHistory` explicitly discards history and pending state.
+`resume()` consumes the live pending batch once under the run lock, using a fresh owned scope and timeout. It processes the saved batch before another model request or post-reasoning hook, preserving original context and occurrence identities. After checking the saved history, the runtime changes only its ReasoningStopRequested or PermissionAsking generation tag to ToolCalls; assistant content, signatures and other metadata remain intact. Inline provider results remain inline and bypass local dispatch. Local calls retain ordinary authorization and cancellation reconciliation. Resuming the final permitted iteration may finish its saved tools but makes no further model request; the limit check precedes integer increment. A fresh run rejects pending work; `resetHistory` explicitly discards history and pending state.
 
 `restore(result)` accepts a checkpoint only into an empty agent. It validates the saved assistant, complete preceding tool history and iteration count against the receiving host budget, then rebuilds the admitted snapshot from trusted host tool bindings and group configuration and checks exact tool definitions. Equality is a compatibility check, not authorization. The host owns checkpoint authentication, storage, exclusive claims and side-effect idempotency; restoring data does not acquire those capabilities. The harness [complete-batch ConfirmResult adapter](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#complete-batch-checkpoint-confirmations) supports explicit restored authorization; checked external results are described below; the [partial extension](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) has final independent acceptance. Suspended child sessions reject ordinary sends and support explicit [host-only resume](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume); no model-facing resume tool is installed.
 
 Migration: `ReasoningDecision` gains `Suspend(reason)` and `AgentRunState.Suspended` becomes a data-bearing case. Exhaustive matches and persisted codecs must account for these shapes; dependent binaries must be rebuilt. The old payload-free Suspended wire value is incompatible: hosts must migrate valid checkpoint data, never fabricate a missing checkpoint. Existing keep/replace/discard behavior remains separately accepted below.
 
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the eight identities below, with no remaining findings. Full `scalafmtAll scalafmtSbt verify` passed in `acting-resume-verify.log`, with zero compiler warnings or failures; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). One checkpoint group and five runtime groups establish the bounded contracts, including actual original/restored execution and cancellation.
-
-| File | Git blob |
-| --- | --- |
-| [AgentResult.scala](AgentResult.scala) | a01e888e63c94c626c918e1e3688e6d6a683d431 |
-| [PostReasoningHook.scala](PostReasoningHook.scala) | 8aeaee152f7d7ecbfd0896acd0fc018200a8dc38 |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
-| [PendingActingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PendingActingSpec.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
-| [ReActAgentResumeSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentResumeSpec.scala) | [Current reviewed identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations) |
-| [SubagentSession.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentSession.scala) | [Current host-resume identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#host-only-session-resume) |
-| [SubagentTools.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) | [Current SubagentTools.scala identity](../tool/README.md#checked-registry-identity) |
-
-Regression evidence: `acting-resume-focused.log` reproduced extraction-induced masked acting at runtime `eb8ce2db4c836637d7e65e5c255dc78ec24783a9` with spec `88e8b60711a27a8b5d6cd302218c38a8258692ad` (six passed, four timed out); restoring interruptibility before the shared acting phase passed unchanged expectations in `acting-resume-green.log`. `acting-resume-bounds-red.log` reproduced acceptance beyond the host budget and Int.MaxValue overflow at runtime `279b921866d4a8143a55a77cc3077933cfd4b253` with spec `1a5e0f8e51f1c04715bb3a41671970994830a365` (four passed, one failed): iteration became negative and one unexpected model request occurred. Host-budget validation and the pre-increment limit check passed the unchanged regression in `acting-resume-bounds-green.log`; final tables also verify thinking-only rejection and inline metadata preservation.
-
-- [x] Integrate [supplied external results](#supplied-results-for-suspended-batches).
-- [x] Complete [partial-confirmation acceptance](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations); authenticated durable persistence remains host-owned.
+[Supplied external results](#supplied-results-for-suspended-batches) use explicit checked completion of the retained batch.
 
 ## Supplied results for suspended batches
 
@@ -558,20 +357,6 @@ Regression evidence: `acting-resume-focused.log` reproduced extraction-induced m
 New inline and supplied observations pass through the existing result processor; AwaitingApproval restoration does not replay completed processing. The admitted batch still drains before selecting the earliest original-ordinal Stop; otherwise a batch containing local calls continues to the next model request even when all their results were supplied. Cancellation joins processing cleanup, preserves every persisted supplied/local result and synthesizes Error only for unfinished local ordinals. One interrupted recovery remains the owner-cancellation contract. The runtime ledger is invocation-owned and serialized for partial checkpoints; it is not a durable exactly-once service.
 
 Migration: PendingActing appends default-empty suppliedResults, preserving old missing-field decoding; the partial extension appends a default BeforeActing stage and the event-correlation extension appends default-empty permissionRequests for a nine-field positional shape; dependent binaries must be rebuilt. No-argument resume remains available. ConfirmedBatchAuthorizer requires confirmations only for local ordinals without supplied results; partial confirmations are described in the [partial extension](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations).
-
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants at the seven identities below, with no remaining findings. Focused `supplied-results-green.log` passed 46 core tests in 601 ms and four harness tests in 451 ms. Full `scalafmtAll scalafmtSbt verify` passed in `supplied-results-verify.log`, with zero compiler warnings or failures; current totals are in the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance). One pure validation group and three runtime groups cover the new contract; the existing confirmation group verifies supplied ordinals are excluded from confirmation coverage.
-
-| File | Reviewed Git blob |
-| --- | --- |
-| [PendingActing.scala](PendingActing.scala) | [Current reviewed event identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events) |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [SuppliedToolResult.scala](SuppliedToolResult.scala) | defe9eb357ca4848b26df41dece316cfd3ec3655 |
-| [SuppliedToolResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/SuppliedToolResultSpec.scala) | b28ee0d4a35bac5fb1f35a201bd32c249de4a405 |
-| [ReActAgentSuppliedResultSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentSuppliedResultSpec.scala) | [Current ReActAgentSuppliedResultSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ConfirmedBatchAuthorizer.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizer.scala) | [Current invocation scope](#invocation-identity-and-prepared-execution); earlier unrelated behavior retained. |
-| [ConfirmedBatchAuthorizerSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/permission/ConfirmedBatchAuthorizerSpec.scala) | [Current invocation scope](#invocation-identity-and-prepared-execution); earlier unrelated behavior retained. |
-
-- [x] Complete [partial-confirmation acceptance](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#partial-checkpoint-confirmations); side-effect idempotency remains host-owned.
 
 ## Post-reasoning policy and invocation usage
 
@@ -585,33 +370,15 @@ Usage is now accumulated from returned model observations in one invocation-loca
 
 Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. The hook and builder are in-memory runtime values, not durable policy serialization. ReasoningDecision has a derived codec, but decoded replacements still pass runtime validation. This API covers replacement/removal through typed decisions; legacy mutable hooks, stop/goto-reasoning commands, and general model-call interception remain separate work.
 
-- [x] `review_fp` and `review_harness` approved the final six-file post-reasoning increment against `2a400e0` on 2026-09-29 after the legacy-usage correction. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope.
-
 ## Hook-error gate reuse
 
 The existing ReActAgentReasoningHookSpec typed-error group now runs the same agent again after its first post-reasoning hook fails. It checks the exact original typed error without an automatic retry, completed first-hook cleanup before the second invocation, then successful structured completion. Model-call and cleanup counts advance from one after the failed invocation to two after the successful invocation. The existing 20-second suite timeout bounds a leaked serialization gate. No production implementation or test group is added.
 
 This is a bounded intent adaptation of pinned ReActAgentMiddlewareIntegrationTest.serializeOnKeyGateReleasedAfterMiddlewareError (line 474): a failed host extension must not retain the same agent's serialization gate. Java's AgentStart middleware exception, Reactor subscription/cancellation, onion middleware and mutable callback APIs are not reproduced. The test does not establish arbitrary event rewriting, null/throw behavior or general middleware parity, and no production defect/RED claim is made.
 
-| Reviewed test against dcacd72 | Git blob |
-| --- | --- |
-| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | `7f78f63366f4c64bb58360348d98fd7c049edcf1` |
-
-- [x] review_fp and review_invariants approved the exact final test identity against dcacd72, with no unresolved findings.
-- [x] hook-reuse-focused.log passes all 19 tests with zero failures/ignored tests in 534 ms; no group was added.
-- [x] hook-reuse-verify.log passes all 1,522 tests (676 core / 730 harness / 86 MCP / 22 real PostgreSQL / 8 examples), zero compiler warnings/failures/ignored tests and four RC1 packages. hook-reuse-preparation.log passes exact archive/POM/license checks and reversible rejection fixtures. Production/build/consumer sources are unchanged; no new consumer API validation is claimed.
-- [x] review_fp and review_invariants approved the final six-file combined scope against dcacd72. English inspected; git diff --check and 78-document/2,942-local-reference checks pass. No unresolved findings remain in this scope.
-
 ## Current post-reasoning identities
 
-Baseline post-reasoning identities from the scope against `2a400e0`; commit `8850a60` preserves its full scope. The current hook and runtime identities belong to [before-acting suspension](#before-acting-suspension-and-restoration); unchanged error contracts remain separate.
-
-| File | Git blob |
-| --- | --- |
-| [PostReasoningHook.scala](PostReasoningHook.scala) | [Current identity](#before-acting-suspension-and-restoration) |
-| [StructuredOutput.scala](StructuredOutput.scala) | 5d6d81c944530f8ff7094733abfc21885729e456 |
-| [PostReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/PostReasoningHookSpec.scala) | 0a024cbdaf20b5a7d3be015b30a60c07118310ab |
-| [ReActAgentReasoningHookSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala) | [Current hook-reuse test identity](#hook-error-gate-reuse); source/full verification passed; final combined documentation acceptance passed; prior behavioral scope retained. |
+Source: [PostReasoningHook](PostReasoningHook.scala). Runtime coverage: [ReActAgentReasoningHookSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentReasoningHookSpec.scala).
 
 ## Local-result processing boundary
 
@@ -625,13 +392,9 @@ Tool execution can return completed typed payloads. A processor can replace thei
 
 Appending the optional make parameter preserves ordinary callers; positional Builder pattern matches must follow the current Builder constructor. Processor values are runtime dependencies, not serialized agent configuration.
 
-- [x] `review_fp` and `review_harness` approved the final eight-file local-result processing/eviction increment against `8850a60` on 2026-09-29. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope. Exact current identities are in the [tool package table](../tool/README.md). The post-reasoning ReActAgent identity is preserved in `8850a60`.
-
 ## Authorization before local execution
 
-The optional ToolAuthorizer receives [transient admitted access](../tool/README.md#admitted-tool-access), sampled from the resolved Tool.isReadOnly accessor in the same admitted Toolkit inside the suspended decision boundary. Missing tools provide None; model input cannot supply this metadata. Legacy wrappers must override the additive overload to forward it. The harness SubagentFactory wrapper forwards it through inherited denial checks; the harness explicitly installs narrowed child skill catalogues and immutable group snapshots. It runs after assistant persistence and fixed-argument preparation, before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs are denied when either reserved reasoning key occurs on that call or any Thinking block in its originating assistant message. A changed fixed-argument candidate is rejected before the authorizer runs. Non-interrupted failures and defects fail closed to Denied observations. Interrupted compound causes preserve interruption and cleanup defects; cancellation preserves completed work and reconciles unresolved calls. Provider-hosted calls bypass the local gate whether or not an inline result is present. See the [tool contracts](../tool/README.md) for argument provenance, scope ownership, failure semantics, migration, and exact current identities. The default allows calls; the harness InteractivePermissionAuthorizer provides opt-in policy/interactive confirmation. Complete-batch restored confirmation is available through the harness adapter; host durable persistence remains a host responsibility. Partial approvals have their own checkpoint contract below.
-
-- [x] `path_review` and `current_docs` approved fixed-argument authorization and compound-cause preservation with no findings; full verification passed. The [scoped fixed-argument acceptance](../tool/README.md#fixed-raw-arguments) records exact identities and evidence. Durable policy adapters remain separate.
+The optional ToolAuthorizer receives [transient admitted access](../tool/README.md#admitted-tool-access), sampled from the resolved Tool.isReadOnly accessor in the same admitted Toolkit inside the suspended decision boundary. Missing tools provide None; model input cannot supply this metadata. Legacy wrappers must override the additive overload to forward it. The harness SubagentFactory wrapper forwards it through inherited denial checks; the harness explicitly installs narrowed child skill catalogues and immutable group snapshots. It runs after assistant persistence and fixed-argument preparation, before each local tool dispatch, with a fresh request identity and originating model context. Approved input is validated and committed to its exact call occurrence; changed inputs are denied when either reserved reasoning key occurs on that call or any Thinking block in its originating assistant message. A changed fixed-argument candidate is rejected before the authorizer runs. Non-interrupted failures and defects fail closed to Denied observations. Interrupted compound causes preserve interruption and cleanup defects; cancellation preserves completed work and reconciles unresolved calls. Provider-hosted calls bypass the local gate whether or not an inline result is present. The default allows calls; the harness InteractivePermissionAuthorizer provides opt-in policy/interactive confirmation. Complete-batch restored confirmation is available through the harness adapter; host durable persistence remains a host responsibility. Partial approvals have their own checkpoint contract below.
 
 ## History preparation before model requests
 
@@ -645,17 +408,9 @@ Recovery ownership is attempt-local: Ready before preparation, PersistedAssistan
 
 Appending the optional make argument preserves ordinary callers; positional Builder matches must follow the current Builder constructor, including historyPreparer. Adding HistoryPreparationError requires exhaustive AgentError matches to handle the new leaf. Preparer values are runtime dependencies, not serialized configuration. Core remains independent of harness implementations.
 
-- [x] `review_fp` and `review_harness` approved the final nine-file history-preparation increment against `3c6958f` on 2026-09-29. No findings remain in this scope. Required formatting, fatal-warning compilation and verification passed for this reviewed scope. Acceptance covers structural rewrite validation and scoped compactor integration; semantic summary fidelity and exhaustive provider-format validation are excluded.
-
 ## Current history-preparation identities
 
-Current linked identities retain the behavioral scope against `3c6958f`; commit `2b99226` preserves the earlier nine-file scope. Changed usage callers link to their renewed acceptance; the current ReActAgent identity is recorded above.
-
-| File | Git blob |
-| --- | --- |
-| [ToolHistory.scala](../model/ToolHistory.scala) | [Current provider-ownership identity](#provider-owned-pending-calls) |
-| [ReActAgentHistoryPreparerSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) | [Current checked-usage migration identity](../model/README.md#checked-usage-arithmetic); prior behavioral scope retained. |
-| [ToolHistorySpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/model/ToolHistorySpec.scala) | [Current provider-ownership identity](#provider-owned-pending-calls) |
+[HistoryPreparer](HistoryPreparer.scala) and HistoryRewrite define checked composition; [ReActAgentHistoryPreparerSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentHistoryPreparerSpec.scala) exercises runtime commit and cleanup.
 
 ## Inline processing and failed acting phases
 
@@ -667,32 +422,15 @@ Model, hook, history-preparation, and acting races now explicitly own a scoped w
 
 Installing a non-identity processor now includes matched inline observations; the identity default preserves payload behavior. Supplied-history eviction is available through an opt-in preparer; exhaustive upstream middleware parity remains pending.
 
-- [x] `review_fp` and `review_harness` approved the final inline-processing and cancellation-cleanup scope against `2b99226` on 2026-09-29. Required checks and regressions passed for this reviewed scope. No findings remain in this scope. Supplied-history eviction is covered by a later scope; exhaustive upstream middleware parity remains pending.
-
 ## Current inline-processing identities
 
-Unchanged identities from the seven-file scope against `2b99226`; commit `cc8fa7b` preserves its complete source identities. Changed eviction identities belong to the eviction table linked below:
-
-| File | Git blob |
-| --- | --- |
-| [Msg.scala](../model/Msg.scala) | [Current identity](../json/README.md#exact-domain-and-tool-output) |
-| [ToolResultProcessor.scala](../tool/ToolResultProcessor.scala) | [Current identity](#acting-stop-decisions) |
-| [ReActAgentInlineProcessingSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentInlineProcessingSpec.scala) | [Current identity](#acting-stop-decisions) |
-| [ReActAgentToolResultProcessorSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolResultProcessorSpec.scala) | [Current ReActAgentToolResultProcessorSpec.scala identity](../tool/README.md#checked-registry-identity) |
-
-Superseded history/eviction source identities remain in `cc8fa7b`; changed identities are in the [eviction table](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/eviction/README.md).
-
-- [x] `review_fp` and `review_harness` approved the final nine-file history-eviction scope against `cc8fa7b` on 2026-09-29. Required checks and regressions passed for this reviewed scope. Two new regressions exposed and closed strict-number and Windows storage-layout gaps. No findings remain within store-backed integrity, explicit workspace trust, and validated composition; absolute storage is covered by a later scope; request-only input views are covered by a later scope. See the [eviction contract/table](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/eviction/README.md).
-
 HistoryPreparer.andThen runs stages in order within the caller's request scope. Each changed intermediate and final output is structurally validated before proceeding, so later stages cannot conceal an invalid prior rewrite. Failure/cancellation skips remaining stages and releases earlier resources. Only the complete prepared history is committed by ReAct; external stage side effects are not transactional. The eviction adapter can precede compaction to save raw payloads before pruning.
-
-Superseded model-input scope identities remain in `40f6f05`; changed identities are in the [agent model-input table](README.md).
 
 ## Request-only model history
 
 ModelInputTransform is distinct from HistoryPreparer: it returns a transient request view without canonical write authority. Existing apply(context, history) implementations remain valid; default projectRequest invokes that legacy callback once and retains the selected target's settings. ModelRequestInput contains prepared history, the selected model name, admitted tool definitions and ModelRequestSettings(temperature, maxTokens, topP, frequencyPenalty, presencePenalty, seed, stopSequences, reasoningEffort, thinkingBudget). It contains no client, credentials, endpoint or capability declarations. ModelInputProjection returns only history and settings; it cannot replace tools, the model, client or response format.
 
-ModelInputTransform.withRequest(base)(project) adds selected-request behavior to an explicit base. Standalone apply still delegates only to the legacy base. projectRequest runs the base and added callback once, validates each intermediate history/settings before the next stage, and shares the caller's scope. Runtime execution closes the projection scope before final validation, request events and client dispatch. Temperature must be finite in [0, 2]; maxTokens must be absent or positive; optional topP must be finite in [0, 1], and optional frequencyPenalty/presencePenalty must be finite in [-2, 2]. Seed is an optional signed 64-bit integer. Stop sequences are an optional checked nonempty collection preserving exact strings. Reasoning effort is an optional typed provider generation preference. Projected None clears each optional selected-target value; [reasoning-effort contract](../client/README.md#optional-reasoning-effort) owns current settings identities and arity migration. Existing HistoryRewrite rules preserve exact ordered system messages and complete occurrence-aware call/result pairs. Structural validation is not semantic fidelity or full provider grammar validation.
+ModelInputTransform.withRequest(base)(project) adds selected-request behavior to an explicit base. Standalone apply still delegates only to the legacy base. projectRequest runs the base and added callback once, validates each intermediate history/settings before the next stage, and shares the caller's scope. Runtime execution closes the projection scope before final validation, request events and client dispatch. Temperature must be finite in [0, 2]; maxTokens must be absent or positive; optional topP must be finite in [0, 1], and optional frequencyPenalty/presencePenalty must be finite in [-2, 2]. Seed is an optional signed 64-bit integer. Stop sequences are an optional checked nonempty collection preserving exact strings. Reasoning effort is an optional typed provider generation preference. Existing HistoryRewrite rules preserve exact ordered system messages and complete occurrence-aware call/result pairs. Structural validation is not semantic fidelity or full provider grammar validation.
 
 Every actual selected model attempt starts from prepared canonical history and its own configured settings, with a fresh request context. This includes explicit model failover and native/synthetic attempts. The admitted tool snapshot and active response format remain unchanged. Request-only skill projection follows validation. Built-in HTTP status retries reuse the serialized request and do not rerun projection. Projected history/settings never replace canonical history, configuration, recovery positions, usage or tool authority. Newly injected content is not automatically evicted.
 
@@ -702,19 +440,7 @@ Migration: the default projectRequest method preserves existing ModelInputTransf
 
 ## Current model-input identities
 
-| File | Git blob |
-| --- | --- |
-| [ModelInputTransform.scala](ModelInputTransform.scala) | [Current thinking-budget identity](../client/README.md#optional-thinking-budget); prior behavioral scope retained. |
-| [ReActAgent.scala](ReActAgent.scala) | [Current local-observation scope](#persisted-local-tool-observation); earlier unrelated behavior retained. |
-| [ModelInputTransformSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ModelInputTransformSpec.scala) | [Current identity](../client/README.md#optional-reasoning-effort) |
-| [ReActAgentModelInputSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentModelInputSpec.scala) | [Current penalty-scope identity](../client/README.md#optional-frequency-and-presence-penalties) |
-| [ModelFailoverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala) | [Current identity](../tool/README.md#provider-tool-schema-strictness) |
-
-- [x] `path_review` approved FP/ZIO correctness and `current_docs` approved invariants for the request-projection contract. Existing projection tables cover scoped cleanup, validated history/settings, selected-target identity and custom-client rejection. Current changed-file identities, both final reviews and verification are recorded in the [settings acceptance](../client/README.md#optional-frequency-and-presence-penalties); current aggregate totals belong to the [tracker](../../../../../../../../../../docs/architecture/tracker.md#current-acceptance).
-
 Two new unit groups cover lazy legacy composition and checked intermediate history/settings. Existing runtime tables cover invalid projection/configuration before dispatch, joined cancellation and complete cleanup causes. The failover suite uses the real completion adapter with controlled HTTP drivers to inspect serialized per-target history/settings, retry reuse, unchanged schemas/tool definitions and fixed-argument execution. It adds no new real socket server or live-provider evidence. General interception, changed tool authority and mutable Java hook APIs are outside this scope.
-
-HistoryPreparer retains its history contract; its changed current identity belongs to the [invocation scope](#invocation-identity-and-prepared-execution). ToolResultEvictorHistorySpec retains its eviction behavior; its [current construction-migration identity](../tool/README.md#checked-registry-identity) is recorded in the reviewed manifest. Current compactor and memory error identities belong to the [memory contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
 
 ## Required turn completion observation
 
@@ -730,40 +456,14 @@ Direct calls and fully consumed streams expose terminal observer failures. A con
 
 Migration: the optional constructor/builder dependency is additive, but positional Builder matches must follow the current shape. Exhaustive AgentError matches must include CompletionObservationError. Hosts explicitly install the transcript adapter; the runtime does not assign missing Msg identities. See the [transcript contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md).
 
-- [x] `review_fp` and `review_harness` approved the final eight-file completion-observer increment against `0349b1a` on 2026-09-29. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within scoped once-per-invocation observation, canonical snapshots, cause preservation, explicit transcript identity policy, and local persistence integration. Background memory scheduling, remote persistence, delivery acknowledgement, and exhaustive upstream middleware parity remain outside this scope.
-
-The current ReActAgent identity is recorded under [result-bearing streams](#result-bearing-streams); typed-result acceptance remains in the [tool contract](../tool/README.md#current-review-acceptance). Completion-observer behavior retains its separately reviewed scope.
-
 ## Current completion-observer identities
 
-Completion contracts retain their reviewed behavior; migrated fixture identities link to the current registry manifest:
-
-| File | Git blob |
-| --- | --- |
-| [ReActAgentCompletionInterruptSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionInterruptSpec.scala) | [Current ReActAgentCompletionInterruptSpec.scala identity](../tool/README.md#checked-registry-identity) |
-| [ReActAgentCompletionSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionSpec.scala) | 2b6f5f8edad11ad0023c15c5905d9d69136e908f |
-| [SessionTranscriptWriter.scala](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/SessionTranscriptWriter.scala) | [Current numeric-integrity identity](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#exact-owned-numeric-output) |
-| [TranscriptCompletionSpec.scala](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/transcript/TranscriptCompletionSpec.scala) | [Current TranscriptCompletionSpec.scala identity](../tool/README.md#checked-registry-identity) |
-
-- [x] `review_docs` approved completion-observer documentation against `0349b1a`, including exact identities, late cancellation, early-stream error visibility, explicit anonymous policy, compactor offload and remaining lifecycle work. Required verification, local Markdown links, script checks and git diff --check passed for this reviewed scope.
+[TurnCompletionObserver](TurnCompletionObserver.scala) and TurnCompletion define the terminal observation contract. [ReActAgentCompletionInterruptSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/ReActAgentCompletionInterruptSpec.scala) covers cancellation, cleanup causes and abandoned delivery.
 
 ## Completion observer composition
 
 TurnCompletionObserver.andThen lazily composes two observations in separate scopes. The first scope closes before the second starts; typed failure, defects and interruption skip the successor and preserve their causes. Composition remains subject to the run-lock and completion-observation cancellation rules above. Composing background scheduler observers orders admission, not task dependencies after queue coalescing; see the [memory scheduling contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).
 
-Previous TurnCompletionObserver.scala and TurnCompletionObserverSpec.scala identities are preserved in `3e817e3`. Their current identities belong to the consolidation/composition increment below.
-
 ## Current consolidation/composition identities
 
-Final formatted increment against `3e817e3`; independent acceptance is recorded below.
-
-| Source | Git blob |
-| --- | --- |
-| [TurnCompletionObserver.scala](TurnCompletionObserver.scala) | [Current invocation scope](#invocation-identity-and-prepared-execution); earlier unrelated behavior retained. |
-| [TurnCompletionObserverSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/core/agent/TurnCompletionObserverSpec.scala) | 8a0a1031e7e8abf00c529a6bfe1b2b62d53dd0d1 |
-
-- [x] `review_fp` and `review_harness` approved the final seven-file consolidation/composition increment against `3e817e3` on 2026-09-29 after correcting nested test-scope ownership. Required `sbt scalafmtAll scalafmtSbt verify` passed with zero compiler warnings for this reviewed scope. No findings remain within separately scoped observer composition, owned consolidation/result reporting, eight local throttle integration combinations, FIFO replacement and post-commit cancellation/failure. Retention, remote authority, strict cross-job dependencies and transactional reporting are excluded.
-
-- [x] `review_docs` approved the corrected consolidation/composition documentation against `3e817e3`: exact identities, scoped composition, reporting limits, FIFO ordering and conservative parity classifications. Required verification, local Markdown links, script checks and git diff --check passed for this reviewed scope.
-
-Current AgentError identity is recorded in [acting-stop decisions](#acting-stop-decisions); lineage errors retain their scoped [subagent contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#current-lineage-identities).
+The harness [memory scheduling contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md) describes owned background consolidation and reporting. Observer composition orders admission; it does not establish transactional dependencies between background jobs.
