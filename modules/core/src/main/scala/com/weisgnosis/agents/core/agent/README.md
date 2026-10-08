@@ -1,5 +1,14 @@
 # ReAct execution and structured output
 
+## Atomic runtime snapshots
+
+[AgentSnapshot](AgentSnapshot.scala) represents either `Idle(history)` or `Suspended(AgentResult)`. `ReActAgent.snapshot` reads history and pending acting state under the existing run lock; a separate history read cannot establish whether the runtime is suspended. `restoreSnapshot` accepts data only into an empty runtime. Idle history must have complete local call/result pairing, and suspended data uses the existing checked checkpoint restoration path and current executable bindings. Neither accessor starts model/tool execution or imports saved configuration/authority.
+
+The enum has a derived JSON codec, but decoding alone does not validate runtime restoration. Hosts must call checked restoration, hold exclusive runtime ownership and retain their current authorization. The harness [persistent named sessions](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persistent-named-sessions) uses the atomic accessor after joined commands and handles persistence uncertainty separately.
+
+
+Snapshot operations acquire the run lock and must not be called reentrantly from an observer executing inside that same run. Historical inline provider previews are retained; incomplete local calls and local Running observations are rejected in idle snapshots.
+
 ## Persisted local tool observation
 
 [LocalToolResultObserver](LocalToolResultObserver.scala) is a trailing optional dependency of ReActAgent.make and Builder.localToolResultObserver, with an ignore default. When installed, its observation is required rather than best effort. PersistedLocalToolObservation contains the ModelStreamContext, actual approved ToolUse, original occurrence ordinal, original completed ToolResult, final processed ToolResult and canonical history returned atomically by the final persistence operation. Rewritten authorization inputs therefore retain the exact dispatched identity even when tool IDs repeat.

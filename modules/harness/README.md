@@ -13,7 +13,7 @@ Use [Getting started](../../docs/getting-started.md) for compiled applications a
 | [storage](src/main/scala/com/weisgnosis/agents/harness/storage/README.md) | Versioned JSON publication, local files, acting checkpoints, and cooperative workspace leases |
 | [eviction](src/main/scala/com/weisgnosis/agents/harness/eviction/README.md) | Large-result offloading and bounded previews |
 | [permission](src/main/scala/com/weisgnosis/agents/harness/permission/README.md) | Decision composition, Promise-based approval, and serializable confirmation data |
-| [subagent](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) | Configured children, reusable host-held sessions, task tools, durable observations, and host-driven controls |
+| [subagent](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) | Configured children, persistent named sessions, task tools, durable observations, and host-driven controls |
 | [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) | Explicit Plan-mode tool admission, command screening, and draft storage |
 | [skill](src/main/scala/com/weisgnosis/agents/harness/skill/README.md) | Bounded skill parsing and explicitly trusted local resources |
 
@@ -29,7 +29,7 @@ Durable task records preserve observations, metadata, cancellation intent, and a
 
 Local persistence requires WorkspaceTrust.HostControlled and screened ancestors. Cooperative leases are not a hostile-filesystem sandbox or stale-owner takeover mechanism. Local result publication requires hard-link support; atomic replacement backends require atomic-move support. Local task discovery reads the explicitly owned layout without taking competing writer leases; it is not an atomic global snapshot. See [storage ownership](src/main/scala/com/weisgnosis/agents/harness/storage/README.md).
 
-Daily extraction writes daily memory; consolidation alone writes curated memory within its budget. Hosts provide offload readers and authenticated approval routing. Broader durable workflow, persistent named-session reuse, and backend/platform obligations remain in the [tracker](../../docs/architecture/tracker.md).
+Daily extraction writes daily memory; consolidation alone writes curated memory within its budget. Hosts provide offload readers and authenticated approval routing. [Persistent named sessions](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persistent-named-sessions) restore checked data through fresh factories under host-exclusive claims. Broader durable workflow and backend/platform obligations remain in the [tracker](../../docs/architecture/tracker.md).
 
 ## Testing
 

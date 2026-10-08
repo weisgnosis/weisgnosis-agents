@@ -86,6 +86,13 @@ enum SubagentCatalogToolResult derives JsonCodec:
   case Missing(agentId: String)
   case Failed(agentId: String, message: SubagentToolText)
 
+/** Stable host registration selection; execution IDs remain per-command observations. */
+final case class SubagentNamedToolResult(
+    agentId: String,
+    label: String,
+    result: SubagentToolResult
+) derives JsonCodec
+
 /** Opt-in controls bound to trusted host capabilities and their configured child factories. */
 object SubagentTools:
   val MaximumTextCharacters: Int = 4000
@@ -174,6 +181,73 @@ object SubagentTools:
 
   def forSession(session: SubagentSession, policy: SubagentExecutionPolicy): Toolkit =
     controls(session.executions, Invocation.Send, policy)
+
+  /** Both commands select the same persistent registration; neither implicitly resumes a checkpoint. */
+  def forNamedSessions(
+      sessions: SubagentNamedSessions,
+      policy: SubagentExecutionPolicy = SubagentExecutionPolicy.PromoteAfter30Seconds
+  ): Toolkit =
+    val spawn = namedSessionTool(
+      sessions,
+      "agent_spawn",
+      "Open or reuse the named child and send a prompt.",
+      policy
+    )
+    val send = namedSessionTool(
+      sessions,
+      "agent_send",
+      "Send a prompt to the same persistent named child.",
+      policy
+    )
+    Toolkit.single(spawn).updated(send)
+
+  final private case class NamedInput(agentId: String, label: String, prompt: String)
+
+  private def namedSessionTool(
+      sessions: SubagentNamedSessions,
+      name: String,
+      description: String,
+      policy: SubagentExecutionPolicy
+  ): Tool[Any, NamedInput, SubagentNamedToolResult] =
+    invocationTool[NamedInput, SubagentNamedToolResult](
+      definition(
+        name,
+        description + " " + waitDescription(policy),
+        Chunk("agent_id", "label", "prompt"),
+        Access.Control
+      ),
+      raw =>
+        raw match
+          case Json.Obj(fields)
+              if fields.size == 3 && fields.map(_._1).toSet == Set("agent_id", "label", "prompt") =>
+            def text(field: String): Either[String, String] =
+              fields.find(_._1 == field) match
+                case Some((_, Json.Str(value))) => Right(value)
+                case _                          => Left(s"$field must be a string")
+            for
+              agent  <- text("agent_id")
+              label  <- text("label")
+              prompt <- text("prompt")
+              _ <- SubagentNamedSessionKey
+                .from(sessions.parentSessionId, agent, label)
+                .left
+                .map(_.message)
+            yield NamedInput(agent, label, prompt)
+          case _ => Left("Expected exactly agent_id, label and prompt string fields")
+    )((input, invocation) =>
+      sessions
+        .getOrOpen(input.agentId, input.label)
+        .flatMap(session =>
+          submit(session.executions, input.prompt, eventPort(invocation), policy).flatMap(
+            observation =>
+              observedOutput[SubagentNamedToolResult](
+                name,
+                observation,
+                result => SubagentNamedToolResult(input.agentId, input.label, result)
+              ).map(_._2)
+          )
+        )
+    )
 
   /** Select fresh children only from this fixed host catalog; task operations keep that selection. */
   def forCatalog(catalog: SubagentCatalog): Toolkit =

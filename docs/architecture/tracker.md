@@ -19,12 +19,11 @@ These implemented capabilities have existing public API/spec evidence. Checked a
 - [x] Deliver pending durable observations oldest dated first, with undated records last, stable publication ties and unchanged raw records/ACK stamps. See [delivery ordering](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-terminal-acknowledgement).
 - [x] Build local artifacts and consume selected APIs from a separate project. See the [artifact consumer](../../verification/artifact-consumer/README.md); remote publication remains open.
 
+- [x] Reopen persistent named sessions by exact parent/agent/label through current factories and host-owned exclusive claims. Preserve idle history or checked suspension without replay; serialize snapshot/CAS save and reject further execution after uncertain persistence. See [persistent named sessions](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persistent-named-sessions).
+
 ## Remaining library completion work
 
 Check an outcome only after its expected result, relevant review and verification exist. New scope requires a promised behavior, reproduced defect or explicit user request. No percentage or calendar forecast is inferred from the item count.
-
-- [ ] **Persistent named sessions:** spawn/send by checked parent/agent/label identity, close and reopen idle history or a validated suspended checkpoint through a fresh trusted factory, with no premature model/tool replay. Retained sessions and explicit checkpoint import are prerequisites, not completion. See [session obligations](test-parity.md#remaining-original-library-obligations-source-inventory).
-
 
 - [ ] **A useful runnable task:** document a complete application using a real selected model and host-supplied or MCP file tools against a disposable fixture. Verify actual tool effects/file bytes, Completed state and cleanup; model claims alone are insufficient. A bundled unrestricted shell/file toolkit is not silently added to library scope.
 - [ ] **Remaining runtime/provider obligations:** finish the finite disposition of promised event/hook, permission/declaration, metadata, reasoning/media and selected upstream-delta behavior. Link executable evidence, implement actual gaps or justify API/host adaptations. See [original scope](test-parity.md#original-plan-disposition), [subagents](test-parity.md#subagent-supervision-inventory) and [upstream delta](test-parity.md#upstream-delta-checked-on-2026-10-08). The latest upstream check found 33 commits beyond the pin, including six newly fetched commits and a substantial Harness/session redesign whose relevant behavior still needs classification. Java declaration totals are not a criterion.
@@ -35,7 +34,7 @@ Check an outcome only after its expected result, relevant review and verificatio
 
 ## Immediate next work
 
-Current implementation task: persistent named-session restoration. Provider Running preview completion is corrected and verified; it does not add a Responses adapter or provider-stream replacement accumulator. The process rules and primary documentation now use outcome-based delivery; package-level legacy journal cleanup remains part of release usability. The named-session draft is being completed in C:/workspace/weisgnosis-agents-session and is neither compiled, reviewed nor accepted. The delivery worktree C:/workspace/weisgnosis-agents-delivery contains no accepted implementation. Preserve drafts; their existence does not close a checklist outcome.
+Current implementation task: the useful runnable file task. Named-session restoration has passed independent FP/ZIO/invariant reviews, full verification including actual PostgreSQL, packaging/archive checks and a fresh external-consumer build. Its imported main-worktree implementation supersedes the isolated draft. The delivery worktree contains the next opt-in file-task example, awaiting executable verification and final review. Remaining upstream dispositions and legacy documentation cleanup stay open.
 
 ## Verification
 
@@ -53,4 +52,4 @@ Hosts supply authentication, approval delivery, exclusive durable execution clai
 
 ## Current acceptance
 
-Implemented capabilities are listed above; remaining outcomes are not accepted merely because component tests pass. The named-session draft remains unaccepted; active implementation and review proceed against the remaining outcomes. No public distribution or frozen binary API is claimed. Report each delivery's actual review/verification in its PR/task conversation without a package-hash journal.
+Implemented capabilities are listed above; remaining outcomes are not accepted merely because component tests pass. Active implementation and review proceed against the remaining outcomes. No public distribution or frozen binary API is claimed. Report each delivery's actual review/verification in its PR/task conversation without a package-hash journal.

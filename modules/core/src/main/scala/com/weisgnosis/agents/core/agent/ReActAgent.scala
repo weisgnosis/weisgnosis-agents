@@ -78,6 +78,42 @@ final class ReActAgent private (
 
   def history: UIO[Chunk[Msg]] = stateRef.get
 
+  /** Reads history and pending acting state under the same execution lock. */
+  def snapshot: UIO[AgentSnapshot] = runLock.withPermit:
+    pendingRef.get.flatMap:
+      case Some(result) => ZIO.succeed(AgentSnapshot.Suspended(result))
+      case None         => stateRef.get.map(AgentSnapshot.Idle(_))
+
+  /** Restore data only into an empty runtime, retaining the current host's executable policy. */
+  def restoreSnapshot(snapshot: AgentSnapshot): IO[AgentError, Unit] = snapshot match
+    case AgentSnapshot.Suspended(result) => restore(result)
+    case AgentSnapshot.Idle(history) =>
+      runLock.withPermit:
+        ZIO.uninterruptible:
+          for
+            current <- stateRef.get
+            pending <- pendingRef.get
+            _ <- ZIO
+              .fail(AgentError.InvalidConfiguration("Restoration requires an empty agent"))
+              .unless(current.isEmpty && pending.isEmpty)
+            _ <- ZIO.foreachDiscard(history)(message =>
+              ZIO.fromEither(message.withContent(message.content))
+            )
+            _ <- ZIO
+              .fail(
+                AgentError.InvalidConfiguration(
+                  "Idle restoration requires complete local tool history"
+                )
+              )
+              .unless(
+                ToolHistory.inspect(history).isComplete && !history
+                  .filter(_.role == Role.Tool)
+                  .flatMap(_.toolResults)
+                  .exists(_.state == ToolResultState.Running)
+              )
+            _ <- stateRef.set(history)
+          yield ()
+
   /** Explicitly discards both conversation history and any unexecuted suspended batch. */
   def resetHistory: UIO[Unit] =
     runLock.withPermit(ZIO.uninterruptible(pendingRef.set(None) *> stateRef.set(Chunk.empty)))

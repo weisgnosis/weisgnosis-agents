@@ -113,6 +113,13 @@ final class SubagentFactory private (
       )
     yield runtime
 
+  /** A fresh host runtime with checked idle/suspended data, never restored executable bindings. */
+  def build(
+      child: SubagentSpawner[AgentResult],
+      snapshot: com.weisgnosis.agents.core.agent.AgentSnapshot
+  ): ZIO[Scope, AgentError, ReActAgent] =
+    build(child).tap(_.restoreSnapshot(snapshot))
+
   def spawn(
       parent: SubagentSpawner[AgentResult],
       input: Msg
