@@ -25,6 +25,8 @@ These implemented capabilities have existing public API/spec evidence. Checked a
 
 - [x] Explicitly compact a bounded immutable transcript chain to one visible segment without changing entries or overwriting concurrent appends. Preserve uncertainty/cancellation and retain old segments; see [compaction](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments). Safe reclamation, pruning and migration remain separate.
 
+- [x] Parse typed subagent mode/visibility, carry policy into checked entries, reject PRIMARY before child allocation and keep Hidden explicitly selectable while suppressing advertisement. See [declaration eligibility](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#declaration-eligibility-and-visibility).
+
 ## Remaining library completion work
 
 Check an outcome only after its expected result, relevant review and verification exist. New scope requires a promised behavior, reproduced defect or explicit user request. No percentage or calendar forecast is inferred from the item count.
@@ -37,7 +39,7 @@ Check an outcome only after its expected result, relevant review and verificatio
 
 ## Immediate next work
 
-Current implementation task: typed subagent declaration mode/visibility, preserving upstream defaults, hiding selected entries from model advertisement and refusing PRIMARY child execution before factory allocation. Named-session restoration and the model-driven file task are verified within their documented scopes. Other runtime/provider dispositions, remote adapters, platform/live profiles and release usability/delivery remain open.
+Current implementation task: prepared invocation lifecycle and controls, with cancellation before execution, authoritative termination observation, per-invocation interruption and one-shot prepared streaming. Declaration mode/visibility, persistent named-session restoration, transcript compaction and the model-driven file task are verified within their documented scopes. Other runtime/provider dispositions, remote adapters, platform/live profiles and release usability/delivery remain open.
 
 ## Verification
 

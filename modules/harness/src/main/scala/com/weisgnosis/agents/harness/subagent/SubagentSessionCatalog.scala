@@ -55,7 +55,7 @@ object SubagentSessionCatalog:
       parent.ownContext(context =>
         (for
           directory <- SubagentSessionDirectory.index(maxSessions)
-          identities <- ZIO.foreach(entries)(entry =>
+          identities <- ZIO.foreach(entries.filter(_.spawnable))(entry =>
             SubagentSession
               .openRetained(context, entry.factory, maxTrackedPerSession, entry.terminalBinding)
               .flatMap:

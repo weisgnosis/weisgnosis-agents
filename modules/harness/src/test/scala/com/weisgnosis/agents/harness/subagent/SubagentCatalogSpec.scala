@@ -22,12 +22,23 @@ import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultStat
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolExecutionResult, Toolkit}
 import com.weisgnosis.agents.harness.permission.*
 import com.weisgnosis.agents.harness.plan.*
+import com.weisgnosis.agents.harness.storage.StorageAddress
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
 object SubagentCatalogSpec extends ZIOSpecDefault:
+  private enum Selection:
+    case Catalog, SessionCatalog, Named
+
+  private def accepted[A](
+      effect: ZIO[Scope, AgentError, TaskResourceAdmission[A]]
+  ): ZIO[Scope, AgentError, A] = effect.flatMap:
+    case TaskResourceAdmission.Accepted(resource) => ZIO.succeed(resource.value)
+    case TaskResourceAdmission.Closed =>
+      ZIO.fail(AgentError.InvalidConfiguration("Fixture owner closed"))
+
   private def entry(
       parent: SubagentSpawner[AgentResult],
       name: String,
@@ -95,6 +106,110 @@ object SubagentCatalogSpec extends ZIOSpecDefault:
             ZIO.fail(AgentError.InvalidConfiguration("Closed test owner"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentCatalogSpec")(
+    test(
+      "declaration eligibility precedes allocation while hidden children remain explicitly selectable"
+    ):
+      for checks <- ZIO.foreach(
+          Chunk(Selection.Catalog, Selection.SessionCatalog, Selection.Named)
+        )(selection =>
+          ZIO.scoped:
+            for
+              supervisor <- TaskSupervisor.open[AgentResult]
+              parent     <- SubagentSpawner.root(supervisor)
+              builds     <- Ref.make(Chunk.empty[String])
+              claims     <- Ref.make(0)
+              client = (name: String) =>
+                builds
+                  .update(_ :+ name)
+                  .as(
+                    LlmClient.mockFunction((_, _) => TurnOutput.FinalText(Msg.assistant("done")))
+                  )
+              declared <- ZIO.foreach(
+                Chunk(
+                  ("primary", "mode: primary"),
+                  ("secret", "hidden: true"),
+                  ("worker", "mode: subagent")
+                )
+              ): (name, fields) =>
+                for
+                  declaration <- SubagentDeclarationParser.parse(
+                    name,
+                    s"---\ndescription: Tasks\n$fields\n---\nBody"
+                  )
+                  configured <- entry(parent, name, client(name))
+                  registered <- ZIO.fromEither(
+                    SubagentEntry.fromDeclaration(declaration, configured.factory)
+                  )
+                yield registered
+              plain <- entry(parent, "plain", client("plain"))
+              entries = declared :+ plain
+              installed <- selection match
+                case Selection.Catalog =>
+                  SubagentCatalog
+                    .open(parent, entries)
+                    .map(catalog =>
+                      (SubagentTools.forCatalog(catalog), catalog.lookup("primary").isEmpty)
+                    )
+                case Selection.SessionCatalog =>
+                  accepted(SubagentSessionCatalog.open(parent, entries)).flatMap(catalog =>
+                    catalog
+                      .lookup("primary")
+                      .map(value => (SubagentTools.forSessionCatalog(catalog), value.isEmpty))
+                  )
+                case Selection.Named =>
+                  for
+                    backend <- SubagentTerminalStoreSpec.fixture
+                    store <- ZIO.fromEither(
+                      SubagentNamedSessionStore.make(backend.store, Chunk("mode-test"))
+                    )
+                    authority = new SubagentNamedSessions.Authority:
+                      def acquire(
+                          key: SubagentNamedSessionKey,
+                          address: StorageAddress
+                      ): ZIO[Scope, AgentError, Unit] = claims.update(_ + 1)
+                    sessions <- accepted(
+                      SubagentNamedSessions.open(parent, "parent", entries, store, authority)
+                    )
+                    refused <- sessions.getOrOpen("primary", "same").either
+                  yield (SubagentTools.forNamedSessions(sessions), refused.isLeft)
+              (tools, unallocated) = installed
+              before <- builds.get
+              input = (name: String) =>
+                selection match
+                  case Selection.Named =>
+                    Json.Obj(
+                      "agent_id" -> Json.Str(name),
+                      "label"    -> Json.Str("same"),
+                      "prompt"   -> Json.Str("work")
+                    )
+                  case _ => spawn(name, "work")
+              invoke = selection match
+                case Selection.SessionCatalog => "agent_send"
+                case _                        => "agent_spawn"
+              rejected       <- tools.executeSafe(invoke, input("primary"))
+              afterReject    <- builds.get
+              rejectedClaims <- claims.get
+              outputs <- ZIO.foreach(Chunk("secret", "worker", "plain"))(name =>
+                tools.executeSafe(invoke, input(name))
+              )
+              built <- builds.get
+              descriptions = tools.definitions.map(_.description).mkString("\n")
+            yield assertTrue(
+              rejected.state == ToolResultState.Error,
+              unallocated,
+              rejected.output.contains("PRIMARY-only"),
+              before == afterReject,
+              rejectedClaims == 0,
+              outputs.forall(_.state == ToolResultState.Success),
+              built.sorted == Chunk("plain", "secret", "worker"),
+              descriptions.contains("worker: Tasks"),
+              descriptions.contains("plain: Tasks for plain"),
+              !descriptions.contains("secret: Tasks"),
+              !descriptions.contains("primary: Tasks")
+            )
+        )
+      yield checks.foldLeft(assertTrue(true))(_ && _)
+    ,
     test(
       "a parent selects declared children with fresh histories and the final inherited boundary"
     ) {

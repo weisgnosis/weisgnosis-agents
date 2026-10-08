@@ -45,6 +45,9 @@ final class SubagentNamedSessions private (
         entry <- ZIO
           .fromOption(entries.find(_.name == agentId))
           .orElseFail(AgentError.InvalidConfiguration("Unknown named session agent"))
+        _ <- ZIO
+          .fail(AgentError.InvalidConfiguration("PRIMARY-only agent cannot be spawned"))
+          .unless(entry.spawnable)
         admission <- state.modifyZIO:
           case State.Closed(_) => ZIO.fail(closed)
           case current @ State.Open(values) =>

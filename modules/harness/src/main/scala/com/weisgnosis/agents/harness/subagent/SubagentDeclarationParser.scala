@@ -59,7 +59,9 @@ object SubagentDeclarationParser:
       "tools",
       "skills",
       "steps",
-      "maxIters"
+      "maxIters",
+      "mode",
+      "hidden"
     )
 
   def parse(
@@ -223,6 +225,19 @@ object SubagentDeclarationParser:
       topP  <- optional(scalar(values, "top_p").orElse(scalar(values, "topP")), decimal(_, "topP"))
       steps <- optional(scalar(values, "steps"), integer)
       maxIters <- optional(scalar(values, "maxIters"), integer)
+      visibility <- values.get("hidden") match
+        case None => Right(SubagentVisibility.Visible)
+        case Some(Value.Scalar(Some(value))) =>
+          value.trim.toLowerCase(java.util.Locale.ROOT) match
+            case "false" => Right(SubagentVisibility.Visible)
+            case "true"  => Right(SubagentVisibility.Hidden)
+            case _       => Left(invalid("hidden must be true or false"))
+        case _ => Left(invalid("hidden must be true or false"))
+      // Unknown names inherit ALL, matching upstream declaration-loader compatibility.
+      mode = scalar(values, "mode").map(_.trim.toLowerCase(java.util.Locale.ROOT)) match
+        case Some("primary")  => SubagentMode.Primary
+        case Some("subagent") => SubagentMode.Subagent
+        case _                => SubagentMode.All
       declaration <- SubagentDeclaration(
         name,
         description,
@@ -236,6 +251,8 @@ object SubagentDeclarationParser:
         skills.fold[SubagentSkillSelection](SubagentSkillSelection.AllAvailable)(
           SubagentSkillSelection.Only(_)
         ),
-        topP
+        topP,
+        mode,
+        visibility
       ).validated
     yield declaration

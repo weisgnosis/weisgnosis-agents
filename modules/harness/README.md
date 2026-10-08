@@ -19,6 +19,8 @@ Use [Getting started](../../docs/getting-started.md) for compiled applications a
 
 The [shared task-file route](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#shared-task-files) exposes exact bytes through a host-supplied backend with checked owner/agent/session partitioning. It provides no local fallback or general filesystem.
 
+[Declaration mode and visibility](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#declaration-eligibility-and-visibility) govern child eligibility and model advertisement independently. Carry that metadata through checked SubagentEntry.fromDeclaration; a raw factory remains a trusted host capability.
+
 For subagents, construct trusted factories and retain the returned scopes/resources. [SubagentSession](src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentSession.scala) reuses one runtime; catalog and directory adapters select host-installed capabilities. [SubagentTools](src/main/scala/com/weisgnosis/agents/harness/subagent/SubagentTools.scala) supplies optional model-facing tools. Durable storage and post-persistence consumption are separate explicit bindings; ordinary observational tools do not silently acknowledge results.
 
 ## Ownership and limits

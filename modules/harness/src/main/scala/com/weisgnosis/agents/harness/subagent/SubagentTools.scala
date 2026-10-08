@@ -212,7 +212,11 @@ object SubagentTools:
     invocationTool[NamedInput, SubagentNamedToolResult](
       definition(
         name,
-        description + " " + waitDescription(policy),
+        description + " " + waitDescription(policy) + "\nAvailable agents:\n" +
+          sessions.entries
+            .filter(_.advertised)
+            .map(entry => s"${entry.name}: ${entry.description}")
+            .mkString("\n"),
         Chunk("agent_id", "label", "prompt"),
         Access.Control
       ),
@@ -641,7 +645,10 @@ object SubagentTools:
       ]]
   ): Tool[Any, CatalogInput[In], SubagentCatalogToolResult] =
     val available =
-      entries.map(entry => s"${entry.name}: ${entry.description}").mkString("\n")
+      entries
+        .filter(_.advertised)
+        .map(entry => s"${entry.name}: ${entry.description}")
+        .mkString("\n")
     invocationTool[CatalogInput[In], SubagentCatalogToolResult](
       definition(
         name,
@@ -655,7 +662,9 @@ object SubagentTools:
     )((input, invocation) =>
       val missing: SubagentCatalogToolResult = SubagentCatalogToolResult.Missing(input.agentId)
       val resolve =
-        lookup(input.agentId).someOrFail(AgentError.ToolExecutionError(name, missing.toJson))
+        if entries.exists(entry => entry.name == input.agentId && !entry.spawnable) then
+          ZIO.fail(AgentError.ToolExecutionError(name, "PRIMARY-only agent cannot be spawned"))
+        else lookup(input.agentId).someOrFail(AgentError.ToolExecutionError(name, missing.toJson))
       def read(
           target: SubagentTaskRegistry
       ): IO[AgentError, (SubagentToolResult, SubagentCatalogToolResult)] =

@@ -22,6 +22,14 @@ import com.weisgnosis.agents.core.tool.Toolkit
 import zio.*
 import zio.json.*
 
+/** Child eligibility is independent of model-facing visibility. */
+enum SubagentMode derives JsonCodec:
+  case All, Primary, Subagent
+
+/** Hidden registrations remain explicitly selectable by their trusted registered name. */
+enum SubagentVisibility derives JsonCodec:
+  case Visible, Hidden
+
 /**
  * Inline, local child configuration. Omitted overrides inherit host configuration; endpoints,
  * credentials and live capabilities are not declaration data. The derived codec describes data,
@@ -36,7 +44,9 @@ final case class SubagentDeclaration(
     temperature: Option[Double] = None,
     maxIterations: Option[Int] = None,
     skills: SubagentSkillSelection = SubagentSkillSelection.AllAvailable,
-    topP: Option[Double] = None
+    topP: Option[Double] = None,
+    mode: SubagentMode = SubagentMode.All,
+    visibility: SubagentVisibility = SubagentVisibility.Visible
 ) derives JsonCodec:
   def validated: Either[AgentError, SubagentDeclaration] =
     val validTools = tools match

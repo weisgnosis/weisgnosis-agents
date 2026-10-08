@@ -24,11 +24,34 @@ final case class SubagentEntry(
     name: String,
     description: String,
     factory: SubagentFactory,
-    terminalBinding: Option[SubagentTerminalBinding] = None
-)
+    terminalBinding: Option[SubagentTerminalBinding] = None,
+    mode: SubagentMode = SubagentMode.All,
+    visibility: SubagentVisibility = SubagentVisibility.Visible
+):
+  def spawnable: Boolean = mode != SubagentMode.Primary
+
+  def advertised: Boolean = spawnable && visibility == SubagentVisibility.Visible
+
+object SubagentEntry:
+  /** Explicitly carry declaration policy; direct host factory use remains unrestricted. */
+  def fromDeclaration(
+      declaration: SubagentDeclaration,
+      factory: SubagentFactory,
+      terminalBinding: Option[SubagentTerminalBinding] = None
+  ): Either[AgentError, SubagentEntry] =
+    declaration.validated.map(valid =>
+      SubagentEntry(
+        valid.name,
+        valid.description,
+        factory,
+        terminalBinding,
+        valid.mode,
+        valid.visibility
+      )
+    )
 
 /**
- * Immutable, finite host catalog. Every entry owns an existing scoped registry under one fixed
+ * Immutable, finite host catalog. Every spawnable entry owns a scoped registry under one fixed
  * parent; task capacity is per entry, including retained completed records. Closing the acquiring
  * Scope closes those registries in parallel and joins their work. No separate lifecycle, session reuse or
  * dynamic replacement is introduced. Host callbacks must not close their own enclosing Scope.
@@ -49,7 +72,7 @@ object SubagentCatalog:
     for
       _ <- ZIO.fromEither(validate(entries, maxTrackedPerAgent))
       registries <- ZIO
-        .foreach(entries)(entry =>
+        .foreach(entries.filter(_.spawnable))(entry =>
           val acquired = entry.terminalBinding match
             case None => SubagentTaskRegistry.open(parent, entry.factory, maxTrackedPerAgent)
             case Some(binding) =>
