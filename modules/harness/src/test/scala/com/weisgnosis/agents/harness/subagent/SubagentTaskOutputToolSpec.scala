@@ -32,6 +32,7 @@ import com.weisgnosis.agents.core.tool.{
 }
 import com.weisgnosis.agents.harness.storage.*
 import com.weisgnosis.agents.harness.eviction.{StoredToolResult, ToolResultEvictor, ToolResultStore}
+import java.time.Instant
 import java.util.UUID
 import java.nio.charset.StandardCharsets
 import zio.*
@@ -62,7 +63,8 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
     case Stored, Failed
 
   private enum Consumption:
-    case Exact, MetadataOnly, Redacted, Offloaded, PriorFailure, Uncertain, CapacityFits, Capacity
+    case Exact, MetadataOnly, TimestampChanged, Redacted, Offloaded, PriorFailure, Uncertain,
+      CapacityFits, Capacity
 
   private def accepted(
       effect: ZIO[Scope, AgentError, SubagentTaskSubmission]
@@ -81,10 +83,11 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
         finish     <- Promise.make[Nothing, Unit]
         reply = AgentResult(Msg.assistant("joined output"), Chunk.empty, 1)
         owner <- SubagentTaskRegistry.openWith(
-          (_, _, _) => supervisor.attach(finish.await.as(reply)),
+          (_, _, _) => TestClock.adjust(2.seconds) *> supervisor.attach(finish.await.as(reply)),
           4
         )
-        taskId <- accepted(owner.submit(Msg.user("work")))
+        createdAt <- Clock.instant
+        taskId    <- accepted(owner.submit(Msg.user("work")))
         tools = Toolkit.single(SubagentTaskOutputTool.make(owner))
         request = mode match
           case WaitCase.Default  => input(taskId)
@@ -105,8 +108,11 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
               output <- waiting.join
             yield (output, early.isEmpty)
           case _ => tools.executeSafe("task_output", request).map((_, true))
-        (output, bounded)                  = observed
-        expected: SubagentTaskOutputResult = SubagentTaskOutputResult.Running(taskId.value.toString)
+        (output, bounded) = observed
+        expected: SubagentTaskOutputResult = SubagentTaskOutputResult.Running(
+          taskId.value.toString,
+          Some(createdAt)
+        )
         stillRunning <- owner.inspect(taskId)
         ownershipChecks <-
           if mode == WaitCase.Default then
@@ -134,13 +140,26 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
         _     <- finish.succeed(())
         _     <- owner.await(taskId)
         ready <- tools.executeSafe("task_output", input(taskId, "timeout" -> Json.Num(0)))
+        retained <-
+          if mode == WaitCase.Default then
+            for
+              selection <- ZIO.fromEither(SubagentTaskSelection.selected(Chunk(taskId)))
+              captured  <- owner.captureWait(selection)
+              removed   <- owner.forgetCompleted(taskId)
+              metadata  <- ZIO.foreach(captured)(_.checkedMetadata)
+            yield removed == SubagentTaskRemoval.Removed && metadata.forall(
+              _.exists(_.createdAt == createdAt)
+            )
+          else ZIO.succeed(true)
         readyExpected: SubagentTaskOutputResult = SubagentTaskOutputResult.Terminal(
           taskId.value.toString,
           None,
-          SubagentTerminalOutcome.Completed("joined output")
+          SubagentTerminalOutcome.Completed("joined output"),
+          Some(createdAt)
         )
       yield assertTrue(
         bounded,
+        retained,
         output.state == ToolResultState.Success,
         output.output == expected.toJson,
         stillRunning.contains(SubagentTaskSnapshot(taskId, SubagentTaskState.Running)),
@@ -159,34 +178,50 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
         readEntered  <- Promise.make[Nothing, Unit]
         releaseRead  <- Promise.make[Nothing, Unit]
         heldRead     <- Ref.make(false)
+        writes       <- Ref.make(0)
         held = new VersionedJsonStore:
           def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
-            heldRead.get.flatMap(enabled =>
-              if enabled then readEntered.succeed(()) *> releaseRead.await else ZIO.unit
-            ) *> backend.store.read(address)
+            backend.store
+              .read(address)
+              .flatMap: value =>
+                heldRead.get
+                  .flatMap(enabled =>
+                    if enabled && value.exists(_.value.toJson.contains("\"Terminal\"")) then
+                      readEntered.succeed(()) *> releaseRead.await
+                    else ZIO.unit
+                  )
+                  .as(value)
           def compareAndSet(
               address: StorageAddress,
               expected: ExpectedRevision,
               value: Json
           ): IO[AgentError, ConditionalWrite] =
-            writing.succeed(()) *> releaseWrite.await *> (receipt match
-              case Receipt.Stored => backend.store.compareAndSet(address, expected, value)
-              case Receipt.Failed => ZIO.fail(AgentError.StorageError("publication unavailable")))
+            writes
+              .updateAndGet(_ + 1)
+              .flatMap:
+                case 3 =>
+                  writing.succeed(()) *> releaseWrite.await *> (receipt match
+                    case Receipt.Stored => backend.store.compareAndSet(address, expected, value)
+                    case Receipt.Failed =>
+                      ZIO.fail(AgentError.StorageError("publication unavailable")))
+                case _ => backend.store.compareAndSet(address, expected, value)
         terminal = SubagentTerminalStore.make(held, target)
         supervisor <- TaskSupervisor.open[AgentResult]
         result = AgentResult(Msg.assistant(fullText), Chunk.empty, 1)
         owner <- ZIO.uninterruptibleMask: restore =>
           restore(
-            SubagentTaskRegistry.openWith(
-              (_, _, _) => supervisor.attach(ZIO.succeed(result)),
+            SubagentTaskRegistry.openPreparedInput[Msg](
+              identity,
+              (_, _, _, beforeStart) => supervisor.attach(beforeStart.as(result)),
               4,
               Some(terminal)
             )
           ).flatMap: acquired =>
             ZIO.addFinalizer(releaseWrite.succeed(()) *> releaseRead.succeed(()).unit).as(acquired)
-        taskId <- accepted(owner.submit(Msg.user("work")))
-        _      <- writing.await
-        joined <- owner.await(taskId)
+        createdAt <- Clock.instant
+        taskId    <- accepted(owner.submit(Msg.user("work")))
+        _         <- writing.await
+        joined    <- owner.await(taskId)
         tools = Toolkit.single(SubagentTaskOutputTool.make(owner))
         zero        <- tools.executeSafe("task_output", input(taskId, "timeout" -> Json.Num(0)))
         nonblocking <- tools.executeSafe("task_output", input(taskId, "block" -> Json.Bool(false)))
@@ -202,16 +237,19 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
           case Receipt.Stored =>
             readEntered.await *> owner.forgetCompleted(taskId)
           case Receipt.Failed => ZIO.succeed(SubagentTaskRemoval.Unpublished)
-        _        <- releaseRead.succeed(())
-        observed <- waiting.join
-        stored   <- backend.store.read(target)
+        _         <- releaseRead.succeed(())
+        observed  <- waiting.join
+        stored    <- backend.store.read(target)
+        published <- terminal.read(taskId)
         pending: SubagentTaskOutputResult = SubagentTaskOutputResult.PublicationPending(
-          taskId.value.toString
+          taskId.value.toString,
+          Some(createdAt)
         )
         complete: SubagentTaskOutputResult = SubagentTaskOutputResult.Terminal(
           taskId.value.toString,
           None,
-          SubagentTerminalOutcome.Completed(fullText)
+          SubagentTerminalOutcome.Completed(fullText),
+          Some(createdAt)
         )
       yield assertTrue(
         joined.contains(Exit.succeed(result)),
@@ -221,7 +259,7 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
           case Receipt.Stored =>
             observed.state == ToolResultState.Success && observed.output == complete.toJson && removed == SubagentTaskRemoval.Removed && stored.nonEmpty
           case Receipt.Failed =>
-            observed.state == ToolResultState.Error && observed.output == "Execution failed for 'task_output': publication unavailable" && stored.isEmpty
+            observed.state == ToolResultState.Error && observed.output == "Execution failed for 'task_output': publication unavailable" && stored.nonEmpty && published.isEmpty
       )
 
   private def consumptionCase(
@@ -239,6 +277,9 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
           def list: IO[AgentError, Chunk[SubagentTerminalRecord]] = terminal.list
           def publish(record: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication] =
             terminal.publish(record)
+          override def markChecked(
+              id: SubagentTaskId
+          ): IO[AgentError, Option[SubagentTaskMetadata]] = terminal.markChecked(id)
           override def pending: IO[AgentError, Chunk[SubagentTerminalRecord]] = terminal.pending
           override def acknowledgement(
               id: SubagentTaskId
@@ -260,11 +301,13 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
           case Consumption.Capacity     => "\n" * 400000
           case Consumption.Offloaded    => fullText * 5
           case _                        => fullText
+        createdAt <- Clock.instant
         record = SubagentTerminalRecord(id, SubagentTerminalOutcome.Completed(text))
         expected: SubagentTaskOutputResult = SubagentTaskOutputResult.Terminal(
           id.value.toString,
           None,
-          record.outcome
+          record.outcome,
+          Some(createdAt)
         )
         ordinary         <- Ref.make(Option.empty[String])
         capacityEvidence <- Ref.make(Option.empty[(Int, Int)])
@@ -274,6 +317,7 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
             .flatMap:
               case 1 =>
                 for
+                  _ <- terminal.admit(id)
                   _ <- terminal.publish(record)
                   raw <- Toolkit
                     .single(SubagentTaskOutputTool.make(owner))
@@ -322,6 +366,14 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
           case _ =>
             ToolResultProcessor(result =>
               ZIO.succeed(mode match
+                case Consumption.TimestampChanged =>
+                  val changed: SubagentTaskOutputResult = SubagentTaskOutputResult.Terminal(
+                    id.value.toString,
+                    None,
+                    record.outcome,
+                    Some(createdAt.plusSeconds(1L))
+                  )
+                  ToolResultPayload(Chunk(ContentBlock.Text(changed.toJson)))
                 case Consumption.Redacted => ToolResultPayload(Chunk(ContentBlock.Text("redacted")))
                 case Consumption.MetadataOnly =>
                   ToolResultPayload(
@@ -383,6 +435,14 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
                 "Task consumption capture exceeds its bounded capacity"
               )
             )
+          case Consumption.TimestampChanged =>
+            val changed: SubagentTaskOutputResult = SubagentTaskOutputResult.Terminal(
+              id.value.toString,
+              None,
+              record.outcome,
+              Some(createdAt.plusSeconds(1L))
+            )
+            persisted.map(_.outputText) == Chunk(changed.toJson)
           case Consumption.Redacted => persisted.map(_.outputText) == Chunk("redacted")
           case Consumption.Offloaded =>
             files.values.toSet == Set(expected.toJson) && persisted.exists(result =>
@@ -407,6 +467,45 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
         originalMatches
       )
 
+  private def metadataAdmissionChecks: ZIO[TestEnvironment & Scope, AgentError, TestResult] =
+    ZIO.scoped:
+      for
+        entered  <- Promise.make[Nothing, Unit]
+        hold     <- Ref.make(false)
+        cleanups <- Ref.make(0)
+        reads    <- Ref.make(0)
+        record = SubagentTerminalRecord(id, SubagentTerminalOutcome.Completed("stored"))
+        store = new SubagentTerminalStore:
+          def list: IO[AgentError, Chunk[SubagentTerminalRecord]] = ZIO.succeed(Chunk(record))
+          def read(taskId: SubagentTaskId): IO[AgentError, Option[SubagentTerminalRecord]] =
+            reads.update(_ + 1).as(Some(record))
+          def publish(value: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication] =
+            ZIO.fail(AgentError.StorageError("Read-only check fixture"))
+          override def markChecked(
+              taskId: SubagentTaskId
+          ): IO[AgentError, Option[SubagentTaskMetadata]] =
+            hold.get.flatMap:
+              case false => ZIO.fail(AgentError.StorageError("Check unavailable"))
+              case true  => (entered.succeed(()) *> ZIO.never).ensuring(cleanups.update(_ + 1))
+        owner <- registry(store)
+        tools = Toolkit.single(SubagentTaskOutputTool.make(owner))
+        rejected  <- tools.executeSafe("task_output", input(id))
+        _         <- hold.set(true)
+        waiting   <- tools.executeSafe("task_output", input(id)).forkScoped
+        _         <- entered.await
+        timers    <- TestClock.sleeps
+        cancelled <- waiting.interrupt
+        cleaned   <- cleanups.get
+        accessed  <- reads.get
+      yield assertTrue(
+        rejected.state == ToolResultState.Error,
+        rejected.output == "Execution failed for 'task_output': Check unavailable",
+        timers.isEmpty,
+        cancelled.isInterrupted,
+        cleaned == 1,
+        accessed == 0
+      )
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentTaskOutputToolSpec")(
     test(
       "full terminal outcomes reach actual ReAct processing with successful retrieval states; retrieval does not acknowledge"
@@ -427,9 +526,16 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
               backend <- SubagentTerminalStoreSpec.fixture
               target  <- address("full")
               worker  <- ZIO.fromEither(SubagentWorkerId.from("known-host-worker"))
-              terminal = SubagentTerminalStore.make(backend.store, target)
-              record   = SubagentTerminalRecord(id, outcome, Some(worker))
+              terminal   = SubagentTerminalStore.make(backend.store, target)
+              record     = SubagentTerminalRecord(id, outcome, Some(worker))
+              admittedAt = Instant.parse("2026-10-08T12:00:00Z")
+              _ <- TestClock.setTime(admittedAt)
+              createdAt <- outcome match
+                case SubagentTerminalOutcome.Completed(_) | SubagentTerminalOutcome.Suspended(_) =>
+                  terminal.admit(id, Some(worker)).as(Some(admittedAt))
+                case _ => ZIO.none
               _     <- terminal.publish(record)
+              _     <- TestClock.adjust(3.seconds)
               owner <- registry(terminal)
               tools = Toolkit.single(SubagentTaskOutputTool.make(owner))
               raw  <- tools.executeSafe("task_output", input(id, "timeout" -> Json.Num(0)))
@@ -458,8 +564,9 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
               completed <- agent.run(Msg.user("retrieve full output"))
               observed  <- seen.get
               pending   <- terminal.pending
+              checked   <- terminal.taskRecord(id)
               expected: SubagentTaskOutputResult = SubagentTaskOutputResult
-                .Terminal(id.value.toString, Some(worker), outcome)
+                .Terminal(id.value.toString, Some(worker), outcome, createdAt)
               state = ToolResultState.Success
             yield assertTrue(
               raw.output == expected.toJson,
@@ -470,7 +577,9 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
                 "processed full observation"
               ),
               completed.history.flatMap(_.toolResults).map(_.state) == Chunk(state),
-              pending == Chunk(record)
+              pending == Chunk(record),
+              checked.flatMap(_.metadata) == createdAt
+                .map(at => SubagentTaskMetadata(at, at.plusSeconds(3L), at))
             )
         .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
@@ -482,6 +591,7 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
           Chunk(WaitCase.Default, WaitCase.Clamped, WaitCase.Zero, WaitCase.Negative, WaitCase.Poll)
         )(waitCase)
         .map(_.foldLeft(assertTrue(true))(_ && _))
+        .zipWith(metadataAdmissionChecks)(_ && _)
     ,
     test(
       "joined tasks expose publication pending without waiting; captured results survive forgetting and receipt failures remain errors"
@@ -498,6 +608,7 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
           Chunk(
             Consumption.Exact,
             Consumption.MetadataOnly,
+            Consumption.TimestampChanged,
             Consumption.Redacted,
             Consumption.Offloaded,
             Consumption.PriorFailure,

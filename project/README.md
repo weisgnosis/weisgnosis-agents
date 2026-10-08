@@ -138,3 +138,7 @@ SubagentDeliveryMiddleware.taskOutputTool is an additive explicit factory using 
 ## Durable admission compatibility
 
 Public durable registry/session launches require terminal stores to implement admit and markRunning. Existing custom terminal-only stores fail closed through the default unsupported methods; implement the ports before upgrading those launches. Ordinary volatile launches retain their acquisition contract. Schema-4 writes require coordinated reader/writer upgrades and host-owned backups; legacy records do not gain admission dates. The [current admission contract](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#durable-task-admission) owns final review and verification gates.
+
+## Task output metadata compatibility
+
+Running, PublicationPending and Terminal append optional createdAt with a None default. Legacy JSON remains readable; update positional enum patterns and rebuild dependent binaries. Built-in stores persist lastCheckedAt through markChecked; custom terminal stores inherit a read-checked None result without a persistence claim and can override the port. Backend checks run before the existing timed wait and remain separately host-bounded. The [current metadata/output contract](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#task-output-creation-and-check-metadata) owns exact source identities, verification and final review.

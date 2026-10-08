@@ -18,6 +18,7 @@ package com.weisgnosis.agents.harness.subagent
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolInvocation}
+import java.time.Instant
 import java.util.UUID
 import zio.*
 import zio.json.*
@@ -25,12 +26,13 @@ import zio.json.ast.Json
 
 /** Full terminal text, not a preview or an acknowledgement of model consumption. */
 enum SubagentTaskOutputResult derives JsonCodec:
-  case Running(taskId: String)
-  case PublicationPending(taskId: String)
+  case Running(taskId: String, createdAt: Option[Instant] = None)
+  case PublicationPending(taskId: String, createdAt: Option[Instant] = None)
   case Terminal(
       taskId: String,
       workerId: Option[SubagentWorkerId],
-      outcome: SubagentTerminalOutcome
+      outcome: SubagentTerminalOutcome,
+      createdAt: Option[Instant] = None
   )
 
 /** Only the joined task/publication wait is timed; hosts bound lookup and readiness backend calls. */
@@ -131,30 +133,42 @@ object SubagentTaskOutputTool:
                 "No task with this ID exists in the selected registry; reconcile it with task_list if installed"
               )
             )
+          metadata <- entry.checkedMetadata
+          createdAt = metadata.map(_.createdAt)
           ready <- entry.readiness
           result <- ready match
-            case SubagentCapturedReadiness.Ready(record) => ZIO.succeed(terminal(record))
+            case SubagentCapturedReadiness.Ready(record) => ZIO.succeed(terminal(record, createdAt))
             case pending =>
               input.mode match
-                case Mode.Poll => ZIO.succeed(status(input.id, pending))
+                case Mode.Poll => ZIO.succeed(status(input.id, pending, createdAt))
                 case Mode.Wait(timeout) if timeout.milliseconds == 0L =>
-                  ZIO.succeed(status(input.id, pending))
+                  ZIO.succeed(status(input.id, pending, createdAt))
                 case Mode.Wait(timeout) =>
                   SubagentTaskBarrier
                     .raceWithSignal(entry.await, ZIO.sleep(timeout.duration).as(Exit.unit))
                     .flatMap:
-                      case Some(record) => ZIO.succeed(terminal(record))
-                      case None         => entry.readiness.map(status(input.id, _))
+                      case Some(record) => ZIO.succeed(terminal(record, createdAt))
+                      case None         => entry.readiness.map(status(input.id, _, createdAt))
         yield result
 
-  private def terminal(record: SubagentTerminalRecord): SubagentTaskOutputResult =
-    SubagentTaskOutputResult.Terminal(record.id.value.toString, record.workerId, record.outcome)
+  private def terminal(
+      record: SubagentTerminalRecord,
+      createdAt: Option[Instant]
+  ): SubagentTaskOutputResult =
+    SubagentTaskOutputResult.Terminal(
+      record.id.value.toString,
+      record.workerId,
+      record.outcome,
+      createdAt
+    )
 
   private def status(
       id: SubagentTaskId,
-      readiness: SubagentCapturedReadiness
+      readiness: SubagentCapturedReadiness,
+      createdAt: Option[Instant]
   ): SubagentTaskOutputResult = readiness match
-    case SubagentCapturedReadiness.Ready(record) => terminal(record)
-    case SubagentCapturedReadiness.Running => SubagentTaskOutputResult.Running(id.value.toString)
+    case SubagentCapturedReadiness.Ready(record) => terminal(record, createdAt)
+    case SubagentCapturedReadiness.Running =>
+      SubagentTaskOutputResult.Running(id.value.toString, createdAt)
     case SubagentCapturedReadiness.PublicationPending =>
-      SubagentTaskOutputResult.PublicationPending(id.value.toString)
+      SubagentTaskOutputResult.PublicationPending(id.value.toString, createdAt)

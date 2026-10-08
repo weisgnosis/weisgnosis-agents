@@ -180,7 +180,7 @@ final class SubagentDeliveryMiddleware private (
                 identityBytes <- prepareConsumption(key, Chunk(id))
                 result        <- ZIO.suspendSucceed(read)
                 _ <- result match
-                  case SubagentTaskOutputResult.Terminal(taskId, _, _) =>
+                  case SubagentTaskOutputResult.Terminal(taskId, _, _, _) =>
                     if taskId == id.value.toString then
                       captureConsumption(target, key, Chunk(id), result.toJson, identityBytes)
                     else

@@ -149,6 +149,7 @@ object SubagentTaskRegistry:
   final private case class Entry(
       id: SubagentTaskId,
       task: SupervisedTask[AgentResult],
+      metadata: Option[Ref[SubagentTaskMetadata]],
       delivery: DeliveryState = DeliveryState.Pending,
       publisher: Option[Fiber.Runtime[AgentError, SubagentTerminalPublication]] = None
   )
@@ -344,6 +345,11 @@ object SubagentTaskRegistry:
                 if collision then ZIO.succeed(SubagentTaskSubmission.IdentityCollision)
                 else
                   for
+                    metadata <- persistence match
+                      case Some(_) => ZIO.none
+                      case None =>
+                        Clock.instant
+                          .flatMap(at => Ref.make(SubagentTaskMetadata(at, at, at)).map(Some(_)))
                     start <- Promise.make[Nothing, Option[SubagentTaskAdmissionIdentity]]
                     beforeStart = start.await.flatMap(identity =>
                       ZIO.foreachDiscard(identity)(value =>
@@ -380,7 +386,9 @@ object SubagentTaskRegistry:
                                     .forkIn(binding.owner)
                                 )
                                 _ <- state.set(
-                                  State.Open(entries :+ Entry(id, task, publisher = publisher))
+                                  State.Open(
+                                    entries :+ Entry(id, task, metadata, publisher = publisher)
+                                  )
                                 )
                                 _ <- start.succeed(identity)
                               yield SubagentTaskSubmission.Accepted(id)
@@ -490,6 +498,10 @@ object SubagentTaskRegistry:
                         )
                         .map: record =>
                           new SubagentCapturedWait:
+                            def checkedMetadata: IO[AgentError, Option[SubagentTaskMetadata]] =
+                              persistence match
+                                case Some(binding) => binding.store.markChecked(record.id)
+                                case None          => ZIO.none
                             val id: SubagentTaskId                            = record.id
                             def await: IO[AgentError, SubagentTerminalRecord] = ZIO.succeed(record)
                             def readiness: IO[AgentError, SubagentCapturedReadiness] =
@@ -498,6 +510,14 @@ object SubagentTaskRegistry:
 
     private def capturedEntry(entry: Entry): SubagentCapturedWait = new SubagentCapturedWait:
       val id: SubagentTaskId = entry.id
+
+      def checkedMetadata: IO[AgentError, Option[SubagentTaskMetadata]] =
+        persistence match
+          case Some(binding) => binding.store.markChecked(id)
+          case None =>
+            ZIO.foreach(entry.metadata)(metadata =>
+              Clock.instant.flatMap(at => metadata.updateAndGet(_.copy(lastCheckedAt = at)))
+            )
 
       private def completed(
           exit: Exit[AgentError, AgentResult]

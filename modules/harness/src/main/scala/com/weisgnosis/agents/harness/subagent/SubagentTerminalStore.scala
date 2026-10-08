@@ -80,6 +80,11 @@ trait SubagentTerminalStore:
         s"Durable admission is unsupported for ${id.value} and worker $workerId"
       )
     )
+
+  /** None means admission metadata is unavailable; custom stores override to persist check time. */
+  def markChecked(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskMetadata]] =
+    read(id).as(None)
+
   def markRunning(identity: SubagentTaskAdmissionIdentity): IO[AgentError, Unit] =
     ZIO.fail(
       AgentError.InvalidConfiguration(s"Durable start is unsupported for ${identity.id.value}")
@@ -262,6 +267,36 @@ object SubagentTerminalStore:
               ZIO.fail(
                 AgentError.StorageError("Task start does not match a confirmed durable admission")
               )
+      attempt(limits.maxConflicts, None)
+
+    override def markChecked(
+        id: SubagentTaskId
+    ): IO[AgentError, Option[SubagentTaskMetadata]] =
+      def attempt(
+          remaining: Int,
+          candidate: Option[Instant]
+      ): IO[AgentError, Option[SubagentTaskMetadata]] =
+        snapshot.flatMap: (revision, records) =>
+          records.find(_.id == id.value) match
+            case Some(existing) =>
+              existing.metadata match
+                case None => ZIO.none
+                case Some(metadata) =>
+                  for
+                    at <- candidate.fold[UIO[Instant]](Clock.instant)(ZIO.succeed(_))
+                    checked = metadata.copy(lastCheckedAt = at)
+                    updated = existing.copy(metadata = Some(checked))
+                    result <- write(
+                      revision,
+                      records.map(entry => if entry.id == existing.id then updated else entry)
+                    )
+                    value <- result match
+                      case ConditionalWrite.Applied(_) => ZIO.some(checked)
+                      case ConditionalWrite.Conflict if remaining > 0 =>
+                        attempt(remaining - 1, Some(at))
+                      case ConditionalWrite.Conflict => exhausted("Task check")
+                  yield value
+            case None => ZIO.none
       attempt(limits.maxConflicts, None)
 
     override def acknowledge(

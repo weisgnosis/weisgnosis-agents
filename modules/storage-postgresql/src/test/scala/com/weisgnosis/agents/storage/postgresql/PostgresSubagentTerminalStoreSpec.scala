@@ -27,6 +27,7 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.{ToolAuthorizer, Toolkit}
 import com.weisgnosis.agents.harness.subagent.*
+import java.time.Instant
 import java.util.UUID
 import zio.*
 import zio.json.*
@@ -41,6 +42,19 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
 
   private val firstId: SubagentTaskId  = SubagentTaskId(new UUID(0L, 1L))
   private val secondId: SubagentTaskId = SubagentTaskId(new UUID(0L, 2L))
+
+  private def observedClock(at: Instant): UIO[Clock] = ZIO.clock.map: underlying =>
+    new Clock:
+      export underlying.{
+        currentTime,
+        currentDateTime,
+        javaClock,
+        localDateTime,
+        nanoTime,
+        scheduler,
+        sleep
+      }
+      def instant(using Trace): UIO[Instant] = ZIO.succeed(at)
 
   private def accepted(
       admission: TaskAdmission[AgentResult]
@@ -152,6 +166,10 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             terminalBeforeStart <- observing.read(firstId)
             _                   <- admitting.markRunning(identity)
             runningRecord       <- observing.taskRecord(firstId)
+            checkedAt = identity.createdAt.plusSeconds(10L)
+            checkClock      <- observedClock(checkedAt)
+            checkedMetadata <- observing.markChecked(firstId).withClock(checkClock)
+            reopenedCheck   <- admitting.taskRecord(firstId)
             _ <- admitting.publish(
               SubagentTerminalRecord(
                 firstId,
@@ -235,6 +253,14 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
               record.state == SubagentTaskRecordState.Running &&
                 record.metadata.exists(_.createdAt == identity.createdAt)
             ),
+            checkedMetadata == reopenedCheck.flatMap(_.metadata),
+            reopenedCheck.exists(record =>
+              runningRecord.exists(previous =>
+                record == previous.copy(metadata =
+                  previous.metadata.map(_.copy(lastCheckedAt = checkedAt))
+                )
+              )
+            ),
             terminalRecord.exists(record =>
               record.terminal.contains(
                 SubagentTerminalRecord(
@@ -243,7 +269,10 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                   Some(workerId)
                 )
               ) &&
-                record.metadata.exists(_.createdAt == identity.createdAt)
+                record.metadata.exists(metadata =>
+                  metadata.createdAt == identity.createdAt &&
+                    metadata.lastCheckedAt == checkedAt
+                )
             ),
             acknowledgedRecord.flatMap(_.metadata) == terminalRecord.flatMap(_.metadata),
             acknowledgedRecord.exists(_.state match
@@ -459,6 +488,10 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                   case _ => ZIO.none
                 consumptionId <- Random.nextUUID.map(SubagentTaskId(_))
                 failureId     <- Random.nextUUID.map(SubagentTaskId(_))
+                consumptionCreatedAt = Instant.parse("2026-10-08T00:00:00Z")
+                consumptionCheckedAt = consumptionCreatedAt.plusSeconds(60L)
+                creationClock         <- observedClock(consumptionCreatedAt)
+                consumptionCheckClock <- observedClock(consumptionCheckedAt)
                 consumptionRecord = SubagentTerminalRecord(
                   consumptionId,
                   SubagentTerminalOutcome.Completed(
@@ -509,7 +542,8 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                     val output: SubagentTaskOutputResult = SubagentTaskOutputResult.Terminal(
                       consumptionId.value.toString,
                       consumptionRecord.workerId,
-                      consumptionRecord.outcome
+                      consumptionRecord.outcome,
+                      Some(consumptionCreatedAt)
                     )
                     output.toJson
                   case ConsumptionTool.Catalog =>
@@ -538,7 +572,9 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                     .getAndUpdate(_ + 1)
                     .flatMap:
                       case 0 =>
-                        ZIO
+                        (if mode == ConsumptionTool.TaskOutput then
+                           consumptionStore.admit(consumptionId).withClock(creationClock).unit
+                         else ZIO.unit) *> ZIO
                           .foreachDiscard(selectedRecords)(consumptionStore.publish(_))
                           .as(
                             TurnOutput.ToolCalls(Msg.assistant(Chunk(consumptionCall)))
@@ -579,7 +615,10 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                     )
                   )
                   .build
-                inspected <- consumptionAgent.run(Msg.user("Consume the selected task output"))
+                inspected <-
+                  val run = consumptionAgent.run(Msg.user("Consume the selected task output"))
+                  if mode == ConsumptionTool.TaskOutput then run.withClock(consumptionCheckClock)
+                  else run
                 consumptionStamp <- ZIO.foreach(selectedRecords)(record =>
                   consumptionReopened.acknowledgement(record.id)
                 )
@@ -598,6 +637,7 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 consumptionModels   <- consumptionInputs.get
                 consumptionObserved <- consumptionSnapshots.get
                 beforeInspectionAck <- consumptionBeforeStamp.get
+                checkedConsumption  <- consumptionReopened.taskRecord(consumptionId)
               yield assertTrue(
                 unrelatedStamps.forall(_.isEmpty),
                 beforeInspectionAck == selectedRecords.map(_ =>
@@ -627,7 +667,12 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                   case _                                               => false),
                 consumptionStamp == consumptionStampAgain,
                 consumptionPending.isEmpty,
-                consumptionExact == selectedRecords.map(Some(_))
+                consumptionExact == selectedRecords.map(Some(_)),
+                mode != ConsumptionTool.TaskOutput || checkedConsumption.exists(
+                  _.metadata.exists(metadata =>
+                    metadata.createdAt == consumptionCreatedAt && metadata.lastCheckedAt == consumptionCheckedAt
+                  )
+                )
               )
           yield assertTrue(
             receipts.map(_.id).toSet == Set(success, failed),

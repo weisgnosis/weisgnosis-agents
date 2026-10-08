@@ -63,8 +63,15 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
         acknowledged <- store.taskRecord(id)
         _            <- store.publish(record)
         unchanged    <- store.taskRecord(id)
-        revival      <- store.markRunning(identity).either
-        unknown      <- store.markRunning(identity.copy(id = legacyId)).either
+        checkedAt = createdAt.minusSeconds(1L)
+        _             <- TestClock.setTime(checkedAt)
+        checked       <- store.markChecked(id)
+        checkedRecord <- store.taskRecord(id)
+        missingBefore <- backend.store.read(target)
+        missingCheck  <- store.markChecked(legacyId)
+        missingAfter  <- backend.store.read(target)
+        revival       <- store.markRunning(identity).either
+        unknown       <- store.markRunning(identity.copy(id = legacyId)).either
         legacy: SubagentTerminalOutcome = SubagentTerminalOutcome.Completed("legacy")
         legacyOutcome <- ZIO.fromEither(legacy.toJsonAST.left.map(AgentError.StorageError.apply))
         orderedTarget <- ZIO.fromEither(
@@ -98,10 +105,11 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
             reopened = SubagentTerminalStore.make(backend.store, legacyTarget)
             before    <- backend.store.read(legacyTarget)
             records   <- reopened.taskRecords
+            checked   <- reopened.markChecked(legacyId)
             afterRead <- backend.store.read(legacyTarget)
             _         <- reopened.acknowledge(legacyId)
             after     <- reopened.taskRecords
-          yield (before == afterRead, records, after)
+          yield (before == afterRead && checked.isEmpty, records, after)
       yield assertTrue(
         pending.contains(
           SubagentTaskRecord(
@@ -136,6 +144,10 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
         ),
         acknowledged == unchanged,
         acknowledged.exists(_.metadata == terminal.flatMap(_.metadata)),
+        checked.contains(SubagentTaskMetadata(createdAt, checkedAt, createdAt.plusSeconds(5L))),
+        checkedRecord == acknowledged.map(_.copy(metadata = checked)),
+        missingCheck.isEmpty,
+        missingBefore == missingAfter,
         revival.isLeft,
         unknown.isLeft,
         publicationOrder == Chunk(second, first),
@@ -150,5 +162,71 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
                 None
               )
             ) && after.size == 1 && after.forall(_.metadata.isEmpty)
+      )
+    ,
+    test(
+      "check-time retries retain one candidate and concurrent metadata; uncertain writes are not replayed"
+    ):
+      for
+        backend <- SubagentTerminalStoreSpec.fixture
+        target  <- ZIO.fromEither(StorageAddress.from(Chunk("checked"), "records"))
+        base    = SubagentTerminalStore.make(backend.store, target)
+        id      = SubagentTaskId(new UUID(0L, 51L))
+        other   = SubagentTaskId(new UUID(0L, 52L))
+        created = Instant.parse("2026-10-08T00:00:00Z")
+        _ <- TestClock.setTime(created)
+        _ <- base.admit(id)
+        _ <- base.admit(other)
+        _ <- base.publish(SubagentTerminalRecord(other, SubagentTerminalOutcome.Completed("other")))
+        before   <- base.taskRecord(id)
+        attempts <- Ref.make(0)
+        conflict = new VersionedJsonStore:
+          def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+            backend.store.read(address)
+          def compareAndSet(
+              address: StorageAddress,
+              expected: ExpectedRevision,
+              value: Json
+          ): IO[AgentError, ConditionalWrite] =
+            attempts
+              .updateAndGet(_ + 1)
+              .flatMap:
+                case 1 =>
+                  base.acknowledge(other) *> TestClock
+                    .adjust(10.seconds)
+                    .as(ConditionalWrite.Conflict)
+                case _ => backend.store.compareAndSet(address, expected, value)
+        _                 <- TestClock.adjust(1.second)
+        checked           <- SubagentTerminalStore.make(conflict, target).markChecked(id)
+        after             <- base.taskRecord(id)
+        concurrent        <- base.acknowledgement(other)
+        count             <- attempts.get
+        uncertainAttempts <- Ref.make(0)
+        uncertain = new VersionedJsonStore:
+          def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+            backend.store.read(address)
+          def compareAndSet(
+              address: StorageAddress,
+              expected: ExpectedRevision,
+              value: Json
+          ): IO[AgentError, ConditionalWrite] =
+            uncertainAttempts
+              .update(_ + 1) *> backend.store.compareAndSet(address, expected, value) *>
+              ZIO.fail(AgentError.StorageError("Check receipt lost"))
+        lost      <- SubagentTerminalStore.make(uncertain, target).markChecked(id).either
+        lostCount <- uncertainAttempts.get
+        persisted <- base.taskRecord(id)
+      yield assertTrue(
+        count == 2,
+        checked == before.flatMap(_.metadata).map(_.copy(lastCheckedAt = created.plusSeconds(1L))),
+        after == before.map(_.copy(metadata = checked)),
+        concurrent.contains(SubagentTerminalAcknowledgement.Acknowledged(created.plusSeconds(1L))),
+        lost == Left(AgentError.StorageError("Check receipt lost")),
+        lostCount == 1,
+        persisted == before.map(
+          _.copy(metadata =
+            before.flatMap(_.metadata).map(_.copy(lastCheckedAt = created.plusSeconds(11L)))
+          )
+        )
       )
   )

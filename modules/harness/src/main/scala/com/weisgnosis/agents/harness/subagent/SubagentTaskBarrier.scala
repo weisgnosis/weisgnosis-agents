@@ -58,6 +58,7 @@ private[subagent] enum SubagentCapturedReadiness:
 
 /** Stable captured references, not a reconstructible handle or a cancellation capability. */
 private[subagent] trait SubagentCapturedWait:
+  def checkedMetadata: IO[AgentError, Option[SubagentTaskMetadata]]
   def id: SubagentTaskId
   def await: IO[AgentError, SubagentTerminalRecord]
   def readiness: IO[AgentError, SubagentCapturedReadiness]
