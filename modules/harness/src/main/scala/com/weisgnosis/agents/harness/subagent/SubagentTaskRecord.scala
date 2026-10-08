@@ -32,6 +32,20 @@ final case class SubagentTaskAdmissionIdentity(
     createdAt: Instant
 )
 
+/** First durable cancellation request; this is not a completion timestamp or execution lease. */
+enum SubagentCancellationIntent derives JsonCodec:
+  case NotRequested
+  case Requested(at: Instant)
+
+enum SubagentTaskStartResult:
+  case Started, CancellationRequested
+
+enum SubagentCancellationRequestResult:
+  case Missing
+  case Requested(record: SubagentTaskRecord)
+  case AlreadyRequested(record: SubagentTaskRecord)
+  case AlreadyTerminal(record: SubagentTaskRecord)
+
 enum SubagentTaskRecordState derives JsonCodec:
   case Pending, Running
   case Terminal(outcome: SubagentTerminalOutcome, acknowledgement: SubagentTerminalAcknowledgement)
@@ -41,7 +55,8 @@ final case class SubagentTaskRecord(
     id: SubagentTaskId,
     workerId: Option[SubagentWorkerId],
     state: SubagentTaskRecordState,
-    metadata: Option[SubagentTaskMetadata]
+    metadata: Option[SubagentTaskMetadata],
+    cancellationIntent: SubagentCancellationIntent = SubagentCancellationIntent.NotRequested
 ):
   def terminal: Option[SubagentTerminalRecord] = state match
     case SubagentTaskRecordState.Terminal(outcome, _) =>

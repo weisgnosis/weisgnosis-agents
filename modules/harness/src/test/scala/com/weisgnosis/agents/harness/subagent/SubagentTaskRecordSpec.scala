@@ -165,6 +165,136 @@ object SubagentTaskRecordSpec extends ZIOSpecDefault:
       )
     ,
     test(
+      "cancellation requests preserve exact records and first stamps, guard identity and never replay uncertain writes"
+    ):
+      for
+        backend <- SubagentTerminalStoreSpec.fixture
+        target  <- ZIO.fromEither(StorageAddress.from(Chunk("cancel-intent"), "records"))
+        base      = SubagentTerminalStore.make(backend.store, target)
+        id        = SubagentTaskId(new UUID(0L, 61L))
+        missingId = SubagentTaskId(new UUID(0L, 62L))
+        created   = Instant.parse("2026-10-08T01:00:00Z")
+        _        <- TestClock.setTime(created)
+        admitted <- base.admit(id)
+        identity <- admitted match
+          case SubagentTaskAdmissionResult.Created(value) => ZIO.succeed(value)
+          case other =>
+            ZIO.fail(AgentError.StorageError(s"Expected created cancellation fixture: $other"))
+        original <- base.taskRecord(id)
+        raw <- backend.store
+          .read(target)
+          .someOrFail(AgentError.StorageError("Missing cancellation fixture"))
+        // Schema 5 lacks intent; its ORIGINAL representation must remain a read-only accepted input.
+        schema5 = raw.value match
+          case Json.Obj(fields) =>
+            Json.Obj(fields.map:
+              case ("schemaVersion", _) => "schemaVersion" -> Json.Num(5)
+              case ("records", Json.Arr(records)) =>
+                "records" -> Json.Arr(records.map:
+                  case Json.Obj(entry) => Json.Obj(entry.filterNot(_._1 == "cancellationIntent"))
+                  case other           => other)
+              case pair => pair)
+          case other => other
+        _           <- backend.values.update(_.updated(target, raw.copy(value = schema5)))
+        legacy      <- base.taskRecord(id)
+        legacyAfter <- backend.store.read(target)
+        invalidId   <- base.requestCancellation(id, Some(identity.copy(id = missingId))).either
+        invalidIdentity <- base
+          .requestCancellation(id, Some(identity.copy(createdAt = created.plusSeconds(1L))))
+          .either
+        afterInvalid <- backend.store.read(target)
+        missing      <- base.requestCancellation(missingId)
+        attempts     <- Ref.make(0)
+        conflict = new VersionedJsonStore:
+          def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+            backend.store.read(address)
+          def compareAndSet(
+              address: StorageAddress,
+              expected: ExpectedRevision,
+              value: Json
+          ): IO[AgentError, ConditionalWrite] =
+            attempts
+              .updateAndGet(_ + 1)
+              .flatMap:
+                case 1 => TestClock.adjust(1.hour).as(ConditionalWrite.Conflict)
+                case _ => backend.store.compareAndSet(address, expected, value)
+        at <- Clock.instant
+        requested <- SubagentTerminalStore
+          .make(conflict, target)
+          .requestCancellation(id, Some(identity))
+        count        <- attempts.get
+        afterRequest <- base.taskRecord(id)
+        deniedStart  <- base.confirmStart(identity)
+        _            <- TestClock.adjust(1.hour)
+        repeated     <- base.requestCancellation(id)
+        terminal = SubagentTerminalRecord(
+          id,
+          SubagentTerminalOutcome.Completed("actual completion")
+        )
+        _            <- base.publish(terminal)
+        _            <- base.acknowledge(id)
+        beforeRepeat <- base.taskRecord(id)
+        late         <- base.requestCancellation(id)
+        afterRepeat  <- base.taskRecord(id)
+        _            <- base.admit(missingId)
+        uncertainty = AgentError.StorageError("Cancellation receipt lost")
+        uncertainAttempts <- Ref.make(0)
+        uncertain = new VersionedJsonStore:
+          def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+            backend.store.read(address)
+          def compareAndSet(
+              address: StorageAddress,
+              expected: ExpectedRevision,
+              value: Json
+          ): IO[AgentError, ConditionalWrite] =
+            uncertainAttempts.update(_ + 1) *> backend.store
+              .compareAndSet(address, expected, value) *> ZIO.fail(uncertainty)
+        lost <- SubagentTerminalStore.make(uncertain, target).requestCancellation(missingId).exit
+        uncertainCount <- uncertainAttempts.get
+        recovered      <- base.taskRecord(missingId)
+        boundedTarget <- ZIO.fromEither(
+          StorageAddress.from(Chunk("cancel-intent", "bounded"), "records")
+        )
+        _ <- backend.values.update(_.updated(boundedTarget, raw))
+        limits <- ZIO.fromEither(
+          SubagentTerminalStore.Limits
+            .make(256, raw.value.toJson.getBytes(java.nio.charset.StandardCharsets.UTF_8).length, 8)
+        )
+        bounded = SubagentTerminalStore.make(backend.store, boundedTarget, limits)
+        boundedReadable <- bounded.taskRecord(id)
+        oversized       <- bounded.requestCancellation(id).either
+        boundedAfter    <- backend.store.read(boundedTarget)
+      yield assertTrue(
+        legacy == original,
+        legacyAfter.contains(raw.copy(value = schema5)),
+        invalidId.isLeft,
+        invalidIdentity.isLeft,
+        afterInvalid == legacyAfter,
+        missing == SubagentCancellationRequestResult.Missing,
+        count == 2,
+        afterRequest == original.map(
+          _.copy(cancellationIntent = SubagentCancellationIntent.Requested(at))
+        ),
+        requested == afterRequest.fold[SubagentCancellationRequestResult](
+          SubagentCancellationRequestResult.Missing
+        )(SubagentCancellationRequestResult.Requested(_)),
+        repeated == afterRequest.fold[SubagentCancellationRequestResult](
+          SubagentCancellationRequestResult.Missing
+        )(SubagentCancellationRequestResult.AlreadyRequested(_)),
+        deniedStart == SubagentTaskStartResult.CancellationRequested,
+        late == beforeRepeat.fold[SubagentCancellationRequestResult](
+          SubagentCancellationRequestResult.Missing
+        )(SubagentCancellationRequestResult.AlreadyTerminal(_)),
+        afterRepeat == beforeRepeat,
+        lost == Exit.fail(uncertainty),
+        uncertainCount == 1,
+        recovered.exists(_.cancellationIntent != SubagentCancellationIntent.NotRequested),
+        boundedReadable == original,
+        oversized.isLeft,
+        boundedAfter.contains(raw)
+      )
+    ,
+    test(
       "check-time retries retain one candidate and concurrent metadata; uncertain writes are not replayed"
     ):
       for

@@ -108,6 +108,41 @@ object SubagentToolsSpec extends ZIOSpecDefault:
           ZIO.fail(AgentError.InvalidConfiguration(s"Expected task observation: $other"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentToolsSpec")(
+    test(
+      "custom cancellation preserves its required publication failure before returning a model observation"
+    ):
+      val id                                   = SubagentTaskId(new java.util.UUID(0L, 91L))
+      val child: Exit[AgentError, AgentResult] = Exit.failCause(Cause.interrupt(FiberId.None))
+      val failure = AgentError.StorageError("Custom cancellation publication failed")
+      val custom = new SubagentTaskRegistry:
+        def submit(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] =
+          ZIO.succeed(SubagentTaskSubmission.Closed)
+        def inspect(id: SubagentTaskId): UIO[Option[SubagentTaskSnapshot]] =
+          ZIO.succeed(Some(SubagentTaskSnapshot(id, SubagentTaskState.Completed(child))))
+        def list: UIO[Chunk[SubagentTaskSnapshot]] =
+          ZIO.succeed(Chunk(SubagentTaskSnapshot(id, SubagentTaskState.Completed(child))))
+        def await(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] =
+          inspect(id).as(Some(child))
+        def awaitOrPromote(id: SubagentTaskId): UIO[Option[TaskWait[AgentResult]]] =
+          inspect(id).as(Some(TaskWait.Completed(child)))
+        def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] =
+          inspect(id).as(Some(child))
+        def forgetCompleted(id: SubagentTaskId): UIO[SubagentTaskRemoval] =
+          inspect(id).as(SubagentTaskRemoval.Removed)
+        override private[subagent] def awaitTerminalPublication(
+            id: SubagentTaskId
+        ): IO[AgentError, Unit] = inspect(id) *> ZIO.fail(failure)
+      SubagentTools
+        .make(custom)
+        .executeSafe("agent_cancel", taskInput(id.value.toString))
+        .exit
+        .map(result =>
+          assertTrue(result match
+            case Exit.Success(observed) =>
+              observed.state == ToolResultState.Error && observed.output == "Execution failed for 'agent_cancel': Custom cancellation publication failed"
+            case Exit.Failure(_) => false)
+        )
+    ,
     test("host synchronous execution joins timeout and caller cancellation without promotion"):
       for
         budget <- ZIO.fromEither(SubagentSyncTimeout.fromDuration(1.second))

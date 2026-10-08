@@ -31,6 +31,13 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
   private enum DurableAdmission:
     case Ready, LostReceipt, CallerCancelled, StartFailed, Closed, HostClosed
 
+  private enum CancellationAttempt:
+    case Failed, Uncertain, CallerCancelled, BeforeStart, AlreadyTerminal, StoredOnly,
+      IdentityMismatch, ForgedNoIntent, ForgedTerminalRequested, ForgedNonterminalAlreadyTerminal
+
+  private enum CancellationJoin:
+    case Normal, CallerInterrupted
+
   private enum RejectedAdmission:
     case Uncertain, Collision, CallerCancelled
 
@@ -250,7 +257,312 @@ object SubagentTaskRegistrySpec extends ZIOSpecDefault:
           case _                           => records.size == 1 && totalWrites == 3
       ) && phases
 
+  private def cancellationAttempt(
+      mode: CancellationAttempt
+  ): ZIO[TestEnvironment & Scope, AgentError, TestResult] =
+    ZIO.scoped:
+      for
+        backend <- SubagentTerminalStoreSpec.fixture
+        address <- ZIO.fromEither(
+          StorageAddress.from(Chunk("cancel-attempt", mode.toString), "tasks")
+        )
+        base = SubagentTerminalStore.make(backend.store, address)
+        starting       <- Promise.make[Nothing, Unit]
+        allowStart     <- Promise.make[Nothing, Unit]
+        entered        <- Promise.make[Nothing, Unit]
+        cleaned        <- Ref.make(0)
+        attempts       <- Ref.make(0)
+        requestEntered <- Promise.make[Nothing, Unit]
+        failure = AgentError.StorageError("Cancellation intent unavailable")
+        store = new SubagentTerminalStore:
+          def read(id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalRecord]] =
+            base.read(id)
+          def list: IO[AgentError, Chunk[SubagentTerminalRecord]] = base.list
+          def publish(record: SubagentTerminalRecord): IO[AgentError, SubagentTerminalPublication] =
+            base.publish(record)
+          override def admit(
+              id: SubagentTaskId,
+              workerId: Option[SubagentWorkerId]
+          ): IO[AgentError, SubagentTaskAdmissionResult] = base.admit(id, workerId)
+          override def confirmStart(
+              identity: SubagentTaskAdmissionIdentity
+          ): IO[AgentError, SubagentTaskStartResult] =
+            starting.succeed(()) *> (if mode == CancellationAttempt.BeforeStart then
+                                       allowStart.await
+                                     else ZIO.unit) *> base.confirmStart(identity)
+          override def requestCancellation(
+              id: SubagentTaskId,
+              expectedIdentity: Option[SubagentTaskAdmissionIdentity]
+          ): IO[AgentError, SubagentCancellationRequestResult] =
+            attempts.update(_ + 1) *> requestEntered.succeed(()) *> (mode match
+              case CancellationAttempt.Failed => ZIO.fail(failure)
+              case CancellationAttempt.Uncertain =>
+                base.requestCancellation(id, expectedIdentity) *> ZIO.fail(failure)
+              case CancellationAttempt.CallerCancelled => ZIO.never
+              case CancellationAttempt.IdentityMismatch =>
+                base
+                  .requestCancellation(id, expectedIdentity)
+                  .map:
+                    case SubagentCancellationRequestResult.Requested(record) =>
+                      SubagentCancellationRequestResult.Requested(
+                        record.copy(metadata =
+                          record.metadata.map(metadata =>
+                            metadata.copy(createdAt = metadata.createdAt.plusSeconds(1L))
+                          )
+                        )
+                      )
+                    case other => other
+              case CancellationAttempt.ForgedNoIntent |
+                  CancellationAttempt.ForgedTerminalRequested |
+                  CancellationAttempt.ForgedNonterminalAlreadyTerminal =>
+                base
+                  .requestCancellation(id, expectedIdentity)
+                  .map:
+                    case SubagentCancellationRequestResult.Requested(record) =>
+                      mode match
+                        case CancellationAttempt.ForgedNoIntent =>
+                          SubagentCancellationRequestResult.Requested(
+                            record
+                              .copy(cancellationIntent = SubagentCancellationIntent.NotRequested)
+                          )
+                        case CancellationAttempt.ForgedTerminalRequested =>
+                          SubagentCancellationRequestResult.Requested(
+                            record.copy(state =
+                              SubagentTaskRecordState.Terminal(
+                                SubagentTerminalOutcome.Completed("forged"),
+                                SubagentTerminalAcknowledgement.Pending
+                              )
+                            )
+                          )
+                        case _ => SubagentCancellationRequestResult.AlreadyTerminal(record)
+                    case other => other
+              case _ => base.requestCancellation(id, expectedIdentity))
+        host       <- owner
+        supervisor <- host.extend(TaskSupervisor.open[AgentResult])
+        parent     <- SubagentSpawner.root(supervisor)
+        configured <- factory(_ =>
+          ZIO.acquireRelease(ZIO.unit)(_ => cleaned.update(_ + 1)) *> entered.succeed(
+            ()
+          ) *> ZIO.never
+        )
+        registry <- SubagentTaskRegistry.openDurable(parent, configured, store)
+        _        <- ZIO.addFinalizer(allowStart.succeed(()).unit)
+        id       <- accepted(registry.submit(input))
+        _        <- starting.await
+        _        <- if mode == CancellationAttempt.BeforeStart then ZIO.unit else entered.await
+        priorTerminal = SubagentTerminalRecord(
+          id,
+          SubagentTerminalOutcome.Completed("persisted terminal truth")
+        )
+        _ <-
+          if mode == CancellationAttempt.AlreadyTerminal then base.publish(priorTerminal).unit
+          else ZIO.unit
+        selected <-
+          if mode == CancellationAttempt.StoredOnly then
+            SubagentTaskRegistry.openDurable(parent, configured, store)
+          else ZIO.succeed(registry)
+        cancelling <- selected.cancelTask(id).exit.forkScoped
+        _          <- requestEntered.await
+        result <-
+          if mode == CancellationAttempt.CallerCancelled then
+            cancelling.interrupt.map:
+              case Exit.Success(value) => value
+              case Exit.Failure(cause) => Exit.failCause(cause)
+          else if mode == CancellationAttempt.BeforeStart then
+            allowStart.succeed(()) *> cancelling.join
+          else cancelling.join
+        successful = result match
+          case Exit.Success(value) => Some(value)
+          case Exit.Failure(_)     => None
+        cleanupBeforeOwnerClose <- cleaned.get
+        local                   <- registry.inspect(id)
+        stored                  <- base.taskRecord(id)
+        count                   <- attempts.get
+        joined <- if mode == CancellationAttempt.BeforeStart then registry.await(id) else ZIO.none
+      yield assertTrue(
+        count == 1,
+        mode match
+          case CancellationAttempt.Failed | CancellationAttempt.Uncertain =>
+            result == Exit.fail(failure) && cleanupBeforeOwnerClose == 0
+          case CancellationAttempt.CallerCancelled =>
+            result.isInterrupted && cleanupBeforeOwnerClose == 0
+          case CancellationAttempt.IdentityMismatch | CancellationAttempt.ForgedNoIntent |
+              CancellationAttempt.ForgedTerminalRequested |
+              CancellationAttempt.ForgedNonterminalAlreadyTerminal =>
+            result.causeOption.exists(
+              _.failures.exists(
+                _.message == "Cancellation receipt does not match the captured durable admission"
+              )
+            ) && cleanupBeforeOwnerClose == 0
+          case CancellationAttempt.BeforeStart =>
+            successful.exists:
+              case SubagentTaskCancellation.Joined(exit) =>
+                exit.isInterrupted && joined.contains(exit) && cleanupBeforeOwnerClose == 0
+              case _ => false
+          case CancellationAttempt.AlreadyTerminal =>
+            successful.exists:
+              case SubagentTaskCancellation.AlreadyTerminal(record) =>
+                record.terminal.contains(priorTerminal) && cleanupBeforeOwnerClose == 0
+              case _ => false
+          case CancellationAttempt.StoredOnly =>
+            successful.exists:
+              case SubagentTaskCancellation.Requested(record) =>
+                record.id == id && record.state == SubagentTaskRecordState.Running && cleanupBeforeOwnerClose == 0
+              case _ => false
+        ,
+        mode == CancellationAttempt.BeforeStart || local.exists(
+          _.state == SubagentTaskState.Running
+        ),
+        stored.exists(record =>
+          if mode == CancellationAttempt.Failed || mode == CancellationAttempt.CallerCancelled then
+            record.cancellationIntent == SubagentCancellationIntent.NotRequested
+          else record.cancellationIntent != SubagentCancellationIntent.NotRequested
+        )
+      )
+
+  private def joinedCancellation(
+      mode: CancellationJoin
+  ): ZIO[TestEnvironment & Scope, AgentError, TestResult] =
+    ZIO.scoped:
+      for
+        backend <- SubagentTerminalStoreSpec.fixture
+        address <- ZIO.fromEither(StorageAddress.from(Chunk("cancel", "public"), "tasks"))
+        store  = SubagentTerminalStore.make(backend.store, address)
+        defect = new IllegalStateException("owned cancellation cleanup defect")
+        entered        <- Promise.make[Nothing, Unit]
+        cleanupEntered <- Promise.make[Nothing, Unit]
+        releaseCleanup <- Promise.make[Nothing, Unit]
+        atCleanup      <- Promise.make[Nothing, Option[VersionedJson]]
+        host           <- owner
+        supervisor     <- host.extend(TaskSupervisor.open[AgentResult])
+        parent         <- SubagentSpawner.root(supervisor)
+        configured <- factory(_ =>
+          ZIO.acquireRelease(ZIO.unit)(_ =>
+            backend.values.get.flatMap(values => atCleanup.succeed(values.get(address))) *>
+              cleanupEntered.succeed(()) *> releaseCleanup.await *>
+              (mode match
+                case CancellationJoin.Normal            => ZIO.unit
+                case CancellationJoin.CallerInterrupted => ZIO.die(defect))
+          ) *> entered.succeed(()) *> ZIO.never
+        )
+        registry <- SubagentTaskRegistry.openDurable(parent, configured, store)
+        _        <- ZIO.addFinalizer(releaseCleanup.succeed(()).unit)
+        id       <- accepted(registry.submit(input))
+        _        <- entered.await
+        cancelling <- ZIO.uninterruptibleMask: restore =>
+          for
+            fiber <- restore(
+              SubagentTools
+                .make(registry)
+                .executeSafe(
+                  "agent_cancel",
+                  Json.Obj("task_id" -> Json.Str(id.value.toString))
+                )
+            ).forkScoped
+            _ <- ZIO.addFinalizer(releaseCleanup.succeed(()).unit)
+          yield fiber
+        _               <- cleanupEntered.await
+        snapshot        <- atCleanup.await
+        beforeJoin      <- store.taskRecord(id)
+        stillCancelling <- cancelling.poll
+        controller      <- ZIO.fiberId
+        _ <- mode match
+          case CancellationJoin.Normal            => ZIO.unit
+          case CancellationJoin.CallerInterrupted => cancelling.interruptAsFork(controller)
+        afterCallerSignal <- cancelling.poll
+        _                 <- releaseCleanup.succeed(())
+        callerExit        <- cancelling.await
+        _                 <- registry.publication(id)
+        joined            <- registry.await(id)
+        published         <- store.read(id)
+        intentBeforeSignal = snapshot.exists(_.value match
+          case Json.Obj(fields) =>
+            fields
+              .find(_._1 == "records")
+              .exists(_._2 match
+                case Json.Arr(records) =>
+                  records.exists:
+                    case Json.Obj(entry) =>
+                      entry.contains("id" -> Json.Str(id.value.toString)) &&
+                      entry
+                        .find(_._1 == "cancellationIntent")
+                        .exists(_._2 match
+                          case Json.Obj(intent) =>
+                            intent
+                              .find(_._1 == "Requested")
+                              .exists(_._2 match
+                                case Json.Obj(request) =>
+                                  request.exists:
+                                    case ("at", Json.Str(value)) => value.nonEmpty
+                                    case _                       => false
+                                case _ => false)
+                          case _ => false)
+                    case _ => false
+                case _ => false)
+          case _ => false)
+      yield assertTrue(
+        intentBeforeSignal,
+        beforeJoin.exists(_.state == SubagentTaskRecordState.Running),
+        stillCancelling.isEmpty,
+        joined.exists(_.isInterrupted),
+        afterCallerSignal.isEmpty,
+        mode match
+          case CancellationJoin.Normal =>
+            callerExit.isSuccess && published.exists(
+              _.outcome == SubagentTerminalOutcome.Interrupted(
+                Chunk.empty,
+                SubagentTaskDefects.Absent
+              )
+            )
+          case CancellationJoin.CallerInterrupted =>
+            callerExit.causeOption.exists(cause =>
+              cause.isInterrupted && cause.interruptors.contains(
+                controller
+              ) && cause.defects == List(defect) && cause.failures.isEmpty
+            ) &&
+            joined
+              .flatMap(_.causeOption)
+              .exists(cause =>
+                cause.isInterrupted && cause.defects == List(defect) && cause.failures.isEmpty
+              ) &&
+            published.exists(
+              _.outcome == SubagentTerminalOutcome.Interrupted(
+                Chunk.empty,
+                SubagentTaskDefects.Present
+              )
+            )
+      )
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentTaskRegistrySpec")(
+    test(
+      "durable cancellation failures never signal children; pre-start, stored-only and already-terminal requests retain truthful authority"
+    ):
+      ZIO
+        .foreach(
+          Chunk(
+            CancellationAttempt.Failed,
+            CancellationAttempt.Uncertain,
+            CancellationAttempt.CallerCancelled,
+            CancellationAttempt.BeforeStart,
+            CancellationAttempt.AlreadyTerminal,
+            CancellationAttempt.StoredOnly,
+            CancellationAttempt.IdentityMismatch,
+            CancellationAttempt.ForgedNoIntent,
+            CancellationAttempt.ForgedTerminalRequested,
+            CancellationAttempt.ForgedNonterminalAlreadyTerminal
+          )
+        )(cancellationAttempt)
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test(
+      "durable cancellation persists intent before signalling and publishes terminal truth only after joined cleanup"
+    ):
+      ZIO
+        .foreach(Chunk(CancellationJoin.Normal, CancellationJoin.CallerInterrupted))(
+          joinedCancellation
+        )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test(
       "public durable admission persists before child effects, releases only confirmed creation and retains truthful uncertainty or pre-start failure"
     ):

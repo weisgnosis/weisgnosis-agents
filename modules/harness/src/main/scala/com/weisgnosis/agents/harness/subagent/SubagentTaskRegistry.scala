@@ -45,6 +45,13 @@ enum SubagentTaskSubmission:
   case Accepted(id: SubagentTaskId)
   case Capacity, Closed, IdentityCollision
 
+/** Local joined execution data or a durable request without inferred execution ownership. */
+enum SubagentTaskCancellation:
+  case Missing
+  case Requested(record: SubagentTaskRecord)
+  case AlreadyTerminal(record: SubagentTaskRecord)
+  case Joined(exit: Exit[AgentError, AgentResult])
+
 enum SubagentTaskRemoval:
   case Removed, Missing, Running, Unpublished
 
@@ -67,6 +74,22 @@ trait SubagentTaskRegistry:
   def await(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]]
   def awaitOrPromote(id: SubagentTaskId): UIO[Option[TaskWait[AgentResult]]]
   def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]]
+
+  /** Default custom registries preserve local cancellation only; no durable intent is implied. */
+  def cancelTask(id: SubagentTaskId): IO[AgentError, SubagentTaskCancellation] =
+    cancel(id).flatMap:
+      case None => ZIO.succeed(SubagentTaskCancellation.Missing)
+      case Some(joined) =>
+        ZIO.uninterruptibleMask: restore =>
+          restore(awaitTerminalPublication(id)).exit.flatMap:
+            case Exit.Success(_)     => ZIO.succeed(SubagentTaskCancellation.Joined(joined))
+            case Exit.Failure(cause) =>
+              // Preserve the existing custom publication boundary and its caller-cancellation cause.
+              val child =
+                if cause.isInterrupted then joined.causeOption.getOrElse(Cause.empty)
+                else Cause.empty
+              ZIO.refailCause(if child.isEmpty then cause else cause ++ child)
+
   def forgetCompleted(id: SubagentTaskId): UIO[SubagentTaskRemoval]
 
   /** Effectful observation preserves live-only custom registry behavior by default. */
@@ -165,7 +188,8 @@ object SubagentTaskRegistry:
       task: SupervisedTask[AgentResult],
       metadata: Option[Ref[SubagentTaskMetadata]],
       delivery: DeliveryState = DeliveryState.Pending,
-      publisher: Option[Fiber.Runtime[AgentError, SubagentTerminalPublication]] = None
+      publisher: Option[Fiber.Runtime[AgentError, SubagentTerminalPublication]] = None,
+      admissionIdentity: Option[SubagentTaskAdmissionIdentity] = None
   )
 
   final private case class Persistence(store: SubagentTerminalStore, owner: Scope.Closeable)
@@ -367,7 +391,13 @@ object SubagentTaskRegistry:
                     start <- Promise.make[Nothing, Option[SubagentTaskAdmissionIdentity]]
                     beforeStart = start.await.flatMap(identity =>
                       ZIO.foreachDiscard(identity)(value =>
-                        ZIO.foreachDiscard(persistence)(_.store.markRunning(value))
+                        ZIO.foreachDiscard(persistence)(
+                          _.store
+                            .confirmStart(value)
+                            .flatMap:
+                              case SubagentTaskStartResult.Started               => ZIO.unit
+                              case SubagentTaskStartResult.CancellationRequested => ZIO.interrupt
+                        )
                       )
                     )
                     launched <- ZIO.suspendSucceed(launchTask(input, id, events, beforeStart))
@@ -401,7 +431,13 @@ object SubagentTaskRegistry:
                                 )
                                 _ <- state.set(
                                   State.Open(
-                                    entries :+ Entry(id, task, metadata, publisher = publisher)
+                                    entries :+ Entry(
+                                      id,
+                                      task,
+                                      metadata,
+                                      publisher = publisher,
+                                      admissionIdentity = identity
+                                    )
                                   )
                                 )
                                 _ <- start.succeed(identity)
@@ -420,7 +456,15 @@ object SubagentTaskRegistry:
         task: SupervisedTask[AgentResult],
         result: Exit[AgentError, A]
     ): IO[AgentError, A] = task.cancel.flatMap: exit =>
-      val cleanup = exit match
+      val cleanup = ownedCancellationCleanup(exit)
+      result match
+        case Exit.Success(value) =>
+          if cleanup.isEmpty then ZIO.succeed(value) else ZIO.refailCause(cleanup)
+        case Exit.Failure(cause) =>
+          ZIO.refailCause(if cleanup.isEmpty then cause else cause ++ cleanup)
+
+    private def ownedCancellationCleanup[A](exit: Exit[AgentError, A]): Cause[AgentError] =
+      exit match
         case Exit.Success(_) => Cause.empty
         case Exit.Failure(cause) =>
           cause.foldLog[Cause[AgentError]](
@@ -431,11 +475,6 @@ object SubagentTaskRegistry:
               Cause.die(defect, trace).spanned(spans).annotated(annotations),
             (_, _, _, _) => Cause.empty
           )(_ ++ _, _ && _, (value, stackless) => Cause.Stackless(value, stackless))
-      result match
-        case Exit.Success(value) =>
-          if cleanup.isEmpty then ZIO.succeed(value) else ZIO.refailCause(cleanup)
-        case Exit.Failure(cause) =>
-          ZIO.refailCause(if cleanup.isEmpty then cause else cause ++ cleanup)
 
     def inspect(id: SubagentTaskId): UIO[Option[SubagentTaskSnapshot]] =
       lookup(id).flatMap(ZIO.foreach(_)(snapshot))
@@ -452,6 +491,96 @@ object SubagentTaskRegistry:
 
     def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] =
       lookup(id).flatMap(ZIO.foreach(_)(_.task.cancel))
+
+    /** Intent persistence is interruptible; a confirmed local signal owns and joins its child cleanup. */
+    override def cancelTask(id: SubagentTaskId): IO[AgentError, SubagentTaskCancellation] =
+      ZIO.uninterruptibleMask: restore =>
+        lookup(id).flatMap: captured =>
+          persistence match
+            case None =>
+              ZIO
+                .foreach(captured)(_.task.cancel)
+                .map(
+                  _.fold[SubagentTaskCancellation](SubagentTaskCancellation.Missing)(
+                    SubagentTaskCancellation.Joined(_)
+                  )
+                )
+            case Some(binding) =>
+              val expected = captured.flatMap(_.admissionIdentity)
+              if expected.isEmpty && captured.nonEmpty then
+                captured match
+                  case Some(entry) =>
+                    // Private terminal-only launchers can observe an already joined worker, never
+                    // signal a running child or claim that cancellation intent was persisted.
+                    entry.task.poll.flatMap:
+                      case Some(joined) => observeCancellation(entry, joined, restore)
+                      case None =>
+                        ZIO.fail(
+                          AgentError.InvalidConfiguration(
+                            "This terminal-only task has no confirmed durable cancellation identity"
+                          )
+                        )
+                  case None =>
+                    ZIO.fail(AgentError.InvalidConfiguration("Missing captured terminal-only task"))
+              else
+                restore(binding.store.requestCancellation(id, expected)).flatMap: receipt =>
+                  val record = receipt match
+                    case SubagentCancellationRequestResult.Missing                 => None
+                    case SubagentCancellationRequestResult.Requested(value)        => Some(value)
+                    case SubagentCancellationRequestResult.AlreadyRequested(value) => Some(value)
+                    case SubagentCancellationRequestResult.AlreadyTerminal(value)  => Some(value)
+                  val matches = record.forall(_.id == id) && expected.forall(identity =>
+                    record.exists(value =>
+                      value.id == identity.id && value.workerId == identity.workerId && value.metadata
+                        .exists(_.createdAt == identity.createdAt)
+                    )
+                  )
+                  val validReceipt = receipt match
+                    case SubagentCancellationRequestResult.Missing => true
+                    case SubagentCancellationRequestResult.Requested(value) =>
+                      value.terminal.isEmpty && value.cancellationIntent != SubagentCancellationIntent.NotRequested
+                    case SubagentCancellationRequestResult.AlreadyRequested(value) =>
+                      value.terminal.isEmpty && value.cancellationIntent != SubagentCancellationIntent.NotRequested
+                    case SubagentCancellationRequestResult.AlreadyTerminal(value) =>
+                      value.terminal.nonEmpty
+                  if !matches || !validReceipt then
+                    ZIO.fail(
+                      AgentError.StorageError(
+                        "Cancellation receipt does not match the captured durable admission"
+                      )
+                    )
+                  else
+                    receipt match
+                      case SubagentCancellationRequestResult.Missing =>
+                        ZIO.succeed(SubagentTaskCancellation.Missing)
+                      case SubagentCancellationRequestResult.AlreadyTerminal(value) =>
+                        ZIO.succeed(SubagentTaskCancellation.AlreadyTerminal(value))
+                      case SubagentCancellationRequestResult.Requested(value) =>
+                        cancelConfirmed(captured, value, restore)
+                      case SubagentCancellationRequestResult.AlreadyRequested(value) =>
+                        cancelConfirmed(captured, value, restore)
+
+    private def cancelConfirmed(
+        captured: Option[Entry],
+        record: SubagentTaskRecord,
+        restore: ZIO.InterruptibilityRestorer
+    ): IO[AgentError, SubagentTaskCancellation] = captured match
+      case None => ZIO.succeed(SubagentTaskCancellation.Requested(record))
+      case Some(entry) =>
+        entry.task.cancel.flatMap(joined => observeCancellation(entry, joined, restore))
+
+    private def observeCancellation(
+        entry: Entry,
+        joined: Exit[AgentError, AgentResult],
+        restore: ZIO.InterruptibilityRestorer
+    ): IO[AgentError, SubagentTaskCancellation] =
+      restore(ZIO.foreachDiscard(entry.publisher)(_.await.flatMap(exit => exit))).exit.flatMap:
+        case Exit.Success(_)     => ZIO.succeed(SubagentTaskCancellation.Joined(joined))
+        case Exit.Failure(cause) =>
+          // A normal interrupted child cannot turn a publication error into caller cancellation.
+          val cleanup =
+            if cause.isInterrupted then ownedCancellationCleanup(joined) else Cause.empty
+          ZIO.refailCause(if cleanup.isEmpty then cause else cause ++ cleanup)
 
     final private case class StoredView(
         terminals: Chunk[SubagentTerminalRecord],

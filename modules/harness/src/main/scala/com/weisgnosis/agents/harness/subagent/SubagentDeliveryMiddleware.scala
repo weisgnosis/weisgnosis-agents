@@ -466,7 +466,7 @@ object SubagentDeliveryMiddleware:
     case SubagentToolResult.Task(_, state) =>
       state match
         case SubagentToolState.Running | SubagentToolState.Promoted | SubagentToolState.Missing |
-            SubagentToolState.Stored(_) =>
+            SubagentToolState.Stored(_) | SubagentToolState.CancellationRequested =>
           false
         case _ => true
     case _ => false

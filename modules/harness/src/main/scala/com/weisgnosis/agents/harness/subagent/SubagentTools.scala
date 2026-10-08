@@ -52,6 +52,7 @@ final case class SubagentToolText(text: String, omittedCharacters: Int) derives 
 enum SubagentToolState derives JsonCodec:
   case Running, Promoted, Interrupted, Missing
   case Stored(state: SubagentStoredTaskState)
+  case CancellationRequested
   case Completed(reply: SubagentToolText)
   case Suspended(reply: SubagentToolText)
   case Stopped(reason: SubagentToolText)
@@ -490,11 +491,23 @@ object SubagentTools:
       id: SubagentTaskId
   ): IO[AgentError, Observation[SubagentToolResult]] =
     registry
-      .cancel(id)
+      .cancelTask(id)
       .flatMap:
-        case Some(exit) =>
-          terminalObservation(registry, id, Some(exit)).as(Observation.Success(project(id, exit)))
-        case None => ZIO.succeed(Observation.Error(task(id, SubagentToolState.Missing)))
+        case SubagentTaskCancellation.Missing =>
+          ZIO.succeed(Observation.Error(task(id, SubagentToolState.Missing)))
+        case SubagentTaskCancellation.Joined(exit) =>
+          ZIO.succeed(Observation.Success(project(id, exit)))
+        case SubagentTaskCancellation.Requested(_) =>
+          ZIO.succeed(Observation.Success(task(id, SubagentToolState.CancellationRequested)))
+        case SubagentTaskCancellation.AlreadyTerminal(record) =>
+          record.terminal match
+            case Some(terminal) => ZIO.succeed(Observation.Success(project(id, terminal.outcome)))
+            case None =>
+              ZIO.fail(
+                AgentError.StorageError(
+                  "Cancellation returned a nonterminal AlreadyTerminal record"
+                )
+              )
 
   private def routedTool[In](
       directory: SubagentSessionDirectory,

@@ -171,6 +171,12 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             checkClock      <- observedClock(checkedAt)
             checkedMetadata <- observing.markChecked(firstId).withClock(checkClock)
             reopenedCheck   <- admitting.taskRecord(firstId)
+            requestedAt = identity.createdAt.plusSeconds(20L)
+            requestClock <- observedClock(requestedAt)
+            cancellation <- admitting
+              .requestCancellation(firstId, Some(identity))
+              .withClock(requestClock)
+            reopenedIntent <- observing.taskRecord(firstId)
             _ <- admitting.publish(
               SubagentTerminalRecord(
                 firstId,
@@ -178,10 +184,12 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                 Some(workerId)
               )
             )
-            terminalRecord     <- observing.taskRecord(firstId)
-            _                  <- admitting.acknowledge(firstId)
-            acknowledgedRecord <- observing.taskRecord(firstId)
-            duplicateAdmission <- observing.admit(firstId, Some(workerId))
+            terminalRecord            <- observing.taskRecord(firstId)
+            _                         <- admitting.acknowledge(firstId)
+            acknowledgedRecord        <- observing.taskRecord(firstId)
+            duplicateAdmission        <- observing.admit(firstId, Some(workerId))
+            repeatedCancellation      <- observing.requestCancellation(firstId, Some(identity))
+            afterRepeatedCancellation <- admitting.taskRecord(firstId)
           yield assertTrue(
             before.isEmpty,
             pending.isEmpty,
@@ -253,6 +261,23 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
             runningRecord.exists(record =>
               record.state == SubagentTaskRecordState.Running &&
                 record.metadata.exists(_.createdAt == identity.createdAt)
+            ),
+            cancellation match
+              case SubagentCancellationRequestResult.Requested(record) =>
+                reopenedIntent.contains(record)
+              case _ => false,
+            reopenedIntent.exists(record =>
+              record.state == SubagentTaskRecordState.Running &&
+                record.cancellationIntent == SubagentCancellationIntent.Requested(requestedAt) &&
+                record.metadata == reopenedCheck.flatMap(_.metadata)
+            ),
+            repeatedCancellation match
+              case SubagentCancellationRequestResult.AlreadyTerminal(record) =>
+                acknowledgedRecord.contains(record)
+              case _ => false,
+            afterRepeatedCancellation == acknowledgedRecord,
+            terminalRecord.exists(
+              _.cancellationIntent == SubagentCancellationIntent.Requested(requestedAt)
             ),
             checkedMetadata == reopenedCheck.flatMap(_.metadata),
             reopenedCheck.exists(record =>

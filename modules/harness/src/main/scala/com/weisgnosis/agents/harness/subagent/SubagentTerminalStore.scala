@@ -98,6 +98,23 @@ trait SubagentTerminalStore:
       AgentError.InvalidConfiguration(s"Durable start is unsupported for ${identity.id.value}")
     )
 
+  /** Custom start implementations retain their existing contract; this default adds no atomic guard. */
+  def confirmStart(
+      identity: SubagentTaskAdmissionIdentity
+  ): IO[AgentError, SubagentTaskStartResult] =
+    markRunning(identity).as(SubagentTaskStartResult.Started)
+
+  /** A confirmed intent is data, not proof that a local or remote execution has stopped. */
+  def requestCancellation(
+      id: SubagentTaskId,
+      expectedIdentity: Option[SubagentTaskAdmissionIdentity] = None
+  ): IO[AgentError, SubagentCancellationRequestResult] =
+    ZIO.fail(
+      AgentError.InvalidConfiguration(
+        s"Durable cancellation is unsupported for ${id.value} and identity $expectedIdentity"
+      )
+    )
+
   /** The caller owns this effect; awaiting publication does not transfer or cancel task ownership. */
   final def publishJoined(
       id: SubagentTaskId,
@@ -194,14 +211,26 @@ object SubagentTerminalStore:
   final private case class Schema4Payload(schemaVersion: Int, records: Chunk[Schema4Entry])
       derives JsonCodec
 
-  final private case class Entry(
+  final private case class Schema5Entry(
       id: UUID,
       workerId: Option[SubagentWorkerId],
       state: SubagentTaskRecordState,
       metadata: Option[SubagentTaskMetadata]
   ) derives JsonCodec:
+    def current: Entry = Entry(id, workerId, state, metadata)
+
+  final private case class Schema5Payload(schemaVersion: Int, records: Chunk[Schema5Entry])
+      derives JsonCodec
+
+  final private case class Entry(
+      id: UUID,
+      workerId: Option[SubagentWorkerId],
+      state: SubagentTaskRecordState,
+      metadata: Option[SubagentTaskMetadata],
+      cancellationIntent: SubagentCancellationIntent = SubagentCancellationIntent.NotRequested
+  ) derives JsonCodec:
     def record: SubagentTaskRecord =
-      SubagentTaskRecord(SubagentTaskId(id), workerId, state, metadata)
+      SubagentTaskRecord(SubagentTaskId(id), workerId, state, metadata, cancellationIntent)
     def terminal: Option[SubagentTerminalRecord] = record.terminal
     def matches(identity: SubagentTaskAdmissionIdentity): Boolean =
       id == identity.id.value && workerId == identity.workerId && metadata.exists(
@@ -283,12 +312,28 @@ object SubagentTerminalStore:
       attempt(limits.maxConflicts, None)
 
     override def markRunning(identity: SubagentTaskAdmissionIdentity): IO[AgentError, Unit] =
-      def attempt(remaining: Int, candidate: Option[Instant]): IO[AgentError, Unit] =
+      confirmStart(identity).flatMap:
+        case SubagentTaskStartResult.Started => ZIO.unit
+        case SubagentTaskStartResult.CancellationRequested =>
+          ZIO.fail(AgentError.StorageError("The admitted task has a durable cancellation request"))
+
+    override def confirmStart(
+        identity: SubagentTaskAdmissionIdentity
+    ): IO[AgentError, SubagentTaskStartResult] =
+      def attempt(
+          remaining: Int,
+          candidate: Option[Instant]
+      ): IO[AgentError, SubagentTaskStartResult] =
         snapshot.flatMap: (revision, records) =>
           records.find(_.id == identity.id.value) match
+            case Some(existing)
+                if existing.matches(
+                  identity
+                ) && existing.terminal.isEmpty && existing.cancellationIntent != SubagentCancellationIntent.NotRequested =>
+              ZIO.succeed(SubagentTaskStartResult.CancellationRequested)
             case Some(existing) if existing.matches(identity) =>
               existing.state match
-                case SubagentTaskRecordState.Running => ZIO.unit
+                case SubagentTaskRecordState.Running => ZIO.succeed(SubagentTaskStartResult.Started)
                 case SubagentTaskRecordState.Pending =>
                   for
                     at <- candidate.fold[UIO[Instant]](Clock.instant)(ZIO.succeed(_))
@@ -300,12 +345,13 @@ object SubagentTerminalStore:
                       revision,
                       records.map(entry => if entry.id == existing.id then updated else entry)
                     )
-                    _ <- result match
-                      case ConditionalWrite.Applied(_) => ZIO.unit
+                    started <- result match
+                      case ConditionalWrite.Applied(_) =>
+                        ZIO.succeed(SubagentTaskStartResult.Started)
                       case ConditionalWrite.Conflict if remaining > 0 =>
                         attempt(remaining - 1, Some(at))
                       case ConditionalWrite.Conflict => exhausted("Task start")
-                  yield ()
+                  yield started
                 case SubagentTaskRecordState.Terminal(_, _) =>
                   ZIO.fail(
                     AgentError.StorageError(
@@ -317,6 +363,64 @@ object SubagentTerminalStore:
                 AgentError.StorageError("Task start does not match a confirmed durable admission")
               )
       attempt(limits.maxConflicts, None)
+
+    override def requestCancellation(
+        id: SubagentTaskId,
+        expectedIdentity: Option[SubagentTaskAdmissionIdentity]
+    ): IO[AgentError, SubagentCancellationRequestResult] =
+      def receipt(
+          entry: Entry,
+          pending: SubagentTaskRecord => SubagentCancellationRequestResult
+      ): SubagentCancellationRequestResult =
+        if entry.terminal.nonEmpty then
+          SubagentCancellationRequestResult.AlreadyTerminal(entry.record)
+        else pending(entry.record)
+      def attempt(
+          remaining: Int,
+          candidate: Option[Instant]
+      ): IO[AgentError, SubagentCancellationRequestResult] =
+        snapshot.flatMap: (revision, records) =>
+          records.find(_.id == id.value) match
+            case None => ZIO.succeed(SubagentCancellationRequestResult.Missing)
+            case Some(existing)
+                if expectedIdentity.exists(identity => !existing.matches(identity)) =>
+              ZIO.fail(
+                AgentError.StorageError(
+                  "Cancellation does not match the confirmed durable admission"
+                )
+              )
+            case Some(existing) =>
+              existing.cancellationIntent match
+                case SubagentCancellationIntent.Requested(_) =>
+                  ZIO.succeed(
+                    receipt(existing, SubagentCancellationRequestResult.AlreadyRequested(_))
+                  )
+                case SubagentCancellationIntent.NotRequested =>
+                  for
+                    at <- candidate.fold[UIO[Instant]](Clock.instant)(ZIO.succeed(_))
+                    updated = existing.copy(cancellationIntent =
+                      SubagentCancellationIntent.Requested(at)
+                    )
+                    result <- write(
+                      revision,
+                      records.map(entry => if entry.id == id.value then updated else entry)
+                    )
+                    observed <- result match
+                      case ConditionalWrite.Applied(_) =>
+                        ZIO.succeed(
+                          receipt(updated, SubagentCancellationRequestResult.Requested(_))
+                        )
+                      case ConditionalWrite.Conflict if remaining > 0 =>
+                        attempt(remaining - 1, Some(at))
+                      case ConditionalWrite.Conflict => exhausted("Cancellation request")
+                  yield observed
+      if expectedIdentity.exists(_.id != id) then
+        ZIO.fail(
+          AgentError.InvalidConfiguration(
+            "Cancellation identity does not match the requested task ID"
+          )
+        )
+      else attempt(limits.maxConflicts, None)
 
     override def markChecked(
         id: SubagentTaskId
@@ -474,7 +578,7 @@ object SubagentTerminalStore:
 
     private def encode(records: Chunk[Entry]): Either[AgentError, Json] =
       for
-        value <- Payload(5, records).toJsonAST.left.map(AgentError.StorageError.apply)
+        value <- Payload(6, records).toJsonAST.left.map(AgentError.StorageError.apply)
         _     <- decode(value)
       yield value
 
@@ -544,6 +648,11 @@ object SubagentTerminalStore:
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
             yield (payload.records.map(_.current), canonical)
           case 5 =>
+            for
+              payload   <- rendered.fromJson[Schema5Payload].left.map(AgentError.StorageError.apply)
+              canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
+            yield (payload.records.map(_.current), canonical)
+          case 6 =>
             for
               payload   <- rendered.fromJson[Payload].left.map(AgentError.StorageError.apply)
               canonical <- payload.toJsonAST.left.map(AgentError.StorageError.apply)
