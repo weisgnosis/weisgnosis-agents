@@ -101,7 +101,9 @@ resume bypass. Scala commits validated prior history before appending new input;
 this is not a transaction over both values or Java's mutable session-state API.
 
 - [x] Provide separate prior history/input, ordered validated preparation and once-per-fresh-run integration, preserving exact errors and joined cleanup.
-- [ ] Classify noOverrideKeepsExistingBehavior, resubscriptionRefiresWithFreshInputCopy and distinctCallScopedStatePerSession separately before claiming this whole changed upstream suite. Scala prepared handles are one-shot; ambient Java session routing is not introduced.
+- [x] noOverrideKeepsExistingBehavior (244): the default InvocationPreparer.identity leaves history/input unchanged. ReActAgentSpec's ordinary text call retains the exact user input and assistant reply. Scala installs independent typed extension ports rather than a Java middleware object with an optional overridden method; the literal onAgent trace assertion is not claimed.
+- [x] resubscriptionRefiresWithFreshInputCopy (354): Java reuses a cold Mono subscription; Scala prepared handles deliberately admit one execution only. InvocationPreparerSpec's ordinary/streamed fresh-invocation group verifies separate admitted callbacks and unchanged immutable caller input; PreparedInvocationSpec rejects reuse. This is an explicit ownership/API difference, not a claim that the same prepared handle executes twice or that the identical Java subscription assertions run.
+- [x] distinctCallScopedStatePerSession (379): InvocationPreparerSpec's explicit-session table selects separate ReActAgent runtimes and observes distinct reserved contexts with independent preparation/model signals. Scala does not multiplex Java ambient session IDs inside one agent or assert mutable AgentState object identity. Hosts select the appropriate runtime; this is the bounded session-isolation adaptation.
 
 ## Thinking and invocation observations
 
