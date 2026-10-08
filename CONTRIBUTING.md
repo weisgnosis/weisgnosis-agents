@@ -1,50 +1,38 @@
 # Contributing
 
-Read [AGENTS.md](AGENTS.md) before changing production or test code. Use Scala 3.9.0, ZIO 2.1.26, JDK 21, and the sbt version in project/build.properties.
+Read [AGENTS.md](AGENTS.md) for the Pure FP, Scala 3/ZIO 2 and runtime invariant requirements. Use JDK 21 and the Scala/dependency/sbt versions pinned in the build.
 
-## Engineering practices
+## Deliver a working behavior
 
-- Suspend external effects in ZIO, including constructor defaults, codecs, random IDs, clocks, filesystem screening, and adapter callbacks.
-- Use immutable values, typed AgentError failures, explicit public result types, Scala 3 indentation, derived JSON codecs, and enums/ADTs for states.
-- Avoid var, throw, null, return, procedural loops, mutable collections, Future, unsafe casts, partial access, and blocking sleeps.
-- Register release with Scope. Give each run/request its own lifetime and test cleanup on success, failure, timeout, and cancellation.
-- Normalize tool errors as observations; propagate cancellation. Races must preserve both successful and failed completion.
-- Treat canonical paths and filesystem ownership as separate contracts. Check-then-use pathname validation is not a race-resistant sandbox.
-- Keep code, comments, documentation, commits, and PRs in English. Use vendor-neutral interfaces and preserve attribution.
+1. Select one concrete outcome from the [library checklist](docs/architecture/tracker.md). Define what a caller will observe and which failure/cancellation boundaries matter.
+2. Implement the smallest coherent change using existing abstractions. Add proportionate tests for independent contracts; exercise the actual integration path instead of stopping at a converter or mock boundary.
+3. For a confirmed defect, first reproduce the specific assertion failure against unchanged production. A compile error or invalid fixture does not establish a defect.
+4. Obtain independent FP/ZIO and invariant-focused review for behavior changes. Correct findings and review the affected final changes. Record the concise outcome in the PR or task conversation, not package acceptance journals.
+5. Run the relevant checks, update affected API/usage/migration documentation and the single checklist, then commit. Keep unfinished work visible; do not broaden scope silently.
+
+Tests must preserve useful parser, state-machine, concurrency, failure and cancellation coverage. Prefer shared fixtures and tables to repeated setup. More tests or files are not an acceptance goal.
 
 ## Verification
 
+For production/test changes:
+
 ```text
 sbt scalafmtAll scalafmtSbt
-sbt verify packageArtifacts
+sbt verify
 ```
 
-The verify alias runs scalafmtCheckAll, scalafmtSbtCheck, compile, and test. Fatal warnings use -Werror; deprecation, feature, unchecked, and unused-symbol warnings are enabled. The compiler also retains trees with -Yretain-trees. Tests use scripted clients, Promise barriers, TestClock, and scoped temporary resources. `packageArtifacts` generates module binary/source JARs and POMs without publishing; packaging changes also require the separate archive/dependency and isolated-consumer checks documented in the [build contract](project/README.md#local-artifact-packaging).
+`verify` checks formatting, compilation with fatal warnings and tests. Run one sbt process at a time on this host. Focused checks guide development; repeat broad checks only when a relevant change or unresolved failure requires it.
 
-These checks do not prove semantic purity, exhaustive parity, English correctness, filesystem trust, or production readiness. Those remain review responsibilities.
+Changes to public APIs, dependencies, packaging or integration also require the applicable package/archive and fresh [external consumer](verification/artifact-consumer/README.md) checks. For a candidate, run `sbt verify packageArtifacts` and follow the [build contract](project/README.md#local-artifact-packaging). A packaged local JAR is not a published release or a binary-compatibility guarantee.
 
-## Independent review
+Actually execute affected database/process/HTTP tests with their documented prerequisites. Real-provider checks are opt-in; keep credentials in the process environment. Normal offline verification does not certify a live provider. Documentation-only edits need prose/API/link checks; compile examples if their code or dependencies change, without rerunning all runtime tests for prose alone.
 
-Behavioral changes require independent FP/ZIO and invariant-focused reviews. Ask for reproducible findings with source/test locations, add regressions for confirmed defects, resolve findings, and have reviewers inspect the final diff. Record explicit final approval, accepted scope, reviewer identities, reviewed revision, and validation in the affected README.md files. Do not close acceptance with unresolved findings.
+## Review and documentation
 
-Never claim subagent review unless it actually ran. Never label a suite exhaustive 1:1 parity without method-level mapping and justified differences or exclusions.
+Reviewers must inspect effects, scopes, interruption, typed failures, tool/runtime authority and the complete changed public path. Report concrete findings and the limits of the review. Never claim a review that did not run or treat one approval as certification of the whole library.
 
-## Documentation and compatibility
+Keep README files useful to callers: purpose, installation, examples, contracts and limitations. Update only affected documentation. Do not add file hashes, test-count milestones or reviewer transcripts. Remove superseded review reports after preserving current contracts; Git retains history.
 
-Update affected root/module/package READMEs, architecture contracts, tracker, test mappings, and migration notes. Prefer source links over duplicated implementations. Mark roadmap systems and host responsibilities explicitly.
+Write code, comments, docs, commits and PRs in English. Check local Markdown links. Unicode scans supplement manual prose review. Preserve compatibility and security notes; the [compatibility policy](project/README.md#compatibility-policy) describes current rebuild obligations.
 
-The pre-RC compatibility boundary and required dependent rebuilds are defined in the [build contract](project/README.md#compatibility-policy). The [external artifact consumer](verification/artifact-consumer/README.md) verifies selected public extension points against freshly packaged JARs, separately from source-project tests. Passing it establishes current integration behavior, not binary compatibility with a prior release or exhaustive public API coverage.
-
-Review changed prose and comments for English and neutral terminology. Check local Markdown links. Unicode screening is supplemental evidence, not proof of natural-language correctness.
-
-Use focused Conventional Commit messages and the PR checklist. CI provisions the [official sbt runner](https://github.com/sbt/setup-sbt) before verification and artifact generation.
-
-## Closing a review
-
-Follow the mandatory sequence in [AGENTS.md](AGENTS.md): independent review, corrections, explicit re-approval, current README updates, verification, and commit. Each maintained working directory needs a README.md; generated output and empty structural ancestors are excluded.
-
-Once all findings are resolved and reviewers approve, remove the temporary review report from the active tree and repair its links in the same commit. Historical findings remain available in Git. Preserve current API/security contracts and remaining roadmap work in their existing living documents. Do not create a replacement closed-review archive.
-
-Acceptance statements must name the actual reviewed scope and revision. A later behavior change invalidates the affected approval until it is reviewed again. Planned systems and unmapped parity cases remain explicitly pending.
-
-All trackers and roadmap/parity task lists use Markdown checkboxes. Check only verified completion; split partial phases into completed and pending tasks, and identify the next task. Update progress in the same commit as the work.
+Use focused Conventional Commit messages. PRs state the changed behavior, meaningful validation, review outcome and any remaining limitation. The [parity reference](docs/architecture/test-parity.md) explains upstream adaptations; the [tracker](docs/architecture/tracker.md) owns current completion scope.

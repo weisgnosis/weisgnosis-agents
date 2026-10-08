@@ -1,126 +1,41 @@
 # Host integration examples
 
-This nonpublished SBT project compiles against core, harness, and MCP. It demonstrates composition using the existing immutable ReActAgent builder; it does not introduce a library facade.
-
-HostAssembly accepts a model, explicit authorization, summarization, storage, and selected scoped MCP acquisitions. Its owner Scope bounds the MCP registrations and every agent run uses the runtime's own scope. Local tools must include read_file capable of retrieving paths returned by the supplied result store. No persistence or interactive approval policy is guessed.
-
-The example installs result eviction before context compaction, offloads compacted history to the lossy transcript, and records terminal snapshots with an explicit anonymous-message policy. The fixed run budget is three model iterations and one minute; finalizer completion may exceed that deadline. It creates no background scheduler or durable host.
-
-LiveProviderSmoke is an explicitly opt-in runnable program for a host-selected Chat Completions endpoint. Ordinary tests and verification remain offline. Before running it, set WEISGNOSIS_LIVE_SMOKE to exactly enabled, WEISGNOSIS_LIVE_ENDPOINT to the full endpoint URL, and WEISGNOSIS_LIVE_MODEL to the explicit model identifier. WEISGNOSIS_LIVE_API_KEY is required when the endpoint requires bearer authentication and may be omitted for an endpoint that does not require it; no ambient provider credential is read. Keep credentials in the process environment, never in tracked files or command history.
-
-Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveProviderSmoke"` from the repository root. An enabled run sends provider requests and may incur charges. It permits three model iterations, 1,024 output tokens per request, a one-minute run deadline, and a one-MiB response bound. The check requires one successful addition-tool execution, streamed visible text, and the exact final reply 5. Logs report only aggregate validation counts. Offline verification does not validate an external endpoint; the separately authorized [live run](#live-endpoint-verification) below supplies bounded evidence.
+This nonpublished SBT project compiles against core, harness, and MCP. It demonstrates existing library APIs rather than adding a supported facade. Start with the complete applications in [Getting started](../../docs/getting-started.md).
 
 ## Scoped host usage
 
-Use supplied settings, dependencies and selected registrations within their owning scope:
+[HostAssembly](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) composes a model, explicit authorization, result storage, summarization, transcript storage, and selected scoped MCP registrations. Keep the returned assembly inside its owning Scope; each agent run owns its own run/request scopes. The host must install a read_file tool capable of retrieving paths returned by the supplied result store.
 
-```scala
-ZIO.scoped:
-  HostAssembly.open(settings, dependencies, registrations)
-    .flatMap(_.agent.run(input))
-```
-
-The example keeps policy, model and storage choices explicit. The existing builder and ports suffice for this bounded assembly; an additional supported library facade is not justified by this example. Subagent installation, maintenance scheduling and durable host recovery keep their separate contracts.
-
-## Offloaded result inspection
-
-The existing HostAssemblySpec integration now requests read_file through the actual agent after receiving a committed report preview and cache path in the second model input. Host authorization runs for both report and inspection. The third model input and retained result contain all 80,001 original characters. The later compaction may remove the earlier report pair; its committed preview is checked at the point where the model consumes it, rather than required forever in final history. The redundant direct host-tool read is removed, with no new integration test count.
-
-review_fp and review_invariants approved HostAssemblySpec against 1e90db1 at `1e263afc181e1c502255338d080264bd69334fd4`, with no unresolved findings. This is offline host-installed capability integration, not filesystem/provider interoperability or a new library reader implementation.
-
-- [x] offload-inspection-focused.log passes all three HostAssembly groups in 905 ms.
-- [x] Both independent reviewers approved the exact specification identity above.
-- [x] dialects-projection-full-verify.log, dialects-projection-preparation.log and dialects-projection-consumer.log pass full verification, archive admission and fresh standalone consumption.
-- [x] review_fp and review_invariants approved the final combined 20-file scope against 1e90db1, with five unchanged source/spec identities and fifteen Markdown files; no unresolved findings remain in this scope.
+Assembly installs result eviction before context compaction and records terminal snapshots with an explicit anonymous-message policy. Its run budget is three model iterations and one minute; joined cleanup may exceed that deadline. It creates no durable host, background scheduler, or automatic approval policy. [HostAssemblySpec](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) exercises actual offloaded-result inspection through the following model request.
 
 ## Registered transcript assembly
 
-HostAssembly.Dependencies.transcript now accepts TranscriptSource.Provided(existingStore) or Registered(backend, catalog, id, explicitLimits). Unpublished example callers supplying a store wrap it in Provided; library factory signatures/defaults are unchanged. Registered resolves exactly one matching catalog descriptor before MCP acquisition, chooses VersionedTranscriptStore with maxAttempts for Aggregate or SegmentedTranscriptStore with all checked limits for Segmented, then installs the existing offload/completion observer.
+HostAssembly.TranscriptSource selects either a provided store or one descriptor from an explicit registered catalog. Registered selection occurs before MCP acquisition and installs the existing aggregate or segmented writer with checked limits. The supplied catalog and backend remain host-owned.
 
-Lookup failure or cancellation joins its owned cleanup before returning and acquires no MCP client. The supplied backend/catalog retain their host-defined lifetimes. Registration, history preflight, authorization, leases, automatic selection and global discovery are not installed. A descriptor may point to corrupt history that fails completion observation after model/tool work; no rollback or safe automatic replay is promised.
-
-The paired actual-ReAct table checks both layouts through shared Ref-backed conditional publication, including exact selected history/returned records. Missing/duplicate matching IDs fail assembly. The existing failure/cancellation table covers catalog and MCP acquisition stages without adding another group. This is offline composition evidence, not PostgreSQL/provider integration or upstream method parity. This composition selects no new provider profile. Legacy type=signature reasoning-details objects require the explicitly selected [opaque signature details profile](../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#opaque-signature-details); other provider and per-tool signature wire contracts remain separate.
-
-| Source/spec under review against 1f4581b | Git blob |
-| --- | --- |
-| [HostAssembly.scala](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) | 8f01c4db654983e4d47461d366e7452eabd130c2 |
-| [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | [Current retrieval integration scope](#offloaded-result-inspection) |
-
-- [x] review_fp approved the final two source/spec identities against 1f4581b.
-- [x] review_invariants approved the same final two identities, with no unresolved findings.
-- [x] registered-transcript-final-focused.log passed three assembly groups in 662 milliseconds.
-- [x] registered-transcript-verify.log exited zero: 1,508 tests (669 core / 726 harness / 86 MCP / 21 PostgreSQL / 6 examples), zero compiler warnings/failures and four packages.
-- [x] registered-transcript-preparation.log passed source/archive admission regressions and restored archive/POM staging.
-- [x] registered-transcript-consumer.log passed fresh standalone formatting, clean compilation and forked selected-API consumption; the smoke does not select Registered.
-- [x] review_fp and review_invariants approved final combined documentation against 1f4581b and the two unchanged identities; manual English inspection, changed-script/diff checks and 78-document/2,827-local-reference checks pass with zero issues.
-
-- [x] review_fp and review_invariants approved the three-document RC-readiness clarification against 2a92a0b with no findings; English/diff and 78-document/3,020-local-reference checks pass. Source/test identities and existing verification are unchanged.
+Selection adds no registration, global discovery, history preflight, authentication, or execution lease. Corrupt history can fail a completion observer after work has occurred; there is no rollback or safe automatic replay promise. The source and its paired integration suite show the supported composition.
 
 ## Audited public model call
 
-[AuditedLlmClient.wrap](src/main/scala/com/weisgnosis/agents/examples/AuditedLlmClient.scala) is a pure unpublished example of public-call decoration. One suspended streamTurn delegation receives the exact history/tools/config/event hub/context inside a fresh request scope. Suspended Clock.nanoTime measurement includes owned request cleanup; the observer sees the complete exit afterward. The observation contains only ModelStreamContext, elapsed duration and Returned/Failed/Cancelled, with no copied content, configuration or causes. Cancelled means interruption-only failure; mixed failure/interruption remains Failed. Returned includes cooperative Interrupted and is not validated runtime completion.
+[AuditedLlmClient.wrap](src/main/scala/com/weisgnosis/agents/examples/AuditedLlmClient.scala) decorates the public model call with scoped timing and Returned/Failed/Cancelled observations. It preserves ordinary output and causes without copying prompts, configuration, or raw failures into the observation. Returned includes cooperative interruption; mixed interruption/failure is classified Failed.
 
-Ordinary output/cause is preserved. The UIO observer runs as an uninterruptible onExit finalizer and must terminate: slow observation delays cancellation. Observer defects replace success or compose with existing failure/cancellation. There is no durable audit-delivery guarantee. A public wrapper cannot forward private attemptTurn/BeforeResponseRejection capability-based failover proof or implicitly acquire the live client's private request-progress channel; hosts must account for this limitation when decorating compatible clients. No retries, cache, raw event rewriting or general middleware facade is supplied, and library APIs are unchanged.
-
-The two paired test groups verify nonempty exact forwarding, one lazy delegation, client failures/observer defects/cooperative return, and held request cleanup followed by one timed cancellation observation. Pinned ModelCallMiddlewareExample.AuditingMiddleware.onModelCall (149-185) provides delegation/timing/outcome source intent only. Global counters, raw logging, Java chains and advertised client substitution are excluded; no whole middleware-method/suite parity is claimed.
-
-| Source/spec approved by review_fp and review_invariants against 15047a8 | Git blob |
-| --- | --- |
-| [AuditedLlmClient.scala](src/main/scala/com/weisgnosis/agents/examples/AuditedLlmClient.scala) | 2229c8466e49409cd181e1437f4a70d3c209df6a |
-| [AuditedLlmClientSpec.scala](src/test/scala/com/weisgnosis/agents/examples/AuditedLlmClientSpec.scala) | 72d0ee0cbadfc5883ec20922c88ed34e4e77eef6 |
-
-- [x] Both independent reviewers approved these final identities, with no unresolved findings.
-- [x] Focused verification passed two groups in 165 milliseconds.
-- [x] audited-client-verify.log exited zero: 1,512 tests (670 core / 726 harness / 86 MCP / 22 PostgreSQL / 8 examples), zero compiler warnings/failures and four packages.
-- [x] audited-client-preparation.log passed archive/source admission regressions and restored archive/POM staging.
-- [x] audited-client-consumer.log passed fresh standalone formatting, clean compilation and forked selected public API execution; the smoke does not exercise unpublished AuditedLlmClient.
-- [x] review_fp and review_invariants approved final combined documentation against 15047a8 and the two unchanged identities; manual English inspection, diff checks and 78-document/2,857-local-reference checks pass with zero issues.
+The observer is an uninterruptible finalizer and must terminate. Its defects propagate, and it supplies no durable audit-delivery guarantee. A public wrapper cannot preserve private failover proof or implicitly acquire a wrapped client's private progress channel. See [AuditedLlmClientSpec](src/test/scala/com/weisgnosis/agents/examples/AuditedLlmClientSpec.scala) for these boundaries.
 
 ## Lifecycle logging
 
-[LifecycleLogging](src/main/scala/com/weisgnosis/agents/examples/LifecycleLogging.scala) consumes result-bearing events through EOF and uses existing ZIO structured logging. Wrap the assembled agent with `LifecycleLogging.run(agent, input)` inside its owner scope. It returns the complete AgentResult and preserves failure causes, cancellation, and joined cleanup. It does not retry executed turns.
+[LifecycleLogging](src/main/scala/com/weisgnosis/agents/examples/LifecycleLogging.scala) consumes result-bearing events through EOF using ZIO structured logging. Use LifecycleLogging.run within the agent's owner scope. It preserves the complete result, failure cause, cancellation, and joined cleanup without replaying turns.
 
-The allowlist emits static agent/model/tool lifecycle messages. Runtime agent/reply/request IDs correlate events; a fresh effectful invocation_id correlates the whole wrapper invocation and terminal status. Per-event annotations do not leak a previous request ID. AgentEnd records closure, not success; terminal state is reported separately without rendering suspension data or stop reasons. Raw tool IDs/names, model names, prompts, reasoning, deltas, outputs, metadata and error causes are excluded from this adapter's records.
+Its static allowlist excludes prompts, reasoning, outputs, metadata, raw tool/model names, and error causes. Runtime correlation IDs are observational. AgentEnd means closure, not success. A slow or failing logger affects consumption, and existing event buffers are unbounded. Hosts own inherited annotations, third-party logs, exporter privacy, retention, and access. ZIO log spans are not a distributed tracing implementation.
 
-observe accepts runtime-origin events. It is not a sanitizer for caller-forged IDs, inherited host annotations, independent runtime/third-party logs or exporter behavior. ZIO may independently log failed-fiber causes; the host configures its logger privacy boundary, levels, export, retention and access. A slow logger delays consumption and existing runtime event buffers are unbounded. Logger defects propagate with owned cleanup, so the adapter does not promise failure-free diagnostics.
-
-ZIO.logSpan supplies logging timing context, not an OpenTelemetry span or distributed tracing. Hosts can install zio-logging or a tracing bridge through their runtime/layers. This example adds no mandatory dependency, exporter, background subscriber or distributed tracing implementation.
-
-## Verification and acceptance
-
-- [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the five identities below, including the following model request receiving the retained eviction preview. No findings remain in this scope.
-- [x] Current formatting, fatal-warning compilation, full tests and packaging are recorded in the [audited-client verification](#audited-public-model-call). Existing integration/offline-smoke contracts retain their scoped review acceptance.
-- [x] Run the explicitly enabled smoke against one catalog-selected live endpoint; exact [run evidence](#live-endpoint-verification) is separate from offline verification and broader interoperability.
-
-| Reviewed file | Git blob |
-| --- | --- |
-| [build.sbt](../../build.sbt) | [Current candidate preparation identity](../../verification/artifact-consumer/README.md#candidate-preparation-acceptance) |
-| [HostAssembly.scala](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) | [Current registered assembly identity](#registered-transcript-assembly) |
-| [HostAssemblySpec.scala](src/test/scala/com/weisgnosis/agents/examples/HostAssemblySpec.scala) | [Current retrieval integration scope](#offloaded-result-inspection) |
-| [LiveProviderSmoke.scala](src/main/scala/com/weisgnosis/agents/examples/LiveProviderSmoke.scala) | `61bffc3da29040c9ff16270b8bd9387cb845337d` |
-| [LiveProviderSmokeSpec.scala](src/test/scala/com/weisgnosis/agents/examples/LiveProviderSmokeSpec.scala) | `60092ce956893432a4415609ce95b75c05ab983c` |
-
-## Logging acceptance
-
-- [x] review_fp approved FP/ZIO correctness and review_invariants approved relevant invariants for the two logging identities below; no findings remain in this scope.
-- [x] Current full verification is recorded in the [audited-client contract](#audited-public-model-call); the unchanged logging identities retain their accepted redaction/correlation/lifecycle scope.
-
-| Reviewed file | Git blob |
-| --- | --- |
-| [LifecycleLogging.scala](src/main/scala/com/weisgnosis/agents/examples/LifecycleLogging.scala) | `6760a231a4ebb2663ce4768536db84da2e71c3c8` |
-| [LifecycleLoggingSpec.scala](src/test/scala/com/weisgnosis/agents/examples/LifecycleLoggingSpec.scala) | `3338fa0be9ec09beafca7458309316dd05afcae0` |
-
-The paired LifecycleLoggingSpec has two contract groups: static allowlist/redaction/correlation with an actual completed run, and failure preservation plus cancellation blocked on model cleanup. These are new Scala integration checks, not additional upstream parity.
+[LifecycleLoggingSpec](src/test/scala/com/weisgnosis/agents/examples/LifecycleLoggingSpec.scala) covers correlation, redaction, failure preservation, and cleanup during cancellation; it does not establish a privacy boundary for unrelated host logging.
 
 ## Live endpoint verification
 
-On 2026-10-08 an authorized authenticated endpoint returned a loaded Chat Completions model through its catalog. LiveProviderSmoke was run with the catalog-selected qwen3.8-27b identifier and the existing limits above. `live-provider-first.log` records success at 2026-10-07T20:21:09Z, with process exit zero: exactly one successful smoke_sum(2,3) execution, three visible text deltas, fully consumed SSE and authoritative AgentRunState.Completed reply 5. The UTC timestamp precedes the local calendar date.
+[LiveProviderSmoke](src/main/scala/com/weisgnosis/agents/examples/LiveProviderSmoke.scala) is opt-in and sends real requests that may incur charges. Set WEISGNOSIS_LIVE_SMOKE to enabled, WEISGNOSIS_LIVE_ENDPOINT to the full endpoint URL, and WEISGNOSIS_LIVE_MODEL to the selected model identifier. Supply WEISGNOSIS_LIVE_API_KEY only if bearer authentication is required. Keep credentials in the process environment, outside tracked files and command history.
 
-Reviewed unchanged smoke source: `LiveProviderSmoke.scala` = `61bffc3da29040c9ff16270b8bd9387cb845337d`, from baseline `2f2754a`. Credentials remain process-local; no token, authenticated URL or response payload is copied into repository deliverables. The model identifier records this one observation and is not a default or a capability guarantee.
+Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveProviderSmoke"` from the repository root. The program bounds model iterations, output tokens, runtime, and response bytes; it checks addition-tool execution, streamed text, and the exact completed reply. Its logs expose aggregate validation counts.
 
-- [x] Run the existing smoke against the authorized real server and record its successful exit and aggregate assertions.
-- [x] review_fp and review_invariants independently inspect the actual log and unchanged completion/tool assertions.
-- [x] review_fp and review_invariants approved the final three-document live-evidence and controlling-plan correction against 2f2754a, with this unchanged source identity and no unresolved finding.
-- [ ] Validate required live cancellation, ordinary JSON completion, structured output, subagent/MCP chains and additional selected profiles separately; none is established by this smoke.
+The smoke is a narrow endpoint check, not evidence for cancellation, ordinary JSON completion, structured output, media, failover, subagent/MCP chains, or durable recovery. Offline verification does not contact or validate that endpoint.
 
-This run does not test embeddings, reranking, decision/image APIs, schema admission, retry/failover, media or durable host recovery. Model-generated answer text alone is never the completion oracle.
+## Verification and acceptance
+
+From the repository root, run `sbt "examples / test"` for offline example contracts and `sbt "examples / compile"` to compile the applications. Run `sbt verify` for repository formatting checks, fatal-warning compilation, and tests. These examples are not published library artifacts; remaining library and host integration work is tracked in the [repository tracker](../../docs/architecture/tracker.md).

@@ -1,64 +1,65 @@
 # weisgnosis-agents
 
-A Scala 3 and ZIO 2 library for agent execution with explicit resource ownership and deterministic runtime authority. It adapts agent mechanics from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java), licensed under Apache-2.0.
+A Scala 3 and ZIO 2 library for agent execution with explicit resource ownership. The runtime owns conversation state and completion; model output is untrusted input. Agent mechanics are adapted from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java).
 
-**Development status:** locally verified candidate artifacts are available from this source tree; no public distribution, frozen binary compatibility baseline or complete upstream transfer is claimed. Read the [getting-started guide](docs/getting-started.md), [current tracker](docs/architecture/tracker.md) and [method-level parity audit](docs/architecture/test-parity.md) before integration.
+**Development status:** use local artifacts from this source tree. Public distribution, frozen binary compatibility and complete upstream transfer are not yet established. The [completion checklist](docs/architecture/tracker.md) lists remaining library work.
 
-## Implemented components
+## Start here
 
-| Module | Current capabilities |
-| --- | --- |
-| [core](modules/core/README.md) | Immutable messages and events; typed local and external tool bindings; runtime schema admission; scoped ReAct execution; interruption reconciliation; checked usage; native/synthetic structured output; HTTP SSE and ordinary JSON completion. |
-| [harness](modules/harness/README.md) | Pair-safe context compaction; tool-output offload; memory and transcripts; permission gates and interactive/checkpoint confirmation; Plan mode; owned subagents, reusable sessions and bounded task listing; local skill loading. |
-| [mcp](modules/mcp/README.md) | Checked tools/resource APIs with explicit lifecycle profiles; direct-process stdio, legacy HTTP/SSE and Streamable HTTP JSON/SSE; scoped installation and explicit host-owned session replacement. |
-| [storage-postgresql](modules/storage-postgresql/README.md) | Optional conditional JSON publication backend for bounded memory, transcript, catalog, trigger-gate and acting-checkpoint adapters. The host supplies DataSource, driver and schema ownership. |
-
-The runtime persists proposed tool calls before execution, validates model turns and maintains conversation and completion authority. Local tool failures become model observations; cancellation joins owned cleanup and reconciles unfinished work. [External tools](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#external-tool-bindings) suspend for checked host-supplied observations instead of inventing a local handler.
-
-Provider compatibility is explicit. The [client contract](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md) defines selected reasoning/media representations, retry boundaries and failover. Tool messages default to text; image parts require an explicit compatible-endpoint selection. Serialization does not fetch media or establish support across providers.
-
-## Build and verification
-
-Use JDK 21 and the sbt version pinned in [project/build.properties](project/build.properties).
+Use JDK 21 and the sbt version pinned in [project/build.properties](project/build.properties). From this repository:
 
 ```text
-sbt scalafmtAll scalafmtSbt
-sbt verify packageArtifacts
+sbt verify
+sbt "core / publishLocal" "harness / publishLocal" "mcp / publishLocal"
 ```
 
-`verify` checks formatting, compiles with fatal warnings and runs tests. Real PostgreSQL scenarios require the explicitly configured fixture documented in the [fixture contract](modules/storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/README.md); default checks do not contact a public model provider. See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete contribution protocol.
+The [getting-started guide](docs/getting-started.md#build-and-local-installation) supplies consumer dependencies and complete applications. After installing core, save this as src/main/scala/ScriptedAgent.scala in your consumer project:
 
-## Host integration
+```scala
+package example
 
-Begin with the [scripted, HTTP/tool and owned MCP examples](docs/getting-started.md). The unpublished [examples project](modules/examples/README.md) provides tested cross-module assembly, registered transcript selection, lifecycle logging, audited calls and an explicitly enabled live-provider smoke program.
+import com.weisgnosis.agents.core.agent.ReActAgent
+import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
+import com.weisgnosis.agents.core.model.Msg
+import zio.*
 
-Scopes own resources and background workers. The host owns authentication, approval delivery, durable workflow replay, exclusive execution claims and idempotency. Process-local Promises and scopes do not establish recovery after a restart. [Checkpoint restoration](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) validates data and runtime bindings; it does not grant authorization to resume.
+object ScriptedAgent extends ZIOAppDefault:
+  def run: ZIO[Any, Throwable, Unit] =
+    ZIO.scoped:
+      for
+        client <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant("Hello"))))
+        agent <- ReActAgent.make(client = client)
+        result <- agent.run(Msg.user("Hello"))
+        _ <- Console.printLine(result.reply.text)
+      yield ()
+```
 
-## Minimal local example
+Run `sbt "runMain example.ScriptedAgent"`. It prints Hello without a network request. Continue with a [real HTTP model and typed tool](docs/getting-started.md#http-completion-with-a-typed-tool), or [owned MCP installation](docs/getting-started.md#owned-mcp-installation).
 
-The complete [scripted application](docs/getting-started.md#scripted-agent) runs without credentials or a provider. The guide explains local installation into a separate sbt project; no unpublished dependency is presented as available from Maven Central.
+## Modules
 
-## Documentation
+| Module | Purpose |
+| --- | --- |
+| [core](modules/core/README.md) | Messages, events, typed tools, ReAct execution, checkpoints, structured output and OpenAI-compatible HTTP completion. |
+| [harness](modules/harness/README.md) | Context compaction, output offload, memory, transcripts, permissions, planning, skills and owned subagents. |
+| [mcp](modules/mcp/README.md) | Scoped MCP tools/resources over direct stdio, legacy HTTP/SSE and Streamable HTTP. |
+| [storage-postgresql](modules/storage-postgresql/README.md) | Optional conditional JSON storage using a host-supplied DataSource and schema ownership. |
+| [examples](modules/examples/README.md) | Host composition, lifecycle logging and an opt-in live-provider smoke application. |
 
-- [Getting started](docs/getting-started.md): installation, complete examples and ownership boundaries.
-- [Documentation index](docs/README.md): architecture, package contracts and integration routes.
-- [API compatibility and migration](project/README.md#compatibility-policy): current public contracts and rebuilding obligations.
-- [Artifact verification](verification/artifact-consumer/README.md): independent consumption of actual packaged JARs.
-- [Implementation tracker](docs/architecture/tracker.md): completed scopes and unfinished work.
-- [Upstream parity audit](docs/architecture/test-parity.md): pinned method mappings and intentional differences.
+The runtime saves tool calls before local execution. Tool failures become observations; interruption joins owned cleanup and reconciles unfinished calls. Context compaction preserves call/result pairs, and offloading preserves the original observation when persistence fails. See [architecture contracts](docs/architecture/README.md) for precise boundaries.
 
-## License
+## Current limits
 
-[Apache License 2.0](LICENSE), copyright WeisGnosis. Upstream names are retained where needed for attribution, protocol compatibility and traceability.
+- General shell, file and web tools are supplied by the host or MCP; there is no bundled general OS toolkit.
+- The model adapter implements OpenAI-compatible completion, with explicit reasoning/media profiles. Native Anthropic and Gemini APIs are not implemented.
+- Persistent named-session restoration and other remaining upstream obligations stay open in the [tracker](docs/architecture/tracker.md#remaining-library-completion-work).
+- Hosts own authentication, durable workflow replay, exclusive execution claims and idempotency. Process-local Promises do not survive restarts. Local path validation is not an atomic filesystem sandbox.
+- PostgreSQL storage borrows the host's DataSource. It does not supply a pool, deployment or safe automatic replay of uncertain writes.
 
-## Current acceptance
+## Verification and contribution
 
-Acceptance applies to the exact source/test revisions recorded in each package README, after independent FP/ZIO and invariant review. The [tracker](docs/architecture/tracker.md#current-acceptance) links current verification. Automated tests and scoped approvals do not prove exhaustive upstream parity, public-provider interoperability or production readiness. The [publication documentation audit](docs/architecture/tracker.md#publication-documentation-audit) records final independent acceptance of this bounded documentation/source correction scope.
+`sbt verify` checks formatting, fatal-warning compilation and tests. Configure the disposable [PostgreSQL fixture](modules/storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/README.md) to run its integration scenarios; skipped scenarios are not successful backend verification. Public model requests require the explicitly enabled [live smoke](modules/examples/README.md#live-endpoint-verification).
 
-## Integration boundaries
+Run `sbt packageArtifacts` for local candidate packaging. This does not publish artifacts remotely. See [CONTRIBUTING.md](CONTRIBUTING.md) for proportionate checks and substantive independent review, and the [documentation index](docs/README.md) for guides and compatibility contracts.
 
-Bounded local persistence requires host-controlled filesystem ancestors. Canonical path screening is not an atomic filesystem sandbox. Remote adapters use explicit host-selected addresses and bounded aggregates or complete immutable segment chains; the [storage](modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md) and [transcript](modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md) contracts define revision, orphan and uncertain-acknowledgement limits. Known-address catalog discovery is implemented; global discovery, automatic registration/selection, physical reclamation and layout migration remain unfinished.
-
-MCP resource APIs, visible embedded-resource projection and runtime admission for declared Draft 4, 6, 7, 2019-09 and default 2020-12 are implemented within their linked review scopes. Selected legacy SSE and explicit revision profiles are implemented and verified. The explicit [MCP request projection](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#request-only-custom-content-projection) describes retained Custom resources for the next model request while preserving canonical history; its current delivery gates are linked. Bounded March 2025 batch messages are implemented within their finite review scope. An explicit [connection-local tool catalogue](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#connection-local-original-definition-catalogue) retains bounded original definitions with effectful lookup and close-time clearing; live discovery remains separate. Skill/subagent declarations accept one initial BOM and LF/CRLF/CR while preserving interior data and original bounds; the [parser manifest](modules/harness/src/main/scala/com/weisgnosis/agents/harness/skill/README.md#utf-8-bom-frontmatter-compatibility) records source review and current delivery gates. Supported-version builder behavior is classified through explicit proposal and membership; broader revision-method applicability and remaining behavior mappings stay open. Their [original-plan disposition](docs/architecture/test-parity.md#original-plan-disposition) remains explicit unfinished work; documenting a difference does not approve removal from the original plan. Broader middleware/event/provider parity, platform security validation, durable host integration, live-provider checks, remote CI and publication remain in the tracker.
-
-Library completion excludes WeisGnosis OS deployment and Temporal product tests. The [finite remaining library checklist](docs/architecture/tracker.md#remaining-library-completion-work) records concrete source work; [persisted execution origin](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persisted-execution-origin) records its accepted scope. The current three-file [MCP request projection](modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/tool/README.md#request-only-custom-content-projection) records both final combined approvals and passing verification.
+Licensed under [Apache-2.0](LICENSE).

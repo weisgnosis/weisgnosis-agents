@@ -73,58 +73,59 @@ Additional requirements:
 - Server-hosted tools with inline results bypass local dispatch.
 - Interrupted recovery preserves the agentscope_generate_reason=interrupted compatibility metadata.
 
-## 5. Repository standards
+## 5. Scope and tests
 
-All code, identifiers, comments, documentation, commit messages, and PR descriptions must be professional English. Use vendor-neutral protocol abstractions; preserve upstream names only for attribution, wire compatibility, and traceability.
+All code, identifiers, comments, documentation, commit messages and PR descriptions must be professional English. Production and test packages belong under com.weisgnosis.agents. Preserve upstream names for attribution, wire compatibility and traceability only.
 
-Production/test packages belong under com.weisgnosis.agents. Every domain component, parser, and state machine requires a paired ZIOSpecDefault suite. The target is coverage of every applicable upstream behavior; record the method-level mapping, intentional differences, and justified exclusions. Do not claim exhaustive parity merely because suites pass.
+The unit of delivery is a promised observable behavior, demonstrated through the public API. Before implementation, identify its expected result, relevant invariants and a proportionate way to verify the complete path. Reuse existing components rather than creating another abstraction for the same responsibility.
 
-Keep tests proportional to independent contracts and reproduced defects. Prefer concise table-driven cases and shared fixtures over repeated setup, accessor checks, or mechanically duplicated scenarios. Preserve meaningful integration and cancellation coverage; raw test counts and line counts are not acceptance targets.
+Cover independent contracts and reproduced defects. Use concise table-driven cases and shared fixtures; a new class does not automatically require another test file. Preserve meaningful parser, state-machine, integration, failure and cancellation coverage. Do not delete useful tests merely to reduce their count. Raw test totals, source lines and upstream declaration counts are not progress or acceptance targets.
 
-## 6. Verification
+Map promised upstream behavior to executable scenarios and explain intentional API adaptations. An unclassified Java declaration is not by itself a missing Scala feature. Neither a passing suite nor a documented difference proves exhaustive parity or authorizes removing a promised capability.
 
-Before committing or opening a PR:
+## 6. Verification proportional to the change
+
+For production or test changes, run focused checks while developing, then before commit:
 
 ```text
 sbt scalafmtAll scalafmtSbt
-sbt compile
-sbt test
+sbt verify
 ```
 
-The sbt verify alias checks scalafmtCheckAll, scalafmtSbtCheck, compile, and test. Compilation uses -Werror with deprecation, feature, unchecked, and unused warnings. All required checks must pass with zero compiler warnings and zero failed tests.
+The verify alias checks formatting, compilation and tests with fatal deprecation, feature, unchecked and unused warnings. All required checks must pass with zero compiler warnings and zero failed tests. Run one sbt process at a time on this host.
 
-Automated checks do not prove referential transparency, lifecycle safety, English prose, or exhaustive parity.
+Run package/archive and fresh external-consumer checks when public APIs, dependencies, build configuration or integration behavior change, and for the release candidate. Actually run affected PostgreSQL, subprocess or HTTP scenarios when those boundaries change; skipped tests are not successful integration evidence. Real-provider checks are explicitly enabled and use process-local credentials, never source-code secrets.
 
-For a confirmed defect, derive regression expectations from the public contract, not from the implementation's current output. Run the regression against the unchanged defective implementation and record the specific assertion failure before fixing it. For command classifiers, pair rejection cases with permitted near-misses and an actual forbidden executable so that always-allow and always-deny implementations both fail. Keep fixtures as data; never execute destructive commands to test a pure command classifier. A user-requested failing-test checkpoint remains explicitly unaccepted and uncommitted until the fix, independent review, and required verification pass.
+Documentation-only changes require English/API/example accuracy and local-link checks. Recompile an executable example if its code or dependencies change. Do not rerun the entire runtime suite solely to approve prose, checkmarks or a correction to review status. Repeat checks only after relevant changes, failures or unresolved concerns.
 
-## 7. Independent review and documentation gates
+For a confirmed defect, derive the regression from the public contract and run it against unchanged defective production before fixing it. Record the command and specific assertion failure in the review/PR or task conversation; compilation failures and invalid fixtures are not behavioral RED evidence. Separate new capability work from reproduced defects. Command-classifier cases must include forbidden commands and permitted near-misses; fixtures are data, never destructive commands to execute.
 
-Behavioral changes require independent FP/ZIO and invariant-focused reviews. Reviewers provide concrete source/test evidence. Resolve findings, add meaningful regressions, and review the final diff. Keep findings open until they are corrected and independent reviewers explicitly approve the final changes. Record the current accepted scope, reviewer identities, reviewed revision, and verification in the affected README.md files. Do not accept unfinished work or waive findings to close a review.
+Automated checks do not prove referential transparency, lifecycle safety, exhaustive parity or production readiness.
 
-Before declaring completion, update affected root/module/package documentation, API contracts, tracker, test mappings, and migration notes. Explicitly label roadmap designs and host integration requirements. Prefer source links over copied implementations.
+## 7. Independent substantive review
 
-Inspect changed comments and prose for English. A Unicode script scan is supplemental evidence, not natural-language proof. Check local Markdown links.
+Behavioral changes require independent FP/ZIO and invariant-focused review of the final code and relevant tests. Reviewers look for concrete counterexamples, hidden effects, ownership/cancellation failures, incorrect authority and gaps between components. They must inspect the actual public integration path where the change crosses a boundary.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), the PR template, the [tracker](docs/architecture/tracker.md), and the [parity audit](docs/architecture/test-parity.md).
+Resolve findings and have the reviewers recheck affected corrections. Approval applies to the inspected change, not the whole repository. Never invent a review or close an unresolved behavioral finding. The coordinator remains responsible for scope, integration and the delivered result.
 
-## 8. Living README and review closure protocol
+Keep a concise review outcome in the PR or task conversation: scope, actual reviewers, findings resolved, verification and remaining limits. Do not copy review transcripts, file-blob hashes, manifest checksums or approval ceremonies into READMEs. A factual status update does not require another review round unless it changes a contract or exposes a substantive issue. Documentation/formatting-only changes need accuracy review; changes to engineering rules or completion criteria receive independent review.
 
-Every maintained module, source/test package, documentation directory, and build/configuration directory must contain an English README.md. Keep it current whenever its contents or contracts change. Generated directories and empty structural ancestors do not need placeholder documentation.
+## 8. Documentation for users
 
-The completion sequence is mandatory:
+The root README explains purpose, installation, a small working example and current limitations. Module/package documentation explains APIs, ownership, usage and migrations where useful. Update documents whose contracts actually change; do not require a placeholder README in every directory or a paired documentation edit for every source file.
 
-1. Implement the defined scope and update its tests and contracts.
-2. Obtain independent subagent reviews of FP/ZIO correctness and relevant invariants.
-3. Correct every finding, add meaningful regression coverage, and obtain explicit approval of the final diff. Repeat until no findings remain in the accepted scope.
-4. Update affected README.md files with current behavior, exact accepted scope, reviewer identities, reviewed revision, and verification evidence. Approval applies only to that scope and revision; changed behavior requires renewed review.
-5. Keep outstanding roadmap or parity work visible in the tracker and relevant README. Never label planned or unreviewed work as accepted reference implementation.
-6. Delete resolved temporary review reports and repair their incoming links. Git history preserves past findings; the active tree contains current contracts and acceptance status, not closed review journals.
-7. Run the required verification, check documentation links and English prose, and commit the code, README updates, and report removal. No step is complete until its evidence exists.
+Keep documentation current. Replace superseded descriptions, remove resolved temporary review reports and repair incoming links. Git/PR history and executable regressions retain past findings. Do not move closed review journals into a new documentation archive. Preserve still-applicable API, compatibility and security contracts when removing history. Existing review journals are legacy cleanup work, not a template for new deliveries.
 
-A reference implementation is accepted only within the explicitly reviewed scope, with no unresolved findings. Acceptance is not a claim that every future feature or exhaustive upstream parity is already implemented. Prefer updating an existing current document over adding another status report; remove superseded Markdown documents after preserving their still-applicable contracts.
+Prefer links to source and runnable examples over copied implementations. State prerequisites, exact commands and observable outcomes. Distinguish compiled examples, offline integration, actual live runs and unsupported behavior. Keep credentials out of deliverables.
 
-Documentation describes current APIs, limitations, next work, and current review evidence. Replace outdated descriptions and acceptance entries instead of appending milestone narratives or historical test totals; Git retains that history.
+## 9. One finite completion checklist
 
-## 9. Visible progress tracking
+The [tracker](docs/architecture/tracker.md) is the sole current completion checklist for this library. Use Markdown task checkboxes for completed and remaining observable outcomes, with source/spec/example references. Keep the detailed [parity reference](docs/architecture/test-parity.md) for traceability; its legacy checkboxes are not a second release backlog and cannot silently expand or waive scope. Reconcile any newly identified substantive obligation with the tracker.
 
-Every tracker, roadmap checklist, and parity task list must use Markdown task checkboxes: `- [x]` for verified completion and `- [ ]` for unfinished work. A prose paragraph or status table alone is not a progress tracker. Split partially completed work into concrete completed and remaining items; never check an entire phase because only some components exist. State the next task explicitly and update affected checkboxes with every delivery. Review acceptance checkboxes require actual final reviewer approval for the named scope.
+Preserve the original promised library behavior. WeisGnosis OS deployment and Temporal product verification are separate tasks. New work must trace to a promised outcome, a reproduced defect or an explicit user request; do not add optional platforms or Java-only class shapes as implicit completion gates.
+
+Keep one explicit next task. Split partial completion honestly and leave missing behavior unchecked. Check a scenario only when its expected result and required review/verification exist; remove completed delivery narratives rather than append milestones. Do not claim whole-project percentages without a fixed meaningful denominator.
+
+Report completed working behavior, verification, remaining outcomes and concrete blockers briefly. Before spending another work cycle without a working result, identify the cause and reduce or revise the next step. Bound delegation to concrete source/review questions; avoid repeated broad audits and idle status polling. Report resource usage only from available measurements, never inferred subscription percentages or invented token totals.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the PR template for the delivery workflow.

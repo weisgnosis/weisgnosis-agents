@@ -1,8 +1,8 @@
 # Upstream scenario coverage and remaining parity work
 
-The [stdio launcher standards correction](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#immutable-process-launcher) preserves the existing selected environment/lifecycle adaptation. Its additional stderr group is a distinct local lifecycle contract, not another pinned upstream method or evidence of complete wrapper parity. Both source approvals and focused checks pass; full verification, fresh archive admission and standalone consumption pass; review_fp and review_invariants approved final combined documentation against 203401a for four unchanged source/build identities and thirteen Markdown files.
+This document is the upstream behavior reference, not a second delivery backlog. The [completion checklist](tracker.md) owns current remaining library outcomes. Legacy checkboxes below preserve mappings and evidence; reconcile substantive promised gaps with that checklist instead of treating declaration totals as a delivery target.
 
-The engineering target is one paired Scala test for every applicable upstream behavior. Current suites cover selected scenarios and ZIO-specific regressions; exhaustive 1:1 parity has not been demonstrated. Suite names and passing counts are not evidence of complete parity.
+Cover every applicable promised upstream behavior with executable evidence, allowing several cases in a concise table-driven test. Current suites cover selected scenarios and ZIO-specific regressions; exhaustive parity has not been demonstrated. Passing totals and suite names are not proof of complete parity.
 
 The reference is the clean local `agentscope-java` checkout at commit `f98a685fdc4589f81e626e1686ac2c63d14a2304`, verified on 2026-09-29. Upstream Java implementation details are translated into Scala domain behavior, not copied as imperative APIs. Updating this pin requires a new inventory and review of changed scenarios.
 
@@ -14,7 +14,7 @@ The reference is the clean local `agentscope-java` checkout at commit `f98a685fd
 ## Cross-module host integration
 
 - [x] Independently review and verify the [HostAssembly and offline smoke admission](../../modules/examples/README.md#verification-and-acceptance) examples. Two composed lifecycle/tool groups and one offline admission group exercise Scala host integration; they do not close additional upstream Java test methods.
-- [x] Independently review and verify the [lifecycle logging example](../../modules/examples/README.md#logging-acceptance): two bounded logging/result/cancellation groups; no additional upstream methods are closed.
+- [x] Independently review and verify the [lifecycle logging example](../../modules/examples/README.md#lifecycle-logging): two bounded logging/result/cancellation groups; no additional upstream methods are closed.
 - [x] Independently review and verify the [external packaged API consumer](../../verification/artifact-consumer/README.md); its selected public-extension checks establish current artifact consumption, not additional upstream method parity or backward binary compatibility.
 - [x] Validate one authorized selected live Chat Completions endpoint through fully consumed SSE, one successful tool invocation and authoritative Completed reply; the [live evidence](../../modules/examples/README.md#live-endpoint-verification) does not establish broader provider parity.
 
@@ -1594,7 +1594,7 @@ The following finite inventory refers to `McpClientBuilderTest.java` at pinned A
 
 ## Original-plan disposition
 
-The publication audit on 2026-10-08 compares the initial tiered plan at `6fe93a5` and its audited correction at `c9adcb4` with current source contracts. The selected RC checklist is not a replacement for the original transfer scope. The original plan remains controlling. The checklist below records missing promised implementation, not options to waive or narrow its scope. The [controlling tracker](tracker.md#controlling-original-plan) owns the remaining work and provisional effort.
+The publication audit on 2026-10-08 compares the initial tiered plan at `6fe93a5` and its audited correction at `c9adcb4` with current source contracts. The selected RC checklist is not a replacement for the original transfer scope. The original plan remains controlling. The checklist below records missing promised implementation, not options to waive or narrow its scope. The [controlling tracker](tracker.md#remaining-library-completion-work) owns the current remaining outcomes.
 
 - [x] Implement core domain/runtime, typed tool dispatch, interruption recovery, compaction/eviction, permission, Plan and subagent capabilities within the linked method-level mappings and explicit ownership adaptations. This is component availability, not whole-suite or whole-port parity.
 - [x] Implement scoped MCP tool discovery, typed call observations and explicit Toolkit installation under the selected 2025-06-18 profile; the [client contract](../../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md) records actual lifecycle and ownership limits.
