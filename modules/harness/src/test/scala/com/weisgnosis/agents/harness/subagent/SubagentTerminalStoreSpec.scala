@@ -28,13 +28,13 @@ object SubagentTerminalStoreSpec extends ZIOSpecDefault:
   private val firstId: SubagentTaskId  = SubagentTaskId(new UUID(0L, 1L))
   private val secondId: SubagentTaskId = SubagentTaskId(new UUID(0L, 2L))
 
-  final private case class Fixture(
+  final private[subagent] case class Fixture(
       store: VersionedJsonStore,
       values: Ref[Map[StorageAddress, VersionedJson]],
       writes: Ref[Int]
   )
 
-  private def fixture: UIO[Fixture] =
+  private[subagent] def fixture: UIO[Fixture] =
     for
       values <- Ref.make(Map.empty[StorageAddress, VersionedJson])
       writes <- Ref.make(0)

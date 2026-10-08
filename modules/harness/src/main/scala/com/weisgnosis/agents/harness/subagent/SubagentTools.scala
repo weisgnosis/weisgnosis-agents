@@ -217,7 +217,7 @@ object SubagentTools:
     val inspect = tool[SubagentTaskId, SubagentToolResult](
       definition(
         "agent_task",
-        "Inspect a retained task without waiting, restarting it or making a model request.",
+        "Inspect a retained task without restarting it or making a model request.",
         Chunk("task_id"),
         Access.Observation
       ),
@@ -251,11 +251,12 @@ object SubagentTools:
                 id =>
                   registry
                     .awaitOrPromote(id)
-                    .map:
+                    .flatMap:
                       case Some(TaskWait.Promoted) =>
-                        Observation.Success(task(id, SubagentToolState.Promoted))
-                      case Some(TaskWait.Completed(exit)) => completed(id, Some(exit))
-                      case None                           => completed(id, None)
+                        ZIO.succeed(Observation.Success(task(id, SubagentToolState.Promoted)))
+                      case Some(TaskWait.Completed(exit)) =>
+                        terminalObservation(registry, id, Some(exit))
+                      case None => ZIO.succeed(completed(id, None))
               )
             )
         case SubagentExecutionPolicy.Synchronous(timeout) =>
@@ -301,22 +302,40 @@ object SubagentTools:
             id =>
               restore(registry.await(id).timeout(timeout.duration)).exit.flatMap:
                 case Exit.Success(Some(exit)) =>
-                  restore(ZIO.unit).exit.flatMap:
+                  restore(registry.awaitTerminalPublication(id)).exit.flatMap:
                     case Exit.Success(_)     => ZIO.succeed(completed(id, exit))
-                    case Exit.Failure(cause) => ZIO.refailCause(cause ++ childFailure(exit))
+                    case Exit.Failure(cause) => ZIO.refailCause(publicationFailure(cause, exit))
                 case Exit.Success(None) =>
                   registry
                     .cancel(id)
                     .flatMap: exit =>
-                      restore(ZIO.unit).exit.flatMap:
+                      restore(registry.awaitTerminalPublication(id)).exit.flatMap:
                         case Exit.Success(_)     => ZIO.succeed(timedOut(exit))
-                        case Exit.Failure(cause) => ZIO.refailCause(cause ++ childFailure(exit))
+                        case Exit.Failure(cause) => ZIO.refailCause(publicationFailure(cause, exit))
                 case Exit.Failure(cause) =>
                   registry.cancel(id).flatMap(exit => ZIO.refailCause(cause ++ childFailure(exit)))
           )
 
   private def childFailure(exit: Option[Exit[AgentError, AgentResult]]): Cause[AgentError] =
     exit.flatMap(_.causeOption).getOrElse(Cause.empty)
+
+  private def publicationFailure(
+      cause: Cause[AgentError],
+      exit: Option[Exit[AgentError, AgentResult]]
+  ): Cause[AgentError] =
+    // An interrupted publication wait preserves the joined child's failure in its cause.
+    // A previously interrupted child cannot cancel a caller observing a publication failure.
+    if cause.isInterrupted then cause ++ childFailure(exit) else cause
+
+  private def terminalObservation(
+      registry: SubagentTaskRegistry,
+      id: SubagentTaskId,
+      exit: Option[Exit[AgentError, AgentResult]]
+  ): IO[AgentError, Observation[SubagentToolResult]] =
+    ZIO.uninterruptibleMask: restore =>
+      restore(registry.awaitTerminalPublication(id)).exit.flatMap:
+        case Exit.Success(_)     => ZIO.succeed(completed(id, exit))
+        case Exit.Failure(cause) => ZIO.refailCause(publicationFailure(cause, exit))
 
   private def timedOut(
       exit: Option[Exit[AgentError, AgentResult]]
@@ -337,25 +356,26 @@ object SubagentTools:
   private def inspectTask(
       registry: SubagentTaskRegistry,
       id: SubagentTaskId
-  ): UIO[Observation[SubagentToolResult]] =
+  ): IO[AgentError, Observation[SubagentToolResult]] =
     registry
-      .inspect(id)
+      .observe(id)
       .map:
-        case Some(SubagentTaskSnapshot(_, SubagentTaskState.Running)) =>
+        case Some(SubagentTaskObservation(_, SubagentTaskObservationState.Running)) =>
           Observation.Success(task(id, SubagentToolState.Running))
-        case Some(SubagentTaskSnapshot(_, SubagentTaskState.Completed(exit))) =>
-          Observation.Success(project(id, exit))
+        case Some(SubagentTaskObservation(_, SubagentTaskObservationState.Terminal(outcome))) =>
+          Observation.Success(project(id, outcome))
         case None => Observation.Error(task(id, SubagentToolState.Missing))
 
   private def cancelTask(
       registry: SubagentTaskRegistry,
       id: SubagentTaskId
-  ): UIO[Observation[SubagentToolResult]] =
+  ): IO[AgentError, Observation[SubagentToolResult]] =
     registry
       .cancel(id)
-      .map:
-        case Some(exit) => Observation.Success(project(id, exit))
-        case None       => Observation.Error(task(id, SubagentToolState.Missing))
+      .flatMap:
+        case Some(exit) =>
+          terminalObservation(registry, id, Some(exit)).as(Observation.Success(project(id, exit)))
+        case None => ZIO.succeed(Observation.Error(task(id, SubagentToolState.Missing)))
 
   private def routedTool[In](
       directory: SubagentSessionDirectory,
@@ -519,19 +539,18 @@ object SubagentTools:
     SubagentToolResult.Task(id.value.toString, state)
 
   private def project(id: SubagentTaskId, exit: Exit[AgentError, AgentResult]): SubagentToolResult =
-    val state = exit match
-      case Exit.Success(result) =>
-        result.state match
-          case AgentRunState.Completed    => SubagentToolState.Completed(preview(result.reply.text))
-          case AgentRunState.Suspended(_) => SubagentToolState.Suspended(preview(result.reply.text))
-          case AgentRunState.Interrupted  => SubagentToolState.Interrupted
-          case AgentRunState.Stopped(reason) => SubagentToolState.Stopped(preview(reason))
-      case Exit.Failure(cause) if cause.isInterrupted => SubagentToolState.Interrupted
-      case Exit.Failure(cause) =>
-        val message =
-          cause.failureOption.map(_.message).getOrElse("Task failed with an internal defect")
+    project(id, SubagentTerminalOutcome.fromExit(exit))
+
+  private def project(id: SubagentTaskId, outcome: SubagentTerminalOutcome): SubagentToolResult =
+    val state = outcome match
+      case SubagentTerminalOutcome.Completed(output) => SubagentToolState.Completed(preview(output))
+      case SubagentTerminalOutcome.Suspended(output) => SubagentToolState.Suspended(preview(output))
+      case SubagentTerminalOutcome.Stopped(reason)   => SubagentToolState.Stopped(preview(reason))
+      case SubagentTerminalOutcome.Interrupted(_, _) => SubagentToolState.Interrupted
+      case SubagentTerminalOutcome.Failed(failures, defects) =>
+        val message = failures.headOption.getOrElse("Task failed with an internal defect")
         val suffix =
-          if cause.failureOption.nonEmpty && cause.defects.nonEmpty then
+          if failures.nonEmpty && defects == SubagentTaskDefects.Present then
             "; task also reported an internal defect"
           else ""
         SubagentToolState.Failed(preview(message + suffix))

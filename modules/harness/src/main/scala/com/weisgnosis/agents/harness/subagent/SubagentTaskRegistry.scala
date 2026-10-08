@@ -43,7 +43,7 @@ enum SubagentTaskSubmission:
   case Capacity, Closed, IdentityCollision
 
 enum SubagentTaskRemoval:
-  case Removed, Missing, Running
+  case Removed, Missing, Running, Unpublished
 
 /**
  * Host-owned task lookup for one parent and configured factory. Every retained result counts toward
@@ -65,6 +65,25 @@ trait SubagentTaskRegistry:
   def awaitOrPromote(id: SubagentTaskId): UIO[Option[TaskWait[AgentResult]]]
   def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]]
   def forgetCompleted(id: SubagentTaskId): UIO[SubagentTaskRemoval]
+
+  /** Effectful observation preserves live-only custom registry behavior by default. */
+  def observe(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskObservation]] =
+    inspect(id).map(_.map(SubagentTaskObservation.fromSnapshot))
+
+  def observations: IO[AgentError, Chunk[SubagentTaskObservation]] =
+    list.map(_.map(SubagentTaskObservation.fromSnapshot))
+
+  /** Built-in durable tools wait for publication before presenting a joined live outcome. */
+  private[subagent] def awaitTerminalPublication(@unused id: SubagentTaskId): IO[AgentError, Unit] =
+    ZIO.unit
+
+  /** Await a retained publication receipt without cancelling its owned worker. */
+  def publication(@unused id: SubagentTaskId): IO[AgentError, Option[SubagentTerminalPublication]] =
+    ZIO.fail(AgentError.InvalidConfiguration("This registry does not support durable publication"))
+
+  /** Captures current membership and joins every publication before reporting combined failures. */
+  def flushPublications: IO[AgentError, Chunk[SubagentTaskPublication]] =
+    ZIO.fail(AgentError.InvalidConfiguration("This registry does not support durable publication"))
 
   /**
    * Completed foreground and promoted tasks awaiting host acknowledgement, in submission order.
@@ -99,8 +118,11 @@ object SubagentTaskRegistry:
   final private case class Entry(
       id: SubagentTaskId,
       task: SupervisedTask[AgentResult],
-      delivery: DeliveryState = DeliveryState.Pending
+      delivery: DeliveryState = DeliveryState.Pending,
+      publisher: Option[Fiber.Runtime[AgentError, SubagentTerminalPublication]] = None
   )
+
+  final private case class Persistence(store: SubagentTerminalStore, owner: Scope.Closeable)
 
   private enum State:
     case Open(values: Chunk[Entry])
@@ -129,15 +151,29 @@ object SubagentTaskRegistry:
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
     openWith((input, id, events) => factory.spawn(parent, input, id, events), maxTracked)
 
+  /** Opt-in automatic terminal publication and restored read-only observations. */
+  def openDurable(
+      parent: SubagentSpawner[AgentResult],
+      factory: SubagentFactory,
+      terminalStore: SubagentTerminalStore,
+      maxTracked: Int = 256
+  ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
+    openWith(
+      (input, id, events) => factory.spawn(parent, input, id, events),
+      maxTracked,
+      Some(terminalStore)
+    )
+
   private[subagent] def openWith(
       launchTask: (Msg, SubagentTaskId, Option[ToolEventPort]) => ZIO[
         Scope,
         AgentError,
         TaskAdmission[AgentResult]
       ],
-      maxTracked: Int
+      maxTracked: Int,
+      terminalStore: Option[SubagentTerminalStore] = None
   ): ZIO[Scope, AgentError, SubagentTaskRegistry] =
-    openInput[Msg](identity, launchTask, maxTracked)
+    openInput[Msg](identity, launchTask, maxTracked, terminalStore)
 
   private[subagent] def openInput[Input](
       fromMessage: Msg => Input,
@@ -146,16 +182,18 @@ object SubagentTaskRegistry:
         AgentError,
         TaskAdmission[AgentResult]
       ],
-      maxTracked: Int
+      maxTracked: Int,
+      terminalStore: Option[SubagentTerminalStore] = None
   ): ZIO[Scope, AgentError, Live[Input]] =
     ZIO.uninterruptible:
       for
         _ <- ZIO
           .fail(AgentError.InvalidConfiguration("Subagent task capacity must be positive"))
           .when(maxTracked <= 0)
-        gate  <- Semaphore.make(1)
-        state <- Ref.make[State](State.Open(Chunk.empty))
-        registry = new Live(fromMessage, launchTask, maxTracked, gate, state)
+        gate        <- Semaphore.make(1)
+        state       <- Ref.make[State](State.Open(Chunk.empty))
+        persistence <- ZIO.foreach(terminalStore)(store => Scope.make.map(Persistence(store, _)))
+        registry = new Live(fromMessage, launchTask, maxTracked, gate, state, persistence)
         _ <- ZIO.addFinalizer(registry.close)
       yield registry
 
@@ -168,7 +206,8 @@ object SubagentTaskRegistry:
       ],
       maxTracked: Int,
       gate: Semaphore,
-      state: Ref[State]
+      state: Ref[State],
+      persistence: Option[Persistence]
   ) extends SubagentTaskRegistry:
     def submit(input: Msg): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       submit(input, None)
@@ -186,7 +225,7 @@ object SubagentTaskRegistry:
       ZIO.uninterruptibleMask: restore =>
         Scope.make.flatMap: lease =>
           // Register the caller lease outside admission: a closed caller may synchronously join cleanup.
-          restore(gate.withPermit(ZIO.uninterruptible(lease.extend(launch(input, events)))))
+          restore(gate.withPermit(lease.extend(launch(input, events))))
             .onExit:
               case Exit.Success(SubagentTaskSubmission.Accepted(_)) =>
                 ZIO.addFinalizer(lease.close(Exit.unit))
@@ -197,25 +236,37 @@ object SubagentTaskRegistry:
         input: Input,
         events: Option[ToolEventPort]
     ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
-      state.get.flatMap:
-        case State.Closed(_) => ZIO.succeed(SubagentTaskSubmission.Closed)
-        case State.Open(entries) if entries.size >= maxTracked =>
-          ZIO.succeed(SubagentTaskSubmission.Capacity)
-        case State.Open(entries) =>
-          Random.nextUUID
-            .map(SubagentTaskId(_))
-            .flatMap: id =>
-              if entries.exists(_.id == id) then
-                ZIO.succeed(SubagentTaskSubmission.IdentityCollision)
-              else
-                ZIO
-                  .suspendSucceed(launchTask(input, id, events))
-                  .flatMap:
-                    case TaskAdmission.Closed => ZIO.succeed(SubagentTaskSubmission.Closed)
-                    case TaskAdmission.Accepted(task) =>
-                      state
-                        .set(State.Open(entries :+ Entry(id, task)))
-                        .as(SubagentTaskSubmission.Accepted(id))
+      ZIO.uninterruptibleMask: restore =>
+        state.get.flatMap:
+          case State.Closed(_) => ZIO.succeed(SubagentTaskSubmission.Closed)
+          case State.Open(entries) if entries.size >= maxTracked =>
+            ZIO.succeed(SubagentTaskSubmission.Capacity)
+          case State.Open(entries) =>
+            for
+              id <- Random.nextUUID.map(SubagentTaskId(_))
+              collision <-
+                if entries.exists(_.id == id) then ZIO.succeed(true)
+                else restore(ZIO.foreach(persistence)(_.store.read(id))).map(_.flatten.nonEmpty)
+              admission <-
+                if collision then ZIO.succeed(SubagentTaskSubmission.IdentityCollision)
+                else
+                  ZIO
+                    .suspendSucceed(launchTask(input, id, events))
+                    .flatMap:
+                      case TaskAdmission.Closed => ZIO.succeed(SubagentTaskSubmission.Closed)
+                      case TaskAdmission.Accepted(task) =>
+                        for
+                          publisher <- ZIO.foreach(persistence)(binding =>
+                            binding.store
+                              .publishJoined(id, task)
+                              .interruptible
+                              .forkIn(binding.owner)
+                          )
+                          _ <- state.set(
+                            State.Open(entries :+ Entry(id, task, publisher = publisher))
+                          )
+                        yield SubagentTaskSubmission.Accepted(id)
+            yield admission
 
     def inspect(id: SubagentTaskId): UIO[Option[SubagentTaskSnapshot]] =
       lookup(id).flatMap(ZIO.foreach(_)(snapshot))
@@ -233,8 +284,134 @@ object SubagentTaskRegistry:
     def cancel(id: SubagentTaskId): UIO[Option[Exit[AgentError, AgentResult]]] =
       lookup(id).flatMap(ZIO.foreach(_)(_.task.cancel))
 
-    override def pendingDeliveries: UIO[Chunk[SubagentTaskDelivery]] =
-      state.get.flatMap(current =>
+    override def observe(id: SubagentTaskId): IO[AgentError, Option[SubagentTaskObservation]] =
+      persistence match
+        case None => super.observe(id)
+        case Some(binding) =>
+          for
+            entry  <- lookup(id)
+            live   <- ZIO.foreach(entry)(snapshot)
+            stored <- binding.store.read(id)
+            observed <- (entry, live) match
+              case (Some(value), Some(current)) =>
+                observeEntry(value, current, stored, binding.store).map(Some(_))
+              case _ => ZIO.succeed(stored.map(fromStored))
+          yield observed
+
+    override def observations: IO[AgentError, Chunk[SubagentTaskObservation]] =
+      persistence match
+        case None => super.observations
+        case Some(binding) =>
+          for
+            entries <- state.get.map(_.entries)
+            live    <- ZIO.foreach(entries)(entry => snapshot(entry).map(entry -> _))
+            stored  <- binding.store.list
+            observed <- ZIO.foreach(live): (entry, current) =>
+              observeEntry(entry, current, stored.find(_.id == entry.id), binding.store)
+            localIds = entries.map(_.id).toSet
+          yield observed ++ stored.filterNot(record => localIds.contains(record.id)).map(fromStored)
+
+    override private[subagent] def awaitTerminalPublication(
+        id: SubagentTaskId
+    ): IO[AgentError, Unit] =
+      persistence match
+        case None => ZIO.unit
+        case Some(_) =>
+          publication(id).flatMap:
+            case Some(_) => ZIO.unit
+            case None =>
+              ZIO.fail(AgentError.InvalidConfiguration("Durable task has no retained publication"))
+
+    override def publication(
+        id: SubagentTaskId
+    ): IO[AgentError, Option[SubagentTerminalPublication]] =
+      persistence match
+        case None => super.publication(id)
+        case Some(_) =>
+          lookup(id).flatMap(entry =>
+            ZIO.foreach(entry.flatMap(_.publisher))(publisher =>
+              publisher.await.flatMap(exit => exit)
+            )
+          )
+
+    override def flushPublications: IO[AgentError, Chunk[SubagentTaskPublication]] =
+      persistence match
+        case None => super.flushPublications
+        case Some(_) =>
+          for
+            entries <- state.get.map(_.entries)
+            outcomes <- ZIO.foreachPar(
+              entries.flatMap(entry => entry.publisher.map(entry.id -> _))
+            ): (id, publisher) =>
+              publisher.await.map(id -> _)
+            combined = outcomes.foldLeft[Exit[AgentError, Chunk[SubagentTaskPublication]]](
+              Exit.succeed(Chunk.empty)
+            ):
+              case (accumulated, (id, outcome)) =>
+                accumulated.zipWith(outcome)(
+                  (records, receipt) => records :+ SubagentTaskPublication(id, receipt),
+                  _ ++ _
+                )
+            receipts <- combined
+          yield receipts
+
+    private def fromStored(record: SubagentTerminalRecord): SubagentTaskObservation =
+      SubagentTaskObservation(record.id, SubagentTaskObservationState.Terminal(record.outcome))
+
+    private def observeEntry(
+        entry: Entry,
+        current: SubagentTaskSnapshot,
+        stored: Option[SubagentTerminalRecord],
+        store: SubagentTerminalStore
+    ): IO[AgentError, SubagentTaskObservation] =
+      stored match
+        case Some(record) =>
+          entry.task.poll.flatMap:
+            case Some(_) =>
+              ZIO
+                .fromOption(entry.publisher)
+                .orElseFail(
+                  AgentError.InvalidConfiguration("Durable task has no publication owner")
+                )
+                .flatMap(_.await.flatMap(exit => exit))
+                .as(fromStored(record))
+            case None =>
+              ZIO
+                .foreachDiscard(entry.publisher)(publisher =>
+                  publisher.poll.flatMap:
+                    case Some(Exit.Failure(cause)) => ZIO.refailCause(cause)
+                    case _                         => ZIO.unit
+                )
+                .as(fromStored(record))
+        case None =>
+          current.state match
+            case SubagentTaskState.Running =>
+              ZIO.succeed(SubagentTaskObservation.fromSnapshot(current))
+            case SubagentTaskState.Completed(_) =>
+              for
+                publisher <- ZIO
+                  .fromOption(entry.publisher)
+                  .orElseFail(
+                    AgentError.InvalidConfiguration("Durable task has no publication owner")
+                  )
+                _ <- publisher.await.flatMap(exit => exit)
+                record <- store
+                  .read(entry.id)
+                  .someOrFail(
+                    AgentError
+                      .StorageError("Successful publication has no visible terminal observation")
+                  )
+              yield fromStored(record)
+
+    private def requireLiveDelivery: IO[AgentError.InvalidConfiguration, Unit] =
+      ZIO
+        .fail(AgentError.InvalidConfiguration("Durable delivery acknowledgement is not supported"))
+        .when(persistence.nonEmpty)
+        .unit
+
+    override def pendingDeliveries
+        : IO[AgentError.InvalidConfiguration, Chunk[SubagentTaskDelivery]] =
+      requireLiveDelivery *> state.get.flatMap(current =>
         ZIO
           .foreach(current.entries.filter(_.delivery == DeliveryState.Pending))(entry =>
             entry.task.poll.map(_.map(SubagentTaskDelivery(entry.id, _)))
@@ -242,8 +419,10 @@ object SubagentTaskRegistry:
           .map(_.flatten)
       )
 
-    override def acknowledge(id: SubagentTaskId): UIO[SubagentDeliveryAcknowledgement] =
-      gate.withPermit:
+    override def acknowledge(
+        id: SubagentTaskId
+    ): IO[AgentError.InvalidConfiguration, SubagentDeliveryAcknowledgement] =
+      requireLiveDelivery *> gate.withPermit:
         lookup(id).flatMap:
           case None => ZIO.succeed(SubagentDeliveryAcknowledgement.Missing)
           case Some(entry) if entry.delivery == DeliveryState.Acknowledged =>
@@ -260,8 +439,14 @@ object SubagentTaskRegistry:
           case None => ZIO.succeed(SubagentTaskRemoval.Missing)
           case Some(entry) =>
             entry.task.poll.flatMap:
-              case None    => ZIO.succeed(SubagentTaskRemoval.Running)
-              case Some(_) => state.update(_.remove(id)).as(SubagentTaskRemoval.Removed)
+              case None => ZIO.succeed(SubagentTaskRemoval.Running)
+              case Some(_) =>
+                ZIO
+                  .foreach(entry.publisher)(_.poll)
+                  .flatMap:
+                    case Some(None) | Some(Some(Exit.Failure(_))) =>
+                      ZIO.succeed(SubagentTaskRemoval.Unpublished)
+                    case _ => state.update(_.remove(id)).as(SubagentTaskRemoval.Removed)
 
     private def lookup(id: SubagentTaskId): UIO[Option[Entry]] =
       state.get.map(_.entries.find(_.id == id))
@@ -275,6 +460,15 @@ object SubagentTaskRegistry:
 
     def close: UIO[Unit] =
       ZIO.uninterruptible:
-        gate
-          .withPermit(state.modify(current => (current.entries, State.Closed(current.entries))))
-          .flatMap(entries => ZIO.foreachParDiscard(entries)(_.task.cancel))
+        for
+          entries <- gate.withPermit(
+            state.modify(current => (current.entries, State.Closed(current.entries)))
+          )
+          workers <- ZIO.foreachParDiscard(entries)(_.task.cancel).exit
+          _       <- ZIO.foreachParDiscard(entries.flatMap(_.publisher))(_.await)
+          owner   <- ZIO.foreachDiscard(persistence)(_.owner.close(Exit.unit)).exit
+          _ <- workers.zipWith(owner)(
+            (_, _) => (),
+            (first: Cause[Nothing], second: Cause[Nothing]) => first ++ second
+          )
+        yield ()

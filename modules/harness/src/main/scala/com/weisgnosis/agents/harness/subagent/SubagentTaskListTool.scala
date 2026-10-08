@@ -15,7 +15,6 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
-import com.weisgnosis.agents.core.agent.AgentRunState
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef}
@@ -110,7 +109,7 @@ object SubagentTaskListTool:
     new Tool[Any, Input, TaskListPage]:
       def definition: ToolDef = ToolDef(
         "task_list",
-        "List tasks in the host-selected registry without waiting or executing work. " +
+        "List tasks in the host-selected registry without executing work. " +
           "Optionally filter by status and continue from nextOffset. Concurrent changes can shift pages.",
         schema,
         isConcurrencySafe = true,
@@ -128,7 +127,7 @@ object SubagentTaskListTool:
           if input.offset < 0 then
             ZIO.fail(AgentError.InvalidMessage("Task-list offset must be nonnegative"))
           else
-            registry.list.map: snapshots =>
+            registry.observations.map: snapshots =>
               val matching =
                 snapshots
                   .map(project)
@@ -140,15 +139,17 @@ object SubagentTaskListTool:
                 else None
               TaskListPage(page, matching.size, next)
 
-  private def project(snapshot: SubagentTaskSnapshot): ListedTask =
+  private def project(snapshot: SubagentTaskObservation): ListedTask =
     val status = snapshot.state match
-      case SubagentTaskState.Running => ListedTaskStatus.Running
-      case SubagentTaskState.Completed(Exit.Success(result)) =>
-        result.state match
-          case AgentRunState.Completed    => ListedTaskStatus.Completed
-          case AgentRunState.Interrupted  => ListedTaskStatus.Cancelled
-          case AgentRunState.Suspended(_) => ListedTaskStatus.Suspended
-          case AgentRunState.Stopped(_)   => ListedTaskStatus.Stopped
-      case SubagentTaskState.Completed(Exit.Failure(cause)) =>
-        if cause.isInterruptedOnly then ListedTaskStatus.Cancelled else ListedTaskStatus.Failed
+      case SubagentTaskObservationState.Running => ListedTaskStatus.Running
+      case SubagentTaskObservationState.Terminal(outcome) =>
+        outcome match
+          case SubagentTerminalOutcome.Completed(_) => ListedTaskStatus.Completed
+          case SubagentTerminalOutcome.Suspended(_) => ListedTaskStatus.Suspended
+          case SubagentTerminalOutcome.Stopped(_)   => ListedTaskStatus.Stopped
+          case SubagentTerminalOutcome.Failed(_, _) => ListedTaskStatus.Failed
+          case SubagentTerminalOutcome.Interrupted(failures, defects) =>
+            if failures.isEmpty && defects == SubagentTaskDefects.Absent then
+              ListedTaskStatus.Cancelled
+            else ListedTaskStatus.Failed
     ListedTask(snapshot.id.value.toString, status)
