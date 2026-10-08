@@ -28,6 +28,9 @@ object InvocationPreparerSpec extends ZIOSpecDefault:
   private enum Failure:
     case Typed, Cancelled
 
+  private enum InvocationBoundary:
+    case IndependentSessions, PreparationRetry, NestedChild
+
   def spec: Spec[TestEnvironment & Scope, Any] = suite("InvocationPreparerSpec")(
     test("composition is lazy, scoped, ordered and rejects invalid intermediate rewrites"):
       val system   = Msg.system("keep")
@@ -311,4 +314,117 @@ object InvocationPreparerSpec extends ZIOSpecDefault:
                 case Exit.Success(_) => false
             )
       yield checks.foldLeft(assertTrue(true))(_ && _)
-  )
+    ,
+    test(
+      "explicit session selection, preparation retry and nested calls keep invocation signals isolated"
+    ):
+      for checks <- ZIO.foreach(InvocationBoundary.values.toList): boundary =>
+          ZIO.scoped:
+            for
+              entered        <- Promise.make[Nothing, Unit]
+              childEntered   <- Promise.make[Nothing, Unit]
+              release        <- Promise.make[Nothing, Unit]
+              _              <- ZIO.addFinalizer(release.succeed(()).unit)
+              attempts       <- Ref.make(0)
+              parentContexts <- Ref.make(Chunk.empty[InvocationContext])
+              childContexts  <- Ref.make(Chunk.empty[InvocationContext])
+              modelContexts  <- Ref.make(Chunk.empty[ModelStreamContext])
+              parentModels   <- Ref.make(0)
+              childModels    <- Ref.make(0)
+              childClient = new LlmClient:
+                def streamTurn(
+                    history: Chunk[Msg],
+                    tools: Chunk[ToolDef],
+                    config: LlmConfig,
+                    eventHub: Hub[AgentEvent],
+                    context: ModelStreamContext
+                ): ZIO[Scope, AgentError, TurnOutput] =
+                  modelContexts.update(_ :+ context) *> childModels
+                    .update(_ + 1)
+                    .as(TurnOutput.FinalText(Msg.assistant("child completed")))
+              child <- ReActAgent.make(
+                client = childClient,
+                invocationPreparer = InvocationPreparer((context, value) =>
+                  childContexts.update(_ :+ context) *> childEntered.succeed(()) *>
+                    release.await.as(value)
+                )
+              )
+              childHandle <- child.prepareRun(Msg.user("child session"))
+              parentPreparer = InvocationPreparer: (context, value) =>
+                val attempt = parentContexts.update(_ :+ context) *> attempts
+                  .updateAndGet(_ + 1)
+                  .flatMap: number =>
+                    boundary match
+                      case InvocationBoundary.PreparationRetry if number == 1 =>
+                        ZIO.fail(AgentError.InvalidConfiguration("retry preparation"))
+                      case InvocationBoundary.NestedChild =>
+                        entered.succeed(()) *> childHandle.run.as(value)
+                      case _ => entered.succeed(()) *> release.await.as(value)
+                boundary match
+                  case InvocationBoundary.PreparationRetry => attempt.retry(Schedule.recurs(1))
+                  case _                                   => attempt
+              parent <- ReActAgent.make(
+                client = LlmClient.mockEffectful((_, _, _) =>
+                  parentModels.update(_ + 1).as(TurnOutput.FinalText(Msg.assistant("parent model")))
+                ),
+                invocationPreparer = parentPreparer
+              )
+              parentHandle <- parent.prepareRun(Msg.user("parent session"))
+              running      <- parentHandle.run.forkScoped
+              independent <- boundary match
+                case InvocationBoundary.IndependentSessions =>
+                  childHandle.run.forkScoped.map(Some(_))
+                case _ => ZIO.none
+              _ <- entered.await
+              _ <- boundary match
+                case InvocationBoundary.PreparationRetry => ZIO.unit
+                case _                                   => childEntered.await
+              parentBefore       <- parentHandle.status
+              childBefore        <- childHandle.status
+              attemptsBefore     <- attempts.get
+              parentModelsBefore <- parentModels.get
+              childModelsBefore  <- childModels.get
+              signalled          <- parentHandle.interrupt
+              _                  <- release.succeed(())
+              result             <- running.join
+              childResult <- boundary match
+                case InvocationBoundary.PreparationRetry => ZIO.none
+                case _ =>
+                  childHandle.termination.flatMap:
+                    case Exit.Success(value) => ZIO.some(value)
+                    case Exit.Failure(cause) => ZIO.refailCause(cause)
+              _           <- ZIO.foreachDiscard(independent)(_.join)
+              parentAfter <- parentHandle.status
+              childAfter  <- childHandle.status
+              seenParent  <- parentContexts.get
+              seenChild   <- childContexts.get
+              seenModels  <- modelContexts.get
+              parentCount <- parentModels.get
+              childCount  <- childModels.get
+            yield assertTrue(
+              parentBefore == PreparedInvocation.Status.Running,
+              childBefore == (if boundary == InvocationBoundary.PreparationRetry then
+                                PreparedInvocation.Status.Created
+                              else PreparedInvocation.Status.Running),
+              attemptsBefore == (if boundary == InvocationBoundary.PreparationRetry then 2 else 1),
+              parentModelsBefore == 0,
+              childModelsBefore == 0,
+              signalled,
+              result.state == AgentRunState.Interrupted,
+              parentAfter == PreparedInvocation.Status.Returned,
+              seenParent == Chunk.fill(attemptsBefore)(parentHandle.context),
+              parentCount == 0,
+              boundary match
+                case InvocationBoundary.PreparationRetry =>
+                  childResult.isEmpty && childAfter == PreparedInvocation.Status.Created &&
+                  seenChild.isEmpty && seenModels.isEmpty && childCount == 0
+                case _ =>
+                  childResult.exists(_.state == AgentRunState.Completed) &&
+                  childAfter == PreparedInvocation.Status.Returned && childCount == 1 &&
+                  seenChild == Chunk(
+                    childHandle.context
+                  ) && childHandle.context != parentHandle.context &&
+                  seenModels.map(_.invocation) == Chunk(Some(childHandle.context))
+            )
+      yield checks.foldLeft(assertTrue(true))(_ && _)
+  ) @@ TestAspect.timeout(20.seconds)

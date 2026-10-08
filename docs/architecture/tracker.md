@@ -33,6 +33,10 @@ These implemented capabilities have existing public API/spec evidence. Checked a
 
 - [x] Prepare separate prior history/new input once per admitted fresh invocation, with ordered scoped validation, exact failure/cancellation causes, retained cooperative interruption and one preparation across structured fallback. Restore/resume bypass this boundary; see [preparation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#fresh-invocation-preparation).
 
+- [x] Verify selected real-provider native and synthetic structured JSON, and joined cancellation of a model-issued local tool. Native passed on a catalog-selected small instruction model; Synthetic/Cancellation passed on the selected reasoning model. Native/All on the latter failed honestly; see [profile evidence](../../modules/examples/README.md#selected-structured-output-and-cancellation-profiles). No universal provider or in-flight HTTP cancellation claim follows.
+
+- [x] Verify explicit independent runtime sessions, preparation-only retry under one reserved invocation and nested child cooperative-signal isolation. See [invocation mapping](test-parity.md#thinking-and-invocation-observations); ambient Java session routing and whole-execution replay are not introduced.
+
 ## Remaining library completion work
 
 Check an outcome only after its expected result, relevant review and verification exist. New scope requires a promised behavior, reproduced defect or explicit user request. No percentage or calendar forecast is inferred from the item count.
@@ -45,7 +49,7 @@ Check an outcome only after its expected result, relevant review and verificatio
 
 ## Immediate next work
 
-Current verification task: exercise independent session runtimes, invocation-local pre-model retry and nested cooperative-signal isolation through the existing prepared/preparation APIs. No generic middleware or whole-execution retry is implied. Fresh invocation preparation, prepared controls and native Windows directory-junction screening are verified within their documented scopes. Declaration mode/visibility, persistent named-session restoration, transcript compaction and the model-driven file task are verified within their documented scopes. Other runtime/provider dispositions, remote adapters, platform/live profiles and release usability/delivery remain open.
+Current task: implement the original non-interactive approval contract: an explicitly unavailable confirmation channel denies unresolved approval requests without allocating a waiter or suspending execution. Preserve interactive waiting, durable checkpoint approval and independent gate priority. Review the actual standard subagent construction path and its tool observation before acceptance. Selected provider profiles and invocation isolation are verified above; source-only AgentProtocol transport observation and the remaining remote/platform/release outcomes stay open.
 
 ## Verification
 

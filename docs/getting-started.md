@@ -207,3 +207,14 @@ Local stores require host-controlled filesystem ancestors; path canonicalization
 - [ ] Complete applicable platform, upstream parity and release gates in the [tracker](architecture/tracker.md).
 
 These are host integration tasks, not completed guarantees inferred from the examples. The library's original-plan gaps remain visible in the [parity audit](architecture/test-parity.md#original-plan-disposition).
+
+## Verify selected provider profiles
+
+After configuring the explicit live environment above, run
+`sbt "examples / runMain com.weisgnosis.agents.examples.LiveProviderProfiles"`.
+The [profile guide](../modules/examples/README.md#selected-structured-output-and-cancellation-profiles)
+explains its exact native/synthetic JSON checks, joined local-tool cancellation and per-profile bounds.
+The default All profile reports success only after all three checks pass. Use
+WEISGNOSIS_LIVE_PROFILE=synthetic or cancellation for independent selected checks; require the
+explicit selected-profile success message, since a zero sbt exit code alone is insufficient. HTTP-response cancellation and universal provider
+compatibility remain outside this application.

@@ -45,6 +45,38 @@ Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveProviderSmoke"` 
 
 The smoke is a narrow endpoint check, not evidence for cancellation, ordinary JSON completion, structured output, media, failover, subagent/MCP chains, or durable recovery. Offline verification does not contact or validate that endpoint.
 
+## Selected structured-output and cancellation profiles
+
+[LiveProviderProfiles](src/main/scala/com/weisgnosis/agents/examples/LiveProviderProfiles.scala)
+uses the same explicitly enabled environment as LiveProviderSmoke. Run
+`sbt "examples / runMain com.weisgnosis.agents.examples.LiveProviderProfiles"`.
+By default (`WEISGNOSIS_LIVE_PROFILE=all`, or unset) it sequentially requires native structured
+output, synthetic generate_response output and a model-issued
+`profile_hold` tool call that the host cancels. Both structured results must be Completed and preserve
+exactly `{"value":7}`, with no additional fields. Native rejection fails the check rather than silently
+switching formats. Set WEISGNOSIS_LIVE_PROFILE to native, synthetic or cancellation to run
+one selected profile independently. A selected success does not establish success of the other profiles.
+
+The cancellation profile holds local-tool cleanup, checks that cancellation has not returned early,
+then releases it and verifies interruption, one Error observation, complete call/result history and
+one recovery message. It rejects hidden typed failures or defects. This verifies a live model-to-tool
+chain and local resource cleanup; it does not prove cancellation during an active HTTP response.
+
+Each profile has a one-minute agent deadline, at most three model iterations, 1,024 output tokens per
+request and one-MiB HTTP responses. The three-profile application has no single one-minute deadline;
+joined cleanup can extend the elapsed time. Credentials/model selection remain process-local host
+inputs. [Offline tests](src/test/scala/com/weisgnosis/agents/examples/LiveProviderProfilesSpec.scala)
+exercise actual ReAct execution and reject native failure, wrong values, extra object fields and a
+missing hold call. Offline success alone does not verify an endpoint. Require the explicit
+`Selected provider profile passed: <Profile>` message as well as successful execution; sbt may return
+zero after a ZIOAppDefault application logs a failure. The initial All run on the selected qwen3.8-27b
+endpoint on 2026-10-08 failed structured decoding. A direct native-format diagnostic returned stop,
+empty visible content and reasoning-only data; Native/All compatibility on that model is not established.
+Actual selected runs on the same gateway on 2026-10-08 passed Synthetic and Cancellation with
+qwen3.8-27b, and Native with catalog-selected lfm2.5-1.2b-instruct-mlx. Each emitted its explicit
+success message after its checks. This is evidence for those selected runs, not All on one model,
+universal JSON Schema conformance or HTTP-response cancellation.
+
 ## Verification and acceptance
 
 From the repository root, run `sbt "examples / test"` for offline example contracts and `sbt "examples / compile"` to compile the applications. Run `sbt verify` for repository formatting checks, fatal-warning compilation, and tests. These examples are not published library artifacts; remaining library and host integration work is tracked in the [repository tracker](../../docs/architecture/tracker.md).
