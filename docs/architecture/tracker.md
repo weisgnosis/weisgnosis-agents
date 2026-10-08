@@ -21,11 +21,12 @@ These implemented capabilities have existing public API/spec evidence. Checked a
 
 - [x] Reopen persistent named sessions by exact parent/agent/label through current factories and host-owned exclusive claims. Preserve idle history or checked suspension without replay; serialize snapshot/CAS save and reject further execution after uncertain persistence. See [persistent named sessions](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persistent-named-sessions).
 
+- [x] Run a selected real model through host-supplied write/read tools against a disposable file, checking exact physical bytes, next-request observations, Completed state and joined cleanup. LiveFileTask passed the selected endpoint on 2026-10-08; see [runnable task](../../modules/examples/README.md#model-driven-file-task). This is not a bundled unrestricted OS toolkit or provider-wide certification.
+
 ## Remaining library completion work
 
 Check an outcome only after its expected result, relevant review and verification exist. New scope requires a promised behavior, reproduced defect or explicit user request. No percentage or calendar forecast is inferred from the item count.
 
-- [ ] **A useful runnable task:** document a complete application using a real selected model and host-supplied or MCP file tools against a disposable fixture. Verify actual tool effects/file bytes, Completed state and cleanup; model claims alone are insufficient. A bundled unrestricted shell/file toolkit is not silently added to library scope.
 - [ ] **Remaining runtime/provider obligations:** finish the finite disposition of promised event/hook, permission/declaration, metadata, reasoning/media and selected upstream-delta behavior. Link executable evidence, implement actual gaps or justify API/host adaptations. See [original scope](test-parity.md#original-plan-disposition), [subagents](test-parity.md#subagent-supervision-inventory) and [upstream delta](test-parity.md#upstream-delta-checked-on-2026-10-08). The latest upstream check found 33 commits beyond the pin, including six newly fetched commits and a substantial Harness/session redesign whose relevant behavior still needs classification. Java declaration totals are not a criterion.
 - [ ] **Remaining remote adapters:** resolve retained memory/transcript/catalog/filesystem discovery, writer integration, pruning and layout migration against concrete ports. Implement promised library behavior and identify conditional host responsibilities. CAS alone does not prove safe reclamation or executable recovery. See [storage obligations](test-parity.md#versioned-json-publication-and-postgresql-subset).
 - [ ] **Platform and live boundaries:** verify supported symlink/junction/path ownership and selected live cancellation/resource-release and structured-output profiles. State unsupported cases and prerequisites; path screening is not an atomic sandbox and offline mocks do not certify a live endpoint.
@@ -34,7 +35,7 @@ Check an outcome only after its expected result, relevant review and verificatio
 
 ## Immediate next work
 
-Current implementation task: the useful runnable file task. Named-session restoration has passed independent FP/ZIO/invariant reviews, full verification including actual PostgreSQL, packaging/archive checks and a fresh external-consumer build. Its imported main-worktree implementation supersedes the isolated draft. The delivery worktree contains the next opt-in file-task example, awaiting executable verification and final review. Remaining upstream dispositions and legacy documentation cleanup stay open.
+Current implementation task: typed subagent declaration mode/visibility, preserving upstream defaults, hiding selected entries from model advertisement and refusing PRIMARY child execution before factory allocation. Named-session restoration and the model-driven file task are verified within their documented scopes. Other runtime/provider dispositions, remote adapters, platform/live profiles and release usability/delivery remain open.
 
 ## Verification
 

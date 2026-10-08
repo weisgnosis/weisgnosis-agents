@@ -34,7 +34,7 @@ object ScriptedAgent extends ZIOAppDefault:
       yield ()
 ```
 
-Run `sbt "runMain example.ScriptedAgent"`. It prints Hello without a network request. Continue with a [real HTTP model and typed tool](docs/getting-started.md#http-completion-with-a-typed-tool), or [owned MCP installation](docs/getting-started.md#owned-mcp-installation).
+Run `sbt "runMain example.ScriptedAgent"`. It prints Hello without a network request. Continue with a [real HTTP model and typed tool](docs/getting-started.md#http-completion-with-a-typed-tool), [a model-driven file task](docs/getting-started.md#run-a-model-driven-file-task), or [owned MCP installation](docs/getting-started.md#owned-mcp-installation).
 
 ## Modules
 
@@ -44,7 +44,7 @@ Run `sbt "runMain example.ScriptedAgent"`. It prints Hello without a network req
 | [harness](modules/harness/README.md) | Context compaction, output offload, memory, transcripts, permissions, planning, skills and owned subagents. |
 | [mcp](modules/mcp/README.md) | Scoped MCP tools/resources over direct stdio, legacy HTTP/SSE and Streamable HTTP. |
 | [storage-postgresql](modules/storage-postgresql/README.md) | Optional conditional JSON storage using a host-supplied DataSource and schema ownership. |
-| [examples](modules/examples/README.md) | Host composition, lifecycle logging and an opt-in live-provider smoke application. |
+| [examples](modules/examples/README.md) | Host composition, lifecycle logging and opt-in real-model tool/file applications. |
 
 The runtime saves tool calls before local execution. Tool failures become observations; interruption joins owned cleanup and reconciles unfinished calls. Context compaction preserves call/result pairs, and offloading preserves the original observation when persistence fails. See [architecture contracts](docs/architecture/README.md) for precise boundaries.
 
@@ -52,7 +52,7 @@ The runtime saves tool calls before local execution. Tool failures become observ
 
 - General shell, file and web tools are supplied by the host or MCP; there is no bundled general OS toolkit.
 - The model adapter implements OpenAI-compatible completion, with explicit reasoning/media profiles. Native Anthropic and Gemini APIs are not implemented.
-- Persistent named-session restoration and other remaining upstream obligations stay open in the [tracker](docs/architecture/tracker.md#remaining-library-completion-work).
+- [Persistent named sessions](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#persistent-named-sessions) restore checked data under current factories and host-exclusive claims. Other remaining upstream obligations stay open in the [tracker](docs/architecture/tracker.md#remaining-library-completion-work).
 - Hosts own authentication, durable workflow replay, exclusive execution claims and idempotency. Process-local Promises do not survive restarts. Local path validation is not an atomic filesystem sandbox.
 - PostgreSQL storage borrows the host's DataSource. It does not supply a pool, deployment or safe automatic replay of uncertain writes.
 

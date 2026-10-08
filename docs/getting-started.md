@@ -28,6 +28,17 @@ libraryDependencies ++= Seq(
 
 These coordinates resolve only after local installation. Core alone is sufficient for the first two applications; the MCP example also needs the MCP module. Put each complete application below in its own file under `src/main/scala` and run its named main class with sbt.
 
+## Run a model-driven file task
+
+The repository includes [LiveFileTask](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveFileTask.scala), a complete application that asks a selected model to write and then read one disposable file. Set these through process-local secret configuration:
+
+- `WEISGNOSIS_LIVE_SMOKE=enabled`
+- `WEISGNOSIS_LIVE_ENDPOINT`: the complete Chat Completions URL, including `/chat/completions`.
+- `WEISGNOSIS_LIVE_MODEL`: a chat model selected from your endpoint's model catalog.
+- `WEISGNOSIS_LIVE_API_KEY`: a bearer credential when required; never commit it.
+
+Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveFileTask"`. Success reports one write, one read and removal of the owned fixture. Verification checks actual bytes, the read observation in conversation history and authoritative Completed state. The model receives no path or command capability. The program permits three iterations and a one-minute run deadline; joined native cleanup can extend beyond it. See [example limits and live evidence](../modules/examples/README.md#model-driven-file-task).
+
 ## Scripted agent
 
 Save as `ScriptedAgent.scala`, then run `sbt "runMain example.ScriptedAgent"`. This makes no network requests.

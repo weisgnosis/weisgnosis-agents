@@ -2,6 +2,15 @@
 
 This nonpublished SBT project compiles against core, harness, and MCP. It demonstrates existing library APIs rather than adding a supported facade. Start with the complete applications in [Getting started](../../docs/getting-started.md).
 
+## Model-driven file task
+
+[LiveFileTask](src/main/scala/com/weisgnosis/agents/examples/LiveFileTask.scala) demonstrates a useful model → host file tool → model flow with one disposable recipe file. It supplies only `fixture_write(text)` and `fixture_read()`: the model cannot choose paths, run commands or access other files. The host requires exact recipe bytes, one successful write and read in separate tool turns, an authoritative Completed result and joined fixture removal. The final model's verbal confirmation alone cannot satisfy verification.
+
+Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveFileTask"` using the existing `WEISGNOSIS_LIVE_SMOKE=enabled`, `WEISGNOSIS_LIVE_ENDPOINT`, `WEISGNOSIS_LIVE_MODEL` and optional `WEISGNOSIS_LIVE_API_KEY` configuration described below. Model and endpoint are explicit host choices; no default identifier or ambient credential is selected. Enabled execution makes external requests and may incur charges. Limits remain three model iterations, 1,024 output tokens per request, a one-minute run deadline and one-MiB provider responses. File input is fixed and bounded; this is not a general filesystem toolkit or hostile-filesystem sandbox.
+
+The directory is acquired into an owned scope, native file operations are suspended and joined, and cleanup errors remain typed failures rather than successful verification. Cleanup may extend beyond the model deadline. [LiveFileTaskSpec](src/test/scala/com/weisgnosis/agents/examples/LiveFileTaskSpec.scala) drives the actual ReAct/file path offline and checks the next model request's read observation, exact bytes, cancellation cleanup and typed failure. Offline tests send no provider requests. The actual selected-endpoint run on 2026-10-08 completed with one write, one read, exact expected file bytes and removed owned fixture, using qwen3.8-27b selected from the authenticated model catalog. This is bounded evidence for that run, not all providers, models or filesystem environments.
+
+
 ## Scoped host usage
 
 [HostAssembly](src/main/scala/com/weisgnosis/agents/examples/HostAssembly.scala) composes a model, explicit authorization, result storage, summarization, transcript storage, and selected scoped MCP registrations. Keep the returned assembly inside its owning Scope; each agent run owns its own run/request scopes. The host must install a read_file tool capable of retrieving paths returned by the supplied result store.
