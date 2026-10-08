@@ -4,6 +4,8 @@
 
 The [before-acting contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#before-acting-suspension-and-restoration) stores one AgentResult plus data-only PendingActing. Direct and lazily consumed streaming resume share validation, checkpoint claim, scoped execution and completion observation. Resume claims the saved batch before execution, retains occurrence/context identity and checks the receiving host iteration budget before further reasoning. Checked supplied Success/Error observations are persisted and ledger-marked by original ordinal before interruptible processing, so cancellation preserves completed occurrences and only unfinished local calls execute. Restore rebuilds executable bindings from the host; serialized ToolDefs do not grant execution authority.
 
+An explicitly host-selected [unavailable approval channel](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#unavailable-approval-channel) denies unresolved Ask/Passthrough without a waiter or deferred checkpoint, after independent scoped gates and live policy. Standard child construction preserves Plan/ancestor restrictions; interactive waiting and durable suspension remain separate.
+
 Current source declarations are authoritative. This document records API contracts rather than maintaining a second implementation.
 
 ## MCP protocol and client boundaries

@@ -37,6 +37,8 @@ These implemented capabilities have existing public API/spec evidence. Checked a
 
 - [x] Verify explicit independent runtime sessions, preparation-only retry under one reserved invocation and nested child cooperative-signal isolation. See [invocation mapping](test-parity.md#thinking-and-invocation-observations); ambient Java session routing and whole-execution replay are not introduced.
 
+- [x] Deny unresolved approval when the host explicitly has no confirmation channel, including standard child construction; preserve live independent gates, Plan restrictions and interactive/durable defaults. See [unavailable-channel authorization](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#unavailable-approval-channel).
+
 ## Remaining library completion work
 
 Check an outcome only after its expected result, relevant review and verification exist. New scope requires a promised behavior, reproduced defect or explicit user request. No percentage or calendar forecast is inferred from the item count.
@@ -49,7 +51,7 @@ Check an outcome only after its expected result, relevant review and verificatio
 
 ## Immediate next work
 
-Current task: implement the original non-interactive approval contract: an explicitly unavailable confirmation channel denies unresolved approval requests without allocating a waiter or suspending execution. Preserve interactive waiting, durable checkpoint approval and independent gate priority. Review the actual standard subagent construction path and its tool observation before acceptance. Selected provider profiles and invocation isolation are verified above; source-only AgentProtocol transport observation and the remaining remote/platform/release outcomes stay open.
+Current task: implement checked observation of an already admitted AgentProtocol task through a trusted host-supplied transport, without submission/replay or deriving authority from stored URI data. Preserve exact admission identity, pending approval, cancellation intent, terminal publication and acknowledgements. This is a retained pinned-source obligation; a concrete HTTP client and distributed fencing are separate host/adapter contracts. Other runtime/provider, remote/platform and release outcomes above remain open.
 
 ## Verification
 

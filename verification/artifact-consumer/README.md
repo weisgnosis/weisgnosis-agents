@@ -16,7 +16,7 @@ check_preparation.py uses reversible target-only source-JAR fixtures: a rejected
 
 The forked consumer compares the selected version and hashes of four actually loaded module JARs against the fresh manifest. Runtime classpath inspection excludes source-project classes and known test/Java SDK/Tomcat/JDBC fixture dependencies. Jackson is now a legitimate production transitive dependency of the private schema evaluator; the consumer executes valid/invalid schema-admission neighbors to verify that packaged path. It contacts no model provider or database; real PostgreSQL verification belongs to the configured backend suite.
 
-The consumer exercises public external-tool suspension/resume, schema rejection/acceptance with exactly one handler invocation, representative request/settings and exact JSON contracts, MCP deadlines, permission precedence and storage address/revision projection. It compares all four loaded module hashes. This is current-version source/packaging evidence, not exhaustive API coverage, binary compatibility, provider interoperability or publication.
+The consumer exercises public external-tool suspension/resume, schema rejection/acceptance with exactly one handler invocation, representative request/settings and exact JSON contracts, MCP deadlines, permission precedence, explicit unavailable-channel denial and storage address/revision projection. It compares all four loaded module hashes. This is current-version source/packaging evidence, not exhaustive API coverage, binary compatibility, provider interoperability or publication.
 
 ## Candidate preparation acceptance
 

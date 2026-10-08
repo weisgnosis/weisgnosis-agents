@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
-import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ToolExecution}
+import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, AgentRunState, ToolExecution}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
@@ -153,6 +153,62 @@ object SubagentConstructionSpec extends ZIOSpecDefault:
         case other => ZIO.fail(AgentError.InvalidConfiguration(s"Unexpected submission: $other"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentConstructionSpec")(
+    test("unavailable approval denies unresolved child calls without suspending or executing") {
+      val cases = Chunk(
+        (PermissionEngine(), None, PlanMode.Build, ToolResultState.Denied),
+        (allow, None, PlanMode.Build, ToolResultState.Success),
+        (allow, Some(PermissionBehavior.Ask), PlanMode.Build, ToolResultState.Denied),
+        (allow, Some(PermissionBehavior.Passthrough), PlanMode.Build, ToolResultState.Denied),
+        (allow, None, PlanMode.Plan, ToolResultState.Denied),
+        (
+          PermissionEngine(Chunk(PermissionRule("*", PermissionBehavior.Deny))),
+          Some(PermissionBehavior.Allow),
+          PlanMode.Build,
+          ToolResultState.Denied
+        )
+      )
+      ZIO
+        .foreach(cases)((policy, vote, parentMode, expectedState) =>
+          ZIO.scoped:
+            for
+              supervisor <- TaskSupervisor.open[AgentResult]
+              root       <- SubagentSpawner.root(supervisor)
+              executed   <- Ref.make(Chunk.empty[(String, Json)])
+              finalized  <- Ref.make(false)
+              construction = SubagentConstruction.root(
+                root,
+                SubagentToolBoundary(),
+                ZIO.succeed(allow),
+                ZIO.succeed(parentMode)
+              )
+              child <- factory(
+                construction,
+                PlanSession.make.map(plan =>
+                  SubagentPermissions(
+                    UnavailablePermissionAuthorizer(
+                      ZIO.succeed(policy),
+                      PermissionGate((_, _) => ZIO.addFinalizer(finalized.set(true)).as(vote))
+                    ),
+                    plan.control,
+                    Map("probe" -> PlanToolAccess.Mutation)
+                  )
+                ),
+                (_, _) => ZIO.succeed(probes(Chunk("probe"), executed)),
+                _ => scripted(Chunk(ContentBlock.ToolUse("probe-call", "probe", safe)))
+              )
+              result     <- run(child, root)
+              observed   <- executed.get
+              gateClosed <- finalized.get
+            yield assertTrue(
+              result.state == AgentRunState.Completed,
+              result.history.flatMap(_.toolResults).map(_.state) == Chunk(expectedState),
+              observed == (if expectedState == ToolResultState.Success then Chunk(("probe", safe))
+                           else Chunk.empty),
+              gateClosed
+            )
+        )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    } @@ TestAspect.timeout(20.seconds),
     test(
       "nested skill catalogues narrow content while activation preserves filtered fixed-policy tools"
     ) {

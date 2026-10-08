@@ -81,7 +81,7 @@ Optional local adapters persist memory, transcripts, tool results and plan draft
 
 This catalogue records research requirements, not implemented-capability claims. Current contracts and acceptance are linked from the [tracker](architecture/tracker.md). Independent library/host boundary inspection by review_fp and review_invariants on 2026-10-08 identifies the following conditional obligations; no absent backend is silently claimed implemented or required as a new platform inside this library.
 
-- [x] Classify lesson 15: a noninteractive remote invocation adapter must reject an Ask decision instead of waiting for an absent human publisher. The existing local Promise authorizer is interactive; no remote invocation adapter is supplied here.
+- [x] Implement lesson 15 through explicit host-selected [unavailable-channel authorization](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#unavailable-approval-channel): unresolved Ask/Passthrough is denied without waiting or checkpointing, including standard child construction. Interactive and durable adapters retain their separate contracts; this adds no remote HTTP transport.
 - [x] Classify lesson 26: namespace-owning adapters must define anonymous-user isolation if they accept absent identity. Current typed StorageAddress requires explicit nonblank host-selected components and does not infer an anonymous tenant.
 - [x] Classify lesson 28: container isolation applies to a sandbox backend; current library resource scopes and path checks do not claim container isolation.
 - [x] Classify lesson 29: archive traversal protection applies to an extracting adapter. No production archive unpacker is supplied; canonical path screening is not claimed as ZipSlip verification.

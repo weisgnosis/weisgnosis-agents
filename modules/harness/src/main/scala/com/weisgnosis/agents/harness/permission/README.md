@@ -1,6 +1,6 @@
-# Permission policy and interactive authorization
+# Permission policy and approval channels
 
-The [invocation and prepared-run contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) separates fresh execution correlation from saved model-request identity. Ordinary prepared runs expose a lazy single-attempt handle; Auto attempts share one invocation and resumed executions receive a new one. Confirmation authority remains bound to the exact saved reply/request pair and call occurrence, independently of observational invocation identity. Both independent reviewers approve the fourteen-file source manifest against `db80dc0`; full verification, four RC1 packages, source-archive preparation and fresh external consumption pass; review_fp and review_invariants approve final combined documentation against `db80dc0` for fourteen unchanged Scala files and fourteen Markdown files.
+The [invocation and prepared-run contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) separates fresh execution correlation from saved model-request identity. Ordinary prepared runs expose a lazy single-attempt handle; Auto attempts share one invocation and resumed executions receive a new one. Confirmation authority remains bound to the exact saved reply/request pair and call occurrence, independently of observational invocation identity.
 
 PermissionEngine combines independent policy, tool, and interceptor decisions as Deny > Ask > Passthrough > Allow. No matching decision defaults to Ask. PermissionRule applies content restrictions to its explicit argument path. PermissionRequests registers a Promise before publication, resolves once, rejects duplicate request IDs, and removes interrupted waiters. Its serializable PendingApproval/ConfirmResult values support host persistence but do not provide a durable runtime.
 
@@ -11,6 +11,22 @@ Create PermissionRequests with make, then pass it and a publish: ToolAuthorizati
 The published value includes model context and the original call. Every occurrence gets a distinct approval UUID even if calls reuse an ID. Publication is a narrow callback, not an unrestricted event hub. The adapter does not emit RequireUserConfirm/UserConfirmResult envelopes; its bounded initial-denial ordering is defined below. Awaiting approval keeps the current invocation active; approval continues the same acting phase without another model request. The configured engine-attempt timeout covers approval waiting, and cancellation still applies. Matched inline provider observations bypass local authorization. Synthetic generate_response is a local call and is also gated; a host policy must allow or confirm it.
 
 The authorizer owns an in-memory Ref of immutable PermissionEngine state, exposed through the effectful policy snapshot. Its lifetime belongs to the host: sharing the same instance shares confirmed rules across runs/agents. It is not serialized agent configuration, an authentication service, or a durable checkpoint. Hosts authenticate the recipient and confirmation source, keep each request associated with its actual session, and avoid calling mutating agent operations from callbacks while the run lock is held.
+
+## Unavailable approval channel
+
+Install [UnavailablePermissionAuthorizer](UnavailablePermissionAuthorizer.scala) when the host explicitly has no channel for confirmation:
+
+```scala
+val authorizer = UnavailablePermissionAuthorizer(ZIO.succeed(PermissionEngine()))
+```
+
+Construction stores dependencies without reading policy or running gates. Each authorization evaluates both independent gates in separate joined scopes, then samples current policy. Deny retains its reason; Allow returns prepared input. Ask and Passthrough become Denied with an unavailable-channel reason. It creates no PermissionRequests, publisher, Promise or deferred checkpoint. Install it through ReActAgent's existing toolAuthorizer parameter/builder or as SubagentPermissions.authorizer.
+
+This is explicit host selection, never inferred from model output, declarations or a saved remote URI. It does not replace interactive waiting or durable Deferred handling. `withAdditionalGate` retains the same live policy effect and composes the added gate after the existing interceptor; Plan restrictions and ancestor denials still apply through standard child construction. Gate/policy failures and cancellation retain the existing core fail-closed/interrupt boundary. Policy sampling is a decision snapshot, not atomic execution revocation. The host must bound its supplied effects; absence of a human wait does not make arbitrary gates terminate.
+
+Migration: SubagentPermissions.authorizer now accepts InteractivePermissionAuthorizer or UnavailablePermissionAuthorizer. Existing constructor arguments remain valid, but callers using Interactive-only members through this field must pattern-match the variant. Product arity is unchanged; constructor/accessor/copy JVM signatures may change. Rebuild dependents; no binary compatibility is promised. Permission and checkpoint wire formats are unchanged.
+
+The [adapter suite](../../../../../../../test/scala/com/weisgnosis/agents/harness/permission/UnavailablePermissionAuthorizerSpec.scala) checks priority, admitted input/access and policy after gate cleanup. [SubagentConstructionSpec](../../../../../../../test/scala/com/weisgnosis/agents/harness/subagent/SubagentConstructionSpec.scala) checks actual child execution/denial and Plan mutation restrictions. Interactive and checkpoint suites remain regression controls.
 
 ## Gate and confirmation semantics
 

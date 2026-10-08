@@ -37,13 +37,18 @@ import com.weisgnosis.agents.core.tool.{
   ToolBinding,
   ToolExecutionResult,
   ToolAuthorization,
+  ToolAuthorizationRequest,
   ToolAuthorizer,
   ToolDef,
   ToolSchemaStrictness,
   Toolkit
 }
 import com.weisgnosis.agents.harness.storage.{StorageAddress, StorageRevision}
-import com.weisgnosis.agents.harness.permission.{PermissionBehavior, PermissionEngine}
+import com.weisgnosis.agents.harness.permission.{
+  PermissionBehavior,
+  PermissionEngine,
+  UnavailablePermissionAuthorizer
+}
 import com.weisgnosis.agents.mcp.client.McpClient
 import com.weisgnosis.agents.mcp.protocol.{
   McpCallOutcome,
@@ -393,6 +398,13 @@ object ArtifactSmoke extends ZIOAppDefault:
             )
           )
         )
+        unavailable <- UnavailablePermissionAuthorizer(ZIO.succeed(PermissionEngine())).authorize(
+          ToolAuthorizationRequest(
+            "packaged-approval",
+            ModelStreamContext("packaged-reply", "packaged-model"),
+            ContentBlock.ToolUse("packaged-call", "read", Json.Obj())
+          )
+        )
         permission = PermissionEngine().evaluate(
           "read",
           Json.Obj(),
@@ -455,6 +467,8 @@ object ArtifactSmoke extends ZIOAppDefault:
               events.collect { case result: AgentEvent.AgentResultEvent =>
                 result.result.text
               } == Chunk("5") &&
+              unavailable == ToolAuthorization
+                .Denied("Tool approval is unavailable: no host approval channel is configured") &&
               permission == PermissionBehavior.Deny && projected.outcome == McpCallOutcome.Success &&
               projected.content.map(_.block) == Chunk(McpContentBlock.Text("packaged"))
           )

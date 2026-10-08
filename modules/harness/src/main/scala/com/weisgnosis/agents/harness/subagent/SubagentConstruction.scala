@@ -19,8 +19,13 @@ import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ModelInputTra
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillLibrary}
-import com.weisgnosis.agents.core.tool.{Toolkit, ToolGroups}
-import com.weisgnosis.agents.harness.permission.{InteractivePermissionAuthorizer, PermissionEngine}
+import com.weisgnosis.agents.core.tool.{Toolkit, ToolGroups, ToolAuthorizer}
+import com.weisgnosis.agents.harness.permission.{
+  InteractivePermissionAuthorizer,
+  UnavailablePermissionAuthorizer,
+  PermissionEngine,
+  PermissionGate
+}
 import com.weisgnosis.agents.harness.plan.{
   PlanMode,
   PlanInputTransform,
@@ -49,12 +54,19 @@ enum SubagentSkillSelection derives JsonCodec:
 
 /** Live child capabilities, without codecs or parent approval authority. */
 final case class SubagentPermissions(
-    authorizer: InteractivePermissionAuthorizer,
+    authorizer: InteractivePermissionAuthorizer | UnavailablePermissionAuthorizer,
     plan: PlanSessionControl,
     access: Map[String, PlanToolAccess],
     planAccess: SubagentPlanAccess = SubagentPlanAccess.ExplicitAccess,
     planInstallation: SubagentPlanInstallation = SubagentPlanInstallation.Disabled
-)
+):
+  private[subagent] def policy: UIO[PermissionEngine] = authorizer match
+    case interactive: InteractivePermissionAuthorizer => interactive.policy
+    case unavailable: UnavailablePermissionAuthorizer => unavailable.policy
+
+  private[subagent] def withAdditionalGate(gate: PermissionGate): ToolAuthorizer = authorizer match
+    case interactive: InteractivePermissionAuthorizer => interactive.withAdditionalGate(gate)
+    case unavailable: UnavailablePermissionAuthorizer => unavailable.withAdditionalGate(gate)
 
 /**
  * Descendant construction carrying live ancestor restrictions. Raw spawners and factories used
@@ -113,7 +125,7 @@ final class SubagentConstruction private (
             descendants = new SubagentConstruction(
               child,
               effectiveBoundary,
-              denials :+ permissions.authorizer.policy,
+              denials :+ permissions.policy,
               mode,
               library,
               toolGroups
@@ -134,7 +146,7 @@ final class SubagentConstruction private (
                 PlanPermissionGate.make(mode, access)
               case SubagentPlanAccess.AdmittedTools =>
                 PlanPermissionGate.withAdmittedTools(mode, access)
-            authorizer = permissions.authorizer.withAdditionalGate(gate)
+            authorizer = permissions.withAdditionalGate(gate)
             transform = permissions.planInstallation match
               case SubagentPlanInstallation.Disabled => ModelInputTransform.identity
               case SubagentPlanInstallation.Enabled(_) =>

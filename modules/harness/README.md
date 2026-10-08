@@ -12,7 +12,7 @@ Use [Getting started](../../docs/getting-started.md) for compiled applications a
 | [transcript](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md) | Observation recording, aggregate/segment storage, explicit compaction, and selected discovery |
 | [storage](src/main/scala/com/weisgnosis/agents/harness/storage/README.md) | Versioned JSON publication, local files, acting checkpoints, and cooperative workspace leases |
 | [eviction](src/main/scala/com/weisgnosis/agents/harness/eviction/README.md) | Large-result offloading and bounded previews |
-| [permission](src/main/scala/com/weisgnosis/agents/harness/permission/README.md) | Decision composition, Promise-based approval, and serializable confirmation data |
+| [permission](src/main/scala/com/weisgnosis/agents/harness/permission/README.md) | Decision composition, interactive waiting, explicit unavailable-channel denial, and serializable confirmation data |
 | [subagent](src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) | Configured children, persistent named sessions, task tools, durable observations, and host-driven controls |
 | [plan](src/main/scala/com/weisgnosis/agents/harness/plan/README.md) | Explicit Plan-mode tool admission, command screening, and draft storage |
 | [skill](src/main/scala/com/weisgnosis/agents/harness/skill/README.md) | Bounded skill parsing and explicitly trusted local resources |
