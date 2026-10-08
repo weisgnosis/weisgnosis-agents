@@ -15,12 +15,17 @@
  */
 package com.weisgnosis.agents.core.event
 
+import java.util.UUID
 import zio.*
 import zio.json.*
 import zio.test.*
 
 object ModelStreamContextSpec extends ZIOSpecDefault:
-  private val context = ModelStreamContext("reply", "request")
+  private val context: ModelStreamContext = ModelStreamContext(
+    "reply",
+    "request",
+    Some(InvocationContext(new UUID(0L, 1L)))
+  )
   private val events: Chunk[AgentEvent] = Chunk(
     AgentEvent.TextBlockStartEvent(0, context = Some(context)),
     AgentEvent.TextBlockDeltaEvent("text", 0, context = Some(context)),
@@ -73,6 +78,12 @@ object ModelStreamContextSpec extends ZIOSpecDefault:
         """{"event":"text_block_delta","delta":"x","blockIndex":0,"context":{"replyId":"reply"}}"""
           .fromJson[AgentEvent]
           .isLeft,
-        context.toJson.fromJson[ModelStreamContext] == Right(context)
+        context.toJson.fromJson[ModelStreamContext] == Right(context),
+        """{"replyId":"reply","requestId":"request"}""".fromJson[ModelStreamContext] == Right(
+          ModelStreamContext("reply", "request")
+        ),
+        """{"replyId":"reply","requestId":"request","invocation":{"invocationId":"invalid"}}"""
+          .fromJson[ModelStreamContext]
+          .isLeft
       )
   )

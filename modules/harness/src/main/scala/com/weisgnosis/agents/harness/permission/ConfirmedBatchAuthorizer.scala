@@ -50,7 +50,8 @@ final class ConfirmedBatchAuthorizer private (
     ZIO.suspendSucceed:
       request.callOrdinal.flatMap(decisions.get) match
         case Some((original, confirmation))
-            if request.context == context && request.call.id == original.id &&
+            if request.context.replyId == context.replyId &&
+              request.context.requestId == context.requestId && request.call.id == original.id &&
               request.call.name == original.name =>
           confirmation match
             case None => ZIO.succeed(ToolAuthorization.Deferred("Awaiting host confirmation"))

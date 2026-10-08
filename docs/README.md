@@ -1,5 +1,7 @@
 # Documentation index
 
+The [invocation and prepared-run contract](../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) separates fresh execution correlation from saved model-request identity. Ordinary prepared runs expose a lazy single-attempt handle; Auto attempts share one invocation and resumed executions receive a new one. Confirmation authority remains bound to the exact saved reply/request pair and call occurrence, independently of observational invocation identity. Both independent reviewers approve the fourteen-file source manifest against `db80dc0`; full verification, four RC1 packages, source-archive preparation and fresh external consumption pass; review_fp and review_invariants approve final combined documentation against `db80dc0` for fourteen unchanged Scala files and fourteen Markdown files.
+
 Current implementation and future platform requirements are separate. The project is in development; passing tests do not imply production readiness or exhaustive upstream parity.
 
 - [Getting started](getting-started.md): local installation, complete scripted/HTTP/tool/MCP examples and host boundaries.

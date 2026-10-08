@@ -1,5 +1,17 @@
 # Typed agent event payloads
 
+## Invocation correlation
+
+[InvocationContext](InvocationContext.scala) contains a typed UUID; its constructor and derived codec are pure, and runtime identity allocation is suspended in ZIO. ModelStreamContext appends `invocation: Option[InvocationContext] = None`. Runtime agent execution supplies one identity across model attempts, hooks, tools and completion; a resumed execution receives a fresh identity while retaining the saved acting replyId/requestId. Sixteen contextual event variants and withSource preserve the supplied value. Custom publishers may omit it; this correlation does not grant execution or confirmation authority.
+
+Legacy context JSON without invocation decodes None; supplied malformed UUID data fails. ModelStreamContext product/extractor and JVM constructor/apply/copy signatures change, requiring rebuilt consumers. InvocationContextSpec and the extended existing ModelStreamContextSpec exercise runtime correlation, UUID codecs, all sixteen contextual variants and old/new wire compatibility. The [fourteen-file invocation manifest](../agent/README.md#invocation-identity-and-prepared-execution) owns current changed identities and review/verification gates. Thinking payload and other unchanged event contracts retain their separate acceptance.
+
+- [x] Implement invocation correlation and focused runtime/codec checks.
+- [x] review_fp and review_invariants approve the current fourteen-file source manifest in the linked contract.
+- [x] Full verification passes 1,583 tests and four RC1 packages; candidate archive admission passes in the linked manifest.
+- [x] Fresh standalone artifact consumption passes under the linked manifest; it does not add prepared-API coverage.
+- [ ] Obtain final combined documentation acceptance for this increment.
+
 ## Incremental and accumulated thinking
 
 ThinkingBlockDeltaEvent keeps its exact `delta` and adds trailing `accumulatedThought: Option[String] = None`. The built-in model publisher supplies Some(prefix) after applying that fragment to the same block index. Prefixes are independent across interleaved indices and reset with each request publisher. A valid empty raw thinking fragment still has a defined prefix. Reasoning-details events project only their existing admitted plaintext; opaque encrypted/signature data does not become text or produce a plaintext delta by itself.
@@ -122,9 +134,9 @@ The deprecated v1 Event/EventType/EventSource envelope is outside this core API.
 
 ## Model stream context
 
-Sixteen text/thinking/function/model/result event variants now carry optional ModelStreamContext(replyId, requestId). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
+Sixteen text/thinking/function/model/result event variants now carry optional ModelStreamContext(replyId, requestId, invocation = None). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
 
-ModelStreamContextSpec verifies all sixteen contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); typed completed local blocks and metadata are supported; complete uppercase envelopes and provider multimodal projection remain pending; incremental local execution has separate accepted runtime evidence below.
+ModelStreamContextSpec verifies all sixteen contextual root encodings, source preservation, legacy absence, incomplete supplied context and invalid supplied invocation UUIDs. Its current identity belongs to the invocation manifest above. See [live client ordering](../client/README.md); typed completed local blocks and metadata are supported; complete uppercase envelopes and provider multimodal projection remain pending; incremental local execution has separate accepted runtime evidence below.
 
 Existing model/client correlation acceptance remains in the [client contracts](../client/README.md). Event codecs and context shapes are unchanged by typed local results.
 

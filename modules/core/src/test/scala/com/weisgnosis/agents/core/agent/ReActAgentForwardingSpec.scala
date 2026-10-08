@@ -15,9 +15,9 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
+import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg}
 import com.weisgnosis.agents.core.tool.*
 import zio.*
@@ -37,6 +37,7 @@ object ReActAgentForwardingSpec extends ZIOSpecDefault:
         destination  <- ToolEventPort.open(hub)
         requests     <- Ref.make(0)
         observed     <- Ref.make(Chunk.empty[TurnCompletion])
+        contexts     <- Ref.make(Chunk.empty[ModelStreamContext])
         tool = new Tool[Any, Json, String]:
           def definition: ToolDef = ToolDef("progress", "Publish progress", Json.Obj())
           def execute(input: Json): Task[String] = ZIO.succeed("unexpected detached call")
@@ -58,32 +59,39 @@ object ReActAgentForwardingSpec extends ZIOSpecDefault:
                   .as("progress complete")
           def decodeInput(raw: Json): Either[String, Json] = Right(raw)
           def encodeOutput(out: String): String            = out
-        agent <- ReActAgent.make(
-          client = LlmClient.mockEffectful((_, _, _) =>
-            requests
+        client = new LlmClient:
+          def streamTurn(
+              history: Chunk[Msg],
+              tools: Chunk[ToolDef],
+              config: LlmConfig,
+              eventHub: Hub[AgentEvent],
+              context: ModelStreamContext
+          ): ZIO[Scope, AgentError, TurnOutput] =
+            contexts.update(_ :+ context) *> requests
               .updateAndGet(_ + 1)
               .map(count =>
                 if count == 1 then
                   TurnOutput.ToolCalls(
                     Msg.assistant(
-                      Chunk(
-                        ContentBlock.ToolUse("progress-call", "progress", Json.Obj())
-                      )
+                      Chunk(ContentBlock.ToolUse("progress-call", "progress", Json.Obj()))
                     )
                   )
                 else TurnOutput.FinalText(reply)
               )
-          ),
+        agent <- ReActAgent.make(
+          client = client,
           toolkit = Toolkit.single(tool),
           completionObserver = TurnCompletionObserver(value => observed.update(_ :+ value))
         )
-        result      <- agent.runForwarding(Msg.user("work"), destination, "child")
-        events      <- subscription.takeAll
-        count       <- requests.get
-        completions <- observed.get
-        deltas = events.collect { case event: AgentEvent.TextBlockDeltaEvent => event }
-        starts = events.collect { case event: AgentEvent.ToolResultStartEvent => event }
-        ends   = events.collect { case event: AgentEvent.AgentEndEvent => event }
+        result        <- agent.runForwarding(Msg.user("work"), destination, "child")
+        events        <- subscription.takeAll
+        count         <- requests.get
+        completions   <- observed.get
+        modelContexts <- contexts.get
+        invocation = completions.headOption.flatMap(_.invocation)
+        deltas     = events.collect { case event: AgentEvent.TextBlockDeltaEvent => event }
+        starts     = events.collect { case event: AgentEvent.ToolResultStartEvent => event }
+        ends       = events.collect { case event: AgentEvent.AgentEndEvent => event }
         history <- agent.history
       yield assertTrue(
         count == 2,
@@ -94,6 +102,11 @@ object ReActAgentForwardingSpec extends ZIOSpecDefault:
         result.iterationCount == 2,
         result.state == AgentRunState.Completed,
         completions.map(_.outcome) == Chunk(Exit.succeed(result)),
+        invocation.nonEmpty,
+        modelContexts.size == 2,
+        modelContexts.forall(_.invocation == invocation),
+        modelContexts.map(_.requestId).distinct.size == 2,
+        deltas.forall(_.context.exists(_.invocation == invocation)),
         deltas.map(_.delta) == Chunk.fromIterable((0 until 64).map(_.toString)),
         deltas.forall(_.source.contains("child/nested")),
         deltas.forall(delta => starts.exists(_.context == delta.context)),

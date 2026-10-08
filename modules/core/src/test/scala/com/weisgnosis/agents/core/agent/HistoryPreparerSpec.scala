@@ -17,6 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
+import com.weisgnosis.agents.core.event.InvocationContext
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
@@ -43,7 +44,9 @@ object HistoryPreparerSpec extends ZIOSpecDefault:
     test("composition passes committed stage values in order and stays lazy") {
       val original = Chunk(Msg.user("original"))
       for
-        calls <- Ref.make(Chunk.empty[String])
+        calls      <- Ref.make(Chunk.empty[String])
+        contexts   <- Ref.make(Chunk.empty[InvocationContext])
+        invocation <- InvocationContext.fresh
         first = HistoryPreparer(history =>
           calls.update(_ :+ "first").as(history :+ Msg.assistant("prepared"))
         )
@@ -52,13 +55,29 @@ object HistoryPreparerSpec extends ZIOSpecDefault:
             .update(_ :+ history.lastOption.fold("missing")(_.text))
             .as(history :+ Msg.user("next"))
         )
-        effect = first.andThen(second).prepare(original)
-        before <- calls.get
-        result <- ZIO.scoped(effect)
-        after  <- calls.get
+        contextual = new HistoryPreparer:
+          def prepare(
+              history: Chunk[Msg]
+          ): ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]] =
+            ZIO.fail(AgentError.HistoryPreparationError("Contextual dispatch was bypassed"))
+          override def prepare(
+              context: InvocationContext,
+              history: Chunk[Msg]
+          ): ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]] =
+            contexts.update(_ :+ context).as(history)
+        effect = contextual
+          .andThen(first)
+          .andThen(contextual)
+          .andThen(second)
+          .prepare(invocation, original)
+        before   <- calls.get
+        result   <- ZIO.scoped(effect)
+        after    <- calls.get
+        observed <- contexts.get
       yield assertTrue(
         before.isEmpty,
         after == Chunk("first", "prepared"),
+        observed == Chunk(invocation, invocation),
         result.map(_.text) == Chunk("original", "prepared", "next")
       )
     },

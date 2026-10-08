@@ -273,6 +273,8 @@ object AgentRunUpdateSpec extends ZIOSpecDefault:
                 event.isInstanceOf[AgentEvent.ToolResultDeltaEvent] || event
                   .isInstanceOf[AgentEvent.ToolResultEndEvent]
             )
+            resumedContext = toolEvents.collectFirst:
+              case event: AgentEvent.ToolResultStartEvent => event.context
           yield assertTrue(
             untouched == saved.history,
             invalid.isFailure,
@@ -280,15 +282,21 @@ object AgentRunUpdateSpec extends ZIOSpecDefault:
             observed == 2,
             cleaned == 2,
             count == 2,
-            toolEvents == Chunk(
-              AgentEvent.ToolResultStartEvent("saved", "read", context = Some(context)),
-              AgentEvent.ToolResultDeltaEvent("saved", "external", context = Some(context)),
-              AgentEvent.ToolResultEndEvent(
-                "saved",
-                "read",
-                "external",
-                com.weisgnosis.agents.core.model.ToolResultState.Success,
-                context = Some(context)
+            resumedContext.flatten.exists(value =>
+              value.replyId == context.replyId && value.requestId == context.requestId &&
+                value.invocation.nonEmpty && value.invocation != context.invocation
+            ),
+            resumedContext.flatten.exists(value =>
+              toolEvents == Chunk(
+                AgentEvent.ToolResultStartEvent("saved", "read", context = Some(value)),
+                AgentEvent.ToolResultDeltaEvent("saved", "external", context = Some(value)),
+                AgentEvent.ToolResultEndEvent(
+                  "saved",
+                  "read",
+                  "external",
+                  com.weisgnosis.agents.core.model.ToolResultState.Success,
+                  context = Some(value)
+                )
               )
             ),
             published.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent]),

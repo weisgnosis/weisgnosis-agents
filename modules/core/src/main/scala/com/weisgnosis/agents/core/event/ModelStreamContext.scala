@@ -18,4 +18,8 @@ package com.weisgnosis.agents.core.event
 import zio.json.*
 
 /** Runtime-assigned reply and per-model-request correlation; construction performs no effects. */
-final case class ModelStreamContext(replyId: String, requestId: String) derives JsonCodec
+final case class ModelStreamContext(
+    replyId: String,
+    requestId: String,
+    invocation: Option[InvocationContext] = None
+) derives JsonCodec

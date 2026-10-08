@@ -16,23 +16,33 @@
 package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.event.InvocationContext
 import com.weisgnosis.agents.core.model.{Msg, Role, ToolHistory}
+import scala.annotation.unused
 import zio.*
 
 /** Scoped history rewriting at a completed tool-phase boundary, before a model request. */
 trait HistoryPreparer:
   def prepare(history: Chunk[Msg]): ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]]
 
-  /** Run the next preparation stage in the same request-owned scope. */
+  /** Legacy preparers receive the same history through this invocation-aware entry point. */
+  def prepare(
+      @unused context: InvocationContext,
+      history: Chunk[Msg]
+  ): ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]] = prepare(history)
+
+  /** Run both stages with the same invocation identity and request-owned scope. */
   final def andThen(next: HistoryPreparer): HistoryPreparer =
-    HistoryPreparer(history =>
-      for
-        candidate    <- ZIO.suspendSucceed(prepare(history))
-        intermediate <- ZIO.fromEither(HistoryPreparer.validate(history, candidate))
-        result       <- ZIO.suspendSucceed(next.prepare(intermediate))
-        validated    <- ZIO.fromEither(HistoryPreparer.validate(intermediate, result))
-      yield validated
-    )
+    val first: HistoryPreparer = this
+    new HistoryPreparer:
+      def prepare(history: Chunk[Msg]): ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]] =
+        HistoryPreparer.compose(history, first.prepare, next.prepare)
+
+      override def prepare(
+          context: InvocationContext,
+          history: Chunk[Msg]
+      ): ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]] =
+        HistoryPreparer.compose(history, first.prepare(context, _), next.prepare(context, _))
 
 object HistoryPreparer:
   val identity: HistoryPreparer = HistoryPreparer(history => ZIO.succeed(history))
@@ -42,6 +52,18 @@ object HistoryPreparer:
   ): HistoryPreparer = new HistoryPreparer:
     def prepare(history: Chunk[Msg]): ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]] =
       ZIO.suspendSucceed(rewrite(history))
+
+  private def compose(
+      history: Chunk[Msg],
+      first: Chunk[Msg] => ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]],
+      next: Chunk[Msg] => ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]]
+  ): ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]] =
+    for
+      candidate    <- ZIO.suspendSucceed(first(history))
+      intermediate <- ZIO.fromEither(validate(history, candidate))
+      result       <- ZIO.suspendSucceed(next(intermediate))
+      validated    <- ZIO.fromEither(validate(intermediate, result))
+    yield validated
 
   private[agent] def validate(
       original: Chunk[Msg],

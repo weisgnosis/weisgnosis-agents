@@ -1,5 +1,7 @@
 # Agent event verification
 
+The [current invocation contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) adds typed UUID correlation without runtime authority. InvocationContextSpec supplies runtime and codec evidence; ModelStreamContextSpec extends its existing sixteen-variant/source-copy table and legacy/malformed wire group. Missing invocation remains None for legacy context data; runtime resumes have fresh invocation identity and preserved saved acting reply/request correlation. The linked manifest owns current source approval, full/artifact gates and final documentation approval.
+
 The [incremental and accumulated thinking contract](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md#incremental-and-accumulated-thinking) preserves exact fragments and adds an optional per-index accumulated plaintext prefix. Existing test groups cover both pinned observations, interleaving, old/new codecs and public agent streaming; opaque reasoning stays outside plaintext. The linked six-file manifest owns migration, verification and final combined approval by review_fp and review_invariants against 4cc1225 for six unchanged Scala files and fourteen Markdown files.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity). The linked source/spec manifest owns the current migration review scope and verification; existing lifecycle and permission contracts remain in force.
@@ -35,7 +37,7 @@ The [current event contracts and reviewed source identities](../../../../../../.
 
 ## Model stream context
 
-Sixteen text/thinking/function/model/result event variants now carry optional ModelStreamContext(replyId, requestId). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
+Sixteen text/thinking/function/model/result event variants now carry optional ModelStreamContext(replyId, requestId, invocation = None). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
 
 ModelStreamContextSpec verifies all sixteen contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); typed completed local blocks and metadata are supported; complete uppercase envelopes and provider multimodal projection remain pending; incremental local execution has separate accepted runtime evidence below.
 

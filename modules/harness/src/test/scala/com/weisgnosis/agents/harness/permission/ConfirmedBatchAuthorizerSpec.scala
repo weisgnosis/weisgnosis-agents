@@ -18,7 +18,7 @@ package com.weisgnosis.agents.harness.permission
 import com.weisgnosis.agents.core.agent.*
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{AgentEvent, InvocationContext}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.*
 import zio.*
@@ -287,6 +287,7 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
             request.copy(callOrdinal = Some(-1)),
             request.copy(callOrdinal = Some(1)),
             request.copy(context = value.context.copy(requestId = "other")),
+            request.copy(context = value.context.copy(replyId = "other")),
             request.copy(call = call.copy(id = "other")),
             request.copy(call = call.copy(name = "other"))
           )
@@ -302,6 +303,10 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
         replay       <- suppliedOnly.authorize(request)
         untouched    <- reads.get
         allowed      <- authorizer.authorize(request)
+        fresh        <- InvocationContext.fresh
+        correlated <- authorizer.authorize(
+          request.copy(context = value.context.copy(invocation = Some(fresh)))
+        )
       yield assertTrue(
         invalid.forall(_.isFailure),
         invalidState.isFailure,
@@ -309,15 +314,18 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
         replay.isInstanceOf[ToolAuthorization.Denied],
         untouched == 0,
         rejected.forall(_.isInstanceOf[ToolAuthorization.Denied]),
-        allowed == ToolAuthorization.Approved(original)
+        allowed == ToolAuthorization.Approved(original),
+        value.context.invocation != Some(fresh),
+        correlated == ToolAuthorization.Approved(original)
       )
     ,
     test("resumed declines preserve custom and default reasons in ordered correlated tool events"):
       ZIO
         .foreach(Chunk(Some("host declined"), Option.empty[String])): reason =>
           for
-            executions <- Ref.make(0)
-            calls      <- Ref.make(0)
+            executions  <- Ref.make(0)
+            calls       <- Ref.make(0)
+            completions <- Ref.make(Chunk.empty[TurnCompletion])
             tools = Toolkit.single(readTool(_ => executions.update(_ + 1).as("unexpected")))
             saved <- checkpoint(Msg.assistant(Chunk(call)), tools)
             value <- pending(saved)
@@ -330,13 +338,22 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
               calls.update(_ + 1).as(TurnOutput.FinalText(Msg.assistant("done")))
             )
             restored <- ReActAgent
-              .make(client = client, toolkit = tools, toolAuthorizer = authorizer)
+              .make(
+                client = client,
+                toolkit = tools,
+                toolAuthorizer = authorizer,
+                completionObserver =
+                  TurnCompletionObserver(completion => completions.update(_ :+ completion))
+              )
             _        <- restored.restore(saved)
             events   <- restored.streamResumeEvents().runCollect
             history  <- restored.history
             count    <- calls.get
             executed <- executions.get
-            text = reason.getOrElse("Tool execution declined")
+            finished <- completions.get
+            invocation     = finished.headOption.flatMap(_.invocation)
+            resumedContext = value.context.copy(invocation = invocation)
+            text           = reason.getOrElse("Tool execution declined")
             observed = events.filter(event =>
               event.isInstanceOf[AgentEvent.ToolResultStartEvent] ||
                 event.isInstanceOf[AgentEvent.ToolResultDeltaEvent] || event
@@ -345,15 +362,18 @@ object ConfirmedBatchAuthorizerSpec extends ZIOSpecDefault:
           yield assertTrue(
             count == 1,
             executed == 0,
+            finished.size == 1,
+            invocation.nonEmpty,
+            invocation != value.context.invocation,
             observed == Chunk(
-              AgentEvent.ToolResultStartEvent("same", "read", context = Some(value.context)),
-              AgentEvent.ToolResultDeltaEvent("same", text, context = Some(value.context)),
+              AgentEvent.ToolResultStartEvent("same", "read", context = Some(resumedContext)),
+              AgentEvent.ToolResultDeltaEvent("same", text, context = Some(resumedContext)),
               AgentEvent.ToolResultEndEvent(
                 "same",
                 "read",
                 text,
                 ToolResultState.Denied,
-                context = Some(value.context)
+                context = Some(resumedContext)
               )
             ),
             history.flatMap(_.toolResults).map(result => result.state -> result.text) == Chunk(

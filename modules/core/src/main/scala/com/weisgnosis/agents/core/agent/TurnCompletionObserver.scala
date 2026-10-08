@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.event.InvocationContext
 import com.weisgnosis.agents.core.model.Msg
 import zio.*
 
@@ -26,7 +27,8 @@ import zio.*
 final case class TurnCompletion(
     agentId: String,
     history: Chunk[Msg],
-    outcome: Exit[AgentError, AgentResult]
+    outcome: Exit[AgentError, AgentResult],
+    invocation: Option[InvocationContext] = None
 )
 
 /**
