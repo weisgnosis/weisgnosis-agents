@@ -9,7 +9,7 @@ Use [Getting started](../../docs/getting-started.md) for compiled applications a
 | Package | Purpose |
 | --- | --- |
 | [memory](src/main/scala/com/weisgnosis/agents/harness/memory/README.md) | Pair-safe compaction, daily extraction, consolidation, and explicit maintenance |
-| [transcript](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md) | Observation recording, aggregate/segment storage, and selected discovery |
+| [transcript](src/main/scala/com/weisgnosis/agents/harness/transcript/README.md) | Observation recording, aggregate/segment storage, explicit compaction, and selected discovery |
 | [storage](src/main/scala/com/weisgnosis/agents/harness/storage/README.md) | Versioned JSON publication, local files, acting checkpoints, and cooperative workspace leases |
 | [eviction](src/main/scala/com/weisgnosis/agents/harness/eviction/README.md) | Large-result offloading and bounded previews |
 | [permission](src/main/scala/com/weisgnosis/agents/harness/permission/README.md) | Decision composition, Promise-based approval, and serializable confirmation data |

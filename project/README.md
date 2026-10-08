@@ -47,6 +47,8 @@ The additive [McpClient.Deadlines API](../modules/mcp/src/main/scala/com/weisgno
 
 ## Compatibility policy
 
+SegmentedTranscriptStore.make returns the narrower SegmentedTranscriptStore capability with explicit compact; it remains assignable to TranscriptStore. Recompile consumers for the new public type/method. Schema 1 and exact stored entries are unchanged; old segments remain undeleted. See [transcript compaction](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments).
+
 Local JSON read-only snapshots and the [explicit local task workspace](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#local-task-workspace) are additive APIs. Existing explicit LocalVersionedJsonStore.open path/address binding and schema-6 task encoding remain unchanged. The private shared resource checkpoint corrects cancellation causes to retain the actual external interrupter IDs; it does not add execution ownership, lease takeover or a new public serialization format.
 
 

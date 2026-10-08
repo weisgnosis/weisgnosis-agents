@@ -1461,6 +1461,10 @@ Pinned agentscope-core/src/main/java/io/agentscope/core/tool/mcp/McpMeta.java de
 
 Java testMerge_SkipsNulls (128), testMerge_AllNulls (145) and testMerge_NullArray (152) are intentionally excluded: typed Chunk[Json.Obj] has no nullable input branch. Mutable constructor/defensive-copy/accessor/equality tests do not establish additional merge behavior.
 
+## Explicit segmented transcript compaction
+
+- [x] FilesystemTranscriptStoreTest.appendListRead_andConcurrentWritersDoNotOverwrite (33), compaction assertions at 56-63: SegmentedTranscriptStoreSpec collapses the published chain to one visible immutable segment and reopens exact ordered entries. Additional controlled CAS tests preserve concurrent appends and propagate uncertain publication/cancellation. Host-selected manifest addresses and immutable UUID segments replace Java path/sequence naming; no filesystem mirror, deletion, orphan reclamation or whole-suite parity is implied. See [compaction contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments).
+
 ## Versioned JSON publication and PostgreSQL subset
 
 The pinned BaseStore contract is in agentscope-harness/agent/filesystem/remote/store; PostgresBaseStore and PostgresBaseStoreTest are in agentscope-extensions-postgresql. The Scala port deliberately exposes only read and compareAndSet. Checked namespace identity, positive typed revisions, exact JSON TEXT storage and explicit host-owned schema/DataSource boundaries replace Java generic map/builder/null APIs.
@@ -1509,7 +1513,7 @@ Pinned agentscope-harness/agent/transcript/ObjectStoreTranscriptStore.appendSegm
 - [x] Verify actual PostgreSQL immutable new-only publication, complete chain reopening and stable-key deduplication, with final independent source/full/artifact acceptance in the [two-file contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/transcript/README.md#immutable-transcript-segments).
 - [x] Verify definite manifest conflict/reparenting, invisible orphan preparation, malformed/cyclic/missing chain rejection, prospective capacity and ambiguous acknowledgement limits.
 - [x] review_fp and review_invariants approved final combined documentation/English/link closure for this bounded adaptation.
-- [ ] Define broader/global discovery, automatic writer integration, orphan reclamation, compaction/pruning/deletion and layout migration separately; no whole upstream transcript-store suite parity is claimed.
+- [ ] Define broader/global discovery, automatic writer integration, orphan reclamation, pruning/deletion and layout migration separately; no whole upstream transcript-store suite parity is claimed.
 
 ## Explicit transcript session catalog adaptation
 

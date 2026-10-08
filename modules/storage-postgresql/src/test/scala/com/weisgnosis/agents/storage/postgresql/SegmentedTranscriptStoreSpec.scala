@@ -58,7 +58,7 @@ object SegmentedTranscriptStoreSpec extends ZIOSpecDefault:
       backend: VersionedJsonStore,
       target: StorageAddress,
       limits: TranscriptSegmentLimits = TranscriptSegmentLimits.default
-  ): IO[AgentError, TranscriptStore] =
+  ): IO[AgentError, SegmentedTranscriptStore] =
     ZIO.fromEither(SegmentedTranscriptStore.make(backend, target, limits))
 
   private def linked(entries: Chunk[TranscriptEntry]): Boolean =
@@ -123,6 +123,13 @@ object SegmentedTranscriptStoreSpec extends ZIOSpecDefault:
           reopenedBackend <- store(source)
           reopened        <- transcript(reopenedBackend, target, limits)
           recovered       <- reopened.entries
+          _               <- reopened.compact
+          compactedHead   <- backend.read(target)
+          _               <- reopened.compact
+          unchangedHead   <- backend.read(target)
+          singleLimit     <- ZIO.fromEither(TranscriptSegmentLimits.make(1, 64))
+          compacted       <- transcript(reopenedBackend, target, singleLimit)
+          exactCompacted  <- compacted.entries
           immutable <- ZIO.foreach(seedSegments)((address, value) =>
             backend
               .read(address)
@@ -147,9 +154,126 @@ object SegmentedTranscriptStoreSpec extends ZIOSpecDefault:
             .toSet == (results.flatten ++ seed ++ anonymous).map(_.payload).toSet,
           duplicates.isEmpty,
           before == after,
+          compactedHead == unchangedHead,
+          exactCompacted == recovered,
           immutable.nonEmpty,
           immutable.forall(identity)
         )
+    ,
+    test("compaction rebases definite conflicts and never retries an uncertain applied manifest"):
+      ZIO
+        .foreach(Chunk(1, 8)): budget =>
+          fixture: (_, backend, name) =>
+            for
+              target   <- address(name, "compact-conflict")
+              writer   <- transcript(backend, target)
+              first    <- writer.append(Chunk(draft("first")))
+              second   <- writer.append(Chunk(draft("second")))
+              attempts <- Ref.make(0)
+              interposed = new VersionedJsonStore:
+                def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+                  backend.read(address)
+                def compareAndSet(address: StorageAddress, expected: ExpectedRevision, value: Json)
+                    : IO[AgentError, ConditionalWrite] =
+                  if address == target then
+                    attempts
+                      .getAndUpdate(_ + 1)
+                      .flatMap(previous =>
+                        ZIO.when(previous == 0)(writer.append(Chunk(draft("concurrent")))) *>
+                          backend.compareAndSet(address, expected, value)
+                      )
+                  else backend.compareAndSet(address, expected, value)
+              limits          <- ZIO.fromEither(TranscriptSegmentLimits.make(32, 64, budget))
+              compacting      <- transcript(interposed, target, limits)
+              result          <- compacting.compact.either
+              visible         <- writer.entries
+              calls           <- attempts.get
+              beforeUncertain <- backend.read(target)
+              _               <- writer.append(Chunk(draft("fourth")))
+              original        <- writer.entries
+              uncertainCalls  <- Ref.make(0)
+              failure = AgentError.StorageError("Compaction acknowledgement lost")
+              uncertain = new VersionedJsonStore:
+                def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+                  backend.read(address)
+                def compareAndSet(address: StorageAddress, expected: ExpectedRevision, value: Json)
+                    : IO[AgentError, ConditionalWrite] =
+                  if address == target then
+                    uncertainCalls.update(_ + 1) *>
+                      backend.compareAndSet(address, expected, value) *> ZIO.fail(failure)
+                  else backend.compareAndSet(address, expected, value)
+              failing           <- transcript(uncertain, target)
+              failed            <- failing.compact.either
+              uncertainAttempts <- uncertainCalls.get
+              afterUncertain    <- backend.read(target)
+              singleLimit       <- ZIO.fromEither(TranscriptSegmentLimits.make(1, 64))
+              recovered         <- transcript(backend, target, singleLimit).flatMap(_.entries)
+            yield assertTrue(
+              result.isRight == (budget > 1),
+              calls == (if budget > 1 then 2 else 1),
+              visible.take(2) == first ++ second,
+              visible.size == 3,
+              visible.lastOption.exists(_.payload == draft("concurrent").payload),
+              linked(visible),
+              failed == Left(failure),
+              uncertainAttempts == 1,
+              beforeUncertain != afterUncertain,
+              recovered == original
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test(
+      "compaction cancellation joins held publication cleanup and preserves the installed exact snapshot"
+    ):
+      fixture: (_, backend, name) =>
+        ZIO.scoped:
+          for
+            target     <- address(name, "compact-cancel")
+            writer     <- transcript(backend, target)
+            _          <- writer.compact
+            absent     <- backend.read(target)
+            first      <- writer.append(Chunk(draft("first")))
+            beforeNoOp <- backend.read(target)
+            _          <- writer.compact
+            afterNoOp  <- backend.read(target)
+            second     <- writer.append(Chunk(draft("second")))
+            applied    <- Promise.make[Nothing, Unit]
+            cleaning   <- Promise.make[Nothing, Unit]
+            release    <- Promise.make[Nothing, Unit]
+            calls      <- Ref.make(0)
+            held = new VersionedJsonStore:
+              def read(address: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+                backend.read(address)
+              def compareAndSet(address: StorageAddress, expected: ExpectedRevision, value: Json)
+                  : IO[AgentError, ConditionalWrite] =
+                if address == target then
+                  calls.update(_ + 1) *> backend.compareAndSet(address, expected, value) *>
+                    (applied.succeed(()) *> ZIO.never)
+                      .ensuring(cleaning.succeed(()) *> release.await)
+                else backend.compareAndSet(address, expected, value)
+            compacting <- transcript(held, target)
+            controller <- ZIO.fiberId
+            fiber <- ZIO.uninterruptibleMask: restore =>
+              restore(compacting.compact).forkScoped.tap(_ =>
+                ZIO.addFinalizer(release.succeed(()).unit)
+              )
+            _           <- applied.await
+            _           <- fiber.interruptAsFork(controller)
+            _           <- cleaning.await
+            pending     <- fiber.poll
+            _           <- release.succeed(())
+            cancelled   <- fiber.await
+            attempts    <- calls.get
+            singleLimit <- ZIO.fromEither(TranscriptSegmentLimits.make(1, 64))
+            recovered   <- transcript(backend, target, singleLimit).flatMap(_.entries)
+          yield assertTrue(
+            absent.isEmpty,
+            beforeNoOp == afterNoOp,
+            pending.isEmpty,
+            cancelled.causeOption.exists(_.interruptors.contains(controller)),
+            attempts == 1,
+            recovered == first ++ second
+          )
     ,
     test(
       "manifest conflicts reparent stable candidates while orphan preparations remain invisible"

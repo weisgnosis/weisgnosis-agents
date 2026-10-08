@@ -47,13 +47,17 @@ object TranscriptSegmentLimits:
       )
     )
 
+/** Explicit storage compaction preserves every recorded observation and never deletes segments. */
+trait SegmentedTranscriptStore extends TranscriptStore:
+  def compact: IO[AgentError, Unit]
+
 /** Prepared segments become visible only through the host-owned manifest's successful CAS. */
 object SegmentedTranscriptStore:
   def make(
       store: VersionedJsonStore,
       manifest: StorageAddress,
       limits: TranscriptSegmentLimits = TranscriptSegmentLimits.default
-  ): Either[AgentError.InvalidConfiguration, TranscriptStore] =
+  ): Either[AgentError.InvalidConfiguration, SegmentedTranscriptStore] =
     segmentNamespace(manifest).map(namespace => new Backend(store, manifest, namespace, limits))
 
   private[transcript] def segmentNamespace(
@@ -81,8 +85,24 @@ object SegmentedTranscriptStore:
       manifest: StorageAddress,
       namespace: Chunk[String],
       limits: TranscriptSegmentLimits
-  ) extends TranscriptStore:
+  ) extends SegmentedTranscriptStore:
     def entries: IO[AgentError, Chunk[TranscriptEntry]] = read.map(_.state.entries)
+
+    def compact: IO[AgentError, Unit] = compactWithAttempts(limits.maxAttempts)
+
+    private def compactWithAttempts(attempts: Int): IO[AgentError, Unit] =
+      read.flatMap: current =>
+        if current.segments <= 1 then ZIO.unit
+        else
+          prepare(current.state.entries, None).flatMap: pointer =>
+            store
+              .compareAndSet(manifest, current.revision, pointer)
+              .flatMap:
+                case ConditionalWrite.Applied(_) => ZIO.unit
+                case ConditionalWrite.Conflict if attempts > 1 =>
+                  ZIO.yieldNow *> ZIO.suspendSucceed(compactWithAttempts(attempts - 1))
+                case ConditionalWrite.Conflict =>
+                  ZIO.fail(invalid("Transcript compaction conflict retry limit exceeded"))
 
     def append(drafts: Chunk[TranscriptDraft]): IO[AgentError, Chunk[TranscriptEntry]] =
       if drafts.isEmpty then ZIO.succeed(Chunk.empty)
@@ -159,29 +179,35 @@ object SegmentedTranscriptStore:
           then ZIO.fail(invalid("Transcript segment or entry capacity exceeded"))
           else
             for
-              id       <- Random.nextUUID
-              address  <- ZIO.fromEither(StorageAddress.from(namespace, id.toString))
-              segment  <- ZIO.fromEither(encode(Segment(1, id, current.head, added)))
-              pointer  <- ZIO.fromEither(encode(Manifest(1, id)))
-              prepared <- store.compareAndSet(address, ExpectedRevision.Absent, segment)
-              result <- prepared match
-                case ConditionalWrite.Conflict =>
-                  ZIO.fail(invalid("Transcript segment identity collision"))
-                case ConditionalWrite.Applied(revision) if revision.value != 1L =>
-                  ZIO.fail(invalid("Invalid transcript segment creation revision"))
-                case ConditionalWrite.Applied(_) =>
-                  store
-                    .compareAndSet(manifest, current.revision, pointer)
-                    .flatMap:
-                      case ConditionalWrite.Applied(_) => ZIO.succeed(added)
-                      case ConditionalWrite.Conflict if attempts > 1 =>
-                        ZIO.yieldNow *> ZIO.suspendSucceed(
-                          publish(candidates, instant, attempts - 1)
-                        )
-                      case ConditionalWrite.Conflict =>
-                        ZIO.fail(invalid("Transcript manifest conflict retry limit exceeded"))
+              pointer <- prepare(added, current.head)
+              result <- store
+                .compareAndSet(manifest, current.revision, pointer)
+                .flatMap:
+                  case ConditionalWrite.Applied(_) => ZIO.succeed(added)
+                  case ConditionalWrite.Conflict if attempts > 1 =>
+                    ZIO.yieldNow *> ZIO.suspendSucceed(publish(candidates, instant, attempts - 1))
+                  case ConditionalWrite.Conflict =>
+                    ZIO.fail(invalid("Transcript manifest conflict retry limit exceeded"))
             yield result
       yield committed
+
+    private def prepare(
+        entries: Chunk[TranscriptEntry],
+        previous: Option[UUID]
+    ): IO[AgentError, Json] =
+      for
+        id       <- Random.nextUUID
+        address  <- ZIO.fromEither(StorageAddress.from(namespace, id.toString))
+        segment  <- ZIO.fromEither(encode(Segment(1, id, previous, entries)))
+        pointer  <- ZIO.fromEither(encode(Manifest(1, id)))
+        prepared <- store.compareAndSet(address, ExpectedRevision.Absent, segment)
+        _ <- prepared match
+          case ConditionalWrite.Conflict =>
+            ZIO.fail(invalid("Transcript segment identity collision"))
+          case ConditionalWrite.Applied(revision) if revision.value != 1L =>
+            ZIO.fail(invalid("Invalid transcript segment creation revision"))
+          case ConditionalWrite.Applied(_) => ZIO.unit
+      yield pointer
 
   private def invalid(message: String): AgentError.MemoryStorageError =
     AgentError.MemoryStorageError(message)

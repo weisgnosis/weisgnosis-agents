@@ -85,7 +85,7 @@ Migration: this factory is additive. Existing TranscriptStore/in-memory/local AP
 
 ## Immutable transcript segments
 
-[SegmentedTranscriptStore.make](SegmentedTranscriptStore.scala) is a pure checked TranscriptStore factory over one VersionedJsonStore and host-selected manifest address. It validates the reserved namespace manifest.namespace ++ [manifest.key, "segments"] against StorageAddress bounds, with UUID segment keys. Hosts exclusively own both manifest and reserved subtree; no other writer may mutate, delete, recreate or repurpose visible segments. The existing whole-aggregate VersionedTranscriptStore is unchanged.
+[SegmentedTranscriptStore.make](SegmentedTranscriptStore.scala) is a pure checked SegmentedTranscriptStore factory over one VersionedJsonStore and host-selected manifest address. It validates the reserved namespace manifest.namespace ++ [manifest.key, "segments"] against StorageAddress bounds, with UUID segment keys. Hosts exclusively own both manifest and reserved subtree; no other writer may mutate, delete, recreate or repurpose visible segments. The existing whole-aggregate VersionedTranscriptStore is unchanged.
 
 TranscriptSegmentLimits.make requires positive maxSegments/maxEntries/maxAttempts. Defaults are 1,024 segments, 100,000 visible entries and eight publication attempts. Count limits apply to the complete visible chain; backend payload-byte limits and aggregate lifetime remain host responsibilities. Reads capture one manifest snapshot and follow its complete predecessor chain, restoring all entries through shared TranscriptState validation. Missing, cyclic, oversized or corrupt chains fail rather than return truncated history. Every read/deduplication still traverses all visible segments; this is bounded history, not paginated or unbounded storage.
 
@@ -95,19 +95,13 @@ Append samples recording time and entry UUID candidates once. Only definite mani
 
 Preparation and manifest publication are separate backend operations. Failure, cancellation or ambiguous acknowledgement stops without blind retry. Prepared but unpublished segments are invisible; a publication may have committed before acknowledgement fails. Definite conflicts can leave invisible orphan segments even after a later successful retry. Hosts own backend lifecycle and any safe reclamation; the adapter provides no orphan enumeration, automatic garbage collection or deletion. A manifest read grants no execution/approval authority, and this protocol is not a cross-address transaction or exactly-once delivery service.
 
-Migration is additive: existing transcript capabilities/local rows/aggregate format remain unchanged. Immutable segment publication does not reproduce Java tenant/session paths, sequence filenames, mirrors, asynchronous delivery or filesystem glob listing. No automatic aggregate import, session discovery/index, compaction, remote retention/pruning or layout migration is supplied. Selected upstream publication/reconstruction intent is mapped separately from whole-method/API parity.
+Migration is additive: existing transcript capabilities/local rows/aggregate format remain unchanged. Immutable segment publication does not reproduce Java tenant/session paths, sequence filenames, mirrors, asynchronous delivery or filesystem glob listing. No automatic aggregate import, session discovery/index, remote retention/pruning or layout migration is supplied. Selected upstream publication/reconstruction intent is mapped separately from whole-method/API parity.
 
-| Source/spec approved by review_fp and review_invariants against 9a4650d | Git blob |
-| --- | --- |
-| [SegmentedTranscriptStore.scala](SegmentedTranscriptStore.scala) | Current approved helper extraction is in the [catalog manifest](#explicit-transcript-session-catalog); previously accepted behavior is unchanged. |
-| [SegmentedTranscriptStoreSpec.scala](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/SegmentedTranscriptStoreSpec.scala) | b8c1b35a31b14f04900e8d52be5d3145afcbdb4a |
+`compact` explicitly collapses a visible chain of two or more segments into one immutable segment. It preserves every TranscriptEntry exactly, including IDs, parent links, keys, timestamps, payloads and order. Empty or single-segment transcripts perform no write. Publication uses the captured manifest revision; a definite conflict permits bounded reread and rebasing so concurrent appends survive. A failed or uncertain acknowledgement stops without replay. Cancellation joins backend cleanup and remains interruption, even if the new manifest was already installed.
 
-- [x] review_fp and review_invariants approved these final two identities against 9a4650d, with no unresolved findings.
-- [x] Final focused segment verification passed three real PostgreSQL groups in 3.540 seconds.
-- [x] segmented-transcript-final-verify.log exited zero: 1,504 tests (669 core / 726 harness / 86 MCP / 18 PostgreSQL / 5 examples), zero compiler warnings/failures and four packages.
-- [x] Four-artifact archive/POM preparation passed.
-- [x] Fresh standalone formatting, clean compilation and forked selected-API consumption passed with four current JARs; this smoke does not construct the segmented adapter.
-- [x] review_fp and review_invariants approved final combined documentation against 9a4650d and the two unchanged identities; English inspection and 78-document/2,783-local-reference checks pass with zero issues.
+Compaction makes old segments unreachable; it neither deletes them nor proves they can be reclaimed. Hosts must retain the backend's manifest/subtree ownership and bound I/O. `make` now returns the narrower SegmentedTranscriptStore capability, which remains a TranscriptStore; existing source assignments continue to work. Recompile consumers for the added public type and method. The schema remains version 1 and the ordinary aggregate/local stores gain no compaction API.
+
+The [actual PostgreSQL integration](../../../../../../../../../storage-postgresql/src/test/scala/com/weisgnosis/agents/storage/postgresql/SegmentedTranscriptStoreSpec.scala) verifies exact compacted history through a fresh binding limited to one visible segment, unchanged prior segment bytes, concurrent append rebasing, bounded conflicts, uncertain applied publication and joined cancellation.
 
 ## Explicit transcript session catalog
 
