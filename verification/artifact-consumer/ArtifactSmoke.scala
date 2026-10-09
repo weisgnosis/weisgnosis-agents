@@ -15,7 +15,14 @@
  */
 package consumer
 
-import com.weisgnosis.agents.core.agent.{AgentRunState, ReActAgent, SuppliedToolResult}
+import com.weisgnosis.agents.core.agent.{
+  AgentRunState,
+  ModelInputTransform,
+  ReActAgent,
+  SuppliedToolResult
+}
+import com.weisgnosis.agents.core.coordination.Pipeline
+import com.weisgnosis.agents.harness.memory.VersionedMemoryLimits
 import com.weisgnosis.agents.core.client.{
   ChatCompletionsRequest,
   LlmClient,
@@ -158,6 +165,30 @@ object ArtifactSmoke extends ZIOAppDefault:
         )
     yield ()
 
+  private def verifyReliabilityContracts: ZIO[Scope, AgentError, Unit] =
+    for
+      firstClient  <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant("first"))))
+      secondClient <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant("second"))))
+      first        <- ReActAgent.make(client = firstClient)
+      second <- ReActAgent.make(
+        client = secondClient,
+        modelInputTransform = ModelInputTransform.peerAware
+      )
+      stages  <- Pipeline.sequential(Chunk(first, second), Chunk(Msg.user("handoff")))
+      client  <- LlmClient.mock(Chunk(TurnOutput.Truncated(Msg.assistant("partial"))))
+      stopped <- ReActAgent.make(client = client)
+      result  <- stopped.run(Msg.user("bounded"))
+      limits  <- ZIO.fromEither(VersionedMemoryLimits.make(1024, 16))
+      _ <- ZIO
+        .fail(failure("Packaged reliability contracts failed"))
+        .unless(
+          stages.map(_.agentId) == Chunk(first.agentId, second.agentId) &&
+            stages.map(_.result.reply.text) == Chunk("first", "second") &&
+            result.state == AgentRunState.Stopped("Model output token budget exhausted") &&
+            result.reply.text == "partial" && limits.maxBytes == 1024 && limits.maxEntries == 16
+        )
+    yield ()
+
   private def failure(message: String): AgentError = AgentError.InvalidConfiguration(message)
 
   private def loadManifest: IO[AgentError, Manifest] =
@@ -272,6 +303,7 @@ object ArtifactSmoke extends ZIOAppDefault:
         _        <- verifySchemaAdmission
         _        <- verifyExternalBinding
         _        <- verifyMcpDeadlines
+        _        <- verifyReliabilityContracts
         _        <- verifyJar("core", ReActAgent.getClass, manifest)
         _        <- verifyJar("harness", PermissionEngine.getClass, manifest)
         _        <- verifyJar("mcp", McpCallResult.getClass, manifest)

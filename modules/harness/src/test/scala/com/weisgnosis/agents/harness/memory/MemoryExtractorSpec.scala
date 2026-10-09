@@ -98,6 +98,14 @@ object MemoryExtractorSpec extends ZIOSpecDefault:
         exit   <- ZIO.scoped(MemoryExtractor.fromClient(client, config).extract(input)).exit
       yield assertTrue(exit.isInterrupted)
     },
+    test("token exhaustion cannot publish partial extracted memory") {
+      for
+        client <- LlmClient.mock(Chunk(TurnOutput.Truncated(Msg.assistant("- partial fact"))))
+        result <- ZIO.scoped(MemoryExtractor.fromClient(client, config).extract(input)).either
+      yield assertTrue(
+        result == Left(AgentError.ExecutionStopped("Memory extraction token budget exhausted"))
+      )
+    },
     test("model failure is preserved and scoped client resources are closed") {
       val error = AgentError.ModelError(503, "unavailable")
       for

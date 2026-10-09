@@ -18,12 +18,22 @@ import com.weisgnosis.agents.core.agent.{
   ReActAgent
 }
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.json.ExactJson
 import com.weisgnosis.agents.core.model.Msg
 import zio.*
 import zio.json.*
 
 enum HubMode derives JsonCodec:
   case Automatic, Manual
+
+/** A queued observation is data awaiting delivery, not a completed recipient turn. */
+final case class PendingPeerDelivery(
+    id: String,
+    recipientId: String,
+    senderId: String,
+    senderName: String,
+    messages: Chunk[Msg]
+) derives JsonCodec
 
 /** Scoped subscriptions borrow agent runtimes; delivery never invokes their reasoning loops. */
 final class MsgHub private (
@@ -34,8 +44,21 @@ final class MsgHub private (
   import MsgHub.State
 
   def participants: UIO[Chunk[ReActAgent]] = state.get.map:
-    case State.Open(members, _) => members
-    case State.Closed           => Chunk.empty
+    case State.Open(members, _, _) => members
+    case State.Closed(_)           => Chunk.empty
+
+  def pendingDeliveries: UIO[Chunk[PendingPeerDelivery]] = state.get.map:
+    case State.Open(_, _, pending) => pending
+    case State.Closed(pending)     => pending
+
+  /** Explicitly transfers queued data to the host, including after scope closure. */
+  def takePending: UIO[Chunk[PendingPeerDelivery]] = gate.withPermit:
+    state.modify:
+      case current @ State.Open(_, _, pending) => (pending, current.copy(pending = Chunk.empty))
+      case State.Closed(pending)               => (pending, State.Closed(Chunk.empty))
+
+  /** Call between rounds; no worker waits for an active or suspended recipient. */
+  def flush: IO[AgentError, Chunk[PeerDelivery]] = admitted(flushPending)
 
   def setMode(mode: HubMode): IO[AgentError, Unit] = admitted:
     open.flatMap(current => state.set(current.copy(mode = mode)))
@@ -92,19 +115,17 @@ final class MsgHub private (
 
   private def closeOwned: UIO[Unit] =
     state
-      .getAndSet(State.Closed)
-      .flatMap:
-        case State.Open(members, _) => ZIO.foreachDiscard(members)(_.unsubscribePeers(id))
-        case State.Closed           => ZIO.unit
+      .modify:
+        case State.Open(members, _, pending) => (members, State.Closed(pending))
+        case current: State.Closed           => (Chunk.empty, current)
+      .flatMap(members => ZIO.foreachDiscard(members)(_.unsubscribePeers(id)))
 
   private def admitted[A](effect: IO[AgentError, A]): IO[AgentError, A] =
-    gate
-      .tryWithPermit(effect)
-      .someOrFail(AgentError.InvalidConfiguration("MsgHub operation is already active"))
+    gate.withPermit(effect)
 
   private def open: IO[AgentError, State.Open] = state.get.flatMap:
     case current: State.Open => ZIO.succeed(current)
-    case State.Closed        => ZIO.fail(AgentError.InvalidConfiguration("MsgHub is closed"))
+    case State.Closed(_)     => ZIO.fail(AgentError.InvalidConfiguration("MsgHub is closed"))
 
   private def subscribe(agent: ReActAgent): IO[AgentError, Unit] =
     agent.subscribePeers(
@@ -112,7 +133,7 @@ final class MsgHub private (
       result =>
         admitted:
           state.get.flatMap:
-            case State.Open(members, HubMode.Automatic)
+            case State.Open(members, HubMode.Automatic, _)
                 if members.exists(_.agentId == agent.agentId) =>
               deliver(
                 agent.agentId,
@@ -130,21 +151,104 @@ final class MsgHub private (
       recipients: Chunk[ReActAgent]
   ): IO[AgentError, Chunk[PeerDelivery]] =
     ZIO.fromEither(PeerObservation.validate(senderId, senderName, messages)) *>
-      ZIO.foreach(recipients)(recipient =>
-        recipient
-          .observePeer(senderId, senderName, messages)
-          .either
-          .map:
-            case Right(_) =>
-              PeerDelivery(id, Some(recipient.agentId), PeerDeliveryOutcome.Delivered)
-            case Left(error) =>
-              PeerDelivery(id, Some(recipient.agentId), PeerDeliveryOutcome.Rejected(error.message))
+      flushPending *> ZIO.foreach(recipients)(recipient =>
+        ZIO.uninterruptible:
+          open.flatMap(current =>
+            if current.pending.exists(_.recipientId == recipient.agentId) then
+              enqueue(senderId, senderName, messages, recipient.agentId)
+            else
+              recipient
+                .tryObservePeer(senderId, senderName, messages)
+                .either
+                .flatMap:
+                  case Right(Some(_)) =>
+                    ZIO.succeed(receipt(recipient.agentId, PeerDeliveryOutcome.Delivered))
+                  case Right(None) => enqueue(senderId, senderName, messages, recipient.agentId)
+                  case Left(error) =>
+                    ZIO.succeed(
+                      receipt(recipient.agentId, PeerDeliveryOutcome.Rejected(error.message))
+                    )
+          )
       )
+
+  private def receipt(recipientId: String, outcome: PeerDeliveryOutcome): PeerDelivery =
+    PeerDelivery(id, Some(recipientId), outcome)
+
+  private def enqueue(
+      senderId: String,
+      senderName: String,
+      messages: Chunk[Msg],
+      recipientId: String
+  ): IO[AgentError, PeerDelivery] =
+    for
+      current <- open
+      key     <- Random.nextUUID.map(_.toString)
+      entry     = PendingPeerDelivery(key, recipientId, senderId, senderName, messages)
+      candidate = current.pending :+ entry
+      encoded <- ZIO.fromEither(ExactJson.encode(candidate))
+      result <-
+        if current.pending.exists(_.id == key) then
+          ZIO.succeed(
+            receipt(
+              recipientId,
+              PeerDeliveryOutcome.Rejected("MsgHub pending delivery identity collision")
+            )
+          )
+        else if candidate.foldLeft(0L)((count, item) =>
+            count + item.messages.size
+          ) > 64 || encoded.length > 1000000
+        then
+          ZIO.succeed(
+            receipt(
+              recipientId,
+              PeerDeliveryOutcome.Rejected("MsgHub pending delivery limit exceeded")
+            )
+          )
+        else
+          state
+            .set(current.copy(pending = candidate))
+            .as(receipt(recipientId, PeerDeliveryOutcome.Queued))
+    yield result
+
+  private def flushPending: IO[AgentError, Chunk[PeerDelivery]] =
+    open.flatMap(current =>
+      ZIO.foreach(current.pending)(entry =>
+        ZIO.uninterruptible:
+          open.flatMap(latest =>
+            if latest.pending.takeWhile(_.id != entry.id).exists(_.recipientId == entry.recipientId)
+            then ZIO.succeed(receipt(entry.recipientId, PeerDeliveryOutcome.Queued))
+            else
+              latest.members.find(_.agentId == entry.recipientId) match
+                case None =>
+                  ZIO.succeed(
+                    receipt(
+                      entry.recipientId,
+                      PeerDeliveryOutcome.Rejected("MsgHub recipient is no longer a participant")
+                    )
+                  )
+                case Some(recipient) =>
+                  recipient
+                    .tryObservePeer(entry.senderId, entry.senderName, entry.messages)
+                    .either
+                    .flatMap:
+                      case Right(Some(_)) =>
+                        state
+                          .set(latest.copy(pending = latest.pending.filterNot(_.id == entry.id)))
+                          .as(receipt(entry.recipientId, PeerDeliveryOutcome.Delivered))
+                      case Right(None) =>
+                        ZIO.succeed(receipt(entry.recipientId, PeerDeliveryOutcome.Queued))
+                      case Left(error) =>
+                        ZIO.succeed(
+                          receipt(entry.recipientId, PeerDeliveryOutcome.Rejected(error.message))
+                        )
+          )
+      )
+    )
 
 object MsgHub:
   private enum State:
-    case Open(members: Chunk[ReActAgent], mode: HubMode)
-    case Closed
+    case Open(members: Chunk[ReActAgent], mode: HubMode, pending: Chunk[PendingPeerDelivery])
+    case Closed(pending: Chunk[PendingPeerDelivery])
 
   def make(
       participants: Chunk[ReActAgent],
@@ -158,7 +262,7 @@ object MsgHub:
             participants.map(_.agentId).distinct.size == participants.size
         )
       id    <- Random.nextUUID.map(_.toString)
-      state <- Ref.make[State](State.Open(Chunk.empty, mode))
+      state <- Ref.make[State](State.Open(Chunk.empty, mode, Chunk.empty))
       gate  <- Semaphore.make(1)
       created = new MsgHub(id, state, gate)
       hub <- ZIO.acquireRelease(

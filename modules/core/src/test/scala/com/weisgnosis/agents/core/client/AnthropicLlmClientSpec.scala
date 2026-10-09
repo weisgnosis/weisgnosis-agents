@@ -159,7 +159,7 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
           "content_block_delta",
           """{"index":0,"delta":{"type":"input_json_delta","partial_json":"{"}}"""
         ) + blockStop(0),
-        start + textBlock(0, "truncated") + finish("max_tokens") + stop,
+        start + textBlock(0, "truncated") + finish("pause_turn") + stop,
         start + frame(
           "content_block_start",
           """{"index":0,"content_block":{"type":"redacted_thinking","data":"opaque"}}"""

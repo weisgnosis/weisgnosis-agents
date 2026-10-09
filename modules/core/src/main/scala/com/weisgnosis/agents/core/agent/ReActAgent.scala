@@ -92,19 +92,28 @@ final class ReActAgent private (
       senderName: String,
       messages: Chunk[Msg]
   ): IO[AgentError, Unit] =
-    runLock
-      .tryWithPermit:
-        for
-          _ <- requireFreshRun
-          _ <- ZIO.fromEither(PeerObservation.validate(senderId, senderName, messages))
-          observations = messages.map(message =>
-            Msg.user(Chunk(ContentBlock.PeerObservation(senderId, senderName, message)))
-          )
-          _ <- stateRef.update(_ ++ observations)
-        yield ()
-      .someOrFail(
-        AgentError.InvalidConfiguration("An active agent cannot receive peer observations")
+    tryObservePeer(senderId, senderName, messages).someOrFail(
+      AgentError.InvalidConfiguration(
+        "An active or suspended agent cannot receive peer observations"
       )
+    )
+
+  private[core] def tryObservePeer(
+      senderId: String,
+      senderName: String,
+      messages: Chunk[Msg]
+  ): IO[AgentError, Option[Unit]] =
+    ZIO.fromEither(PeerObservation.validate(senderId, senderName, messages)) *>
+      runLock
+        .tryWithPermit:
+          pendingRef.get.flatMap:
+            case Some(_) => ZIO.none
+            case None =>
+              val observations = messages.map(message =>
+                Msg.user(Chunk(ContentBlock.PeerObservation(senderId, senderName, message)))
+              )
+              stateRef.update(_ ++ observations).as(Some(()))
+        .map(_.flatten)
 
   private[core] def subscribePeers(
       key: String,
@@ -1278,6 +1287,15 @@ final class ReActAgent private (
                     handleInterrupt(stateRef, iteration, progressRef)
                   case AcceptedResponseObservation.Completed =>
                     turnOutput match
+                      case TurnOutput.Truncated(assistantMsg) =>
+                        for finalHist <- stateRef.get
+                        yield AgentResult(
+                          reply = assistantMsg,
+                          history = finalHist,
+                          iterationCount = iteration,
+                          usage = assistantMsg.usage,
+                          state = AgentRunState.Stopped("Model output token budget exhausted")
+                        )
                       case TurnOutput.FinalText(assistantMsg) =>
                         for finalHist <- stateRef.get
                         yield AgentResult(
@@ -1410,6 +1428,7 @@ final class ReActAgent private (
                         case accepted: TurnOutput.FinalText    => acceptTurn(accepted, received)
                         case accepted: TurnOutput.ThinkingOnly => acceptTurn(accepted, received)
                         case accepted: TurnOutput.ToolCalls    => acceptTurn(accepted, received)
+                        case accepted: TurnOutput.Truncated    => acceptTurn(accepted, received)
                         case TurnOutput.Interrupted(partial) =>
                           persistAssistant(partial, progressRef) *> handleInterrupt(
                             stateRef,
@@ -1721,7 +1740,8 @@ final class ReActAgent private (
       )
     yield result
 
-  private type AcceptedTurn = TurnOutput.FinalText | TurnOutput.ThinkingOnly | TurnOutput.ToolCalls
+  private type AcceptedTurn = TurnOutput.FinalText | TurnOutput.ThinkingOnly |
+    TurnOutput.ToolCalls | TurnOutput.Truncated
 
   private enum AcceptedResponseObservation:
     case Completed, Interrupted
@@ -1936,6 +1956,11 @@ final class ReActAgent private (
         case _: TurnOutput.FinalText =>
           message.toolUses.isEmpty && (message.text.trim.nonEmpty || !message.hasReasoning)
         case _: TurnOutput.Interrupted => true
+        case _: TurnOutput.Truncated =>
+          message.content.forall(_.isInstanceOf[ContentBlock.Text]) &&
+          message.metadata.forall((key, value) =>
+            key == "agentscope_stop_reason" && value == Json.Str("token_budget_exhausted")
+          )
       Either.cond(
         consistent,
         output,
@@ -1965,7 +1990,8 @@ final class ReActAgent private (
       context: ModelStreamContext
   ): ZIO[Scope, AgentError, ReasoningOutcome] =
     output match
-      case _: TurnOutput.Interrupted => ZIO.succeed(ReasoningOutcome.Accept(output))
+      case _: TurnOutput.Interrupted | _: TurnOutput.Truncated =>
+        ZIO.succeed(ReasoningOutcome.Accept(output))
       case _ =>
         postReasoningHook(context, output.message).flatMap:
           case ReasoningDecision.Keep    => ZIO.succeed(ReasoningOutcome.Accept(output))

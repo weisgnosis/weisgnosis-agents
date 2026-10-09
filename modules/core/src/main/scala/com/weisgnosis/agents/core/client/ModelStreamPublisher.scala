@@ -130,41 +130,49 @@ private[client] object ModelStreamPublisher:
         output: TurnOutput,
         context: ModelStreamContext
     ): Either[AgentError, Chunk[AgentEvent]] =
-      order.foldLeft[Either[AgentError, Chunk[AgentEvent]]](Right(Chunk.empty))((previous, block) =>
-        for
-          events <- previous
-          event <- block match
-            case Block.Text(index) =>
-              Right(
-                AgentEvent.TextBlockEndEvent(
-                  index,
-                  text.getOrElse(index, ""),
-                  context = Some(context)
+      val completedBlocks = output match
+        case _: TurnOutput.Truncated => order.collect { case block: Block.Text => block }
+        case _                       => order
+      completedBlocks.foldLeft[Either[AgentError, Chunk[AgentEvent]]](Right(Chunk.empty))(
+        (previous, block) =>
+          for
+            events <- previous
+            event <- block match
+              case Block.Text(index) =>
+                Right(
+                  AgentEvent.TextBlockEndEvent(
+                    index,
+                    text.getOrElse(index, ""),
+                    context = Some(context)
+                  )
                 )
-              )
-            case Block.Thinking(index) =>
-              Right(
-                AgentEvent.ThinkingBlockEndEvent(
-                  index,
-                  thinking.getOrElse(index, ""),
-                  context = Some(context)
+              case Block.Thinking(index) =>
+                Right(
+                  AgentEvent.ThinkingBlockEndEvent(
+                    index,
+                    thinking.getOrElse(index, ""),
+                    context = Some(context)
+                  )
                 )
-              )
-            case Block.Tool(index) =>
-              tools.get(index) match
-                case Some(ToolProgress.Started(id, name)) =>
-                  output.message.toolUses
-                    .find(_.id == id)
-                    .toRight(
-                      AgentError.InvalidMessage("Completed stream is missing a published tool call")
+              case Block.Tool(index) =>
+                tools.get(index) match
+                  case Some(ToolProgress.Started(id, name)) =>
+                    output.message.toolUses
+                      .find(_.id == id)
+                      .toRight(
+                        AgentError.InvalidMessage(
+                          "Completed stream is missing a published tool call"
+                        )
+                      )
+                      .map(call =>
+                        AgentEvent
+                          .ToolCallEndEvent(id, name, call.input, index, context = Some(context))
+                      )
+                  case _ =>
+                    Left(
+                      AgentError.InvalidMessage("Completed stream has no published tool identity")
                     )
-                    .map(call =>
-                      AgentEvent
-                        .ToolCallEndEvent(id, name, call.input, index, context = Some(context))
-                    )
-                case _ =>
-                  Left(AgentError.InvalidMessage("Completed stream has no published tool identity"))
-        yield events :+ event
+          yield events :+ event
       )
 
   private def toolDelta(

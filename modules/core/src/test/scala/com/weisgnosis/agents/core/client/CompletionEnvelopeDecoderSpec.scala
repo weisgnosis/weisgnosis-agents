@@ -215,7 +215,7 @@ object CompletionEnvelopeDecoderSpec extends ZIOSpecDefault:
       )
       val invalidEnvelopes = invalidBodies.map(body => full(body, Json.Str("tool_calls"))) ++ Chunk(
         full(message(), Json.Null),
-        full(message(), Json.Str("length")),
+        full(message(), Json.Str("content_filter")),
         changed(
           valid,
           "choices",

@@ -187,7 +187,7 @@ object ChatCompletionsNonStreamingSpec extends ZIOSpecDefault:
           )
         ),
         response(bytes(call.replace("{\\\"query\\\":1}", "{"))),
-        response(bytes(answer.replace("\"stop\"", "\"length\""))),
+        response(bytes(answer.replace("\"stop\"", "\"content_filter\""))),
         response(bytes("{\"object\":\"chat.completion\",\"choices\":[],\"usage\":{}}")),
         response(bytes("{\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}")),
         response(invalidUtf8),

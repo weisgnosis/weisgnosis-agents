@@ -254,8 +254,10 @@ object MsgHubSpec extends ZIOSpecDefault:
           )
           alice   <- agent("Alice", client)
           bob     <- agent("Bob", client)
-          _       <- MsgHub.make(Chunk(alice, bob))
+          hub     <- MsgHub.make(Chunk(alice, bob))
           results <- alice.run(Msg.user("a")).zipPar(bob.run(Msg.user("b")))
+          _       <- hub.flush
+          pending <- hub.pendingDeliveries
           a       <- alice.history
           b       <- bob.history
           receipts = results._1.peerDeliveries ++ results._2.peerDeliveries
@@ -263,7 +265,13 @@ object MsgHubSpec extends ZIOSpecDefault:
           results._1.state == AgentRunState.Completed,
           results._2.state == AgentRunState.Completed,
           receipts.size == 2,
-          peerCount(a) + peerCount(b) == receipts.count(_.outcome == PeerDeliveryOutcome.Delivered)
+          receipts.forall(receipt =>
+            receipt.outcome == PeerDeliveryOutcome.Delivered ||
+              receipt.outcome == PeerDeliveryOutcome.Queued
+          ),
+          peerCount(a) == 1,
+          peerCount(b) == 1,
+          pending.isEmpty
         )
     ,
     test("cooperative recovery is published while stopped and failed execution stay private"):
@@ -380,7 +388,7 @@ object MsgHubSpec extends ZIOSpecDefault:
           alice        <- agent("Alice", fast)
           bob          <- agent("Bob", held)
           carol        <- agent("Carol", fast)
-          _            <- MsgHub.make(Chunk(alice, bob, carol))
+          hub          <- MsgHub.make(Chunk(alice, bob, carol))
           running      <- bob.run(Msg.user("hold")).forkScoped
           _            <- entered.await
           before       <- bob.history
@@ -389,22 +397,188 @@ object MsgHubSpec extends ZIOSpecDefault:
           status       <- prepared.status
           after        <- bob.history
           carolHistory <- carol.history
+          later        <- hub.broadcast(alice, Chunk(Msg.assistant("later")))
+          _            <- hub.setMode(HubMode.Manual)
           _            <- release.succeed(())
           _            <- running.join
+          flushed      <- hub.flush
+          delivered    <- bob.history
+          pending      <- hub.pendingDeliveries
         yield assertTrue(
           completed.state == AgentRunState.Completed,
           status == PreparedInvocation.Status.Returned,
           completed.peerDeliveries.exists(delivery =>
             delivery.recipientId == Some(bob.agentId) &&
               (delivery.outcome match
-                case PeerDeliveryOutcome.Rejected(_) => true
-                case _                               => false)
+                case PeerDeliveryOutcome.Queued => true
+                case _                          => false)
           ),
           completed.peerDeliveries.exists(delivery =>
             delivery.recipientId == Some(carol.agentId) &&
               delivery.outcome == PeerDeliveryOutcome.Delivered
           ),
           before == after,
-          peerCount(carolHistory) == 1
+          peerCount(carolHistory) == 1,
+          flushed.count(_.outcome == PeerDeliveryOutcome.Delivered) == 2,
+          later.exists(_.outcome == PeerDeliveryOutcome.Queued),
+          peerCount(delivered) == 2,
+          delivered.flatMap(_.content.collect { case ContentBlock.PeerObservation(_, _, message) =>
+            message.text
+          }) == Chunk("reply", "later"),
+          pending.isEmpty
+        )
+    ,
+    test("concurrent hub operations serialize and closed pending data transfers explicitly"):
+      ZIO.scoped:
+        for
+          entered <- Promise.make[Nothing, Unit]
+          release <- Promise.make[Nothing, Unit]
+          fast    <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant("reply"))))
+          held = LlmClient.mockEffectful((_, _, _) =>
+            entered.succeed(()) *> release.await.as(TurnOutput.FinalText(Msg.assistant("held")))
+          )
+          alice <- agent("Alice", fast)
+          bob   <- agent("Bob", held)
+          hub   <- MsgHub.make(Chunk(alice, bob), HubMode.Manual)
+          simultaneous <- hub
+            .announce(Chunk(Msg.user("one")))
+            .zipPar(hub.announce(Chunk(Msg.user("two"))))
+          before  <- bob.history
+          running <- bob.run(Msg.user("hold")).forkScoped
+          _       <- entered.await
+          queued <- ZIO.foreach(1 to 64)(index =>
+            hub.broadcast(alice, Chunk(Msg.assistant(s"queued-$index")))
+          )
+          full        <- hub.pendingDeliveries
+          rejected    <- hub.broadcast(alice, Chunk(Msg.assistant("overflow")))
+          retained    <- hub.pendingDeliveries
+          _           <- hub.remove(bob)
+          removed     <- hub.flush
+          _           <- hub.close
+          closed      <- hub.pendingDeliveries
+          transferred <- hub.takePending
+          empty       <- hub.pendingDeliveries
+          _           <- release.succeed(())
+          _           <- running.join
+          after       <- bob.history
+        yield assertTrue(
+          (simultaneous._1 ++ simultaneous._2).forall(_.outcome == PeerDeliveryOutcome.Delivered),
+          peerCount(before) == 2,
+          queued.forall(
+            _.exists(delivery =>
+              delivery.recipientId.contains(
+                bob.agentId
+              ) && delivery.outcome == PeerDeliveryOutcome.Queued
+            )
+          ),
+          full.size == 64,
+          rejected.exists(
+            _.outcome == PeerDeliveryOutcome.Rejected("MsgHub pending delivery limit exceeded")
+          ),
+          retained == full,
+          removed.headOption.exists(
+            _.outcome == PeerDeliveryOutcome.Rejected("MsgHub recipient is no longer a participant")
+          ),
+          removed.drop(1).forall(_.outcome == PeerDeliveryOutcome.Queued),
+          closed == full,
+          transferred == full,
+          empty.isEmpty,
+          peerCount(after) == 2
+        )
+    ,
+    test("a participant callback can broadcast to itself without waiting for its execution lock"):
+      for
+        binding  <- Ref.make(Option.empty[(MsgHub, ReActAgent)])
+        receipts <- Ref.make(Chunk.empty[PeerDelivery])
+        client = LlmClient.mockEffectful((_, _, _) =>
+          binding.get.flatMap:
+            case Some((hub, participant)) =>
+              hub
+                .broadcast(participant, Chunk(Msg.assistant("callback")))
+                .flatMap(receipts.set)
+                .as(TurnOutput.FinalText(Msg.assistant("finished")))
+            case None => ZIO.fail(AgentError.InvalidConfiguration("Missing callback binding"))
+        )
+        participant <- agent("Participant", client)
+        hub         <- MsgHub.make(Chunk(participant), HubMode.Manual)
+        _           <- binding.set(Some((hub, participant)))
+        result      <- participant.run(Msg.user("start"))
+        queued      <- receipts.get
+        before      <- participant.history
+        flushed     <- hub.flush
+        after       <- participant.history
+      yield assertTrue(
+        result.state == AgentRunState.Completed,
+        queued.map(_.outcome) == Chunk(PeerDeliveryOutcome.Queued),
+        peerCount(before) == 0,
+        flushed.map(_.outcome) == Chunk(PeerDeliveryOutcome.Delivered),
+        peerCount(after) == 1
+      )
+    ,
+    test("encoded pending payload limits reject only the new envelope below the message limit"):
+      ZIO.scoped:
+        for
+          entered <- Promise.make[Nothing, Unit]
+          release <- Promise.make[Nothing, Unit]
+          held = LlmClient.mockEffectful((_, _, _) =>
+            entered.succeed(()) *> release.await.as(TurnOutput.FinalText(Msg.assistant("held")))
+          )
+          fast    <- LlmClient.mock(Chunk.empty)
+          alice   <- agent("Alice", fast)
+          bob     <- agent("Bob", held)
+          hub     <- MsgHub.make(Chunk(alice, bob), HubMode.Manual)
+          running <- bob.run(Msg.user("hold")).forkScoped
+          _       <- entered.await
+          payload = Chunk(Msg.assistant("x" * 400000))
+          first   <- hub.broadcast(alice, payload)
+          second  <- hub.broadcast(alice, payload)
+          before  <- hub.pendingDeliveries
+          third   <- hub.broadcast(alice, payload)
+          after   <- hub.pendingDeliveries
+          _       <- release.succeed(())
+          _       <- running.join
+          flushed <- hub.flush
+          history <- bob.history
+        yield assertTrue(
+          (first ++ second).count(_.outcome == PeerDeliveryOutcome.Queued) == 2,
+          before.size == 2,
+          before.forall(_.messages == payload),
+          third.exists(
+            _.outcome == PeerDeliveryOutcome.Rejected("MsgHub pending delivery limit exceeded")
+          ),
+          after == before,
+          flushed.count(_.outcome == PeerDeliveryOutcome.Delivered) == 2,
+          peerCount(history) == 2
+        )
+    ,
+    test("pending identity collisions reject the new envelope without deleting the first"):
+      ZIO.scoped:
+        for
+          entered <- Promise.make[Nothing, Unit]
+          release <- Promise.make[Nothing, Unit]
+          held = LlmClient.mockEffectful((_, _, _) =>
+            entered.succeed(()) *> release.await.as(TurnOutput.FinalText(Msg.assistant("held")))
+          )
+          fast    <- LlmClient.mock(Chunk.empty)
+          alice   <- agent("Alice", fast)
+          bob     <- agent("Bob", held)
+          hub     <- MsgHub.make(Chunk(alice, bob), HubMode.Manual)
+          running <- bob.run(Msg.user("hold")).forkScoped
+          _       <- entered.await
+          key = new java.util.UUID(0L, 1L)
+          _      <- TestRandom.feedUUIDs(key, key)
+          first  <- hub.broadcast(alice, Chunk(Msg.assistant("first")))
+          before <- hub.pendingDeliveries
+          second <- hub.broadcast(alice, Chunk(Msg.assistant("second")))
+          after  <- hub.pendingDeliveries
+          _      <- release.succeed(())
+          _      <- running.join
+        yield assertTrue(
+          first.exists(_.outcome == PeerDeliveryOutcome.Queued),
+          second.exists(
+            _.outcome == PeerDeliveryOutcome.Rejected("MsgHub pending delivery identity collision")
+          ),
+          before.size == 1,
+          after == before
         )
   )

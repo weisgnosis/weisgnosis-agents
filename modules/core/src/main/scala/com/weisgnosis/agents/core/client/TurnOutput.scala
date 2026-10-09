@@ -15,7 +15,8 @@
  */
 package com.weisgnosis.agents.core.client
 
-import com.weisgnosis.agents.core.model.Msg
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
+import zio.json.ast.Json
 
 /**
  * Outcome of accumulating streaming deltas over an LLM reasoning turn.
@@ -36,3 +37,16 @@ object TurnOutput:
 
   /** The turn was interrupted or canceled while in-flight. */
   final case class Interrupted(message: Msg) extends TurnOutput
+
+  /** Explicit provider token exhaustion. Visible text is partial, never a completed answer. */
+  final case class Truncated(message: Msg) extends TurnOutput
+
+  /** Incomplete calls, reasoning signatures and provider replay data cannot grant execution. */
+  private[client] def tokenExhausted(message: Msg): Truncated =
+    Truncated(
+      Msg.assistant(
+        message.content.collect { case text: ContentBlock.Text => text },
+        metadata = Map("agentscope_stop_reason" -> Json.Str("token_budget_exhausted")),
+        usage = message.usage
+      )
+    )

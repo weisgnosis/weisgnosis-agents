@@ -81,47 +81,50 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
 
   /** Requires successful protocol termination and valid complete tool arguments. */
   def toTurnOutput: Either[AgentError, TurnOutput] =
-    for
-      _ <- state.finishReason match
-        case Some("stop") if state.toolCalls.isEmpty        => Right(())
-        case Some("tool_calls") if state.toolCalls.nonEmpty => Right(())
-        case Some(reason) =>
-          Left(AgentError.DeserializationError(s"Incomplete or inconsistent completion: $reason"))
-        case None =>
-          Left(AgentError.DeserializationError("Completion ended without a finish marker"))
-      tools <- orderedTools.foldLeft[Either[AgentError, Chunk[ContentBlock.ToolUse]]](
-        Right(Chunk.empty)
-      )((acc, tool) =>
-        for
-          previous <- acc
-          id <- tool.callId.toRight(
-            AgentError.DeserializationError("Completed tool call is missing its ID")
+    if state.finishReason.contains("length") then
+      Right(TurnOutput.tokenExhausted(toInterrupted.message))
+    else
+      for
+        _ <- state.finishReason match
+          case Some("stop") if state.toolCalls.isEmpty        => Right(())
+          case Some("tool_calls") if state.toolCalls.nonEmpty => Right(())
+          case Some(reason) =>
+            Left(AgentError.DeserializationError(s"Incomplete or inconsistent completion: $reason"))
+          case None =>
+            Left(AgentError.DeserializationError("Completion ended without a finish marker"))
+        tools <- orderedTools.foldLeft[Either[AgentError, Chunk[ContentBlock.ToolUse]]](
+          Right(Chunk.empty)
+        )((acc, tool) =>
+          for
+            previous <- acc
+            id <- tool.callId.toRight(
+              AgentError.DeserializationError("Completed tool call is missing its ID")
+            )
+            name <- tool.name.toRight(
+              AgentError.DeserializationError("Completed tool call is missing its name")
+            )
+            arguments <- objectArguments(tool.arguments).left.map(error =>
+              AgentError.DeserializationError(s"Invalid completed tool arguments: $error")
+            )
+          yield previous :+ ContentBlock.ToolUse(
+            id,
+            name,
+            arguments,
+            content = Some(tool.arguments),
+            metadata = signatureMetadata(tool.thoughtSignature)
           )
-          name <- tool.name.toRight(
-            AgentError.DeserializationError("Completed tool call is missing its name")
-          )
-          arguments <- objectArguments(tool.arguments).left.map(error =>
-            AgentError.DeserializationError(s"Invalid completed tool arguments: $error")
-          )
-        yield previous :+ ContentBlock.ToolUse(
-          id,
-          name,
-          arguments,
-          content = Some(tool.arguments),
-          metadata = signatureMetadata(tool.thoughtSignature)
         )
-      )
-      _ <- Either.cond(
-        tools.map(_.id).distinct.size == tools.size,
-        (),
-        AgentError.DeserializationError("Completed tool calls have duplicate IDs")
-      )
-      message = materialize(tools)
-    yield
-      if tools.nonEmpty then TurnOutput.ToolCalls(message)
-      else if message.text.trim.nonEmpty then TurnOutput.FinalText(message)
-      else if message.hasReasoning then TurnOutput.ThinkingOnly(message)
-      else TurnOutput.FinalText(message)
+        _ <- Either.cond(
+          tools.map(_.id).distinct.size == tools.size,
+          (),
+          AgentError.DeserializationError("Completed tool calls have duplicate IDs")
+        )
+        message = materialize(tools)
+      yield
+        if tools.nonEmpty then TurnOutput.ToolCalls(message)
+        else if message.text.trim.nonEmpty then TurnOutput.FinalText(message)
+        else if message.hasReasoning then TurnOutput.ThinkingOnly(message)
+        else TurnOutput.FinalText(message)
 
   /** Preserves received data for reconciliation; incomplete arguments cannot become executable. */
   def toInterrupted: TurnOutput.Interrupted =

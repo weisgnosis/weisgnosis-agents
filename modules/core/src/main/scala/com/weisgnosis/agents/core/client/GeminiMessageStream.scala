@@ -15,10 +15,12 @@ final private[client] case class GeminiMessageStream private (
     content: Chunk[ContentBlock],
     nativeParts: Chunk[Json],
     pending: Option[(String, Option[String])],
-    finished: Boolean,
+    finishReason: Option[String],
     usage: ChatUsage
 ):
   import GeminiMessageStream.*
+
+  def finished: Boolean = finishReason.nonEmpty
 
   def accept(frame: SseEvent): Either[AgentError, (GeminiMessageStream, Chunk[LlmChunk])] =
     for
@@ -63,7 +65,9 @@ final private[client] case class GeminiMessageStream private (
             next.pending.isEmpty && next.content.nonEmpty,
             "Gemini completed with unresolved code or no content"
           )
-            .map(_ => next.copy(finished = true, usage = counts))
+            .map(_ => next.copy(finishReason = Some("STOP"), usage = counts))
+        case Some(Json.Str("MAX_TOKENS")) =>
+          Right(next.copy(finishReason = Some("MAX_TOKENS"), usage = counts))
         case _ => Left(invalid("Incomplete or unsupported Gemini finish reason"))
     yield (finalState, deltas :+ LlmChunk.UsageChunk(counts))
 
@@ -197,13 +201,15 @@ final private[client] case class GeminiMessageStream private (
 
   def output: Either[AgentError, TurnOutput] =
     ensure(finished, "Gemini stream ended before a successful finish reason").map(_ =>
-      if content.exists(_.isInstanceOf[ContentBlock.ToolUse]) then TurnOutput.ToolCalls(message)
+      if finishReason.contains("MAX_TOKENS") then TurnOutput.tokenExhausted(message)
+      else if content.exists(_.isInstanceOf[ContentBlock.ToolUse]) then
+        TurnOutput.ToolCalls(message)
       else TurnOutput.FinalText(message)
     )
 
 private[client] object GeminiMessageStream:
   def empty(correlation: String, execution: GeminiCodeExecution): GeminiMessageStream =
-    GeminiMessageStream(correlation, execution, Chunk.empty, Chunk.empty, None, false, ChatUsage())
+    GeminiMessageStream(correlation, execution, Chunk.empty, Chunk.empty, None, None, ChatUsage())
 
   def replay(message: Msg): Either[AgentError, Chunk[Json]] =
     for

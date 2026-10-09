@@ -27,7 +27,7 @@ enum ReasoningDecision derives JsonCodec:
   case Replace(message: Msg)
   case Suspend(reason: String)
 
-/** Scoped host policy for completed reasoning; interrupted model output bypasses this hook. */
+/** Scoped host policy for completed reasoning; interrupted and token-truncated model output bypasses this hook. */
 trait PostReasoningHook:
   def apply(
       context: ModelStreamContext,

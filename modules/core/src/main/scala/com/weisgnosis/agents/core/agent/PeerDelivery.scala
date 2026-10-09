@@ -15,6 +15,7 @@ import zio.json.*
 
 enum PeerDeliveryOutcome derives JsonCodec:
   case Delivered
+  case Queued
   case Rejected(reason: String)
 
 /** Missing recipient identifies hub admission failure; receipts never authorize replay. */

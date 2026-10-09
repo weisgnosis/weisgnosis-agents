@@ -40,7 +40,7 @@ Run `sbt "runMain example.ScriptedAgent"`. It prints Hello without a network req
 
 | Module | Purpose |
 | --- | --- |
-| [core](modules/core/README.md) | Messages, events, typed tools, ReAct execution, checkpoints, structured output, passive MsgHub collaboration and OpenAI-compatible/native model transports. |
+| [core](modules/core/README.md) | Messages, events, typed tools, ReAct execution, checkpoints, structured output, bounded MsgHub delivery, explicit sequential/parallel pipelines and OpenAI-compatible/native model transports. |
 | [harness](modules/harness/README.md) | Context compaction, output offload, memory, transcripts, permissions, planning, skills and owned subagents. |
 | [mcp](modules/mcp/README.md) | Scoped MCP tools/resources over direct stdio, legacy HTTP/SSE and Streamable HTTP. |
 | [storage-postgresql](modules/storage-postgresql/README.md) | Optional conditional JSON storage using a host-supplied DataSource and schema ownership. |

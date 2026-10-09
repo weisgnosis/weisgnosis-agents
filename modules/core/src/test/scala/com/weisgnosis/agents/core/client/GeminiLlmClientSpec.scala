@@ -210,7 +210,7 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
           frame(Chunk(result("OUTCOME_OK", None)), Some("STOP")),
           frame(Chunk(code(Some("first")), result("OUTCOME_OK", Some("other"))), Some("STOP")),
           frame(Chunk(code(None), result("OUTCOME_UNSPECIFIED", None)), Some("STOP")),
-          frame(Chunk(text("truncated")), Some("MAX_TOKENS")),
+          frame(Chunk(text("truncated")), Some("SAFETY")),
           frame(Chunk(Json.Obj("inlineData" -> Json.Obj())), Some("STOP")),
           frame(
             Chunk(Json.Obj("text" -> Json.Str("hidden"), "thought" -> Json.Bool(true))),

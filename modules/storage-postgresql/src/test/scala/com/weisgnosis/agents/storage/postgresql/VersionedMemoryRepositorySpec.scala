@@ -18,6 +18,8 @@ package com.weisgnosis.agents.storage.postgresql
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.harness.memory.*
 import com.weisgnosis.agents.harness.storage.*
+import com.weisgnosis.agents.core.json.JsonBoundary
+import java.nio.charset.StandardCharsets
 import java.time.LocalDate
 import zio.*
 import zio.json.ast.Json
@@ -31,9 +33,10 @@ object VersionedMemoryRepositorySpec extends ZIOSpecDefault:
   private def repository(
       backend: VersionedJsonStore,
       target: StorageAddress,
-      maxAttempts: Int = 8
+      maxAttempts: Int = 8,
+      limits: VersionedMemoryLimits = VersionedMemoryLimits.default
   ): IO[AgentError, MemoryRepository] =
-    ZIO.fromEither(VersionedMemoryRepository.make(backend, target, maxAttempts))
+    ZIO.fromEither(VersionedMemoryRepository.make(backend, target, maxAttempts, limits))
 
   private def aggregate(
       daily: Json = Json.Arr(),
@@ -161,6 +164,115 @@ object VersionedMemoryRepositorySpec extends ZIOSpecDefault:
           recent.contains("pending"),
           recovered == current,
           recoveredArchives == archives
+        )
+    ,
+    test("aggregate byte and raw entry bounds reject reads and publications without changing data"):
+      fixture: (_, backend, name) =>
+        for
+          target <- address(name, "bounded")
+          value = aggregate(daily = Json.Arr(ledger("é界")))
+          bytes = JsonBoundary.render(value).getBytes(StandardCharsets.UTF_8).length
+          exactLimits   <- ZIO.fromEither(VersionedMemoryLimits.make(bytes, 1))
+          smallLimits   <- ZIO.fromEither(VersionedMemoryLimits.make(bytes - 1, 1))
+          controlTarget <- address(name, "exact-fit-publication")
+          control       <- repository(backend, controlTarget, limits = exactLimits)
+          _             <- control.daily.appendDaily(day, "é界")
+          controlStored <- backend.read(controlTarget)
+          _             <- backend.compareAndSet(target, ExpectedRevision.Absent, value)
+          calls         <- Ref.make(0)
+          counted = interpose(backend, ZIO.unit, calls)
+          exact              <- repository(counted, target, limits = exactLimits)
+          small              <- repository(counted, target, limits = smallLimits)
+          admitted           <- exact.daily.readDaily(day)
+          before             <- backend.read(target)
+          oversizedRead      <- small.consolidation.snapshot.exit
+          oversizedAppend    <- exact.daily.appendDaily(day, "界").exit
+          after              <- backend.read(target)
+          entryLimits        <- ZIO.fromEither(VersionedMemoryLimits.make(1024 * 1024, 1))
+          entryBounded       <- repository(counted, target, limits = entryLimits)
+          snapshot           <- entryBounded.consolidation.snapshot
+          oversizedCommit    <- entryBounded.consolidation.commit(snapshot.revision, "curated").exit
+          secondDay          <- entryBounded.daily.appendDaily(day.plusDays(1), "second").exit
+          afterEntryFailures <- backend.read(target)
+          archiveTarget      <- address(name, "bounded-archive")
+          archiveSource = aggregate(
+            daily = Json.Arr(ledger("é界")),
+            acknowledged = Json.Arr(ledger("é界")),
+            curated = Json.Str("c")
+          )
+          archiveBytes = JsonBoundary.render(archiveSource).getBytes(StandardCharsets.UTF_8).length
+          archiveLimits <- ZIO.fromEither(VersionedMemoryLimits.make(archiveBytes, 2))
+          _ <- backend.compareAndSet(archiveTarget, ExpectedRevision.Absent, archiveSource)
+          archiveBounded       <- repository(counted, archiveTarget, limits = archiveLimits)
+          archiveBefore        <- backend.read(archiveTarget)
+          archiveRead          <- archiveBounded.daily.readDaily(day)
+          oversizedArchive     <- archiveBounded.retention.archiveBefore(day.plusDays(1)).exit
+          archiveAfter         <- backend.read(archiveTarget)
+          rawEntryBounded      <- repository(counted, archiveTarget, limits = entryLimits)
+          oversizedEntriesRead <- rawEntryBounded.daily.readCurated.exit
+          fingerprint          <- MemoryFingerprint.of("é界")
+          archivedValue = aggregate(
+            daily = Json.Arr(ledger("é界")),
+            acknowledged = Json.Arr(ledger("é界")),
+            archived = Json.Arr(
+              Json.Obj(
+                "archive" -> Json.Obj(
+                  "day"         -> Json.Str(day.toString),
+                  "fingerprint" -> Json.Str(fingerprint.value)
+                ),
+                "content" -> Json.Str("é界")
+              )
+            ),
+            curated = Json.Str("c")
+          )
+          allEntriesTarget <- address(name, "all-entry-kinds")
+          _ <- backend.compareAndSet(allEntriesTarget, ExpectedRevision.Absent, archivedValue)
+          threeLimits <- ZIO.fromEither(VersionedMemoryLimits.make(1024 * 1024, 3))
+          twoLimits   <- ZIO.fromEither(VersionedMemoryLimits.make(1024 * 1024, 2))
+          three       <- repository(counted, allEntriesTarget, limits = threeLimits)
+          two         <- repository(counted, allEntriesTarget, limits = twoLimits)
+          archives    <- three.retention.archives
+          allBefore   <- backend.read(allEntriesTarget)
+          tooMany     <- two.retention.archives.exit
+          allAfter    <- backend.read(allEntriesTarget)
+          attempts    <- calls.get
+        yield assertTrue(
+          admitted.contains("é界"),
+          controlStored.exists(_.value == value),
+          archiveRead.contains("é界"),
+          archives == Chunk(DailyMemoryArchive(day, fingerprint)),
+          oversizedRead.isFailure,
+          oversizedAppend.isFailure,
+          oversizedCommit.isFailure,
+          secondDay.isFailure,
+          oversizedArchive.isFailure,
+          oversizedEntriesRead.isFailure,
+          tooMany.isFailure,
+          Chunk(
+            oversizedRead,
+            oversizedAppend,
+            oversizedCommit,
+            secondDay,
+            oversizedArchive,
+            oversizedEntriesRead,
+            tooMany
+          ).forall(
+            _.causeOption.exists(cause =>
+              cause.failures.size == 1 && cause.failures.forall(
+                _.isInstanceOf[AgentError.MemoryStorageError]
+              ) &&
+                cause.defects.isEmpty && !cause.isInterrupted
+            )
+          ),
+          before == after,
+          before == afterEntryFailures,
+          archiveBefore == archiveAfter,
+          allBefore == allAfter,
+          attempts == 0,
+          VersionedMemoryLimits.make(0, 1).isLeft,
+          VersionedMemoryLimits.make(1, 0).isLeft,
+          VersionedMemoryLimits.default.maxBytes == 1024 * 1024,
+          VersionedMemoryLimits.default.maxEntries == 4096
         )
     ,
     test("invalid persisted aggregates never mutate and only explicit CAS conflicts are retried"):

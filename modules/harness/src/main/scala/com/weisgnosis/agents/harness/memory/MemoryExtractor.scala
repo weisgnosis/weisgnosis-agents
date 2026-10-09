@@ -46,6 +46,8 @@ object MemoryExtractor:
       )
       text <- output match
         case TurnOutput.Interrupted(_) => ZIO.interrupt
+        case TurnOutput.Truncated(_) =>
+          ZIO.fail(AgentError.ExecutionStopped("Memory extraction token budget exhausted"))
         case TurnOutput.ToolCalls(_) =>
           ZIO.fail(AgentError.InvalidMessage("Memory extraction must not request tools"))
         case value if value.message.toolUses.nonEmpty || value.message.toolResults.nonEmpty =>

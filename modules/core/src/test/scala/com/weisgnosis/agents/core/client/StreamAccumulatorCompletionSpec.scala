@@ -38,7 +38,7 @@ object StreamAccumulatorCompletionSpec extends ZIOSpecDefault:
         assemble(LlmChunk.FinishReason("tool_calls")).flatMap(_.toTurnOutput).isLeft,
         assemble(LlmChunk.TextDelta("partial"), LlmChunk.FinishReason("length"))
           .flatMap(_.toTurnOutput)
-          .isLeft,
+          .exists(_.isInstanceOf[TurnOutput.Truncated]),
         assemble(LlmChunk.FinishReason("content_filter")).flatMap(_.toTurnOutput).isLeft
       )
     },

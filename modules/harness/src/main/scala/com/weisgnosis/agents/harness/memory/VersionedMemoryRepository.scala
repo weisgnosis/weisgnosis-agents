@@ -18,21 +18,39 @@ package com.weisgnosis.agents.harness.memory
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.harness.storage.*
+import java.nio.charset.StandardCharsets
 import java.time.LocalDate
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
+
+/** Bounds the complete encoded aggregate and all raw ledger/archive entries. */
+final class VersionedMemoryLimits private (val maxBytes: Int, val maxEntries: Int)
+
+object VersionedMemoryLimits:
+  val default: VersionedMemoryLimits = new VersionedMemoryLimits(1024 * 1024, 4096)
+
+  def make(
+      maxBytes: Int,
+      maxEntries: Int
+  ): Either[AgentError.InvalidConfiguration, VersionedMemoryLimits] =
+    Either.cond(
+      maxBytes > 0 && maxEntries > 0,
+      new VersionedMemoryLimits(maxBytes, maxEntries),
+      AgentError.InvalidConfiguration("Memory aggregate byte and entry limits must be positive")
+    )
 
 /** One host-selected persistent aggregate; only definite CAS conflicts authorize retries. */
 object VersionedMemoryRepository:
   def make(
       store: VersionedJsonStore,
       address: StorageAddress,
-      maxAttempts: Int = 8
+      maxAttempts: Int = 8,
+      limits: VersionedMemoryLimits = VersionedMemoryLimits.default
   ): Either[AgentError.InvalidConfiguration, MemoryRepository] =
     Either.cond(
       maxAttempts > 0,
-      new Backend(store, address, maxAttempts).repository,
+      new Backend(store, address, maxAttempts, limits).repository,
       AgentError.InvalidConfiguration("Memory publication attempts must be positive")
     )
 
@@ -47,7 +65,12 @@ object VersionedMemoryRepository:
   ) derives JsonCodec
   final private case class Loaded(revision: ExpectedRevision, data: MemoryRepositoryState)
 
-  final private class Backend(store: VersionedJsonStore, address: StorageAddress, maxAttempts: Int):
+  final private class Backend(
+      store: VersionedJsonStore,
+      address: StorageAddress,
+      maxAttempts: Int,
+      limits: VersionedMemoryLimits
+  ):
     def repository: MemoryRepository =
       val daily = new DailyMemoryStore:
         def readCurated: IO[AgentError, Option[String]] = read.map(_.data.curated)
@@ -83,13 +106,17 @@ object VersionedMemoryRepository:
         .flatMap:
           case None => ZIO.succeed(Loaded(ExpectedRevision.Absent, MemoryRepositoryState.empty()))
           case Some(record) =>
-            decode(record.value).map(Loaded(ExpectedRevision.AtRevision(record.revision), _))
+            decode(record.value, limits).map(
+              Loaded(ExpectedRevision.AtRevision(record.revision), _)
+            )
 
     private def publish(
         expected: ExpectedRevision,
         data: MemoryRepositoryState
     ): IO[AgentError, ConditionalWrite] =
-      ZIO.fromEither(encode(data)).flatMap(value => store.compareAndSet(address, expected, value))
+      ZIO
+        .fromEither(encode(data, limits))
+        .flatMap(value => store.compareAndSet(address, expected, value))
 
     private def modify[A](
         transition: MemoryRepositoryState => IO[AgentError, (A, MemoryRepositoryState)],
@@ -108,7 +135,18 @@ object VersionedMemoryRepository:
                   AgentError.MemoryStorageError("Memory publication conflict retry limit exceeded")
                 )
 
-  private def encode(state: MemoryRepositoryState): Either[AgentError.MemoryStorageError, Json] =
+  private def encode(
+      state: MemoryRepositoryState,
+      limits: VersionedMemoryLimits
+  ): Either[AgentError.MemoryStorageError, Json] =
+    if state.daily.size.toLong + state.acknowledged.size.toLong + state.archived.size.toLong > limits.maxEntries
+    then Left(AgentError.MemoryStorageError("Memory aggregate entry limit exceeded"))
+    else encodeAdmitted(state, limits)
+
+  private def encodeAdmitted(
+      state: MemoryRepositoryState,
+      limits: VersionedMemoryLimits
+  ): Either[AgentError.MemoryStorageError, Json] =
     val payload = Payload(
       1,
       state.curated,
@@ -127,14 +165,37 @@ object VersionedMemoryRepository:
         .decode(payload.toJson)
         .left
         .map(_ => AgentError.MemoryStorageError("Memory encoding failed"))
+        .flatMap(value => admit(value, limits).map(_ => value))
 
   private def entries(values: Map[LocalDate, String]): Chunk[DailyMemory] =
     Chunk.fromIterable(
       values.toList.sortBy(_._1.toEpochDay).map((day, content) => DailyMemory(day, content))
     )
 
-  private def decode(value: Json): IO[AgentError, MemoryRepositoryState] =
+  private def admit(
+      value: Json,
+      limits: VersionedMemoryLimits
+  ): Either[AgentError.MemoryStorageError, Unit] =
+    val byteSize = JsonBoundary.render(value).getBytes(StandardCharsets.UTF_8).length
+    val entryCount = value match
+      case root: Json.Obj =>
+        Chunk("daily", "acknowledged", "archived").foldLeft(0L): (total, name) =>
+          root.get(name) match
+            case Some(Json.Arr(entries)) => total + entries.size.toLong
+            case _                       => total
+      case _ => 0L
+    if byteSize > limits.maxBytes then
+      Left(AgentError.MemoryStorageError("Memory aggregate byte limit exceeded"))
+    else if entryCount > limits.maxEntries then
+      Left(AgentError.MemoryStorageError("Memory aggregate entry limit exceeded"))
+    else Right(())
+
+  private def decode(
+      value: Json,
+      limits: VersionedMemoryLimits
+  ): IO[AgentError, MemoryRepositoryState] =
     val parsed = for
+      _         <- admit(value, limits).left.map(_.message)
       validated <- JsonBoundary.validate(value).left.map(_ => "Duplicate memory fields")
       _         <- Either.cond(validPayloadShape(validated), (), "Invalid memory schema fields")
       payload <- JsonBoundary

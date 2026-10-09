@@ -218,3 +218,11 @@ The default All profile reports success only after all three checks pass. Use
 WEISGNOSIS_LIVE_PROFILE=synthetic or cancellation for independent selected checks; require the
 explicit selected-profile success message, since a zero sbt exit code alone is insufficient. HTTP-response cancellation and universal provider
 compatibility remain outside this application.
+
+## Agent collaboration and bounded outcomes
+
+Use [MsgHub and Pipeline](../modules/core/src/main/scala/com/weisgnosis/agents/core/coordination/README.md) for attributed sequential handoff or bounded parallel runs. After parallel participants finish, flush queued hub observations before starting the next round. Queued delivery is not model execution or a durable acknowledgement; inspect or transfer retained data before releasing the hub handle. Direct passive observation still rejects busy participants.
+
+Explicit provider token exhaustion retains visible partial text and returns a Stopped result. Check AgentResult.state before accepting an answer or advancing a workflow; partial structured output never succeeds. Protocol termination remains mandatory; only validated non-truncated calls can execute. See the [token-budget contract](../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#token-budget-exhaustion).
+
+Persistent memory aggregates now default to 1 MiB encoded UTF-8 and 4,096 combined entries. Previously oversized records fail without modification. Hosts can explicitly select larger checked limits for controlled migration; the adapter does not delete archives automatically. See [persistent memory](../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md).

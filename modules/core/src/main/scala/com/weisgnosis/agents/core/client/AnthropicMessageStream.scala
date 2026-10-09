@@ -137,14 +137,13 @@ final private[client] case class AnthropicMessageStream private (
     case "content_block_stop" =>
       for
         index <- integer(obj, "index")
-        block <- blocks
+        _ <- blocks
           .lift(index)
           .toRight(AgentError.DeserializationError("Stop references an unknown block"))
         _ <- ensure(
           started && stopReason.isEmpty && !closed.contains(index),
           "Duplicate or late block stop"
         )
-        _ <- completeBlock(block).map(_ => ())
       yield (copy(closed = closed + index), Chunk.empty)
     case "message_delta" =>
       for
@@ -172,49 +171,51 @@ final private[client] case class AnthropicMessageStream private (
     case _ => Left(AgentError.DeserializationError(s"Unsupported Anthropic event: $kind"))
 
   def output: Either[AgentError, TurnOutput] =
-    for
-      _ <- ensure(done, "Anthropic stream ended before message_stop")
-      content <- blocks.foldLeft[Either[AgentError, Chunk[ContentBlock]]](Right(Chunk.empty))(
-        (previous, block) =>
-          for values <- previous; value <- completeBlock(block) yield values :+ value
-      )
-      _ <- validateHostedResults(content)
-      hasTools = content.exists(_.isInstanceOf[ContentBlock.ToolUse])
-      hasLocal = content.exists {
-        case call: ContentBlock.ToolUse => !call.isServerTool
-        case _                          => false
-      }
-      hostedComplete = content
-        .collect { case call: ContentBlock.ToolUse if call.isServerTool => call.id }
-        .forall(id =>
-          content.exists {
-            case result: ContentBlock.ToolResult =>
-              result.id == id && result.state != ToolResultState.Running
-            case _ => false
-          }
+    if done && stopReason.contains("max_tokens") then
+      Right(TurnOutput.tokenExhausted(partial.message))
+    else
+      for
+        _ <- ensure(done, "Anthropic stream ended before message_stop")
+        content <- blocks.foldLeft[Either[AgentError, Chunk[ContentBlock]]](Right(Chunk.empty))(
+          (previous, block) =>
+            for values <- previous; value <- completeBlock(block) yield values :+ value
         )
-      _ <- ensure(
-        stopReason.exists {
-          case "end_turn" | "stop_sequence" => !hasLocal && hostedComplete
-          case "tool_use"                   => hasLocal && hostedComplete
-          case _                            => false
-        },
-        s"Incomplete, unsupported or inconsistent Anthropic stop reason: ${stopReason.getOrElse("absent")}"
-      )
-      raw <- wireBlocks(blocks, nativeBlocks)
-      message = AnthropicNativeReplay.attach(
-        Msg.assistant(
-          content,
-          metadata = Map("anthropic_stop_reason" -> Json.Str(stopReason.getOrElse(""))),
-          usage = Some(usage)
-        ),
-        raw
-      )
-    yield
-      if hasTools then TurnOutput.ToolCalls(message)
-      else if message.text.isBlank && message.hasReasoning then TurnOutput.ThinkingOnly(message)
-      else TurnOutput.FinalText(message)
-
+        _ <- validateHostedResults(content)
+        hasTools = content.exists(_.isInstanceOf[ContentBlock.ToolUse])
+        hasLocal = content.exists {
+          case call: ContentBlock.ToolUse => !call.isServerTool
+          case _                          => false
+        }
+        hostedComplete = content
+          .collect { case call: ContentBlock.ToolUse if call.isServerTool => call.id }
+          .forall(id =>
+            content.exists {
+              case result: ContentBlock.ToolResult =>
+                result.id == id && result.state != ToolResultState.Running
+              case _ => false
+            }
+          )
+        _ <- ensure(
+          stopReason.exists {
+            case "end_turn" | "stop_sequence" => !hasLocal && hostedComplete
+            case "tool_use"                   => hasLocal && hostedComplete
+            case _                            => false
+          },
+          s"Incomplete, unsupported or inconsistent Anthropic stop reason: ${stopReason.getOrElse("absent")}"
+        )
+        raw <- wireBlocks(blocks, nativeBlocks)
+        message = AnthropicNativeReplay.attach(
+          Msg.assistant(
+            content,
+            metadata = Map("anthropic_stop_reason" -> Json.Str(stopReason.getOrElse(""))),
+            usage = Some(usage)
+          ),
+          raw
+        )
+      yield
+        if hasTools then TurnOutput.ToolCalls(message)
+        else if message.text.isBlank && message.hasReasoning then TurnOutput.ThinkingOnly(message)
+        else TurnOutput.FinalText(message)
   def partial: TurnOutput.Interrupted =
     val content = blocks.zipWithIndex.map: (block, index) =>
       block match

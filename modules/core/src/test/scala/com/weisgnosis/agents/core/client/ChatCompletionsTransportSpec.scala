@@ -488,7 +488,9 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
         malformed <- run(response(frame("not-json") + done)).either
         truncated <- run(
           response(
-            text + frame("""{"choices":[{"index":0,"delta":{},"finish_reason":"length"}]}""") + done
+            text + frame(
+              """{"choices":[{"index":0,"delta":{},"finish_reason":"content_filter"}]}"""
+            ) + done
           )
         ).either
       yield assertTrue(missing.isLeft, malformed.isLeft, truncated.isLeft)
