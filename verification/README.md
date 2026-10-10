@@ -27,11 +27,14 @@ atomic sandbox against concurrent hostile filesystem changes.
 
 ## Packaged external consumer
 
-The [artifact consumer](artifact-consumer/README.md) inspects four freshly generated binary/source
+The [artifact consumer](artifact-consumer/README.md) inspects five modules' freshly generated binary/source/Scaladoc
 archives and POMs, then compiles and runs a separate application against those artifacts. It checks
 coordinates, licenses, dependency scopes, source admission, selected model/request/schema APIs and
-the optional PostgreSQL companion. It does not construct a DataSource or contact a database;
+the optional PostgreSQL and telemetry companions. It does not construct a DataSource or contact a database;
 backend behavior requires the configured storage integration suite.
+
+The [pinned documentation driver](scaladoc-driver/README.md) generates Scaladoc
+without suppressing diagnostics; it is build-only and not distributed.
 
 [Candidate preparation](artifact-consumer/README.md#candidate-preparation-acceptance) selects a checked
 RC version and includes reversible target-only negative checks. See the consumer guide for commands.
