@@ -16,9 +16,11 @@ Transcript catalogs strictly read version 1 and publish version 2 with retained 
 
 ## Local artifact packaging
 
-`packageArtifacts` creates binary JARs, source JARs and Maven POMs for core, harness, MCP and storage-postgresql under each module's target/scala-3.9.0. Each archive includes one META-INF/LICENSE. The root aggregate, examples and external consumer remain unpublished. Examples compile against core/harness/MCP and have their own test dependencies; they do not inherit the optional storage module or Java server fixtures.
+`packageArtifacts` creates binary JARs, source JARs, Scaladoc JARs and descriptive Maven POMs for core, harness, MCP, storage-postgresql and otel under each module's target/scala-3.9.0. Each archive includes one META-INF/LICENSE. The root aggregate, examples and external consumer remain unpublished. Examples compile against core/harness/MCP and have their own test dependencies; they do not inherit the optional storage module or Java server fixtures.
 
-Default coordinates are `com.weisgnosis:weisgnosis-agents-{core,harness,mcp,storage-postgresql}_3:0.1.0-SNAPSHOT`. The checked `weisgnosis.candidate.version` property selects a canonical RC version for unsigned preparation. Harness/MCP depend on packaged core; storage-postgresql depends on packaged harness. No SCM URL is invented while no repository remote is configured. Packaging neither installs nor publishes artifacts.
+The pinned Scala 3.9 Scaladoc generator reports `Option -classpath was updated` once per module when its internal TASTy inspector reapplies the classpath. Documentation generation succeeds, but packaging is not warning-free. Source compilation retains its fatal-warning settings; no diagnostics are suppressed. See the upstream [Scaladoc context setup](https://github.com/scala/scala3/blob/3.9.0/scaladoc/src/dotty/tools/scaladoc/Scaladoc.scala) and [internal inspector](https://github.com/scala/scala3/blob/3.9.0/scaladoc/src/scala/tasty/inspector/TastyInspector.scala).
+
+Default coordinates are `com.weisgnosis:weisgnosis-agents-{core,harness,mcp,storage-postgresql,otel}_3:0.1.0-SNAPSHOT`. The checked `weisgnosis.candidate.version` property selects a canonical RC version for unsigned preparation. Harness/MCP depend on packaged core; storage-postgresql depends on packaged harness. No SCM URL is invented while no repository remote is configured. Packaging neither installs nor publishes artifacts.
 
 [CI](../.github/workflows/ci.yml) verifies and packages, then [archive inspection and the external consumer](../verification/artifact-consumer/README.md) check licenses, coordinates, dependency scopes, source admission, selected public APIs and the runtime classpath. Actual PostgreSQL requires its disposable fixture. Local success does not establish remote workflow execution, signing or publication; the [completion checklist](../docs/architecture/tracker.md#remaining-library-completion-work) records those remaining outcomes.
 
@@ -29,7 +31,7 @@ source construction keeps the identity default; recompile JVM consumers and upda
 patterns. Preparation changes canonical prior history/input once per fresh invocation; restore and
 resume bypass it. See [preparation ownership](../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#fresh-invocation-preparation).
 
-All four libraries use development SNAPSHOT coordinates unless the host explicitly selects an unsigned RC version. There is no frozen public ABI or previously published compatibility baseline. Defaulted arguments can preserve ordinary Scala calls while changing JVM signatures, constructor method values, generated copy/unapply methods and Product/extractor arity. Rebuild dependent binaries and check positional patterns. Public JSON migration and persisted storage migration are separate from recompiling source.
+All five libraries use development SNAPSHOT coordinates unless the host explicitly selects an unsigned RC version. There is no frozen public ABI or previously published compatibility baseline. Defaulted arguments can preserve ordinary Scala calls while changing JVM signatures, constructor method values, generated copy/unapply methods and Product/extractor arity. Rebuild dependent binaries and check positional patterns. Public JSON migration and persisted storage migration are separate from recompiling source.
 
 Package documentation owns detailed migrations. The following notes identify changes that consumers must account for; they do not establish exhaustive compatibility coverage or release readiness.
 

@@ -1,6 +1,6 @@
 # Packaged public API consumer
 
-This standalone, unpublished SBT fixture resolves core, harness, MCP and optional storage-postgresql and otel through generated Maven POMs and packaged JARs, without a source-project dependency. Its neutral consumer package deliberately sits outside com.weisgnosis.agents and its package-private visibility boundary. It is external host verification infrastructure, not a published library component.
+This standalone, unpublished SBT fixture resolves core, harness, MCP and optional storage-postgresql and otel through generated Maven POMs and packaged JARs, without a source-project dependency. Only the declared staged Maven repository and Maven Central participate in resolution; implicit Ivy-local artifacts cannot substitute for the fresh packages. Archive admission also requires a licensed Scaladoc JAR with an index and a nonblank module POM description. Its neutral consumer package deliberately sits outside com.weisgnosis.agents and its package-private visibility boundary. It is external host verification infrastructure, not a published library component.
 
 The default coordinates remain 0.1.0-SNAPSHOT. For an unsigned local candidate, select a canonical ASCII major.minor.patch-RCpositive version without leading zeros, at most 64 characters, for example 0.1.0-RC1. The root build checks -Dweisgnosis.candidate.version; the standalone build checks -Dweisgnosis.artifact.version. Neither selection creates a tag, frozen ABI or published release.
 

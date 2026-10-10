@@ -36,11 +36,12 @@ def inspect(root, module, destination, version):
     output = folder / "target" / "scala-3.9.0"
     binary = output / (artifact + "-" + version + ".jar")
     sources = output / (artifact + "-" + version + "-sources.jar")
+    docs = output / (artifact + "-" + version + "-javadoc.jar")
     pom = output / (artifact + "-" + version + ".pom")
-    for path in (binary, sources, pom):
+    for path in (binary, sources, docs, pom):
         require(path.is_file(), "missing packaged file " + str(path))
     license_bytes = (root / "LICENSE").read_bytes()
-    for path in (binary, sources):
+    for path in (binary, sources, docs):
         with ZipFile(path) as archive:
             require(archive.namelist().count("META-INF/LICENSE") == 1, str(path) + " license count")
             require(archive.read("META-INF/LICENSE") == license_bytes, str(path) + " license bytes")
@@ -49,6 +50,8 @@ def inspect(root, module, destination, version):
         require(any(name.endswith(".class") for name in names), module + " missing classes")
         require(any(name.endswith(".tasty") for name in names), module + " missing TASTy")
         require(not any(name.endswith("Spec.class") for name in names), module + " includes tests")
+    with ZipFile(docs) as archive:
+        require("index.html" in archive.namelist(), module + " missing Scaladoc index")
     with ZipFile(sources) as archive:
         source_root = folder / "src" / "main" / "scala"
         current = tuple(source_root.rglob("*.scala"))
@@ -66,6 +69,8 @@ def inspect(root, module, destination, version):
     require(tree.findtext("m:groupId", namespaces=NS) == "com.weisgnosis", module + " group")
     require(tree.findtext("m:artifactId", namespaces=NS) == artifact, module + " artifact")
     require(tree.findtext("m:version", namespaces=NS) == version, module + " version")
+    require(bool(tree.findtext("m:description", default="", namespaces=NS).strip()),
+            module + " missing description")
     dependencies = tree.findall("m:dependencies/m:dependency", NS)
     if module != "core":
         parent = "harness" if module == "storage-postgresql" else "core"
@@ -85,9 +90,9 @@ def inspect(root, module, destination, version):
             require(module == "harness", module + " leaked YAML dependency")
     staged = destination / "repository" / "com" / "weisgnosis" / artifact / version
     staged.mkdir(parents=True, exist_ok=True)
-    for path in (binary, sources, pom):
+    for path in (binary, sources, docs, pom):
         shutil.copyfile(path, staged / path.name)
-    print(module + ": exact license/source content, classes/TASTy and POM boundaries passed")
+    print(module + ": exact license/source content, Scaladoc index, classes/TASTy and POM boundaries passed")
     return hashlib.sha256(binary.read_bytes()).hexdigest()
 
 

@@ -1,4 +1,4 @@
-"""Exercise source-archive admission with reversible, sequential packaged fixtures."""
+"""Exercise archive admission with reversible, sequential packaged fixtures."""
 
 import argparse
 from pathlib import Path
@@ -26,6 +26,8 @@ def main():
         "weisgnosis-agents-harness_3-" + version + "-sources.jar")
     manifest = root / "target" / "artifact-verification" / "manifest.json"
     original = archive.read_bytes()
+    docs = archive.with_name("weisgnosis-agents-harness_3-" + version + "-javadoc.jar")
+    original_docs = docs.read_bytes()
     failures = []
 
     def verify():
@@ -68,14 +70,28 @@ def main():
                   ", manifest invalidated " + str(invalidated))
             if not rejected or not invalidated:
                 failures.append(label + " must reject and invalidate the manifest")
+        archive.write_bytes(original)
+        with ZipFile(docs) as packaged:
+            doc_entries = tuple((entry, packaged.read(entry)) for entry in packaged.infolist())
+        for omitted in ("index.html", "META-INF/LICENSE"):
+            with ZipFile(docs, "w") as modified:
+                for entry, content in doc_entries:
+                    if entry.filename != omitted:
+                        modified.writestr(entry, content)
+            result = verify()
+            if result.returncode == 0 or manifest.exists():
+                failures.append("Scaladoc without " + omitted + " must reject and invalidate the manifest")
+            print("Scaladoc without " + omitted + ": verifier exit " + str(result.returncode))
+            docs.write_bytes(original_docs)
     finally:
         archive.write_bytes(original)
+        docs.write_bytes(original_docs)
     restored = verify()
     if restored.returncode != 0:
         failures.append("restored valid artifact must pass: " + restored.stderr)
     if failures:
         sys.exit("\n".join(failures))
-    print("Selector and source-archive regressions passed; original bytes restored and revalidated")
+    print("Selector, source and Scaladoc archive regressions passed; original bytes restored and revalidated")
 
 
 if __name__ == "__main__":

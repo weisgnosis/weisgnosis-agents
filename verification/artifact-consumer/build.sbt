@@ -27,6 +27,7 @@ resolvers := Seq(
   "workspace-artifacts" at (baseDirectory.value / "../../target/artifact-verification/repository").toURI.toString,
   Resolver.mavenCentral
 )
+externalResolvers := resolvers.value
 libraryDependencies ++= Seq("core", "harness", "mcp", "storage-postgresql", "otel").map(module =>
   "com.weisgnosis" %% s"weisgnosis-agents-$module" % artifactVersion.value
 )

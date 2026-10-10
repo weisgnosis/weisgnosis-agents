@@ -43,12 +43,15 @@ lazy val commonSettings = Seq(
   Compile / packageBin / mappings +=
     ((LocalRootProject / baseDirectory).value / "LICENSE" -> "META-INF/LICENSE"),
   Compile / packageSrc / mappings +=
+    ((LocalRootProject / baseDirectory).value / "LICENSE" -> "META-INF/LICENSE"),
+  Compile / packageDoc / mappings +=
     ((LocalRootProject / baseDirectory).value / "LICENSE" -> "META-INF/LICENSE")
 )
 
 lazy val core = (project in file("modules/core"))
   .settings(
-    name := "weisgnosis-agents-core",
+    name        := "weisgnosis-agents-core",
+    description := "Pure Scala 3 and ZIO agent runtime, model clients, tools and coordination.",
     commonSettings,
     libraryDependencies ++= Seq(
       "dev.zio"      %% "zio"                   % zioVersion,
@@ -65,7 +68,8 @@ lazy val core = (project in file("modules/core"))
 lazy val harness = (project in file("modules/harness"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(
-    name := "weisgnosis-agents-harness",
+    name        := "weisgnosis-agents-harness",
+    description := "ZIO agent harness with scoped permissions, persistence, memory and subagents.",
     commonSettings,
     libraryDependencies ++= Seq(
       "org.snakeyaml" % "snakeyaml-engine" % snakeYamlEngineVersion,
@@ -80,7 +84,8 @@ lazy val harness = (project in file("modules/harness"))
 lazy val mcp = (project in file("modules/mcp"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(
-    name := "weisgnosis-agents-mcp",
+    name        := "weisgnosis-agents-mcp",
+    description := "Scoped Scala 3 and ZIO Model Context Protocol clients and transports.",
     commonSettings,
     Test / fork := true,
     Test / javaOptions ++= Seq(
@@ -105,7 +110,8 @@ lazy val mcp = (project in file("modules/mcp"))
 lazy val storagePostgresql = (project in file("modules/storage-postgresql"))
   .dependsOn(harness % "compile->compile;test->test")
   .settings(
-    name := "weisgnosis-agents-storage-postgresql",
+    name        := "weisgnosis-agents-storage-postgresql",
+    description := "Host-owned PostgreSQL persistence adapters for the WeisGnosis agent harness.",
     commonSettings,
     libraryDependencies ++= Seq(
       "org.postgresql" % "postgresql"   % "42.7.11"  % Test,
@@ -117,7 +123,8 @@ lazy val storagePostgresql = (project in file("modules/storage-postgresql"))
 lazy val otel = (project in file("modules/otel"))
   .dependsOn(core)
   .settings(
-    name := "weisgnosis-agents-otel",
+    name        := "weisgnosis-agents-otel",
+    description := "Opt-in OpenTelemetry observation for the WeisGnosis agent runtime.",
     commonSettings,
     libraryDependencies ++= Seq(
       "dev.zio"         %% "zio-opentelemetry"           % zioOpenTelemetryVersion,
@@ -152,9 +159,9 @@ lazy val root = (project in file("."))
 addCommandAlias("verify", ";scalafmtCheckAll;scalafmtSbtCheck;compile;test")
 addCommandAlias(
   "packageArtifacts",
-  ";core / Compile / packageBin;core / Compile / packageSrc;core / makePom" +
-    ";harness / Compile / packageBin;harness / Compile / packageSrc;harness / makePom" +
-    ";mcp / Compile / packageBin;mcp / Compile / packageSrc;mcp / makePom" +
-    ";storagePostgresql / Compile / packageBin;storagePostgresql / Compile / packageSrc;storagePostgresql / makePom" +
-    ";otel / Compile / packageBin;otel / Compile / packageSrc;otel / makePom"
+  ";core / Compile / packageBin;core / Compile / packageSrc;core / Compile / packageDoc;core / makePom" +
+    ";harness / Compile / packageBin;harness / Compile / packageSrc;harness / Compile / packageDoc;harness / makePom" +
+    ";mcp / Compile / packageBin;mcp / Compile / packageSrc;mcp / Compile / packageDoc;mcp / makePom" +
+    ";storagePostgresql / Compile / packageBin;storagePostgresql / Compile / packageSrc;storagePostgresql / Compile / packageDoc;storagePostgresql / makePom" +
+    ";otel / Compile / packageBin;otel / Compile / packageSrc;otel / Compile / packageDoc;otel / makePom"
 )

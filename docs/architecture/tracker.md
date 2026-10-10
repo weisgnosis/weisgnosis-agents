@@ -156,7 +156,10 @@ RAG, UI, collector hosting, distributed orchestration, external publication/CI s
 
 ## Immediate next work
 
-Next task: none within the selected library completion scope. H1–H4 are implemented, independently reviewed and verified through the public integration paths and fresh packaged consumer. External publication is user-owned. Future candidate features require explicit selection; native-provider live execution needs suitable host credentials and is not claimed by gateway checks. Current verification: full verify and five-module packaging, fresh archive admission/consumer, actual PostgreSQL and Windows junction fixtures, plus the documented selected real-model matrix.
+- [x] **Local documentation artifacts:** package licensed Scaladoc JARs and descriptive POMs for all five libraries, validate archive admission, and run the fresh packaged consumer. This adds no SCM metadata, signing or remote publication.
+- [ ] **Scaladoc toolchain diagnostic:** eliminate the pinned Scala 3.9.0 generator's internal `Option -classpath was updated` warning without suppressing diagnostics or weakening source compilation. Documentation archives are valid, but packaging is not warning-free; see [build limitation](../../project/README.md#local-artifact-packaging).
+
+Next task: resolve the internal Scaladoc classpath diagnostic while preserving the pinned compiler and fatal source warnings. Local artifact preparation and fresh-consumer admission are verified and independently reviewed; the generator warning remains open. H1–H4 are implemented, independently reviewed and verified through the public integration paths and fresh packaged consumer. External publication is user-owned. Future candidate features require explicit selection; native-provider live execution needs suitable host credentials and is not claimed by gateway checks. Current verification: full verify and five-module packaging, fresh archive admission/consumer, actual PostgreSQL and Windows junction fixtures, plus the documented selected real-model matrix.
 
 ## Verification
 
