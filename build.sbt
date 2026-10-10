@@ -40,6 +40,30 @@ lazy val commonSettings = Seq(
   ),
   Test / parallelExecution := false,
   testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+  Compile / doc := {
+    val inputs      = (Compile / doc / tastyFiles).value
+    val destination = (Compile / doc / target).value
+    val options = (Compile / doc / scalacOptions).value ++
+      Opts.doc.externalAPI((Compile / doc / apiMappings).value)
+    val dependencies    = (Compile / doc / dependencyClasspath).value.files
+    val driverClasspath = (scaladocDriver / Compile / fullClasspath).value.files
+    IO.createDirectory(destination)
+    val arguments = Seq(
+      "-classpath",
+      dependencies.mkString(java.io.File.pathSeparator),
+      "-d",
+      destination.getAbsolutePath
+    ) ++ options ++ inputs.map(_.getAbsolutePath)
+    (scaladocDriver / Compile / run / runner).value
+      .run(
+        "dotty.tools.scaladoc.WeisGnosisScaladocDriver",
+        driverClasspath,
+        arguments,
+        streams.value.log
+      )
+      .get
+    destination
+  },
   Compile / packageBin / mappings +=
     ((LocalRootProject / baseDirectory).value / "LICENSE" -> "META-INF/LICENSE"),
   Compile / packageSrc / mappings +=
@@ -47,6 +71,26 @@ lazy val commonSettings = Seq(
   Compile / packageDoc / mappings +=
     ((LocalRootProject / baseDirectory).value / "LICENSE" -> "META-INF/LICENSE")
 )
+
+lazy val scaladocDriver = (project in file("verification/scaladoc-driver"))
+  .settings(
+    name           := "weisgnosis-scaladoc-driver",
+    publish / skip := true,
+    Compile / fork := true,
+    scalacOptions ++= Seq(
+      "-deprecation",
+      "-feature",
+      "-unchecked",
+      "-Werror",
+      "-Wunused:all",
+      "-Yretain-trees",
+      "-experimental"
+    ),
+    libraryDependencies ++= Seq(
+      "org.scala-lang" %% "scaladoc" % scala3Version,
+      "dev.zio"        %% "zio"      % zioVersion
+    )
+  )
 
 lazy val core = (project in file("modules/core"))
   .settings(
@@ -156,7 +200,10 @@ lazy val root = (project in file("."))
     publish / skip := true
   )
 
-addCommandAlias("verify", ";scalafmtCheckAll;scalafmtSbtCheck;compile;test")
+addCommandAlias(
+  "verify",
+  ";scalafmtCheckAll;scalafmtSbtCheck;scaladocDriver / scalafmtCheckAll;scaladocDriver / Compile / compile;compile;test"
+)
 addCommandAlias(
   "packageArtifacts",
   ";core / Compile / packageBin;core / Compile / packageSrc;core / Compile / packageDoc;core / makePom" +
