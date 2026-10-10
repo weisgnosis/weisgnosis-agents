@@ -7,6 +7,8 @@ import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.tool.{
+  Tool,
+  ToolDef,
   ToolAuthorizer,
   ToolAuthorization,
   ToolDispatchObserver,
@@ -25,6 +27,21 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
   private val context: ModelStreamContext = ModelStreamContext("reply", "request")
 
   private def text(value: String): Json = Json.Obj("text" -> Json.Str(value))
+  private def function(id: Option[String], query: String, signature: Boolean = false): Json =
+    Json.Obj(
+      Chunk(
+        "functionCall" -> Json.Obj(
+          Chunk("name" -> Json.Str("lookup"), "args" -> Json.Obj("q" -> Json.Str(query))) ++ Chunk
+            .fromIterable(id.map(value => "id" -> Json.Str(value)))
+        )
+      ) ++ Chunk.fromIterable(Option.when(signature)("thoughtSignature" -> Json.Str("c2ln")))
+    )
+
+  private def contents(body: Json): Chunk[Json] =
+    body.asObject.flatMap(_.get("contents")).flatMap(_.asArray).getOrElse(Chunk.empty)
+
+  private def arrayField(value: Json, name: String): Chunk[Json] =
+    value.asObject.flatMap(_.get(name)).flatMap(_.asArray).getOrElse(Chunk.empty)
   private def code(id: Option[String]): Json = Json.Obj(
     "executableCode" -> Json.Obj(
       Chunk("language" -> Json.Str("PYTHON"), "code" -> Json.Str("print(2 + 2)")) ++
@@ -63,6 +80,349 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
     Response(headers = Headers("Content-Type" -> "text/event-stream"), body = Body.fromString(wire))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("GeminiLlmClient")(
+    test(
+      "local parallel calls continue with exact signatures, occurrence identities and error observations"
+    ):
+      ZIO
+        .foreach(Chunk(true, false))(providerIds =>
+          ZIO
+            .scoped:
+              for
+                requests <- Ref.make(Chunk.empty[Json])
+                invoked  <- Ref.make(Chunk.empty[String])
+                firstParts = Chunk(
+                  Json.Obj("text" -> Json.Str("plan"), "thought" -> Json.Bool(true)),
+                  function(Option.when(providerIds)("one"), "ok", true),
+                  function(Option.when(providerIds)("two"), "fail")
+                )
+                repeatedParts = Chunk(function(Option.when(providerIds)("one"), "again", true))
+                port <- Server.install(Routes(Method.POST / "messages" -> handler {
+                  (request: Request) =>
+                    request.body.asString
+                      .orElseSucceed("")
+                      .map(body => JsonBoundary.decode(body).getOrElse(Json.Null))
+                      .flatMap(body =>
+                        requests.modify(previous => previous.size -> (previous :+ body))
+                      )
+                      .map(index =>
+                        response(
+                          if index == 0 then frame(firstParts, Some("STOP"))
+                          else if index == 1 then frame(repeatedParts, Some("STOP"))
+                          else frame(Chunk(text("done")), Some("STOP"))
+                        )
+                      )
+                }))
+                http   <- ZIO.service[Client]
+                client <- GeminiLlmClient.make(http)
+                lookup = Tool.make(
+                  ToolDef("lookup", "Look up q", Json.Obj("type" -> Json.Str("object")))
+                )(input =>
+                  val query = input.asObject.flatMap(_.get("q")).flatMap(_.asString).getOrElse("")
+                  invoked
+                    .update(_ :+ query) *> (if query == "fail" then
+                                              ZIO.fail(AgentError.InvalidMessage("fixture failure"))
+                                            else ZIO.succeed(s"found $query"))
+                )
+                agent <- ReActAgent.make(
+                  client = client,
+                  toolkit = Toolkit.single(lookup),
+                  llmConfig = config.copy(endpoint = s"http://127.0.0.1:$port/messages")
+                )
+                result <- agent.run(Msg.user("look up"))
+                sent   <- requests.get
+                calls  <- invoked.get
+                historyCalls  = result.history.flatMap(_.toolUses)
+                observations  = result.history.filter(_.role == Role.Tool).flatMap(_.toolResults)
+                continuations = sent.drop(1).flatMap(contents)
+                nativeModels = continuations.collect {
+                  case value: Json.Obj if value.get("role").contains(Json.Str("model")) =>
+                    value.get("parts")
+                }
+                responseGroups = continuations
+                  .flatMap(arrayField(_, "parts"))
+                  .flatMap(_.asObject.flatMap(_.get("functionResponse")).flatMap(_.asObject))
+                firstResponseGroups = sent
+                  .lift(1)
+                  .toList
+                  .flatMap(contents)
+                  .flatMap(arrayField(_, "parts"))
+                  .filter(_.asObject.exists(_.get("functionResponse").nonEmpty))
+                declarations = sent
+                  .flatMap(arrayField(_, "tools"))
+                  .flatMap(arrayField(_, "functionDeclarations"))
+              yield assertTrue(
+                result.state == AgentRunState.Completed && result.reply.text == "done",
+                sent.size == 3,
+                firstResponseGroups.size == 2,
+                sent
+                  .lift(1)
+                  .exists(body =>
+                    contents(body).count(
+                      _.asObject
+                        .flatMap(_.get("parts"))
+                        .flatMap(_.asArray)
+                        .exists(parts =>
+                          parts.size == 2 && parts
+                            .forall(_.asObject.exists(_.get("functionResponse").nonEmpty))
+                        )
+                    ) == 1
+                  ),
+                calls.toSet == Set("ok", "fail", "again") && calls.size == 3,
+                observations.size == 3 && observations.count(_.state == ToolResultState.Error) == 1,
+                historyCalls.size == 3 && historyCalls.forall(call => !call.isServerTool),
+                historyCalls.take(2).map(_.id).distinct.size == 2,
+                if providerIds then historyCalls.map(_.id) == Chunk("one", "two", "one")
+                else historyCalls.map(_.id).distinct.size == 3,
+                nativeModels.contains(Some(Json.Arr(firstParts))) && nativeModels
+                  .contains(Some(Json.Arr(repeatedParts))),
+                responseGroups.forall(_.get("name").contains(Json.Str("lookup"))),
+                responseGroups
+                  .exists(_.get("response").flatMap(_.asObject).exists(_.get("error").nonEmpty)),
+                if providerIds then responseGroups.forall(_.get("id").nonEmpty)
+                else responseGroups.forall(_.get("id").isEmpty),
+                declarations.size == sent.size && declarations.forall(
+                  _.asObject.exists(
+                    _.get("parametersJsonSchema").contains(Json.Obj("type" -> Json.Str("object")))
+                  )
+                )
+              )
+            .provide(Client.default, Server.defaultWithPort(0))
+        )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test(
+      "local cancellation joins owned cleanup, reconciles once and resumes through native error response"
+    ):
+      for
+        requests <- Ref.make(Chunk.empty[Json])
+        started  <- Promise.make[Nothing, Unit]
+        cleaning <- Promise.make[Nothing, Unit]
+        release  <- Promise.make[Nothing, Unit]
+        client <- GeminiLlmClient.make(
+          HttpClientTestSupport.scripted(request =>
+            request.body.asString
+              .orElseSucceed("")
+              .map(body => JsonBoundary.decode(body).getOrElse(Json.Null))
+              .flatMap(body => requests.modify(previous => previous.size -> (previous :+ body)))
+              .map(index =>
+                response(
+                  if index == 0 then
+                    frame(Chunk(function(Some("cancel"), "wait", true)), Some("STOP"))
+                  else frame(Chunk(text("resumed")), Some("STOP"))
+                )
+              )
+          )
+        )
+        lookup = Tool.make(ToolDef("lookup", "Lookup", Json.Obj("type" -> Json.Str("object"))))(_ =>
+          ZIO.scoped(
+            ZIO.acquireRelease(started.succeed(()))(_ =>
+              cleaning.succeed(()) *> release.await
+            ) *> ZIO.never
+          )
+        )
+        agent <- ReActAgent.make(
+          client = client,
+          toolkit = Toolkit.single(lookup),
+          llmConfig = config
+        )
+        _           <- ZIO.addFinalizer(release.succeed(()).unit)
+        fiber       <- agent.run(Msg.user("wait")).forkScoped
+        _           <- started.await
+        persisted   <- agent.history
+        _           <- agent.interrupt
+        _           <- cleaning.await
+        before      <- fiber.poll
+        _           <- release.succeed(())
+        interrupted <- fiber.join
+        recovered   <- agent.history
+        resumed     <- agent.run(Msg.user("continue"))
+        sent        <- requests.get
+        responses = sent
+          .drop(1)
+          .flatMap(contents)
+          .flatMap(arrayField(_, "parts"))
+          .flatMap(_.asObject.flatMap(_.get("functionResponse")).flatMap(_.asObject))
+      yield assertTrue(
+        persisted.flatMap(_.toolUses).map(_.id) == Chunk("cancel") && persisted
+          .flatMap(_.toolResults)
+          .isEmpty,
+        before.isEmpty,
+        interrupted.isInterrupted && interrupted.reply.generateReason.contains("interrupted"),
+        recovered
+          .flatMap(_.toolResults)
+          .size == 1 && recovered.flatMap(_.toolResults).forall(_.state == ToolResultState.Error),
+        resumed.state == AgentRunState.Completed && resumed.reply.text == "resumed",
+        sent.size == 2,
+        responses.size == 1 && responses.forall(value =>
+          value
+            .get("id")
+            .contains(Json.Str("cancel")) && value.get("name").contains(Json.Str("lookup")) && value
+            .get("response")
+            .flatMap(_.asObject)
+            .exists(_.get("error").nonEmpty)
+        )
+      )
+    ,
+    test(
+      "malformed local calls and inconsistent continuation fail closed; truncation cannot dispatch"
+    ):
+      for
+        requests <- Ref.make(0)
+        hub      <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+        declaration = ToolDef("lookup", "Lookup", Json.Obj("type" -> Json.Str("object")))
+        boundaryRequests <- Ref.make(0)
+        boundaryName = "f" * 64
+        boundaryClient <- GeminiLlmClient.make(
+          HttpClientTestSupport.scripted(_ =>
+            boundaryRequests
+              .update(_ + 1)
+              .as(
+                response(
+                  frame(
+                    Chunk(Json.Obj("functionCall" -> Json.Obj("name" -> Json.Str(boundaryName)))),
+                    Some("STOP")
+                  )
+                )
+              )
+          )
+        )
+        acceptedBoundary <- boundaryClient.streamTurn(
+          Chunk(Msg.user("x")),
+          Chunk(declaration.copy(name = boundaryName)),
+          config,
+          hub,
+          context
+        )
+        oversizedDeclaration <- boundaryClient
+          .streamTurn(
+            Chunk(Msg.user("x")),
+            Chunk(declaration.copy(name = boundaryName + "f")),
+            config,
+            hub,
+            context
+          )
+          .either
+        boundaryCalls <- boundaryRequests.get
+        client <- GeminiLlmClient.make(
+          HttpClientTestSupport.scripted(_ =>
+            requests
+              .update(_ + 1)
+              .as(response(frame(Chunk(function(Some("one"), "ok", true)), Some("STOP"))))
+          )
+        )
+        original <- client.streamTurn(
+          Chunk(Msg.user("x")),
+          Chunk(declaration),
+          config,
+          hub,
+          context
+        )
+        invalidHistory = Chunk(
+          Chunk(Msg.user("x"), original.message),
+          Chunk(
+            Msg.user("x"),
+            original.message,
+            Msg.tool(content = Chunk(ContentBlock.ToolResult.text("other", "lookup", "x")))
+          ),
+          Chunk(
+            Msg.user("x"),
+            original.message,
+            Msg.tool(content = Chunk(ContentBlock.ToolResult.text("one", "other", "x")))
+          ),
+          Chunk(
+            Msg.user("x"),
+            original.message,
+            Msg.tool(content =
+              Chunk(
+                ContentBlock.ToolResult.text("one", "lookup", "x"),
+                ContentBlock.ToolResult.text("one", "lookup", "duplicate")
+              )
+            )
+          ),
+          Chunk(
+            Msg.user("x"),
+            original.message.withTextContent("changed"),
+            Msg.tool(content = Chunk(ContentBlock.ToolResult.text("one", "lookup", "x")))
+          )
+        )
+        before <- requests.get
+        histories <- ZIO.foreach(invalidHistory)(history =>
+          client.streamTurn(history, Chunk(declaration), config, hub, context).either
+        )
+        after <- requests.get
+        unsupported <- client
+          .streamTurn(
+            Chunk(Msg.user("x")),
+            Chunk(declaration),
+            config.copy(parallelToolCalls = Some(ToolCallParallelism.Disabled)),
+            hub,
+            context
+          )
+          .either
+        malformed = Chunk(
+          Chunk(function(Some("same"), "x"), function(Some("same"), "y")),
+          Chunk(
+            Json.Obj(
+              "functionCall" -> Json.Obj("name" -> Json.Str("lookup"), "args" -> Json.Str("bad"))
+            )
+          ),
+          Chunk(Json.Obj("functionCall" -> Json.Obj("name" -> Json.Str("")))),
+          Chunk(Json.Obj("functionCall" -> Json.Obj("name" -> Json.Str("invalid name")))),
+          Chunk(Json.Obj("functionCall" -> Json.Obj("name" -> Json.Str(boundaryName + "f")))),
+          Chunk(
+            Json.Obj("functionCall" -> Json.Obj("name" -> Json.Str("lookup"), "id" -> Json.Str("")))
+          )
+        )
+        rejected <- ZIO.foreach(malformed)(parts =>
+          GeminiLlmClient
+            .make(
+              HttpClientTestSupport.scripted(_ => ZIO.succeed(response(frame(parts, Some("STOP")))))
+            )
+            .flatMap(_.streamTurn(Chunk(Msg.user("x")), Chunk(declaration), config, hub, context))
+            .either
+        )
+        dispatches <- Ref.make(0)
+        exhausted <- GeminiLlmClient.make(
+          HttpClientTestSupport.scripted(_ =>
+            ZIO.succeed(
+              response(
+                frame(Chunk(text("partial"), function(Some("x"), "x", true)), Some("MAX_TOKENS"))
+              )
+            )
+          )
+        )
+        lookup = Tool.make(declaration)(_ => dispatches.update(_ + 1).as("unreachable"))
+        agent <- ReActAgent.make(
+          client = exhausted,
+          toolkit = Toolkit.single(lookup),
+          llmConfig = config
+        )
+        truncated <- agent.run(Msg.user("x"))
+        count     <- dispatches.get
+        hosted <- GeminiLlmClient.make(
+          HttpClientTestSupport.scripted(_ =>
+            requests.update(_ + 1).as(response(frame(Chunk(text("bad")), Some("STOP"))))
+          ),
+          GeminiCodeExecution.Enabled
+        )
+        combined <- hosted
+          .streamTurn(Chunk(Msg.user("x")), Chunk(declaration), config, hub, context)
+          .either
+        finalRequests <- requests.get
+      yield assertTrue(
+        acceptedBoundary.message.toolUses.map(_.name) == Chunk(boundaryName),
+        oversizedDeclaration.isLeft && boundaryCalls == 1,
+        histories.forall(_.isLeft),
+        before == after,
+        unsupported.isLeft,
+        rejected.forall(_.isLeft),
+        count == 0,
+        truncated.reply.toolUses.isEmpty,
+        truncated.reply.text == "partial",
+        combined.isLeft,
+        finalRequests == after
+      )
+    ,
     test(
       "native hosted execution completes once without local dispatch and replays exact native parts on the next turn"
     ):
@@ -213,7 +573,7 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
           frame(Chunk(text("truncated")), Some("SAFETY")),
           frame(Chunk(Json.Obj("inlineData" -> Json.Obj())), Some("STOP")),
           frame(
-            Chunk(Json.Obj("text" -> Json.Str("hidden"), "thought" -> Json.Bool(true))),
+            Chunk(Json.Obj("text" -> Json.Str("hidden"), "thought" -> Json.Str("invalid"))),
             Some("STOP")
           )
         )

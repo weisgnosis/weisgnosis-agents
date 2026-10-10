@@ -12,7 +12,7 @@ import zio.*
 import zio.http.{Body, Client, Headers, Request, Response, URL}
 import zio.stream.ZStream
 
-/** Native streaming text and provider-hosted code execution. Never executes code locally. */
+/** Native streaming text and local function calls, or explicitly selected provider-hosted code. */
 final class GeminiLlmClient private (
     http: Client,
     execution: GeminiCodeExecution,

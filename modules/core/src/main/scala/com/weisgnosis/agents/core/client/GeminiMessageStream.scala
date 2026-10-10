@@ -87,29 +87,90 @@ final private[client] case class GeminiMessageStream private (
       part <- raw.asObject.toRight(invalid("Gemini part must be an object"))
       _ <- ensure(
         part.fields.forall((key, _) =>
-          Set("text", "executableCode", "codeExecutionResult", "thoughtSignature", "thought")
+          Set(
+            "text",
+            "functionCall",
+            "executableCode",
+            "codeExecutionResult",
+            "thoughtSignature",
+            "thought"
+          )
             .contains(key)
         ),
         "Unsupported Gemini part fields"
       )
+      _ <- ensure(part.get("thought").forall(_.asBoolean.nonEmpty), "Invalid Gemini thought flag")
       _ <- ensure(
-        part.get("thought").forall(_ == Json.Bool(false)),
-        "Gemini thought content is outside this profile"
+        !part.get("thought").contains(Json.Bool(true)) || part.get("text").nonEmpty,
+        "Gemini thoughts require text"
       )
       _ <- ensure(
         part.get("thoughtSignature").forall(_.asString.exists(_.nonEmpty)),
         "Invalid Gemini thought signature"
       )
-      data = Chunk("text", "executableCode", "codeExecutionResult").flatMap(key =>
+      data = Chunk("text", "functionCall", "executableCode", "codeExecutionResult").flatMap(key =>
         part.get(key).map(key -> _)
       )
       _ <- ensure(data.size == 1, "Gemini part requires exactly one supported payload")
       accepted <- data.headOption match
         case Some(("text", Json.Str(value))) =>
-          val index = content.size
+          val index    = content.size
+          val thinking = part.get("thought").contains(Json.Bool(true))
+          val block =
+            if thinking then
+              ContentBlock.Thinking(
+                value,
+                part.get("thoughtSignature").map(value => "thoughtSignature" -> value).toMap
+              )
+            else ContentBlock.Text(value)
           Right(
-            copy(content = content :+ ContentBlock.Text(value)) -> Chunk(
-              LlmChunk.TextDelta(value, index)
+            copy(content = content :+ block) -> Chunk(
+              if thinking then LlmChunk.ThinkingDelta(value, index)
+              else LlmChunk.TextDelta(value, index)
+            )
+          )
+        case Some(("functionCall", value: Json.Obj)) =>
+          for
+            _ <- ensure(
+              execution == GeminiCodeExecution.Disabled && !part
+                .get("thought")
+                .contains(Json.Bool(true)),
+              "Unexpected Gemini local function call"
+            )
+            _ <- ensure(
+              value.fields.forall((key, _) => Set("id", "name", "args").contains(key)),
+              "Unsupported functionCall fields"
+            )
+            name <- string(value, "name")
+            _ <- ensure(
+              GeminiMessagesRequest.validFunctionName(name),
+              "Invalid Gemini function name"
+            )
+            args <- value.get("args") match
+              case None                 => Right(Json.Obj())
+              case Some(args: Json.Obj) => Right(args)
+              case _ => Left(invalid("Gemini function arguments must be an object"))
+            providerId <- optionalId(value)
+            id = providerId.getOrElse(s"gemini-function:$correlation:${content.size}")
+            _ <- ensure(
+              !content.exists {
+                case call: ContentBlock.ToolUse => call.id == id
+                case _                          => false
+              },
+              "Duplicate Gemini function identity"
+            )
+            metadata = providerId.fold(Map.empty[String, Json])(value =>
+              Map("gemini_function_id" -> Json.Str(value))
+            ) ++
+              part.get("thoughtSignature").map(value => "thoughtSignature" -> value)
+            call = ContentBlock.ToolUse(id, name, args, metadata = metadata)
+          yield copy(content = content :+ call) -> Chunk(
+            LlmChunk.ToolCallChunk(
+              content.size,
+              Some(id),
+              Some(name),
+              JsonBoundary.render(args),
+              call.thoughtSignature
             )
           )
         case Some(("executableCode", value: Json.Obj)) =>
@@ -204,6 +265,8 @@ final private[client] case class GeminiMessageStream private (
       if finishReason.contains("MAX_TOKENS") then TurnOutput.tokenExhausted(message)
       else if content.exists(_.isInstanceOf[ContentBlock.ToolUse]) then
         TurnOutput.ToolCalls(message)
+      else if message.text.trim.isEmpty && message.hasReasoning then
+        TurnOutput.ThinkingOnly(message)
       else TurnOutput.FinalText(message)
     )
 
@@ -221,7 +284,10 @@ private[client] object GeminiMessageStream:
         .get("gemini_correlation")
         .flatMap(_.asString)
         .toRight(invalid("Missing Gemini replay correlation"))
-      restored <- empty(correlation, GeminiCodeExecution.Enabled).append(parts).map(_._1)
+      execution =
+        if message.toolUses.exists(_.isServerTool) then GeminiCodeExecution.Enabled
+        else GeminiCodeExecution.Disabled
+      restored <- empty(correlation, execution).append(parts).map(_._1)
       _ <- ensure(
         restored.pending.isEmpty && restored.content == message.content,
         "Gemini replay parts differ from canonical content"
