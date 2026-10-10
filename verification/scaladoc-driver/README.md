@@ -30,3 +30,6 @@ tool version.
 
 Run `sbt "otel / Compile / doc"` for a focused generation check, then
 `sbt packageArtifacts` for all five archives. These commands do not publish.
+The root `verify` command explicitly checks this nonaggregated project's
+formatting and compilation. After editing the driver, run
+`sbt "scaladocDriver / scalafmtAll"` before verification.
