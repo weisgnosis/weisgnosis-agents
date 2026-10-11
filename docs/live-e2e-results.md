@@ -46,6 +46,26 @@ formatting, gateway behavior or runtime behavior. These native/synthetic
 structured profiles are not accepted for the failed model selections. Synthetic
 success does not establish native structured-format compatibility.
 
+## Focused structured-profile diagnostic rerun
+
+After adding fixed typed failure categories, each previously failed profile was
+executed once again with the same selected models, 4,096-token output budget and
+300-second run deadline. These are separate attempts; the original matrix above
+remains 12 Passed/3 Failed.
+
+| Selected profile | New attempt | Diagnostic |
+| --- | --- | --- |
+| Qwen native structured | Failed | deserialization |
+| LFM reasoning native structured | Failed | deserialization |
+| LFM reasoning synthetic structured | Passed | Public assertions passed |
+
+Use the existing `LiveProviderProfiles` command with
+`WEISGNOSIS_LIVE_PROFILE=native` or `synthetic`. Inspect its JSON status rather
+than process exit. The category does not distinguish malformed provider output,
+JSON/schema validation or wire decoding. No raw responses or error messages are
+retained. The LFM synthetic outcome differs across selected attempts; one pass
+does not establish repeatable reliability or explain the earlier failure.
+
 ## Collaboration and controlled failure
 
 | Profile | Selection | Result |
@@ -65,6 +85,37 @@ The paired task checks persisted calls, exact successful observations, complete
 history, zero active tools and joined releases. Sequential execution requires
 peak activity one; Parallel requires peak activity two and exact sum 37. This
 establishes overlapping local tool execution, not faster model inference.
+
+## E1: HTTP MCP evidence and restored authorization
+
+`LiveMcpEvidence` executed once on each selected model. LFM reasoning passed;
+Qwen failed with the sanitized `domain_failure` category. The Qwen receipt does
+not identify a narrower cause and is not accepted or replaced by the LFM result.
+
+The accepted LFM receipt records two model requests, one MCP evidence read and
+one authorized write. `askSuspendedWithoutWrite`, `deniedWithoutWrite`,
+`planWithoutWrite`, `restoredWithoutReasoningOrReadReplay` and `exactReportBytes`
+are all true. Actual MCP initialize/list/call traffic discovers both tool schemas;
+installed declarations remove the host-selected namespace and logical report path.
+
+The model derives the blocked-release report from BUILD-1, TEST-1 and SEC-1.
+The same serialized Ask checkpoint is restored into fresh runtimes under current
+Deny, actual PlanSession/PlanPermissionGate and confirmed Ask. Denied results
+stop through the fixture's explicit host processor; approved Direct execution
+requires no new model request or replayed read. The peer retains exactly one
+canonical UTF-8 report with a final LF in a disposable Ref-backed byte ledger.
+This establishes MCP effects and restoration, not filesystem/database persistence,
+production authentication or durable single-use claims.
+
+Reproduce with the enabled live environment and:
+
+```text
+sbt "examples / runMain com.weisgnosis.agents.examples.LiveMcpEvidence"
+```
+
+The exercise admits at most two model requests and uses one aggregate deadline.
+The original fifteen-cell matrix is unchanged. Full E1 acceptance is specific to
+the LFM attempt; it is not model-wide certification.
 
 ## E3: Cooperative interruption and same-runtime continuation
 
@@ -105,10 +156,9 @@ interrupted Exit and repeated cancellation; its
 
 ## Remaining evidence and claim limits
 
-This run does not establish the full E1 evidence/report task over HTTP MCP,
-permission checkpoint restoration, busy-recipient queue flushing, useful ordered
-Pipeline collaboration, live oversized-output retrieval/compaction or
-cancellation during an active HTTP response. Those remain unchecked in the
+Remaining live extensions are busy-recipient queue flushing, useful ordered
+Pipeline collaboration, oversized-output retrieval/compaction and cancellation
+during an active HTTP response. Those remain unchecked in the
 tracker. Local tool cancellation does not prove that remote inference stops.
 
 The gateway is OpenAI-compatible. It does not verify native Anthropic or Gemini

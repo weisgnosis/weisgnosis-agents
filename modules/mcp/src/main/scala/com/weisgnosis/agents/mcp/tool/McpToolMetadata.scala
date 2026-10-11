@@ -41,7 +41,8 @@ final case class McpToolBinding(
     definition: ToolDef,
     metadata: McpToolMetadata = McpToolMetadata.Omit,
     presets: McpToolPresets = McpToolPresets.empty,
-    fixedArguments: ToolFixedArguments = ToolFixedArguments.empty
+    fixedArguments: ToolFixedArguments = ToolFixedArguments.empty,
+    inputValidationSchema: Option[Json] = None
 )
 
 object McpToolBinding:
@@ -66,4 +67,9 @@ object McpToolBinding:
       fixed      <- ToolFixedArguments.make(rawFixed)
       projection <- McpToolPresets.make(rawFixed)
       projected  <- projection.project(definition)
-    yield McpToolBinding(projected, metadata, fixedArguments = fixed)
+    yield McpToolBinding(
+      projected,
+      metadata,
+      fixedArguments = fixed,
+      inputValidationSchema = Some(definition.parametersSchema)
+    )

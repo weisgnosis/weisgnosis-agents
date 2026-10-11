@@ -63,8 +63,18 @@ object LiveProviderProfiles extends ZIOAppDefault:
           .serviceWithZIO[Client](http =>
             ChatCompletionsClient
               .make(http, CompletionTransportLimits(responseBytes = 1024L * 1024))
-              .flatMap(exerciseProfile(_, config, profile))
-              .flatMap(_ => ZIO.logInfo(s"Selected provider profile passed: $profile"))
+              .flatMap(client =>
+                val name = profile match
+                  case Profile.All          => "provider-profiles"
+                  case Profile.Native       => "native-structured"
+                  case Profile.Synthetic    => "synthetic-structured"
+                  case Profile.Cancellation => "joined-local-cancellation"
+                LiveMultiModel
+                  .record(name, Chunk(config.model))(
+                    exerciseProfile(client, config, profile)
+                  )
+                  .unit
+              )
           )
           .provide(Client.default)
       )

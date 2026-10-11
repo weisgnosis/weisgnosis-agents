@@ -319,13 +319,22 @@ object LiveMultiModel extends ZIOAppDefault:
       val exhausted = cause.failures.exists:
         case _: AgentError.TimeoutError => true
         case _                          => false
+      val diagnostics = cause.failures.map:
+        case error: AgentError.ModelError        => s"http_status_${error.statusCode}"
+        case _: AgentError.DeserializationError  => "deserialization"
+        case _: AgentError.InvalidMessage        => "scenario_assertion"
+        case _: AgentError.MaxIterationsExceeded => "iteration_exhaustion"
+        case _: AgentError.TimeoutError          => "timeout"
+        case _                                   => "domain_failure"
+      val outcome =
+        if exhausted then "Run budget exhausted; no admitted request or tool was retried"
+        else "Scenario failed; no admitted request or tool was retried"
       emit(
         Scenario(
           name,
           models,
           if unavailable then Status.Unavailable else Status.Failed,
-          if exhausted then "Run budget exhausted; no admitted request or tool was retried"
-          else "Scenario failed; no admitted request or tool was retried"
+          s"$outcome; diagnostics: ${diagnostics.distinct.mkString(", ")}"
         )
       )
 

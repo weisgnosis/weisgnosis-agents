@@ -201,3 +201,11 @@ Install `Toolkit.withDispatchObserver(observer)` to observe actual local dispatc
 Observer resources are scoped around dispatch. Completion runs after tool cleanup and before the observer scope closes. Registered observers compose outermost first through `andThen`; callback defects propagate, so operational telemetry adapters must isolate their own failures. Missing names, external bindings, denied/supplied results and inline provider results do not produce local dispatch observations. Direct trusted `Tool.execute` calls bypass the Toolkit seam.
 
 Registry updates, filtering and merges retain the receiver's observer. `overlay` borrows the other toolkit's bindings only; it does not install its observers. `withDispatchObserver` replaces the installed observer; compose explicitly when needed. Toolkit equality continues to compare registered bindings, not observer callbacks. Existing public dispatch methods remain unchanged; rebuild dependent binaries.
+
+## Execution input schema
+
+`Tool.inputValidationSchema` defaults to `definition.parametersSchema`. Adapters
+that narrow a model-facing declaration can retain a separate full schema for
+prepared execution arguments. Toolkit uses this schema both during ReAct admission
+and dispatch; fixed values and authorized edits remain unchanged in history and
+execution. `Tool.withFixedArguments` forwards an existing validation override.

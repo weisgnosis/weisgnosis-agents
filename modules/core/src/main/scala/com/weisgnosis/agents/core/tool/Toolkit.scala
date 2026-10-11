@@ -91,7 +91,7 @@ final class Toolkit private (
     tools
       .get(name)
       .fold[IO[AgentError.InvalidMessage, Unit]](ZIO.unit)(binding =>
-        ToolSchemaValidator.validate(binding.definition.parametersSchema, input)
+        ToolSchemaValidator.validate(binding.inputValidationSchema, input)
       )
 
   /** Tool failures and defects are observations; interruption remains cancellation. */
@@ -178,7 +178,7 @@ final class Toolkit private (
               ZIO
                 .fromEither(tool.fixedArguments.prepare(input))
                 .flatMap: prepared =>
-                  ToolSchemaValidator.validate(tool.definition.parametersSchema, prepared) *>
+                  ToolSchemaValidator.validate(tool.inputValidationSchema, prepared) *>
                     ZIO
                       .fromEither(tool.decodeInput(prepared))
                       .mapError(error =>

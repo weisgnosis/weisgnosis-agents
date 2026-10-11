@@ -176,6 +176,46 @@ object LiveMultiModelSpec extends ZIOSpecDefault:
         unavailable <- LiveMultiModel.record("unavailable", Chunk("primary"))(
           ZIO.fail(AgentError.ModelError(503, "not admitted"))
         )
+        sensitive = "sentinel-private-content-key-endpoint"
+        diagnosticCases = Chunk[(AgentError, String, LiveMultiModel.Status)](
+          (
+            AgentError.ModelError(400, sensitive, Some(sensitive)),
+            "http_status_400",
+            LiveMultiModel.Status.Failed
+          ),
+          (
+            AgentError.ModelError(503, sensitive, Some(sensitive)),
+            "http_status_503",
+            LiveMultiModel.Status.Unavailable
+          ),
+          (
+            AgentError.DeserializationError(sensitive),
+            "deserialization",
+            LiveMultiModel.Status.Failed
+          ),
+          (
+            AgentError.InvalidMessage(sensitive),
+            "scenario_assertion",
+            LiveMultiModel.Status.Failed
+          ),
+          (
+            AgentError.MaxIterationsExceeded(3),
+            "iteration_exhaustion",
+            LiveMultiModel.Status.Failed
+          ),
+          (AgentError.TimeoutError(300, sensitive), "timeout", LiveMultiModel.Status.Failed),
+          (
+            AgentError.InvalidConfiguration(sensitive),
+            "domain_failure",
+            LiveMultiModel.Status.Failed
+          )
+        )
+        diagnostics <- ZIO.foreach(diagnosticCases): (error, label, status) =>
+          LiveMultiModel
+            .record("diagnostic", Chunk("primary"))(ZIO.fail(error))
+            .map: receipt =>
+              receipt.status == status && receipt.detail.endsWith(s"diagnostics: $label") &&
+                !receipt.toJson.contains(sensitive)
         cancelling <- LiveMultiModel.record("cancelled", Chunk("primary"))(ZIO.interrupt).forkScoped
         cancelled  <- cancelling.await
       yield assertTrue(
@@ -186,6 +226,7 @@ object LiveMultiModelSpec extends ZIOSpecDefault:
         failover.status == LiveMultiModel.Status.Passed,
         failed.status == LiveMultiModel.Status.Failed,
         unavailable.status == LiveMultiModel.Status.Unavailable,
+        diagnostics.forall(identity),
         cancelled.isInterrupted
       )).provideSomeLayer[Scope](Client.default ++ Server.defaultWithPort(0))
     ,

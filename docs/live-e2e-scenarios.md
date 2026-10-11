@@ -103,8 +103,10 @@ team decision. The existing cancellation holds a local tool, not an HTTP stream.
 
 ### E1: Useful MCP task and authorization
 
-**Extension required.** Real model → installed HTTP MCP evidence tools → runtime
-observations → checked report proposal → host-authorized report write.
+**Executable:** [LiveMcpEvidence](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveMcpEvidence.scala).
+Real model → installed HTTP MCP evidence tools → runtime observations → checked
+report proposal → host-authorized report write. The service retains exact bytes
+in a disposable ledger; filesystem persistence is not part of this scenario.
 
 Pass requires all expected evidence receipts, exact report fields/bytes and one
 authorized write. Record the actual discovered tool schemas and narrowed host

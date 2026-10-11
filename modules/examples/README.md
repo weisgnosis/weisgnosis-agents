@@ -52,6 +52,34 @@ Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveProviderSmoke"` 
 
 Unset `WEISGNOSIS_LIVE_SMOKE` disables external execution; other values besides `enabled` fail configuration. The endpoint must be the complete Chat Completions URL, including `/chat/completions`. The smoke is a narrow endpoint check, not evidence for cancellation, ordinary JSON completion, structured output, media, failover, subagent/MCP chains, or durable recovery. Offline verification does not contact or validate that endpoint.
 
+## HTTP MCP evidence and restored authorization
+
+[LiveMcpEvidence](src/main/scala/com/weisgnosis/agents/examples/LiveMcpEvidence.scala)
+uses the enabled live environment and the selected catalog chat model:
+
+```text
+sbt "examples / runMain com.weisgnosis.agents.examples.LiveMcpEvidence"
+```
+
+A scoped loopback HTTP MCP service supplies BUILD-1, TEST-1 and SEC-1. The model
+reads them once and proposes a release report. The host pins the namespace and
+logical report path, rejects altered selectors and validates the exact report.
+An untrusted instruction in evidence cannot grant write permission.
+
+Ask suspends before any write. The serialized checkpoint is restored into fresh
+agents under Deny, actual Plan mode and confirmed Ask. The first two produce
+Denied observations and stop through an explicit host result processor; they do
+not request another model answer. Approved Direct execution writes exactly one
+canonical UTF-8 report with a final LF, without another model request or read replay.
+The service stores bytes in a disposable in-memory ledger, not on disk or in a
+real repository. Hosts still own authentication, checkpoint persistence and
+single-use execution claims.
+
+Acceptance requires `scenarioAccepted=true` and a Passed scenario receipt.
+The run admits at most two model requests and has one aggregate live deadline;
+joined cleanup can extend that deadline. Discovery and installation schemas are
+included in the receipt. Disabled execution and process exit zero are not acceptance.
+
 ## Selected structured-output and cancellation profiles
 
 [LiveProviderProfiles](src/main/scala/com/weisgnosis/agents/examples/LiveProviderProfiles.scala)
@@ -63,6 +91,10 @@ output, synthetic generate_response output and a model-issued
 exactly `{"value":7}`, with no additional fields. Native rejection fails the check rather than silently
 switching formats. Set WEISGNOSIS_LIVE_PROFILE to native, synthetic or cancellation to run
 one selected profile independently. A selected success does not establish success of the other profiles.
+Typed scenario failures emit a Failed/Unavailable JSON receipt with a fixed diagnostic category
+and, for model failures, HTTP status; messages and response bodies are omitted. Inspect the
+receipt status: normal process completion is not acceptance. Configuration, acquisition,
+interruption and defects still fail the process.
 
 The cancellation profile holds local-tool cleanup, checks that cancellation has not returned early,
 then releases it and verifies interruption, one Error observation, complete call/result history and

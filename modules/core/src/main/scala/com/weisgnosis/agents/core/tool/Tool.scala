@@ -31,8 +31,11 @@ import scala.annotation.unused
 trait Tool[-R, In, Out]:
   def fixedArguments: ToolFixedArguments = ToolFixedArguments.empty
   def definition: ToolDef
-  def isConcurrencySafe: Boolean = definition.isConcurrencySafe
-  def isReadOnly: Boolean        = definition.isReadOnly
+
+  /** Validate prepared execution arguments independently of the model-facing declaration. */
+  def inputValidationSchema: Json = definition.parametersSchema
+  def isConcurrencySafe: Boolean  = definition.isConcurrencySafe
+  def isReadOnly: Boolean         = definition.isReadOnly
   def execute(input: In): ZIO[R, Throwable, Out]
 
   /** Runtime invocation capabilities are explicit; existing tools retain their ordinary execution. */
@@ -76,6 +79,7 @@ object Tool:
       Right(new Tool[R, In, Out]:
         override def fixedArguments: ToolFixedArguments = fixed
         def definition: ToolDef                         = tool.definition
+        override def inputValidationSchema: Json        = tool.inputValidationSchema
         override def isReadOnly: Boolean                = tool.isReadOnly
         override def isConcurrencySafe: Boolean         = tool.isConcurrencySafe
         def execute(input: In): ZIO[R, Throwable, Out]  = tool.execute(input)

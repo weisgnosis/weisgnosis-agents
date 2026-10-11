@@ -44,7 +44,9 @@ Existing bind/register calls retain empty defaults. No new manager ownership or 
 
 Manager registration preserves the whole selected binding. Raw decoding and Toolkit dispatch prepare fixed values; ReAct prepares them before authorization and rejects approved inputs that remove or change them. Accepted nonfixed edits remain intact in history and execution. Defaults still fill missing fields after authorization, so prepared fixed values win any overlap. Metadata propagation is independent. Trusted typed `execute`/`executeWithContext` calls bypass the fixed raw-input policy; fixed values are not secrets and can appear in history.
 
-The factory reuses the same bounded root-schema projection as presets. It does not evaluate JSON Schema or rewrite dependent constraints. Existing constructors and named copies may omit the new empty `fixedArguments` field; positional patterns and Product arity now have four fields, and consumers must rebuild.
+The factory retains the original schema in `inputValidationSchema` while projecting fixed names from the model-facing declaration. Toolkit validates the complete prepared/approved input against this original schema, including fixed-field types and constraints; a closed schema does not reject its own injected host fields. Raw model arguments and defaults remain separate from execution authority. The factory does not evaluate JSON Schema or rewrite dependent constraints during projection.
+
+Direct construction may omit the optional validation override and retain validation against its supplied definition. A manually projected definition must explicitly supply the full execution validation schema. Positional patterns and Product arity now have five fields; consumers must rebuild.
 
 ## Explicit request metadata
 
@@ -54,7 +56,7 @@ The resolver receives only Detached or Active(replyId, requestId, callId, callOr
 
 Resolver failure becomes the existing typed direct-execution failure or Toolkit Error observation. Cancellation joins resolver cleanup and retains defects. The binding adds no resolver deadline or owner: the invoking host owns execution; the client's configured operation deadline begins with the subsequent client call. Explicit client `callTool(..., meta)` and `listToolsPage(..., meta)` bypass this bound-tool restriction intentionally.
 
-`McpToolBinding(definition, metadata = Omit, presets = empty, fixedArguments = empty)` pairs host authority, propagation policy and checked argument policies for [manager registerBindings](../client/README.md#scoped-manager-contract). Existing bind calls retain omission; no implicit opt-in or core invocation API migration is required.
+`McpToolBinding(definition, metadata = Omit, presets = empty, fixedArguments = empty, inputValidationSchema = None)` pairs host authority, propagation policy and checked argument policies for [manager registerBindings](../client/README.md#scoped-manager-contract). Existing bind calls retain omission; no implicit opt-in or core invocation API migration is required.
 
 ## Ordered metadata merge
 

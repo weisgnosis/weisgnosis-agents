@@ -53,7 +53,9 @@ object McpTool:
       binding: McpToolBinding
   ): Tool[Any, Json.Obj, McpCallResult] =
     new Tool[Any, Json.Obj, McpCallResult]:
-      def definition: ToolDef                         = binding.definition
+      def definition: ToolDef = binding.definition
+      override def inputValidationSchema: Json =
+        binding.inputValidationSchema.getOrElse(definition.parametersSchema)
       override def fixedArguments: ToolFixedArguments = binding.fixedArguments
 
       def decodeInput(raw: Json): Either[String, Json.Obj] =

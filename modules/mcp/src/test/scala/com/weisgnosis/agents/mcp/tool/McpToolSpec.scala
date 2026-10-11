@@ -217,6 +217,64 @@ object McpToolSpec extends ZIOSpecDefault:
   )
 
   def spec: Spec[TestEnvironment, Any] = suite("McpToolSpec")(
+    test("fixed host fields validate against the full closed schema before MCP dispatch"):
+      ZIO.scoped:
+        for
+          server <- peer(_ =>
+            ZIO.succeed(
+              Right(
+                Json.Obj(
+                  "content" -> Json.Arr(block("text", "text" -> Json.Str("accepted")))
+                )
+              )
+            )
+          )
+          host = definition.copy(parametersSchema =
+            Json.Obj(
+              "type" -> Json.Str("object"),
+              "properties" -> Json.Obj(
+                "tenant" -> Json.Obj("type" -> Json.Str("string"), "const" -> Json.Str("host")),
+                "value"  -> Json.Obj("type" -> Json.Str("integer"))
+              ),
+              "required"             -> Json.Arr(Json.Str("tenant"), Json.Str("value")),
+              "additionalProperties" -> Json.Bool(false)
+            )
+          )
+          binding <- ZIO.fromEither(
+            McpToolBinding.withFixedArguments(host, Json.Obj("tenant" -> Json.Str("host")))
+          )
+          toolkit = Toolkit.single(McpTool.bind(server.client, "remote_echo", binding))
+          input   = Json.Obj("value" -> Json.Num(7))
+          prepared  <- ZIO.fromEither(toolkit.prepareInput("local_echo", input))
+          admission <- toolkit.validateSchemaInput("local_echo", prepared).either
+          accepted  <- toolkit.executeSafe("local_echo", input)
+          invalid <- ZIO.foreach(
+            Chunk(
+              Json.Obj("value" -> Json.Str("invalid")),
+              Json.Obj("value" -> Json.Num(7), "unknown" -> Json.Bool(true))
+            )
+          )(toolkit.executeSafe("local_echo", _))
+          rejectedHost <- ZIO.foreach(Chunk[Json](Json.Num(1), Json.Str("foreign"))): fixedValue =>
+            for
+              invalidBinding <- ZIO.fromEither(
+                McpToolBinding.withFixedArguments(host, Json.Obj("tenant" -> fixedValue))
+              )
+              result <- Toolkit
+                .single(McpTool.bind(server.client, "remote_echo", invalidBinding))
+                .executeSafe("local_echo", input)
+            yield result
+          requests <- server.requests.get
+          calls = requests.filter(_.method == "tools/call")
+        yield assertTrue(
+          admission.isRight,
+          accepted.state == ToolResultState.Success,
+          invalid.forall(_.state == ToolResultState.Error),
+          rejectedHost.forall(_.state == ToolResultState.Error),
+          calls.size == 1,
+          calls.headOption.flatMap(_.params).flatMap(_.get("arguments")).contains(prepared),
+          !binding.definition.parametersSchema.toString.contains("tenant")
+        )
+    ,
     test(
       "embedded resources expose text, images and binary descriptions while retaining opaque payloads"
     ):

@@ -23,16 +23,18 @@ import zio.json.ast.Json
 /** Host-owned execution capabilities; a declaration never supplies an executable handler. */
 sealed trait ToolBinding:
   def definition: ToolDef
+  def inputValidationSchema: Json = definition.parametersSchema
   def fixedArguments: ToolFixedArguments
   def isConcurrencySafe: Boolean
   def isReadOnly: Boolean
 
 object ToolBinding:
   final case class Local(tool: Tool[Any, ?, ?]) extends ToolBinding:
-    def definition: ToolDef                = tool.definition
-    def fixedArguments: ToolFixedArguments = tool.fixedArguments
-    def isConcurrencySafe: Boolean         = tool.isConcurrencySafe
-    def isReadOnly: Boolean                = tool.isReadOnly
+    def definition: ToolDef                  = tool.definition
+    override def inputValidationSchema: Json = tool.inputValidationSchema
+    def fixedArguments: ToolFixedArguments   = tool.fixedArguments
+    def isConcurrencySafe: Boolean           = tool.isConcurrencySafe
+    def isReadOnly: Boolean                  = tool.isReadOnly
 
   final class External private[ToolBinding] (
       val definition: ToolDef,
