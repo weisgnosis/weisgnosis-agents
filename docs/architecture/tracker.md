@@ -167,17 +167,19 @@ The previously selected implementation outcomes above are complete. The newly re
 The [E2E scenario design](../live-e2e-scenarios.md) defines exact task results,
 runtime oracles, bounded model selection and limits on public claims. Existing
 executables and proposed extensions are explicitly separate. One current next
-task: establish a fresh E0 catalog-selected baseline using LiveMultiModel before
-extending its fixtures; do not count historical results as a new campaign.
+task: extend the cancellation fixture for E3 partial-completion cancellation and
+same-runtime continuation; preserve completed sibling observations before
+interrupting the held call.
 
 - [x] Design useful bots E2E scenarios and distinguish runtime guarantees from model/provider behavior and unmatched Python comparisons.
-- [ ] **E0:** execute and retain a fresh selected-model baseline with every scenario receipt, including failures and unavailable profiles.
+- [x] **E0:** execute and retain a fresh selected-model baseline with every scenario receipt, including failures and unavailable profiles. The [actual results](../live-e2e-results.md) record three repeated matrices (33/42 passed) and one exploratory reasoning-model matrix (12/14 passed); all eleven failed attempts remain visible.
 - [ ] **E1:** complete the exact evidence/report task over HTTP MCP; verify Ask checkpoint restoration, Deny/Plan refusal and actual authorized effects.
-- [ ] **E2/E3:** demonstrate simultaneous concurrency-safe tool entry, persisted calls, partial-completion cancellation, joined cleanup and same-runtime continuation.
+- [x] **E2:** demonstrate simultaneous concurrency-safe tool entry and persisted calls with a sequential control. [LiveParallelTools](../../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveParallelTools.scala) passes its actual Qwen paired run (peaks 1/2, exact sum 37); both selected LFM paired attempts fail and remain visible in the [results](../live-e2e-results.md). Focused oracle controls and full verify pass; independent FP/ZIO and invariant review apply to this fixture, not all future campaign scenarios.
+- [ ] **E3:** demonstrate partial-completion cancellation, joined cleanup and same-runtime continuation, preserving completed sibling observations.
 - [ ] **E4:** verify a useful attributed multi-agent result, busy-recipient queue/flush and bounded ordered Pipeline execution/cancellation.
 - [ ] **E5:** verify oversized evidence retrieval and explicit compaction through live model requests, preserving occurrence pairing, provenance and original observations on storage failure.
 - [ ] **E6:** verify selected definite rejection and active-request cancellation boundaries without claiming remote inference cancellation or unsafe replay.
-- [ ] Publish a sanitized measured scenario summary with all selected attempts, exact supported claims and explicit unverified cells; remote publication remains user-owned.
+- [x] Retain a [sanitized measured summary](../live-e2e-results.md) of all current selected attempts, exact supported claims and explicit unverified cells; update it as the remaining scenarios execute. Remote publication remains user-owned.
 
 ## Verification
 

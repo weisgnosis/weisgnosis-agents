@@ -284,7 +284,10 @@ object LiveMultiModel extends ZIOAppDefault:
           eligibleScenario("independently-selected-parent-child", Chunk(config.model, id), catalog)(
             parentChild(client, config, config.copy(model = id))
           )
-    yield profiles.flatten ++ Chunk(same, mixed, failover, child)
+      parallel <- eligibleScenario("parallel-local-evidence", Chunk(config.model), catalog)(
+        LiveParallelTools.exercise(client, config)
+      )
+    yield profiles.flatten ++ Chunk(same, mixed, failover, child, parallel)
 
   private def eligibleScenario[R](
       name: String,

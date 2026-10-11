@@ -2,7 +2,7 @@
 
 This nonpublished SBT project compiles against core, harness, and MCP. It demonstrates existing library APIs rather than adding a supported facade. Start with the complete applications in [Getting started](../../docs/getting-started.md). Use JDK 21 and the repository-pinned sbt version, and run the commands below from the repository root.
 
-The [real-model E2E scenario design](../../docs/live-e2e-scenarios.md) specifies a useful evidence/report task, concurrency and cancellation measurements, and publication limits. Proposed extensions there are not implemented live profiles; the runnable coverage and actual earlier observations below remain separate.
+The [real-model E2E scenario design](../../docs/live-e2e-scenarios.md) specifies a useful evidence/report task, concurrency and cancellation measurements, and publication limits. It distinguishes runnable profiles from remaining proposed extensions; [current live results](../../docs/live-e2e-results.md) record actual selected attempts.
 
 `LiveFileTask`, `LiveProviderSmoke`, `LiveProviderProfiles` and `MsgHubConversation` are runnable applications. HostAssembly, AuditedLlmClient and LifecycleLogging are composition examples used by a host application; they have no standalone `runMain` entrypoint.
 
@@ -94,26 +94,21 @@ sbt "examples / runMain com.weisgnosis.agents.examples.LiveMultiModel"
 
 The runner uses the token/deadline budgets below and schedules scenarios sequentially. It never automatically retries an admitted model turn or tool. Each scenario immediately prints a JSON result: Passed, Failed, Unsupported, Unavailable or NotRun. Require the individual assertions and receipts; process exit alone is not acceptance. Missing peer selection leaves mixed-model/independent-child scenarios NotRun. Cancellation and defects propagate instead of becoming successful reports.
 
-The current actual run on 2026-10-09 selected loaded `qwen3.8-27b` and catalog instruction model `lfm2.5-1.2b-instruct-mlx`, with 4,096 output tokens, a 180-second per-agent budget and one-MiB profile responses. Eleven of fourteen scenarios passed:
-
-| Profile | qwen3.8-27b | lfm2.5-1.2b-instruct-mlx |
-| --- | --- | --- |
-| Streamed text plus one local-tool continuation | Passed | Failed |
-| Exact disposable-file write/read effects and cleanup | Passed | Failed |
-| Native structured `{"value":7}` | Failed | Passed |
-| Synthetic structured `{"value":7}` | Passed | Passed |
-| Joined local-tool cancellation and recovery | Passed | Passed |
-
-| Collaboration/failure scenario | Actual selection | Result |
-| --- | --- | --- |
-| Three turns through one persistent same-model MsgHub | Qwen/Qwen | Passed |
-| Three turns through persistent mixed-model MsgHub | Qwen/LFM | Passed |
-| Factory-owned parent/tool/child/parent chain | Qwen parent, LFM child | Passed |
-| Definite first-target rejection and explicit ModelTarget fallback | Owned loopback HTTP 503, then Qwen | Passed |
-
-The hub checks exact sender attribution, private canonical histories, delivery receipts and authoritative completion. The child scenario checks one actual dispatch and its exact observation; failover checks one rejected request and no tool replay. Failed profile cells remain failures, not unsupported declarations or successful runs. This matrix does not diagnose their model-level cause or certify every gateway model/native dialect. The paired offline suite exercises the same helpers and deterministic failure/cancellation controls without credentials.
+The [current live results](../../docs/live-e2e-results.md) retain every selected attempt, including failed profiles. Three repeated Qwen/instruction-model matrices passed 33 of 42 scenario attempts; one exploratory reasoning-model/Qwen matrix passed 12 of 14. These checks establish selected live tool, file, structured-output, local cancellation, persistent-hub, child and definite-rejection behavior. They do not establish every model profile, simultaneous tool execution or superiority over another language.
 
 ## Verification and acceptance
+
+[LiveParallelTools](src/main/scala/com/weisgnosis/agents/examples/LiveParallelTools.scala)
+runs the same real-model two-read task in Sequential and Parallel modes. With the
+enabled live environment, run
+`sbt "examples / runMain com.weisgnosis.agents.examples.LiveParallelTools"`.
+Require `Live parallel tools passed: sequential peak=1, parallel peak=2; exact sum=37`.
+The host checks persisted calls, actual overlapping local entry, exact tool
+observations, joined cleanup and the completed sum. The entry watchdog is ten
+seconds after batch admission; each agent retains the shared run budget. A model
+that does not issue the instructed single two-call batch fails the profile without
+exercising its concurrency oracle. This demonstrates local overlap, not inference
+speedup. LiveMultiModel appends this primary-model profile as a fifteenth receipt.
 
 From the repository root, run `sbt "examples / test"` for offline example contracts and `sbt "examples / compile"` to compile the applications. Run `sbt verify` for repository formatting checks, fatal-warning compilation, and tests. These commands make no live-provider requests. Actual PostgreSQL verification and native alias fixtures have separate [verification prerequisites](../../verification/README.md); skipped fixture scenarios are not backend or platform verification. These examples are not published library artifacts. [Packaged consumer and candidate preparation](../../verification/README.md#packaged-external-consumer) are separate from running an example and do not sign or publish a release. Remaining library and host integration work is tracked in the [repository tracker](../../docs/architecture/tracker.md).
 

@@ -2,6 +2,7 @@
 package com.weisgnosis.agents.examples
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
+import com.weisgnosis.agents.core.agent.ToolExecution
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.Msg
@@ -187,4 +188,78 @@ object LiveMultiModelSpec extends ZIOSpecDefault:
         unavailable.status == LiveMultiModel.Status.Unavailable,
         cancelled.isInterrupted
       )).provideSomeLayer[Scope](Client.default ++ Server.defaultWithPort(0))
+    ,
+    test(
+      "live evidence fixture verifies parallel overlap, sequential release and rejects unexercised or wrong tasks"
+    ):
+      val calls: TurnOutput = TurnOutput.ToolCalls(
+        Msg.assistant(
+          Chunk(
+            ContentBlock.ToolUse("right", "evidence_right", Json.Obj()),
+            ContentBlock.ToolUse("left", "evidence_left", Json.Obj())
+          )
+        )
+      )
+      for
+        requests <- Ref.make(Chunk.empty[Chunk[Msg]])
+        client = inspecting((history, _) =>
+          requests
+            .update(_ :+ history)
+            .as(
+              if history.flatMap(_.toolResults).isEmpty then calls
+              else TurnOutput.FinalText(Msg.assistant("{\"sum\":37}"))
+            )
+        )
+        verified <- ZIO.foreach(Chunk(ToolExecution.Sequential, ToolExecution.Parallel))(mode =>
+          LiveParallelTools.exerciseMode(client, LlmConfig("primary"), mode)
+        )
+        observed <- requests.get
+        missing <- LiveParallelTools
+          .exerciseMode(
+            inspecting((_, _) => ZIO.succeed(TurnOutput.FinalText(Msg.assistant("{\"sum\":37}")))),
+            LlmConfig("primary"),
+            ToolExecution.Parallel
+          )
+          .either
+        wrong <- LiveParallelTools
+          .exerciseMode(
+            inspecting((history, _) =>
+              ZIO.succeed(
+                if history.flatMap(_.toolResults).isEmpty then calls
+                else TurnOutput.FinalText(Msg.assistant("{\"sum\":38}"))
+              )
+            ),
+            LlmConfig("primary"),
+            ToolExecution.Parallel
+          )
+          .either
+        continuing <- Promise.make[Nothing, Unit]
+        cancelled <- ZIO.scoped:
+          for
+            running <- LiveParallelTools
+              .exerciseMode(
+                inspecting((history, _) =>
+                  if history.flatMap(_.toolResults).isEmpty then ZIO.succeed(calls)
+                  else continuing.succeed(()) *> ZIO.never
+                ),
+                LlmConfig("primary"),
+                ToolExecution.Parallel
+              )
+              .forkScoped
+            _    <- continuing.await
+            exit <- running.interrupt
+          yield exit
+      yield assertTrue(
+        verified.map(_.peakActive) == Chunk(1, 2),
+        verified.forall(_.releasedTools == 2),
+        observed.size == 4,
+        observed
+          .filter(_.flatMap(_.toolResults).nonEmpty)
+          .forall(history =>
+            history.flatMap(_.toolResults).map(_.outputText).toSet == Set("17", "20")
+          ),
+        missing.left.exists(_.isInstanceOf[AgentError.ReasoningHookError]),
+        wrong.left.exists(_.isInstanceOf[AgentError.InvalidMessage]),
+        cancelled.isInterrupted
+      )
   ) @@ TestAspect.timeout(30.seconds) @@ TestAspect.withLiveClock

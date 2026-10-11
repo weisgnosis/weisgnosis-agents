@@ -120,14 +120,16 @@ voluntarily obeys its prompt. Relevant contracts: INV-1, INV-7, INV-9 and INV-10
 
 ### E2: Parallel tool execution
 
-**Extension required.** Ask the live model to issue independent evidence reads in
+**Executable:** [LiveParallelTools](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveParallelTools.scala).
+Ask the live model to issue independent evidence reads in
 one assistant batch. Mark fixture reads concurrency-safe and select
 ToolExecution.Parallel. Configuration alone does not grant concurrency safety.
 
 Two read tools signal entry and await a host-controlled release. Before releasing
 either, require both entry signals under a bounded watchdog, active count two and
 the assistant calls already present in canonical history. Release both and require
-one matching result per call occurrence, the exact blocked-release answer and zero
+one matching result per call occurrence, the exact `{"sum":37}` answer from the
+fixed observations 17 and 20, and zero
 active tools after joined completion. This proves overlap and INV-1 without
 using a guessed time threshold.
 
@@ -135,8 +137,9 @@ Use the same live task in Sequential mode as a control, releasing each tool afte
 its own entry and requiring peak active count one. Do not reuse the two-entry
 release barrier: it would deadlock sequential execution. If the model never emits
 one multi-call batch, report that parallel execution was not exercised; do not
-invent a speedup or label it a runtime scheduling failure. Separate model latency
-from each tool's start/end and aggregate local-tool time.
+invent a speedup or label it a runtime scheduling failure. The selected profile
+fails its required-batch task in that case; its concurrency oracle was not
+exercised. This executable measures peak local activity, not latency or speedup.
 
 ### E3: Cancel a partially completed batch and reuse the agent
 
