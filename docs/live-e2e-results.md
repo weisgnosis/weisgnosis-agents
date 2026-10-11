@@ -1,127 +1,117 @@
 # Selected real-model E2E results
 
-These are actual gateway runs on 2026-10-11, not offline tests or a Python
-benchmark. The [scenario design](live-e2e-scenarios.md) describes the broader
-campaign; passing this baseline does not complete its proposed extensions.
+These are actual bots gateway runs on 2026-10-11. They exercise the current
+library through its public streaming, tool, coordination and interruption APIs.
+The [scenario design](live-e2e-scenarios.md) and [tracker](architecture/tracker.md)
+separate executed contracts from remaining live extensions.
 
-The separate [live framework comparison](live-runtime-comparison.md) records
-48 actual Python AgentScope/Scala attempts on two models, ordinary task timing,
-local scheduling and repeated parent interruption with continuation. Its failed
-profiles remain visible; it does not establish a universal speed advantage.
+## Execution conditions and reproduction
 
-## Execution conditions
-
-The authenticated bots gateway catalog selected `qwen3.8-27b`,
-`lfm2.5-1.2b-instruct-mlx` and `lfm2.5-2.6b-mlx`. All requests used
+The authenticated catalog selected `qwen3.8-27b` and `lfm2.5-2.6b-mlx` by their
+chat capability and availability. Requests used
 `https://bots.weisgnosis.ru/api/v1/chat/completions`, process-local credentials,
-4,096 output tokens and a 180-second per-agent budget. Joined cleanup can extend
-that deadline. The executable was
-[LiveMultiModel](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveMultiModel.scala)
-at source revision `6b8f395`. Scenarios ran sequentially, without retrying an
-admitted model turn or tool.
+4,096 output tokens and a 300-second per-agent budget. Responses are bounded to
+one MiB. Joined cleanup can extend a deadline. Scenarios ran sequentially;
+admitted model turns and tools were not retried to obtain a passing receipt.
 
-Run with the documented enabled environment:
+The fifteen-scenario matrix used
+[LiveMultiModel](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveMultiModel.scala)
+with the library baseline `81c5d46`. Select the primary and peer through
+`WEISGNOSIS_LIVE_MODEL` and `WEISGNOSIS_LIVE_PEER_MODEL`, using the documented
+[enabled live environment](../modules/examples/README.md#live-endpoint-verification):
 
 ```text
 sbt "examples / runMain com.weisgnosis.agents.examples.LiveMultiModel"
 ```
 
-Every selected attempt emitted all fourteen scenario receipts. All four sbt
-process invocations returned zero, including invocations containing failed
-profiles. Acceptance therefore uses individual receipts, not process exit.
+Every scenario emitted a receipt: **12 Passed and 3 Failed**, with no Unsupported,
+Unavailable or NotRun cells. The process returned zero even with failed profiles;
+acceptance uses the individual assertions, never process exit alone.
 
-## Repeated baseline
+## Single-agent profiles
 
-Three repetitions selected Qwen as primary and the 1.2B instruction model as
-peer. Each produced eleven Passed and three Failed receipts: **33 of 42 passed**.
-Failures were retained; no selected cell was unavailable, unsupported or skipped.
+Each cell below is one selected attempt, not a repeated reliability measurement.
 
-| Model profile | Qwen 27B | LFM instruction 1.2B |
-| --- | --- | --- |
-| Streamed text and local-tool continuation | Passed 3/3 | Failed 3/3 |
-| Exact disposable-file write/read and cleanup | Passed 3/3 | Failed 3/3 |
-| Native structured `{"value":7}` | Failed 3/3 | Passed 3/3 |
-| Synthetic structured `{"value":7}` | Passed 3/3 | Passed 3/3 |
-| Joined local-tool cancellation and recovery | Passed 3/3 | Passed 3/3 |
-
-| Collaboration/failure profile | Selection | Result |
-| --- | --- | --- |
-| Persistent same-model MsgHub | Qwen/Qwen | Passed 3/3 |
-| Persistent mixed-model MsgHub | Qwen/LFM instruction | Passed 3/3 |
-| Owned parent/tool/child/parent chain | Qwen parent, LFM instruction child | Passed 3/3 |
-| Definite HTTP rejection and fallback | Owned loopback HTTP 503, then Qwen | Passed 3/3 |
-
-## Exploratory reasoning-model selection
-
-One additional matrix selected LFM reasoning 2.6B as primary and Qwen as peer:
-**12 of 14 passed**. This is one attempt, not a repeated reliability measurement.
-
-| Model profile | LFM reasoning 2.6B | Qwen 27B |
+| Profile | Qwen 27B | LFM reasoning 2.6B |
 | --- | --- | --- |
 | Streamed text and local-tool continuation | Passed | Passed |
 | Exact disposable-file write/read and cleanup | Passed | Passed |
 | Native structured `{"value":7}` | Failed | Failed |
-| Synthetic structured `{"value":7}` | Passed | Passed |
+| Synthetic structured `{"value":7}` | Passed | Failed |
 | Joined local-tool cancellation and recovery | Passed | Passed |
 
-Same-model LFM reasoning hub, mixed LFM reasoning/Qwen hub, LFM reasoning
-parent/Qwen child and definite rejection followed by LFM reasoning all passed.
-Across the four matrices, **45 of 56 scenario attempts passed and 11 failed**.
-These heterogeneous scenario counts are not a project-completion percentage.
+Failed profiles remain Failed. Their sanitized receipts do not capture the
+underlying cause, so they do not distinguish model instruction following, native
+formatting, gateway behavior or runtime behavior. These native/synthetic
+structured profiles are not accepted for the failed model selections. Synthetic
+success does not establish native structured-format compatibility.
 
-## Local-tool concurrency control
+## Collaboration and controlled failure
 
-The separately executed
-[LiveParallelTools](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveParallelTools.scala)
-adds one paired Sequential/Parallel task after the frozen baseline. Each of three
-selected models was attempted once with the same token/run budgets:
-
-| Selection | Paired profile | Accepted measurements |
+| Profile | Selection | Result |
 | --- | --- | --- |
-| Qwen 27B | Passed | Sequential peak 1; Parallel peak 2; exact sum 37 |
-| LFM reasoning 2.6B | Failed | No accepted paired result |
-| LFM instruction 1.2B | Failed | No accepted paired result |
+| Persistent same-model MsgHub | Qwen/Qwen | Passed |
+| Persistent mixed-model MsgHub | Qwen/LFM reasoning | Passed |
+| Owned parent/tool/child/parent chain | Qwen parent, LFM reasoning child | Passed |
+| Definite HTTP rejection and fallback | Owned loopback HTTP 503, then Qwen | Passed |
+| Paired Sequential/Parallel local evidence task | Qwen | Passed |
 
-Qwen emitted the explicit success message after both modes checked persisted
-calls, exact successful observations, complete history, zero active tools and
-joined local releases. Parallel tools cannot be released until both have entered;
-the sequential control releases each tool in model declaration order. This
-establishes actual local overlap on the selected live path without timing guesses.
-The LFM profiles did not satisfy all final assertions; these aggregate failures do
-not identify which assertion failed and are not accepted concurrency evidence.
-These three paired profiles are separate from the fourteen-cell baseline and
-have not been repeated. Current LiveMultiModel adds the new profile as a
-fifteenth receipt; the frozen baseline results above remain fourteen-cell runs.
+Hub assertions check sender attribution, private canonical histories and delivery
+across successive turns. The child profile checks actual owned child dispatch and
+its exact parent observation. The rejection fixture uses a local server before a
+real model request; it does not induce a failure on the public gateway.
 
-## What the checks establish
+The paired task checks persisted calls, exact successful observations, complete
+history, zero active tools and joined releases. Sequential execution requires
+peak activity one; Parallel requires peak activity two and exact sum 37. This
+establishes overlapping local tool execution, not faster model inference.
 
-- Selected real models requested tools, consumed observations and completed the
-  checked task through the library's actual streaming and ReAct path.
-- Cancellation profiles joined deliberately held local-tool cleanup, preserved
-  complete call/result history and generated one recovery message.
-- Hub profiles checked sender attribution, private canonical histories and
-  delivery across successive turns. The child profile checked an actual owned
-  child dispatch and its exact parent observation.
-- Failover profiles rejected one owned local HTTP request before using the real
-  selected model; the rejected request executed no tool.
+## E3: Cooperative interruption and same-runtime continuation
 
-Failed profiles remain Failed. Their sanitized receipt reports a scenario
-failure without a diagnostic cause; it does not establish whether the cause was
-model instruction following, native formatting, gateway behavior or runtime
-behavior. Synthetic success is not evidence that native structured output works.
+Run the current
+[LiveRuntimeComparison](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveRuntimeComparison.scala)
+with each explicitly selected model:
+
+```text
+sbt "examples / runMain com.weisgnosis.agents.examples.LiveRuntimeComparison cooperative-cancel"
+```
+
+Both selected attempts emitted `scenarioAccepted=true` and `state=Interrupted`.
+They require all of these receipt fields to be true:
+`callsPersistedBeforeEntry`, `completedResultPreserved`,
+`unfinishedOnlyReconciled`, `cancellationJoinedCleanup`,
+`interruptionPreserved`, `recoveryExactlyOnce`, `historyComplete` and
+`sameRuntimeContinuation`. Each recorded peak activity two and exactly one
+execution of each evidence tool. `expectedReply=false` is intentional: this
+first turn is interrupted, not a completed sum answer.
+
+| Selection | E3 result | Cancel/join ms | Continuation ms |
+| --- | --- | ---: | ---: |
+| Qwen 27B | Passed | 31.1084 | 4536.4528 |
+| LFM reasoning 2.6B | Passed | 25.4736 | 11891.4648 |
+
+The fixture waits for committed left result 17 and an active right tool before
+signaling `runtime.interrupt`. While right cleanup is held, cancellation cannot
+return. After release, the completed result survives, only the unfinished call
+receives Error, and one exact recovery assistant is retained. The same agent
+then completes a READY turn without changing prior tool results, recovery or
+execution counts. Timing describes these controlled local waits and selected
+provider runs; it is not a throughput or language benchmark.
+
+Cooperative interruption requires successful stream delivery of the runtime's
+Interrupted result. The separately verified parent-fiber scenario requires an
+interrupted Exit and repeated cancellation; its
+[existing framework comparison](live-runtime-comparison.md) remains distinct.
 
 ## Remaining evidence and claim limits
 
-The baseline does not establish simultaneous tool entry; the separate Qwen
-profile above supplies that evidence. Neither establishes partial-completion
-cancellation with same-runtime continuation, busy-recipient queue flushing,
-useful Pipeline collaboration, permission checkpoint restoration, large-output
-retrieval/compaction or cancellation during an active HTTP response. Those
-extensions remain unchecked in the [tracker](architecture/tracker.md).
+This run does not establish the full E1 evidence/report task over HTTP MCP,
+permission checkpoint restoration, busy-recipient queue flushing, useful ordered
+Pipeline collaboration, live oversized-output retrieval/compaction or
+cancellation during an active HTTP response. Those remain unchecked in the
+tracker. Local tool cancellation does not prove that remote inference stops.
 
-No matched Python implementation or benchmark was run. Comparative superiority,
-speedup and universal provider compatibility are not supported claims. Process
-timings include sbt/JVM startup and model loading, so they are not inference
-latency measurements. Token usage, cache hits and cost were not measured.
-Gateway checks do not verify native Anthropic or Gemini endpoints. Credentials
-and raw request/response logs are excluded from public documentation.
+The gateway is OpenAI-compatible. It does not verify native Anthropic or Gemini
+wire protocols, hosted search/execution, realtime WebSockets or every model
+profile. No Python comparison was rerun here; universal compatibility, language
+superiority and inference speedup are not supported claims.

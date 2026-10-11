@@ -94,7 +94,7 @@ sbt "examples / runMain com.weisgnosis.agents.examples.LiveMultiModel"
 
 The runner uses the token/deadline budgets below and schedules scenarios sequentially. It never automatically retries an admitted model turn or tool. Each scenario immediately prints a JSON result: Passed, Failed, Unsupported, Unavailable or NotRun. Require the individual assertions and receipts; process exit alone is not acceptance. Missing peer selection leaves mixed-model/independent-child scenarios NotRun. Cancellation and defects propagate instead of becoming successful reports.
 
-The [current live results](../../docs/live-e2e-results.md) retain every selected attempt, including failed profiles. Three repeated Qwen/instruction-model matrices passed 33 of 42 scenario attempts; one exploratory reasoning-model/Qwen matrix passed 12 of 14. These checks establish selected live tool, file, structured-output, local cancellation, persistent-hub, child and definite-rejection behavior. They do not establish every model profile, simultaneous tool execution or superiority over another language.
+The [current live results](../../docs/live-e2e-results.md) retain all fifteen receipts from the selected Qwen/reasoning-LFM matrix: twelve Passed and three Failed. Selected tool/file flows, local cancellation, persistent hubs, the child chain, definite rejection and paired local overlap passed. Native structured output failed on both models; synthetic structured output failed on LFM. These checks do not establish every model profile or superiority over another language.
 
 ## Verification and acceptance
 
@@ -113,7 +113,15 @@ AgentScope on a common gateway. Run
 with the enabled environment, or select `text`, `sequential` or `cancel`.
 [Results and reproduction](../../docs/live-runtime-comparison.md) distinguish
 ordinary turn timing from local scheduling, cancellation and continuation.
-The live cooperative-interruption E3 arm remains open.
+Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveRuntimeComparison cooperative-cancel"`
+with the enabled environment to check E3 separately. It signals `runtime.interrupt`
+after one local result is committed while its sibling is still active, holds cleanup,
+then requires an Interrupted result and successful same-runtime continuation with
+unchanged prior observations and execution counts. This arm passed once on each
+selected Qwen/reasoning-LFM model; [current receipts](../../docs/live-e2e-results.md#e3-cooperative-interruption-and-same-runtime-continuation)
+state the exact assertions. It is a Scala runtime check, not a new Python comparison.
+Parent `cancel` still checks an interrupted Exit with repeated fiber interruption;
+`interruptionPreserved` validates the selected interruption contract in each receipt.
 
 [LiveParallelTools](src/main/scala/com/weisgnosis/agents/examples/LiveParallelTools.scala)
 runs the same real-model two-read task in Sequential and Parallel modes. With the

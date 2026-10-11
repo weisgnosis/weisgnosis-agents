@@ -20,8 +20,15 @@ import zio.json.ast.Json
 /** Explicitly enabled, matched public-runtime observations; inference timing is provider-dependent. */
 object LiveRuntimeComparison extends ZIOAppDefault:
   private[examples] enum Scenario:
-    case Text, Sequential, Parallel, Cancel
+    case Text, Sequential, Parallel, Cancel, CooperativeCancel
 
+    def cancels: Boolean = this == Cancel || this == CooperativeCancel
+
+    def label: String = this match
+      case CooperativeCancel => "cooperative-cancel"
+      case _                 => toString.toLowerCase
+
+  /** interruptionPreserved checks the selected contract: parent interruption or delivered cooperative result. */
   final private[examples] case class Receipt(
       implementation: String,
       scenario: String,
@@ -86,7 +93,7 @@ object LiveRuntimeComparison extends ZIOAppDefault:
                 ZIO.foreachDiscard(scenarios)(scenario =>
                   exercise(
                     client,
-                    config.copy(maxTokens = Some(4096), temperature = 0, parallelToolCalls = None),
+                    config.copy(temperature = 0, parallelToolCalls = None),
                     scenario,
                     timeout
                   )
@@ -98,14 +105,15 @@ object LiveRuntimeComparison extends ZIOAppDefault:
       yield ()
 
   private def parseScenario(value: String): IO[AgentError, Scenario] = value match
-    case "text"       => ZIO.succeed(Scenario.Text)
-    case "sequential" => ZIO.succeed(Scenario.Sequential)
-    case "parallel"   => ZIO.succeed(Scenario.Parallel)
-    case "cancel"     => ZIO.succeed(Scenario.Cancel)
+    case "text"               => ZIO.succeed(Scenario.Text)
+    case "sequential"         => ZIO.succeed(Scenario.Sequential)
+    case "parallel"           => ZIO.succeed(Scenario.Parallel)
+    case "cancel"             => ZIO.succeed(Scenario.Cancel)
+    case "cooperative-cancel" => ZIO.succeed(Scenario.CooperativeCancel)
     case _ =>
       ZIO.fail(
         AgentError.InvalidConfiguration(
-          "Comparison scenario must be text, sequential, parallel or cancel"
+          "Comparison scenario must be text, sequential, parallel, cancel or cooperative-cancel"
         )
       )
 
@@ -161,7 +169,7 @@ object LiveRuntimeComparison extends ZIOAppDefault:
                   )
                 )
             )(_ =>
-              (if scenario == Scenario.Cancel && name == "evidence_right" then
+              (if scenario.cancels && name == "evidence_right" then
                  cleanupEntered.succeed(()) *> releaseCleanup.await *> cleaned.set(true)
                else ZIO.unit) *>
                 Clock.nanoTime.flatMap(now =>
@@ -173,7 +181,7 @@ object LiveRuntimeComparison extends ZIOAppDefault:
                   )
                 )
             )(_ =>
-              if scenario == Scenario.Cancel && name == "evidence_right" then
+              if scenario.cancels && name == "evidence_right" then
                 rightEntered.succeed(()) *> ZIO.never
               else ZIO.sleep(500.millis).as(if name == "evidence_left" then "17" else "20")
             )
@@ -214,7 +222,7 @@ object LiveRuntimeComparison extends ZIOAppDefault:
         )
         .localToolResultObserver(
           LocalToolResultObserver(observation =>
-            if scenario == Scenario.Cancel && observation.call.name == "evidence_left" then
+            if scenario.cancels && observation.call.name == "evidence_left" then
               ZIO
                 .fail(AgentError.CompletionObservationError("Completed evidence was not persisted"))
                 .unless(
@@ -246,7 +254,7 @@ object LiveRuntimeComparison extends ZIOAppDefault:
           ).forkScoped
           _ <- ZIO.addFinalizer(releaseCleanup.succeed(()).unit)
         yield worker
-      completion <- (if scenario == Scenario.Cancel then
+      completion <- (if scenario.cancels then
                        for
                          gate <- (committed.await *> rightEntered.await).raceEither(running.await)
                          _ <- gate match
@@ -260,13 +268,19 @@ object LiveRuntimeComparison extends ZIOAppDefault:
                          _             <- cancellationAt.set(Some(cancelStarted))
                          stopping <- ZIO.uninterruptibleMask: restore =>
                            for
-                             worker <- restore(running.interrupt).forkScoped
-                             _      <- ZIO.addFinalizer(releaseCleanup.succeed(()).unit)
+                             worker <- restore(
+                               if scenario == Scenario.CooperativeCancel then
+                                 runtime.interrupt *> running.await
+                               else running.interrupt
+                             ).forkScoped
+                             _ <- ZIO.addFinalizer(releaseCleanup.succeed(()).unit)
                            yield worker
-                         _       <- cleanupEntered.await
-                         early   <- stopping.poll
-                         _       <- ZIO.fiberId.flatMap(running.interruptAsFork)
-                         _       <- ZIO.sleep(100.millis)
+                         _     <- cleanupEntered.await
+                         early <- stopping.poll
+                         _ <-
+                           if scenario == Scenario.Cancel then
+                             ZIO.fiberId.flatMap(running.interruptAsFork) *> ZIO.sleep(100.millis)
+                           else ZIO.unit
                          _       <- releaseCleanup.succeed(())
                          exit    <- stopping.join
                          joined  <- Clock.nanoTime
@@ -305,11 +319,16 @@ object LiveRuntimeComparison extends ZIOAppDefault:
         )
       recovered = recoveries.size == 1 && recoveries.forall(_.text == recovery)
       joined    = completion.toEither.toOption.exists(_._3) && observed.active == 0
-      interrupted = completion.toEither.toOption.exists(
-        _._1.causeOption.exists(cause =>
-          cause.isInterrupted && cause.failures.isEmpty && cause.defects.isEmpty
-        )
-      )
+      interrupted =
+        if scenario == Scenario.CooperativeCancel then
+          completion.toEither.toOption.exists(_._1.isSuccess) &&
+          output.exists(_.state == AgentRunState.Interrupted)
+        else
+          completion.toEither.toOption.exists(
+            _._1.causeOption.exists(cause =>
+              cause.isInterrupted && cause.failures.isEmpty && cause.defects.isEmpty
+            )
+          )
       complete   = ToolHistory.inspect(history).isComplete
       successful = completion.toEither.toOption.exists(_._1.isSuccess)
       exact = output.exists(value =>
@@ -318,7 +337,7 @@ object LiveRuntimeComparison extends ZIOAppDefault:
                                                                             else "37")
       )
       continuation <-
-        if scenario == Scenario.Cancel && interrupted then
+        if scenario.cancels && interrupted then
           for
             begin     <- Clock.nanoTime
             continued <- runtime.run(Msg.user("Reply with exactly READY.")).exit
@@ -337,7 +356,7 @@ object LiveRuntimeComparison extends ZIOAppDefault:
           )
         else ZIO.succeed((Option.empty[Boolean], Option.empty[Double]))
       expected =
-        if scenario == Scenario.Cancel then
+        if scenario.cancels then
           interrupted && joined && preserved && reconciled && recovered && complete && observed.persisted && observed.peak == 2 && continuation._1
             .contains(true)
         else
@@ -361,7 +380,7 @@ object LiveRuntimeComparison extends ZIOAppDefault:
         else
           Some(
             if completion.causeOption.exists(_.isInterrupted) then "interrupted"
-            else if !successful && scenario != Scenario.Cancel then
+            else if !successful && !scenario.cancels then
               completion.causeOption
                 .orElse(completion.toEither.toOption.flatMap(_._1.causeOption))
                 .flatMap(_.failureOption)
@@ -375,7 +394,7 @@ object LiveRuntimeComparison extends ZIOAppDefault:
           )
     yield Receipt(
       "scala-zio-react",
-      scenario.toString.toLowerCase,
+      scenario.label,
       config.model,
       visible.map(now => millis(now - started)),
       millis(finished - started),

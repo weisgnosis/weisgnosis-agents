@@ -267,7 +267,7 @@ object LiveMultiModelSpec extends ZIOSpecDefault:
       SyntheticRuntimeComparison.exercise.map(receipt => assertTrue(receipt.allPassed))
     ,
     test(
-      "matched live runner checks complete tasks and cancellation without accepting a missing tool batch"
+      "matched live runner checks parent and cooperative cancellation without accepting a missing tool batch"
     ):
       val calls: TurnOutput = TurnOutput.ToolCalls(
         Msg.assistant(
@@ -291,16 +291,24 @@ object LiveMultiModelSpec extends ZIOSpecDefault:
             LiveRuntimeComparison.Scenario.Text,
             LiveRuntimeComparison.Scenario.Sequential,
             LiveRuntimeComparison.Scenario.Parallel,
-            LiveRuntimeComparison.Scenario.Cancel
+            LiveRuntimeComparison.Scenario.Cancel,
+            LiveRuntimeComparison.Scenario.CooperativeCancel
           )
         )(scenario =>
           LiveRuntimeComparison.exercise(client, LlmConfig("fixture"), scenario, 5.seconds)
         )
-        missing <- LiveRuntimeComparison.exercise(
-          inspecting((_, _) => ZIO.succeed(TurnOutput.FinalText(Msg.assistant("37")))),
-          LlmConfig("fixture"),
-          LiveRuntimeComparison.Scenario.Cancel,
-          5.seconds
+        missing <- ZIO.foreach(
+          Chunk(
+            LiveRuntimeComparison.Scenario.Cancel,
+            LiveRuntimeComparison.Scenario.CooperativeCancel
+          )
+        )(scenario =>
+          LiveRuntimeComparison.exercise(
+            inspecting((_, _) => ZIO.succeed(TurnOutput.FinalText(Msg.assistant("37")))),
+            LlmConfig("fixture"),
+            scenario,
+            5.seconds
+          )
         )
         missingOrdinary <- LiveRuntimeComparison.exercise(
           inspecting((_, _) => ZIO.succeed(TurnOutput.FinalText(Msg.assistant("37")))),
@@ -310,13 +318,24 @@ object LiveMultiModelSpec extends ZIOSpecDefault:
         )
       yield assertTrue(
         receipts.forall(_.scenarioAccepted),
-        receipts.map(_.peakActive) == Chunk(0, 1, 2, 2),
+        receipts.map(_.peakActive) == Chunk(0, 1, 2, 2, 2),
         receipts.drop(1).take(2).forall(_.toolPhaseMillis.exists(_ >= 500)),
-        receipts.lastOption.exists(_.sameRuntimeContinuation.contains(true)),
-        !missing.scenarioAccepted,
-        missing.executions.isEmpty,
-        missing.callsPersistedBeforeEntry.isEmpty,
-        missing.cancellationJoinedCleanup.isEmpty,
+        receipts
+          .takeRight(2)
+          .forall(receipt =>
+            receipt.state == "Interrupted" && receipt.interruptionPreserved.contains(true) &&
+              receipt.cancellationJoinedCleanup.contains(true) && receipt.completedResultPreserved
+                .contains(true) &&
+              receipt.unfinishedOnlyReconciled.contains(true) && receipt.recoveryExactlyOnce
+                .contains(true) &&
+              receipt.sameRuntimeContinuation.contains(true)
+          ),
+        receipts.lastOption.exists(_.scenario == "cooperative-cancel"),
+        missing.forall(receipt =>
+          !receipt.scenarioAccepted && receipt.executions.isEmpty &&
+            receipt.callsPersistedBeforeEntry.isEmpty && receipt.cancellationJoinedCleanup.isEmpty &&
+            receipt.interruptionPreserved.isEmpty
+        ),
         missingOrdinary.failureCategory.contains("model_batch_contract")
       )
   ) @@ TestAspect.timeout(30.seconds) @@ TestAspect.withLiveClock
