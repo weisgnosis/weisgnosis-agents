@@ -15,6 +15,8 @@
  */
 package com.weisgnosis.agents.core.agent
 
+import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
+import com.weisgnosis.agents.core.model.Msg
 import zio.*
 import zio.json.*
 import zio.test.*
@@ -38,5 +40,31 @@ object AgentConfigSpec extends ZIOSpecDefault:
     test("a missing model client cannot create a production agent") {
       for result <- ReActAgent.builder().build.either
       yield assertTrue(result.isLeft)
+    },
+    test("builder accepts complete configuration and validates fluent retry overrides") {
+      val config = AgentConfig(
+        name = "configured",
+        description = "Configured agent",
+        systemPrompt = "Be concise",
+        maxIterations = 3,
+        timeout = 7.seconds,
+        emptyThinkingRetryLimit = 1,
+        toolExecution = ToolExecution.Sequential
+      )
+      for
+        client   <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant("done"))))
+        original <- ReActAgent.builder().client(client).config(config).build
+        refined <- ReActAgent
+          .builder()
+          .client(client)
+          .config(config)
+          .emptyThinkingRetryLimit(0)
+          .build
+        invalid <- ReActAgent.builder().client(client).emptyThinkingRetryLimit(-1).build.either
+      yield assertTrue(
+        original.config == config,
+        refined.config == config.copy(emptyThinkingRetryLimit = 0),
+        invalid.isLeft
+      )
     }
   )

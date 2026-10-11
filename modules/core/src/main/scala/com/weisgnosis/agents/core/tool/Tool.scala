@@ -99,7 +99,7 @@ object Tool:
   def fromFunction[In: JsonDecoder, Out: JsonEncoder](
       name: String,
       description: String,
-      schema: Json = Json.Obj(),
+      schema: Json,
       isReadOnly: Boolean = false,
       isConcurrencySafe: Boolean = true
   )(run: In => ZIO[Any, Throwable, Out]): Tool[Any, In, Out] =

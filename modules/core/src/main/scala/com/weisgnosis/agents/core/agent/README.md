@@ -1,5 +1,11 @@
 # ReAct execution and structured output
 
+## Agent construction and checked admission
+
+`ReActAgent.builder().config(config)` installs the full immutable `AgentConfig`; individual fluent setters refine it. `emptyThinkingRetryLimit(0)` disables thinking-only retries. `build` validates the final configuration through the same factory as `make`. Hook setters replace their selected slot; adapters must compose explicitly with the installed hook rather than supply a second set of defaults.
+
+The internal [ToolCallAdmission](ToolCallAdmission.scala) checks schemas, external arguments, approved input rewrites and scoped authorization. It owns no history, dispatch, event publication or completion state. The runtime still persists calls before execution and records/reconciles results by occurrence. This separation changes no authorization or cancellation contract.
+
 ## Passive peer context
 
 `recipient.observe(sender, messages)` receives data from an explicitly host-selected persistent runtime. It starts no model, tool or broadcast. Admission rejects active execution and suspended checkpoints immediately; it validates the complete batch before one atomic history append. Batches contain 1â€“64 messages and at most 1,000,000 encoded characters including attribution. Names must be nonblank and at most 256 characters. Nested peer observations are rejected.

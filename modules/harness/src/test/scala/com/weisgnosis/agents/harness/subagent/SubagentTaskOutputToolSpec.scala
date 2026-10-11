@@ -395,8 +395,8 @@ object SubagentTaskOutputToolSpec extends ZIOSpecDefault:
               .client(client)
               .toolkit(adapter.tools().updated(adapter.taskOutputTool))
               .toolResultProcessor(processor)
-              .maxIterations(1),
-            priorLocalToolResultObserver = prior
+              .maxIterations(1)
+              .localToolResultObserver(prior)
           )
           .build
         completed   <- agent.run(Msg.user("retrieve and persist output")).exit

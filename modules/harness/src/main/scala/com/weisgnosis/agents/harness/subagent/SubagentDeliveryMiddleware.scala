@@ -42,18 +42,30 @@ final class SubagentDeliveryMiddleware private (
   import SubagentDeliveryMiddleware.*
 
   /**
-   * Replace all four builder hook slots using the explicitly supplied prior hooks. Existing builder
-   * hooks are not inspected. Preparation and acceptance run after successful prior scoped cleanup;
+   * Compose all four installed builder hooks. Preparation and acceptance run after prior scoped cleanup;
    * completion releases matching ownership even when prior completion observation fails.
+   * Reapplying this adapter to its retained hook chain leaves the builder unchanged.
    */
   def configure(
-      builder: ReActAgent.Builder,
-      priorHistoryPreparer: HistoryPreparer = HistoryPreparer.identity,
-      priorModelResponseObserver: ModelResponseObserver = ModelResponseObserver.ignore,
-      priorCompletionObserver: TurnCompletionObserver = TurnCompletionObserver.ignore,
-      priorLocalToolResultObserver: LocalToolResultObserver = LocalToolResultObserver.ignore
+      builder: ReActAgent.Builder
   ): ReActAgent.Builder =
-    val preparer: HistoryPreparer = new HistoryPreparer:
+    val installedOwners: Set[SubagentDeliveryMiddleware] = builder.historyPreparer match
+      case installed: DeliveryPreparer => installed.owners
+      case _                           => Set.empty
+    if installedOwners.contains(this) then builder
+    else configureNew(builder, installedOwners)
+
+  private def configureNew(
+      builder: ReActAgent.Builder,
+      installedOwners: Set[SubagentDeliveryMiddleware]
+  ): ReActAgent.Builder =
+    val priorHistoryPreparer: HistoryPreparer                 = builder.historyPreparer
+    val priorModelResponseObserver: ModelResponseObserver     = builder.modelResponseObserver
+    val priorCompletionObserver: TurnCompletionObserver       = builder.completionObserver
+    val priorLocalToolResultObserver: LocalToolResultObserver = builder.localToolResultObserver
+    val preparer: HistoryPreparer = new DeliveryPreparer:
+      val owners: Set[SubagentDeliveryMiddleware] =
+        installedOwners + SubagentDeliveryMiddleware.this
       def prepare(history: Chunk[Msg]): ZIO[Scope, AgentError.HistoryPreparationError, Chunk[Msg]] =
         ZIO.fail(AgentError.HistoryPreparationError("Task delivery requires invocation context"))
       override def prepare(
@@ -442,6 +454,9 @@ final class SubagentDeliveryMiddleware private (
     ZIO.foreachDiscard(waitSession)(_.close) *> operations.withPermit(state.set(State.Closed))
 
 object SubagentDeliveryMiddleware:
+  private trait DeliveryPreparer extends HistoryPreparer:
+    def owners: Set[SubagentDeliveryMiddleware]
+
   private val maximumRecords: Int = 10
   private val closed: AgentError.InvalidConfiguration =
     AgentError.InvalidConfiguration("Task delivery adapter is closed")

@@ -125,6 +125,65 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
     history.filter(_.reminderKind.contains("task_delivery"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SubagentDeliveryMiddlewareSpec")(
+    test("delivery configuration preserves installed builder hooks and joins their scopes"):
+      ZIO
+        .foreach(Chunk(false, true)): interleaved =>
+          ZIO.scoped:
+            for
+              terminal <- store("installed-hooks")
+              owner    <- registry(terminal)
+              adapter  <- SubagentDeliveryMiddleware.make(owner)
+              another  <- SubagentDeliveryMiddleware.make(owner)
+              seen     <- Ref.make(Chunk.empty[String])
+              record = (name: String) =>
+                seen.update(_ :+ s"$name-enter") *>
+                  ZIO.addFinalizer(seen.update(_ :+ s"$name-close")).unit
+              client <- LlmClient.mock(
+                Chunk(
+                  TurnOutput.ToolCalls(
+                    Msg.assistant(Chunk(ContentBlock.ToolUse("read", "read", Json.Obj())))
+                  ),
+                  TurnOutput.FinalText(Msg.assistant("done"))
+                )
+              )
+              tool = Tool.make(ToolDef("read", "Read fixed evidence", Json.Obj()))(_ =>
+                ZIO.succeed("evidence")
+              )
+              builder = adapter
+                .configure(
+                  ReActAgent
+                    .builder()
+                    .client(client)
+                    .toolkit(Toolkit.single(tool))
+                    .historyPreparer(HistoryPreparer(history => record("history").as(history)))
+                    .modelResponseObserver(ModelResponseObserver(_ => record("response")))
+                    .localToolResultObserver(LocalToolResultObserver(_ => record("local")))
+                    .completionObserver(TurnCompletionObserver(_ => record("completion")))
+                )
+              composed = if interleaved then another.configure(builder) else builder
+              agent    <- adapter.configure(composed).build
+              result   <- agent.run(Msg.user("read")).timeout(2.seconds)
+              observed <- seen.get
+            yield assertTrue(
+              result.exists(_.state == AgentRunState.Completed),
+              result.exists(_.reply.text == "done"),
+              observed == Chunk(
+                "history-enter",
+                "history-close",
+                "response-enter",
+                "response-close",
+                "local-enter",
+                "local-close",
+                "history-enter",
+                "history-close",
+                "response-enter",
+                "response-close",
+                "completion-enter",
+                "completion-close"
+              )
+            )
+        .map(results => results.foldLeft(assertTrue(true))(_ && _))
+    ,
     test(
       "synthetic reminders preserve framing, escape bounded previews, aggregate ten observations and consume only seen records before fresh subsequent rounds"
     ):
@@ -300,9 +359,9 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
                           else ReasoningDecision.Keep
                         )
                       )
-                    ),
-                  priorModelResponseObserver = prior,
-                  priorCompletionObserver = completion
+                    )
+                    .modelResponseObserver(prior)
+                    .completionObserver(completion)
                 )
                 .build
               first              <- agent.run(Msg.user("first")).exit
@@ -485,8 +544,8 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
                           else ReasoningDecision.Keep
                         )
                       )
-                    ),
-                  priorLocalToolResultObserver = prior
+                    )
+                    .localToolResultObserver(prior)
                 )
                 .build
               first <- agent.run(Msg.user("inspect")).exit
@@ -503,8 +562,8 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
                               .builder()
                               .client(client)
                               .toolkit(restoredTools)
-                              .toolResultProcessor(processor),
-                            priorLocalToolResultObserver = prior
+                              .toolResultProcessor(processor)
+                              .localToolResultObserver(prior)
                           )
                           .build
                         _       <- restoredAgent.restore(saved)
@@ -625,8 +684,11 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
               )
               agent <- adapter
                 .configure(
-                  ReActAgent.builder().client(client).toolkit(toolkit),
-                  priorLocalToolResultObserver = prior
+                  ReActAgent
+                    .builder()
+                    .client(client)
+                    .toolkit(toolkit)
+                    .localToolResultObserver(prior)
                 )
                 .build
               worker <- ZIO.uninterruptibleMask: restore =>
@@ -693,7 +755,7 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
             )
           )
           agent <- adapter
-            .configure(ReActAgent.builder().client(client), priorModelResponseObserver = prior)
+            .configure(ReActAgent.builder().client(client).modelResponseObserver(prior))
             .build
           worker <- ZIO.uninterruptibleMask: restore =>
             for
@@ -800,10 +862,12 @@ object SubagentDeliveryMiddlewareSpec extends ZIOSpecDefault:
                 )
                 closeAgent <- closeAdapter
                   .configure(
-                    ReActAgent.builder().client(closeClient),
-                    priorHistory,
-                    priorAccepted,
-                    priorCompleted
+                    ReActAgent
+                      .builder()
+                      .client(closeClient)
+                      .historyPreparer(priorHistory)
+                      .modelResponseObserver(priorAccepted)
+                      .completionObserver(priorCompleted)
                   )
                   .build
                 active <- ZIO.uninterruptibleMask: restore =>

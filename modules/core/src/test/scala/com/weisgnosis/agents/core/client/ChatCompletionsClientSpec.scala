@@ -832,24 +832,91 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
         !events.exists(_.isInstanceOf[AgentEvent.TextBlockEndEvent])
       )
     ,
-    test("cooperative interruption closes HTTP resources without completed model events"):
+    test(
+      "interruption during completed response cleanup preserves received calls without dispatch"
+    )(
       ZIO.scoped:
         for
-          waiting  <- Promise.make[Nothing, Unit]
-          closed   <- Ref.make(false)
-          observed <- Ref.make(Chunk.empty[AgentEvent])
+          cleaning    <- Promise.make[Nothing, Unit]
+          interrupted <- Promise.make[Nothing, Unit]
+          release     <- Promise.make[Nothing, Unit]
+          closed      <- Ref.make(false)
+          executions  <- Ref.make(0)
+          client <- ChatCompletionsClient.make(
+            scripted(_ =>
+              ZIO
+                .addFinalizer(
+                  cleaning.succeed(()) *> ZIO.interruptible(ZIO.never).exit *>
+                    interrupted.succeed(()) *> release.await *> closed.set(true)
+                )
+                .as(
+                  response(ZStream.succeed(text + tool + done))
+                )
+            )
+          )
+          lookup = Tool.make(ToolDef("lookup", "Count dispatches", Json.Obj()))(_ =>
+            executions.update(_ + 1).as("unexpected execution")
+          )
+          agent <- ReActAgent.make(
+            client = client,
+            llmConfig = config,
+            toolkit = Toolkit.single(lookup)
+          )
+          fiber <- ZIO.uninterruptibleMask: restore =>
+            for
+              running <- restore(agent.run(Msg.user("q"))).forkScoped
+              _       <- ZIO.addFinalizer(release.succeed(()).unit)
+            yield running
+          _        <- cleaning.await
+          _        <- fiber.interruptFork
+          _        <- interrupted.await
+          _        <- release.succeed(())
+          exit     <- fiber.await
+          history  <- agent.history
+          released <- closed.get
+          count    <- executions.get
+        yield assertTrue(
+          exit.isInterrupted,
+          released,
+          count == 0,
+          history.exists(_.text == "answer"),
+          history.flatMap(_.toolUses).map(_.id) == Chunk("call-1"),
+          history.flatMap(_.toolResults).map(_.state) == Chunk(ToolResultState.Error),
+          history.count(
+            _.metadata.get(Msg.MetadataGenerateReason).contains(Json.Str("interrupted"))
+          ) == 1
+        )
+    ) @@ TestAspect.withLiveClock,
+    (test("cooperative interruption closes HTTP resources without completed model events"):
+      val partialCalls = frame(
+        """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"complete","function":{"name":"lookup","arguments":"{\"value\":1}"}},{"index":1,"id":"incomplete","function":{"name":"lookup","arguments":"{\"value\":"}}]}}]}"""
+      )
+      ZIO.scoped:
+        for
+          waiting    <- Promise.make[Nothing, Unit]
+          closed     <- Ref.make(false)
+          observed   <- Ref.make(Chunk.empty[AgentEvent])
+          executions <- Ref.make(0)
           client <- ChatCompletionsClient.make(
             scripted(_ =>
               ZIO
                 .addFinalizer(closed.set(true))
                 .as(
                   response(
-                    ZStream.succeed(text) ++ ZStream.fromZIO(waiting.succeed(()) *> ZIO.never)
+                    ZStream.succeed(text + partialCalls) ++ ZStream
+                      .fromZIO(waiting.succeed(()) *> ZIO.never)
                   )
                 )
             )
           )
-          agent <- ReActAgent.make(client = client, llmConfig = config)
+          lookup = Tool.make(ToolDef("lookup", "Count dispatches", Json.Obj()))(_ =>
+            executions.update(_ + 1).as("unexpected execution")
+          )
+          agent <- ReActAgent.make(
+            client = client,
+            llmConfig = config,
+            toolkit = Toolkit.single(lookup)
+          )
           fiber <- agent
             .streamEvents(Msg.user("q"))
             .tap(event => observed.update(_ :+ event))
@@ -859,8 +926,17 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
           _        <- agent.interrupt
           events   <- fiber.join
           released <- closed.get
+          history  <- agent.history
+          count    <- executions.get
+          calls   = history.flatMap(_.toolUses)
+          results = history.flatMap(_.toolResults)
         yield assertTrue(
           released,
+          count == 0,
+          calls.map(_.id) == Chunk("complete", "incomplete"),
+          calls.map(_.input) == Chunk(Json.Obj("value" -> Json.Num(1)), Json.Obj()),
+          calls.lastOption.exists(_.content.contains("{}")),
+          results.size == 2 && results.forall(_.state == ToolResultState.Error),
           !events.exists(_.isInstanceOf[AgentEvent.ModelResponseEndEvent]),
           !events.exists(_.isInstanceOf[AgentEvent.TextBlockEndEvent]),
           events
@@ -868,6 +944,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
             .exists(_.contains("interrupted")),
           events.lastOption.exists(_.isInstanceOf[AgentEvent.AgentEndEvent])
         )
+    ) @@ TestAspect.withLiveClock
   ) @@ TestAspect.timeout(20.seconds)
 
   private def frame(json: String): String = s"data: $json\n\n"

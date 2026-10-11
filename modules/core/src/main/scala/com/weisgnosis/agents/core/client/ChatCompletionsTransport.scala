@@ -19,7 +19,11 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolDef
-import java.net.URI
+import java.net.{ConnectException, SocketTimeoutException, URI, UnknownHostException}
+import java.net.http.HttpTimeoutException
+import java.nio.channels.UnresolvedAddressException
+import java.util.concurrent.TimeoutException
+import javax.net.ssl.SSLException
 import java.nio.charset.StandardCharsets
 import zio.*
 import zio.http.{Body, Client, Headers, Request, Response, URL}
@@ -172,7 +176,7 @@ final class ChatCompletionsTransport private (
         _ <- recordPartial(None)
         response <- ZIO.uninterruptibleMask: restore =>
           restore(Client.streaming(request).provideSomeEnvironment[Scope](_.add(http)))
-            .mapError(_ => AgentError.ModelError(0, "HTTP request failed"))
+            .mapError(error => transportFailure(0, "HTTP request failed", error))
         output <-
           if response.status.isSuccess then
             responseMode match
@@ -214,48 +218,58 @@ final class ChatCompletionsTransport private (
       case values if values.size == 1 =>
         values.headOption.exists(_.takeWhile(_ != ';').trim.equalsIgnoreCase("text/event-stream"))
       case _ => false
-    for
-      _ <- ZIO
-        .fail(AgentError.ModelError(status, "Expected a text/event-stream response"))
-        .unless(eventStream)
-      state <- bounded(response.body.asStream, status)
-        .via(SseParser.parseBytes)
-        .mapError {
-          case error: AgentError => error
-          case _ => AgentError.ModelError(status, "Failed to read a UTF-8 event stream")
-        }
-        .takeUntil(_.isDone)
-        .runFoldZIO[Scope, AgentError, ChatCompletionsTransport.StreamState](
-          ChatCompletionsTransport.StreamState.Reading(
-            StreamAccumulator.empty,
-            CompletionEnvelopeDecoder.initial(envelopeProfile, toolSignatureFormat, reasoningReplay)
-          )
-        ):
-          case (ChatCompletionsTransport.StreamState.Reading(accumulator, decoder), frame) =>
-            if frame.isDone then
-              ZIO
-                .fromEither(accumulator.toTurnOutput)
-                .map(ChatCompletionsTransport.StreamState.Completed(_))
-            else
-              for
-                decoded <- ZIO.fromEither(decoder.decode(frame.data, accumulator.completionReason))
-                (nextDecoder, deltas) = decoded
-                _ <- ZIO.fromEither(accumulate(accumulator, deltas))
-                transformed <- ZIO.foreach(deltas):
-                  case fragment: LlmChunk.TextDelta =>
-                    transformText(fragment).map(text => fragment.copy(delta = text))
-                  case other => ZIO.succeed(other)
-                next <- ZIO.fromEither(accumulate(accumulator, transformed))
-                _    <- recordPartial(Some(next.toInterrupted))
-                _    <- onFrame(frame.data, transformed)
-              yield ChatCompletionsTransport.StreamState.Reading(next, nextDecoder)
-          case (completed: ChatCompletionsTransport.StreamState.Completed, _) =>
-            ZIO.succeed(completed)
-      output <- state match
-        case ChatCompletionsTransport.StreamState.Completed(value) => ZIO.succeed(value)
-        case ChatCompletionsTransport.StreamState.Reading(_, _) =>
-          ZIO.fail(AgentError.ModelError(status, "Event stream ended before [DONE]"))
-    yield output
+    Ref
+      .make(StreamAccumulator.empty)
+      .flatMap: partial =>
+        (for
+          _ <- ZIO
+            .fail(AgentError.ModelError(status, "Expected a text/event-stream response"))
+            .unless(eventStream)
+          state <- bounded(response.body.asStream, status)
+            .via(SseParser.parseBytes)
+            .mapError {
+              case error: AgentError => error
+              case error => transportFailure(status, "Failed to read a UTF-8 event stream", error)
+            }
+            .takeUntil(_.isDone)
+            .runFoldZIO[Scope, AgentError, ChatCompletionsTransport.StreamState](
+              ChatCompletionsTransport.StreamState.Reading(
+                StreamAccumulator.empty,
+                CompletionEnvelopeDecoder
+                  .initial(envelopeProfile, toolSignatureFormat, reasoningReplay)
+              )
+            ):
+              case (ChatCompletionsTransport.StreamState.Reading(accumulator, decoder), frame) =>
+                if frame.isDone then
+                  ZIO
+                    .fromEither(accumulator.toTurnOutput)
+                    .map(ChatCompletionsTransport.StreamState.Completed(_))
+                else
+                  for
+                    decoded <- ZIO.fromEither(
+                      decoder.decode(frame.data, accumulator.completionReason)
+                    )
+                    (nextDecoder, deltas) = decoded
+                    validated <- ZIO.fromEither(accumulate(accumulator, deltas))
+                    transformed <- ZIO.foreach(deltas):
+                      case fragment: LlmChunk.TextDelta =>
+                        transformText(fragment).map(text => fragment.copy(delta = text))
+                      case other => ZIO.succeed(other)
+                    next <-
+                      if transformed == deltas then ZIO.succeed(validated)
+                      else ZIO.fromEither(accumulate(accumulator, transformed))
+                    _ <- partial.set(next)
+                    _ <- onFrame(frame.data, transformed)
+                  yield ChatCompletionsTransport.StreamState.Reading(next, nextDecoder)
+              case (completed: ChatCompletionsTransport.StreamState.Completed, _) =>
+                ZIO.succeed(completed)
+          output <- state match
+            case ChatCompletionsTransport.StreamState.Completed(value) => ZIO.succeed(value)
+            case ChatCompletionsTransport.StreamState.Reading(_, _) =>
+              ZIO.fail(AgentError.ModelError(status, "Event stream ended before [DONE]"))
+          _ <- recordPartial(Some(TurnOutput.Interrupted(output.message)))
+        yield output)
+          .onInterrupt(partial.get.flatMap(snapshot => recordPartial(Some(snapshot.toInterrupted))))
 
   private def consumeJson(
       response: Response,
@@ -276,7 +290,7 @@ final class ChatCompletionsTransport private (
         .via(ZPipeline.utf8Decode)
         .mapError:
           case error: AgentError => error
-          case _ => AgentError.ModelError(status, "Failed to read a UTF-8 JSON response")
+          case error => transportFailure(status, "Failed to read a UTF-8 JSON response", error)
         .runCollect
       raw = parts.mkString
       deltas <- ZIO.fromEither(
@@ -316,9 +330,11 @@ final class ChatCompletionsTransport private (
   private def reject(response: Response): IO[AttemptFailure, Nothing] =
     ZIO.uninterruptibleMask: restore =>
       restore(response.body.asStream.take(limits.errorBodyBytes.toLong).runCollect)
-        .mapError(_ =>
-          AgentError.ModelError(response.status.code, "Failed to read HTTP error response")
-        )
+        .mapError:
+          case _: AgentError =>
+            AgentError.ModelError(response.status.code, "Failed to read HTTP error response")
+          case error =>
+            transportFailure(response.status.code, "Failed to read HTTP error response", error)
         .flatMap(bytes =>
           ZIO.fail(
             HttpRejection(
@@ -335,6 +351,25 @@ object ChatCompletionsTransport:
   final private case class HttpRejection(error: AgentError.ModelError)
   private type AttemptFailure = AgentError | HttpRejection
   private val retryableStatuses = Set(429, 500, 502, 503, 504)
+
+  /** Bounded, type-only diagnostics: exception text and endpoint details never cross this boundary. */
+  private def transportFailure(
+      status: Int,
+      context: String,
+      error: Throwable
+  ): AgentError.ModelError =
+    @scala.annotation.tailrec
+    def category(current: Throwable, remaining: Int): String = current match
+      case _: UnknownHostException | _: UnresolvedAddressException                   => "dns"
+      case _: SSLException                                                           => "tls"
+      case _: ConnectException                                                       => "connection"
+      case _: SocketTimeoutException | _: HttpTimeoutException | _: TimeoutException => "timeout"
+      case _ if remaining > 0 =>
+        Option(current.getCause) match
+          case Some(cause) => category(cause, remaining - 1)
+          case None        => "other"
+      case _ => "other"
+    AgentError.ModelError(status, s"$context (${category(error, 7)})")
 
   private enum StreamState:
     case Reading(accumulator: StreamAccumulator, decoder: CompletionEnvelopeDecoder)

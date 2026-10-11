@@ -156,6 +156,19 @@ RAG, UI, collector hosting, distributed orchestration, external publication/CI s
 
 ## Immediate next work
 
+### Reviewed source quality contracts
+
+Current next task: complete the remaining E3 cooperative-interruption arm through a live model, signalling runtime.interrupt and joining the original run. Retain existing parent-interruption evidence and failed model profiles.
+
+- [x] **Q1:** delivery configuration composes the hooks already installed on the builder and joins their scoped cleanup; remove duplicate prior-hook configuration. [Delivery contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md) and [integration scenarios](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeliveryMiddlewareSpec.scala).
+- [x] **Q2:** typed tool factories require an explicit advertised input schema; migrate callers and retain schema/decoder admission coverage. [Factory migration](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md) and [tool admission scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/ToolExecutionSpec.scala).
+- [x] **Q3:** separate checked tool admission from the runtime coordinator without transferring history, dispatch, event or completion authority; preserve authorization and cancellation behavior. [Admission boundary](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/ToolCallAdmission.scala) and [authorization scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/agent/ReActAgentToolAuthorizerSpec.scala).
+- [x] **Q4:** fluent builder supports the complete AgentConfig and thinking retry limit, with named factory forwarding. [Configuration scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/agent/AgentConfigSpec.scala) and [external consumer](../../verification/artifact-consumer/README.md).
+- [x] **Q5:** accumulate argument fragments without copying the growing prefix and materialize recovery snapshots only when interrupted; preserve exact completion and sanitized incomplete arguments. [Fragment scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/StreamAccumulatorCompletionSpec.scala) and [HTTP cancellation scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala).
+- [x] **Q6:** expose bounded type-based transport failure categories without raw messages, credentials or endpoint details; preserve domain body failures and joined cancellation. [Transport scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala) and [diagnostic contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md).
+
+These contracts have focused integration, independent FP/ZIO and invariant review, full verification, current API documentation and fresh packaged-consumer evidence. This does not imply whole-repository certification or a measured speedup.
+
 - [x] **Local documentation artifacts:** package licensed Scaladoc JARs and descriptive POMs for all five libraries, validate archive admission, and run the fresh packaged consumer. This adds no SCM metadata, signing or remote publication.
 - [x] **Scaladoc toolchain diagnostic:** the isolated [documentation driver](../../verification/scaladoc-driver/README.md) supplies the pinned generator's classpath once without suppressing diagnostics or weakening source compilation. Focused generation, a visible invalid-option failure, five licensed documentation archives and fresh packaged consumption pass. Canonical verification also checks the nonpublished driver. Independent FP/ZIO and invariant review covers the build boundary; remove the adapter when the selected official generator contains the upstream fix.
 - [x] **Gemini local function calling:** local declarations, canonical indexed calls, grouped parallel results and exact native parts/signatures continue through the public HTTP client/ReAct/Toolkit path. Existing [Gemini scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/GeminiLlmClientSpec.scala) cover repeated IDs, Error observations, malformed input, truncation and joined cancellation while preserving exclusive hosted code execution. Independent FP/ZIO and invariant review, consolidated checks with actual PostgreSQL, five-module packaging and fresh consumption pass. This explicit P3 addition does not include native media, realtime or a live Gemini run.
@@ -166,10 +179,7 @@ The previously selected implementation outcomes above are complete. The newly re
 
 The [E2E scenario design](../live-e2e-scenarios.md) defines exact task results,
 runtime oracles, bounded model selection and limits on public claims. Existing
-executables and proposed extensions are explicitly separate. One current next
-task: complete the remaining E3 cooperative-interruption arm through a live
-model, signalling runtime.interrupt and joining the original run; retain the
-already verified parent-interruption behavior and failed model profiles.
+executables and proposed extensions are explicitly separate. The remaining E3 cooperative-interruption arm is the explicit next task above; already verified parent interruption and failed model profiles remain separate evidence.
 
 - [x] Design useful bots E2E scenarios and distinguish runtime guarantees from model/provider behavior and unmatched Python comparisons.
 - [x] **E0:** execute and retain a fresh selected-model baseline with every scenario receipt, including failures and unavailable profiles. The [actual results](../live-e2e-results.md) record three repeated matrices (33/42 passed) and one exploratory reasoning-model matrix (12/14 passed); all eleven failed attempts remain visible.

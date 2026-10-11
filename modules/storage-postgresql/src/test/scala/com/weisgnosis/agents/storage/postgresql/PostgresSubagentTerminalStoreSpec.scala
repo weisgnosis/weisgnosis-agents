@@ -937,18 +937,20 @@ object PostgresSubagentTerminalStoreSpec extends ZIOSpecDefault:
                     ReActAgent
                       .builder()
                       .client(consumptionClient)
-                      .toolkit(consumptionToolkit),
-                    priorLocalToolResultObserver = LocalToolResultObserver(observation =>
-                      ZIO
-                        .foreach(selectedRecords)(record =>
-                          consumptionReopened.acknowledgement(record.id)
+                      .toolkit(consumptionToolkit)
+                      .localToolResultObserver(
+                        LocalToolResultObserver(observation =>
+                          ZIO
+                            .foreach(selectedRecords)(record =>
+                              consumptionReopened.acknowledgement(record.id)
+                            )
+                            .flatMap(stamp =>
+                              consumptionBeforeStamp.set(stamp) *> consumptionSnapshots
+                                .update(_ :+ observation)
+                            )
+                            .mapError(error => AgentError.CompletionObservationError(error.message))
                         )
-                        .flatMap(stamp =>
-                          consumptionBeforeStamp.set(stamp) *> consumptionSnapshots
-                            .update(_ :+ observation)
-                        )
-                        .mapError(error => AgentError.CompletionObservationError(error.message))
-                    )
+                      )
                   )
                   .build
                 inspected <-

@@ -16,6 +16,7 @@
 package consumer
 
 import com.weisgnosis.agents.core.agent.{
+  AgentConfig,
   AgentRunState,
   ModelInputTransform,
   ReActAgent,
@@ -88,14 +89,12 @@ object ArtifactSmoke extends ZIOAppDefault:
   private def verifySchemaAdmission: IO[AgentError, Unit] =
     for
       executions <- Ref.make(0)
-      tool = Tool.make(
-        ToolDef(
-          "schema_probe",
-          "Packaged schema admission",
-          Json.Obj(
-            "type"    -> Json.Str("integer"),
-            "minimum" -> Json.Num(2)
-          )
+      tool = Tool.fromFunction[Json, String](
+        "schema_probe",
+        "Packaged schema admission",
+        schema = Json.Obj(
+          "type"    -> Json.Str("integer"),
+          "minimum" -> Json.Num(2)
         )
       )(_ => executions.update(_ + 1).as("accepted"))
       registry = Toolkit.single(tool)
@@ -317,6 +316,8 @@ object ArtifactSmoke extends ZIOAppDefault:
             client   <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant("traced"))))
             agent <- ReActAgent
               .builder()
+              .config(AgentConfig(emptyThinkingRetryLimit = 1))
+              .emptyThinkingRetryLimit(0)
               .model(client)
               .phaseObserver(adapter.phaseObserver)
               .completionObserver(adapter.completionObserver)
@@ -327,7 +328,7 @@ object ArtifactSmoke extends ZIOAppDefault:
             _ <- ZIO
               .fail(failure("Packaged telemetry integration failed"))
               .unless(
-                result.reply.text == "traced" && stats.operationFailures == 0
+                result.reply.text == "traced" && agent.config.emptyThinkingRetryLimit == 0 && stats.operationFailures == 0
               )
           yield ()).provideSomeLayer[Scope](zio.telemetry.opentelemetry.OpenTelemetry.contextZIO)
         )

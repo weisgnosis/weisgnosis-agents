@@ -81,6 +81,37 @@ object StreamAccumulatorCompletionSpec extends ZIOSpecDefault:
         acc.exists(_.toInterrupted.message.toolUses.exists(_.content.contains(raw)))
       )
     },
+    test("large one-character argument fragments preserve immutable interruption snapshots") {
+      val raw = "{\"value\":\"" + ("x" * 100000) + "\"}"
+      val partial = raw
+        .dropRight(2)
+        .iterator
+        .foldLeft[Either[AgentError, StreamAccumulator]](
+          assemble(call(""))
+        )((acc, character) =>
+          acc.flatMap(_.feed(LlmChunk.ToolCallChunk(0, argumentsDelta = character.toString)))
+        )
+      val completed = partial
+        .flatMap(_.feed(LlmChunk.ToolCallChunk(0, argumentsDelta = raw.takeRight(2))))
+        .flatMap(_.feed(LlmChunk.FinishReason("tool_calls")))
+      assertTrue(
+        completed
+          .flatMap(_.toTurnOutput)
+          .exists(
+            _.message.toolUses.exists(tool =>
+              tool.input == Json.Obj("value" -> Json.Str("x" * 100000)) && tool.content
+                .contains(raw)
+            )
+          ),
+        completed.exists(_.toInterrupted.message.toolUses.exists(_.content.contains(raw))),
+        partial.exists(acc =>
+          val tools = acc.toInterrupted.message.toolUses
+          tools.size == 1 && tools.forall(tool =>
+            tool.input == Json.Obj() && tool.content.contains("{}")
+          )
+        )
+      )
+    },
     test("identity can arrive after arguments but must be complete before dispatch") {
       val partial = assemble(LlmChunk.ToolCallChunk(0, argumentsDelta = "{}"))
       val completed = partial

@@ -133,7 +133,7 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
             )
         .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
-    test(
+    (test(
       "retries only selected HTTP rejection statuses with bounded attempts and original failures"
     ):
       for
@@ -228,7 +228,7 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
             case RetryExclusion.Acquisition =>
               assertTrue(
                 exit.causeOption
-                  .contains(Cause.fail(AgentError.ModelError(0, "HTTP request failed")))
+                  .contains(Cause.fail(AgentError.ModelError(0, "HTTP request failed (other)")))
               )
             case RetryExclusion.ErrorBody =>
               assertTrue(
@@ -254,8 +254,8 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
                 )
               ))
       yield (statuses ++ excluded).foldLeft(assertTrue(true))(_ && _)
-    ,
-    test("joins rejection cleanup before retry and preserves cancellation or cleanup defects"):
+    ) @@ TestAspect.withLiveClock,
+    (test("joins rejection cleanup before retry and preserves cancellation or cleanup defects"):
       for
         policy <- ZIO.fromEither(CompletionRetryPolicy.make(2))
         outcomes <- ZIO.foreach(Chunk.fromArray(RetryCleanup.values)): scenario =>
@@ -369,8 +369,12 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
                       .exists(cause => cause.defects == List(defect) && cause.failures.isEmpty)
                   ))).ensuring(release.succeed(()).unit)
             yield checked
+      yield outcomes.foldLeft(assertTrue(true))(_ && _)
+    ) @@ TestAspect.withLiveClock,
+    test("interrupts a registered retry sleep before its deterministic deadline"):
+      for
         delay <- ZIO.fromEither(CompletionRetryPolicy.make(2, 1.hour))
-        slept <- ZIO.scoped:
+        checked <- ZIO.scoped:
           for
             count  <- Ref.make(0)
             closed <- Promise.make[Nothing, Unit]
@@ -384,13 +388,25 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
               ),
               retryPolicy = delay
             )
-            fiber <- transport.complete(Chunk(Msg.user("q")), Chunk.empty, config).forkScoped
-            _     <- closed.await
-            _     <- (ZIO.yieldNow *> TestClock.sleeps).repeatUntil(_.nonEmpty)
-            exit  <- fiber.interrupt
-            sent  <- count.get
-          yield assertTrue(exit.isInterrupted, sent == 1)
-      yield outcomes.foldLeft(slept)(_ && _)
+            started <- Clock.instant
+            deadline = started.plus(1.hour)
+            fiber     <- transport.complete(Chunk(Msg.user("q")), Chunk.empty, config).forkScoped
+            _         <- closed.await
+            _         <- (ZIO.yieldNow *> TestClock.sleeps).repeatUntil(_.contains(deadline))
+            _         <- TestClock.adjust(1.second)
+            remaining <- TestClock.sleeps
+            before    <- count.get
+            pending   <- fiber.poll
+            exit      <- fiber.interrupt
+            sent      <- count.get
+          yield assertTrue(
+            remaining.contains(deadline),
+            before == 1,
+            pending.isEmpty,
+            exit.isInterrupted,
+            sent == 1
+          )
+      yield checked
     ,
     test("posts validated JSON and credentials only in headers"):
       for
@@ -543,6 +559,73 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
         released <- closed.get
       yield assertTrue(result.left.exists(_.message.contains("byte limit")), released)
     ,
+    test("reports bounded type-only transport categories through the public completion boundary"):
+      val secret = "https://private.example/path?api_key=secret-token"
+      val cases: Chunk[(Throwable, String)] = Chunk(
+        (new java.net.UnknownHostException(secret), "dns"),
+        (new javax.net.ssl.SSLHandshakeException(secret), "tls"),
+        (new java.net.ConnectException(secret), "connection"),
+        (new java.net.SocketTimeoutException(secret), "timeout"),
+        (new java.net.http.HttpTimeoutException(secret), "timeout"),
+        (new java.util.concurrent.TimeoutException(secret), "timeout"),
+        (new java.io.IOException(secret, new java.net.UnknownHostException(secret)), "dns"),
+        (new IllegalStateException(secret), "other")
+      )
+      ZIO
+        .foreach(cases): (failure, category) =>
+          for
+            transport <- ChatCompletionsTransport.make(scripted(_ => ZIO.fail(failure)))
+            result    <- transport.complete(Chunk(Msg.user("q")), Chunk.empty, config).either
+          yield assertTrue(
+            result == Left(AgentError.ModelError(0, s"HTTP request failed ($category)"))
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test("classifies external body failures while retaining domain observations"):
+      val failure = new java.net.SocketTimeoutException("secret endpoint and token")
+      val domain  = AgentError.InvalidMessage("domain observation")
+      for
+        streaming <- run(streamResponse(ZStream.fail(failure))).either
+        jsonTransport <- ChatCompletionsTransport.makeNonStreaming(
+          scripted(_ =>
+            ZIO.succeed(
+              Response(
+                headers = Headers("Content-Type", "application/json"),
+                body = Body.fromStreamChunked(ZStream.fail(failure))
+              )
+            )
+          )
+        )
+        json <- jsonTransport.complete(Chunk(Msg.user("q")), Chunk.empty, config).either
+        rejected <- run(
+          Response(status = Status.BadRequest, body = Body.fromStreamChunked(ZStream.fail(failure)))
+        ).either
+        preserved <- run(streamResponse(ZStream.fail(domain))).either
+      yield assertTrue(
+        streaming == Left(
+          AgentError.ModelError(200, "Failed to read a UTF-8 event stream (timeout)")
+        ),
+        json == Left(AgentError.ModelError(200, "Failed to read a UTF-8 JSON response (timeout)")),
+        rejected == Left(
+          AgentError.ModelError(400, "Failed to read HTTP error response (timeout)")
+        ),
+        preserved == Left(domain)
+      )
+    ,
+    test("acquisition interruption remains interrupted and joins owned cleanup"):
+      ZIO.scoped:
+        for
+          entered <- Promise.make[Nothing, Unit]
+          closed  <- Ref.make(false)
+          transport <- ChatCompletionsTransport.make(
+            scripted(_ => ZIO.addFinalizer(closed.set(true)) *> entered.succeed(()) *> ZIO.never)
+          )
+          fiber    <- transport.complete(Chunk(Msg.user("q")), Chunk.empty, config).forkScoped
+          _        <- entered.await
+          exit     <- fiber.interrupt
+          released <- closed.get
+        yield assertTrue(exit.isInterrupted, released, exit.causeOption.forall(_.failures.isEmpty))
+    ,
     test("normalizes network and body failures without swallowing cancellation"):
       for
         transport <- ChatCompletionsTransport.make(
@@ -550,7 +633,7 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
         )
         network <- transport.complete(Chunk(Msg.user("q")), Chunk.empty, config).either
         body <- run(streamResponse(ZStream.fail(AgentError.InvalidMessage("body failed")))).either
-      yield assertTrue(network.left.exists(_.message == "HTTP request failed"), body.isLeft)
+      yield assertTrue(network.left.exists(_.message == "HTTP request failed (other)"), body.isLeft)
     ,
     test("interrupts an in-flight stream and waits for scoped cleanup"):
       ZIO.scoped:

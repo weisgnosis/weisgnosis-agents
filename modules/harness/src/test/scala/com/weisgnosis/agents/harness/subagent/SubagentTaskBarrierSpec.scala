@@ -581,8 +581,8 @@ object SubagentTaskBarrierSpec extends ZIOSpecDefault:
                     .client(client)
                     .toolkit(configuredTools)
                     .toolResultProcessor(processor)
-                    .maxIterations(1),
-                  priorLocalToolResultObserver = prior
+                    .maxIterations(1)
+                    .localToolResultObserver(prior)
                 )
                 .build
               outcome     <- agent.run(Msg.user("wait")).exit

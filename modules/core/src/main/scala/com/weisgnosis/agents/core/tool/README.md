@@ -4,6 +4,12 @@ The additive [interactive batch preflight](../../../../../../../../../harness/sr
 
 Tool keeps its input/output codecs and effectful handler together. [External bindings](#external-tool-bindings) add an explicit declaration-only capability. Toolkit registration and merging return Either[AgentError, Toolkit], including duplicate-name failures. Execution normalizes tool failures and defects into Error observations; interruption propagates. PathSafety rejects parent traversal before canonicalization and resolves existing ancestors through toRealPath. Canonical checks do not provide an atomic sandbox against hostile filesystem mutation. The [native alias check](../../../../../../../../../../verification/README.md#native-directory-aliases) exercises existing and missing children through real directory aliases; Windows junction verification is available, while POSIX execution and Windows file-symlink privileges remain separate prerequisites.
 
+## Typed function tools
+
+Tool.fromFunction connects compile-time input/output codecs to the executor and requires an explicit JSON schema. Match its advertised properties and required fields to the input DTO; codecs do not derive or verify that schema automatically. Use Json.Obj() explicitly only when unconstrained schema admission is intended, while input decoding still applies. Runtime schema admission and decoding both run before local execution.
+
+Migration: callers that previously omitted the schema argument must supply it. Existing explicit-schema calls remain source compatible; rebuild consumers against the updated factory signature. No reflection or schema-generation dependency is installed.
+
 ## Runtime schema admission
 
 Toolkit.validateSchemaInput is an explicit ZIO effect. A request-owned NetworkNT 2.0.4 evaluator checks the explicitly declared standard schema (default Draft 2020-12) and argument constraints before fresh ReAct preflight/authorization, standalone local execution and external suspension. Approved argument edits are checked again. Invalid initial arguments produce Error observations; invalid approved edits are Denied. Empty schemas retain unconstrained admission, with duplicate-key JSON validation still enforced. Provider strictness remains an independent generation preference.

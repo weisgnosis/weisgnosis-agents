@@ -231,8 +231,12 @@ object SubagentRoutedConsumptionSpec extends ZIOSpecDefault:
     )
     fixture.adapter
       .configure(
-        ReActAgent.builder().client(client).toolkit(fixture.toolkit).toolResultProcessor(processor),
-        priorLocalToolResultObserver = prior
+        ReActAgent
+          .builder()
+          .client(client)
+          .toolkit(fixture.toolkit)
+          .toolResultProcessor(processor)
+          .localToolResultObserver(prior)
       )
       .build
       .flatMap(_.run(Msg.user("inspect")))

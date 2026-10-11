@@ -61,7 +61,6 @@ final class ChatCompletionsClient private (
         recordPartial
       )
       _ <- publisher.finish(output)
-      _ <- recordPartial(None)
     yield output
 
 object ChatCompletionsClient:

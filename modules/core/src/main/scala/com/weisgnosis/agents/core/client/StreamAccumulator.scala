@@ -103,14 +103,15 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
             name <- tool.name.toRight(
               AgentError.DeserializationError("Completed tool call is missing its name")
             )
-            arguments <- objectArguments(tool.arguments).left.map(error =>
+            raw = tool.argumentFragments.reverse.mkString
+            arguments <- objectArguments(raw).left.map(error =>
               AgentError.DeserializationError(s"Invalid completed tool arguments: $error")
             )
           yield previous :+ ContentBlock.ToolUse(
             id,
             name,
             arguments,
-            content = Some(tool.arguments),
+            content = Some(raw),
             metadata = signatureMetadata(tool.thoughtSignature)
           )
         )
@@ -129,12 +130,13 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
   /** Preserves received data for reconciliation; incomplete arguments cannot become executable. */
   def toInterrupted: TurnOutput.Interrupted =
     val tools = orderedTools.map: tool =>
-      val arguments = objectArguments(tool.arguments).toOption
+      val raw       = tool.argumentFragments.reverse.mkString
+      val arguments = objectArguments(raw).toOption
       ContentBlock.ToolUse(
         tool.callId.getOrElse(s"stream_call_${tool.index}"),
         tool.name.getOrElse(""),
         arguments.getOrElse(Json.Obj()),
-        content = Some(arguments.fold("{}")(_ => tool.arguments)),
+        content = Some(arguments.fold("{}")(_ => raw)),
         metadata = signatureMetadata(tool.thoughtSignature)
       )
     TurnOutput.Interrupted(materialize(tools))
@@ -177,7 +179,9 @@ final class StreamAccumulator private (state: StreamAccumulator.State):
         previous.copy(
           callId = tool.callId.orElse(previous.callId),
           name = tool.name.orElse(previous.name),
-          arguments = previous.arguments + tool.argumentsDelta,
+          argumentFragments =
+            if tool.argumentsDelta.isEmpty then previous.argumentFragments
+            else tool.argumentsDelta :: previous.argumentFragments,
           thoughtSignature = tool.thoughtSignature.orElse(previous.thoughtSignature)
         )
       )
@@ -275,7 +279,8 @@ object StreamAccumulator:
       index: Int,
       callId: Option[String] = None,
       name: Option[String] = None,
-      arguments: String = "",
+      // Reverse arrival order allows constant-time insertion without copying the received prefix.
+      argumentFragments: List[String] = Nil,
       thoughtSignature: Option[String] = None
   )
 

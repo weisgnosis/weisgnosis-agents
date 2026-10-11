@@ -30,7 +30,19 @@ object ToolExecutionSpec extends ZIOSpecDefault:
   final case class AddInput(a: Int, b: Int) derives JsonCodec
 
   private val addTool: Tool[Any, AddInput, Int] =
-    Tool.fromFunction[AddInput, Int]("add", "Add two integers") { in =>
+    Tool.fromFunction[AddInput, Int](
+      "add",
+      "Add two integers",
+      Json.Obj(
+        "type" -> Json.Str("object"),
+        "properties" -> Json.Obj(
+          "a" -> Json.Obj("type" -> Json.Str("integer")),
+          "b" -> Json.Obj("type" -> Json.Str("integer"))
+        ),
+        "required"             -> Json.Arr(Json.Str("a"), Json.Str("b")),
+        "additionalProperties" -> Json.Bool(false)
+      )
+    ) { in =>
       ZIO.succeed(in.a + in.b)
     }
 
@@ -131,10 +143,13 @@ object ToolExecutionSpec extends ZIOSpecDefault:
         "values" -> Json.Arr(Json.Num(Long.MinValue), Json.Num(BigDecimal("-9223372036854775.808")))
       )
       val numericTool =
-        Tool.fromFunction[Json, Json]("numeric", "Exact numeric output")(_ => ZIO.succeed(numeric))
-      val duplicateTool = Tool.fromFunction[Json, Json]("duplicate", "Ambiguous output")(_ =>
-        ZIO.succeed(Json.Obj("same" -> Json.Num(1), "same" -> Json.Num(2)))
-      )
+        Tool.fromFunction[Json, Json]("numeric", "Exact numeric output", Json.Obj())(_ =>
+          ZIO.succeed(numeric)
+        )
+      val duplicateTool =
+        Tool.fromFunction[Json, Json]("duplicate", "Ambiguous output", Json.Obj())(_ =>
+          ZIO.succeed(Json.Obj("same" -> Json.Num(1), "same" -> Json.Num(2)))
+        )
       for
         res     <- toolkit.executeSafe("add", validArgs)
         exact   <- Toolkit.single(numericTool).executeSafe("numeric", Json.Obj())
@@ -159,7 +174,8 @@ object ToolExecutionSpec extends ZIOSpecDefault:
       for res <- toolkit.executeSafe("add", invalidArgs)
       yield assertTrue(
         res.state == ToolResultState.Error,
-        res.output.contains("Invalid arguments for 'add'")
+        addTool.decodeInput(invalidArgs).isLeft,
+        res.output.contains("integer")
       )
     },
     test("Missing tool returns ToolResultState.Error") {

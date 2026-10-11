@@ -73,6 +73,10 @@ final class ReActAgent private (
     ]
 ):
 
+  private val admission: ToolCallAdmission = new ToolCallAdmission(toolAuthorizer)
+  import admission.*
+  import ToolCallAdmission.ArgumentPolicy
+
   val skills: SkillCatalog = skillLibrary.catalog
 
   def name: String        = config.name
@@ -2077,9 +2081,6 @@ final class ReActAgent private (
 
   final private case class IndexedToolCall(call: ContentBlock.ToolUse, ordinal: Int)
 
-  private enum ArgumentPolicy:
-    case AllowRewrite, Preserve
-
   final private case class IndexedToolResult(result: ContentBlock.ToolResult, ordinal: Int)
 
   final private case class RecordedToolResult(
@@ -2356,50 +2357,6 @@ final class ReActAgent private (
         case (name, _: ToolBinding.External) => name)
       .sorted
 
-  private def validateExternal(
-      name: String,
-      input: Json,
-      registry: Toolkit
-  ): UIO[Either[AgentError.InvalidMessage, Unit]] =
-    ZIO
-      .suspendSucceed(ZIO.succeed(registry.validateExternalInput(name, input)))
-      .catchAllCause(cause =>
-        if cause.isInterrupted then ZIO.refailCause(cause)
-        else
-          ZIO.succeed(
-            Left(AgentError.InvalidMessage(s"External tool argument validation failed: $name"))
-          )
-      )
-
-  private def validateToolInput(
-      name: String,
-      input: Json,
-      registry: Toolkit
-  ): UIO[Either[AgentError.InvalidMessage, Unit]] =
-    ZIO
-      .suspendSucceed(
-        registry.validateSchemaInput(name, input) *>
-          ZIO.fromEither(registry.validateExternalInput(name, input))
-      )
-      .either
-      .catchAllCause(cause =>
-        if cause.isInterrupted then ZIO.refailCause(cause)
-        else
-          ZIO.succeed(
-            Left(AgentError.InvalidMessage(s"Tool argument validation failed: $name"))
-          )
-      )
-
-  private def admittedAccess(
-      call: ContentBlock.ToolUse,
-      toolkit: Toolkit
-  ): Option[AdmittedToolAccess] =
-    toolkit
-      .resolve(call.name)
-      .map(tool =>
-        if tool.isReadOnly then AdmittedToolAccess.ReadOnly else AdmittedToolAccess.Mutating
-      )
-
   private def prepareToolCall(
       indexed: IndexedToolCall,
       toolkit: Toolkit,
@@ -2465,92 +2422,6 @@ final class ReActAgent private (
               ZIO.succeed(_)
             )
     yield PreparedToolCall(indexed, ToolPreparation.Ready(request, screened))
-
-  private def authorizeTool(
-      call: ContentBlock.ToolUse,
-      callOrdinal: Int,
-      requestId: String,
-      preparedInput: Json,
-      context: ModelStreamContext,
-      toolkit: Toolkit,
-      argumentPolicy: ArgumentPolicy
-  ): UIO[ToolAuthorization] =
-    val decision =
-      if changesReasoningInput(call, preparedInput, argumentPolicy) then
-        ZIO.succeed(
-          ToolAuthorization.Denied("Cannot modify arguments carrying provider reasoning metadata")
-        )
-      else
-        ZIO
-          .scoped(
-            ZIO.suspendSucceed:
-              toolAuthorizer.authorize(
-                ToolAuthorizationRequest(
-                  requestId,
-                  context,
-                  withToolInput(call, preparedInput),
-                  Some(callOrdinal)
-                ),
-                admittedAccess(call, toolkit)
-              )
-          )
-          .flatMap: result =>
-            result match
-              case ToolAuthorization.Approved(input) =>
-                JsonBoundary.validate(input) match
-                  case Left(error) =>
-                    ZIO.succeed(ToolAuthorization.Denied(s"Invalid approved input: $error"))
-                  case Right(_) if changesReasoningInput(call, input, argumentPolicy) =>
-                    ZIO.succeed(
-                      ToolAuthorization.Denied(
-                        "Cannot modify arguments carrying provider reasoning metadata"
-                      )
-                    )
-                  case Right(_) =>
-                    (ZIO.fromEither(
-                      toolkit
-                        .validateApprovedInput(call.name, input)
-                        .flatMap(_ => toolkit.validateExternalInput(call.name, input))
-                    ) *> toolkit.validateSchemaInput(call.name, input)).fold(
-                      error =>
-                        ToolAuthorization.Denied(s"Invalid approved input: ${error.message}"),
-                      _ => result
-                    )
-              case ToolAuthorization.Deferred(reason) if reason.trim.isEmpty =>
-                ZIO.succeed(
-                  ToolAuthorization.Denied("Deferred authorization requires a nonblank reason")
-                )
-              case _ => ZIO.succeed(result)
-    decision.foldCauseZIO(
-      cause =>
-        if cause.isInterrupted then ZIO.refailCause(cause).orDie
-        else
-          ZIO.succeed(
-            ToolAuthorization.Denied(
-              cause.failureOption.map(_.reason).getOrElse("Tool authorization failed")
-            )
-          )
-      ,
-      ZIO.succeed(_)
-    )
-
-  private def changesReasoningInput(
-      call: ContentBlock.ToolUse,
-      input: Json,
-      argumentPolicy: ArgumentPolicy
-  ): Boolean =
-    input != call.input &&
-      (argumentPolicy == ArgumentPolicy.Preserve || call.metadata.contains("thoughtSignature") ||
-        call.metadata.contains("reasoningDetails"))
-
-  private def withToolInput(call: ContentBlock.ToolUse, input: Json): ContentBlock.ToolUse =
-    if input == call.input then call
-    else
-      call.copy(
-        input = input,
-        content = None,
-        metadata = call.metadata.updated("agentscope_original_tool_input", call.input)
-      )
 
   final private case class CompletedToolObservation(
       observed: Toolkit.ObservedResult,
@@ -2958,6 +2829,16 @@ object ReActAgent:
       private val _invocationPreparer: InvocationPreparer = InvocationPreparer.identity,
       private val _phaseObserver: PhaseObserver = PhaseObserver.ignore
   ):
+    def config(value: AgentConfig): Builder = copy(_config = value)
+
+    def emptyThinkingRetryLimit(limit: Int): Builder =
+      copy(_config = _config.copy(emptyThinkingRetryLimit = limit))
+
+    private[agents] def historyPreparer: HistoryPreparer                 = _historyPreparer
+    private[agents] def modelResponseObserver: ModelResponseObserver     = _modelResponseObserver
+    private[agents] def completionObserver: TurnCompletionObserver       = _completionObserver
+    private[agents] def localToolResultObserver: LocalToolResultObserver = _localToolResultObserver
+
     def name(n: String): Builder                  = copy(_config = _config.copy(name = n))
     def description(d: String): Builder           = copy(_config = _config.copy(description = d))
     def sysPrompt(p: String): Builder             = copy(_config = _config.copy(systemPrompt = p))
@@ -3007,23 +2888,23 @@ object ReActAgent:
         .orElseFail(AgentError.InvalidConfiguration("A model client is required"))
         .flatMap(model =>
           ReActAgent.make(
-            _config,
-            _toolkit,
-            model,
-            _llmConfig,
-            _initialHistory,
-            _postReasoningHook,
-            _toolResultProcessor,
-            _toolAuthorizer,
-            _historyPreparer,
-            _modelInputTransform,
-            _completionObserver,
-            _toolGroups,
-            _skills,
-            _fallback,
-            _modelResponseObserver,
-            _localToolResultObserver,
-            _invocationPreparer,
-            _phaseObserver
+            config = _config,
+            toolkit = _toolkit,
+            client = model,
+            llmConfig = _llmConfig,
+            initialHistory = _initialHistory,
+            postReasoningHook = _postReasoningHook,
+            toolResultProcessor = _toolResultProcessor,
+            toolAuthorizer = _toolAuthorizer,
+            historyPreparer = _historyPreparer,
+            modelInputTransform = _modelInputTransform,
+            completionObserver = _completionObserver,
+            toolGroups = _toolGroups,
+            skills = _skills,
+            fallback = _fallback,
+            modelResponseObserver = _modelResponseObserver,
+            localToolResultObserver = _localToolResultObserver,
+            invocationPreparer = _invocationPreparer,
+            phaseObserver = _phaseObserver
           )
         )
