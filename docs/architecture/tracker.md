@@ -160,7 +160,24 @@ RAG, UI, collector hosting, distributed orchestration, external publication/CI s
 - [x] **Scaladoc toolchain diagnostic:** the isolated [documentation driver](../../verification/scaladoc-driver/README.md) supplies the pinned generator's classpath once without suppressing diagnostics or weakening source compilation. Focused generation, a visible invalid-option failure, five licensed documentation archives and fresh packaged consumption pass. Canonical verification also checks the nonpublished driver. Independent FP/ZIO and invariant review covers the build boundary; remove the adapter when the selected official generator contains the upstream fix.
 - [x] **Gemini local function calling:** local declarations, canonical indexed calls, grouped parallel results and exact native parts/signatures continue through the public HTTP client/ReAct/Toolkit path. Existing [Gemini scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/GeminiLlmClientSpec.scala) cover repeated IDs, Error observations, malformed input, truncation and joined cancellation while preserving exclusive hosted code execution. Independent FP/ZIO and invariant review, consolidated checks with actual PostgreSQL, five-module packaging and fresh consumption pass. This explicit P3 addition does not include native media, realtime or a live Gemini run.
 
-No selected library outcome remains open in this checklist. The separate OS migration continues in its own roadmap; it is not library acceptance. External publication is user-owned. Future candidate features require explicit selection. Current library verification includes full verify, five-module packaging, fresh archive admission/consumer and actual PostgreSQL; the documented selected real-model matrix and prior Windows junction fixture remain separate evidence. Native-provider live execution needs suitable host credentials and is not claimed by gateway checks.
+The previously selected implementation outcomes above are complete. The newly requested real-model evidence campaign below is separate work; its proposed scenarios are not new live acceptance. The separate OS migration continues in its own roadmap; it is not library acceptance. External publication is user-owned. Future candidate features require explicit selection. Current library verification includes full verify, five-module packaging, fresh archive admission/consumer and actual PostgreSQL; the documented selected real-model matrix and prior Windows junction fixture remain separate evidence. Native-provider live execution needs suitable host credentials and is not claimed by gateway checks.
+
+### Real-model usefulness and publication evidence
+
+The [E2E scenario design](../live-e2e-scenarios.md) defines exact task results,
+runtime oracles, bounded model selection and limits on public claims. Existing
+executables and proposed extensions are explicitly separate. One current next
+task: establish a fresh E0 catalog-selected baseline using LiveMultiModel before
+extending its fixtures; do not count historical results as a new campaign.
+
+- [x] Design useful bots E2E scenarios and distinguish runtime guarantees from model/provider behavior and unmatched Python comparisons.
+- [ ] **E0:** execute and retain a fresh selected-model baseline with every scenario receipt, including failures and unavailable profiles.
+- [ ] **E1:** complete the exact evidence/report task over HTTP MCP; verify Ask checkpoint restoration, Deny/Plan refusal and actual authorized effects.
+- [ ] **E2/E3:** demonstrate simultaneous concurrency-safe tool entry, persisted calls, partial-completion cancellation, joined cleanup and same-runtime continuation.
+- [ ] **E4:** verify a useful attributed multi-agent result, busy-recipient queue/flush and bounded ordered Pipeline execution/cancellation.
+- [ ] **E5:** verify oversized evidence retrieval and explicit compaction through live model requests, preserving occurrence pairing, provenance and original observations on storage failure.
+- [ ] **E6:** verify selected definite rejection and active-request cancellation boundaries without claiming remote inference cancellation or unsafe replay.
+- [ ] Publish a sanitized measured scenario summary with all selected attempts, exact supported claims and explicit unverified cells; remote publication remains user-owned.
 
 ## Verification
 

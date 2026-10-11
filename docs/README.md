@@ -5,6 +5,7 @@ Start with [Getting started](getting-started.md): local installation and complet
 ## Guides and contracts
 
 - [Host examples](../modules/examples/README.md): runnable model/file applications, composition and opt-in live verification.
+- [Real-model E2E scenarios](live-e2e-scenarios.md): useful bots tasks, concurrency/cancellation oracles and bounded publication claims; distinguishes existing runners from proposed extensions.
 - [Distribution verification](../verification/README.md#packaged-external-consumer): packaged consumer checks and unsigned candidate preparation; packaging does not publish a release.
 - [Compatibility and migration](../project/README.md#compatibility-policy): public API rebuild requirements.
 - [Architecture overview](../ARCHITECTURE.md): runtime authority and host boundaries.

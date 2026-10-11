@@ -2,6 +2,8 @@
 
 This nonpublished SBT project compiles against core, harness, and MCP. It demonstrates existing library APIs rather than adding a supported facade. Start with the complete applications in [Getting started](../../docs/getting-started.md). Use JDK 21 and the repository-pinned sbt version, and run the commands below from the repository root.
 
+The [real-model E2E scenario design](../../docs/live-e2e-scenarios.md) specifies a useful evidence/report task, concurrency and cancellation measurements, and publication limits. Proposed extensions there are not implemented live profiles; the runnable coverage and actual earlier observations below remain separate.
+
 `LiveFileTask`, `LiveProviderSmoke`, `LiveProviderProfiles` and `MsgHubConversation` are runnable applications. HostAssembly, AuditedLlmClient and LifecycleLogging are composition examples used by a host application; they have no standalone `runMain` entrypoint.
 
 ## Persistent-agent conversation
