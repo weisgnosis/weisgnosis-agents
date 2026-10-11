@@ -98,6 +98,15 @@ The [current live results](../../docs/live-e2e-results.md) retain every selected
 
 ## Verification and acceptance
 
+[SyntheticRuntimeComparison](src/main/scala/com/weisgnosis/agents/examples/SyntheticRuntimeComparison.scala)
+uses a scripted model through the public ReAct runtime to verify partial batch
+cancellation, repeated interruption, joined cleanup and same-runtime continuation.
+Run `sbt "examples / runMain com.weisgnosis.agents.examples.SyntheticRuntimeComparison"`
+without live configuration. Require all nine JSON contract fields to be true.
+The [matched Python comparison](../../docs/synthetic-runtime-comparison.md) explains
+the corresponding TaskGroup reference and actual result; this synthetic fixture
+does not close the remaining live E3 scenario.
+
 [LiveParallelTools](src/main/scala/com/weisgnosis/agents/examples/LiveParallelTools.scala)
 runs the same real-model two-read task in Sequential and Parallel modes. With the
 enabled live environment, run

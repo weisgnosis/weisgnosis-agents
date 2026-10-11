@@ -1,5 +1,15 @@
 # Distribution verification
 
+## Synthetic runtime comparison
+
+The [comparison guide](../docs/synthetic-runtime-comparison.md) runs matched
+offline lifecycle contracts through the public ReAct runtime and a Python
+TaskGroup reference. Run `python -W error verification/compare_asyncio.py` and
+`sbt "examples / runMain com.weisgnosis.agents.examples.SyntheticRuntimeComparison"`.
+No credentials or provider requests are used. Labelled Python negative controls
+include an owned child process; they are separate from the matched contracts and
+do not compare agent frameworks or performance.
+
 ## Native directory aliases
 
 Run the opt-in [PathSafetySpec](../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/PathSafetySpec.scala)

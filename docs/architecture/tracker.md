@@ -180,6 +180,7 @@ interrupting the held call.
 - [ ] **E5:** verify oversized evidence retrieval and explicit compaction through live model requests, preserving occurrence pairing, provenance and original observations on storage failure.
 - [ ] **E6:** verify selected definite rejection and active-request cancellation boundaries without claiming remote inference cancellation or unsafe replay.
 - [x] Retain a [sanitized measured summary](../live-e2e-results.md) of all current selected attempts, exact supported claims and explicit unverified cells; update it as the remaining scenarios execute. Remote publication remains user-owned.
+- [x] **Explicit synthetic Python comparison:** execute matched overlap, pre-entry persistence, partial-completion cancellation, repeated interruption, joined cleanup, unfinished-only recovery and same-runtime continuation. Both the actual public ReAct runtime and a Python TaskGroup reference pass all nine [documented contracts](../synthetic-runtime-comparison.md); labelled unsafe Python controls reproduce separate ownership risks. This does not establish framework or performance superiority and does not close live E3. Focused tests, standard verify and independent FP/ZIO/invariant/fairness review cover this verification slice.
 
 ## Verification
 

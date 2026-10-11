@@ -262,4 +262,7 @@ object LiveMultiModelSpec extends ZIOSpecDefault:
         wrong.left.exists(_.isInstanceOf[AgentError.InvalidMessage]),
         cancelled.isInterrupted
       )
+    ,
+    test("synthetic comparison exercises matched public runtime lifecycle oracles"):
+      SyntheticRuntimeComparison.exercise.map(receipt => assertTrue(receipt.allPassed))
   ) @@ TestAspect.timeout(30.seconds) @@ TestAspect.withLiveClock
