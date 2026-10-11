@@ -479,8 +479,9 @@ object McpClient:
           observed <- restore(
             action.await
               .map[Observation[A]](Observation.Completed(_))
+              .interruptible
               .raceFirst(
-                ZIO.sleep(deadline).as[Observation[A]](Observation.Elapsed)
+                ZIO.sleep(deadline).as[Observation[A]](Observation.Elapsed).interruptible
               )
           ).exit
           result <- observed match

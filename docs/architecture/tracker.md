@@ -156,7 +156,9 @@ RAG, UI, collector hosting, distributed orchestration, external publication/CI s
 
 ## Immediate next work
 
-Current next task: none within the selected library checklist. E4/E5/E6 are verified below; external publication is user-owned and OS integration remains separate. Any further library capability needs explicit selection or a reproduced defect.
+Current next task: none within the selected library checklist. E4/E5/E6 and the inherited-mask deadline correction are verified below; external publication is user-owned and OS integration remains separate. Any further library capability needs explicit selection or a reproduced defect.
+
+- [x] Successful MCP initialization and requests finish without waiting for their deadline timers under a masked host acquisition; elapsed deadlines promptly cancel and join the action. Public regressions in [McpClientSpec](../../modules/mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) reproduce the previous delays and retain typed timeout, exact protocol and joined-cleanup checks. Independent FP/ZIO and invariant reviews, full verification, packaged archive admission and a clean external consumer pass. This does not complete the separate OS live-provider outcome.
 
 ### Key-node reliability checks
 

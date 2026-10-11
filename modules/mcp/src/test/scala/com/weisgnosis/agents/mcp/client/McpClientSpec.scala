@@ -75,6 +75,9 @@ object McpClientSpec extends ZIOSpecDefault:
   private enum DeadlineOutcome:
     case Completed, TimedOut
 
+  private enum CallerInterruption:
+    case Interruptible, Uninterruptible
+
   private def selectedDeadlineCase(
       phase: DeadlinePhase,
       initializationDeadline: Duration,
@@ -212,6 +215,75 @@ object McpClientSpec extends ZIOSpecDefault:
     )
 
   def spec: Spec[TestEnvironment, Any] = suite("McpClientSpec")(
+    test(
+      "successful initialization and discovery do not wait for deadlines under either caller interruption state"
+    ) {
+      ZIO
+        .foreach(Chunk.fromArray(CallerInterruption.values)): caller =>
+          ZIO.scoped:
+            for
+              peer      <- wire
+              deadlines <- ZIO.fromEither(McpClient.Deadlines.make(2.seconds, 2.seconds))
+              transport = peer.transport:
+                case request @ McpMessage.Request(_, "initialize", _) =>
+                  peer.reply(request, initialization())
+                case request @ McpMessage.Request(_, "tools/list", _) =>
+                  peer.reply(request, page(Chunk("echo")))
+                case _ => ZIO.unit
+              operation = McpClient
+                .open(transport, identity, deadlines)
+                .flatMap(_.listToolsPage())
+                .map(_.tools)
+              started <- Clock.nanoTime
+              discovered <- caller match
+                case CallerInterruption.Interruptible   => operation.interruptible
+                case CallerInterruption.Uninterruptible => operation.uninterruptible
+              elapsed <- Clock.nanoTime.map(_ - started)
+              sent    <- peer.sent.get
+              methods = sent.map:
+                case McpMessage.Request(_, method, _)   => method
+                case McpMessage.Notification(method, _) => method
+                case _                                  => "unexpected"
+            yield assertTrue(
+              discovered.map(_.name) == Chunk("echo"),
+              elapsed < 1.second.toNanos,
+              methods == Chunk("initialize", "notifications/initialized", "tools/list")
+            )
+        .map(results => results.foldLeft(assertTrue(true))(_ && _))
+    } @@ TestAspect.withLiveClock @@ TestAspect.timeout(10.seconds),
+    test("discovery timeout joins cleanup promptly under either caller interruption state") {
+      ZIO
+        .foreach(Chunk.fromArray(CallerInterruption.values)): caller =>
+          ZIO.scoped:
+            for
+              peer      <- wire
+              cleaned   <- Ref.make(false)
+              deadlines <- ZIO.fromEither(McpClient.Deadlines.make(2.seconds, 500.millis))
+              transport = peer.transport:
+                case request @ McpMessage.Request(_, "initialize", _) =>
+                  peer.reply(request, initialization())
+                case request @ McpMessage.Request(_, "tools/list", _) =>
+                  (ZIO.sleep(2.seconds) *> peer.reply(request, page(Chunk("echo"))))
+                    .ensuring(cleaned.set(true))
+                case _ => ZIO.unit
+              client  <- McpClient.open(transport, identity, deadlines)
+              started <- Clock.nanoTime
+              result <- caller match
+                case CallerInterruption.Interruptible => client.listToolsPage().interruptible.either
+                case CallerInterruption.Uninterruptible =>
+                  client.listToolsPage().uninterruptible.either
+              elapsed <- Clock.nanoTime.map(_ - started)
+              joined  <- cleaned.get
+            yield assertTrue(
+              result.left.exists {
+                case _: AgentError.TimeoutError => true
+                case _                          => false
+              },
+              elapsed < 1.second.toNanos,
+              joined
+            )
+        .map(results => results.foldLeft(assertTrue(true))(_ && _))
+    } @@ TestAspect.withLiveClock @@ TestAspect.timeout(10.seconds),
     test(
       "publishes only after initialized notification completes, then preserves tool pages and error distinctions"
     ) {
