@@ -10,6 +10,12 @@ No credentials or provider requests are used. Labelled Python negative controls
 include an owned child process; they are separate from the matched contracts and
 do not compare agent frameworks or performance.
 
+The separate [pinned AgentScope comparison](../docs/agentscope-python-comparison.md)
+executes [compare_agentscope.py](compare_agentscope.py) against the real Python
+framework's public API. Its JSON reports contract failures without converting
+them into process errors; fixture exceptions fail execution. Installation and
+the three cancellation arms are documented in the guide.
+
 ## Native directory aliases
 
 Run the opt-in [PathSafetySpec](../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/PathSafetySpec.scala)

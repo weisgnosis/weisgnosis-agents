@@ -8,6 +8,8 @@ Start with [Getting started](getting-started.md): local installation and complet
 - [Real-model E2E scenarios](live-e2e-scenarios.md): useful bots tasks, concurrency/cancellation oracles and bounded publication claims; distinguishes existing runners from proposed extensions.
 - [Current live results](live-e2e-results.md): selected repeated and exploratory gateway runs, including failed profiles and unverified claims.
 - [Synthetic Python comparison](synthetic-runtime-comparison.md): matched lifecycle contracts, executed asyncio controls and limits on comparative claims.
+- [Actual Python AgentScope comparison](agentscope-python-comparison.md): pinned public-runtime execution, repeated cancellation and canonical recovery differences.
+- [Scala/ZIO architectural arguments](scala-zio-positioning.md): fifty sourced engineering arguments, with alternatives and limits on superiority claims.
 - [Distribution verification](../verification/README.md#packaged-external-consumer): packaged consumer checks and unsigned candidate preparation; packaging does not publish a release.
 - [Compatibility and migration](../project/README.md#compatibility-policy): public API rebuild requirements.
 - [Architecture overview](../ARCHITECTURE.md): runtime authority and host boundaries.
